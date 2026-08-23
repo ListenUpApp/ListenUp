@@ -33,7 +33,7 @@ class LibraryPageTest :
             val root = document.createElement("div") as HTMLElement
             document.body?.appendChild(root)
             renderComposable(root = root) {
-                LibraryPage(state = state, onEvent = {}, onOpenBook = {})
+                LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
             }
             return root
         }

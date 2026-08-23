@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
@@ -15,6 +16,9 @@ import com.calypsan.listenup.web.features.bookedit.BookEditSession
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
+import com.calypsan.listenup.web.features.contributors.ContributorsPage
+import com.calypsan.listenup.web.features.contributors.ContributorsSession
+import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.LibrarySession
 import com.calypsan.listenup.web.features.library.OpenLibrary
@@ -24,6 +28,7 @@ import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
+import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -61,6 +66,7 @@ fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
+    openContributors: OpenContributors,
     openLibrary: OpenLibrary,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
@@ -101,62 +107,19 @@ fun WebAppRoot(
         // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
         // makes going back instant instead of merely fast.
         val librarySession = libraryState(openLibrary)
-        val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
-        // `/book/{id}/edit` — a route of its own rather than a mode of Book Detail, so the form is
-        // linkable, Back leaves it, and a half-finished edit cannot be mistaken for the book.
-        val editingBookId = if (bookId != null && route.segments.getOrNull(2) == EDIT_KEY) bookId else null
-        if (editingBookId != null) {
-            val editSession =
-                bookEditState(
-                    bookId = editingBookId,
-                    openBookEdit = openBookEdit,
-                    onLeave = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
-                )
-            BookEditPage(
-                state = editSession.state.collectAsState().value,
-                onEvent = editSession.onEvent,
-                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-                onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
-            )
-        } else if (bookId != null) {
-            BookDetailPage(
-                state = bookDetailState(bookId, openBookDetail),
-                tab = route.query["tab"] ?: "overview",
-                // replace, not navigate: panes and selection are page state, and Back should
-                // leave the page rather than unwind every pane and toggle.
-                onSelectTab = { tab ->
-                    // Animated: switching a pane is a page-level change. The selection change
-                    // below deliberately is not — see Router.replace.
-                    router.replace(Route(route.segments, route.query + ("tab" to tab)))
-                },
-                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-                bookId = bookId,
-                selection = parseSelection(route.query["sel"]),
-                onSelectionChange = { selection ->
-                    val query =
-                        if (selection.isEmpty()) {
-                            route.query - "sel"
-                        } else {
-                            route.query + ("sel" to selection.sorted().joinToString(","))
-                        }
-                    router.replace(Route(route.segments, query))
-                },
-                onPlay = { playback.onPlayBook(BookId(bookId)) },
-                onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
-            )
-        } else if (active == LIBRARY_KEY) {
-            LibraryPage(
-                state = animatedLibrary(librarySession),
-                onEvent = librarySession.onEvent,
-                onOpenBook = { id ->
-                    heroBookId = id
-                    router.navigate(Route(listOf(BOOK_KEY, id)))
-                },
-                heroBookId = heroBookId,
-            )
-        } else {
-            PagePlaceholder(active)
-        }
+        RouteContent(
+            router = router,
+            route = route,
+            page = page,
+            active = active,
+            openBookDetail = openBookDetail,
+            openBookEdit = openBookEdit,
+            openContributors = openContributors,
+            librarySession = librarySession,
+            playback = playback,
+            heroBookId = heroBookId,
+            onHeroBookIdChange = { heroBookId = it },
+        )
 
         // Both last inside the content region, so they sit under whatever page is showing and
         // stay put as the reader moves between them. The notice comes first because it is often
@@ -171,6 +134,98 @@ fun WebAppRoot(
             onPlayPause = playback.onPlayPause,
             onSeek = playback.onSeek,
         )
+    }
+}
+
+/**
+ * The one page the current route actually shows — Book Edit, Book Detail, Contributors, Library
+ * or the placeholder — pulled out of [WebAppRoot] itself purely to keep that function's branching
+ * readable as a single glance rather than one long `if`/`else if` chain.
+ */
+@Composable
+private fun RouteContent(
+    router: Router,
+    route: Route,
+    page: String,
+    active: String,
+    openBookDetail: OpenBookDetail,
+    openBookEdit: OpenBookEdit,
+    openContributors: OpenContributors,
+    librarySession: LibrarySession,
+    playback: PlaybackSession,
+    heroBookId: String?,
+    onHeroBookIdChange: (String) -> Unit,
+) {
+    val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
+    // `/book/{id}/edit` — a route of its own rather than a mode of Book Detail, so the form is
+    // linkable, Back leaves it, and a half-finished edit cannot be mistaken for the book.
+    val editingBookId = if (bookId != null && route.segments.getOrNull(2) == EDIT_KEY) bookId else null
+    // `/library/contributors` — the second segment turns the Library route into the people
+    // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
+    val isContributors = active == LIBRARY_KEY && route.segments.getOrNull(1) == CONTRIBUTORS_KEY
+
+    if (editingBookId != null) {
+        val editSession =
+            bookEditState(
+                bookId = editingBookId,
+                openBookEdit = openBookEdit,
+                onLeave = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+            )
+        BookEditPage(
+            state = editSession.state.collectAsState().value,
+            onEvent = editSession.onEvent,
+            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+        )
+    } else if (bookId != null) {
+        BookDetailPage(
+            state = bookDetailState(bookId, openBookDetail),
+            tab = route.query["tab"] ?: "overview",
+            // replace, not navigate: panes and selection are page state, and Back should
+            // leave the page rather than unwind every pane and toggle.
+            onSelectTab = { tab ->
+                // Animated: switching a pane is a page-level change. The selection change
+                // below deliberately is not — see Router.replace.
+                router.replace(Route(route.segments, route.query + ("tab" to tab)))
+            },
+            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+            bookId = bookId,
+            selection = parseSelection(route.query["sel"]),
+            onSelectionChange = { selection ->
+                val query =
+                    if (selection.isEmpty()) {
+                        route.query - "sel"
+                    } else {
+                        route.query + ("sel" to selection.sorted().joinToString(","))
+                    }
+                router.replace(Route(route.segments, query))
+            },
+            onPlay = { playback.onPlayBook(BookId(bookId)) },
+            onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
+        )
+    } else if (isContributors) {
+        val role = parseContributorRole(route.query[ROLE_QUERY_KEY])
+        val contributorsSession = contributorsState(role, openContributors)
+        ContributorsPage(
+            state = contributorsSession.state.collectAsState().value,
+            role = role,
+            onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+            // No contributor detail route yet — see Task B2 of the Web Contributors plan.
+            onOpenContributor = {},
+        )
+    } else if (active == LIBRARY_KEY) {
+        LibraryPage(
+            state = animatedLibrary(librarySession),
+            onEvent = librarySession.onEvent,
+            onOpenBook = { id ->
+                onHeroBookIdChange(id)
+                router.navigate(Route(listOf(BOOK_KEY, id)))
+            },
+            onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+            heroBookId = heroBookId,
+        )
+    } else {
+        PagePlaceholder(active)
     }
 }
 
@@ -232,6 +287,23 @@ private fun bookEditState(
 }
 
 /**
+ * An open Contributors session for [role], closed whenever the role changes or the page goes away.
+ *
+ * Keyed on [role] rather than a bare `remember { }` — the same reason [bookDetailState] keys on
+ * `bookId` — so switching from Authors to Narrators tears the old session down instead of
+ * rendering the new role's chip against the old role's list forever.
+ */
+@Composable
+private fun contributorsState(
+    role: ContributorRole,
+    openContributors: OpenContributors,
+): ContributorsSession {
+    val session = remember(role) { openContributors(role) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session
+}
+
+/**
  * Opens a Library session while the page is showing and closes it when it stops, so the ViewModel's
  * flows do not outlive the route.
  */
@@ -285,6 +357,40 @@ private fun parseSelection(raw: String?): Set<Int> =
         .mapNotNull { it.trim().toIntOrNull() }
         .toSet()
 
+/**
+ * Parses `?role=` at the route boundary, so [ContributorsPage] only ever receives a valid enum.
+ *
+ * Anything other than the narrator token is Author — absent, malformed ("banana"), and even a
+ * genuinely valid-but-unsupported role ("editor") alike, because the Contributors route offers
+ * exactly two chips and there is no third list for a third role to fall into. A junk value must
+ * never light the wrong chip while claiming the wrong empty state.
+ */
+private fun parseContributorRole(raw: String?): ContributorRole =
+    if (raw != null && ContributorRole.fromApiValue(raw) == ContributorRole.NARRATOR) {
+        ContributorRole.NARRATOR
+    } else {
+        ContributorRole.AUTHOR
+    }
+
+/** Where selecting [facet] in the shared facet row navigates to. */
+private fun routeFor(facet: LibraryFacet): Route =
+    when (facet) {
+        LibraryFacet.Books -> {
+            Route(listOf(LIBRARY_KEY))
+        }
+
+        LibraryFacet.Authors -> {
+            Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))
+        }
+
+        LibraryFacet.Narrators -> {
+            Route(
+                listOf(LIBRARY_KEY, CONTRIBUTORS_KEY),
+                mapOf(ROLE_QUERY_KEY to NARRATOR_ROLE_VALUE),
+            )
+        }
+    }
+
 private const val HOME_KEY = "home"
 
 private const val BOOK_KEY = "book"
@@ -293,6 +399,13 @@ private const val BOOK_KEY = "book"
 private const val EDIT_KEY = "edit"
 
 private const val LIBRARY_KEY = "library"
+
+/** The trailing segment that turns the Library route into the Contributors list. */
+private const val CONTRIBUTORS_KEY = "contributors"
+
+private const val ROLE_QUERY_KEY = "role"
+
+private const val NARRATOR_ROLE_VALUE = "narrator"
 
 private val PRIMARY_NAV =
     NavSection(

@@ -1,9 +1,13 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
+import com.calypsan.listenup.web.features.contributors.ContributorsSession
+import com.calypsan.listenup.web.features.contributors.OpenContributors
+import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -12,12 +16,15 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.renderComposable
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.calypsan.listenup.web.features.library.OpenLibrary
+import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
@@ -41,6 +48,8 @@ class WebAppRootTest :
         fun mountAt(
             path: String,
             isAdmin: Flow<Boolean> = flowOf(false),
+            openContributors: OpenContributors = fixedContributors(emptyList()),
+            openLibrary: OpenLibrary = fakeLibrary(),
         ): Pair<HTMLElement, Router> {
             window.history.replaceState(null, "", path)
             val router = Router()
@@ -51,7 +60,8 @@ class WebAppRootTest :
                     router,
                     fixedBookDetail(readyBook()),
                     fixedBookEdit(BookEditUiState()),
-                    fakeLibrary(),
+                    openContributors,
+                    openLibrary,
                     fixedPlayback(),
                     observeIsAdmin = { isAdmin },
                 )
@@ -62,6 +72,17 @@ class WebAppRootTest :
         fun navLabels(host: HTMLElement): List<String> {
             val items = host.querySelectorAll(".nav-i")
             return (0 until items.length).map { (items.item(it) as HTMLElement).textContent.orEmpty() }
+        }
+
+        /** The rendered facet chip labeled [label], wherever it sits in the current page. */
+        fun facetChip(
+            host: HTMLElement,
+            label: String,
+        ): HTMLElement {
+            val chips = host.querySelectorAll(".facet-chip")
+            return (0 until chips.length)
+                .map { chips.item(it) as HTMLElement }
+                .first { it.textContent == label }
         }
 
         test("the Admin entry waits for proof of admin") {
@@ -132,7 +153,104 @@ class WebAppRootTest :
                 router.dispose()
             }
         }
+
+        test("/library/contributors renders the contributors page with Authors active") {
+            val (host, router) = mountAt("/library/contributors")
+
+            try {
+                host.querySelectorAll(".contrib-header").length shouldBe 1
+                facetChip(host, "Authors").classList.contains("is-active") shouldBe true
+                facetChip(host, "Narrators").classList.contains("is-active") shouldBe false
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("?role=narrator renders the contributors page with Narrators active") {
+            val (host, router) = mountAt("/library/contributors?role=narrator")
+
+            try {
+                facetChip(host, "Narrators").classList.contains("is-active") shouldBe true
+                facetChip(host, "Authors").classList.contains("is-active") shouldBe false
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a junk role falls back to Author, not Narrator, not no chip at all") {
+            val (host, router) = mountAt("/library/contributors?role=banana")
+
+            try {
+                facetChip(host, "Authors").classList.contains("is-active") shouldBe true
+                facetChip(host, "Narrators").classList.contains("is-active") shouldBe false
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("selecting a facet navigates to the route it stands for") {
+            // The facet row is part of the Loaded library render — a Loading library shows the
+            // "Loading…" placeholder and no chips at all — so this needs a library that has
+            // actually answered, unlike the routing-only specs above.
+            val (host, router) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
+
+            try {
+                facetChip(host, "Authors").click()
+                window.location.pathname shouldBe "/library/contributors"
+                window.location.search shouldBe ""
+
+                facetChip(host, "Narrators").click()
+                window.location.pathname shouldBe "/library/contributors"
+                window.location.search shouldBe "?role=narrator"
+
+                facetChip(host, "Books").click()
+                window.location.pathname shouldBe "/library"
+                window.location.search shouldBe ""
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("switching facet role opens a new session rather than reusing the old one's") {
+            // A1 only proved the toggle gesture escapes the page; this closes the gap the plan
+            // flagged — that nothing yet proved `openContributors(role)` is re-invoked when the
+            // role actually changes, which is exactly what a bare `remember { }` would get wrong.
+            val recorder = RecordingContributors()
+            val (host, router) = mountAt("/library/contributors", openContributors = recorder.open)
+
+            try {
+                recorder.requestedRoles shouldBe listOf(ContributorRole.AUTHOR)
+
+                facetChip(host, "Narrators").click()
+                awaitFrame()
+
+                recorder.requestedRoles shouldBe listOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR)
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("neither an 'In progress' nor a 'Series' chip exists in the facet row") {
+            val (host, router) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
+
+            try {
+                val chips = host.querySelectorAll(".facet-chip")
+                val labels = (0 until chips.length).map { (chips.item(it) as HTMLElement).textContent }
+                labels shouldBe listOf("Books", "Authors", "Narrators")
+            } finally {
+                router.dispose()
+            }
+        }
     })
+
+/** An [OpenContributors] that records every role it was asked to open, in the order asked. */
+private class RecordingContributors {
+    val requestedRoles = mutableListOf<ContributorRole>()
+    val open: OpenContributors = { role ->
+        requestedRoles += role
+        ContributorsSession(state = MutableStateFlow(emptyList()), close = {})
+    }
+}
 
 /** Resolves after the next animation frame — when a scheduled recomposition has applied. */
 private suspend fun awaitFrame() {

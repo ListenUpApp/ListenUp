@@ -836,6 +836,17 @@ body { margin: 0; }
    depends on every card being exactly the same height. */
 .lib-progress.is-empty { visibility: hidden; }
 
+/* The facet row — Books / Authors / Narrators — shared by Library and Contributors. Values
+   carried over from the Contributors role toggle it replaces: same chip, one shared idiom. */
+.facet-row { display: flex; gap: 9px; margin-bottom: 22px; }
+.facet-chip {
+  height: 40px; padding: 0 17px; border-radius: 11px; border: 1.5px solid var(--line);
+  display: inline-flex; align-items: center; cursor: pointer;
+  font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
+  background: var(--surface); color: var(--ink-2);
+}
+.facet-chip.is-active { border-color: transparent; background: var(--coral); color: var(--on-coral); }
+
 /* Spans the grid so the rows above and below the rendered window keep the scrollbar honest. */
 .lib-spacer { grid-column: 1 / -1; overflow-anchor: none; }
 .lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
@@ -850,15 +861,6 @@ body { margin: 0; }
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 800;
 }
-.contrib-toggle { display: flex; gap: 9px; }
-.contrib-toggle-chip {
-  height: 40px; padding: 0 17px; border-radius: 11px; border: 1.5px solid var(--line);
-  display: inline-flex; align-items: center; cursor: pointer;
-  font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
-  background: var(--surface); color: var(--ink-2);
-}
-.contrib-toggle-chip.is-active { border-color: transparent; background: var(--coral); color: var(--on-coral); }
-
 /* The browse card the A→Z sections sit in — the artboard's "Browse all" surface. */
 .contrib-list {
   background: var(--surface); border: 1px solid var(--line); border-radius: 22px;

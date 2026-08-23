@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.contributors
 
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.web.design.LibraryFacet
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
@@ -17,7 +18,7 @@ import org.w3c.dom.events.KeyboardEventInit
 private fun contributorsPage(
     state: List<ContributorWithBookCount>?,
     role: ContributorRole = ContributorRole.AUTHOR,
-    onSelectRole: (ContributorRole) -> Unit = {},
+    onSelectFacet: (LibraryFacet) -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
 ): HTMLElement {
     val root = document.createElement("div") as HTMLElement
@@ -26,7 +27,7 @@ private fun contributorsPage(
         ContributorsPage(
             state = state,
             role = role,
-            onSelectRole = onSelectRole,
+            onSelectFacet = onSelectFacet,
             onOpenContributor = onOpenContributor,
         )
     }
@@ -86,22 +87,22 @@ class ContributorsPageTest :
             letters shouldBe listOf("A", "T", "Z")
         }
 
-        test("the narrator chip fires onSelectRole with the narrator role") {
-            val selected = mutableListOf<ContributorRole>()
+        test("the narrator chip fires onSelectFacet with the narrator facet") {
+            val selected = mutableListOf<LibraryFacet>()
             val root =
                 contributorsPage(
                     state = listOf(contributor("c1", "Andy Weir")),
-                    onSelectRole = { selected += it },
+                    onSelectFacet = { selected += it },
                 )
 
-            root.querySelectorAll(".contrib-toggle-chip").let { chips ->
+            root.querySelectorAll(".facet-chip").let { chips ->
                 (0 until chips.length)
                     .map { chips.item(it) as HTMLElement }
                     .first { it.textContent == "Narrators" }
                     .click()
             }
 
-            selected shouldContain ContributorRole.NARRATOR
+            selected shouldContain LibraryFacet.Narrators
         }
 
         test("a row click fires onOpenContributor with the contributor's id") {
@@ -157,10 +158,10 @@ class ContributorsPageTest :
             groupByLetter(listOf(contributor("c2", "A Perfect Circle"))).single().letter shouldBe 'A'
         }
 
-        test("the active role chip carries aria-pressed=true and the other false") {
+        test("the active facet chip carries aria-pressed=true and the others false") {
             val root = contributorsPage(state = emptyList(), role = ContributorRole.AUTHOR)
 
-            val chips = root.querySelectorAll(".contrib-toggle-chip")
+            val chips = root.querySelectorAll(".facet-chip")
             val authors = (0 until chips.length).map { chips.item(it) as HTMLElement }.first { it.textContent == "Authors" }
             val narrators =
                 (0 until chips.length).map { chips.item(it) as HTMLElement }.first { it.textContent == "Narrators" }
@@ -218,47 +219,47 @@ class ContributorsPageTest :
             opened shouldBe emptyList()
         }
 
-        test("a role chip is reachable by keyboard and announces itself as a control") {
+        test("a facet chip is reachable by keyboard and announces itself as a control") {
             val root = contributorsPage(state = emptyList())
 
-            val chip = root.querySelector(".contrib-toggle-chip") as HTMLElement
+            val chip = root.querySelector(".facet-chip") as HTMLElement
             chip.getAttribute("tabindex") shouldBe "0"
             chip.getAttribute("role") shouldBe "button"
         }
 
-        test("Enter activates a role chip") {
-            val selected = mutableListOf<ContributorRole>()
-            val root = contributorsPage(state = emptyList(), onSelectRole = { selected += it })
+        test("Enter activates a facet chip") {
+            val selected = mutableListOf<LibraryFacet>()
+            val root = contributorsPage(state = emptyList(), onSelectFacet = { selected += it })
 
-            root.querySelectorAll(".contrib-toggle-chip").let { chips ->
+            root.querySelectorAll(".facet-chip").let { chips ->
                 (0 until chips.length)
                     .map { chips.item(it) as HTMLElement }
                     .first { it.textContent == "Narrators" }
                     .press("Enter")
             }
 
-            selected shouldBe listOf(ContributorRole.NARRATOR)
+            selected shouldBe listOf(LibraryFacet.Narrators)
         }
 
-        test("Space activates a role chip too") {
-            val selected = mutableListOf<ContributorRole>()
-            val root = contributorsPage(state = emptyList(), onSelectRole = { selected += it })
+        test("Space activates a facet chip too") {
+            val selected = mutableListOf<LibraryFacet>()
+            val root = contributorsPage(state = emptyList(), onSelectFacet = { selected += it })
 
-            root.querySelectorAll(".contrib-toggle-chip").let { chips ->
+            root.querySelectorAll(".facet-chip").let { chips ->
                 (0 until chips.length)
                     .map { chips.item(it) as HTMLElement }
                     .first { it.textContent == "Narrators" }
                     .press(" ")
             }
 
-            selected shouldBe listOf(ContributorRole.NARRATOR)
+            selected shouldBe listOf(LibraryFacet.Narrators)
         }
 
-        test("a key that is not an activation leaves the role chip alone") {
-            val selected = mutableListOf<ContributorRole>()
-            val root = contributorsPage(state = emptyList(), onSelectRole = { selected += it })
+        test("a key that is not an activation leaves the facet chip alone") {
+            val selected = mutableListOf<LibraryFacet>()
+            val root = contributorsPage(state = emptyList(), onSelectFacet = { selected += it })
 
-            root.querySelectorAll(".contrib-toggle-chip").let { chips ->
+            root.querySelectorAll(".facet-chip").let { chips ->
                 (0 until chips.length)
                     .map { chips.item(it) as HTMLElement }
                     .first { it.textContent == "Narrators" }

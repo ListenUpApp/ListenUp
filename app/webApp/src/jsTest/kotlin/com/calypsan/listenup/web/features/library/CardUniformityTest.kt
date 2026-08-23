@@ -43,6 +43,7 @@ class CardUniformityTest :
                         ),
                     onEvent = {},
                     onOpenBook = {},
+                    onSelectFacet = {},
                 )
             }
 
@@ -63,6 +64,7 @@ class CardUniformityTest :
                     state = contractLibrary(listOf(contractBook("b1", "A Title Long Enough To Wrap If It Were Ever Allowed To"))),
                     onEvent = {},
                     onOpenBook = {},
+                    onSelectFacet = {},
                 )
             }
 

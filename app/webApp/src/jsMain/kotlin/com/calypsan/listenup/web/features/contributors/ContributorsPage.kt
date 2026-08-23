@@ -5,7 +5,9 @@ import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.util.nameLetter
+import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.tintGradient
 import org.jetbrains.compose.web.dom.Div
@@ -18,8 +20,8 @@ import org.jetbrains.compose.web.dom.Text
  * The Contributors list — every author and narrator in the library, A to Z.
  *
  * Renders [state] and nothing else: which role is showing, and the count in the header pill, are
- * both facts the caller already knows rather than something this page infers. The toggle here only
- * reports the gesture ([onSelectRole]) — which flow is actually being observed is
+ * both facts the caller already knows rather than something this page infers. The facet row here
+ * only reports the gesture ([onSelectFacet]) — which flow is actually being observed is
  * [ContributorsSession]'s call, the same split [com.calypsan.listenup.web.features.library.LibraryPage]
  * makes between rendering sort state and owning it.
  *
@@ -27,7 +29,7 @@ import org.jetbrains.compose.web.dom.Text
  * are different facts, and saying the wrong one — "No authors yet." before the database has had a
  * chance to say otherwise — is worse than saying nothing, the same distinction
  * [com.calypsan.listenup.web.features.library.LibraryPage] draws between `Loading` and a `Loaded`
- * state with zero books. The header and role toggle still render while `null`: they are
+ * state with zero books. The header and facet row still render while `null`: they are
  * navigation, not data, so there is nothing about them to wait for.
  *
  * ⛔ No hours in the "N books" line. The artboard's row reads "6 books · 58h", but
@@ -38,7 +40,7 @@ import org.jetbrains.compose.web.dom.Text
 fun ContributorsPage(
     state: List<ContributorWithBookCount>?,
     role: ContributorRole,
-    onSelectRole: (ContributorRole) -> Unit,
+    onSelectFacet: (LibraryFacet) -> Unit,
     onOpenContributor: (String) -> Unit,
 ) {
     Div(attrs = { classes("contrib-header") }) {
@@ -48,8 +50,14 @@ fun ContributorsPage(
             // answer, and there isn't one yet.
             state?.let { list -> Span(attrs = { classes("contrib-count") }) { Text(list.size.toString()) } }
         }
-        RoleToggle(role, onSelectRole)
     }
+    // Books is never the active chip here — this page only ever renders for the Authors or
+    // Narrators facet — but selecting it must still be able to navigate back to the library, so
+    // the row carries all three the same way Library's own row does.
+    FacetRow(
+        active = if (role == ContributorRole.NARRATOR) LibraryFacet.Narrators else LibraryFacet.Authors,
+        onSelect = onSelectFacet,
+    )
 
     if (state == null) {
         Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
@@ -78,52 +86,6 @@ fun ContributorsPage(
             }
         }
     }
-}
-
-@Composable
-private fun RoleToggle(
-    role: ContributorRole,
-    onSelectRole: (ContributorRole) -> Unit,
-) {
-    Div(attrs = { classes("contrib-toggle") }) {
-        RoleChip(
-            label = "Authors",
-            forRole = ContributorRole.AUTHOR,
-            activeRole = role,
-            onSelectRole = onSelectRole,
-        )
-        RoleChip(
-            label = "Narrators",
-            forRole = ContributorRole.NARRATOR,
-            activeRole = role,
-            onSelectRole = onSelectRole,
-        )
-    }
-}
-
-@Composable
-private fun RoleChip(
-    label: String,
-    forRole: ContributorRole,
-    activeRole: ContributorRole,
-    onSelectRole: (ContributorRole) -> Unit,
-) {
-    val isActive = forRole == activeRole
-    Span(attrs = {
-        classes("contrib-toggle-chip")
-        if (isActive) classes("is-active")
-        attr("role", "button")
-        // A visual class alone doesn't tell a screen reader which chip is selected.
-        attr("aria-pressed", isActive.toString())
-        tabIndex(0)
-        onClick { onSelectRole(forRole) }
-        onKeyDown { event ->
-            if (event.key == "Enter" || event.key == " ") {
-                event.preventDefault()
-                onSelectRole(forRole)
-            }
-        }
-    }) { Text(label) }
 }
 
 @Composable

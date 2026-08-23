@@ -163,10 +163,16 @@ class ClassContractTest :
                             state = contractLibrary(books = listOf(contractBook("b1", "Dune"))),
                             onEvent = {},
                             onOpenBook = {},
+                            onSelectFacet = {},
                         )
-                        LibraryPage(state = contractLibrary(syncing = true), onEvent = {}, onOpenBook = {})
-                        LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {})
-                        LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {})
+                        LibraryPage(
+                            state = contractLibrary(syncing = true),
+                            onEvent = {},
+                            onOpenBook = {},
+                            onSelectFacet = {},
+                        )
+                        LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
                         // Every Contributors state: a populated author list, a populated narrator
                         // list (so `.contrib-role-chip.is-narrator` actually renders — an empty
                         // list here would exercise no row at all), the empty state, and the null
@@ -177,25 +183,25 @@ class ClassContractTest :
                         ContributorsPage(
                             state = listOf(contributor("c1", "Andy Weir", 3)),
                             role = ContributorRole.AUTHOR,
-                            onSelectRole = {},
+                            onSelectFacet = {},
                             onOpenContributor = {},
                         )
                         ContributorsPage(
                             state = listOf(contributor("c2", "Santino Fontana", 2)),
                             role = ContributorRole.NARRATOR,
-                            onSelectRole = {},
+                            onSelectFacet = {},
                             onOpenContributor = {},
                         )
                         ContributorsPage(
                             state = emptyList(),
                             role = ContributorRole.NARRATOR,
-                            onSelectRole = {},
+                            onSelectFacet = {},
                             onOpenContributor = {},
                         )
                         ContributorsPage(
                             state = null,
                             role = ContributorRole.AUTHOR,
-                            onSelectRole = {},
+                            onSelectFacet = {},
                             onOpenContributor = {},
                         )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})

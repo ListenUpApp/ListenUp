@@ -17,6 +17,7 @@ import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
@@ -51,6 +52,7 @@ class BookDetailTest :
                     router,
                     source,
                     fixedBookEdit(BookEditUiState()),
+                    fixedContributors(emptyList()),
                     fakeLibrary(),
                     fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },
