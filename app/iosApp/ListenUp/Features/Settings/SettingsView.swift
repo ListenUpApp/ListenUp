@@ -185,7 +185,7 @@ struct SettingsView: View {
                     tint: .luTint
                 )
             }
-            .haptic(.toggleOn, trigger: observer.autoRewindEnabled)
+            .haptic(observer.autoRewindEnabled ? .toggleOn : .toggleOff, trigger: observer.autoRewindEnabled)
 
         }
     }
@@ -225,7 +225,7 @@ struct SettingsView: View {
                     tint: .blue
                 )
             }
-            .haptic(.toggleOn, trigger: observer.ignoreTitleArticles)
+            .haptic(observer.ignoreTitleArticles ? .toggleOn : .toggleOff, trigger: observer.ignoreTitleArticles)
 
             Toggle(isOn: boolBinding(observer.hideSingleBookSeries, observer.setHideSingleBookSeries)) {
                 SettingsLabel(
@@ -235,7 +235,7 @@ struct SettingsView: View {
                     tint: .blue
                 )
             }
-            .haptic(.toggleOn, trigger: observer.hideSingleBookSeries)
+            .haptic(observer.hideSingleBookSeries ? .toggleOn : .toggleOff, trigger: observer.hideSingleBookSeries)
         }
     }
 
@@ -260,7 +260,7 @@ struct SettingsView: View {
                     tint: .green
                 )
             }
-            .haptic(.toggleOn, trigger: observer.wifiOnlyDownloads)
+            .haptic(observer.wifiOnlyDownloads ? .toggleOn : .toggleOff, trigger: observer.wifiOnlyDownloads)
         }
     }
 
@@ -302,7 +302,7 @@ struct SettingsView: View {
                     tint: .teal
                 )
             }
-            .haptic(.toggleOn, trigger: observer.hapticFeedbackEnabled)
+            .haptic(observer.hapticFeedbackEnabled ? .toggleOn : .toggleOff, trigger: observer.hapticFeedbackEnabled)
         }
     }
 
