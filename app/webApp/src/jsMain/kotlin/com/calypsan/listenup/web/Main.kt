@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.renderComposable
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.Koin
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
@@ -67,6 +68,7 @@ fun main() {
                 openBookEdit = graphBookEdit(koin),
                 openLibrary = graphLibrary(koin),
                 openPlayback = graphPlayback(koin),
+                observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
             )
         }
     }

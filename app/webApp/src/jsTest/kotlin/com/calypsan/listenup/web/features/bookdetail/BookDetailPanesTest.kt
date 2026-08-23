@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
@@ -50,6 +51,7 @@ class BookDetailPanesTest :
                     fixedBookEdit(BookEditUiState()),
                     fakeLibrary(),
                     fixedPlayback(),
+                    observeIsAdmin = { flowOf(false) },
                 )
             }
             return host to router

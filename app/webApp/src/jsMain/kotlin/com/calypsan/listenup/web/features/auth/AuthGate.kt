@@ -18,6 +18,7 @@ import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
@@ -43,6 +44,7 @@ fun AuthGate(
     openBookEdit: OpenBookEdit,
     openLibrary: OpenLibrary,
     openPlayback: OpenPlayback,
+    observeIsAdmin: () -> Flow<Boolean>,
 ) {
     val scope = rememberCoroutineScope()
     val authState by authGraph.authState.collectAsState()
@@ -98,6 +100,7 @@ fun AuthGate(
                     openLibrary = openLibrary,
                     onSignOut = { scope.launch { authGraph.signOut() } },
                     openPlayback = openPlayback,
+                    observeIsAdmin = observeIsAdmin,
                 )
             }
         }

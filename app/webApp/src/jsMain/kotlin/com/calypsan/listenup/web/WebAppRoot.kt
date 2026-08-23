@@ -31,6 +31,7 @@ import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
+import kotlinx.coroutines.flow.Flow
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
@@ -50,6 +51,10 @@ import org.jetbrains.compose.web.dom.Text
  * [openPlayback] is scoped to the shell rather than to a route: what is playing outlives the page
  * the listener happened to start it from. It has no default on purpose — see [fixedPlayback], which
  * is what a spec passes instead.
+ *
+ * [observeIsAdmin] gates the sidebar's Admin entry. No default for the same reason [openPlayback]
+ * has none: a defaulted `flowOf(false)` would compile clean while silently hiding Admin from every
+ * admin, and nothing would look broken from the outside.
  */
 @Composable
 fun WebAppRoot(
@@ -58,9 +63,13 @@ fun WebAppRoot(
     openBookEdit: OpenBookEdit,
     openLibrary: OpenLibrary,
     openPlayback: OpenPlayback,
+    observeIsAdmin: () -> Flow<Boolean>,
     onSignOut: () -> Unit = {},
 ) {
     var collapsed by remember { mutableStateOf(false) }
+    // Starts false so a member never sees the entry flash; an admin's entry appears the moment
+    // the repository's flow answers — the same read Book Edit gates its Collections field on.
+    val isAdmin by remember { observeIsAdmin() }.collectAsState(initial = false)
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
@@ -78,7 +87,7 @@ fun WebAppRoot(
         sections = listOf(PRIMARY_NAV),
         active = active,
         collapsed = collapsed,
-        footer = FOOTER_NAV,
+        footer = if (isAdmin) FOOTER_NAV else FOOTER_NAV.filterNot { it.key == ADMIN_KEY },
         onToggleCollapse = { collapsed = !collapsed },
         onNavigate = { key ->
             val segments = if (key == HOME_KEY) emptyList() else listOf(key)
@@ -296,8 +305,10 @@ private val PRIMARY_NAV =
             ),
     )
 
+private const val ADMIN_KEY = "admin"
+
 private val FOOTER_NAV =
     listOf(
-        NavEntry("admin", "Admin", WebIcon.Shield),
+        NavEntry(ADMIN_KEY, "Admin", WebIcon.Shield),
         NavEntry("settings", "Settings", WebIcon.Cog),
     )

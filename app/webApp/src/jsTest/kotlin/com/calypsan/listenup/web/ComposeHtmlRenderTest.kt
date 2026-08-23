@@ -11,6 +11,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
+import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.library.fakeLibrary
@@ -46,6 +47,7 @@ class ComposeHtmlRenderTest :
                         fixedBookEdit(BookEditUiState()),
                         fakeLibrary(),
                         fixedPlayback(),
+                        observeIsAdmin = { flowOf(false) },
                     )
                 }
             router.dispose()
@@ -67,6 +69,7 @@ class ComposeHtmlRenderTest :
                         fixedBookEdit(BookEditUiState()),
                         fakeLibrary(),
                         fixedPlayback(),
+                        observeIsAdmin = { flowOf(false) },
                     )
                 }
             router.dispose()
