@@ -541,6 +541,11 @@ body { margin: 0; }
 .bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
 .bd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
+/* A byline name is a control, not decoration — same activation contract as `.contrib-row`. */
+.bd-by-name { cursor:pointer; border-radius:4px; }
+.bd-by-name:hover { color:var(--coral); text-decoration:underline; }
+.bd-by-name:focus { outline:none; }
+.bd-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 /* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
 .bd-actions { display:flex; gap:10px; margin-top:4px; }
 /* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as

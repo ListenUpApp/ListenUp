@@ -2,12 +2,19 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
+import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
+import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
+import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
+import com.calypsan.listenup.web.features.contributors.contributor
 import com.calypsan.listenup.web.features.contributors.fixedContributors
+import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -48,6 +55,7 @@ class WebAppRootTest :
         fun mountAt(
             path: String,
             isAdmin: Flow<Boolean> = flowOf(false),
+            openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openContributors: OpenContributors = fixedContributors(emptyList()),
             openLibrary: OpenLibrary = fakeLibrary(),
         ): Pair<HTMLElement, Router> {
@@ -60,6 +68,7 @@ class WebAppRootTest :
                     router,
                     fixedBookDetail(readyBook()),
                     fixedBookEdit(BookEditUiState()),
+                    openContributorDetail,
                     openContributors,
                     openLibrary,
                     fixedPlayback(),
@@ -241,6 +250,53 @@ class WebAppRootTest :
                 router.dispose()
             }
         }
+
+        test("/contributor/{id} renders the detail page for that id") {
+            val recorder = RecordingContributorDetail()
+            val (host, router) = mountAt("/contributor/c-king", openContributorDetail = recorder.open)
+
+            try {
+                recorder.requestedIds shouldBe listOf("c-king")
+                (host.querySelector(".cd-name") as HTMLElement).textContent shouldBe "Contributor c-king"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("selecting a contributor row on the list navigates to that contributor's page") {
+            val (host, router) =
+                mountAt(
+                    "/library/contributors",
+                    openContributors = fixedContributors(listOf(contributor("c1", "Andy Weir", 3))),
+                )
+
+            try {
+                (host.querySelector(".contrib-row") as HTMLElement).click()
+
+                window.location.pathname shouldBe "/contributor/c1"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("switching contributor id opens a new session rather than reusing the old one's") {
+            // The list-row test above only proves the gesture navigates; this closes the gap that
+            // mattered for Task A2's facet-role session — a bare `remember { }` here would show
+            // the first person's page forever, no matter which id the URL named next.
+            val recorder = RecordingContributorDetail()
+            val (host, router) = mountAt("/contributor/c1", openContributorDetail = recorder.open)
+
+            try {
+                recorder.requestedIds shouldBe listOf("c1")
+
+                router.navigate(Route(listOf("contributor", "c2")))
+                awaitFrame()
+
+                recorder.requestedIds shouldBe listOf("c1", "c2")
+            } finally {
+                router.dispose()
+            }
+        }
     })
 
 /** An [OpenContributors] that records every role it was asked to open, in the order asked. */
@@ -249,6 +305,18 @@ private class RecordingContributors {
     val open: OpenContributors = { role ->
         requestedRoles += role
         ContributorsSession(state = MutableStateFlow(emptyList()), close = {})
+    }
+}
+
+/** An [OpenContributorDetail] that records every id it was asked to open, in the order asked. */
+private class RecordingContributorDetail {
+    val requestedIds = mutableListOf<String>()
+    val open: OpenContributorDetail = { id ->
+        requestedIds += id
+        ContributorDetailSession(
+            state = MutableStateFlow(readyContributor(name = "Contributor $id")),
+            close = {},
+        )
     }
 }
 

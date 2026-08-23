@@ -21,6 +21,8 @@ import com.calypsan.listenup.core.Timestamp
 internal fun readyBook(
     chapters: List<ChapterUiModel> = sampleChapters(),
     audioFiles: List<AudioFile> = sampleAudioFiles(),
+    authors: List<BookContributor> = listOf(BookContributor(id = "c1", name = "Stephen King")),
+    narrators: List<BookContributor> = listOf(BookContributor(id = "c2", name = "Santino Fontana")),
 ): BookDetailUiState.Ready =
     BookDetailUiState.Ready(
         book =
@@ -29,8 +31,8 @@ internal fun readyBook(
                 libraryId = LibraryId("library-1"),
                 folderId = FolderId("folder-1"),
                 title = "The Institute",
-                authors = listOf(BookContributor(id = "c1", name = "Stephen King")),
-                narrators = listOf(BookContributor(id = "c2", name = "Santino Fontana")),
+                authors = authors,
+                narrators = narrators,
                 duration = TOTAL_SECONDS * MILLIS_PER_SECOND,
                 coverPath = null,
                 addedAt = Timestamp(0L),
@@ -42,7 +44,7 @@ internal fun readyBook(
                 audioFiles = audioFiles,
             ),
         descriptionText = "He wakes up at The Institute, in a room that looks just like his own.",
-        narrators = "Santino Fontana",
+        narrators = narrators.joinToString(", ") { it.name },
         year = 2019,
         chapters = chapters,
         genres = listOf(Genre(id = "g1", name = "Horror", slug = "horror", path = "/horror")),

@@ -12,6 +12,7 @@ import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.bookedit.graphBookEdit
+import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
 import com.calypsan.listenup.web.features.contributors.graphContributors
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
@@ -67,6 +68,7 @@ fun main() {
                 router = router,
                 openBookDetail = graphBookDetail(koin),
                 openBookEdit = graphBookEdit(koin),
+                openContributorDetail = graphContributorDetail(koin),
                 openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
                 openPlayback = graphPlayback(koin),

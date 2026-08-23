@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
@@ -24,9 +26,9 @@ import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
  * Both are renders of what the contract already carries — `BookDetail.audioFiles` and the shared
  * `audioFormatDisplay` — rather than new capability. The absences are the other half of the
  * design: no Resume or Download (web has no playback, and its download enqueuer refuses by
- * design), no filesystem path (the contract carries `folderId`, not a per-book path), no sync
- * button (web sync is unwritten), and no linked contributors (web has no contributor route). Each
- * would be a control that cannot keep its promise, so each is pinned absent here.
+ * design), no filesystem path (the contract carries `folderId`, not a per-book path), and no sync
+ * button (web sync is unwritten). Each would be a control that cannot keep its promise, so each is
+ * pinned absent here.
  */
 class BookDetailPanesTest :
     FunSpec({
@@ -50,6 +52,7 @@ class BookDetailPanesTest :
                     router,
                     source,
                     fixedBookEdit(BookEditUiState()),
+                    fixedContributorDetail(ContributorDetailUiState.Loading),
                     fixedContributors(emptyList()),
                     fakeLibrary(),
                     fixedPlayback(),
@@ -155,8 +158,6 @@ class BookDetailPanesTest :
                 val page = (host.querySelector(".bd") as HTMLElement).textContent.orEmpty()
                 page.contains("Resume") shouldBe false
                 page.contains("Download") shouldBe false
-                // The byline names its people but doesn't link them: there is no contributor route.
-                (host.querySelector(".bd-by a") == null) shouldBe true
             } finally {
                 router.dispose()
             }

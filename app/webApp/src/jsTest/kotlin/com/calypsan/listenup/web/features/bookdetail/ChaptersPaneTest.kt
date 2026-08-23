@@ -16,6 +16,8 @@ import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
@@ -47,6 +49,7 @@ class ChaptersPaneTest :
                     router,
                     fixedBookDetail(readyBook()),
                     fixedBookEdit(BookEditUiState()),
+                    fixedContributorDetail(ContributorDetailUiState.Loading),
                     fixedContributors(emptyList()),
                     fakeLibrary(),
                     fixedPlayback(),
