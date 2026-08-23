@@ -18,6 +18,7 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
@@ -174,9 +175,13 @@ private fun ActionMenuItem(
     icon: ImageVector,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     DropdownMenuItem(
         text = { Text(label) },
         leadingIcon = { Icon(imageVector = icon, contentDescription = null) },
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
     )
 }

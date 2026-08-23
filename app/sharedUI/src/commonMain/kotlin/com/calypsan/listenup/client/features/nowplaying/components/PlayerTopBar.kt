@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.playback.NowPlayingState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_close_book
@@ -100,11 +101,17 @@ fun PlayerTopBar(
     wide: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
 
     val overflowAnchor: @Composable () -> Unit = {
         Box {
-            IconButton(onClick = { showMenu = true }) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    showMenu = true
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = stringResource(Res.string.player_more_options),
@@ -151,6 +158,7 @@ private fun WideTopBar(
     overflowAnchor: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier =
             modifier
@@ -161,7 +169,10 @@ private fun WideTopBar(
     ) {
         // Collapse button — leading edge, 52 dp tonal square.
         Surface(
-            onClick = onCollapse,
+            onClick = {
+                haptics.press()
+                onCollapse()
+            },
             modifier = Modifier.size(52.dp),
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -207,6 +218,7 @@ private fun CompactTopBar(
     overflowAnchor: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Box(
         modifier =
             modifier
@@ -215,7 +227,10 @@ private fun CompactTopBar(
         contentAlignment = Alignment.Center,
     ) {
         IconButton(
-            onClick = onCollapse,
+            onClick = {
+                haptics.press()
+                onCollapse()
+            },
             modifier = Modifier.align(Alignment.CenterStart),
         ) {
             Icon(
@@ -262,6 +277,7 @@ private fun OverflowMenu(
     hasPdf: Boolean = false,
     onOpenPdf: () -> Unit = {},
 ) {
+    val haptics = LocalHaptics.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
@@ -270,6 +286,7 @@ private fun OverflowMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.player_go_to_book)) },
             onClick = {
+                haptics.press()
                 onDismiss()
                 onGoToBook()
             },
@@ -282,6 +299,7 @@ private fun OverflowMenu(
                 text = { Text(stringResource(Res.string.player_open_pdf)) },
                 leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
                 onClick = {
+                    haptics.press()
                     onOpenPdf()
                     onDismiss()
                 },
@@ -293,6 +311,7 @@ private fun OverflowMenu(
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.player_go_to_series)) },
                 onClick = {
+                    haptics.press()
                     onDismiss()
                     state.seriesId?.let { onGoToSeries(it) }
                 },
@@ -311,6 +330,7 @@ private fun OverflowMenu(
                     )
                 },
                 onClick = {
+                    haptics.press()
                     onDismiss()
                     if (state.hasMultipleAuthors) {
                         onShowAuthorPicker()
@@ -337,6 +357,7 @@ private fun OverflowMenu(
                     )
                 },
                 onClick = {
+                    haptics.press()
                     onDismiss()
                     if (state.hasMultipleNarrators) {
                         onShowNarratorPicker()
@@ -354,6 +375,7 @@ private fun OverflowMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.player_close_book)) },
             onClick = {
+                haptics.press()
                 onDismiss()
                 onCloseBook()
             },

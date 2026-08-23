@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.ShellNavType
 import org.jetbrains.compose.resources.painterResource
@@ -64,6 +65,7 @@ fun AppNavigationSuite(
     onSignOut: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val safeDestination = currentDestination ?: ShellDestination.Home
 
     when (navType) {
@@ -76,7 +78,10 @@ fun AppNavigationSuite(
                     val selected = safeDestination == destination
                     ShortNavigationBarItem(
                         selected = selected,
-                        onClick = { onDestinationSelected(destination) },
+                        onClick = {
+                            haptics.press()
+                            onDestinationSelected(destination)
+                        },
                         icon = {
                             Icon(
                                 imageVector = if (selected) destination.selectedIcon else destination.icon,
@@ -105,7 +110,10 @@ fun AppNavigationSuite(
                     val selected = safeDestination == destination
                     NavigationRailItem(
                         selected = selected,
-                        onClick = { onDestinationSelected(destination) },
+                        onClick = {
+                            haptics.press()
+                            onDestinationSelected(destination)
+                        },
                         icon = {
                             Icon(
                                 imageVector = if (selected) destination.selectedIcon else destination.icon,
@@ -119,7 +127,10 @@ fun AppNavigationSuite(
                 Spacer(Modifier.weight(1f))
                 NavigationRailItem(
                     selected = false,
-                    onClick = onSignOut,
+                    onClick = {
+                        haptics.press()
+                        onSignOut()
+                    },
                     icon = {
                         Icon(
                             Icons.AutoMirrored.Outlined.Logout,
