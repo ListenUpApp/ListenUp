@@ -9,9 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.web.features.bookedit.BookEditSession
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
@@ -29,6 +31,9 @@ import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.search.OpenSearch
+import com.calypsan.listenup.web.features.search.SearchPage
+import com.calypsan.listenup.web.features.search.SearchSession
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -63,6 +68,9 @@ import org.jetbrains.compose.web.dom.Text
  * [observeIsAdmin] gates the sidebar's Admin entry. No default for the same reason [openPlayback]
  * has none: a defaulted `flowOf(false)` would compile clean while silently hiding Admin from every
  * admin, and nothing would look broken from the outside.
+ *
+ * [openSearch] has no default for the same reason: a defaulted fake would compile clean and leave
+ * the sidebar's Search item permanently landing on a page that never does anything.
  */
 @Composable
 fun WebAppRoot(
@@ -72,6 +80,7 @@ fun WebAppRoot(
     openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
+    openSearch: OpenSearch,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
     onSignOut: () -> Unit = {},
@@ -121,6 +130,7 @@ fun WebAppRoot(
             openBookEdit = openBookEdit,
             openContributorDetail = openContributorDetail,
             openContributors = openContributors,
+            openSearch = openSearch,
             librarySession = librarySession,
             playback = playback,
             heroBookId = heroBookId,
@@ -158,6 +168,7 @@ private fun RouteContent(
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
+    openSearch: OpenSearch,
     librarySession: LibrarySession,
     playback: PlaybackSession,
     heroBookId: String?,
@@ -241,9 +252,95 @@ private fun RouteContent(
             onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
             heroBookId = heroBookId,
         )
+    } else if (page == SEARCH_KEY) {
+        SearchRoute(router = router, route = route, openSearch = openSearch)
     } else {
         PagePlaceholder(active)
     }
+}
+
+/**
+ * The `/search` branch of [RouteContent] — session lifecycle, the two-way `?q=` binding with the
+ * address bar, and hit navigation. Extracted so [RouteContent] stays a single glance of routing
+ * rather than a second page's worth of effects folded into one branch.
+ *
+ * The `?q=` binding runs in both directions. URL → session: a shared `/search?q=dune` link (or a
+ * Back/Forward press) seeds the field, via a [LaunchedEffect] keyed on the URL's own `q`. Session →
+ * URL: typing calls [Router.replace] synchronously from the same callback that tells the session
+ * about the change — not a second effect watching [SearchSession.state] — so the URL never lags a
+ * keystroke behind. Either way it's [Router.replace], never [Router.navigate]: one history entry
+ * for the whole visit, not one per keystroke, so Back leaves the search rather than replaying it
+ * letter by letter.
+ *
+ * Only [SearchNavAction.NavigateToBook] has a destination on this branch — Contributor, Series and
+ * Tag detail routes don't exist yet. [SearchPage] is told exactly which hit types are openable
+ * ([SEARCH_OPENABLE_TYPES]) so the rest render their data honestly inert rather than as a click
+ * that silently does nothing.
+ */
+@Composable
+private fun SearchRoute(
+    router: Router,
+    route: Route,
+    openSearch: OpenSearch,
+) {
+    val session = remember { openSearch() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    // URL -> session: seed (and re-seed on Back/Forward) the query the address bar names.
+    LaunchedEffect(session, route.query[SEARCH_QUERY_KEY]) {
+        val urlQuery = route.query[SEARCH_QUERY_KEY].orEmpty()
+        if (urlQuery != session.state.value.query) session.onQueryChanged(urlQuery)
+    }
+
+    LaunchedEffect(session) {
+        session.navActions.collect { action ->
+            when (action) {
+                is SearchNavAction.NavigateToBook -> {
+                    router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+                }
+
+                is SearchNavAction.NavigateToContributor -> {
+                    router.navigate(Route(listOf(CONTRIBUTOR_KEY, action.contributorId)))
+                }
+
+                // No destination yet. SEARCH_OPENABLE_TYPES keeps these hit types' rows
+                // non-interactive, so a click never reaches here in practice.
+                is SearchNavAction.NavigateToSeries,
+                is SearchNavAction.NavigateToTag,
+                -> {
+                    Unit
+                }
+            }
+        }
+    }
+
+    SearchPage(
+        state = session.state.collectAsState().value,
+        onQueryChanged = { query -> onSearchFieldChanged(query, session, router) },
+        onToggleType = session.onToggleType,
+        onOpenHit = session.onOpenHit,
+        onRetry = session.retry,
+        openableTypes = SEARCH_OPENABLE_TYPES,
+    )
+}
+
+/** session -> URL, the other half of [SearchRoute]'s two-way `?q=` binding — see its KDoc. */
+private fun onSearchFieldChanged(
+    query: String,
+    session: SearchSession,
+    router: Router,
+) {
+    session.onQueryChanged(query)
+    val urlQuery = router.current.query[SEARCH_QUERY_KEY].orEmpty()
+    if (urlQuery == query) return
+    val newQuery =
+        if (query.isBlank()) {
+            router.current.query - SEARCH_QUERY_KEY
+        } else {
+            router.current.query +
+                (SEARCH_QUERY_KEY to query)
+        }
+    router.replace(Route(router.current.segments, newQuery))
 }
 
 /**
@@ -442,6 +539,17 @@ private const val CONTRIBUTOR_KEY = "contributor"
 private const val ROLE_QUERY_KEY = "role"
 
 private const val NARRATOR_ROLE_VALUE = "narrator"
+
+private const val SEARCH_KEY = "search"
+
+/** The query-string key a search lives under: `/search?q=dune`. */
+private const val SEARCH_QUERY_KEY = "q"
+
+/**
+ * Hit types with a real place to navigate to. Contributor, Series and Tag detail routes don't
+ * exist on this branch yet — see [SearchRoute]'s KDoc.
+ */
+private val SEARCH_OPENABLE_TYPES = setOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR)
 
 private val PRIMARY_NAV =
     NavSection(

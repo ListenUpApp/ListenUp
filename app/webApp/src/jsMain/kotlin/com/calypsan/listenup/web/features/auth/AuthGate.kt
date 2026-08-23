@@ -18,6 +18,7 @@ import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetai
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
+import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,7 @@ fun AuthGate(
     openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
+    openSearch: OpenSearch,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
 ) {
@@ -104,6 +106,7 @@ fun AuthGate(
                     openContributorDetail = openContributorDetail,
                     openContributors = openContributors,
                     openLibrary = openLibrary,
+                    openSearch = openSearch,
                     onSignOut = { scope.launch { authGraph.signOut() } },
                     openPlayback = openPlayback,
                     observeIsAdmin = observeIsAdmin,

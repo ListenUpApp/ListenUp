@@ -21,6 +21,8 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.search.fixedSearch
+import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
 /**
@@ -57,6 +59,7 @@ class BookDetailTest :
                     fixedContributorDetail(ContributorDetailUiState.Loading),
                     fixedContributors(emptyList()),
                     fakeLibrary(),
+                    fixedSearch(SearchUiState.Idle()),
                     fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },
                 )

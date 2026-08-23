@@ -34,6 +34,26 @@ import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
+import com.calypsan.listenup.client.domain.model.SearchHit
+import com.calypsan.listenup.client.domain.model.SearchHitType
+import com.calypsan.listenup.client.domain.model.SearchResult
+import com.calypsan.listenup.client.presentation.search.SearchNavAction
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.features.search.bookHit
+import com.calypsan.listenup.web.features.search.contributorHit
+import com.calypsan.listenup.web.features.search.seriesHit
+import com.calypsan.listenup.web.features.search.searchResult
+import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldNotContain
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.EventInit
+import org.w3c.dom.events.Event
+import com.calypsan.listenup.web.features.search.OpenSearch
+import com.calypsan.listenup.web.features.search.SearchSession
+import com.calypsan.listenup.web.features.search.fixedSearch
 
 /**
  * The root wiring: the sidebar drives the URL and the URL drives the sidebar. This is where the
@@ -58,6 +78,7 @@ class WebAppRootTest :
             openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openContributors: OpenContributors = fixedContributors(emptyList()),
             openLibrary: OpenLibrary = fakeLibrary(),
+            openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
         ): Pair<HTMLElement, Router> {
             window.history.replaceState(null, "", path)
             val router = Router()
@@ -71,6 +92,7 @@ class WebAppRootTest :
                     openContributorDetail,
                     openContributors,
                     openLibrary,
+                    openSearch,
                     fixedPlayback(),
                     observeIsAdmin = { isAdmin },
                 )
@@ -297,6 +319,143 @@ class WebAppRootTest :
                 router.dispose()
             }
         }
+
+        test("/search renders the search page") {
+            val (host, router) = mountAt("/search")
+
+            try {
+                host.querySelector(".search-page") shouldNotBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/search?q=dune seeds the query into the field from the URL") {
+            val (host, router) = mountAt("/search?q=dune", openSearch = reactiveSearch())
+
+            try {
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while ((host.querySelector(".f-input") as HTMLInputElement).value != "dune") delay(10)
+                }
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("typing in the search field updates the URL without stacking a history entry") {
+            val (host, router) = mountAt("/search", openSearch = reactiveSearch())
+
+            try {
+                val lengthBeforeTyping = window.history.length
+                val input = host.querySelector(".f-input") as HTMLInputElement
+
+                // One keystroke at a time, the way a reader actually types — if any of these
+                // pushed rather than replaced, history.length would grow by one per call.
+                listOf("d", "du", "dun", "dune").forEach { partial ->
+                    input.value = partial
+                    input.dispatchEvent(Event("input", EventInit(bubbles = true)))
+                }
+
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.search != "?q=dune") delay(10)
+                }
+                window.history.length shouldBe lengthBeforeTyping
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("clicking a book hit navigates to /book/{id}") {
+            val result =
+                searchResult(
+                    query = "dune",
+                    hits = listOf(bookHit("b1", "Dune"), contributorHit("c1", "Frank Herbert")),
+                )
+            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+
+            try {
+                val bookRow =
+                    host.querySelectorAll(".search-row").let { rows ->
+                        (0 until rows.length)
+                            .map { rows.item(it) as HTMLElement }
+                            .first { it.textContent.orEmpty().contains("Dune") }
+                    }
+                bookRow.click()
+
+                // The nav action rides a Channel — the router.navigate() call happens on the
+                // next resumption of the collecting coroutine, not synchronously with the click.
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname == "/search") delay(10)
+                }
+                window.location.pathname shouldBe "/book/b1"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("clicking a contributor hit navigates to that person's page") {
+            // The counterpart to the non-openable spec below: /contributor/{id} exists now, so a
+            // person found in search must actually be reachable from it.
+            val result =
+                searchResult(
+                    query = "herbert",
+                    hits = listOf(bookHit("b1", "Dune"), contributorHit("c9", "Frank Herbert")),
+                )
+            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+
+            try {
+                val row =
+                    host.querySelectorAll(".search-row").let { rows ->
+                        (0 until rows.length)
+                            .map { rows.item(it) as HTMLElement }
+                            .first { it.textContent.orEmpty().contains("Frank Herbert") }
+                    }
+                row.click()
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/contributor/c9") delay(10)
+                }
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a hit type with no destination is not clickable and never navigates") {
+            // SERIES has no route at all — its row must carry no button semantics, and
+            // clicking it must leave the reader exactly where they were. (CONTRIBUTOR used to
+            // sit here; it became openable the moment /contributor/{id} landed.)
+            val result = searchResult(query = "dune", hits = listOf(seriesHit("s1", "Dune")))
+            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+
+            try {
+                val row = host.querySelector(".search-row") as HTMLElement
+                row.getAttribute("role") shouldBe null
+
+                row.click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/search"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the sidebar's Search item lands on the real search page, not the placeholder") {
+            val (host, router) = mountAt("/")
+
+            try {
+                val items = host.querySelectorAll(".nav-i")
+                val searchItem =
+                    (0 until items.length).map { items.item(it) as HTMLElement }.first { it.textContent == "Search" }
+                searchItem.click()
+
+                window.location.pathname shouldBe "/search"
+                awaitFrame()
+                host.querySelector(".search-page") shouldNotBe null
+                host.textContent.orEmpty() shouldNotContain "This page is not built yet."
+            } finally {
+                router.dispose()
+            }
+        }
     })
 
 /** An [OpenContributors] that records every role it was asked to open, in the order asked. */
@@ -329,3 +488,57 @@ private suspend fun awaitFrame() {
 
 /** How long a spec waits for a state-flow value to reach the DOM. */
 private const val RECOMPOSE_TIMEOUT_MS = 2_000L
+
+/**
+ * A Search session whose state genuinely reacts to [onQueryChanged] — synchronously and without
+ * the real ViewModel's debounce or FTS call, so a spec about the `?q=` URL seam does not need a
+ * database behind it. Always [SearchUiState.Idle]; these specs assert only on `.query`, never on
+ * which phase renders — that contract already belongs to `SearchPageTest`.
+ */
+private fun reactiveSearch(): OpenSearch {
+    val state = MutableStateFlow<SearchUiState>(SearchUiState.Idle())
+    return {
+        SearchSession(
+            state = state,
+            onQueryChanged = { query -> state.value = SearchUiState.Idle(query = query) },
+            onToggleType = {},
+            onOpenHit = {},
+            retry = {},
+            navActions = emptyFlow(),
+            close = {},
+        )
+    }
+}
+
+/**
+ * A Search session whose [SearchUiState.Results] is fixed but whose hit clicks genuinely emit
+ * [SearchNavAction]s — enough to prove [com.calypsan.listenup.web.WebAppRoot] routes them without a
+ * real ViewModel or FTS index behind it.
+ */
+private fun hitNavigatingSearch(result: SearchResult): OpenSearch {
+    val navChannel = Channel<SearchNavAction>(Channel.BUFFERED)
+    return {
+        SearchSession(
+            state =
+                MutableStateFlow(
+                    SearchUiState.Results(query = result.query, selectedTypes = emptySet(), result = result),
+                ),
+            onQueryChanged = {},
+            onToggleType = {},
+            onOpenHit = { hit -> navChannel.trySend(navActionFor(hit)) },
+            retry = {},
+            navActions = navChannel.receiveAsFlow(),
+            close = {},
+        )
+    }
+}
+
+/** Mirrors [com.calypsan.listenup.client.presentation.search.SearchViewModel.onResultSelected]'s
+ *  own id+type mapping — this fixture only needs to prove the mapping reaches the router. */
+private fun navActionFor(hit: SearchHit): SearchNavAction =
+    when (hit.type) {
+        SearchHitType.BOOK -> SearchNavAction.NavigateToBook(hit.id)
+        SearchHitType.CONTRIBUTOR -> SearchNavAction.NavigateToContributor(hit.id)
+        SearchHitType.SERIES -> SearchNavAction.NavigateToSeries(hit.id)
+        SearchHitType.TAG -> SearchNavAction.NavigateToTag(hit.id, hit.name)
+    }

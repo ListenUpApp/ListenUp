@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.search.fixedSearch
+import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
 /**
@@ -51,6 +53,7 @@ class ComposeHtmlRenderTest :
                         fixedContributorDetail(ContributorDetailUiState.Loading),
                         fixedContributors(emptyList()),
                         fakeLibrary(),
+                        fixedSearch(SearchUiState.Idle()),
                         fixedPlayback(),
                         observeIsAdmin = { flowOf(false) },
                     )
@@ -75,6 +78,7 @@ class ComposeHtmlRenderTest :
                         fixedContributorDetail(ContributorDetailUiState.Loading),
                         fixedContributors(emptyList()),
                         fakeLibrary(),
+                        fixedSearch(SearchUiState.Idle()),
                         fixedPlayback(),
                         observeIsAdmin = { flowOf(false) },
                     )

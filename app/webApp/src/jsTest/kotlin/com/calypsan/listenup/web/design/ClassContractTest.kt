@@ -36,6 +36,12 @@ import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.web.features.nowplaying.TransportState
+import com.calypsan.listenup.client.domain.model.SearchHitType
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.features.search.SearchPage
+import com.calypsan.listenup.web.features.search.bookHit
+import com.calypsan.listenup.web.features.search.contributorHit
+import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -56,18 +62,37 @@ import org.w3c.dom.css.CSSStyleSheet
 class ClassContractTest :
     FunSpec({
 
-        /** Every class selector defined anywhere in the loaded sheets. */
+        // Every class selector defined anywhere in the loaded sheets, including inside `@media`
+        // and `@supports` blocks.
+        //
+        // Recursion is not a nicety: a grouping rule carries no `selectorText` of its own, so a
+        // pass that reads only top-level rules skips its whole body. A class styled *only* under
+        // a media query then looked undefined, and the page rendering it failed this contract —
+        // a false alarm whose obvious "fix" is to restructure correct CSS until the test stops
+        // complaining. `.scan-pulse` is such a class today; the spec below pins it.
         fun definedClasses(): Set<String> {
             val defined = mutableSetOf<String>()
+
+            fun collect(rules: dynamic) {
+                val length = rules.length as? Int ?: return
+                for (j in 0 until length) {
+                    val rule = rules.item(j)
+                    val selector = rule?.selectorText as? String
+                    if (selector != null) {
+                        CLASS_SELECTOR.findAll(selector).forEach { defined += it.groupValues[1] }
+                    } else {
+                        // @media / @supports and friends: the selectors live one level down.
+                        val nested = rule?.cssRules
+                        if (nested != null) collect(nested)
+                    }
+                }
+            }
+
             val sheets = document.styleSheets
             for (i in 0 until sheets.length) {
                 val sheet = sheets.item(i) as? CSSStyleSheet ?: continue
-                val rules =
-                    runCatching { sheet.cssRules }.getOrNull() ?: continue
-                for (j in 0 until rules.length) {
-                    val selector = rules.item(j).asDynamic().selectorText as? String ?: continue
-                    CLASS_SELECTOR.findAll(selector).forEach { defined += it.groupValues[1] }
-                }
+                val rules = runCatching { sheet.cssRules }.getOrNull() ?: continue
+                collect(rules.asDynamic())
             }
             return defined
         }
@@ -94,6 +119,14 @@ class ClassContractTest :
             // assertion below would fail loudly rather than silently — but a *partially* loaded
             // sheet would not. Pin a class we know the sheet defines.
             definedClasses().contains("tblwrap") shouldBe true
+        }
+
+        test("a class defined only inside @media is still seen as defined") {
+            // `.scan-pulse` exists solely inside web.css's prefers-reduced-motion block. Reading
+            // top-level rules alone missed it — a grouping rule has no selectorText of its own —
+            // so a page rendering such a class failed this contract even though the sheet defines
+            // it perfectly well, and the tempting "fix" was to restructure correct CSS.
+            definedClasses().contains("scan-pulse") shouldBe true
         }
 
         test("every class the kit renders is defined in the design sheet") {
@@ -248,6 +281,80 @@ class ClassContractTest :
                             onOpenLibrary = {},
                             onOpenContributors = {},
                             onOpenBook = {},
+                        )
+                        // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
+                        // zero-hit Results and a populated one. The page joins this contract by
+                        // hand, same as ContributorsPage above — a state nobody adds here is a
+                        // state whose invented classes nothing catches.
+                        SearchPage(
+                            state = SearchUiState.Idle(),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                        )
+                        SearchPage(
+                            state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                        )
+                        SearchPage(
+                            state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                        )
+                        SearchPage(
+                            state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                        )
+                        SearchPage(
+                            state =
+                                SearchUiState.Results(
+                                    query = "zzzzz",
+                                    selectedTypes = emptySet(),
+                                    result = searchResult(query = "zzzzz", hits = emptyList()),
+                                ),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                        )
+                        // A book hit (openable — real chevron and button semantics) alongside a
+                        // contributor hit (not in openableTypes — exercises `.is-static`, the
+                        // class a hit type with no destination renders instead of a dead click).
+                        SearchPage(
+                            state =
+                                SearchUiState.Results(
+                                    query = "dune",
+                                    selectedTypes = emptySet(),
+                                    result =
+                                        searchResult(
+                                            query = "dune",
+                                            hits =
+                                                listOf(
+                                                    bookHit("b1", "Dune", author = "Frank Herbert"),
+                                                    contributorHit("c1", "Frank Herbert"),
+                                                ),
+                                            isOfflineResult = true,
+                                        ),
+                                ),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                            openableTypes = setOf(SearchHitType.BOOK),
                         )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
