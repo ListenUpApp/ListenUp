@@ -18,6 +18,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.web.features.contributors.ContributorsPage
+import com.calypsan.listenup.web.features.contributors.contributor
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
@@ -160,10 +163,47 @@ class ClassContractTest :
                             state = contractLibrary(books = listOf(contractBook("b1", "Dune"))),
                             onEvent = {},
                             onOpenBook = {},
+                            onSelectFacet = {},
                         )
-                        LibraryPage(state = contractLibrary(syncing = true), onEvent = {}, onOpenBook = {})
-                        LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {})
-                        LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {})
+                        LibraryPage(
+                            state = contractLibrary(syncing = true),
+                            onEvent = {},
+                            onOpenBook = {},
+                            onSelectFacet = {},
+                        )
+                        LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        // Every Contributors state: a populated author list, a populated narrator
+                        // list (so `.contrib-role-chip.is-narrator` actually renders — an empty
+                        // list here would exercise no row at all), the empty state, and the null
+                        // loading state. The page joins this contract by hand — the render list
+                        // below is explicit, so a page nobody adds here is a page whose invented
+                        // classes nothing catches (which is exactly how `.contrib-list` shipped
+                        // undefined).
+                        ContributorsPage(
+                            state = listOf(contributor("c1", "Andy Weir", 3)),
+                            role = ContributorRole.AUTHOR,
+                            onSelectFacet = {},
+                            onOpenContributor = {},
+                        )
+                        ContributorsPage(
+                            state = listOf(contributor("c2", "Santino Fontana", 2)),
+                            role = ContributorRole.NARRATOR,
+                            onSelectFacet = {},
+                            onOpenContributor = {},
+                        )
+                        ContributorsPage(
+                            state = emptyList(),
+                            role = ContributorRole.NARRATOR,
+                            onSelectFacet = {},
+                            onOpenContributor = {},
+                        )
+                        ContributorsPage(
+                            state = null,
+                            role = ContributorRole.AUTHOR,
+                            onSelectFacet = {},
+                            onOpenContributor = {},
+                        )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))

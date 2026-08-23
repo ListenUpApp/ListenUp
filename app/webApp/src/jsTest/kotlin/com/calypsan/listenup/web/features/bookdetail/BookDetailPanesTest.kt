@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
@@ -49,6 +50,7 @@ class BookDetailPanesTest :
                     router,
                     source,
                     fixedBookEdit(BookEditUiState()),
+                    fixedContributors(emptyList()),
                     fakeLibrary(),
                     fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },

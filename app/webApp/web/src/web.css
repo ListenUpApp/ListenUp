@@ -836,9 +836,66 @@ body { margin: 0; }
    depends on every card being exactly the same height. */
 .lib-progress.is-empty { visibility: hidden; }
 
+/* The facet row — Books / Authors / Narrators — shared by Library and Contributors. Values
+   carried over from the Contributors role toggle it replaces: same chip, one shared idiom. */
+.facet-row { display: flex; gap: 9px; margin-bottom: 22px; }
+.facet-chip {
+  height: 40px; padding: 0 17px; border-radius: 11px; border: 1.5px solid var(--line);
+  display: inline-flex; align-items: center; cursor: pointer;
+  font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
+  background: var(--surface); color: var(--ink-2);
+}
+.facet-chip.is-active { border-color: transparent; background: var(--coral); color: var(--on-coral); }
+
 /* Spans the grid so the rows above and below the rendered window keep the scrollbar honest. */
 .lib-spacer { grid-column: 1 / -1; overflow-anchor: none; }
 .lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
+
+/* Contributors — the A→Z people list (Library facet). Values pulled from the approved artboard. */
+.contrib-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.contrib-title-row { display: flex; align-items: center; gap: 13px; }
+.contrib-title-row h3 { margin: 0; font-size: 42px; font-weight: 800; letter-spacing: -0.04em; color: var(--ink); }
+.contrib-count {
+  min-width: 32px; height: 28px; padding: 0 11px; border-radius: 999px;
+  background: var(--coral-soft); color: var(--coral);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+}
+/* The browse card the A→Z sections sit in — the artboard's "Browse all" surface. */
+.contrib-list {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  padding: 22px 26px; box-shadow: var(--shadow-card);
+}
+.contrib-section + .contrib-section { margin-top: 8px; }
+.contrib-letter-row { display: flex; align-items: center; gap: 14px; margin: 8px 0 6px; }
+.contrib-letter {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: var(--coral-soft); color: var(--coral);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800;
+}
+.contrib-letter-line { flex-grow: 1; height: 1.5px; border-radius: 99px; background: var(--line); }
+
+.contrib-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
+.contrib-row:hover { background: var(--surface-2); }
+.contrib-row:focus { outline: none; }
+.contrib-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.contrib-avatar {
+  width: 58px; height: 58px; border-radius: 999px; flex-shrink: 0;
+  color: #FFFFFF; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 20px;
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
+}
+.contrib-info { flex-grow: 1; min-width: 0; }
+.contrib-name { font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+.contrib-meta { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
+.contrib-role-chip {
+  height: 23px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center;
+  font-size: 11.5px; font-weight: 800; background: var(--coral-soft); color: var(--coral);
+}
+.contrib-role-chip.is-narrator { background: var(--surface-3); color: var(--ink-2); }
+.contrib-book-count { font-size: 13px; color: var(--ink-2); font-weight: 500; }
+.contrib-chevron { color: var(--ink-3); display: flex; }
 
 /* ---- page background ----
    Painted on the root because the shell's own surface does not cover the whole canvas during a

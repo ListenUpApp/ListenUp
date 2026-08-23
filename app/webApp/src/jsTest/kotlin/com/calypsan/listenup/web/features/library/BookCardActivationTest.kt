@@ -28,7 +28,7 @@ class BookCardActivationTest :
             val root = document.createElement("div") as HTMLElement
             document.body?.appendChild(root)
             renderComposable(root = root) {
-                LibraryPage(state = state, onEvent = {}, onOpenBook = { onOpenBook(it) })
+                LibraryPage(state = state, onEvent = {}, onOpenBook = { onOpenBook(it) }, onSelectFacet = {})
             }
             return root
         }

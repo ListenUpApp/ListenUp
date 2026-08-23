@@ -12,6 +12,8 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
+import com.calypsan.listenup.web.design.FacetRow
+import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.motion.CoverSurface
 import com.calypsan.listenup.web.motion.flyHeroInto
@@ -43,35 +45,43 @@ private val BOOK_SORT_CATEGORIES =
  * arriving?" distinction are all decided by the shared ViewModel, so the browser cannot drift into
  * its own answer for any of them.
  *
- * Series, Authors and Narrators are deliberately absent. The shared state already carries them, and
- * they are near-mechanical repeats of this tab once the pattern is proven.
+ * Series, Authors and Narrators tables are deliberately absent — the shared state already carries
+ * them, and they are near-mechanical repeats of this tab once the pattern is proven. The people
+ * behind those tables are reachable today, though: [onSelectFacet] is this page's half of the
+ * facet row it shares with [com.calypsan.listenup.web.features.contributors.ContributorsPage].
  */
 @Composable
 fun LibraryPage(
     state: LibraryUiState,
     onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
+    onSelectFacet: (LibraryFacet) -> Unit,
     heroBookId: String? = null,
 ) {
+    // Header and facet row render in EVERY state, because they are navigation rather than data: a
+    // first sync can run for minutes, and hiding the row until the books land would strand a reader
+    // at "Loading…" with no way to reach the people already in their library — an error state would
+    // strand them for good. Sorting is the exception, and stays with the loaded branch: offering to
+    // reorder nothing is an affordance whose only outcome is nothing.
+    Div(attrs = { classes("lib-header") }) {
+        H3 { Text("Library") }
+        if (state is LibraryUiState.Loaded) SortControl(state, onEvent)
+    }
+    FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
+
     when (state) {
         is LibraryUiState.Loading -> Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
         is LibraryUiState.Error -> Div(attrs = { classes("empty") }) { P { Text(state.message) } }
-        is LibraryUiState.Loaded -> LoadedLibrary(state, onEvent, onOpenBook, heroBookId)
+        is LibraryUiState.Loaded -> LoadedLibrary(state, onOpenBook, heroBookId)
     }
 }
 
 @Composable
 private fun LoadedLibrary(
     state: LibraryUiState.Loaded,
-    onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
     heroBookId: String?,
 ) {
-    Div(attrs = { classes("lib-header") }) {
-        H3 { Text("Library") }
-        SortControl(state, onEvent)
-    }
-
     if (state.books.isEmpty()) {
         EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
         return

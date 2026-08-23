@@ -82,6 +82,70 @@ fun SegmentedControl(
 }
 
 /**
+ * The three ways the Library can be browsed: the book grid itself, or the people behind it in
+ * either credited role.
+ *
+ * A small enum rather than a raw role string, so a call site can never pass something a
+ * [FacetRow] does not know how to render. "In progress" and "Series" are deliberately absent —
+ * see [FacetRow].
+ */
+enum class LibraryFacet(
+    val label: String,
+) {
+    Books("Books"),
+    Authors("Authors"),
+    Narrators("Narrators"),
+}
+
+/**
+ * The facet row that sits under a page title and does the navigating between the book grid and
+ * the two Contributors lists — [com.calypsan.listenup.web.features.library.LibraryPage] and
+ * [com.calypsan.listenup.web.features.contributors.ContributorsPage] both render it, so a reader
+ * gets to the library's people from either side of that boundary the same way.
+ *
+ * Renders exactly the three [LibraryFacet] entries — no "In progress" or "Series" chip, because
+ * neither facet exists yet and a chip whose only outcome is nothing is a lie. This replaces the
+ * bespoke two-chip role toggle Contributors shipped with first: a facet row and a role toggle are
+ * the same idiom wearing two names, and [SegmentedControl] already covers the "narrow what's
+ * already shown" case a step down in weight from this one.
+ */
+@Composable
+fun FacetRow(
+    active: LibraryFacet,
+    onSelect: (LibraryFacet) -> Unit,
+) {
+    Div(attrs = { classes("facet-row") }) {
+        LibraryFacet.entries.forEach { facet ->
+            FacetChip(facet = facet, active = active, onSelect = onSelect)
+        }
+    }
+}
+
+@Composable
+private fun FacetChip(
+    facet: LibraryFacet,
+    active: LibraryFacet,
+    onSelect: (LibraryFacet) -> Unit,
+) {
+    val isActive = facet == active
+    Span(attrs = {
+        classes("facet-chip")
+        if (isActive) classes("is-active")
+        attr("role", "button")
+        // A visual class alone doesn't tell a screen reader which facet is selected.
+        attr("aria-pressed", isActive.toString())
+        tabIndex(0)
+        onClick { onSelect(facet) }
+        onKeyDown { event ->
+            if (event.key == "Enter" || event.key == " ") {
+                event.preventDefault()
+                onSelect(facet)
+            }
+        }
+    }) { Text(facet.label) }
+}
+
+/**
  * A tag or filter chip.
  *
  * [onRemove] is what turns a tag into an applied-filter chip; supplying it adds the dismiss

@@ -13,7 +13,6 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import kotlin.math.abs
 
 /**
  * A book cover.
@@ -70,7 +69,19 @@ fun Cover(
             // ⛔ A `view-transition-name` must be unique at any instant, which is why only ONE
             // grid tile is ever named: see `HERO_COVER` in the library grid.
             heroName?.let { property("view-transition-name", it) }
-            if (!showImage) property("background", gradientFor(title))
+            if (!showImage) {
+                property(
+                    "background",
+                    tintGradient(
+                        seed = title,
+                        angleDegrees = COVER_GRADIENT_ANGLE,
+                        firstSaturation = COVER_FIRST_SATURATION,
+                        firstLightness = COVER_FIRST_LIGHTNESS,
+                        secondSaturation = COVER_SECOND_SATURATION,
+                        secondLightness = COVER_SECOND_LIGHTNESS,
+                    ),
+                )
+            }
         }
     }) {
         if (showImage) {
@@ -111,26 +122,21 @@ fun Cover(
     }
 }
 
-/**
- * A stable, title-derived gradient.
- *
- * Hue comes from the title's hash so it is deterministic; saturation and lightness stay in a
- * narrow, muted band so no generated cover fights the coral action colour or looks out of place
- * beside real artwork.
- */
-private fun gradientFor(title: String): String {
-    val hue = abs(title.hashCode()) % HUE_RANGE
-    val second = (hue + HUE_SPREAD) % HUE_RANGE
-    return "linear-gradient(160deg, hsl($hue 28% 34%), hsl($second 32% 14%))"
-}
-
 private const val DEFAULT_COVER_SIZE = 96
 
 private const val DEFAULT_COVER_RADIUS = 14
 
-private const val HUE_RANGE = 360
+// Saturation and lightness stay in a narrow, muted band so no generated cover fights the coral
+// action colour or looks out of place beside real artwork. See [tintGradient] for the hue math.
+private const val COVER_GRADIENT_ANGLE = 160
 
-private const val HUE_SPREAD = 24
+private const val COVER_FIRST_SATURATION = 28
+
+private const val COVER_FIRST_LIGHTNESS = 34
+
+private const val COVER_SECOND_SATURATION = 32
+
+private const val COVER_SECOND_LIGHTNESS = 14
 
 private const val MIN_FALLBACK_TEXT = 10
 

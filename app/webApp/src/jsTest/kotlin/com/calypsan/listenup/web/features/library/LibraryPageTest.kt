@@ -33,9 +33,27 @@ class LibraryPageTest :
             val root = document.createElement("div") as HTMLElement
             document.body?.appendChild(root)
             renderComposable(root = root) {
-                LibraryPage(state = state, onEvent = {}, onOpenBook = {})
+                LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
             }
             return root
+        }
+
+        test("the facet row survives every state — it is navigation, not data") {
+            // A first sync can run for minutes. Hiding the row until the books land would strand a
+            // reader at "Loading…" with no way to reach the people in their library, and an error
+            // state would strand them permanently. ContributorsPage already renders its row
+            // unconditionally; these two must agree.
+            listOf(LibraryUiState.Loading, LibraryUiState.Error("nope")).forEach { state ->
+                val root = render(state)
+
+                root.querySelectorAll(".facet-chip").length shouldBe 3
+            }
+        }
+
+        test("sorting is offered only once there is something to sort") {
+            val root = render(LibraryUiState.Loading)
+
+            (root.querySelector(".lib-sort") == null) shouldBe true
         }
 
         test("a loaded library renders one card per book") {
