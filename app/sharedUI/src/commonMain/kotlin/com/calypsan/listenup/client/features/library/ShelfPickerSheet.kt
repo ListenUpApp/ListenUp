@@ -197,9 +197,9 @@ fun ShelfPickerSheet(
     if (showCreateDialog) {
         CreateShelfDialog(
             onDismiss = { showCreateDialog = false },
+            // No haptic here: CreateShelfDialog's confirm button already commits.
             onCreate = { name ->
                 showCreateDialog = false
-                haptics.commit()
                 onCreateAndAddToShelf(name)
             },
         )
@@ -341,6 +341,7 @@ private fun CreateShelfDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var shelfName by remember { mutableStateOf("") }
     val isValid = shelfName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -366,14 +367,22 @@ private fun CreateShelfDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(shelfName.trim()) },
+                onClick = {
+                    haptics.commit()
+                    onCreate(shelfName.trim())
+                },
                 enabled = isValid,
             ) {
                 Text(stringResource(Res.string.library_create_add))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },

@@ -179,6 +179,7 @@ private fun DatePickerDialogWrapper(
     onDateSelected: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     // Convert to UTC start-of-day for the picker
     val initialDate = epochMillisToLocalDate(initialMillis)
     val initialSelectionMillis = initialDate.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
@@ -194,6 +195,8 @@ private fun DatePickerDialogWrapper(
             TextButton(
                 onClick = {
                     datePickerState.selectedDateMillis?.let { selectedMillis ->
+                        // Inside the let: OK with nothing selected commits nothing.
+                        haptics.commit()
                         onDateSelected(selectedMillis)
                     }
                 },
@@ -202,7 +205,12 @@ private fun DatePickerDialogWrapper(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },
