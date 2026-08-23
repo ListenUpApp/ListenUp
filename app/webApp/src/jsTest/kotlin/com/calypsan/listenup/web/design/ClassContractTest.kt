@@ -13,6 +13,12 @@ import com.calypsan.listenup.web.features.auth.PendingApprovalPanel
 import com.calypsan.listenup.web.features.auth.RegisterForm
 import com.calypsan.listenup.web.features.auth.SetupForm
 import com.calypsan.listenup.web.features.bookdetail.readyBook
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
+import com.calypsan.listenup.web.features.contributordetail.bookItem
+import com.calypsan.listenup.web.features.contributordetail.readyContributor
+import com.calypsan.listenup.web.features.contributordetail.roleSection
+import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
 import androidx.compose.runtime.Composable
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -203,6 +209,45 @@ class ClassContractTest :
                             role = ContributorRole.AUTHOR,
                             onSelectFacet = {},
                             onOpenContributor = {},
+                        )
+                        // Contributor Detail: a fully loaded page (role panels, a credited-as alias,
+                        // a series panel) and every non-Ready state — each draws classes of its own,
+                        // and a state nobody renders here is one whose invented classes nothing catches.
+                        ContributorDetailPage(
+                            state =
+                                readyContributor(
+                                    roleSections =
+                                        listOf(
+                                            roleSection(
+                                                displayName = "Written By",
+                                                bookCount = 58,
+                                                previewBooks = listOf(bookItem("b1", "The Institute")),
+                                            ),
+                                        ),
+                                    bookCreditedAs = mapOf("b1" to "Richard Bachman"),
+                                    series = listOf(seriesWithBooks()),
+                                ),
+                            onOpenLibrary = {},
+                            onOpenContributors = {},
+                            onOpenBook = {},
+                        )
+                        ContributorDetailPage(
+                            state = ContributorDetailUiState.Loading,
+                            onOpenLibrary = {},
+                            onOpenContributors = {},
+                            onOpenBook = {},
+                        )
+                        ContributorDetailPage(
+                            state = ContributorDetailUiState.Error("The server could not be reached."),
+                            onOpenLibrary = {},
+                            onOpenContributors = {},
+                            onOpenBook = {},
+                        )
+                        ContributorDetailPage(
+                            state = ContributorDetailUiState.NotFound,
+                            onOpenLibrary = {},
+                            onOpenContributors = {},
+                            onOpenBook = {},
                         )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
