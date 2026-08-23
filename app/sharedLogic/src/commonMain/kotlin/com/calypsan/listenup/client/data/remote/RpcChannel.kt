@@ -256,6 +256,16 @@ internal inline fun <reified S : Any> Module.rpcChannel(policy: RpcPolicy = RpcP
                             mintSocketTicket(
                                 accessToken = { apiClientFactory.currentAccessToken() },
                                 authChannel = { get(rpcChannelQualifier<AuthServicePublic>()) },
+                                // The mint only runs for the authed mount (rpcMountUrl skips it for
+                                // Public), so the authed recovery is the right heal here — and the
+                                // only one a browser gets, since a DOM WebSocket hides the 401 the
+                                // header-carrying platforms recover from.
+                                recoverAuth = {
+                                    when (policy.recovery) {
+                                        RecoveryMode.Authed -> get<RpcAuthRecovery>()
+                                        RecoveryMode.Public -> RpcAuthRecovery.None
+                                    }.refreshAndRebuild()
+                                },
                             )
                         }
                     client.rpc(url).withService<S>()
