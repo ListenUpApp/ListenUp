@@ -52,6 +52,10 @@ struct FullScreenPlayerView: View {
     /// view reads it directly). `nil` means "not known yet", which is NOT the same as 0 dB: the
     /// sheet hides the row rather than offering to reset a book to a default it hasn't read.
     @State private var defaultBoostDb: Float?
+    /// Counts deliberate transport taps so the haptic fires on the tap, never on a state change
+    /// arriving from elsewhere (a remote command, the lock screen). Mirrors `MiniPlayerBar`.
+    @State private var transportTapCount = 0
+    @State private var playPauseTapCount = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
@@ -417,6 +421,7 @@ struct FullScreenPlayerView: View {
             // Previous chapter
             Button {
                 if observer.chapterIndex > 0 {
+                    transportTapCount += 1
                     observer.selectChapter(index: observer.chapterIndex - 1)
                 }
             } label: {
@@ -431,7 +436,10 @@ struct FullScreenPlayerView: View {
             Spacer()
 
             // Skip back
-            Button { observer.skipBackward() } label: {
+            Button {
+                transportTapCount += 1
+                observer.skipBackward()
+            } label: {
                 Image(systemName: PlayerGlyphs.skipBackward(seconds: observer.skipBackwardSec))
                     .font(.title2)
                     .foregroundStyle(.primary)
@@ -443,6 +451,7 @@ struct FullScreenPlayerView: View {
 
             // Play/Pause
             Button {
+                playPauseTapCount += 1
                 observer.togglePlayback()
             } label: {
                 ZStack {
@@ -471,7 +480,10 @@ struct FullScreenPlayerView: View {
             Spacer()
 
             // Skip forward
-            Button { observer.skipForward() } label: {
+            Button {
+                transportTapCount += 1
+                observer.skipForward()
+            } label: {
                 Image(systemName: PlayerGlyphs.skipForward(seconds: observer.skipForwardSec))
                     .font(.title2)
                     .foregroundStyle(.primary)
@@ -484,6 +496,7 @@ struct FullScreenPlayerView: View {
             // Next chapter
             Button {
                 if observer.chapterIndex < observer.totalChapters - 1 {
+                    transportTapCount += 1
                     observer.selectChapter(index: observer.chapterIndex + 1)
                 }
             } label: {
@@ -495,6 +508,8 @@ struct FullScreenPlayerView: View {
             .disabled(observer.chapterIndex >= observer.totalChapters - 1)
             .accessibilityLabel(String(localized: "player.next_chapter"))
         }
+        .haptic(.press, trigger: transportTapCount)
+        .haptic(observer.isPlaybackActive ? .toggleOn : .toggleOff, trigger: playPauseTapCount)
     }
 
     // MARK: - Secondary controls
