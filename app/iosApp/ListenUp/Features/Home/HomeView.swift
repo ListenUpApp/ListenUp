@@ -42,6 +42,9 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                NotificationBell()
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: UserProfileDestination()) {
                     UserAvatarView(user: user, size: 32)
                 }

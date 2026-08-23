@@ -20,6 +20,14 @@ import UserNotifications
 final class PushCoordinator: NSObject {
     static let shared = PushCoordinator()
 
+    /// Where shade taps land, set by `RootView` (which owns the router as `@State` so cold-launch
+    /// taps outlive the tab shell). A property on this singleton — not a `PushTapRouter.shared`
+    /// global — because the coordinator already owns every delegate callback and `RootView`
+    /// already talks to `PushCoordinator.shared`; weak so the coordinator never keeps UI state
+    /// alive. `didReceive` cannot fire before it is set: the delegate is only assigned in
+    /// `activate()`, which `RootView` calls after wiring the router.
+    weak var tapRouter: PushTapRouter?
+
     private var activated = false
 
     /// Requests notification authorization (first call shows the system prompt; later calls are
@@ -61,12 +69,15 @@ extension PushCoordinator: UNUserNotificationCenterDelegate {
         return PushForegroundPolicy.presentsInForeground(userInfo: userInfo) ? [.banner, .sound] : []
     }
 
-    /// Tap-through. Today every payload type opens the app (the SSE-fed surfaces catch up on
-    /// launch); typed deep-link routing lands with the payloads that need it (spec §3).
+    /// Tap-through: the default body tap hands the payload to `PushTapRouter`, which decodes it
+    /// through the Kotlin `PushTapRouting` seam and holds the outcome until the tab shell
+    /// consumes it. Dismiss and action taps stay untouched (body-tap-only scope, spec §3).
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        Log.info("Notification tapped — opening app")
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+        let payload = response.notification.request.content.userInfo["payload"] as? String
+        await MainActor.run { tapRouter?.handleTap(payloadJson: payload) }
     }
 }

@@ -12,6 +12,7 @@ import Shared
 struct MainTabView: View {
     @Environment(\.dependencies) private var deps
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
+    @Environment(PushTapRouter.self) private var pushTapRouter
     @State private var selectedTab: Tab = .home
     @State private var playerCoordinator: PlayerCoordinator?
     @State private var bookLinkError: BookLinkError?
@@ -103,6 +104,14 @@ struct MainTabView: View {
                 break
             }
         }
+        // Shade-tap consumer (in-app inbox taps append directly via `routeNotificationTap` —
+        // they never go through `pending`). `initial: true` covers the cold-launch tap held
+        // from before this shell mounted.
+        .onChange(of: pushTapRouter.pending, initial: true) { _, pending in
+            guard let pending else { return }
+            routeNotificationTap(pending, on: selectedTab)
+            pushTapRouter.consume()
+        }
         .alert(item: $bookLinkError) { error in
             Alert(title: Text(error.message))
         }
@@ -117,6 +126,11 @@ struct MainTabView: View {
                 .navigationDestinations()
                 .pushedDestination(for: SearchSeeAllDestination.self) { destination in
                     SeeAllSearchView(destination: destination, path: pathBinding(tab))
+                }
+                // Registered here (not in `contentDestinations()`) because a tapped row's
+                // outcome appends onto THIS tab's path — the same reason SeeAllSearch lives here.
+                .pushedDestination(for: NotificationsDestination.self) { _ in
+                    NotificationsView { outcome in routeNotificationTap(outcome, on: tab) }
                 }
                 // Probe the *system* bottom inset (home indicator + floating tab bar)
                 // BEFORE reserving the mini-bar band below, so it measures only the bar.
@@ -176,6 +190,22 @@ struct MainTabView: View {
 
     private func pushContributor(_ contributorId: String) {
         paths[selectedTab, default: NavigationPath()].append(ContributorDestination(id: contributorId))
+    }
+
+    /// Where a notification tap lands: append the outcome's destination onto the given tab's
+    /// stack. In-app inbox taps pass the inbox's own tab; the shade consumer passes the selected
+    /// tab. `.none` (unknown types, campfire until #1065, decision notices) stays put.
+    private func routeNotificationTap(_ outcome: NotificationTapOutcome, on tab: Tab) {
+        switch outcome {
+        case .book(let id):
+            paths[tab, default: NavigationPath()].append(BookDestination(id: id))
+        case .profile(let userId):
+            paths[tab, default: NavigationPath()].append(ProfileDestination(userId: userId))
+        case .adminApprovals:
+            paths[tab, default: NavigationPath()].append(AdminDestination())
+        case .none:
+            break
+        }
     }
 }
 
@@ -300,6 +330,9 @@ private extension View {
             }
             .pushedDestination(for: DevicesDestination.self) { _ in
                 DevicesView()
+            }
+            .pushedDestination(for: NotificationPrefsDestination.self) { _ in
+                NotificationPrefsView()
             }
             .pushedDestination(for: LicensesDestination.self) { _ in
                 LicensesView()

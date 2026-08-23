@@ -1065,6 +1065,7 @@ One beautiful library.</string>
     <string name="notifications_type_registration_decision">Registration decisions</string>
     <string name="notifications_unknown_subtitle">Update ListenUp to see this notification.</string>
     <string name="notifications_unknown_title">Notification</string>
+    <string name="notifications_unread_count_a11y">%1$d unread</string>
     <string name="player_add_more_time">Add more time</string>
     <string name="player_airplay">AirPlay</string>
     <string name="player_boost">Boost</string>

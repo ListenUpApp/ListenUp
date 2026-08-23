@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.foundation.clickable
@@ -34,17 +32,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
-import kotlin.time.Clock
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_activity_feed
 import listenup.composeapp.generated.resources.discover_no_activity_yet_start_listening
-import listenup.composeapp.generated.resources.discover_time_ago_days
-import listenup.composeapp.generated.resources.discover_time_ago_hours
-import listenup.composeapp.generated.resources.discover_time_ago_minutes
-import listenup.composeapp.generated.resources.discover_time_ago_now
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -329,36 +323,5 @@ private fun formatDurationMinutes(durationMs: Long): String {
         hours == 0 -> "$minutes minute${if (minutes != 1) "s" else ""}"
         minutes == 0 -> "$hours hour${if (hours != 1) "s" else ""}"
         else -> "$hours hour${if (hours != 1) "s" else ""} $minutes minute${if (minutes != 1) "s" else ""}"
-    }
-}
-
-private const val MS_PER_MINUTE = 60_000L
-private const val MINUTES_PER_HOUR = 60L
-private const val HOURS_PER_DAY = 24L
-
-/** Compact relative timestamp ("Just now", "5m ago", "3h ago", "2d ago") from an epoch-ms instant. */
-@Composable
-private fun relativeTime(occurredAtMs: Long): String {
-    val nowMs = Clock.System.now().toEpochMilliseconds()
-    val minutes = (nowMs - occurredAtMs).coerceAtLeast(0L) / MS_PER_MINUTE
-    return when {
-        minutes < 1L -> {
-            stringResource(Res.string.discover_time_ago_now)
-        }
-
-        minutes < MINUTES_PER_HOUR -> {
-            stringResource(Res.string.discover_time_ago_minutes, minutes.toInt())
-        }
-
-        minutes < MINUTES_PER_HOUR * HOURS_PER_DAY -> {
-            stringResource(Res.string.discover_time_ago_hours, (minutes / MINUTES_PER_HOUR).toInt())
-        }
-
-        else -> {
-            stringResource(
-                Res.string.discover_time_ago_days,
-                (minutes / (MINUTES_PER_HOUR * HOURS_PER_DAY)).toInt(),
-            )
-        }
     }
 }

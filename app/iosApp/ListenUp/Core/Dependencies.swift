@@ -136,6 +136,15 @@ final class Dependencies {
     func createCreateEditShelfViewModel() -> CreateEditShelfViewModel { KoinHelper.shared.getCreateEditShelfViewModel() }
     func createSettingsViewModel() -> SettingsViewModel { KoinHelper.shared.getSettingsViewModel() }
     func createDevicesViewModel() -> DevicesViewModel { KoinHelper.shared.getDevicesViewModel() }
+    func createNotificationBellViewModel() -> NotificationBellViewModel {
+        KoinHelper.shared.getNotificationBellViewModel()
+    }
+    func createNotificationsViewModel() -> NotificationsViewModel {
+        KoinHelper.shared.getNotificationsViewModel()
+    }
+    func createNotificationPrefsViewModel() -> NotificationPrefsViewModel {
+        KoinHelper.shared.getNotificationPrefsViewModel()
+    }
 
     func createAdminViewModel() -> AdminViewModel { KoinHelper.shared.getAdminViewModel() }
     func createAdminInboxViewModel() -> AdminInboxViewModel { KoinHelper.shared.getAdminInboxViewModel() }

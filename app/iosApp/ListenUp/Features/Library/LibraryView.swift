@@ -65,6 +65,9 @@ struct LibraryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 SyncStatusIndicator()
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                NotificationBell()
+            }
         }
         ToolbarItem(placement: .topBarTrailing) {
             NavigationLink(value: UserProfileDestination()) {

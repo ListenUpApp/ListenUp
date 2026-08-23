@@ -11,9 +11,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.notifications_title
+import listenup.composeapp.generated.resources.notifications_unread_count_a11y
 import org.jetbrains.compose.resources.stringResource
 
 /** Counts above this render as "99+" so the badge never stretches unbounded. */
@@ -38,7 +41,24 @@ fun NotificationBell(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
-        IconButton(onClick = onClick) {
+        // The badge is a sibling of the button, so a screen reader focusing the button would
+        // otherwise announce "Notifications" identically at zero and at ninety-nine. The count
+        // rides as a state description — re-announced when it changes — and uses the TRUE count,
+        // not the badge's "99+" cap: that cap exists so the pill can't stretch, which is a visual
+        // concern a screen reader doesn't share.
+        val unreadAnnouncement =
+            if (unreadCount > 0) {
+                stringResource(Res.string.notifications_unread_count_a11y, unreadCount)
+            } else {
+                null
+            }
+        IconButton(
+            onClick = onClick,
+            modifier =
+                Modifier.semantics {
+                    unreadAnnouncement?.let { stateDescription = it }
+                },
+        ) {
             Icon(
                 imageVector =
                     if (unreadCount > 0) Icons.Filled.Notifications else Icons.Outlined.Notifications,

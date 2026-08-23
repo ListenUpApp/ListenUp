@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
-
 package com.calypsan.listenup.client.features.admin
 
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +85,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -156,10 +155,6 @@ import listenup.composeapp.generated.resources.common_no_items_found
 import listenup.composeapp.generated.resources.common_revoke
 import listenup.composeapp.generated.resources.common_users
 import listenup.composeapp.generated.resources.connect_listenup_server
-import listenup.composeapp.generated.resources.discover_time_ago_days
-import listenup.composeapp.generated.resources.discover_time_ago_hours
-import listenup.composeapp.generated.resources.discover_time_ago_minutes
-import listenup.composeapp.generated.resources.discover_time_ago_now
 
 /**
  * Combined admin screen showing server settings, users, pending registrations & invites, and the
@@ -1129,7 +1124,7 @@ private fun PasswordResetRow(
     val denyLabel = stringResource(Res.string.admin_deny_reset)
     SettingRow(
         title = request.displayName,
-        subtitle = "${request.email} · ${passwordResetAge(request.requestedAt)}",
+        subtitle = "${request.email} · ${relativeTime(request.requestedAt)}",
         showDivider = showDivider,
         leading = {
             UserAvatar(
@@ -1158,37 +1153,6 @@ private fun PasswordResetRow(
                     )
                 }
             }
-        }
-    }
-}
-
-private const val MS_PER_MINUTE = 60_000L
-private const val MINUTES_PER_HOUR = 60L
-private const val HOURS_PER_DAY = 24L
-
-/** Compact relative timestamp ("Just now", "5m ago", "3h ago") from an epoch-ms instant. */
-@Composable
-private fun passwordResetAge(requestedAtMs: Long): String {
-    val nowMs =
-        kotlin.time.Clock.System
-            .now()
-            .toEpochMilliseconds()
-    val minutes = (nowMs - requestedAtMs).coerceAtLeast(0L) / MS_PER_MINUTE
-    return when {
-        minutes < 1L -> {
-            stringResource(Res.string.discover_time_ago_now)
-        }
-
-        minutes < MINUTES_PER_HOUR -> {
-            stringResource(Res.string.discover_time_ago_minutes, minutes.toInt())
-        }
-
-        minutes < MINUTES_PER_HOUR * HOURS_PER_DAY -> {
-            stringResource(Res.string.discover_time_ago_hours, (minutes / MINUTES_PER_HOUR).toInt())
-        }
-
-        else -> {
-            stringResource(Res.string.discover_time_ago_days, (minutes / (MINUTES_PER_HOUR * HOURS_PER_DAY)).toInt())
         }
     }
 }

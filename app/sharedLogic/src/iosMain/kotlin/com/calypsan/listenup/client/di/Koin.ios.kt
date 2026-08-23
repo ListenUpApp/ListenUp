@@ -74,6 +74,9 @@ import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.metadata.MetadataViewModel
+import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
+import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsViewModel
+import com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
 import com.calypsan.listenup.client.presentation.profile.UserProfileViewModel
 import com.calypsan.listenup.client.presentation.search.SearchViewModel
@@ -274,6 +277,12 @@ object KoinHelper {
     fun getSettingsViewModel(): SettingsViewModel = resolve(SettingsViewModel::class)
 
     fun getDevicesViewModel(): DevicesViewModel = resolve(DevicesViewModel::class)
+
+    fun getNotificationBellViewModel(): NotificationBellViewModel = resolve(NotificationBellViewModel::class)
+
+    fun getNotificationsViewModel(): NotificationsViewModel = resolve(NotificationsViewModel::class)
+
+    fun getNotificationPrefsViewModel(): NotificationPrefsViewModel = resolve(NotificationPrefsViewModel::class)
 
     fun getAdminViewModel(): AdminViewModel = resolve(AdminViewModel::class)
 

@@ -372,6 +372,7 @@ ProfileShelfSummary
 PushPlatform
 PushRegistrar
 PushRepository
+PushTapRouting
 PushTokenProvider
 Reachability
 Reader

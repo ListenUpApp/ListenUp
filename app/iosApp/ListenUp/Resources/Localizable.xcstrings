@@ -10641,6 +10641,16 @@
         }
       }
     },
+    "notifications.unread_count_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d unread"
+          }
+        }
+      }
+    },
     "player.add_more_time": {
       "localizations": {
         "en": {

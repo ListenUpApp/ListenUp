@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel
@@ -139,8 +140,10 @@ fun NotificationsScreen(
 }
 
 /**
- * One inbox row: the type's tonal icon tile, the resolved title/body copy, and — while unread — an
- * emphasized title led by a small primary dot. Read rows drop the dot and mute the title.
+ * One inbox row: the type's tonal icon tile, the resolved title/body copy, a trailing relative
+ * timestamp, and — while unread — an emphasized title led by a small primary dot. Read rows drop
+ * the dot and mute the title. The timestamp goes through the shared [relativeTime] util, so an
+ * inbox row and an activity-feed row phrase the same age identically.
  */
 @Composable
 private fun NotificationRow(
@@ -185,6 +188,12 @@ private fun NotificationRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = relativeTime(notification.createdAt),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
