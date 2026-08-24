@@ -538,6 +538,10 @@ body { margin: 0; }
    handed the cover's flight a destination that moved out from under it mid-animation. */
 .bd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
 .bd-head { display:flex; gap:26px; align-items:flex-end; }
+/* The edit page's <form> wraps every section, which would otherwise make all of them ONE flex
+   item of `.bd` and collapse the 20px rhythm between them. The form reproduces its parent's
+   column so the element is structural only — it must not be visible in the layout. */
+.edit-body { display:flex; flex-direction:column; gap:20px; }
 .bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
 .bd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }

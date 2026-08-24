@@ -25,6 +25,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.contributor
 import org.jetbrains.compose.web.renderComposable
@@ -420,6 +422,22 @@ class ClassContractTest :
                                 highlighted = hit,
                             )
                         }
+                        // Book Edit was absent from this contract, which is how its form wrapper
+                        // shipped a class the stylesheet had never heard of. The loaded page
+                        // exercises every field primitive it owns.
+                        BookEditPage(
+                            state =
+                                BookEditUiState(
+                                    isLoading = false,
+                                    bookId = "b1",
+                                    title = "The Institute",
+                                    publisher = "Hodder",
+                                    language = "en",
+                                ),
+                            onEvent = {},
+                            onOpenLibrary = {},
+                            onOpenBook = {},
+                        )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
