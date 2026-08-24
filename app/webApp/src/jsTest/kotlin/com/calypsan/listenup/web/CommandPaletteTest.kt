@@ -18,6 +18,9 @@ import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
 
+/** Poll interval while waiting for a navigation to reach `window.location`. */
+private const val NAV_POLL_MS = 10L
+
 /**
  * The ⌘K / Ctrl+K / `/` command palette: opening, closing, arrow navigation, hit activation, the
  * "no URL change until you commit" rule, and the accessibility contract (focus moves in, is
@@ -212,10 +215,13 @@ class CommandPaletteTest :
                 // The nav action rides a Channel — the router.navigate() call happens on the next
                 // resumption of the collecting coroutine, not synchronously with the keypress.
                 withTimeout(RECOMPOSE_TIMEOUT_MS) {
-                    while (window.location.pathname == "/") delay(10)
+                    while (window.location.pathname == "/") delay(NAV_POLL_MS)
                 }
                 window.location.pathname shouldBe "/book/b1"
-                host.querySelector(".cmdk-panel") shouldBe null
+                // The URL flips synchronously inside navigate(); the panel's REMOVAL is a
+                // recomposition a frame behind it. Asserting straight off the URL wait checks the
+                // DOM one frame early — green here, intermittently red on a two-core CI runner.
+                awaitGone(host, ".cmdk-panel")
             } finally {
                 composition.dispose()
                 router.dispose()
@@ -258,7 +264,8 @@ class CommandPaletteTest :
 
                 window.location.pathname shouldBe "/search"
                 window.location.search shouldBe "?q=dune"
-                host.querySelector(".cmdk-panel") shouldBe null
+                // Same one-frame assumption as above, even though this navigate is synchronous.
+                awaitGone(host, ".cmdk-panel")
             } finally {
                 composition.dispose()
                 router.dispose()

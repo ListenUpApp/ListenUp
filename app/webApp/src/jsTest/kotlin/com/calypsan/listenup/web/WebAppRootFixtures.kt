@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
@@ -146,6 +148,26 @@ internal suspend fun awaitFrame() {
 
 /** How long a spec waits for a state-flow value to reach the DOM. */
 internal const val RECOMPOSE_TIMEOUT_MS = 2_000L
+
+/**
+ * Waits until [selector] matches nothing under [host].
+ *
+ * ⛔ Wait for the DOM condition you are about to assert — never for a proxy of it. A navigation
+ * flips `window.location` synchronously, but the recomposition that REMOVES the old page's markup
+ * lands a frame later. A spec that waits on the URL and then asserts the DOM is asserting one frame
+ * early: reliably green on a fast machine, and intermittently red on a two-core CI runner, which is
+ * the worst possible place to find out.
+ */
+internal suspend fun awaitGone(
+    host: HTMLElement,
+    selector: String,
+) {
+    withTimeout(RECOMPOSE_TIMEOUT_MS) {
+        while (host.querySelector(selector) != null) delay(FRAME_POLL_MS)
+    }
+}
+
+private const val FRAME_POLL_MS = 10L
 
 /** An [OpenContributors] that records every role it was asked to open, in the order asked. */
 internal class RecordingContributors {
