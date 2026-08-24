@@ -108,6 +108,7 @@
     <string name="admin_no_pending_registrations">No pending registrations</string>
     <string name="admin_no_users_available">No users available</string>
     <string name="admin_organize">File Organization</string>
+    <string name="admin_organize_apply">Apply</string>
     <string name="admin_organize_author_first_last">First Last</string>
     <string name="admin_organize_author_form">Author name style</string>
     <string name="admin_organize_author_last_first">Last, First</string>

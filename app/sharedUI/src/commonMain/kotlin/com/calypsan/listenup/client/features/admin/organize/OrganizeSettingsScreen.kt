@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.features.admin.organize
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import com.calypsan.listenup.client.design.components.ListenUpButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -49,6 +50,7 @@ import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_organize
 import listenup.composeapp.generated.resources.admin_organize_author_first_last
+import listenup.composeapp.generated.resources.admin_organize_apply
 import listenup.composeapp.generated.resources.admin_organize_author_form
 import listenup.composeapp.generated.resources.admin_organize_author_last_first
 import listenup.composeapp.generated.resources.admin_organize_confirm_more_rows
@@ -74,7 +76,6 @@ import listenup.composeapp.generated.resources.admin_organize_series_prefix
 import listenup.composeapp.generated.resources.admin_organize_structure
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
-import listenup.composeapp.generated.resources.common_save
 import org.jetbrains.compose.resources.stringResource
 
 /** Content column width cap so the form reads well at medium/expanded window widths. */
@@ -243,13 +244,16 @@ private fun OrganizeSettingsContent(
                 }
             }
 
-            TextButton(
+            // A filled, full-width primary action rather than a trailing text link. Confirming this
+            // moves files on disk, and the affordance should carry the weight of what it starts —
+            // as a right-aligned link it read as an afterthought and was missed entirely on first use.
+            // "Apply", not "Save": nothing here is a preference that merely persists.
+            ListenUpButton(
+                text = stringResource(Res.string.admin_organize_apply),
                 onClick = viewModel::save,
                 enabled = !state.isWorking,
-                modifier = Modifier.align(Alignment.End),
-            ) {
-                Text(stringResource(Res.string.common_save))
-            }
+                isLoading = state.isWorking,
+            )
         }
     }
 }

@@ -1081,6 +1081,16 @@
         }
       }
     },
+    "admin.organize_apply": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
     "admin.organize_author_first_last": {
       "localizations": {
         "en": {
