@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.ScanCoordinator
+import com.calypsan.listenup.server.sidecar.SidecarWriter
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.ScannerBundle
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
@@ -184,7 +185,14 @@ fun scannerModule(
                     val coordinator =
                         ScanCoordinator(
                             libraryId = library.id,
-                            runFullScan = { scanner.runFullScan() },
+                            runFullScan = {
+                                scanner.runFullScan().also {
+                                    // Sidecars are a property of the library, not of having edited
+                                    // something — so a completed scan reconciles them. Nullable
+                                    // because the sidecar module isn't loaded in minimal containers.
+                                    getOrNull<SidecarWriter>()?.backfillStaleSidecars()
+                                }
+                            },
                             runIncremental = { scanner.runIncremental(it) },
                             scope = scope,
                         )

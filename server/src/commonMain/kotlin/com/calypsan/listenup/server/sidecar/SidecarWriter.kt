@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
+import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.services.readBookPayloads
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -122,7 +123,12 @@ class SidecarWriter(
             val sidecar = assembler.assemble(book, tagNamesFor(bookId))
             val bytes = SidecarJson.serialize(sidecar)
             val bookDir = resolveBookDir(bookId) ?: return
-            when (val written = broker.writeFile(Path(bookDir, SIDECAR_FILENAME), bytes)) {
+            val target = Path(bookDir, SIDECAR_FILENAME)
+            if (isAlreadyOnDisk(bookId, bytes, target)) {
+                synchronized(lock) { pendingRetry.remove(bookId) }
+                return
+            }
+            when (val written = broker.writeFile(target, bytes)) {
                 is AppResult.Success -> {
                     writeState.save(
                         bookId = bookId,
@@ -143,6 +149,49 @@ class SidecarWriter(
             logger.warn(e) { "sidecar flush failed for book=$bookId — parked for retry" }
             synchronized(lock) { pendingRetry.add(bookId) }
         }
+    }
+
+    /**
+     * True when [target] already holds exactly [bytes] — i.e. the last hash we recorded for
+     * [bookId] matches what we are about to write, and the file is still there.
+     *
+     * Without this the writer rewrites unconditionally, which was harmless while writes were
+     * only triggered by a curation change but is not once a scan triggers them: a large library
+     * would rewrite every sidecar on every scan pass, churning mtimes and waking the watcher for
+     * no change at all.
+     *
+     * Existence is checked with a stat rather than by re-hashing the file. If someone edited the
+     * sidecar by hand, the recorded hash still matches ours and we skip — which is the right
+     * outcome: their edit stands, the reader ingests it on this same scan, and the resulting DB
+     * change makes our next assembly differ, so the following pass writes. Self-correcting, and
+     * it costs one stat instead of a full read per book.
+     */
+    private suspend fun isAlreadyOnDisk(
+        bookId: String,
+        bytes: ByteArray,
+        target: Path,
+    ): Boolean =
+        writeState.findByBookId(bookId)?.contentHashHex == hashBytesSha256(bytes) &&
+            SystemFileSystem.exists(target)
+
+    /**
+     * Queues every live book whose sidecar is missing or older than the book itself.
+     *
+     * Called when a scan completes, which is what makes `listenup.json` a property of the library
+     * rather than of having edited something: the first scan after this ships writes the whole
+     * backlog, and later scans match nothing because [selectBookIdsNeedingSidecar] compares each
+     * book's `updated_at` against the recorded write time. Work is queued through [markDirty], so
+     * it inherits the same debounce, the same admin gate, and the same park-and-retry on failure.
+     */
+    suspend fun backfillStaleSidecars() {
+        if (!writesEnabled()) return
+        val stale =
+            suspendTransaction(db) {
+                db.sidecarWriteStateQueries.selectBookIdsNeedingSidecar().executeAsList()
+            }
+        if (stale.isEmpty()) return
+        logger.info { "sidecar backfill: ${stale.size} book(s) need a listenup.json" }
+        stale.forEach { markDirty(it) }
     }
 
     private suspend fun writesEnabled(): Boolean =

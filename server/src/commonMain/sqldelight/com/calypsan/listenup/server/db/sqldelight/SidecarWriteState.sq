@@ -27,3 +27,14 @@ DELETE FROM sidecar_write_state WHERE book_id = :book_id;
 -- before it knows which book row a folder resolves to (or on a fresh DB, before any exists).
 existsByContentHash:
 SELECT EXISTS(SELECT 1 FROM sidecar_write_state WHERE content_hash = :content_hash);
+
+-- Live books whose on-disk sidecar is missing or stale — the scan-time backfill work list.
+-- A book qualifies when it has never had a sidecar written (no row here) or when it has been
+-- updated since the last write. Keeping this a single indexed query is what makes scan-time
+-- sidecar maintenance affordable: a steady-state rescan of a large library matches nothing.
+selectBookIdsNeedingSidecar:
+SELECT b.id
+FROM books b
+LEFT JOIN sidecar_write_state s ON s.book_id = b.id
+WHERE b.deleted_at IS NULL
+  AND (s.book_id IS NULL OR b.updated_at > s.written_at);

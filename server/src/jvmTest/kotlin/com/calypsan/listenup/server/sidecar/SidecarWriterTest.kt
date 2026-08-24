@@ -7,7 +7,6 @@ import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.isPosix
 import com.calypsan.listenup.server.librarywrite.makeReadOnly
-import com.calypsan.listenup.server.librarywrite.SqlLibraryRootProvider
 import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.librarywrite.SqlLibraryRootProvider
 import com.calypsan.listenup.server.librarywrite.WriteJournal
@@ -16,6 +15,10 @@ import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import com.calypsan.listenup.server.librarywrite.bytesAt
+import com.calypsan.listenup.server.librarywrite.writeExternally
+import io.kotest.assertions.withClue
+import io.kotest.matchers.string.shouldContain
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -135,6 +138,93 @@ class SidecarWriterTest :
                     val parsed = SidecarJson.parseOrNull(bytes)
                     parsed.shouldNotBeNull()
                     parsed.metadata.tags shouldContainExactly listOf("alpha", "zeta")
+                }
+            }
+        }
+
+        test("an unchanged book is not rewritten — same bytes, so the file is left untouched") {
+            withSqlDatabase {
+                runTest {
+                    val lib = tempLibraryDir()
+                    val writer = writer(backgroundScope, lib)
+                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    val target = Path(lib, "MyBook", "listenup.json")
+
+                    writer.markDirty("book1")
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+                    val firstWrite = SystemFileSystem.metadataOrNull(target)?.size
+                    firstWrite.shouldNotBeNull()
+
+                    // Mark it again with nothing changed. The assembled bytes hash to what the state
+                    // row already records, so the write must be skipped outright — this is what keeps
+                    // scan-triggered maintenance from rewriting a whole library on every pass.
+                    writeExternally(target, "SENTINEL — must survive an unchanged flush".encodeToByteArray())
+                    writer.markDirty("book1")
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+
+                    withClue("an unchanged flush must not touch the file at all") {
+                        bytesAt(target).decodeToString() shouldBe "SENTINEL — must survive an unchanged flush"
+                    }
+                }
+            }
+        }
+
+        test("a CHANGED book is rewritten — the skip guard must not wedge the writer shut") {
+            withSqlDatabase {
+                runTest {
+                    val lib = tempLibraryDir()
+                    val writer = writer(backgroundScope, lib)
+                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    val target = Path(lib, "MyBook", "listenup.json")
+
+                    writer.markDirty("book1")
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+
+                    // The control for the test above: change the book so the assembled bytes differ,
+                    // and the guard must let the write through. A guard that always skipped would
+                    // pass the unchanged test and silently break the feature.
+                    sql.transaction {
+                        sql.tagsQueries.insert("t1", "brandnew", "brandnew", 1L, 1L, 1L, null, null)
+                        sql.bookTagsQueries.insert("book1:t1", "book1", "t1", 1L, 1L, 1L, null, null)
+                    }
+                    writer.markDirty("book1")
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+
+                    withClue("a real change must still be written") {
+                        bytesAt(target).decodeToString() shouldContain "brandnew"
+                    }
+                }
+            }
+        }
+
+        test("backfillStaleSidecars queues every live book that has no sidecar yet") {
+            withSqlDatabase {
+                runTest {
+                    val lib = tempLibraryDir()
+                    val writer = writer(backgroundScope, lib)
+                    sql.seedTestBook(bookId = "book1", rootRelPath = "BookOne")
+                    sql.seedTestBook(bookId = "book2", rootRelPath = "BookTwo")
+
+                    writer.backfillStaleSidecars()
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+
+                    SystemFileSystem.exists(Path(lib, "BookOne", "listenup.json")) shouldBe true
+                    SystemFileSystem.exists(Path(lib, "BookTwo", "listenup.json")) shouldBe true
+
+                    // Second pass: everything is current, so nothing is queued and nothing is written.
+                    writeExternally(Path(lib, "BookOne", "listenup.json"), "UNTOUCHED".encodeToByteArray())
+                    writer.backfillStaleSidecars()
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+
+                    withClue("a steady-state backfill must be a no-op") {
+                        bytesAt(Path(lib, "BookOne", "listenup.json")).decodeToString() shouldBe "UNTOUCHED"
+                    }
                 }
             }
         }
