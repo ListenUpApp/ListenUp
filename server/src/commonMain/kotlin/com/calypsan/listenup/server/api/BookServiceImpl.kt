@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.sidecar.SidecarWriter
 import com.calypsan.listenup.server.services.BookWriteExtras
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -96,6 +97,7 @@ internal class BookServiceImpl(
     private val permissionPolicy: UserPermissionPolicy,
     private val principal: PrincipalProvider,
     private val coverImageStore: CoverImageStore? = null,
+    private val sidecarWriter: SidecarWriter? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -131,6 +133,7 @@ internal class BookServiceImpl(
             permissionPolicy = permissionPolicy,
             principal = principal,
             coverImageStore = coverImageStore,
+            sidecarWriter = sidecarWriter,
         )
 
     /**
@@ -165,8 +168,16 @@ internal class BookServiceImpl(
                 repo.upsert(patched)
             }
         return when (upsertResult) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            is AppResult.Success -> {
+                // Curation changed — schedule the debounced listenup.json write-through
+                // (post-commit: upsert's transaction has already committed by here).
+                sidecarWriter?.markDirty(id.value)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(upsertResult.error)
+            }
         }
     }
 
@@ -212,8 +223,14 @@ internal class BookServiceImpl(
                     current.fieldProvenance.stampUser(setOf(BookField.AUTHORS, BookField.NARRATORS)),
             )
         return when (val upsertResult = repo.upsert(patched)) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            is AppResult.Success -> {
+                sidecarWriter?.markDirty(id.value)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(upsertResult.error)
+            }
         }
     }
 
@@ -241,8 +258,14 @@ internal class BookServiceImpl(
                     current.copy(chapters = payloadChapters, chapterSource = ChapterSource.USER),
                 )
         ) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(res.error)
+            is AppResult.Success -> {
+                sidecarWriter?.markDirty(id.value)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(res.error)
+            }
         }
     }
 
@@ -304,8 +327,14 @@ internal class BookServiceImpl(
                 fieldProvenance = current.fieldProvenance.stampUser(setOf(BookField.SERIES)),
             )
         return when (val upsertResult = repo.upsert(patched)) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            is AppResult.Success -> {
+                sidecarWriter?.markDirty(id.value)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(upsertResult.error)
+            }
         }
     }
 

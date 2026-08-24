@@ -1,10 +1,13 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.SidecarCuration
+import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
@@ -873,7 +876,7 @@ class BookRepository(
                 // effective payload carries the restored higher-tier scalars + the max-tier union, and
                 // the preserve flags ride into writePayload via the extras.
                 val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
-                val effectivePayload = merge?.payload ?: payload
+                val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
                 val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
                 val coverUnchanged =
                     existing?.cover?.source == CoverSource.UPLOADED ||
@@ -1222,7 +1225,7 @@ class BookRepository(
         // onto the effective payload (so a protected-only rescan matches stored and skips), and the
         // contributor/series preserve flags ride into writePayload via the extras.
         val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
-        val effectivePayload = merge?.payload ?: payload
+        val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
         val coverUnchanged =
             existing?.cover?.source == CoverSource.UPLOADED ||
@@ -1361,6 +1364,41 @@ class BookRepository(
             preserveContributors = protected(BookField.AUTHORS) || protected(BookField.NARRATORS),
             preserveSeries = protected(BookField.SERIES),
             preserveGenres = protected(BookField.GENRES),
+        )
+    }
+
+    /**
+     * Applies [curation] — re-ingested from an external `listenup.json` sidecar — onto a
+     * scan payload AFTER [mergeByProvenance] ran.
+     *
+     * Provenance merges by **max tier**, the same one write rule [mergeByProvenance] enforces:
+     * a sidecar entry replaces the payload's entry for that field iff it out-ranks it. That is
+     * what makes the sidecar restore correct in both directions — after a DB wipe the payload
+     * carries only tier-0 scan entries, so every recorded USER/ENRICHMENT entry wins and the
+     * user's curation comes back at the tier it was recorded at; against a live DB, a stale
+     * sidecar can never demote a higher-tier value the merge already restored.
+     *
+     * [SidecarCuration.userChapters], when present, replace the scan-derived chapter set with
+     * `chapterSource = USER` (writePayload's sticky-chapters guard admits USER-sourced incoming
+     * chapters). Running after the merge is load-bearing: the sidecar's fields must never count
+     * as *incoming re-edits*, or a scan could clobber a stored protected value with a
+     * scanner-derived one.
+     */
+    private fun BookSyncPayload.withSidecarCuration(curation: SidecarCuration?): BookSyncPayload {
+        if (curation == null) return this
+        val merged =
+            buildMap {
+                putAll(fieldProvenance)
+                curation.fieldProvenance.forEach { (field, prov) ->
+                    val stored = this[field]
+                    if (stored == null || prov.tier > stored.tier) put(field, prov)
+                }
+            }
+        val withProvenance = copy(fieldProvenance = merged)
+        val userChapters = curation.userChapters ?: return withProvenance
+        return withProvenance.copy(
+            chapters = userChapters.toChapterPayloads(totalDuration),
+            chapterSource = ChapterSource.USER,
         )
     }
 
@@ -1691,4 +1729,21 @@ class BookRepository(
     /** Test-only accessor for the protected [readPayloads]. */
     internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> =
         suspendTransaction(db) { readPayloads(idStrs) }
+}
+
+/**
+ * Converts sidecar-curated chapters (title + startMs only) to persistable chapter rows:
+ * each chapter's duration runs to the next chapter's start, the last to [totalDurationMs].
+ */
+private fun List<SidecarCurationChapter>.toChapterPayloads(totalDurationMs: Long): List<BookChapterPayload> {
+    val sorted = sortedBy { it.startMs }
+    return sorted.mapIndexed { index, chapter ->
+        val end = sorted.getOrNull(index + 1)?.startMs ?: totalDurationMs
+        BookChapterPayload(
+            id = "",
+            title = chapter.title,
+            duration = (end - chapter.startMs).coerceAtLeast(0L),
+            startTime = chapter.startMs,
+        )
+    }
 }

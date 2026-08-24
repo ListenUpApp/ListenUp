@@ -52,6 +52,7 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.OrphanParentPurger
 import com.calypsan.listenup.server.services.PendingGenrePromotion
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.sidecar.SidecarWriter
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.io.files.Path
 import org.koin.core.module.Module
@@ -160,6 +161,7 @@ fun booksModule(
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("BookService"),
                 coverImageStore = get<CoverImageStore>(),
+                sidecarWriter = getOrNull<SidecarWriter>(),
             )
         }
         single<ContributorService> {

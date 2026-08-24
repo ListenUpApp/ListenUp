@@ -268,6 +268,29 @@ class AdminSettingsServiceImplTest :
                 }
             }
         }
+
+        // (k) sidecarWritesEnabled defaults to true and round-trips through the settings KV store
+        test("updateServerSettings sidecarWritesEnabled defaults true, persists, and round-trips") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+
+                    // Absent key = enabled (spec: sidecar writes are on by default).
+                    svc.getServerSettings().shouldSucceed().sidecarWritesEnabled shouldBe true
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(sidecarWritesEnabled = false)).shouldSucceed()
+                    svc.getServerSettings().shouldSucceed().sidecarWritesEnabled shouldBe false
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(sidecarWritesEnabled = true)).shouldSucceed()
+                    svc.getServerSettings().shouldSucceed().sidecarWritesEnabled shouldBe true
+                }
+            }
+        }
     })
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────

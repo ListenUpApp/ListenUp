@@ -11,6 +11,8 @@ import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
+import com.calypsan.listenup.api.dto.scanner.SidecarCuration
+import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
 import com.calypsan.listenup.api.error.AudioMetadataError
@@ -31,8 +33,11 @@ import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedenceSource
 import com.calypsan.listenup.server.scanner.document.DocumentCollector
+import com.calypsan.listenup.server.scanner.sidecar.ListenUpSidecarReader
 import com.calypsan.listenup.server.scanner.sidecar.SidecarMetadata
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
+import com.calypsan.listenup.server.scanner.sidecar.SidecarReadResult
+import com.calypsan.listenup.server.sidecar.ListenUpSidecar
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -87,6 +92,7 @@ internal class Analyzer(
     private val sidecarParsers: List<SidecarParser> = emptyList(),
     private val precedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val documentCollector: DocumentCollector = DocumentCollector(),
+    private val listenUpSidecarReader: ListenUpSidecarReader? = null,
 ) {
     fun analyze(candidates: Flow<CandidateBook>): Flow<Result<AnalyzedBook>> =
         flow {
@@ -118,6 +124,12 @@ internal class Analyzer(
             val cover = resolveCover(candidate.files, embedded)
             val metadata = readMetadata(candidate)
             val sidecar = parseSidecars(candidate)
+            // The ListenUp curation sidecar — consulted at the top precedence slot. A SelfWritten
+            // file (hash-matches our own last write) is skipped entirely: re-ingesting our own
+            // output would be a no-op echo at best and a write loop at worst.
+            val listenUp =
+                (listenUpSidecarReader?.read(Path(rootPath, candidate.rootRelPath)) as? SidecarReadResult.External)
+                    ?.sidecar
             // Reuse the per-track parses already done in buildTracks for ordering.
             // Multi-track books are already parsed once there; synthesis reuses that
             // map instead of re-parsing every file. Single-track books and books
@@ -146,6 +158,7 @@ internal class Analyzer(
                 embeddedStatus,
                 metadata,
                 sidecar,
+                listenUp,
                 perTrackMetadata,
             )
         }
@@ -337,6 +350,85 @@ internal class Analyzer(
             null
         }
 
+    /**
+     * Resolves the book's display title/subtitle from the precedence-picked raw title.
+     *
+     * A title sourced from the ListenUp curation sidecar is the user's exact words — it
+     * bypasses the abridged-parse / series-suffix-strip / subtitle-split cleanup chain that
+     * exists to de-junk scanner-derived titles. An explicit subtitle (ListenUp sidecar,
+     * metadata.json, embedded TIT3/freeform, OPF dc:subtitle, or the gated folder " - "
+     * split) always wins; only when none exists is one derived from the title string —
+     * except a curated title, which is never split. A non-ListenUp explicit subtitle that
+     * is really a series reference (mistagged SUBTITLE/TIT3) is discarded so the real
+     * subtitle can be split out of the title.
+     */
+    @Suppress("LongParameterList") // The title resolution honestly consults every source.
+    private fun resolveTitleSubtitle(
+        candidate: CandidateBook,
+        shape: FolderShape,
+        parsed: ParsedTitle,
+        embedded: EmbeddedAudioMetadata?,
+        metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
+    ): ResolvedTitle {
+        val titleSourced = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
+        // A title always resolves; the rootRelPath fallback is path-derived, so its source is FOLDER.
+        val titleProvenance = titleSourced?.provenance ?: FieldProvenance(FieldSourceKind.FOLDER)
+        val rawTitle = titleSourced?.value ?: candidate.rootRelPath
+        val curatedTitleWins = rawTitle == listenUp?.metadata?.title?.takeUnless { it.isBlank() }
+        val (abridgedStripped, titleAbridged) =
+            if (curatedTitleWins) rawTitle to false else parseAbridgedFromTitle(rawTitle)
+        // Strip a strict trailing series suffix the tag/album baked into the title (", Book 6",
+        // "(Series, Book Two)", ": Series, Book 3"). Conservative — leaves prose series names alone.
+        val cleanedTitle =
+            if (curatedTitleWins) abridgedStripped else SeriesSuffixMatcher.stripTrailingSeriesSuffix(abridgedStripped)
+        val explicitSubtitle =
+            listenUpSourced(listenUp, BookField.SUBTITLE) { it.metadata.subtitle }
+                ?: firstSourced(
+                    FieldSourceKind.ABS_METADATA to metadata?.subtitle,
+                    FieldSourceKind.EMBEDDED to embedded?.tags?.subtitle,
+                    FieldSourceKind.SIDECAR to sidecar?.subtitle,
+                    FieldSourceKind.FILENAME to parsed.subtitle,
+                )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it.value) }
+        return when {
+            explicitSubtitle != null -> {
+                ResolvedTitle(
+                    cleanedTitle,
+                    explicitSubtitle.value,
+                    titleAbridged,
+                    titleProvenance,
+                    explicitSubtitle.provenance,
+                )
+            }
+
+            // Never split a user-curated title.
+            curatedTitleWins -> {
+                ResolvedTitle(cleanedTitle, null, titleAbridged, titleProvenance, null)
+            }
+
+            else -> {
+                TitleSubtitleSplitter.split(cleanedTitle).let { (t, sub) ->
+                    // A subtitle split out of the title shares the title's provenance.
+                    ResolvedTitle(t, sub, titleAbridged, titleProvenance, titleProvenance.takeIf { sub != null })
+                }
+            }
+        }
+    }
+
+    /**
+     * The resolved display title/subtitle plus the abridged flag parsed out of the raw title, each
+     * carrying the provenance of the source that won it. [subtitleProvenance] is non-null exactly
+     * when [subtitle] is.
+     */
+    private data class ResolvedTitle(
+        val title: String,
+        val subtitle: String?,
+        val titleAbridged: Boolean,
+        val titleProvenance: FieldProvenance,
+        val subtitleProvenance: FieldProvenance?,
+    )
+
     @Suppress("LongParameterList") // Composing the merged view honestly takes every source.
     private fun compose(
         candidate: CandidateBook,
@@ -348,42 +440,17 @@ internal class Analyzer(
         embeddedStatus: MetadataStatus?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
-        val titleSourced = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar)
-        // A title always resolves; the rootRelPath fallback is path-derived, so its source is FOLDER.
-        val titleKind = titleSourced?.kind ?: FieldSourceKind.FOLDER
-        val rawTitle = titleSourced?.value ?: candidate.rootRelPath
-        val (abridgedStripped, titleAbridged) = parseAbridgedFromTitle(rawTitle)
-        // Strip a strict trailing series suffix the tag/album baked into the title (", Book 6",
-        // "(Series, Book Two)", ": Series, Book 3"). Conservative — leaves prose series names alone.
-        val cleanedTitle = SeriesSuffixMatcher.stripTrailingSeriesSuffix(abridgedStripped)
+        val resolved = resolveTitleSubtitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
+        val title = resolved.title
+        val subtitle = resolved.subtitle
+        val titleAbridged = resolved.titleAbridged
 
-        // An explicit subtitle (metadata.json, embedded TIT3/freeform, OPF dc:subtitle, or the
-        // gated folder " - " split) always wins; only when none exists do we derive one from the
-        // title string. Applied uniformly to whatever source pickTitle chose.
-        // Discard an explicit subtitle that is really the series (a mistagged SUBTITLE/TIT3), so the
-        // real subtitle can be split out of the title below.
-        val explicitSubtitle =
-            firstSourced(
-                FieldSourceKind.ABS_METADATA to metadata?.subtitle,
-                FieldSourceKind.EMBEDDED to embedded?.tags?.subtitle,
-                FieldSourceKind.SIDECAR to sidecar?.subtitle,
-                FieldSourceKind.FILENAME to parsed.subtitle,
-            )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it.value) }
-        // subtitleKind is only meaningful when subtitle != null: an explicit subtitle carries its own
-        // source; a subtitle split out of the title shares the title's source.
-        val (title, subtitle, subtitleKind) =
-            if (explicitSubtitle != null) {
-                Triple(cleanedTitle, explicitSubtitle.value, explicitSubtitle.kind)
-            } else {
-                val (splitTitle, splitSubtitle) = TitleSubtitleSplitter.split(cleanedTitle)
-                Triple(splitTitle, splitSubtitle, titleKind)
-            }
-
-        val authors = pickAuthors(shape, embedded, metadata, sidecar)
-        val narrators = pickNarrators(parsed, embedded, metadata, sidecar)
-        val seriesEntries = pickSeries(shape, parsed, embedded, metadata, sidecar)
+        val authors = pickAuthors(shape, embedded, metadata, sidecar, listenUp)
+        val narrators = pickNarrators(parsed, embedded, metadata, sidecar, listenUp)
+        val seriesEntries = pickSeries(shape, parsed, embedded, metadata, sidecar, listenUp)
         val publishedYear =
             firstSourced(
                 FieldSourceKind.ABS_METADATA to metadata?.publishedYear,
@@ -392,12 +459,15 @@ internal class Analyzer(
                 FieldSourceKind.FILENAME to parsed.publishedYear,
             )
         val description =
-            firstSourced(
-                FieldSourceKind.ABS_METADATA to metadata?.description,
-                FieldSourceKind.EMBEDDED to embedded?.tags?.description,
-                FieldSourceKind.EMBEDDED to embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY),
-                FieldSourceKind.SIDECAR to sidecar?.description,
-            )?.let { Sourced(HtmlToMarkdown.convert(it.value), it.kind) }
+            (
+                listenUpSourced(listenUp, BookField.DESCRIPTION) { it.metadata.description }
+                    ?: firstSourced(
+                        FieldSourceKind.ABS_METADATA to metadata?.description,
+                        FieldSourceKind.EMBEDDED to embedded?.tags?.description,
+                        FieldSourceKind.EMBEDDED to embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY),
+                        FieldSourceKind.SIDECAR to sidecar?.description,
+                    )
+            )?.let { Sourced(HtmlToMarkdown.convert(it.value), it.provenance) }
         val publisher =
             firstSourced(
                 FieldSourceKind.ABS_METADATA to metadata?.publisher,
@@ -409,24 +479,26 @@ internal class Analyzer(
                 FieldSourceKind.ABS_METADATA to metadata?.language,
                 FieldSourceKind.EMBEDDED to embedded?.tags?.language,
                 FieldSourceKind.SIDECAR to sidecar?.language,
-            )?.let { Sourced(LanguageNormalizer.normalize(it.value), it.kind) }
-        val genres = pickGenres(embedded, metadata, sidecar)
+            )?.let { Sourced(LanguageNormalizer.normalize(it.value), it.provenance) }
+        val genres = pickGenres(embedded, metadata, sidecar, listenUp)
 
-        // Per-field scan provenance (tier 0): one entry per resolved field, tagged with the source that
-        // won it. Ties are already resolved by MetadataPrecedence at pick time. Fields with no scanned
-        // value get no entry (a rescan that drops the value clears it, provenance with it).
+        // Per-field provenance: one entry per resolved field, tagged with the authority that won it.
+        // Scan sources are all tier 0 and ties between them are already resolved by MetadataPrecedence
+        // at pick time. A field the ListenUp sidecar won instead carries the provenance the sidecar
+        // recorded for it, so a restore replays the user's edit at its original tier. Fields with no
+        // resolved value get no entry (a rescan that drops the value clears it, provenance with it).
         val fieldProvenance =
             buildMap {
-                put(BookField.TITLE, FieldProvenance(titleKind))
-                if (subtitle != null) put(BookField.SUBTITLE, FieldProvenance(subtitleKind))
-                authors?.let { put(BookField.AUTHORS, FieldProvenance(it.kind)) }
-                narrators?.let { put(BookField.NARRATORS, FieldProvenance(it.kind)) }
-                seriesEntries?.let { put(BookField.SERIES, FieldProvenance(it.kind)) }
-                publishedYear?.let { put(BookField.PUBLISH_YEAR, FieldProvenance(it.kind)) }
-                description?.let { put(BookField.DESCRIPTION, FieldProvenance(it.kind)) }
-                publisher?.let { put(BookField.PUBLISHER, FieldProvenance(it.kind)) }
-                language?.let { put(BookField.LANGUAGE, FieldProvenance(it.kind)) }
-                genres?.let { put(BookField.GENRES, FieldProvenance(it.kind)) }
+                put(BookField.TITLE, resolved.titleProvenance)
+                resolved.subtitleProvenance?.let { put(BookField.SUBTITLE, it) }
+                authors?.let { put(BookField.AUTHORS, it.provenance) }
+                narrators?.let { put(BookField.NARRATORS, it.provenance) }
+                seriesEntries?.let { put(BookField.SERIES, it.provenance) }
+                publishedYear?.let { put(BookField.PUBLISH_YEAR, it.provenance) }
+                description?.let { put(BookField.DESCRIPTION, it.provenance) }
+                publisher?.let { put(BookField.PUBLISHER, it.provenance) }
+                language?.let { put(BookField.LANGUAGE, it.provenance) }
+                genres?.let { put(BookField.GENRES, it.provenance) }
             }
 
         val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
@@ -444,7 +516,7 @@ internal class Analyzer(
             publisher = publisher?.value,
             language = language?.value,
             genres = genres?.value.orEmpty(),
-            tags = metadata?.tags.orEmpty(),
+            tags = listenUp?.metadata?.tags?.takeIf { it.isNotEmpty() } ?: metadata?.tags.orEmpty(),
             abridged = metadata?.abridged ?: titleAbridged,
             explicit = metadata?.explicit,
             cover = cover,
@@ -473,6 +545,7 @@ internal class Analyzer(
                         distinctAlbumTags = distinctAlbumTagCount(perTrackMetadata),
                     ),
             documents = documentCollector.collect(rootPath, Path(rootPath, candidate.rootRelPath), candidate.files),
+            sidecarCuration = listenUp?.toCuration(),
         )
     }
 
@@ -557,28 +630,52 @@ internal class Analyzer(
         return tracks.size >= 2
     }
 
-    /** A resolved scan value paired with the tier-0 [FieldSourceKind] that won it. */
+    /** A resolved scan value paired with the [FieldProvenance] of the source that won it. */
     private data class Sourced<out T>(
         val value: T,
-        val kind: FieldSourceKind,
+        val provenance: FieldProvenance,
     )
 
-    /** The scan-tier [FieldSourceKind] a precedence source maps to. */
-    private fun MetadataPrecedenceSource.scanKind(): FieldSourceKind =
+    /**
+     * The provenance a precedence source confers on [field].
+     *
+     * Every on-disk source is tier 0 — they differ only in *which* file won, and the winner is
+     * never sticky across scans. [MetadataPrecedenceSource.LISTENUP] is different in kind: the
+     * value came from a `listenup.json` this server wrote, so the provenance it restores is the
+     * one the sidecar *recorded* for that field, `provider` and `at` intact. A sidecar carrying a
+     * value but no recorded provenance for it is read as a user edit — curation is the only reason
+     * a value reaches the sidecar at all.
+     */
+    private fun MetadataPrecedenceSource.provenanceFor(
+        field: BookField,
+        listenUp: ListenUpSidecar?,
+    ): FieldProvenance =
         when (this) {
-            MetadataPrecedenceSource.ABS_METADATA -> FieldSourceKind.ABS_METADATA
-            MetadataPrecedenceSource.EMBEDDED -> FieldSourceKind.EMBEDDED
-            MetadataPrecedenceSource.SIDECAR -> FieldSourceKind.SIDECAR
-            MetadataPrecedenceSource.FILENAME -> FieldSourceKind.FILENAME
-            MetadataPrecedenceSource.FOLDER -> FieldSourceKind.FOLDER
+            MetadataPrecedenceSource.LISTENUP -> listenUp.recordedProvenance(field)
+            MetadataPrecedenceSource.ABS_METADATA -> FieldProvenance(FieldSourceKind.ABS_METADATA)
+            MetadataPrecedenceSource.EMBEDDED -> FieldProvenance(FieldSourceKind.EMBEDDED)
+            MetadataPrecedenceSource.SIDECAR -> FieldProvenance(FieldSourceKind.SIDECAR)
+            MetadataPrecedenceSource.FILENAME -> FieldProvenance(FieldSourceKind.FILENAME)
+            MetadataPrecedenceSource.FOLDER -> FieldProvenance(FieldSourceKind.FOLDER)
         }
+
+    /**
+     * The ListenUp sidecar's value for [field] (via [select]) paired with the provenance the
+     * sidecar recorded for it — the [MetadataPrecedenceSource.LISTENUP] slot for the fields whose
+     * precedence is a fixed `?:` chain rather than the configurable [precedence] order.
+     */
+    private fun <T : Any> listenUpSourced(
+        listenUp: ListenUpSidecar?,
+        field: BookField,
+        select: (ListenUpSidecar) -> T?,
+    ): Sourced<T>? = listenUp?.let { sc -> select(sc)?.let { Sourced(it, listenUp.recordedProvenance(field)) } }
 
     /**
      * The first non-null value across [options] in the given order, tagged with its scan source. Mirrors
      * the fixed `?:` fallback chains for fields whose precedence isn't library-configurable.
      */
     private fun <T : Any> firstSourced(vararg options: Pair<FieldSourceKind, T?>): Sourced<T>? =
-        options.firstNotNullOfOrNull { (kind, v) -> v?.let { Sourced(it, kind) } }
+        options.firstNotNullOfOrNull { (kind, v) -> v?.let { Sourced(it, FieldProvenance(kind)) } }
 
     private fun pickTitle(
         candidate: CandidateBook,
@@ -587,16 +684,18 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): Sourced<String>? {
         val multiFile = candidate.files.count { it.fileType == FileType.AUDIO } > 1
         return precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> listenUp?.metadata?.title?.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.ABS_METADATA -> metadata?.title?.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.EMBEDDED -> embeddedBookTitle(embedded, multiFile)
                 MetadataPrecedenceSource.SIDECAR -> sidecar?.title?.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.FILENAME -> parsed.title.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.FOLDER -> shape.titleFolder.takeUnless { it.isBlank() }
-            }?.let { Sourced(it, source.scanKind()) }
+            }?.let { Sourced(it, source.provenanceFor(BookField.TITLE, listenUp)) }
         }
     }
 
@@ -625,15 +724,34 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): Sourced<List<String>>? =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
-                MetadataPrecedenceSource.ABS_METADATA -> metadata?.authors?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.SIDECAR -> sidecar.contributorNames(role = "author").takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.FILENAME -> null
-                MetadataPrecedenceSource.FOLDER -> shape.authorFolder?.let { listOf(it) }
-            }?.let { Sourced(it, source.scanKind()) }
+                MetadataPrecedenceSource.LISTENUP -> {
+                    listenUp.contributorNames(role = "author").takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.ABS_METADATA -> {
+                    metadata?.authors?.takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.EMBEDDED -> {
+                    embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.SIDECAR -> {
+                    sidecar.contributorNames(role = "author").takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.FILENAME -> {
+                    null
+                }
+
+                MetadataPrecedenceSource.FOLDER -> {
+                    shape.authorFolder?.let { listOf(it) }
+                }
+            }?.let { Sourced(it, source.provenanceFor(BookField.AUTHORS, listenUp)) }
         }
 
     private fun pickNarrators(
@@ -641,9 +759,14 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): Sourced<List<String>>? =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> {
+                    listenUp.contributorNames(role = "narrator").takeIf { it.isNotEmpty() }
+                }
+
                 MetadataPrecedenceSource.ABS_METADATA -> {
                     metadata?.narrators?.takeIf { it.isNotEmpty() }
                 }
@@ -666,7 +789,7 @@ internal class Analyzer(
                 MetadataPrecedenceSource.FOLDER -> {
                     null
                 }
-            }?.let { Sourced(it, source.scanKind()) }
+            }?.let { Sourced(it, source.provenanceFor(BookField.NARRATORS, listenUp)) }
         }
 
     private fun pickSeries(
@@ -675,9 +798,19 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): Sourced<List<SeriesEntry>>? =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> {
+                    listenUp
+                        ?.metadata
+                        ?.series
+                        .orEmpty()
+                        .map { SeriesEntry(name = it.name, sequence = it.sequence) }
+                        .takeIf { it.isNotEmpty() }
+                }
+
                 MetadataPrecedenceSource.ABS_METADATA -> {
                     metadataReader.parseSeriesEntries(metadata?.series.orEmpty()).takeIf { it.isNotEmpty() }
                 }
@@ -702,22 +835,24 @@ internal class Analyzer(
                 MetadataPrecedenceSource.FOLDER -> {
                     shape.seriesFolder?.let { listOf(SeriesEntry(name = it, sequence = parsed.sequence)) }
                 }
-            }?.let { Sourced(it, source.scanKind()) }
+            }?.let { Sourced(it, source.provenanceFor(BookField.SERIES, listenUp)) }
         }
 
     private fun pickGenres(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): Sourced<List<String>>? =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> listenUp?.metadata?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.ABS_METADATA -> metadata?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.SIDECAR -> sidecar?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.FILENAME -> null
                 MetadataPrecedenceSource.FOLDER -> null
-            }?.let { Sourced(it, source.scanKind()) }
+            }?.let { Sourced(it, source.provenanceFor(BookField.GENRES, listenUp)) }
         }
 
     /**
@@ -750,6 +885,41 @@ private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata 
         asin = asin ?: other.asin,
         contributors = contributors + other.contributors,
     )
+
+/**
+ * The scanner→persist curation payload from an external ListenUp sidecar: per-field provenance
+ * (unknown field names dropped for forward compat) plus USER chapters.
+ */
+private fun ListenUpSidecar.toCuration(): SidecarCuration =
+    SidecarCuration(
+        fieldProvenance =
+            fieldProvenance.entries
+                .mapNotNull { (name, prov) ->
+                    BookField.entries.firstOrNull { it.name == name }?.let { it to prov }
+                }.toMap(),
+        userChapters =
+            chapters
+                ?.takeIf { it.source.equals("USER", ignoreCase = true) }
+                ?.entries
+                ?.map { SidecarCurationChapter(title = it.title, startMs = it.startMs) },
+    )
+
+/**
+ * The provenance the sidecar recorded for [field], or a [FieldSourceKind.USER] stamp when it
+ * recorded none (or the sidecar is absent but its slot still won — impossible today, but the
+ * total function keeps the caller branch-free). Unknown field names on disk are ignored.
+ */
+private fun ListenUpSidecar?.recordedProvenance(field: BookField): FieldProvenance =
+    this?.fieldProvenance?.get(field.name) ?: FieldProvenance(FieldSourceKind.USER)
+
+/** Names of ListenUp-sidecar contributors with the given [role] (case-insensitive). */
+private fun ListenUpSidecar?.contributorNames(role: String): List<String> =
+    this
+        ?.metadata
+        ?.contributors
+        .orEmpty()
+        .filter { it.role.equals(role, ignoreCase = true) }
+        .map { it.name }
 
 /** Names of sidecar contributors with the given [role] (case-insensitive). */
 private fun SidecarMetadata?.contributorNames(role: String): List<String> =
