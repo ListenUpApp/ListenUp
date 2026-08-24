@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -60,6 +61,7 @@ fun ColorBlockHero(
     supportingText: String? = null,
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
         modifier = modifier,
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -80,7 +82,12 @@ fun ColorBlockHero(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                IconButton(onClick = onBack) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onBack()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = stringResource(Res.string.common_back),

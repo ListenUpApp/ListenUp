@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.NotificationBell
 import com.calypsan.listenup.client.design.components.UserAvatarMenu
@@ -127,6 +128,8 @@ fun AppHeader(
     showAvatarLabel: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
+
     // The persistent inline search box needs real room beside the hero + avatar — only show it on
     // genuinely wide (expanded) chrome. Medium widths (e.g. tablet portrait) keep the compact icon.
     val isWide =
@@ -146,7 +149,12 @@ fun AppHeader(
     ) { expanded ->
         if (expanded) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { onSearchExpandedChange(false) }) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onSearchExpandedChange(false)
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(Res.string.shell_close_search),
@@ -174,7 +182,12 @@ fun AppHeader(
                         modifier = Modifier.width(320.dp).height(52.dp).padding(end = 8.dp),
                     )
                 } else {
-                    IconButton(onClick = { onSearchExpandedChange(true) }) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onSearchExpandedChange(true)
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = stringResource(Res.string.common_search),
@@ -314,6 +327,7 @@ private fun SyncIndicator(
     onDismissAll: () -> Unit = {},
     onSyncDetailsDismiss: () -> Unit = {},
 ) {
+    val haptics = LocalHaptics.current
     Box {
         when (syncState) {
             is SyncState.Syncing,
@@ -326,8 +340,10 @@ private fun SyncIndicator(
                             .clickable(
                                 onClickLabel = stringResource(Res.string.shell_sync_details_action),
                                 role = Role.Button,
-                                onClick = onClick,
-                            ).padding(horizontal = 12.dp, vertical = 12.dp),
+                            ) {
+                                haptics.press()
+                                onClick()
+                            }.padding(horizontal = 12.dp, vertical = 12.dp),
                 )
             }
 
@@ -341,8 +357,10 @@ private fun SyncIndicator(
                             .clickable(
                                 onClickLabel = stringResource(Res.string.shell_sync_details_action),
                                 role = Role.Button,
-                                onClick = onClick,
-                            ).padding(horizontal = 12.dp, vertical = 12.dp),
+                            ) {
+                                haptics.press()
+                                onClick()
+                            }.padding(horizontal = 12.dp, vertical = 12.dp),
                 )
             }
 

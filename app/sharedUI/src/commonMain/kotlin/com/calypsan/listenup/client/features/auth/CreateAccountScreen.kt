@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
@@ -329,6 +330,7 @@ internal fun CreateAccountFields(
 
 @Composable
 private fun SignInPrompt(onSignIn: () -> Unit) {
+    val haptics = LocalHaptics.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
@@ -339,7 +341,12 @@ private fun SignInPrompt(onSignIn: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        TextButton(onClick = onSignIn) {
+        TextButton(
+            onClick = {
+                haptics.press()
+                onSignIn()
+            },
+        ) {
             Text(stringResource(Res.string.auth_sign_in))
         }
     }

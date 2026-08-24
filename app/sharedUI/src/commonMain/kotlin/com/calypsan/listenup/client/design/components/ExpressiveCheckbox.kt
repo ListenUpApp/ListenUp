@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 private val CHECKBOX_SIZE = 26.dp
 private val CHECKBOX_RADIUS = 8.dp
@@ -44,9 +45,13 @@ fun ExpressiveCheckbox(
     onCheckedChange: ((Boolean) -> Unit)? = null,
     accent: Color = MaterialTheme.colorScheme.primary,
 ) {
+    val haptics = LocalHaptics.current
     val clickModifier =
         if (onCheckedChange != null) {
-            Modifier.clickable(role = Role.Checkbox) { onCheckedChange(!checked) }
+            Modifier.clickable(role = Role.Checkbox) {
+                haptics.toggle(on = !checked)
+                onCheckedChange(!checked)
+            }
         } else {
             Modifier
         }

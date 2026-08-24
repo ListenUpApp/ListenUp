@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -64,6 +65,7 @@ fun BookReadersScreen(
     onUserClick: (String) -> Unit,
     viewModel: BookReadersViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
 ) {
+    val haptics = LocalHaptics.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     ListenUpScaffold(
@@ -71,7 +73,12 @@ fun BookReadersScreen(
             TopAppBar(
                 title = { Text(stringResource(Res.string.book_detail_readers)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onBack()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(Res.string.common_back),

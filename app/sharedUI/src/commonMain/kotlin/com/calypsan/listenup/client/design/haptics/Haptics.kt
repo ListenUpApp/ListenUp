@@ -42,9 +42,13 @@ internal class HapticFeedbackHaptics(
     // differ here, so don't "fix" either side into parity.
     override fun press() = feedback.performHapticFeedback(HapticFeedbackType.VirtualKey)
 
+    // ToggleOff is inert on Pixel/Android 17 (verified on device): turning a switch OFF produced no
+    // feedback at all, while ToggleOn was felt every time. ContextClick is perceptible on the same
+    // hardware and still reads as "a discrete state change occurred", so the off direction confirms
+    // itself instead of going silent.
     override fun toggle(on: Boolean) =
         feedback.performHapticFeedback(
-            if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff,
+            if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ContextClick,
         )
 
     override fun longPress() = feedback.performHapticFeedback(HapticFeedbackType.LongPress)

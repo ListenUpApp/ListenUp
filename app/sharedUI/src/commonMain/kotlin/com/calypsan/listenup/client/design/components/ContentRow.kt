@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * A soft, clickable list-row tile: a rounded [containerColor] [Surface] wrapping a centred [Row].
@@ -30,8 +31,12 @@ fun ContentRow(
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = containerColor,

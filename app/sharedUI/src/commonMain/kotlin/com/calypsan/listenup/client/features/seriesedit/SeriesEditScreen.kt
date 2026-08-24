@@ -53,6 +53,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
@@ -230,10 +231,16 @@ private fun SeriesOverflowMenu(
     onMergeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        IconButton(onClick = { expanded = true }) {
+        IconButton(
+            onClick = {
+                haptics.press()
+                expanded = true
+            },
+        ) {
             Icon(
                 imageVector = Icons.Default.MoreVert,
                 contentDescription = stringResource(Res.string.book_detail_more_options),
@@ -300,6 +307,7 @@ private fun ErrorContent(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -308,7 +316,12 @@ private fun ErrorContent(
             text = error ?: stringResource(Res.string.error_unknown),
             color = MaterialTheme.colorScheme.error,
         )
-        TextButton(onClick = onDismiss) {
+        TextButton(
+            onClick = {
+                haptics.press()
+                onDismiss()
+            },
+        ) {
             Text(stringResource(Res.string.common_dismiss))
         }
     }
@@ -396,6 +409,7 @@ private fun SeriesIdentityHeader(
     onMergeClick: () -> Unit,
     onBackClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -417,7 +431,12 @@ private fun SeriesIdentityHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                IconButton(onClick = onBackClick) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onBackClick()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = stringResource(Res.string.common_back),

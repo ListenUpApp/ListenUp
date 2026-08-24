@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextField
@@ -75,6 +76,7 @@ fun ContributorMetadataSearchScreen(
     onResultClick: (MetadataContributorHit) -> Unit,
     onBack: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val isSearching = state.loadState is ContributorSearchLoadState.InFlight
     val searchError = (state.loadState as? ContributorSearchLoadState.Failed)?.message
     val searchResults = (state.loadState as? ContributorSearchLoadState.Loaded)?.results.orEmpty()
@@ -84,7 +86,12 @@ fun ContributorMetadataSearchScreen(
             TopAppBar(
                 title = { Text(stringResource(Res.string.contributor_find_on_audible)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onBack()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.common_back),

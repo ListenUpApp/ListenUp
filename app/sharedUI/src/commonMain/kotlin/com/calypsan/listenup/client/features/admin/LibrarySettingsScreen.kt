@@ -27,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -178,6 +179,7 @@ private fun LibrarySettingsContent(
     onTriggerScan: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val library = state.library
     var folderToRemove by remember { mutableStateOf<LibraryFolderRef?>(null) }
 
@@ -190,15 +192,23 @@ private fun LibrarySettingsContent(
                 Text(stringResource(Res.string.admin_remove_path_from_library_scan, folder.rootPath ?: folder.id))
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onRemoveFolder(folder.id)
-                    folderToRemove = null
-                }) {
+                TextButton(
+                    onClick = {
+                        haptics.commit()
+                        onRemoveFolder(folder.id)
+                        folderToRemove = null
+                    },
+                ) {
                     Text(stringResource(Res.string.common_remove))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { folderToRemove = null }) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        folderToRemove = null
+                    },
+                ) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -226,7 +236,12 @@ private fun LibrarySettingsContent(
                         trailing =
                             if (canRemove) {
                                 {
-                                    IconButton(onClick = { folderToRemove = folder }) {
+                                    IconButton(
+                                        onClick = {
+                                            haptics.press()
+                                            folderToRemove = folder
+                                        },
+                                    ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Close,
                                             contentDescription = stringResource(Res.string.admin_remove_path),
@@ -281,6 +296,7 @@ private fun FolderBrowserDialog(
     onNavigateUp: () -> Unit,
     onSelectPath: (String) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     BasicAlertDialog(
         onDismissRequest = onDismiss,
     ) {
@@ -294,13 +310,23 @@ private fun FolderBrowserDialog(
                     title = { Text(stringResource(Res.string.admin_select_folder)) },
                     navigationIcon = {
                         if (!state.browserIsRoot) {
-                            IconButton(onClick = onNavigateUp) {
+                            IconButton(
+                                onClick = {
+                                    haptics.press()
+                                    onNavigateUp()
+                                },
+                            ) {
                                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
                             }
                         }
                     },
                     actions = {
-                        IconButton(onClick = onDismiss) {
+                        IconButton(
+                            onClick = {
+                                haptics.press()
+                                onDismiss()
+                            },
+                        ) {
                             Icon(Icons.Outlined.Close, "Close")
                         }
                     },

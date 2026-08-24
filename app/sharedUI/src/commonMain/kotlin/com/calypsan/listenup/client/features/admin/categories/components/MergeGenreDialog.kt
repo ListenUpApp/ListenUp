@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.Genre
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_merge_confirm
@@ -65,6 +66,7 @@ internal fun MergeGenreDialog(
     onConfirm: (targetId: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var selectedId by remember { mutableStateOf<String?>(null) }
     // Derived, not stored: if the selected candidate is renamed or removed out from under an
     // open dialog, `target` goes null on the next recomposition and every slot below falls
@@ -96,7 +98,12 @@ internal fun MergeGenreDialog(
         },
         confirmButton = {
             if (target != null) {
-                TextButton(onClick = { onConfirm(target.id) }) {
+                TextButton(
+                    onClick = {
+                        haptics.commit()
+                        onConfirm(target.id)
+                    },
+                ) {
                     Text(
                         text = stringResource(Res.string.admin_merge_confirm),
                         color = MaterialTheme.colorScheme.error,

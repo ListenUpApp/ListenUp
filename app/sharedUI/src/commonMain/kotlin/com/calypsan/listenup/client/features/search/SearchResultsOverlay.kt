@@ -69,6 +69,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ContentRow
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.PillChip
@@ -241,6 +242,7 @@ private fun SearchPillBar(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -250,7 +252,12 @@ private fun SearchPillBar(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onClose) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onClose()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(Res.string.shell_close_search),
@@ -264,7 +271,12 @@ private fun SearchPillBar(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = onClose) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onClose()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(Res.string.shell_close_search),
@@ -627,8 +639,12 @@ private fun SeeAllAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier,
@@ -724,6 +740,7 @@ private fun SeeAllTopBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier =
             modifier
@@ -732,7 +749,12 @@ private fun SeeAllTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        IconButton(onClick = onBack) {
+        IconButton(
+            onClick = {
+                haptics.press()
+                onBack()
+            },
+        ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(Res.string.shell_close_search),
@@ -948,6 +970,7 @@ private fun TagFlow(
     onResultClick: (SearchHit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -955,7 +978,10 @@ private fun TagFlow(
     ) {
         tags.forEach { hit ->
             Surface(
-                onClick = { onResultClick(hit) },
+                onClick = {
+                    haptics.press()
+                    onResultClick(hit)
+                },
                 shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {

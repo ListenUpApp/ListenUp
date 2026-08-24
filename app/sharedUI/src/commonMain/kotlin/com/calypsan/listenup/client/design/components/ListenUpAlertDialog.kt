@@ -8,6 +8,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * ListenUp styled alert dialog with consistent Material 3 Expressive styling.
@@ -37,6 +38,7 @@ fun ListenUpAlertDialog(
     icon: ImageVector? = null,
     confirmColor: Color = MaterialTheme.colorScheme.primary,
 ) {
+    val haptics = LocalHaptics.current
     AlertDialog(
         onDismissRequest = onDismissRequest,
         shape = MaterialTheme.shapes.large,
@@ -45,14 +47,24 @@ fun ListenUpAlertDialog(
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(
+                onClick = {
+                    haptics.commit()
+                    onConfirm()
+                },
+            ) {
                 Text(confirmText, color = confirmColor)
             }
         },
         dismissButton =
             if (dismissText != null && onDismiss != null) {
                 {
-                    TextButton(onClick = onDismiss) {
+                    TextButton(
+                        onClick = {
+                            haptics.press()
+                            onDismiss()
+                        },
+                    ) {
                         Text(dismissText)
                     }
                 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -168,11 +169,13 @@ fun AutocompleteResultItem(
     },
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
+    val haptics = LocalHaptics.current
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .clickable {
+                    haptics.selectionTick()
                     keyboardController?.hide()
                     onClick()
                 }.padding(horizontal = 16.dp, vertical = 12.dp),

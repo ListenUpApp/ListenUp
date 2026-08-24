@@ -56,6 +56,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
@@ -222,6 +223,7 @@ private fun ReaderTopBar(
     chromeVisible: Boolean,
     onGrid: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var showOverflowMenu by remember { mutableStateOf(false) }
 
     AnimatedVisibility(
@@ -232,7 +234,12 @@ private fun ReaderTopBar(
         TopAppBar(
             title = { Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
-                IconButton(onClick = onBack) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onBack()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(Res.string.common_back),
@@ -240,14 +247,24 @@ private fun ReaderTopBar(
                 }
             },
             actions = {
-                IconButton(onClick = onGrid) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onGrid()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.Rounded.GridView,
                         contentDescription = stringResource(Res.string.book_detail_document_reader_toggle_grid),
                     )
                 }
                 Box {
-                    IconButton(onClick = { showOverflowMenu = true }) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            showOverflowMenu = true
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = stringResource(Res.string.book_detail_more_options),

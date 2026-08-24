@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.contributor_rename_collision_body
 import listenup.composeapp.generated.resources.contributor_rename_collision_keep_separate
@@ -36,6 +37,7 @@ fun RenameCollisionDialog(
     onKeepSeparate: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
@@ -48,12 +50,22 @@ fun RenameCollisionDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onMerge) {
+            TextButton(
+                onClick = {
+                    haptics.commit()
+                    onMerge()
+                },
+            ) {
                 Text(stringResource(Res.string.contributor_rename_collision_merge))
             }
         },
         dismissButton = {
-            TextButton(onClick = onKeepSeparate) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onKeepSeparate()
+                },
+            ) {
                 Text(stringResource(Res.string.contributor_rename_collision_keep_separate))
             }
         },

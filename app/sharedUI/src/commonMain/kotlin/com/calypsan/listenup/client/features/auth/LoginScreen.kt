@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
@@ -199,8 +200,14 @@ internal fun LoginFields(
         keyboardActions = KeyboardActions(onDone = { submit() }),
     )
 
+    val haptics = LocalHaptics.current
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        TextButton(onClick = onForgotPassword) {
+        TextButton(
+            onClick = {
+                haptics.press()
+                onForgotPassword()
+            },
+        ) {
             Text(stringResource(Res.string.auth_forgot_password))
         }
     }
@@ -222,6 +229,7 @@ internal fun LoginFooter(
     showRootReset: Boolean,
     onResetRoot: () -> Unit = {},
 ) {
+    val haptics = LocalHaptics.current
     if (openRegistration) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -233,14 +241,22 @@ internal fun LoginFooter(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(onClick = onRegister) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onRegister()
+                },
+            ) {
                 Text(stringResource(Res.string.auth_create_account))
             }
         }
     }
 
     FilledTonalButton(
-        onClick = onChangeServer,
+        onClick = {
+            haptics.press()
+            onChangeServer()
+        },
         modifier = Modifier.fillMaxWidth().height(52.dp),
     ) {
         Icon(Icons.Outlined.Dns, contentDescription = null)
@@ -255,7 +271,12 @@ internal fun LoginFooter(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
         ) {
-            TextButton(onClick = onResetRoot) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onResetRoot()
+                },
+            ) {
                 Text(
                     text = stringResource(Res.string.auth_reset_root),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -288,6 +309,7 @@ private fun RootResetDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var succeeded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val haptics = LocalHaptics.current
 
     fun submit() {
         isSubmitting = true
@@ -354,7 +376,12 @@ private fun RootResetDialog(
         },
         confirmButton = {
             if (succeeded) {
-                TextButton(onClick = onDismissRequest) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        onDismissRequest()
+                    },
+                ) {
                     Text(stringResource(Res.string.common_done))
                 }
             } else {
@@ -368,7 +395,13 @@ private fun RootResetDialog(
         },
         dismissButton = {
             if (!succeeded) {
-                TextButton(onClick = onDismissRequest, enabled = !isSubmitting) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        onDismissRequest()
+                    },
+                    enabled = !isSubmitting,
+                ) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             }

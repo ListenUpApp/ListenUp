@@ -60,6 +60,7 @@ import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.TonalIconTile
@@ -807,8 +808,12 @@ private fun ChapterNamesItem(
         }
 
         is ChapterSuggestion.Available -> {
+            val haptics = LocalHaptics.current
             Surface(
-                onClick = onReview,
+                onClick = {
+                    haptics.press()
+                    onReview()
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.secondaryContainer,
@@ -952,6 +957,7 @@ private fun CoverOptionCard(
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -959,7 +965,10 @@ private fun CoverOptionCard(
             modifier =
                 Modifier
                     .size(100.dp)
-                    .clickable(onClick = onClick),
+                    .clickable {
+                        haptics.selectionTick()
+                        onClick()
+                    },
             shape = MaterialTheme.shapes.large,
             border =
                 if (isSelected) {
@@ -1108,10 +1117,17 @@ private fun SimpleFieldRow(
     showDivider: Boolean,
     sourceLabel: String? = null,
 ) {
+    val haptics = LocalHaptics.current
     Column(modifier = Modifier.fillMaxWidth()) {
         FieldRowDivider(show = showDivider)
         Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(15.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptics.toggle(on = !isSelected)
+                        onToggle()
+                    }.padding(15.dp),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -1230,8 +1246,15 @@ private fun ValueCheckRow(
     text: String,
     onToggle: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    haptics.toggle(on = !checked)
+                    onToggle()
+                }.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -1349,8 +1372,12 @@ private fun GenreToggleChip(
     onClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.selectionTick()
+            onClick()
+        },
         shape = RoundedCornerShape(percent = 50),
         color = if (selected) colors.tertiaryContainer else colors.surfaceContainerHighest,
         contentColor = if (selected) colors.onTertiaryContainer else colors.onSurfaceVariant,

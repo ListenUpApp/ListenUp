@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_clear_search
@@ -50,6 +51,7 @@ fun ListenUpSearchField(
     isLoading: Boolean = false,
     onClear: (() -> Unit)? = null,
 ) {
+    val haptics = LocalHaptics.current
     val ownedText = rememberOwnedTextFieldState(value)
     OutlinedTextField(
         value = ownedText.fieldValue,
@@ -76,7 +78,12 @@ fun ListenUpSearchField(
                 // Gate on the local text — it is what the field renders, so the clear affordance
                 // never disagrees with what the user sees while an echo is in flight.
                 ownedText.fieldValue.text.isNotEmpty() && onClear != null -> {
-                    IconButton(onClick = onClear) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onClear()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Clear,
                             contentDescription = stringResource(Res.string.common_clear_search),

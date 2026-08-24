@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -78,6 +79,7 @@ internal fun PageGridOverlay(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surfaceDim,
@@ -86,7 +88,12 @@ internal fun PageGridOverlay(
             TopAppBar(
                 title = { Text(text = stringResource(Res.string.book_detail_document_pages_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onClose) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onClose()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = stringResource(Res.string.book_detail_document_pages_back),

@@ -137,8 +137,12 @@ fun LabelPill(
     label: String,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {

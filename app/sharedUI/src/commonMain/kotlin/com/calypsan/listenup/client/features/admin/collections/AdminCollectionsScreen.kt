@@ -54,6 +54,7 @@ import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
@@ -335,9 +336,14 @@ private fun CollectionCard(
     val cornerDp = if (isWide) CARD_CORNER_WIDE_DP.dp else CARD_CORNER_DP.dp
     val padDp = if (isWide) CARD_PADDING_WIDE_DP.dp else CARD_PADDING_DP.dp
     val badgeSize = if (isWide) 64.dp else BADGE_SIZE_DP.dp
+    val haptics = LocalHaptics.current
 
     Surface(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier =
+            modifier.fillMaxWidth().clickable {
+                haptics.press()
+                onClick()
+            },
         shape = RoundedCornerShape(cornerDp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
@@ -362,6 +368,7 @@ private fun CollectionCardTopRow(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -397,7 +404,11 @@ private fun CollectionCardTopRow(
                     icon = Icons.Outlined.Delete,
                     size = DELETE_TILE_SIZE_DP.dp,
                     danger = true,
-                    modifier = Modifier.clickable(onClick = onDeleteClick),
+                    modifier =
+                        Modifier.clickable {
+                            haptics.press()
+                            onDeleteClick()
+                        },
                 )
             }
         }
@@ -468,9 +479,14 @@ private fun NewCollectionCard(
 ) {
     val cornerDp = if (isWide) CARD_CORNER_WIDE_DP.dp else CARD_CORNER_DP.dp
     val minHeight = if (isWide) 196.dp else 168.dp
+    val haptics = LocalHaptics.current
 
     Surface(
-        modifier = modifier.fillMaxWidth().height(minHeight).clickable(onClick = onClick),
+        modifier =
+            modifier.fillMaxWidth().height(minHeight).clickable {
+                haptics.press()
+                onClick()
+            },
         shape = RoundedCornerShape(cornerDp),
         color = Color.Transparent,
         border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -541,6 +557,7 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var name by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -559,7 +576,12 @@ private fun CreateCollectionDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { if (name.isNotBlank()) onConfirm(name) },
+                onClick = {
+                    if (name.isNotBlank()) {
+                        haptics.commit()
+                        onConfirm(name)
+                    }
+                },
                 enabled = !isCreating && name.isNotBlank(),
             ) {
                 if (isCreating) {
@@ -571,7 +593,10 @@ private fun CreateCollectionDialog(
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss,
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
                 enabled = !isCreating,
             ) {
                 Text(stringResource(Res.string.common_cancel))

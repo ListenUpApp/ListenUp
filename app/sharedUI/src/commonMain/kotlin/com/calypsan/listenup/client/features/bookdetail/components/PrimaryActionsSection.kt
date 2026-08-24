@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.features.bookdetail.DownloadButton
 import org.jetbrains.compose.resources.stringResource
@@ -62,6 +63,7 @@ fun PrimaryActionsSection(
     showServerWarning: Boolean = false,
     isPreparing: Boolean = false,
 ) {
+    val haptics = LocalHaptics.current
     val focusRequester = FocusRequester()
 
     if (requestFocus) {
@@ -77,7 +79,15 @@ fun PrimaryActionsSection(
     ) {
         // Primary Play Button — left pill of the connected group: large outer corners, small inner corners
         Button(
-            onClick = if (playEnabled) onPlayClick else onPlayDisabledClick,
+            onClick = {
+                // Only the live Play path gets the press — a disabled tap merely explains itself.
+                if (playEnabled) {
+                    haptics.press()
+                    onPlayClick()
+                } else {
+                    onPlayDisabledClick()
+                }
+            },
             modifier =
                 Modifier
                     .weight(2f)

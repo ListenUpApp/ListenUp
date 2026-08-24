@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -84,6 +85,7 @@ fun StorageScreen(
     onNavigateBack: () -> Unit,
     viewModel: StorageViewModel = koinViewModel(),
 ) {
+    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     // Handle delete confirmation dialogs
@@ -130,7 +132,12 @@ fun StorageScreen(
             title = { Text(stringResource(Res.string.settings_cant_delete_playing_title)) },
             text = { Text(stringResource(Res.string.settings_cant_delete_playing_message, title)) },
             confirmButton = {
-                TextButton(onClick = viewModel::dismissDeleteBlocked) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        viewModel.dismissDeleteBlocked()
+                    },
+                ) {
                     Text(stringResource(Res.string.common_ok))
                 }
             },
@@ -142,7 +149,12 @@ fun StorageScreen(
             TopAppBar(
                 title = { Text(stringResource(Res.string.common_storage)) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onNavigateBack()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.common_back),

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -80,6 +81,7 @@ fun ContributorMetadataPreviewScreen(
     onChangeMatch: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val ready = state.loadState as? ContributorPreviewLoadState.Ready
 
     ListenUpScaffold(
@@ -87,7 +89,12 @@ fun ContributorMetadataPreviewScreen(
             TopAppBar(
                 title = { Text(stringResource(Res.string.contributor_preview_changes)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onBack()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.common_back),

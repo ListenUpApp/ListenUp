@@ -32,7 +32,9 @@ class HapticFeedbackHapticsTest :
                     HapticFeedbackType.SegmentTick,
                     HapticFeedbackType.VirtualKey,
                     HapticFeedbackType.ToggleOn,
-                    HapticFeedbackType.ToggleOff,
+                    // Not ToggleOff — it is inert on Pixel/Android 17, so the off direction uses the
+                    // perceptible ContextClick instead (see HapticFeedbackHaptics.toggle).
+                    HapticFeedbackType.ContextClick,
                     HapticFeedbackType.LongPress,
                     HapticFeedbackType.GestureThresholdActivate,
                     HapticFeedbackType.Confirm,

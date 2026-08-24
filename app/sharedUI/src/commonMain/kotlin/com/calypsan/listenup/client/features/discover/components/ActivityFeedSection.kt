@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.UserAvatar
@@ -152,6 +153,7 @@ private fun ActivityItem(
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val parts = remember(activity) { activityParts(activity) }
 
     val actorColor = MaterialTheme.colorScheme.onSurface
@@ -180,6 +182,7 @@ private fun ActivityItem(
                 .then(
                     if (isClickable) {
                         Modifier.clickable {
+                            haptics.press()
                             when {
                                 bookId != null -> onBookClick(bookId)
                                 shelfId != null -> onShelfClick(shelfId)

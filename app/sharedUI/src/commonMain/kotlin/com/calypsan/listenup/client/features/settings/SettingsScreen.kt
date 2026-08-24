@@ -235,6 +235,7 @@ fun SettingsScreen(
     showSleepTimer: Boolean = true,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
+    val haptics = LocalHaptics.current
     val platformActions: SettingsPlatformActions = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
@@ -249,6 +250,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.commit()
                         viewModel.signOut()
                         showSignOutDialog = false
                     },
@@ -257,7 +259,12 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showSignOutDialog = false }) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        showSignOutDialog = false
+                    },
+                ) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },

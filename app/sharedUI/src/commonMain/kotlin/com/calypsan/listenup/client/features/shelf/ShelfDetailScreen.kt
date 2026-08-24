@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -113,6 +114,7 @@ fun ShelfDetailScreen(
         viewModel.loadShelf(shelfId)
     }
 
+    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val readyState = state as? ShelfDetailUiState.Ready
     val snackbarHostState = remember { SnackbarHostState() }
@@ -135,7 +137,12 @@ fun ShelfDetailScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onBack()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.common_back),
@@ -144,7 +151,12 @@ fun ShelfDetailScreen(
                 },
                 actions = {
                     if (readyState?.isOwner == true && onEditClick != null) {
-                        IconButton(onClick = { onEditClick(shelfId) }) {
+                        IconButton(
+                            onClick = {
+                                haptics.press()
+                                onEditClick(shelfId)
+                            },
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = stringResource(Res.string.shelf_edit_shelf),
@@ -467,10 +479,14 @@ private fun ShelfSortPill(
     sort: ShelfBookSort,
     onSortChange: (ShelfBookSort) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var expanded by remember { mutableStateOf(false) }
     Box {
         Surface(
-            onClick = { expanded = true },
+            onClick = {
+                haptics.press()
+                expanded = true
+            },
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -497,6 +513,7 @@ private fun ShelfSortPill(
                 DropdownMenuItem(
                     text = { Text(option.label) },
                     onClick = {
+                        haptics.selectionTick()
                         onSortChange(option)
                         expanded = false
                     },
@@ -575,6 +592,7 @@ private fun ShelfDescription(
     isExpanded: Boolean,
     onToggle: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.common_about),
@@ -592,7 +610,10 @@ private fun ShelfDescription(
         )
         if (description.length > DESCRIPTION_EXPAND_THRESHOLD) {
             TextButton(
-                onClick = onToggle,
+                onClick = {
+                    haptics.press()
+                    onToggle()
+                },
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text(stringResource(if (isExpanded) Res.string.common_read_less else Res.string.common_read_more))

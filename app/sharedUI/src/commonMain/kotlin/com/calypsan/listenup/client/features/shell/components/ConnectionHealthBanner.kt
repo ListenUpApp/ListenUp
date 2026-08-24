@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_dismiss
@@ -128,6 +129,7 @@ private fun BannerPill(
     onClose: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -158,7 +160,10 @@ private fun BannerPill(
                 )
             }
             Button(
-                onClick = onAction,
+                onClick = {
+                    haptics.press()
+                    onAction()
+                },
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = onContainer,
@@ -168,7 +173,12 @@ private fun BannerPill(
                 Text(actionLabel)
             }
             if (onClose != null) {
-                IconButton(onClick = onClose) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onClose()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(Res.string.common_dismiss),

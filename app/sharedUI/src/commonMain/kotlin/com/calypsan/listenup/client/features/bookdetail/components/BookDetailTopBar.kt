@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_more_options
@@ -48,13 +49,20 @@ fun BookDetailTopBar(
     onShareClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
+    actionsEnabled: Boolean = true,
 ) {
+    val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
 
     TopAppBar(
         title = { Text(text = title) },
         navigationIcon = {
-            IconButton(onClick = onBackClick) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onBackClick()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(Res.string.common_back),
@@ -63,7 +71,12 @@ fun BookDetailTopBar(
         },
         actions = {
             Box {
-                IconButton(onClick = { showMenu = true }) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        showMenu = true
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = stringResource(Res.string.book_detail_more_options),
@@ -75,6 +88,7 @@ fun BookDetailTopBar(
                     isComplete = isComplete,
                     hasProgress = hasProgress,
                     isAdmin = isAdmin,
+                    actionsEnabled = actionsEnabled,
                     onEditClick = {
                         showMenu = false
                         onEditClick()

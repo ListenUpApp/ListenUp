@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_now_playing
 import org.jetbrains.compose.resources.stringResource
@@ -47,6 +48,7 @@ fun PlayerChapterRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val shape = RoundedCornerShape(12.dp)
     val containerColor = MaterialTheme.colorScheme.primaryContainer
     val numberColor =
@@ -81,8 +83,10 @@ fun PlayerChapterRow(
                 .clip(shape)
                 .drawBehind {
                     if (isCurrent) drawRect(containerColor)
-                }.clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                }.clickable {
+                    haptics.press()
+                    onClick()
+                }.padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Chapter number — fixed minimum width so titles align.

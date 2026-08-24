@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.EmptyState
@@ -426,6 +427,7 @@ private fun ColumnScope.WideHeroInfoColumn(
     onToggleDescription: () -> Unit,
 ) {
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
+    val haptics = LocalHaptics.current
 
     // Role chips
     if (roleLabels.isNotEmpty()) {
@@ -496,7 +498,10 @@ private fun ColumnScope.WideHeroInfoColumn(
         )
         if (desc.length > 200) {
             TextButton(
-                onClick = onToggleDescription,
+                onClick = {
+                    haptics.press()
+                    onToggleDescription()
+                },
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text(stringResource(if (isDescriptionExpanded) Res.string.common_read_less else Res.string.common_read_more))
@@ -778,6 +783,7 @@ private fun NavigationBar(
     onDeleteClick: () -> Unit,
     surfaceColor: Color,
     applyStatusBarInset: Boolean = true,
+    actionsEnabled: Boolean = true,
 ) {
     HeroNavRow(
         onBack = onBackClick,
@@ -790,6 +796,7 @@ private fun NavigationBar(
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
                 surfaceColor = surfaceColor,
+                actionsEnabled = actionsEnabled,
             )
         }
     }
@@ -804,12 +811,17 @@ private fun OverflowMenu(
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
     surfaceColor: Color,
+    actionsEnabled: Boolean = true,
 ) {
+    val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
 
     Box {
         IconButton(
-            onClick = { showMenu = true },
+            onClick = {
+                haptics.press()
+                showMenu = true
+            },
             modifier =
                 Modifier
                     .size(48.dp)
@@ -833,17 +845,21 @@ private fun OverflowMenu(
                 text = { Text(stringResource(Res.string.common_edit)) },
                 leadingIcon = { Icon(Icons.Default.Edit, null) },
                 onClick = {
+                    haptics.press()
                     showMenu = false
                     onEditClick()
                 },
+                enabled = actionsEnabled,
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.contributor_find_on_audible)) },
                 leadingIcon = { Icon(Icons.Default.CloudDownload, null) },
                 onClick = {
+                    haptics.press()
                     showMenu = false
                     onDownloadMetadata()
                 },
+                enabled = actionsEnabled,
             )
             HorizontalDivider()
             DropdownMenuItem(
@@ -861,9 +877,11 @@ private fun OverflowMenu(
                     )
                 },
                 onClick = {
+                    haptics.press()
                     showMenu = false
                     onDeleteClick()
                 },
+                enabled = actionsEnabled,
             )
         }
     }
@@ -951,6 +969,7 @@ private fun BiographySection(
     onToggleExpanded: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Column(modifier = modifier) {
         Text(
             text = stringResource(Res.string.common_about),
@@ -972,7 +991,10 @@ private fun BiographySection(
 
         if (description.length > 200) {
             TextButton(
-                onClick = onToggleExpanded,
+                onClick = {
+                    haptics.press()
+                    onToggleExpanded()
+                },
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text(stringResource(if (isExpanded) Res.string.common_read_less else Res.string.common_read_more))
@@ -1011,6 +1033,9 @@ private fun ContributorDetailLoadingFrame(
                 onDownloadMetadata = {},
                 onDeleteClick = {},
                 surfaceColor = MaterialTheme.colorScheme.surface,
+                // Stub callbacks while the contributor loads: disable the rows so none of
+                // them confirms a tap that does nothing.
+                actionsEnabled = false,
             )
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),

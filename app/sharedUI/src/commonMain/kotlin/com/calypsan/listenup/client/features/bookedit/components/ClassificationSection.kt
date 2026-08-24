@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
 import com.calypsan.listenup.client.presentation.bookedit.EditableCollection
@@ -243,6 +244,7 @@ private fun TagsSubsection(
         )
 
         // Add new tag chip
+        val haptics = LocalHaptics.current
         val trimmedQuery = searchQuery.trim()
         val hasMatch =
             searchResults.any {
@@ -255,7 +257,10 @@ private fun TagsSubsection(
         @Suppress("ComplexCondition")
         if (trimmedQuery.length >= 2 && !isSearching && !isCreating && !hasMatch && !alreadyHasTag) {
             AssistChip(
-                onClick = { onTagEntered(trimmedQuery) },
+                onClick = {
+                    haptics.press()
+                    onTagEntered(trimmedQuery)
+                },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
                     Icon(Icons.Default.Add, null, Modifier.size(18.dp))
@@ -327,6 +332,7 @@ private fun MoodsSubsection(
         )
 
         // Add new mood chip
+        val haptics = LocalHaptics.current
         val trimmedQuery = searchQuery.trim()
         val hasMatch =
             searchResults.any {
@@ -339,7 +345,10 @@ private fun MoodsSubsection(
         @Suppress("ComplexCondition")
         if (trimmedQuery.length >= 2 && !isSearching && !isCreating && !hasMatch && !alreadyHasMood) {
             AssistChip(
-                onClick = { onMoodEntered(trimmedQuery) },
+                onClick = {
+                    haptics.press()
+                    onMoodEntered(trimmedQuery)
+                },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
                     Icon(Icons.Default.Add, null, Modifier.size(18.dp))
@@ -409,6 +418,7 @@ private fun GenreChip(
     genre: EditableGenre,
     onRemove: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
@@ -420,7 +430,10 @@ private fun GenreChip(
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)
-                        .clickable { onRemove() },
+                        .clickable {
+                            haptics.press()
+                            onRemove()
+                        },
             )
         },
     )
@@ -431,6 +444,7 @@ private fun TagChip(
     tag: EditableTag,
     onRemove: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
@@ -442,7 +456,10 @@ private fun TagChip(
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)
-                        .clickable { onRemove() },
+                        .clickable {
+                            haptics.press()
+                            onRemove()
+                        },
             )
         },
     )
@@ -453,6 +470,7 @@ private fun MoodChip(
     mood: EditableMood,
     onRemove: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
@@ -464,7 +482,10 @@ private fun MoodChip(
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)
-                        .clickable { onRemove() },
+                        .clickable {
+                            haptics.press()
+                            onRemove()
+                        },
             )
         },
     )
@@ -475,6 +496,7 @@ private fun CollectionChip(
     collection: EditableCollection,
     onRemove: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
@@ -486,7 +508,10 @@ private fun CollectionChip(
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)
-                        .clickable { onRemove() },
+                        .clickable {
+                            haptics.press()
+                            onRemove()
+                        },
             )
         },
     )

@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -31,6 +32,7 @@ fun IdentifiersSection(
     onAsinChange: (String) -> Unit,
     onAbridgedChange: (Boolean) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -56,8 +58,10 @@ fun IdentifiersSection(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable { onAbridgedChange(!abridged) }
-                    .padding(vertical = 4.dp),
+                    .clickable {
+                        haptics.toggle(on = !abridged)
+                        onAbridgedChange(!abridged)
+                    }.padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -74,7 +78,10 @@ fun IdentifiersSection(
             }
             Switch(
                 checked = abridged,
-                onCheckedChange = onAbridgedChange,
+                onCheckedChange = {
+                    haptics.toggle(on = it)
+                    onAbridgedChange(it)
+                },
             )
         }
     }

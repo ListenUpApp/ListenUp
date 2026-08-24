@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.domain.model.Shelf
 import listenup.composeapp.generated.resources.Res
@@ -68,6 +69,7 @@ fun ShelfCard(
     modifier: Modifier = Modifier,
     fillWidth: Boolean = false,
 ) {
+    val haptics = LocalHaptics.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -96,8 +98,10 @@ fun ShelfCard(
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
-                    onClick = onClick,
-                ),
+                ) {
+                    haptics.press()
+                    onClick()
+                },
     ) {
         // Soft decorative blob, bottom-right.
         Box(

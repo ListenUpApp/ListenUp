@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -937,6 +938,7 @@ private fun BookSearchPanel(
     onCloseSearch: () -> Unit,
     onSelectBook: (BookId) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ListenUpTextField(
@@ -953,7 +955,12 @@ private fun BookSearchPanel(
                 },
             )
             Spacer(Modifier.width(4.dp))
-            IconButton(onClick = onCloseSearch) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onCloseSearch()
+                },
+            ) {
                 Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.import_book_search_cancel))
             }
         }

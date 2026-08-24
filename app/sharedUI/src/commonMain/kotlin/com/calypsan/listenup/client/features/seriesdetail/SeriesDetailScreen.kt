@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -301,6 +302,7 @@ private fun SeriesColorHero(
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Box(
         modifier =
             Modifier
@@ -319,7 +321,10 @@ private fun SeriesColorHero(
             HeroNavRow(onBack = onBackClick) {
                 if (!LocalDeviceContext.current.isLeanback) {
                     IconButton(
-                        onClick = onEditClick,
+                        onClick = {
+                            haptics.press()
+                            onEditClick()
+                        },
                         modifier =
                             Modifier
                                 .size(48.dp)
@@ -431,13 +436,24 @@ private fun HeroActionRow(
     onEditClick: () -> Unit,
 ) {
     val tint = MaterialTheme.colorScheme.onPrimaryContainer
+    val haptics = LocalHaptics.current
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBackClick) {
+        IconButton(
+            onClick = {
+                haptics.press()
+                onBackClick()
+            },
+        ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back), tint = tint)
         }
         Spacer(Modifier.weight(1f))
         if (!LocalDeviceContext.current.isLeanback) {
-            IconButton(onClick = onEditClick) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onEditClick()
+                },
+            ) {
                 Icon(Icons.Default.Edit, stringResource(Res.string.series_edit_series), tint = tint)
             }
         }
@@ -475,6 +491,7 @@ private fun ContinueButton(
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val targetId = state.resumeTarget ?: return
     val target = state.books.firstOrNull { it.id == targetId } ?: return
     val index = state.books.indexOfFirst { it.id == targetId }
@@ -492,7 +509,10 @@ private fun ContinueButton(
                 .height(58.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary)
-                .clickable { onBookClick(targetId.value) }
+                .clickable {
+                    haptics.press()
+                    onBookClick(targetId.value)
+                }
                 .padding(horizontal = 24.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -554,6 +574,7 @@ private fun SeriesBookRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val rowColor = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
     val titleColor = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val subColor =
@@ -569,8 +590,10 @@ private fun SeriesBookRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(rowColor)
-                .clickable(onClick = onClick)
-                .padding(14.dp),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                }.padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -690,6 +713,7 @@ private fun SeriesBookCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val cardColor =
         if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
     val titleColor =
@@ -701,8 +725,10 @@ private fun SeriesBookCard(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardColor)
-                .clickable(onClick = onClick)
-                .padding(10.dp),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                }.padding(10.dp),
     ) {
         SeriesBookCardCover(book = book, finished = finished, highlighted = highlighted)
 

@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -165,6 +166,7 @@ private fun CreditRow(
     onContributorClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -178,7 +180,10 @@ private fun CreditRow(
                     modifier =
                         Modifier
                             .semantics { this.role = Role.Button }
-                            .clickable { onContributorClick(contributor.id) },
+                            .clickable {
+                                haptics.press()
+                                onContributorClick(contributor.id)
+                            },
                 )
                 if (index < group.contributors.lastIndex) {
                     Text(

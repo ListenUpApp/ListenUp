@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -61,6 +62,7 @@ fun RestoreFromFileScreen(
     onBackClick: () -> Unit,
     onUploaded: (BackupId) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
@@ -82,7 +84,12 @@ fun RestoreFromFileScreen(
                 title = { Text(stringResource(Res.string.admin_restore_from_file)) },
                 navigationIcon = {
                     if (canNavigateBack) {
-                        IconButton(onClick = onBackClick) {
+                        IconButton(
+                            onClick = {
+                                haptics.press()
+                                onBackClick()
+                            },
+                        ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(Res.string.common_back),

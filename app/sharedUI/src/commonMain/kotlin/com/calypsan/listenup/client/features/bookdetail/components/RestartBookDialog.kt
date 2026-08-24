@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_restart_book
 import listenup.composeapp.generated.resources.book_detail_restart_prompt
@@ -23,12 +24,18 @@ fun RestartBookDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.book_detail_restart_book)) },
         text = { Text(stringResource(Res.string.book_detail_restart_prompt)) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(
+                onClick = {
+                    haptics.commit()
+                    onConfirm()
+                },
+            ) {
                 Text(
                     text = stringResource(Res.string.book_detail_restart_book),
                     color = MaterialTheme.colorScheme.error,
@@ -36,7 +43,12 @@ fun RestartBookDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },

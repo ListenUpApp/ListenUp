@@ -34,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -699,6 +700,7 @@ private fun InboxRow(
     onSelectionToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val coverSize = if (big) 64.dp else 56.dp
     val editTileSize = if (big) 48.dp else 44.dp
     val rowColor =
@@ -722,8 +724,10 @@ private fun InboxRow(
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(rowColor)
-                .clickable(enabled = !isReleasing, onClick = onClick)
-                .padding(
+                .clickable(enabled = !isReleasing) {
+                    haptics.press()
+                    onClick()
+                }.padding(
                     horizontal = if (big) 18.dp else 14.dp,
                     vertical = if (big) 14.dp else 12.dp,
                 ),

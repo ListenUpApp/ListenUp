@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.HeroNavRow
@@ -403,9 +404,14 @@ private fun DevicesWideHero(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            val haptics = LocalHaptics.current
+
             // Back button
             IconButton(
-                onClick = onBack,
+                onClick = {
+                    haptics.press()
+                    onBack()
+                },
                 modifier =
                     Modifier
                         .size(52.dp)
@@ -717,10 +723,16 @@ private fun DeviceRowItem(
         }
 
         // Trailing: loading or sign-out button
+        val haptics = LocalHaptics.current
         if (isSigningOut) {
             ListenUpLoadingIndicatorSmall()
         } else {
-            IconButton(onClick = onRevoke) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onRevoke()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.Logout,
                     contentDescription = stringResource(Res.string.devices_sign_out_device),

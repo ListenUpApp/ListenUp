@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
@@ -178,13 +179,17 @@ internal fun ContributorCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val contributor = contributorWithCount.contributor
 
     Surface(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {

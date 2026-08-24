@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
@@ -71,6 +72,7 @@ fun ContributorMergeDialog(
     onConfirm: (ContributorId) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var selected by remember { mutableStateOf<ContributorId?>(null) }
 
     AlertDialog(
@@ -126,14 +128,24 @@ fun ContributorMergeDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { selected?.let(onConfirm) },
+                onClick = {
+                    selected?.let {
+                        haptics.commit()
+                        onConfirm(it)
+                    }
+                },
                 enabled = selected != null,
             ) {
                 Text(stringResource(Res.string.contributor_merge_confirm))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },
@@ -146,6 +158,7 @@ private fun CandidateRow(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val highlight =
         if (isSelected) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = SELECTED_BG_ALPHA)
@@ -159,6 +172,9 @@ private fun CandidateRow(
             Modifier
                 .fillMaxWidth()
                 .background(highlight)
-                .clickable(onClick = onClick),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                },
     )
 }

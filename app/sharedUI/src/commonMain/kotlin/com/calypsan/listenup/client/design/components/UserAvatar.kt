@@ -34,6 +34,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
@@ -93,11 +94,21 @@ fun UserAvatar(
     onClick: (() -> Unit)? = null,
     fallbackName: String? = null,
 ) {
+    val haptics = LocalHaptics.current
     val baseModifier =
         modifier
             .size(size.dp)
             .clip(CircleShape)
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let {
+                if (onClick != null) {
+                    it.clickable {
+                        haptics.press()
+                        onClick()
+                    }
+                } else {
+                    it
+                }
+            }
 
     when (val state = rememberUserAvatarState(userId, fallbackName)) {
         UserAvatarUiState.Loading -> {

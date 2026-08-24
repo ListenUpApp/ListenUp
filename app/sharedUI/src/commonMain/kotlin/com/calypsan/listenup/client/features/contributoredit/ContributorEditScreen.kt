@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpDatePicker
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
@@ -322,6 +323,7 @@ private fun ErrorContent(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -330,7 +332,12 @@ private fun ErrorContent(
             text = error ?: stringResource(Res.string.error_unknown),
             color = MaterialTheme.colorScheme.error,
         )
-        TextButton(onClick = onDismiss) {
+        TextButton(
+            onClick = {
+                haptics.press()
+                onDismiss()
+            },
+        ) {
             Text(stringResource(Res.string.common_dismiss))
         }
     }

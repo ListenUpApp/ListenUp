@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_see_all
 import org.jetbrains.compose.resources.stringResource
@@ -41,6 +42,7 @@ fun SectionTitle(
     onSeeAll: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -65,7 +67,11 @@ fun SectionTitle(
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     softWrap = false,
-                    modifier = Modifier.clickable(onClick = onSeeAll),
+                    modifier =
+                        Modifier.clickable {
+                            haptics.press()
+                            onSeeAll()
+                        },
                 )
             }
 

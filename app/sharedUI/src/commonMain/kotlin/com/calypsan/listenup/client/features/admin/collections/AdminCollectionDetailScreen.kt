@@ -39,6 +39,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SnackbarHost
@@ -559,6 +560,7 @@ private fun BooksSection(
     onAddBooksClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     SectionGroup(
         label = stringResource(Res.string.admin_books_in_collection),
         icon = Icons.AutoMirrored.Outlined.MenuBook,
@@ -567,7 +569,12 @@ private fun BooksSection(
         trailing =
             if (!state.collection.isSystem) {
                 {
-                    TextButton(onClick = onAddBooksClick) {
+                    TextButton(
+                        onClick = {
+                            haptics.press()
+                            onAddBooksClick()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Outlined.Add,
                             contentDescription = null,
@@ -644,10 +651,15 @@ private fun BookCoverTile(
     onRemoveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Box(
         // Fill the adaptive grid slot and stay square, matching the canonical BookCard cover.
         // A fixed .size() here fought the slot's width and rendered landscape.
-        modifier = modifier.fillMaxWidth().aspectRatio(1f).clickable(onClick = onRemoveClick),
+        modifier =
+            modifier.fillMaxWidth().aspectRatio(1f).clickable {
+                haptics.press()
+                onRemoveClick()
+            },
         contentAlignment = Alignment.Center,
     ) {
         BookCoverImage(
@@ -678,13 +690,19 @@ private fun MembersSection(
     onRemoveMemberClick: (CollectionShareItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     SectionGroup(
         label = stringResource(Res.string.common_members),
         icon = Icons.Outlined.Group,
         accent = MaterialTheme.colorScheme.secondary,
         modifier = modifier,
         trailing = {
-            TextButton(onClick = onAddMemberClick) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onAddMemberClick()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.PersonAdd,
                     contentDescription = null,
@@ -747,6 +765,7 @@ private fun MemberRow(
     onRemoveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     // Resolve the member's display name from the public-profile mirror, exactly as the avatar
     // does — the member model carries only the userId. Fall back to the userId so the row is
     // never stranded before the profile has synced.
@@ -771,7 +790,11 @@ private fun MemberRow(
                     icon = Icons.Outlined.Delete,
                     size = DELETE_TILE_SIZE_DP.dp,
                     danger = true,
-                    modifier = Modifier.clickable(onClick = onRemoveClick),
+                    modifier =
+                        Modifier.clickable {
+                            haptics.press()
+                            onRemoveClick()
+                        },
                 )
             }
         },

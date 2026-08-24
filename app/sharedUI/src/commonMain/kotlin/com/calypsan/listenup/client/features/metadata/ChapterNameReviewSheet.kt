@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.presentation.metadata.ChapterNameRow
@@ -151,6 +152,7 @@ private fun ChapterReviewRow(
     showDivider: Boolean,
     onToggle: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Column(modifier = Modifier.fillMaxWidth()) {
         if (showDivider) {
             HorizontalDivider(
@@ -162,8 +164,10 @@ private fun ChapterReviewRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onToggle)
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                    .clickable {
+                        haptics.press()
+                        onToggle()
+                    }.padding(horizontal = 16.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import listenup.composeapp.generated.resources.Res
@@ -162,6 +163,7 @@ fun FolderRow(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val scheme = MaterialTheme.colorScheme
     val rowBackground = if (selected) scheme.primaryContainer else Color.Transparent
     val tileBackground = if (selected) scheme.primary.copy(alpha = 0.22f) else scheme.surfaceContainerHigh
@@ -220,7 +222,15 @@ fun FolderRow(
                 color = subtitleColor,
             )
         }
-        Box(modifier = Modifier.clip(CircleShape).clickableNoRipple(onToggle).padding(2.dp)) {
+        Box(
+            modifier =
+                Modifier
+                    .clip(CircleShape)
+                    .clickableNoRipple {
+                        haptics.toggle(on = !selected)
+                        onToggle()
+                    }.padding(2.dp),
+        ) {
             SetupCheckbox(on = selected)
         }
         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {

@@ -12,6 +12,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +36,7 @@ fun LicenseDetailScreen(
     uniqueId: String,
     onNavigateBack: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val rows by rememberLicenseRows()
     val row = rows.firstOrNull { it.uniqueId == uniqueId }
 
@@ -43,7 +45,12 @@ fun LicenseDetailScreen(
             TopAppBar(
                 title = { Text(row?.name ?: "") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onNavigateBack()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.common_back),

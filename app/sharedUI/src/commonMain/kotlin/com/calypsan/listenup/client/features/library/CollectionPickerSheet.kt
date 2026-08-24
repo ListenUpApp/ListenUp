@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -378,6 +379,7 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var collectionName by remember { mutableStateOf("") }
     val isValid = collectionName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -403,14 +405,22 @@ private fun CreateCollectionDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(collectionName.trim()) },
+                onClick = {
+                    haptics.commit()
+                    onCreate(collectionName.trim())
+                },
                 enabled = isValid,
             ) {
                 Text(stringResource(Res.string.library_create_add))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },

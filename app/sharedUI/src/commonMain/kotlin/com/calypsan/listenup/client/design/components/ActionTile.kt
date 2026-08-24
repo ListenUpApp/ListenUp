@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 private const val SUBTITLE_ALPHA = 0.78f
 private const val CHEVRON_ALPHA = 0.7f
@@ -55,8 +56,12 @@ fun ActionTile(
     badgeColor: Color = MaterialTheme.colorScheme.primary,
     badgeContentColor: Color = MaterialTheme.colorScheme.onPrimary,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = containerColor,

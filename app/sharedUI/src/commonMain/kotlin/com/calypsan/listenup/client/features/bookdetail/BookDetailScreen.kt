@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
@@ -225,6 +226,9 @@ private fun BookDetailLoadingFrame(
             onAddToCollectionClick = {},
             onShareClick = {},
             onDeleteClick = {},
+            // Every callback above is a stub while the book loads; disable the rows so none
+            // of them confirms a tap that does nothing.
+            actionsEnabled = false,
         )
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
@@ -958,8 +962,12 @@ private fun DocumentCard(
     doc: BookDocument,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier.fillMaxWidth(),

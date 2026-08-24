@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.util.formatDateLong
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -46,6 +47,7 @@ fun LibrarySection(
     addedAt: Long?,
     onAddedAtChange: (Long?) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var showDatePicker by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -68,7 +70,10 @@ fun LibrarySection(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        datePickerState.selectedDateMillis?.let { onAddedAtChange(it) }
+                        datePickerState.selectedDateMillis?.let {
+                            haptics.commit()
+                            onAddedAtChange(it)
+                        }
                         showDatePicker = false
                     },
                 ) {
@@ -76,7 +81,12 @@ fun LibrarySection(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        showDatePicker = false
+                    },
+                ) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
