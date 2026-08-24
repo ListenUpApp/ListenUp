@@ -17,8 +17,10 @@ import com.calypsan.listenup.client.presentation.bookedit.displayName
 import com.calypsan.listenup.web.design.RelationChip
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Input
+import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -68,13 +70,25 @@ fun BookEditPage(
             }
         }
 
-        EditSection("Cover") { CoverField(state, onEvent) }
-        EditSection("Details") { CoreFields(state, onEvent) }
-        EditSection("People") { ContributorFields(state, onEvent) }
-        EditSection("Series") { SeriesFields(state, onEvent) }
-        EditSection("Classification") { ClassificationFields(state, onEvent) }
-        EditSection("Identifiers") { IdentifierFields(state, onEvent) }
-        EditActions(state, onEvent)
+        // A real <form> spanning the sections AND the actions, so Enter in any field saves — the
+        // browser's implicit submission needs the submit button inside the same form as the
+        // fields. preventDefault stops the navigation that would otherwise reload the page and
+        // discard every unsaved edit on it.
+        Form(attrs = {
+            classes("edit-body")
+            onSubmit { event ->
+                event.preventDefault()
+                onEvent(BookEditUiEvent.Save)
+            }
+        }) {
+            EditSection("Cover") { CoverField(state, onEvent) }
+            EditSection("Details") { CoreFields(state, onEvent) }
+            EditSection("People") { ContributorFields(state, onEvent) }
+            EditSection("Series") { SeriesFields(state, onEvent) }
+            EditSection("Classification") { ClassificationFields(state, onEvent) }
+            EditSection("Identifiers") { IdentifierFields(state, onEvent) }
+            EditActions(state, onEvent)
+        }
     }
 }
 
@@ -410,15 +424,19 @@ private fun EditActions(
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Div(attrs = { classes("edit-actions") }) {
+        // ⛔ type=button is not decoration. A <button> with no type defaults to SUBMIT, so inside
+        // the form this would save the very edits Cancel exists to discard.
         Button(attrs = {
             classes("btn-o")
+            attr("type", "button")
             if (state.isSaving) attr("disabled", "")
             onClick { onEvent(BookEditUiEvent.Cancel) }
         }) { Text("Cancel") }
+        // No onClick: submitting the form is what saves, for click and Enter alike.
         Button(attrs = {
             classes("btn-c")
+            attr("type", "submit")
             if (state.isSaving) attr("disabled", "")
-            onClick { onEvent(BookEditUiEvent.Save) }
         }) { Text(if (state.isSaving) "Saving…" else "Save") }
     }
 }

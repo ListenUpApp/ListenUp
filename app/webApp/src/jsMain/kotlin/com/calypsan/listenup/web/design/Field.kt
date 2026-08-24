@@ -33,9 +33,14 @@ fun Field(
     type: InputType<String> = InputType.Text,
     error: Boolean = false,
     id: String? = null,
+    autocomplete: String? = null,
 ) {
+    val fieldId = rememberFieldId(id)
     Div(attrs = { classes("f-wrap") }) {
-        Label(attrs = { classes("f-label") }) { Text(label) }
+        Label(attrs = {
+            classes("f-label")
+            attr("for", fieldId)
+        }) { Text(label) }
         Div(attrs = {
             classes("f-box")
             if (error) classes("err")
@@ -45,7 +50,8 @@ fun Field(
                 classes("f-input")
                 value(value)
                 if (placeholder.isNotEmpty()) attr("placeholder", placeholder)
-                id?.let { attr("id", it) }
+                attr("id", fieldId)
+                autocomplete?.let { attr("autocomplete", it) }
                 onInput { event -> onInput(event.value) }
             }
         }
@@ -66,11 +72,16 @@ fun PasswordField(
     onInput: (String) -> Unit,
     error: Boolean = false,
     id: String? = null,
+    autocomplete: String? = null,
 ) {
+    val fieldId = rememberFieldId(id)
     var revealed by remember { mutableStateOf(false) }
 
     Div(attrs = { classes("f-wrap") }) {
-        Label(attrs = { classes("f-label") }) { Text(label) }
+        Label(attrs = {
+            classes("f-label")
+            attr("for", fieldId)
+        }) { Text(label) }
         Div(attrs = {
             classes("f-box")
             if (error) classes("err")
@@ -79,7 +90,11 @@ fun PasswordField(
             Input(type = if (revealed) InputType.Text else InputType.Password) {
                 classes("f-input")
                 value(value)
-                id?.let { attr("id", it) }
+                attr("id", fieldId)
+                // Without this a password manager has no idea whether to offer the saved password
+                // or propose a new one — and will often offer neither. `current-password` on sign
+                // in, `new-password` wherever an account is being created.
+                autocomplete?.let { attr("autocomplete", it) }
                 onInput { event -> onInput(event.value) }
             }
             Button(attrs = {

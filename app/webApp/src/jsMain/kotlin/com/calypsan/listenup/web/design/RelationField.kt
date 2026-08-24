@@ -56,8 +56,12 @@ fun RelationField(
     id: String? = null,
     trailing: (@Composable (RelationChip) -> Unit)? = null,
 ) {
-    Div(attrs = { classes("f-wrap", "rel") }) {
-        Label(attrs = { classes("f-label") }) { Text(label) }
+    val fieldId = rememberFieldId(id)
+    Div(attrs = { classes("f-wrap") }) {
+        Label(attrs = {
+            classes("f-label")
+            attr("for", fieldId)
+        }) { Text(label) }
 
         if (attached.isNotEmpty()) {
             Div(attrs = { classes("rel-chips") }) {
@@ -86,7 +90,12 @@ fun RelationField(
                 classes("f-input")
                 value(query)
                 attr("placeholder", placeholder)
-                id?.let { attr("id", it) }
+                attr("id", fieldId)
+                // ⛔ This box lives inside a real <form> (Book Edit). Without swallowing Enter,
+                // the browser's implicit submission would SAVE THE BOOK when someone hits Enter
+                // while searching for a contributor — turning a search box into a save button,
+                // and contradicting this field's own rule that nothing happens on Enter.
+                onKeyDown { event -> if (event.key == "Enter") event.preventDefault() }
                 onInput { event -> onQueryChange(event.value) }
             }
         }
