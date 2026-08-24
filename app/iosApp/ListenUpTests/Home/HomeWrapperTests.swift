@@ -162,6 +162,7 @@ struct HomeWrapperTests {
             continueListening: [],
             myShelves: [],
             isSyncing: false,
+            isBuildingInitialLibrary: false,
             scanProgress: nil
         )
         let mapped = HomeReady(from: ready)

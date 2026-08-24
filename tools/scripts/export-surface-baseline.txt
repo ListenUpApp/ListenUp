@@ -221,6 +221,7 @@ GenreId
 GenreIdentity
 GenreRepository
 GenreShare
+GenreShareBar
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
@@ -518,4 +519,5 @@ VerifiedServer
 VoiceHints
 VoiceIntentResolver
 VolumeGain
+WeekChartColumn
 WeeklyStats
