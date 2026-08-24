@@ -38,7 +38,6 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -77,8 +76,9 @@ class OrganizeServiceImplTest :
                     val svc = makeOrganizeService(this@withSqlDatabase, principalFor("m1", UserRole.MEMBER))
                     listOf(
                         svc.getSettings() as AppResult<*>,
+                        svc.saveSettings(OrganizeSettingsDto()) as AppResult<*>,
                         svc.preview(OrganizeSettingsDto()) as AppResult<*>,
-                        svc.saveAndExecute(OrganizeSettingsDto(enabled = true)) as AppResult<*>,
+                        svc.saveAndExecute(OrganizeSettingsDto()) as AppResult<*>,
                         svc.resumeRun() as AppResult<*>,
                     ).forEach { result ->
                         val failure = result.shouldBeInstanceOf<AppResult.Failure>()
@@ -108,7 +108,7 @@ class OrganizeServiceImplTest :
                         val runId =
                             (
                                 adminSvc.saveAndExecute(
-                                    OrganizeSettingsDto(enabled = true, preset = OrganizePreset.AUTHOR_TITLE),
+                                    OrganizeSettingsDto(preset = OrganizePreset.AUTHOR_TITLE),
                                 ) as AppResult.Success
                             ).data
                         // Drain to terminal as admin so the run's replayed history is complete —
@@ -128,9 +128,7 @@ class OrganizeServiceImplTest :
             withSqlDatabase {
                 runTest {
                     val svc = makeOrganizeService(this@withSqlDatabase, principalFor("a1", UserRole.ADMIN))
-                    val settings = (svc.getSettings() as AppResult.Success).data
-                    settings shouldBe OrganizeSettingsDto()
-                    settings.enabled.shouldBeFalse()
+                    (svc.getSettings() as AppResult.Success).data shouldBe OrganizeSettingsDto()
                 }
             }
         }
@@ -183,7 +181,7 @@ class OrganizeServiceImplTest :
                                 principalFor("a1", UserRole.ADMIN),
                                 runScope = scope,
                             )
-                        val wanted = OrganizeSettingsDto(enabled = true, preset = OrganizePreset.AUTHOR_TITLE)
+                        val wanted = OrganizeSettingsDto(preset = OrganizePreset.AUTHOR_TITLE)
 
                         val runId = (svc.saveAndExecute(wanted) as AppResult.Success).data
 
@@ -199,10 +197,15 @@ class OrganizeServiceImplTest :
                         }
 
                         (svc.getSettings() as AppResult.Success).data shouldBe wanted
+                        // Single-file book: the audio file is renamed to match its new folder,
+                        // and the stored filename moves with it.
                         libraryRoot
-                            .resolve("Brandon Sanderson/The Way of Kings/01.m4b")
+                            .resolve("Brandon Sanderson/The Way of Kings/The Way of Kings.m4b")
                             .toFile()
                             .exists() shouldBe true
+                        sql.bookAudioFilesQueries
+                            .selectPrimaryFilenameForBook("b1")
+                            .executeAsOne() shouldBe "The Way of Kings.m4b"
                         sql.booksQueries
                             .selectById("b1")
                             .executeAsOne()
@@ -217,34 +220,60 @@ class OrganizeServiceImplTest :
             }
         }
 
-        test("unwritable library root: saveAndExecute fails typed and the toggle stays off") {
+        test("unwritable library root: saveAndExecute fails typed and persists nothing") {
             withSqlDatabase {
                 // Root path that doesn't exist — the broker probe reports Unavailable.
                 sql.seedTestLibraryAndFolder(folderPath = "/nonexistent/listenup-organize-root")
                 runTest {
                     val svc = makeOrganizeService(this@withSqlDatabase, principalFor("a1", UserRole.ADMIN))
 
-                    val result = svc.saveAndExecute(OrganizeSettingsDto(enabled = true))
+                    val result = svc.saveAndExecute(OrganizeSettingsDto(preset = OrganizePreset.FLAT_TITLE))
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<LibraryWriteError.Unavailable>()
-                    (svc.getSettings() as AppResult.Success).data.enabled.shouldBeFalse()
+                    (svc.getSettings() as AppResult.Success).data shouldBe OrganizeSettingsDto()
                 }
             }
         }
 
-        test("saving with enabled=false persists the schema and starts no run") {
+        test("saveSettings persists the schema, starts no run, and needs no writable root") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder(folderPath = "/nonexistent/listenup-organize-root")
                 runTest {
                     val svc = makeOrganizeService(this@withSqlDatabase, principalFor("a1", UserRole.ADMIN))
-                    val wanted = OrganizeSettingsDto(enabled = false, preset = OrganizePreset.FLAT_TITLE)
+                    val wanted = OrganizeSettingsDto(preset = OrganizePreset.FLAT_TITLE)
 
-                    // Even against an unwritable root — disabling must always be possible (Never Stranded).
-                    val result = svc.saveAndExecute(wanted)
+                    // Recording rules touches no files, so an unreachable disk is no reason to
+                    // refuse — Never Stranded.
+                    val result = svc.saveSettings(wanted)
 
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
                     (svc.getSettings() as AppResult.Success).data shouldBe wanted
+                    (svc.resumeRun() as AppResult.Success).data.shouldBeNull()
+                }
+            }
+        }
+
+        test("saveSettings moves not one file") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-organize-svc-save-only-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedAuthor(sql)
+                val bookDir = libraryRoot.resolve("messy").also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+                runTest {
+                    seedBook(this@withSqlDatabase, id = "b1", rootRelPath = "messy")
+                    val svc = makeOrganizeService(this@withSqlDatabase, principalFor("a1", UserRole.ADMIN))
+
+                    svc
+                        .saveSettings(OrganizeSettingsDto(preset = OrganizePreset.AUTHOR_TITLE))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    bookDir.resolve("01.m4b").toFile().exists() shouldBe true
+                    sql.booksQueries
+                        .selectById("b1")
+                        .executeAsOne()
+                        .root_rel_path shouldBe "messy"
                     (svc.resumeRun() as AppResult.Success).data.shouldBeNull()
                 }
             }

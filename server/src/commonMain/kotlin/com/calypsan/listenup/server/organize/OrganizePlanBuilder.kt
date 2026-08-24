@@ -17,6 +17,10 @@ import kotlinx.io.files.SystemFileSystem
  * of the book's real files (not just the ones the scanner tracks in the DB), so unmodeled
  * sidecars travel with their book.
  *
+ * A moving book with exactly ONE audio file also has that file renamed to match its new folder
+ * segment ([AudioFileRename]) — half a job otherwise, and visible to anyone browsing the
+ * filesystem. Multi-file books' filenames are left alone.
+ *
  * Already-canonical books are excluded. Collisions between two books' canonical targets (or a
  * moving book's target colliding with a book that's staying put) are resolved deterministically
  * by processing books in `bookId` order and appending a ` (2)`, ` (3)`, … suffix to the losing
@@ -74,25 +78,22 @@ class OrganizePlanBuilder(
 
                 val fromDir = Path(folderRoot, book.root_rel_path)
                 val toDir = Path(folderRoot, candidate)
+                val files = filesToMove(fromDir, toDir)
+                val rename = audioRenameFor(payloadsById[book.id], fromDir, candidate, files)
                 entries +=
                     MovePlanEntry(
                         bookId = book.id,
                         fromDir = fromDir,
                         toDir = toDir,
                         toRootRelPath = candidate,
-                        files = filesToMove(fromDir, toDir),
+                        files = applyRename(files, fromDir, toDir, rename),
                         collisionResolved = collisionResolved,
+                        audioRename = rename,
                     )
             }
             MovePlan(entries)
         }
 
-    /**
-     * Plans a single book's relocation — the metadata-edit hook's replan. Returns null when the
-     * book is missing/tombstoned or already at its canonical path. Collisions resolve against the
-     * DB's natural-key index (another live book already at the target path gets the mover a
-     * deterministic ` (n)` suffix), mirroring [build]'s in-memory occupied-set logic.
-     */
     /**
      * True when [payload]'s stored path is already what the rules would produce for it.
      *
@@ -106,6 +107,12 @@ class OrganizePlanBuilder(
         settings: OrganizerSettings,
     ): Boolean = OrganizerPathPlanner.planFor(payload.toOrganizeFacts(), settings) == payload.rootRelPath
 
+    /**
+     * Plans a single book's relocation — the metadata-edit hook's replan. Returns null when the
+     * book is missing/tombstoned or already at its canonical path. Collisions resolve against the
+     * DB's natural-key index (another live book already at the target path gets the mover a
+     * deterministic ` (n)` suffix), mirroring [build]'s in-memory occupied-set logic.
+     */
     suspend fun buildForBook(
         bookId: BookId,
         settings: OrganizerSettings,
@@ -134,13 +141,16 @@ class OrganizePlanBuilder(
 
             val fromDir = Path(folderRoot, book.root_rel_path)
             val toDir = Path(folderRoot, candidate)
+            val files = filesToMove(fromDir, toDir)
+            val rename = audioRenameFor(payload, fromDir, candidate, files)
             MovePlanEntry(
                 bookId = bookId.value,
                 fromDir = fromDir,
                 toDir = toDir,
                 toRootRelPath = candidate,
-                files = filesToMove(fromDir, toDir),
+                files = applyRename(files, fromDir, toDir, rename),
                 collisionResolved = collisionResolved,
+                audioRename = rename,
             )
         }
 
@@ -175,6 +185,44 @@ class OrganizePlanBuilder(
             val metadata = SystemFileSystem.metadataOrNull(child)
             if (metadata?.isDirectory == true) listFilesRecursively(child) else listOf(child)
         }
+    }
+}
+
+/**
+ * The rename that aligns a single-file book's audio filename with the folder segment it is moving
+ * into, or null when there is nothing to do.
+ *
+ * Null in every case that isn't unambiguously pure gain: a multi-file book (its filenames often
+ * encode ordering, and other tools key on them), a filename nested in a sub-folder, a name that
+ * already matches, or a book whose stored filename isn't actually among the files being moved —
+ * renaming the DB to a name that never landed on disk would be worse than the stale name.
+ */
+private fun audioRenameFor(
+    payload: BookSyncPayload?,
+    fromDir: Path,
+    toRootRelPath: String,
+    files: List<FileMove>,
+): AudioFileRename? {
+    val current = payload?.audioFiles?.singleOrNull()?.filename ?: return null
+    if (current.contains('/')) return null
+    if (files.none { it.from == Path(fromDir, current) }) return null
+    val extension = current.substringAfterLast('.', missingDelimiterValue = "")
+    val leaf = toRootRelPath.substringAfterLast('/')
+    val renamed = if (extension.isEmpty()) leaf else "$leaf.$extension"
+    return if (renamed == current) null else AudioFileRename(from = current, to = renamed)
+}
+
+/** Redirects [rename]'s source file to its new leaf name under [toDir]; every other move is untouched. */
+private fun applyRename(
+    files: List<FileMove>,
+    fromDir: Path,
+    toDir: Path,
+    rename: AudioFileRename?,
+): List<FileMove> {
+    if (rename == null) return files
+    val source = Path(fromDir, rename.from)
+    return files.map { move ->
+        if (move.from == source) move.copy(to = Path(toDir, rename.to)) else move
     }
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
@@ -22,7 +23,6 @@ import androidx.compose.material3.RadioButton
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,10 +39,11 @@ import com.calypsan.listenup.api.dto.organize.OrganizePreviewDto
 import com.calypsan.listenup.api.dto.organize.OrganizeSeriesPrefix
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpFab
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionGroup
-import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsViewModel
 import com.calypsan.listenup.client.presentation.error.localized
@@ -50,7 +51,6 @@ import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_organize
 import listenup.composeapp.generated.resources.admin_organize_author_first_last
-import listenup.composeapp.generated.resources.admin_organize_apply
 import listenup.composeapp.generated.resources.admin_organize_author_form
 import listenup.composeapp.generated.resources.admin_organize_author_last_first
 import listenup.composeapp.generated.resources.admin_organize_confirm_more_rows
@@ -58,8 +58,6 @@ import listenup.composeapp.generated.resources.admin_organize_confirm_row
 import listenup.composeapp.generated.resources.admin_organize_confirm_run
 import listenup.composeapp.generated.resources.admin_organize_confirm_summary
 import listenup.composeapp.generated.resources.admin_organize_confirm_title
-import listenup.composeapp.generated.resources.admin_organize_enable_subtitle
-import listenup.composeapp.generated.resources.admin_organize_enable_title
 import listenup.composeapp.generated.resources.admin_organize_prefix_book_n_dash
 import listenup.composeapp.generated.resources.admin_organize_prefix_bracket_n
 import listenup.composeapp.generated.resources.admin_organize_prefix_n_dash
@@ -72,8 +70,11 @@ import listenup.composeapp.generated.resources.admin_organize_progress_title
 import listenup.composeapp.generated.resources.admin_organize_report_done
 import listenup.composeapp.generated.resources.admin_organize_report_resume
 import listenup.composeapp.generated.resources.admin_organize_report_summary
+import listenup.composeapp.generated.resources.admin_organize_run
+import listenup.composeapp.generated.resources.admin_organize_saved
 import listenup.composeapp.generated.resources.admin_organize_series_prefix
 import listenup.composeapp.generated.resources.admin_organize_structure
+import listenup.composeapp.generated.resources.admin_save_settings
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
 import org.jetbrains.compose.resources.stringResource
@@ -82,11 +83,21 @@ import org.jetbrains.compose.resources.stringResource
 private val ContentMaxWidth = 640.dp
 
 /**
- * Admin file-organizer settings screen (#850): enable toggle, schema pickers, and the
- * save-moment flow — Save fetches a server-side plan preview, the consent dialog shows the full
- * scope ("moves N files across M folders; K collisions resolved") plus before→after rows, and
- * confirming persists the settings AND runs the reorganization immediately, with live progress
- * and a terminal report (Resume re-fires the save after a partial failure).
+ * Bottom clearance under the scrolling form so the Organize Library button can always be scrolled
+ * clear of the Save FAB. `Scaffold` reserves the bottom bar's height in its content padding, but
+ * never the FAB's — without this the FAB sits on top of the button's trailing edge.
+ */
+private val FabClearance = 88.dp
+
+/**
+ * Admin file-organizer settings screen (#850): the schema pickers, plus **two visibly distinct
+ * actions**, because they are two different promises.
+ *
+ * The **Save FAB** persists the rules — live for future arrivals at once, and not one file moves;
+ * a snackbar says so. The **Organize Library** button is the sweep: it fetches a server-side plan
+ * preview, the consent dialog shows the full scope ("moves N files across M folders; K collisions
+ * resolved") plus before→after rows, and only confirming persists AND relocates, with live
+ * progress and a terminal report (Resume re-previews the remainder after a partial failure).
  */
 @Composable
 fun OrganizeSettingsScreen(
@@ -105,6 +116,17 @@ fun OrganizeSettingsScreen(
         }
     }
 
+    // One-shot "rules saved — nothing moved" confirmation.
+    val rulesSavedMessage = stringResource(Res.string.admin_organize_saved)
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                OrganizeSettingsEvent.RulesSaved -> snackbarHostState.showSnackbar(rulesSavedMessage)
+            }
+        }
+    }
+
+    val ready = state as? OrganizeSettingsUiState.Ready
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
@@ -115,6 +137,16 @@ fun OrganizeSettingsScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (ready != null) {
+                ListenUpFab(
+                    onClick = viewModel::saveRules,
+                    icon = Icons.Outlined.Save,
+                    contentDescription = stringResource(Res.string.admin_save_settings),
+                    enabled = !ready.isWorking,
+                )
+            }
+        },
     ) { innerPadding ->
         when (val current = state) {
             is OrganizeSettingsUiState.Loading -> {
@@ -138,7 +170,7 @@ fun OrganizeSettingsScreen(
                 current.preview?.let { preview ->
                     OrganizeConfirmDialog(
                         preview = preview,
-                        onConfirm = viewModel::confirmSave,
+                        onConfirm = viewModel::confirmOrganize,
                         onDismiss = viewModel::dismissPreview,
                     )
                 }
@@ -167,25 +199,14 @@ private fun OrganizeSettingsContent(
                 .padding(innerPadding)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp)
+                .padding(top = 12.dp, bottom = FabClearance),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(
             modifier = Modifier.widthIn(max = ContentMaxWidth),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            SettingRow(
-                title = stringResource(Res.string.admin_organize_enable_title),
-                subtitle = stringResource(Res.string.admin_organize_enable_subtitle),
-                icon = Icons.Outlined.DriveFileMove,
-            ) {
-                Switch(
-                    checked = settings.enabled,
-                    onCheckedChange = viewModel::setEnabled,
-                    enabled = !state.isWorking,
-                )
-            }
-
             SectionGroup(
                 label = stringResource(Res.string.admin_organize_structure),
                 icon = Icons.Outlined.Folder,
@@ -244,13 +265,14 @@ private fun OrganizeSettingsContent(
                 }
             }
 
-            // A filled, full-width primary action rather than a trailing text link. Confirming this
+            // A filled, full-width primary action rather than a trailing text link. This one
             // moves files on disk, and the affordance should carry the weight of what it starts —
-            // as a right-aligned link it read as an afterthought and was missed entirely on first use.
-            // "Apply", not "Save": nothing here is a preference that merely persists.
+            // as a right-aligned link it read as an afterthought and was missed entirely on first
+            // use. "Organize Library", not "Apply": the rules are already applied by the Save FAB;
+            // this is the sweep over books that already exist.
             ListenUpButton(
-                text = stringResource(Res.string.admin_organize_apply),
-                onClick = viewModel::save,
+                text = stringResource(Res.string.admin_organize_run),
+                onClick = viewModel::organize,
                 enabled = !state.isWorking,
                 isLoading = state.isWorking,
             )

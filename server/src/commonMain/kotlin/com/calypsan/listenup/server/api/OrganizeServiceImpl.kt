@@ -43,10 +43,11 @@ private const val PREVIEW_ENTRY_LIMIT = 50
  * [requireAdmin]; route handlers bind the caller via [copyWith] (the Koin singleton carries an
  * unscoped placeholder).
  *
- * Never Stranded: before persisting `enabled=true`, every library folder root is probed for
- * writability — an unwritable root fails typed and the toggle stays off. Mid-run failures skip
- * the failed book and keep going; the terminal [OrganizeRunEvent.Completed] carries the failure
- * count, and a fresh [saveAndExecute] is the resume (it re-plans the remainder).
+ * Never Stranded: a sweep probes every library folder root for writability first — an unwritable
+ * root fails [saveAndExecute] typed and persists nothing, while [saveSettings] still succeeds
+ * (recording rules touches no files). Mid-run failures skip the failed book and keep going; the
+ * terminal [OrganizeRunEvent.Completed] carries the failure count, and a fresh [saveAndExecute] is
+ * the resume (it re-plans the remainder).
  */
 class OrganizeServiceImpl(
     private val settingsStore: OrganizerSettingsStore,
@@ -76,6 +77,14 @@ class OrganizeServiceImpl(
     override suspend fun getSettings(): AppResult<OrganizeSettingsDto> {
         requireAdmin()?.let { return it }
         return AppResult.Success(settingsStore.get())
+    }
+
+    override suspend fun saveSettings(settings: OrganizeSettingsDto): AppResult<Unit> {
+        requireAdmin()?.let { return it }
+        // No root probe: persisting rules writes to `server_settings`, never to a library folder.
+        // An unavailable disk must not stop an admin from saying how they want things filed.
+        settingsStore.set(settings)
+        return AppResult.Success(Unit)
     }
 
     override suspend fun preview(settings: OrganizeSettingsDto): AppResult<OrganizePreviewDto> {
@@ -204,9 +213,4 @@ class OrganizeServiceImpl(
                 },
             truncated = entries.size > PREVIEW_ENTRY_LIMIT,
         )
-
-    private companion object {
-        /** Sentinel run id returned by a disabled save — no run was started, nothing to observe. */
-        const val NO_RUN = "no-run"
-    }
 }

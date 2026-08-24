@@ -1542,17 +1542,23 @@ class BookRepository(
     }
 
     /**
-     * Rewrites [id]'s `root_rel_path` alone — the organizer's DB-side move step (see
+     * Rewrites [id]'s `root_rel_path` — the organizer's DB-side move step (see
      * `com.calypsan.listenup.server.organize.MoveManifestExecutor`). Called only AFTER the
      * corresponding files have already landed at their new on-disk location via the
      * `LibraryWriteBroker` — this never touches the filesystem itself, and never touches any
-     * content column, so a rescan's tombstone sweep and the book's identity are otherwise
-     * untouched. Bumps revision and publishes [SyncEvent.Updated] like [touchRevision], since
-     * `rootRelPath` is part of the syncable [BookSyncPayload].
+     * content column beyond the path pair, so a rescan's tombstone sweep and the book's identity
+     * are otherwise untouched. Bumps revision and publishes [SyncEvent.Updated] like
+     * [touchRevision], since `rootRelPath` is part of the syncable [BookSyncPayload].
+     *
+     * [renamedAudioFilename], when non-null, renames the book's SINGLE audio file row in the same
+     * transaction — the organizer aligns a single-file book's filename with its folder, and the two
+     * writes must land together or a lookup resolves `<root>/<newPath>/<oldName>`, which is nothing.
+     * Only ever passed for a book the plan established has exactly one audio file.
      */
     suspend fun moveRootRelPath(
         id: BookId,
         newRootRelPath: String,
+        renamedAudioFilename: String? = null,
     ): AppResult<Unit> {
         val idStr = idAsString(id)
         return suspendTransaction(db) {
@@ -1564,9 +1570,17 @@ class BookRepository(
                 updated_at = now,
                 id = idStr,
             )
-            if (db.booksQueries.changes().executeAsOne() == 0L) {
+            // Read `changes()` before any further statement — SQLite reports the most recent one.
+            val bookRowsUpdated = db.booksQueries.changes().executeAsOne()
+            if (bookRowsUpdated == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
+                if (renamedAudioFilename != null) {
+                    db.bookAudioFilesQueries.updateFilenameForSingleFileBook(
+                        filename = renamedAudioFilename,
+                        book_id = idStr,
+                    )
+                }
                 publishUpdatedAfterCommit(idStr, rev, now)
                 AppResult.Success(Unit)
             }

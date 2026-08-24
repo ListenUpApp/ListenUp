@@ -14,8 +14,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -24,12 +27,15 @@ private val logger = KotlinLogging.logger {}
 /**
  * ViewModel for the admin file-organizer settings screen (#850).
  *
- * Flow: settings load into an edit buffer → the admin picks a schema → **Save** requests a
- * server-side plan preview ([OrganizeSettingsUiState.Ready.preview] renders the consent dialog:
- * scope counts + first-N before→after rows) → **confirm = saveAndExecute** (persists AND runs
- * immediately) → run progress streams into [OrganizeSettingsUiState.Ready.run] to a terminal
- * report. Saving with the toggle off persists without a dialog or a run (disable = stop).
- * A partial failure's Resume re-fires the same save — the server re-plans the remainder.
+ * **Two actions, deliberately unalike**, because saving rules and rearranging someone's files are
+ * not the same promise:
+ * - [saveRules] persists the schema and stops. It is live for future arrivals immediately, not one
+ *   file moves, and a one-shot [OrganizeSettingsEvent.RulesSaved] confirms it in a snackbar.
+ * - [organize] → [confirmOrganize] is the explicit sweep: fetch the plan preview
+ *   ([OrganizeSettingsUiState.Ready.preview] renders the consent dialog — scope counts + first-N
+ *   before→after rows), and only on confirm persist AND run. Run progress streams into
+ *   [OrganizeSettingsUiState.Ready.run] to a terminal report; a partial failure's Resume re-opens
+ *   the same preview, and the server re-plans the remainder.
  */
 class OrganizeSettingsViewModel(
     private val repository: OrganizeRepository,
@@ -37,6 +43,14 @@ class OrganizeSettingsViewModel(
 ) : ViewModel() {
     val state: StateFlow<OrganizeSettingsUiState>
         field = MutableStateFlow<OrganizeSettingsUiState>(OrganizeSettingsUiState.Loading)
+
+    private val eventChannel = Channel<OrganizeSettingsEvent>(Channel.BUFFERED)
+
+    /**
+     * One-shot events the screen consumes exactly once (the "rules saved" confirmation).
+     * A [Channel] per the one-shot-events rubric rule, so re-collection never replays a snackbar.
+     */
+    val events: Flow<OrganizeSettingsEvent> = eventChannel.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -54,9 +68,6 @@ class OrganizeSettingsViewModel(
         }
     }
 
-    /** Flips the enable toggle in the edit buffer (nothing persists until Save). */
-    fun setEnabled(enabled: Boolean) = updateSettings { it.copy(enabled = enabled) }
-
     /** Picks the structure preset in the edit buffer. */
     fun setPreset(preset: OrganizePreset) = updateSettings { it.copy(preset = preset) }
 
@@ -67,15 +78,32 @@ class OrganizeSettingsViewModel(
     fun setAuthorForm(form: OrganizeAuthorForm) = updateSettings { it.copy(authorForm = form) }
 
     /**
-     * Save tapped. Enabled → fetch the plan preview and open the consent dialog; nothing
-     * persists or moves yet. Disabled → persist immediately (always possible; no dialog, no run).
+     * Save tapped — persist the rules and stop. They govern future arrivals from this moment; not
+     * one existing file moves. Confirms through a one-shot [OrganizeSettingsEvent.RulesSaved].
      */
-    fun save() {
+    fun saveRules() {
         val ready = state.value as? OrganizeSettingsUiState.Ready ?: return
-        if (!ready.settings.enabled) {
-            persistDisabled(ready.settings)
-            return
+        viewModelScope.launch {
+            updateReady { it.copy(isWorking = true, error = null) }
+            when (val result = repository.saveSettings(ready.settings)) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(isWorking = false) }
+                    eventChannel.trySend(OrganizeSettingsEvent.RulesSaved)
+                }
+
+                is AppResult.Failure -> {
+                    failWorking(result.error)
+                }
+            }
         }
+    }
+
+    /**
+     * Organize Library tapped — fetch the plan preview and open the consent dialog. Nothing
+     * persists and nothing moves until [confirmOrganize].
+     */
+    fun organize() {
+        val ready = state.value as? OrganizeSettingsUiState.Ready ?: return
         viewModelScope.launch {
             updateReady { it.copy(isWorking = true, error = null) }
             when (val result = repository.preview(ready.settings)) {
@@ -86,7 +114,7 @@ class OrganizeSettingsViewModel(
     }
 
     /** Consent dialog confirmed — persist the settings and run the reorganization now. */
-    fun confirmSave() {
+    fun confirmOrganize() {
         val ready = state.value as? OrganizeSettingsUiState.Ready ?: return
         viewModelScope.launch {
             updateReady { it.copy(isWorking = true, preview = null, error = null) }
@@ -103,23 +131,13 @@ class OrganizeSettingsViewModel(
     /** Dismisses the terminal run report. */
     fun dismissRunReport() = updateReady { it.copy(run = null) }
 
-    /** Partial-failure Resume: re-fires the same save — the server re-plans the remainder. */
+    /** Partial-failure Resume: re-previews the remainder — the server re-plans what's left. */
     fun resumeAfterFailure() {
         dismissRunReport()
-        save()
+        organize()
     }
 
     fun clearError() = updateReady { it.copy(error = null) }
-
-    private fun persistDisabled(settings: OrganizeSettingsDto) {
-        viewModelScope.launch {
-            updateReady { it.copy(isWorking = true, error = null) }
-            when (val result = repository.saveAndExecute(settings)) {
-                is AppResult.Success -> updateReady { it.copy(isWorking = false) }
-                is AppResult.Failure -> failWorking(result.error)
-            }
-        }
-    }
 
     /** Re-attaches the progress view to a run already in flight (e.g. after re-entering the screen). */
     private suspend fun reattachActiveRun() {
@@ -152,6 +170,12 @@ class OrganizeSettingsViewModel(
             if (current is OrganizeSettingsUiState.Ready) transform(current) else current
         }
     }
+}
+
+/** One-shot events emitted by [OrganizeSettingsViewModel] for the screen to render exactly once. */
+sealed interface OrganizeSettingsEvent {
+    /** The rules were persisted and nothing moved — the Save confirmation. */
+    data object RulesSaved : OrganizeSettingsEvent
 }
 
 /** Rolling progress of the in-flight (or just-finished) organize run. */

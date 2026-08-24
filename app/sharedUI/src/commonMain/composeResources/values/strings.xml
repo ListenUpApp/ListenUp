@@ -108,7 +108,6 @@
     <string name="admin_no_pending_registrations">No pending registrations</string>
     <string name="admin_no_users_available">No users available</string>
     <string name="admin_organize">File Organization</string>
-    <string name="admin_organize_apply">Apply</string>
     <string name="admin_organize_author_first_last">First Last</string>
     <string name="admin_organize_author_form">Author name style</string>
     <string name="admin_organize_author_last_first">Last, First</string>
@@ -118,8 +117,6 @@
     <string name="admin_organize_confirm_run">Organize now</string>
     <string name="admin_organize_confirm_summary">Moves %1$d files across %2$d folders; %3$d collisions resolved.</string>
     <string name="admin_organize_confirm_title">Organize library?</string>
-    <string name="admin_organize_enable_subtitle">Arrange files into a consistent folder structure</string>
-    <string name="admin_organize_enable_title">Organize library files</string>
     <string name="admin_organize_prefix_book_n_dash">Book 1 - Title</string>
     <string name="admin_organize_prefix_bracket_n">[1] Title</string>
     <string name="admin_organize_prefix_n_dash">1 - Title</string>
@@ -132,6 +129,7 @@
     <string name="admin_organize_report_done">Library organized</string>
     <string name="admin_organize_report_resume">Resume</string>
     <string name="admin_organize_report_summary">%1$d books moved, %2$d failed.</string>
+    <string name="admin_organize_run">Organize Library</string>
     <string name="admin_organize_saved">Organization settings saved.</string>
     <string name="admin_organize_series_prefix">Series number style</string>
     <string name="admin_organize_structure">Folder structure</string>

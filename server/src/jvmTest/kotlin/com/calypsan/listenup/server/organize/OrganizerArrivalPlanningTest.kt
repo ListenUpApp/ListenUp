@@ -4,9 +4,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * [OrganizerPathPlanner.planForArrival] — the uploads/new-arrival seam (Phase 4 consumes it):
- * arrivals ALWAYS land structured. An enabled organizer applies the admin's schema; a disabled
- * one falls back to the default schema rather than dumping files unstructured.
+ * [OrganizerPathPlanner.planForArrival] — the uploads/new-arrival seam: an arrival ALWAYS lands
+ * structured, under the admin's live schema. There is no "leave it alone" reading of a file that
+ * does not yet have a home, so there is no fallback branch left to test — only that arrivals and
+ * every other caller derive the same path from the same rules.
  */
 class OrganizerArrivalPlanningTest :
     FunSpec({
@@ -20,14 +21,13 @@ class OrganizerArrivalPlanningTest :
                 isMultiFile = true,
             )
 
-        test("enabled organizer plans arrivals with the admin's schema") {
-            val settings = OrganizerSettings(enabled = true, preset = StructurePreset.FLAT_TITLE)
+        test("arrivals are planned with the admin's schema") {
+            val settings = OrganizerSettings(preset = StructurePreset.FLAT_TITLE)
             OrganizerPathPlanner.planForArrival(facts, settings) shouldBe "The Way of Kings"
         }
 
-        test("disabled organizer still structures arrivals — with the DEFAULT schema, not the disabled one") {
-            val disabledFlat = OrganizerSettings(enabled = false, preset = StructurePreset.FLAT_TITLE)
-            OrganizerPathPlanner.planForArrival(facts, disabledFlat) shouldBe
+        test("arrivals fall to the default Author/Series/Title shape when the admin never chose") {
+            OrganizerPathPlanner.planForArrival(facts, OrganizerSettings()) shouldBe
                 "Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings"
         }
     })

@@ -11,7 +11,9 @@ import com.calypsan.listenup.server.services.BookRepository
  * Executes one [MovePlanEntry]: moves every file in [MovePlanEntry.files] via
  * [LibraryWriteBroker] (journaled, watcher-suppressed, crash-resumable), deletes the now-empty
  * source folder, and — only once the broker reports the manifest fully applied — rewrites the
- * book's `root_rel_path` in a single narrow DB transaction ([BookRepository.moveRootRelPath]).
+ * book's `root_rel_path` — and, for a single-file book the plan renamed, its
+ * `book_audio_files.filename` — in a single narrow DB transaction
+ * ([BookRepository.moveRootRelPath]).
  *
  * The scanner's disk-diff is never involved: because the DB write happens in the same logical
  * step as the disk move (not via a rescan), the book's identity — positions, collections,
@@ -39,7 +41,11 @@ class MoveManifestExecutor(
         val moveResult = broker.executeManifest(manifestFor(entry))
         if (moveResult is AppResult.Failure) return moveResult
 
-        return bookRepository.moveRootRelPath(BookId(entry.bookId), entry.toRootRelPath)
+        return bookRepository.moveRootRelPath(
+            BookId(entry.bookId),
+            entry.toRootRelPath,
+            renamedAudioFilename = entry.audioRename?.to,
+        )
     }
 
     private fun manifestFor(entry: MovePlanEntry): WriteManifest =

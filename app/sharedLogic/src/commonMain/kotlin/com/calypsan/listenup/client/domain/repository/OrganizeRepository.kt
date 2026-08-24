@@ -23,10 +23,13 @@ interface OrganizeRepository {
     /** The persisted organizer settings, or defaults when never configured. */
     suspend fun getSettings(): AppResult<OrganizeSettingsDto>
 
+    /** Persists [settings] and starts nothing — the quiet Save. No file moves. */
+    suspend fun saveSettings(settings: OrganizeSettingsDto): AppResult<Unit>
+
     /** Plans a full-library reorganization under [settings] without persisting or moving anything. */
     suspend fun preview(settings: OrganizeSettingsDto): AppResult<OrganizePreviewDto>
 
-    /** Persists [settings] and (when enabled) starts the full-library run, returning its id. */
+    /** Persists [settings] and starts the full-library sweep, returning its id. */
     suspend fun saveAndExecute(settings: OrganizeSettingsDto): AppResult<OrganizeRunId>
 
     /** Streams [runId]'s progress events, replayed from the start, ending after the terminal event. */

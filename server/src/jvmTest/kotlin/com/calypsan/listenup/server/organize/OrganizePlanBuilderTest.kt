@@ -68,13 +68,18 @@ class OrganizePlanBuilderTest :
                     entry.collisionResolved shouldBe false
                     // Both the tracked audio file AND the untracked cover.jpg sidecar travel.
                     entry.files.map { it.from.name }.toSet() shouldBe setOf("01.m4b", "cover.jpg")
-                    entry.files.forEach { move ->
-                        move.to.toString() shouldBe
-                            libraryRoot
-                                .resolve("Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings")
-                                .resolve(move.from.name)
-                                .toString()
-                    }
+                    val targetDir =
+                        libraryRoot.resolve("Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings")
+                    // Single-file book: the audio takes the folder's name; the sidecar keeps its own.
+                    entry.files
+                        .single { it.from.name == "01.m4b" }
+                        .to
+                        .toString() shouldBe
+                        targetDir.resolve("Book 1 - The Way of Kings.m4b").toString()
+                    entry.files
+                        .single { it.from.name == "cover.jpg" }
+                        .to
+                        .toString() shouldBe targetDir.resolve("cover.jpg").toString()
                 }
             }
         }
@@ -146,6 +151,68 @@ class OrganizePlanBuilderTest :
                     byId.getValue("b2").toRootRelPath shouldBe
                         "Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings (2)"
                     byId.getValue("b2").collisionResolved shouldBe true
+                }
+            }
+        }
+
+        test("a single-file book's audio is renamed to match the folder; a multi-file book's is not") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder(folderPath = tempLibraryRoot().toString())
+                val libraryRoot =
+                    java.nio.file.Paths
+                        .get(currentFolderRoot(sql))
+                seedCatalog(sql)
+
+                // One book, one audio file — its filename carries nothing the folder doesn't.
+                val soloDir = libraryRoot.resolve("solo").also { Files.createDirectories(it) }
+                Files.writeString(soloDir.resolve("ripped-2019.mp3"), "a")
+                // One book, three audio files — the names encode ordering, and other tools key on them.
+                val multiDir = libraryRoot.resolve("multi").also { Files.createDirectories(it) }
+                Files.writeString(multiDir.resolve("Part 01.mp3"), "a")
+                Files.writeString(multiDir.resolve("Part 02.mp3"), "a")
+                Files.writeString(multiDir.resolve("Part 03.mp3"), "a")
+
+                runTest {
+                    val repo = buildBookRepository(sql, driver)
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "Elantris",
+                            rootRelPath = "solo",
+                            contributors = listOf(author("c1", "Brandon Sanderson")),
+                            audioFiles = listOf(audioFile("af1", "ripped-2019.mp3")),
+                        ),
+                    )
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b2",
+                            title = "Warbreaker",
+                            rootRelPath = "multi",
+                            contributors = listOf(author("c1", "Brandon Sanderson")),
+                            audioFiles =
+                                listOf(
+                                    audioFile("af1", "Part 01.mp3"),
+                                    audioFile("af2", "Part 02.mp3", index = 1),
+                                    audioFile("af3", "Part 03.mp3", index = 2),
+                                ),
+                        ),
+                    )
+
+                    val plan = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings)
+
+                    val byId = plan.entries.associateBy { it.bookId }
+                    val solo = byId.getValue("b1")
+                    solo.audioRename shouldBe AudioFileRename(from = "ripped-2019.mp3", to = "Elantris.mp3")
+                    solo.files
+                        .single()
+                        .to
+                        .toString() shouldBe
+                        libraryRoot.resolve("Brandon Sanderson/Elantris/Elantris.mp3").toString()
+
+                    val multi = byId.getValue("b2")
+                    multi.audioRename shouldBe null
+                    multi.files.map { it.to.name }.toSet() shouldBe
+                        setOf("Part 01.mp3", "Part 02.mp3", "Part 03.mp3")
                 }
             }
         }

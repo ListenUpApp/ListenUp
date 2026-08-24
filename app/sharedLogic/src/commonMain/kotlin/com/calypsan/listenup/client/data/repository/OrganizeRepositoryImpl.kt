@@ -33,6 +33,11 @@ internal class OrganizeRepositoryImpl(
     override suspend fun getSettings(): AppResult<OrganizeSettingsDto> =
         channel.call(idempotent = true) { it.getSettings() }
 
+    // Idempotent: a replayed save writes the same rules to the same key. Nothing moves, so a
+    // retry after a transport blip is always safe.
+    override suspend fun saveSettings(settings: OrganizeSettingsDto): AppResult<Unit> =
+        channel.call(idempotent = true) { it.saveSettings(settings) }
+
     override suspend fun preview(settings: OrganizeSettingsDto): AppResult<OrganizePreviewDto> =
         channel.call(idempotent = true) { it.preview(settings) }
 

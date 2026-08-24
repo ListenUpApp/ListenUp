@@ -15,18 +15,31 @@ import kotlinx.rpc.annotations.Rpc
  * `/api/rpc/authed` behind the JWT gate; first-party admin UI only (no REST mirror, matching
  * [AdminSettingsService]).
  *
- * The flow the admin UI drives: [getSettings] → user picks a schema → [preview] renders the
- * consent dialog (full scope + before→after rows) → **Save = [saveAndExecute]** (persists the
- * settings AND immediately runs the full-library reorganization; cancel costs nothing) →
- * [observeRun] streams progress to a terminal [OrganizeRunEvent.Completed].
+ * **Two distinct actions, because they are two distinct things.** [saveSettings] records the rules
+ * — live for future arrivals immediately, and not one file moves. [saveAndExecute] is the explicit
+ * "Organize Library" sweep: [getSettings] → the admin picks a schema → [preview] renders the
+ * consent dialog (full scope + before→after rows) → [saveAndExecute] persists AND relocates every
+ * non-conforming book → [observeRun] streams progress to a terminal [OrganizeRunEvent.Completed].
  *
- * Settings persist in the server's `server_settings` key/value store. Disable = stop: turning
- * [OrganizeSettingsDto.enabled] off stops future organization; nothing is ever un-organized.
+ * Settings persist in the server's `server_settings` key/value store. There is no on/off switch:
+ * the rules always exist, and what they apply to is decided by a book's origin — uploads conform,
+ * scan-discovered books stay where they were put, and an edited book relocates only when it was
+ * already at its canonical path.
  */
 @Rpc
 interface OrganizeService {
     /** The persisted organizer settings, or defaults when never configured. */
     suspend fun getSettings(): AppResult<OrganizeSettingsDto>
+
+    /**
+     * Persists [settings] and starts nothing — the quiet Save. The rules take effect for future
+     * arrivals immediately; not one file moves.
+     *
+     * Deliberately does NOT probe the library roots for writability the way [saveAndExecute] does:
+     * recording rules touches no files, so an unwritable root is no reason to refuse. Never
+     * Stranded — an admin whose disk is unreachable can still say what they want to happen.
+     */
+    suspend fun saveSettings(settings: OrganizeSettingsDto): AppResult<Unit>
 
     /**
      * Plans a full-library reorganization under [settings] WITHOUT touching disk or persisting
@@ -35,11 +48,11 @@ interface OrganizeService {
     suspend fun preview(settings: OrganizeSettingsDto): AppResult<OrganizePreviewDto>
 
     /**
-     * Persists [settings] and — when [OrganizeSettingsDto.enabled] — immediately starts the
-     * full-library reorganization, returning the run's id for [observeRun]. Fails typed (settings
-     * NOT persisted with `enabled=true`) when a library folder root isn't writable
-     * ([com.calypsan.listenup.api.error.LibraryWriteError.Unavailable]) or another run is still
-     * in flight. Saving with `enabled=false` persists the settings and starts nothing.
+     * Persists [settings] and immediately starts the full-library reorganization, returning the
+     * run's id for [observeRun] — the explicit "Organize Library" sweep, and the one place bulk
+     * relocation happens. Fails typed (settings NOT persisted) when a library folder root isn't
+     * writable ([com.calypsan.listenup.api.error.LibraryWriteError.Unavailable]) or another run is
+     * still in flight. To record rules without moving anything, call [saveSettings] instead.
      */
     suspend fun saveAndExecute(settings: OrganizeSettingsDto): AppResult<OrganizeRunId>
 

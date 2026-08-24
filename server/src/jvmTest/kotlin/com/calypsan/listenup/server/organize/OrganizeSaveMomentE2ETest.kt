@@ -141,9 +141,11 @@ class OrganizeSaveMomentE2ETest :
                             .resolve("cover.jpg")
                             .toFile()
                             .exists() shouldBe true
+                        // The collider is a SINGLE-file book, so its audio takes the folder's
+                        // name; the two-track book above keeps `01.m4b`/`02.m4b` untouched.
                         libraryRoot
                             .resolve(expectedCollider)
-                            .resolve("01.m4b")
+                            .resolve("${expectedCollider.substringAfterLast('/')}.m4b")
                             .toFile()
                             .exists() shouldBe true
                         libraryRoot.resolve("downloads/tmp/wok-rip").toFile().exists() shouldBe false
@@ -185,8 +187,8 @@ class OrganizeSaveMomentE2ETest :
         }
     })
 
-/** The schema every step of the E2E uses: enabled, Author/Series/Title with defaults. */
-private fun settingsUnderTest() = OrganizeSettingsDto(enabled = true, preset = OrganizePreset.AUTHOR_SERIES_TITLE)
+/** The schema every step of the E2E uses: Author/Series/Title with defaults. */
+private fun settingsUnderTest() = OrganizeSettingsDto(preset = OrganizePreset.AUTHOR_SERIES_TITLE)
 
 /**
  * Writes one messy book folder: [tracks] zero-byte audio placeholders, an ABS `metadata.json`

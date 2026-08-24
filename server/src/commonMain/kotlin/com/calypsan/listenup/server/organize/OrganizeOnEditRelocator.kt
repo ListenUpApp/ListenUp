@@ -19,14 +19,18 @@ private val logger = loggerFor<OrganizeOnEditRelocator>()
 private const val DEFAULT_EDIT_DEBOUNCE_MS = 2_000L
 
 /**
- * The metadata-edit hook (spec §5): when the organizer is enabled and a title/author/series edit
- * changes a book's canonical path, the book relocates through the same identity-safe
- * [MoveManifestExecutor] path as a full run. Debounced per book — a burst of saves within one
- * edit session coalesces into a single replan; a new edit resets the timer.
+ * The metadata-edit hook (spec §5): when a title/author/series edit changes the canonical path of
+ * a book that was ALREADY sitting at its canonical path, the book relocates through the same
+ * identity-safe [MoveManifestExecutor] path as a full run. Debounced per book — a burst of saves
+ * within one edit session coalesces into a single replan; a new edit resets the timer.
+ *
+ * *Conformance is maintained, never imposed.* A book its owner filed somewhere of their own
+ * choosing is left exactly where they put it; nothing here relocates a book the organizer did not
+ * place. That is what makes always-on organization safe.
  *
  * Fire-and-forget by design: [onBookEdited] never blocks the edit response, and a failed
  * relocation only logs — the edit itself already succeeded, and the next full organize run
- * (or the next edit) picks the book up again. When the organizer is disabled this is a no-op.
+ * (or the next edit) picks the book up again.
  */
 class OrganizeOnEditRelocator(
     private val settingsStore: OrganizerSettingsStore,

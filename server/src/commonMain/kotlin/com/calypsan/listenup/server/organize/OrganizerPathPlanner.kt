@@ -6,18 +6,17 @@ private const val UNKNOWN_AUTHOR = "Unknown Author"
 /**
  * Pure `(book metadata, schema settings) → canonical relative path` derivation — the single
  * component that owns organizer path derivation (spec: §3, "One component owns path derivation").
- * Zero I/O: every call is a deterministic function of its arguments, so both the full-library
- * plan builder and the single-book upload/edit seam ([planFor] with a fallback default when the
- * feature is disabled) call through the same logic.
+ * Zero I/O: every call is a deterministic function of its arguments, so the full-library plan
+ * builder and the single-book upload/edit seam call through exactly the same logic.
  *
  * Every composed segment passes through [PathSanitizer.sanitize] before joining with `/`, so the
  * result is always a safe, cross-platform relative path.
  */
 object OrganizerPathPlanner {
     /**
-     * The uploads/new-arrival seam (spec: uploads ALWAYS land structured, consumed by the Phase-4
-     * upload flow): an enabled organizer plans with the admin's [settings]; a disabled one falls
-     * back to the default schema instead of landing files unstructured.
+     * The uploads/new-arrival seam (consumed by the upload flow): an arrival ALWAYS lands
+     * structured, under the admin's live [settings]. We are choosing the path — there is no
+     * "leave it alone" reading of a file that does not yet have a home.
      */
     fun planForArrival(
         facts: BookOrganizeFacts,

@@ -71,7 +71,10 @@ class SidecarDurabilityE2ETest :
                     mpegFrames(durationSeconds = 10)
                 },
             )
-            val sidecarFile = bookDir / "listenup.json"
+            // Not a fixed path: the seeded folder IS this book's canonical path, so retitling it
+            // relocates the whole folder (OrganizeOnEditRelocator — conformance is maintained), and
+            // the sidecar lands beside the audio at the book's NEW home. The test follows the book.
+            var sidecarFile = bookDir / "listenup.json"
 
             try {
                 // ── Server A: scan, curate over RPC, and let the writer land the sidecar ──
@@ -95,12 +98,17 @@ class SidecarDurabilityE2ETest :
                             ),
                         ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    // Await the debounced write: the file must exist AND carry both edits.
+                    // Await BOTH debounced background jobs — the sidecar write and the organizer's
+                    // edit-relocation — by resolving the sidecar from the book's live path on every
+                    // poll, and only settling once the file there carries both edits.
+                    val db by application.inject<ListenUpDatabase>()
                     withTimeout(AWAIT_TIMEOUT_MS) {
                         while (true) {
-                            if (sidecarFile.exists()) {
-                                val parsed = SidecarJson.parseOrNull(sidecarFile.readBytes())
+                            val candidate = libraryDir / currentRootRelPath(db, bookId) / "listenup.json"
+                            if (candidate.exists()) {
+                                val parsed = SidecarJson.parseOrNull(candidate.readBytes())
                                 if (parsed?.metadata?.title == CURATED_TITLE && parsed.chapters?.entries?.size == 2) {
+                                    sidecarFile = candidate
                                     break
                                 }
                             }
@@ -117,7 +125,6 @@ class SidecarDurabilityE2ETest :
                     parsed.chapters?.source shouldBe "USER"
 
                     // The write-state row records exactly the landed file's content hash.
-                    val db by application.inject<ListenUpDatabase>()
                     val state = SidecarWriteStateRepository(db).findByBookId(bookId)
                     state.shouldNotBeNull()
                     state.contentHashHex shouldBe hashBytesSha256(bytes)
@@ -191,6 +198,16 @@ private suspend fun ApplicationTestBuilder.awaitScannedBookId(): String {
         error("unreachable")
     }
 }
+
+/** [bookId]'s stored `root_rel_path` — where the book lives *now*, after any organizer relocation. */
+private fun currentRootRelPath(
+    db: ListenUpDatabase,
+    bookId: String,
+): String =
+    db.booksQueries
+        .selectById(bookId)
+        .executeAsOne()
+        .root_rel_path
 
 /** Polls the repository until the book at [bookId] matches [predicate]; returns it. */
 private suspend fun awaitBookMatching(

@@ -1081,16 +1081,6 @@
         }
       }
     },
-    "admin.organize_apply": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apply"
-          }
-        }
-      }
-    },
     "admin.organize_author_first_last": {
       "localizations": {
         "en": {
@@ -1177,26 +1167,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Organize library?"
-          }
-        }
-      }
-    },
-    "admin.organize_enable_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrange files into a consistent folder structure"
-          }
-        }
-      }
-    },
-    "admin.organize_enable_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Organize library files"
           }
         }
       }
@@ -1317,6 +1287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d books moved, %2$d failed."
+          }
+        }
+      }
+    },
+    "admin.organize_run": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize Library"
           }
         }
       }
