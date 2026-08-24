@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.isPosix
 import com.calypsan.listenup.server.librarywrite.makeReadOnly
+import com.calypsan.listenup.server.librarywrite.SqlLibraryRootProvider
 import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.librarywrite.WriteJournal
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -53,6 +54,9 @@ class SidecarWriterTest :
                     LibraryWriteBroker(
                         registry = SelfWriteRegistry { 0L },
                         journal = WriteJournal(Path(Files.createTempDirectory("sidecar-journal-").toString())),
+                        // The real provider, reading the folder seeded below — so these tests prove
+                        // the writer's paths survive containment rather than bypassing it.
+                        libraryRoots = SqlLibraryRootProvider(sql),
                     ),
                 writeState = SidecarWriteStateRepository(sql),
                 settings = ServerSettingsRepository(sql, RegistrationPolicy.CLOSED),
