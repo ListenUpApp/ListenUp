@@ -51,6 +51,7 @@ class WatcherSuppressionTest :
                         LibraryWriteBroker(
                             registry = registry,
                             journal = WriteJournal(tempJournalDir()),
+                            libraryRoots = { listOf(IoPath(tmp.toString())) },
                             suppressionTtlMs = 500,
                         )
                     try {
@@ -98,6 +99,7 @@ class WatcherSuppressionTest :
                         LibraryWriteBroker(
                             registry = registry,
                             journal = WriteJournal(tempJournalDir()),
+                            libraryRoots = { listOf(IoPath(tmp.toString())) },
                             suppressionTtlMs = 500,
                         )
                     try {

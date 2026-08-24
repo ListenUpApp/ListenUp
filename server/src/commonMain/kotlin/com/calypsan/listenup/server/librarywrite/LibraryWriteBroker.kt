@@ -28,8 +28,20 @@ private const val DEFAULT_SUPPRESSION_TTL_MS = 30_000L
 class LibraryWriteBroker(
     private val registry: SelfWriteRegistry,
     private val journal: WriteJournal,
+    private val libraryRoots: LibraryRootProvider,
     private val suppressionTtlMs: Long = DEFAULT_SUPPRESSION_TTL_MS,
 ) {
+    /**
+     * The first of [paths] that does not resolve inside a live library folder, or `null` when all
+     * of them do. Consulted before any byte moves, on every path an operation touches — a move
+     * has two, and only checking the destination would let a caller move a file *out* of the
+     * library just as easily as into it.
+     */
+    private suspend fun firstOutsideLibrary(vararg paths: Path): Path? {
+        val live = libraryRoots.roots()
+        return paths.firstOrNull { !isInsideAnyRoot(it, live) }
+    }
+
     /**
      * Writes [bytes] to [target] atomically: staged to a sibling temp file, then renamed into
      * place, so a concurrent reader (or the watcher) never observes a partial file. Both the temp
@@ -43,6 +55,12 @@ class LibraryWriteBroker(
         target: Path,
         bytes: ByteArray,
     ): AppResult<WrittenFile> {
+        firstOutsideLibrary(target)?.let { escaping ->
+            logger.warn { "refused a write that resolves outside every library folder: $escaping" }
+            return failure(
+                LibraryWriteError.OutsideLibrary(debugInfo = "$escaping does not resolve inside any library folder"),
+            )
+        }
         val parent =
             target.parent
                 ?: return failure(LibraryWriteError.Unavailable(debugInfo = "no parent directory: $target"))
@@ -144,8 +162,21 @@ class LibraryWriteBroker(
      * [WriteOp]'s KDoc). Never throws — any I/O failure becomes a typed
      * [LibraryWriteError.Unavailable].
      */
-    private suspend fun applyOp(op: WriteOp): AppResult<Unit> =
-        try {
+    private suspend fun applyOp(op: WriteOp): AppResult<Unit> {
+        val touched =
+            when (op) {
+                is WriteOp.EnsureDir -> arrayOf(op.dir)
+                is WriteOp.MoveFile -> arrayOf(op.from, op.to)
+                is WriteOp.WriteFile -> arrayOf(op.target)
+                is WriteOp.DeleteFile -> arrayOf(op.target)
+            }
+        firstOutsideLibrary(*touched)?.let { escaping ->
+            logger.warn { "refused ${op::class.simpleName} that resolves outside every library folder: $escaping" }
+            return failure(
+                LibraryWriteError.OutsideLibrary(debugInfo = "$escaping does not resolve inside any library folder"),
+            )
+        }
+        return try {
             when (op) {
                 is WriteOp.EnsureDir -> {
                     createDirectoriesSuppressed(op.dir)
@@ -173,6 +204,7 @@ class LibraryWriteBroker(
         } catch (e: Exception) {
             failure(LibraryWriteError.Unavailable(debugInfo = "${op::class.simpleName} failed: ${e.message}"))
         }
+    }
 
     /**
      * Creates [dir] (and any missing ancestors), registering every directory that does not yet

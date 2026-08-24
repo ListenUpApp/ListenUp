@@ -251,6 +251,7 @@ private fun AppError.libraryFamilyWithCorrelationId(id: String?): AppError =
 private fun LibraryWriteError.withCorrelationId(id: String?): LibraryWriteError =
     when (this) {
         is LibraryWriteError.Unavailable -> copy(correlationId = id)
+        is LibraryWriteError.OutsideLibrary -> copy(correlationId = id)
     }
 
 private fun LibraryError.withCorrelationId(id: String?): LibraryError =

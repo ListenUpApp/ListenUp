@@ -318,6 +318,10 @@ private fun AppError.libraryFamilyHttpStatus(): HttpStatusCode =
 private fun LibraryWriteError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is LibraryWriteError.Unavailable -> HttpStatusCode.ServiceUnavailable
+
+        // Not 503: the mount is fine, the path is wrong. Mirrors LibraryError.InvalidPath, and
+        // keeps a caller bug out of the retryable-5xx bucket.
+        is LibraryWriteError.OutsideLibrary -> HttpStatusCode.BadRequest
     }
 
 private fun LibraryError.toHttpStatus(): HttpStatusCode =

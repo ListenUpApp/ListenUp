@@ -13,34 +13,23 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 
 /**
- * ⚠️ KNOWN GAP — every test in this spec is **disabled (`xtest`)**, not because the assertion is
- * wrong, but because [LibraryWriteBroker] does not currently implement the behaviour it asserts.
+ * The broker refuses to write or delete outside the library, however the path is dressed up.
  *
- * **The finding:** the broker has no notion of a library root. [LibraryWriteBroker.writeFile] and
- * every [WriteOp] take a bare absolute [Path] and hand it straight to `SystemFileSystem`; the only
- * method that ever sees a root at all is [LibraryWriteBroker.probe], which merely reads it. So a
- * caller that computes a destination from untrusted input — a book title, a filename from an
- * upload, a metadata field — can address any path the server process can reach, and the broker
- * will faithfully write or delete there. `..` segments are never normalised away, and a symlinked
- * book directory is followed out of the library like any other directory.
+ * [LibraryWriteBroker] is "the sole writer inside library folders" — these tests pin the *inside*
+ * half. Two escapes are covered because they fail differently: `..` segments, which a lexical
+ * normalisation folds away, and a symlinked book directory, which only resolving the path against
+ * the filesystem can catch. A raw string prefix test would accept both.
  *
- * **Verified, not assumed.** Enabled locally on 2026-08-24, all five fail: `writeFile` returns
- * `Success(WrittenFile(<root>/Book/../../outside/precious.txt, …))` having overwritten a file that
- * is not in the library at all, and a `DeleteFile` op returns `Success` having deleted one.
+ * Every test hands the broker a **narrow** root (the fixture's own `library/`) rather than the
+ * fixture default. That matters: the escape target lives in a sibling temp directory, so under a
+ * broad allow-list these would pass while proving nothing.
  *
- * These tests assert the **safe** behaviour (refuse, and leave the outside file untouched) so that
- * the day containment lands they flip from `xtest` to `test` and immediately pass. They are
- * deliberately NOT rewritten to match today's behaviour — pinning an escape as "expected" would
- * make the gap permanent.
- *
- * Note that [com.calypsan.listenup.server.io.isUnder] already exists in the codebase as a
- * containment primitive, but it is a raw string prefix check on un-normalised paths — it would
- * return `true` for `<root>/../outside/x`, so it is not on its own sufficient here. Containment
- * needs real path resolution (`toRealPath`-equivalent) against a root the broker is given.
- *
- * Escalate to the human before enabling: adding a root to the broker's constructor or to every
- * op is an API change with call-site ripple, and picking the failure shape (a new
- * `LibraryWriteError.OutsideLibrary` vs. reusing `Unavailable`) is a design decision.
+ * The first test is the control, and it is not decoration. Each escape test asserts a *failure*,
+ * and failures are cheap — a missing directory, a typo'd path or a closed handle all produce one.
+ * The control proves the same broker with the same fixture writes happily to a legitimate path, so
+ * a refusal below can only be the containment guard talking. (This spec's `..` test once passed
+ * against a broker with no containment at all, because the intermediate directory did not exist
+ * and the kernel returned ENOENT. Hence the explicit `createDirectories` in it.)
  */
 class LibraryWriteBrokerContainmentTest :
     FunSpec({
@@ -55,10 +44,28 @@ class LibraryWriteBrokerContainmentTest :
             return Triple(Path(root.toString()), Path(outside.toString()), victim)
         }
 
-        xtest("writeFile must refuse a target that escapes the library root via ..") {
+        test("CONTROL — the same broker, same fixture, writes happily INSIDE the library root") {
+            runTest {
+                val (root, _, _) = escapeFixture()
+                val broker = testBroker(roots = listOf(root))
+                SystemFileSystem.createDirectories(Path(root, "Book"))
+                val legitimate = Path(Path(root, "Book"), "listenup.json")
+
+                val result = broker.writeFile(legitimate, CLOBBER)
+
+                withClue("containment must not refuse a legitimate in-library write") {
+                    result.shouldBeInstanceOf<AppResult.Success<WrittenFile>>()
+                }
+                withClue("and the bytes must actually land") {
+                    bytesAt(legitimate) shouldBe CLOBBER
+                }
+            }
+        }
+
+        test("writeFile must refuse a target that escapes the library root via ..") {
             runTest {
                 val (root, _, victim) = escapeFixture()
-                val broker = testBroker()
+                val broker = testBroker(roots = listOf(root))
                 // The book directory must really exist. With a missing intermediate segment the
                 // kernel rejects the path for its own reasons (ENOENT) and the broker *looks*
                 // contained when it is not — a false green. A real library folder has real book
@@ -78,11 +85,11 @@ class LibraryWriteBrokerContainmentTest :
             }
         }
 
-        xtest("a manifest WriteFile op must refuse a target that escapes the library root via ..") {
+        test("a manifest WriteFile op must refuse a target that escapes the library root via ..") {
             runTest {
                 val (root, _, victim) = escapeFixture()
                 val journal = WriteJournal(tempJournalDir())
-                val broker = testBroker(journal = journal)
+                val broker = testBroker(journal = journal, roots = listOf(root))
                 val escaping = Path(root, "..", "outside", "precious.txt")
 
                 val result =
@@ -95,10 +102,10 @@ class LibraryWriteBrokerContainmentTest :
             }
         }
 
-        xtest("a manifest DeleteFile op must refuse a target that escapes the library root via ..") {
+        test("a manifest DeleteFile op must refuse a target that escapes the library root via ..") {
             runTest {
                 val (root, _, victim) = escapeFixture()
-                val broker = testBroker()
+                val broker = testBroker(roots = listOf(root))
                 val escaping = Path(root, "..", "outside", "precious.txt")
 
                 val result =
@@ -114,8 +121,8 @@ class LibraryWriteBrokerContainmentTest :
             }
         }
 
-        xtest("writeFile must not follow a symlinked book directory out of the library root") {
-            if (!isPosix()) return@xtest
+        test("writeFile must not follow a symlinked book directory out of the library root") {
+            if (!isPosix()) return@test
             runTest {
                 val (root, outside, _) = escapeFixture()
                 val realBook =
@@ -129,7 +136,7 @@ class LibraryWriteBrokerContainmentTest :
                         .of(root.toString(), "Book"),
                     realBook,
                 )
-                val broker = testBroker()
+                val broker = testBroker(roots = listOf(root))
                 val throughLink = Path(Path(root, "Book"), "listenup.json")
 
                 val result = broker.writeFile(throughLink, CLOBBER)
@@ -141,8 +148,8 @@ class LibraryWriteBrokerContainmentTest :
             }
         }
 
-        xtest("a manifest DeleteFile op must not follow a symlinked book directory out of the library root") {
-            if (!isPosix()) return@xtest
+        test("a manifest DeleteFile op must not follow a symlinked book directory out of the library root") {
+            if (!isPosix()) return@test
             runTest {
                 val (root, outside, _) = escapeFixture()
                 val realBook =
@@ -156,7 +163,7 @@ class LibraryWriteBrokerContainmentTest :
                         .of(root.toString(), "Book"),
                     realBook,
                 )
-                val broker = testBroker()
+                val broker = testBroker(roots = listOf(root))
 
                 val result =
                     broker.executeManifest(

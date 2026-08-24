@@ -65,8 +65,17 @@ internal fun tempJournalDir(): Path {
     return Path(dir.toString())
 }
 
-/** A [LibraryWriteBroker] wired to a fresh [SelfWriteRegistry] and [WriteJournal] (or the given ones) for tests. */
+/**
+ * A [LibraryWriteBroker] wired to a fresh [SelfWriteRegistry] and [WriteJournal] (or the given ones).
+ *
+ * [roots] defaults to the system temp directory, which every fixture here builds its library under,
+ * so containment is satisfied without each test having to declare it. A test that is *about*
+ * containment must pass its own narrow [roots] instead — with the broad default, a path escaping
+ * into a sibling temp directory would still be inside the allow-list and the test would pass while
+ * proving nothing.
+ */
 internal fun testBroker(
     registry: SelfWriteRegistry = SelfWriteRegistry { 0L },
     journal: WriteJournal = WriteJournal(tempJournalDir()),
-): LibraryWriteBroker = LibraryWriteBroker(registry, journal)
+    roots: List<Path> = listOf(Path(System.getProperty("java.io.tmpdir"))),
+): LibraryWriteBroker = LibraryWriteBroker(registry, journal, { roots })
