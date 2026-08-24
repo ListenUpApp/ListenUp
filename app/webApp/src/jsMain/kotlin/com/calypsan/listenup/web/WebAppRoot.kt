@@ -285,10 +285,9 @@ private fun RouteContent(
  * for the whole visit, not one per keystroke, so Back leaves the search rather than replaying it
  * letter by letter.
  *
- * Only [SearchNavAction.NavigateToBook] has a destination on this branch — Contributor, Series and
- * Tag detail routes don't exist yet. [SearchPage] is told exactly which hit types are openable
- * ([SEARCH_OPENABLE_TYPES]) so the rest render their data honestly inert rather than as a click
- * that silently does nothing.
+ * Books and contributors have somewhere to go; Series and Tag detail routes don't exist yet.
+ * [SearchPage] is told exactly which hit types are openable ([SEARCH_OPENABLE_TYPES]) so the rest
+ * render their data honestly inert rather than as a click that silently does nothing.
  */
 @Composable
 private fun SearchRoute(
@@ -771,8 +770,8 @@ private const val SEARCH_KEY = "search"
 private const val SEARCH_QUERY_KEY = "q"
 
 /**
- * Hit types with a real place to navigate to. Contributor, Series and Tag detail routes don't
- * exist on this branch yet — see [SearchRoute]'s KDoc.
+ * Hit types with a real place to navigate to. Series and Tag detail routes don't exist yet — see
+ * [SearchRoute]'s KDoc.
  */
 private val SEARCH_OPENABLE_TYPES = setOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR)
 
