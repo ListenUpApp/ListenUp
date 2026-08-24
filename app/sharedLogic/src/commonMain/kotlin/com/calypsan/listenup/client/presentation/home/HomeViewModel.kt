@@ -50,7 +50,22 @@ sealed interface HomeUiState {
         val timeGreeting: String,
         val continueListening: List<ContinueListeningItem>,
         val myShelves: List<Shelf>,
+        /**
+         * Whether a sync PASS is running.
+         *
+         * ⛔ Not "is my library still arriving" — see [isBuildingInitialLibrary] below.
+         */
         val isSyncing: Boolean,
+        /**
+         * Whether the FIRST population of this library is still arriving.
+         *
+         * Not the same question as [isSyncing], and the difference is load-bearing: the socket is
+         * `Connected` for the whole of an initial seed, so [isSyncing] is **false** while thousands
+         * of books are still streaming in. Anything that wants to explain a short or empty shelf
+         * must read this — see the identical warning on
+         * [com.calypsan.listenup.client.presentation.library.LibraryUiState.Loaded].
+         */
+        val isBuildingInitialLibrary: Boolean,
         val scanProgress: ScanProgressState?,
     ) : HomeUiState {
         val greeting: String
@@ -124,14 +139,21 @@ class HomeViewModel(
                 emptyList()
             }
 
+    // Folded into one upstream rather than passed separately, because `combine` is only typed to
+    // five flows and Home genuinely needs six signals.
+    private val syncFlow: Flow<Pair<SyncState, Boolean>> =
+        combine(syncRepository.syncState, syncRepository.isBuildingInitialLibrary) { state, building ->
+            state to building
+        }
+
     val state: StateFlow<HomeUiState> =
         combine(
             userFlow,
             continueListeningFlow,
             shelvesFlow,
-            syncRepository.syncState,
+            syncFlow,
             syncRepository.scanProgress,
-        ) { user, cl, shelves, sync, scan ->
+        ) { user, cl, shelves, (sync, building), scan ->
             val ready: HomeUiState =
                 HomeUiState.Ready(
                     userName = extractFirstName(user?.displayName).orEmpty(),
@@ -139,6 +161,7 @@ class HomeViewModel(
                     continueListening = cl,
                     myShelves = shelves,
                     isSyncing = sync is SyncState.Syncing || sync is SyncState.Progress,
+                    isBuildingInitialLibrary = building,
                     scanProgress = scan,
                 )
             ready

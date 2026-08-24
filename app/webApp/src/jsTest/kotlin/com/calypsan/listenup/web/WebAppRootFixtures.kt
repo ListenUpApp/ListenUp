@@ -5,12 +5,15 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
+import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.fixedContributors
+import com.calypsan.listenup.web.features.home.OpenHome
+import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
@@ -60,6 +63,7 @@ internal fun mountAt(
     isAdmin: Flow<Boolean> = flowOf(false),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openContributors: OpenContributors = fixedContributors(emptyList()),
+    openHome: OpenHome = fixedHome(HomeUiState.Loading),
     openLibrary: OpenLibrary = fakeLibrary(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
@@ -75,6 +79,7 @@ internal fun mountAt(
                 fixedBookEdit(BookEditUiState()),
                 openContributorDetail,
                 openContributors,
+                openHome,
                 openLibrary,
                 openSearch,
                 fixedPlayback(),

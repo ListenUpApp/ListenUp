@@ -33,6 +33,8 @@ import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.home.HomePage
+import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.search.CommandPalette
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchPage
@@ -80,7 +82,8 @@ import org.w3c.dom.events.KeyboardEvent
  * admin, and nothing would look broken from the outside.
  *
  * [openSearch] has no default for the same reason: a defaulted fake would compile clean and leave
- * the sidebar's Search item permanently landing on a page that never does anything.
+ * the sidebar's Search item permanently landing on a page that never does anything. [openHome] is
+ * the same story for the root route.
  */
 @Composable
 fun WebAppRoot(
@@ -89,6 +92,7 @@ fun WebAppRoot(
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
+    openHome: OpenHome,
     openLibrary: OpenLibrary,
     openSearch: OpenSearch,
     openPlayback: OpenPlayback,
@@ -140,6 +144,7 @@ fun WebAppRoot(
             openBookEdit = openBookEdit,
             openContributorDetail = openContributorDetail,
             openContributors = openContributors,
+            openHome = openHome,
             openSearch = openSearch,
             librarySession = librarySession,
             playback = playback,
@@ -181,6 +186,7 @@ private fun RouteContent(
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
+    openHome: OpenHome,
     openSearch: OpenSearch,
     librarySession: LibrarySession,
     playback: PlaybackSession,
@@ -267,9 +273,44 @@ private fun RouteContent(
         )
     } else if (page == SEARCH_KEY) {
         SearchRoute(router = router, route = route, openSearch = openSearch)
+    } else if (active == HOME_KEY) {
+        HomeRoute(router = router, openHome = openHome, onHeroBookIdChange = onHeroBookIdChange)
     } else {
         PagePlaceholder(active)
     }
+}
+
+/**
+ * The `/` branch of [RouteContent] — Home's session lifecycle and its three destinations.
+ *
+ * The session opens when Home starts showing and closes when it stops, the same arrangement
+ * [SearchRoute] makes: a browser has no `ViewModelStore` to hand two ViewModels' lifetimes to.
+ * Unlike the library's, this session is NOT held for the shell's lifetime — Home's upstreams are
+ * cheap to resubscribe, and holding the stats ViewModel open would keep its per-minute midnight
+ * ticker running behind every other page.
+ *
+ * Opening a book from here records the hero origin first, so the cover flies into the detail page
+ * exactly as it does from the library grid.
+ */
+@Composable
+private fun HomeRoute(
+    router: Router,
+    openHome: OpenHome,
+    onHeroBookIdChange: (String) -> Unit,
+) {
+    val session = remember { openHome() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    HomePage(
+        state = session.state.collectAsState().value,
+        stats = session.stats.collectAsState().value,
+        onOpenBook = { id ->
+            onHeroBookIdChange(id)
+            router.navigate(Route(listOf(BOOK_KEY, id)))
+        },
+        onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY))) },
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+    )
 }
 
 /**

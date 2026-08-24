@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
@@ -52,6 +54,7 @@ class ComposeHtmlRenderTest :
                         fixedBookEdit(BookEditUiState()),
                         fixedContributorDetail(ContributorDetailUiState.Loading),
                         fixedContributors(emptyList()),
+                        fixedHome(HomeUiState.Loading),
                         fakeLibrary(),
                         fixedSearch(SearchUiState.Idle()),
                         fixedPlayback(),
@@ -77,6 +80,7 @@ class ComposeHtmlRenderTest :
                         fixedBookEdit(BookEditUiState()),
                         fixedContributorDetail(ContributorDetailUiState.Loading),
                         fixedContributors(emptyList()),
+                        fixedHome(HomeUiState.Loading),
                         fakeLibrary(),
                         fixedSearch(SearchUiState.Idle()),
                         fixedPlayback(),

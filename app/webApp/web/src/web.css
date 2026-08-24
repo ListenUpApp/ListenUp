@@ -1042,3 +1042,135 @@ body { margin: 0; }
   ::view-transition-old(*),
   ::view-transition-new(*) { animation: none !important; }
 }
+
+/* ============================================================
+   HOME — the root route
+   ============================================================ */
+.luw .home { display: flex; flex-direction: column; gap: 2rem; }
+
+.luw .home-header {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.luw .home-greet h1 {
+  margin: 0; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.04em; color: var(--ink);
+}
+.luw .home-search {
+  display: inline-flex; align-items: center; gap: 0.55rem;
+  height: 44px; padding: 0 0.7rem 0 0.85rem; border-radius: 12px;
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-2);
+  font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  box-shadow: var(--field-shadow);
+}
+.luw .home-search:hover { border-color: var(--coral); color: var(--ink); }
+.luw .home-search-label { white-space: nowrap; }
+
+.luw .home-skel-line { width: 8rem; height: 0.95rem; border-radius: 6px; }
+.luw .home-skel-name { width: 13rem; height: 2.2rem; border-radius: 8px; margin-top: 0.4rem; }
+
+/* The library-still-arriving strip. Sits between the greeting and the shelf because it explains
+   why the shelf may be short — above it, it reads as a page-level error; below, it is missed. */
+.luw .home-status {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.7rem 0.95rem; border-radius: 12px;
+  background: var(--coral-soft); border: 1px solid var(--coral-ring);
+}
+.luw .home-status-t { font-weight: 700; font-size: 0.9rem; color: var(--ink); }
+.luw .home-status-sub { font-size: 0.82rem; color: var(--ink-2); }
+.luw .home-status-track {
+  flex: 1; min-width: 8rem; height: 6px; border-radius: 99px; background: var(--surface-3);
+  overflow: hidden;
+}
+.luw .home-status-fill { height: 100%; border-radius: 99px; background: var(--coral); }
+
+.luw .home-section { display: flex; flex-direction: column; gap: 0.9rem; }
+.luw .home-section-h {
+  margin: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink);
+}
+
+.luw .home-continue {
+  display: grid; gap: 1.4rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.luw .home-card {
+  display: flex; flex-direction: column; gap: 0.45rem;
+  cursor: pointer; border-radius: 8px;
+}
+.luw .home-card.is-loading { cursor: default; }
+.luw .home-card-cover-skel { width: 100%; aspect-ratio: 2 / 3; border-radius: 10px; }
+.luw .home-card:focus { outline: none; }
+.luw .home-card:hover .home-card-t { color: var(--coral); }
+.luw .home-card-progress {
+  height: 4px; border-radius: 99px; background: var(--surface-3); overflow: hidden;
+}
+.luw .home-card-progress-fill { height: 100%; border-radius: 99px; background: var(--coral); }
+.luw .home-card-t {
+  font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.luw .home-card-sub { font-size: 0.8rem; color: var(--ink-2); font-weight: 500; }
+
+.luw .home-stats {
+  display: flex; gap: 2rem; flex-wrap: wrap;
+  padding: 1.5rem; border-radius: 16px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card);
+}
+.luw .home-stats-skel { height: 12rem; border-radius: 16px; }
+.luw .home-stats-main { flex: 1.4 1 20rem; min-width: 0; }
+.luw .home-stats-side {
+  flex: 1 1 15rem; min-width: 0;
+  display: flex; flex-direction: column; gap: 1.4rem; justify-content: center;
+}
+.luw .home-stats-total {
+  font-size: 2.6rem; font-weight: 800; letter-spacing: -0.04em; color: var(--ink);
+}
+.luw .home-stats-unit { font-size: 0.9rem; color: var(--ink-2); font-weight: 500; margin-left: 0.4rem; }
+
+.luw .home-chart {
+  display: flex; align-items: flex-end; gap: 0.6rem; height: 150px; margin-top: 1.1rem;
+}
+.luw .home-chart-col {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  height: 100%; justify-content: flex-end;
+}
+/* The bar's height is a percentage of the column, so an empty day still needs a visible floor —
+   otherwise a zero day renders as nothing at all and the week reads as six days. */
+.luw .home-bar {
+  width: 100%; max-width: 30px; border-radius: 7px; background: var(--coral-soft);
+  min-height: 4px;
+}
+.luw .home-bar.is-empty { background: var(--surface-3); }
+.luw .home-bar.is-today { background: var(--coral); }
+.luw .home-bar-label { font-size: 0.75rem; font-weight: 600; color: var(--ink-3); }
+.luw .home-bar-label.is-today { font-weight: 800; color: var(--ink); }
+
+.luw .home-streak { display: flex; align-items: center; gap: 0.8rem; }
+.luw .home-streak-mark {
+  width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--coral-soft); color: var(--coral);
+}
+.luw .home-streak-text { display: flex; flex-direction: column; }
+.luw .home-streak-t {
+  font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
+}
+.luw .home-streak-sub { font-size: 0.82rem; color: var(--ink-2); font-weight: 500; }
+
+.luw .home-genres { display: flex; flex-direction: column; gap: 0.7rem; }
+.luw .home-genres-h {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.luw .home-genre { display: flex; align-items: center; gap: 0.75rem; }
+.luw .home-genre-name {
+  width: 7.5rem; flex-shrink: 0; font-size: 0.85rem; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.luw .home-genre-track {
+  flex: 1; height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden;
+}
+.luw .home-genre-fill { height: 100%; border-radius: 99px; background: var(--coral); }
+.luw .home-genre-pct {
+  width: 2.4rem; text-align: right; font-size: 0.78rem; font-weight: 700; color: var(--ink-2);
+  font-family: var(--mono);
+}
