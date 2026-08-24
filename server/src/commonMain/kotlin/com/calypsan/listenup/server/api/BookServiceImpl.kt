@@ -22,6 +22,7 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.organize.OrganizeOnEditRelocator
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.currentEpochMilliseconds
@@ -98,6 +99,7 @@ internal class BookServiceImpl(
     private val principal: PrincipalProvider,
     private val coverImageStore: CoverImageStore? = null,
     private val sidecarWriter: SidecarWriter? = null,
+    private val organizeRelocator: OrganizeOnEditRelocator? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -134,6 +136,7 @@ internal class BookServiceImpl(
             principal = principal,
             coverImageStore = coverImageStore,
             sidecarWriter = sidecarWriter,
+            organizeRelocator = organizeRelocator,
         )
 
     /**
@@ -172,6 +175,9 @@ internal class BookServiceImpl(
                 // Curation changed — schedule the debounced listenup.json write-through
                 // (post-commit: upsert's transaction has already committed by here).
                 sidecarWriter?.markDirty(id.value)
+                // A title edit may change the book's canonical folder — let the organizer replan
+                // (debounced no-op when disabled or when the path is unchanged).
+                organizeRelocator?.onBookEdited(id)
                 AppResult.Success(Unit)
             }
 
@@ -225,6 +231,8 @@ internal class BookServiceImpl(
         return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> {
                 sidecarWriter?.markDirty(id.value)
+                // The primary author is a canonical-path segment — organizer replan (see updateBook).
+                organizeRelocator?.onBookEdited(id)
                 AppResult.Success(Unit)
             }
 
@@ -329,6 +337,8 @@ internal class BookServiceImpl(
         return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> {
                 sidecarWriter?.markDirty(id.value)
+                // Series name/sequence are canonical-path segments — organizer replan (see updateBook).
+                organizeRelocator?.onBookEdited(id)
                 AppResult.Success(Unit)
             }
 

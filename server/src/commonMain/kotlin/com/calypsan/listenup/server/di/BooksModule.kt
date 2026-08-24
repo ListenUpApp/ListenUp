@@ -162,6 +162,8 @@ fun booksModule(
                 principal = unscopedPlaceholder("BookService"),
                 coverImageStore = get<CoverImageStore>(),
                 sidecarWriter = getOrNull<SidecarWriter>(),
+                // Nullable — the organize module may not be loaded in minimal test containers.
+                organizeRelocator = getOrNull(),
             )
         }
         single<ContributorService> {

@@ -60,6 +60,10 @@ class WriteJournal(
                         is WriteOp.DeleteFile -> {
                             PersistedOp.PersistedDeleteFile(target = op.target.toString())
                         }
+
+                        is WriteOp.DeleteDirIfEmpty -> {
+                            PersistedOp.PersistedDeleteDirIfEmpty(dir = op.dir.toString())
+                        }
                     }
                 }
             jsonFor(manifest.opId).writeText(json.encodeToString(PersistedManifest(manifest.opId, persistedOps)))
@@ -148,6 +152,10 @@ class WriteJournal(
             is PersistedOp.PersistedDeleteFile -> {
                 WriteOp.DeleteFile(Path(target))
             }
+
+            is PersistedOp.PersistedDeleteDirIfEmpty -> {
+                WriteOp.DeleteDirIfEmpty(Path(dir))
+            }
         }
 
     private suspend fun <T> onIo(block: () -> T): T = withContext(fileIoDispatcher) { block() }
@@ -221,6 +229,16 @@ private sealed interface PersistedOp {
         @SerialName("done")
         override val done: Boolean = false,
     ) : PersistedOp
+
+    /** Persisted [WriteOp.DeleteDirIfEmpty]: the directory to delete if empty. Idempotency rule on [WriteOp.DeleteDirIfEmpty]. */
+    @Serializable
+    @SerialName("PersistedOp.DeleteDirIfEmpty")
+    data class PersistedDeleteDirIfEmpty(
+        @SerialName("dir")
+        val dir: String,
+        @SerialName("done")
+        override val done: Boolean = false,
+    ) : PersistedOp
 }
 
 private fun PersistedOp.markDone(): PersistedOp =
@@ -229,4 +247,5 @@ private fun PersistedOp.markDone(): PersistedOp =
         is PersistedOp.PersistedMoveFile -> copy(done = true)
         is PersistedOp.PersistedWriteFile -> copy(done = true)
         is PersistedOp.PersistedDeleteFile -> copy(done = true)
+        is PersistedOp.PersistedDeleteDirIfEmpty -> copy(done = true)
     }

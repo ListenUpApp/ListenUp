@@ -121,6 +121,30 @@ class LibraryWriteBrokerContainmentTest :
             }
         }
 
+        test("a manifest DeleteDirIfEmpty op must refuse a directory that escapes the library root via ..") {
+            runTest {
+                val (root, outside, _) = escapeFixture()
+                val broker = testBroker(roots = listOf(root))
+                // Deliberately EMPTY. A non-empty directory survives via the op's own
+                // leave-it-alone branch, which would make this pass with no containment at all —
+                // the same false green the `..` write test's KDoc warns about. Empty means only
+                // the guard can save it.
+                val strandedDir = Path(outside.toString(), "EmptyBookDir")
+                SystemFileSystem.createDirectories(strandedDir)
+                val escaping = Path(root, "..", "outside", "EmptyBookDir")
+
+                val result =
+                    broker.executeManifest(
+                        WriteManifest(opId = "escape-rmdir", ops = listOf(WriteOp.DeleteDirIfEmpty(escaping))),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                withClue("a directory delete resolving outside the library must not remove the user's folder") {
+                    SystemFileSystem.exists(strandedDir) shouldBe true
+                }
+            }
+        }
+
         test("writeFile must not follow a symlinked book directory out of the library root") {
             if (!isPosix()) return@test
             runTest {

@@ -47,6 +47,17 @@ sealed interface WriteOp {
     data class DeleteFile(
         val target: Path,
     ) : WriteOp
+
+    /**
+     * Deletes [dir] if — and only if — it is now empty. Idempotency rule: a missing directory
+     * means the delete already happened (or the directory was never left behind) — skip. A
+     * directory that still has contents (an untracked file a caller's plan didn't know about, or
+     * new content that landed mid-move) is left in place rather than force-deleted — cleanup is
+     * best-effort and never blocks the rest of the manifest.
+     */
+    data class DeleteDirIfEmpty(
+        val dir: Path,
+    ) : WriteOp
 }
 
 /** The result of a single successful [LibraryWriteBroker.writeFile] — the landed path and its content hash. */

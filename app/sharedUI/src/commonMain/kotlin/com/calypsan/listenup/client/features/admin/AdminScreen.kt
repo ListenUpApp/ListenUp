@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
@@ -111,6 +112,8 @@ import listenup.composeapp.generated.resources.admin_create_backups_and_restore_
 import listenup.composeapp.generated.resources.admin_deny_registration
 import listenup.composeapp.generated.resources.admin_invite_someone
 import listenup.composeapp.generated.resources.admin_library_settings
+import listenup.composeapp.generated.resources.admin_organize
+import listenup.composeapp.generated.resources.admin_organize_subtitle
 import listenup.composeapp.generated.resources.admin_library_settings_subtitle
 import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.admin_management
@@ -174,6 +177,7 @@ fun AdminScreen(
     onImportClick: () -> Unit = {},
     onInboxClick: () -> Unit = {},
     onLibrarySettingsClick: () -> Unit = {},
+    onOrganizeClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
     serverName: String = "",
     onServerNameChange: (String) -> Unit = {},
@@ -266,6 +270,7 @@ fun AdminScreen(
                     onImportClick = onImportClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
+                    onOrganizeClick = onOrganizeClick,
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
@@ -407,6 +412,7 @@ private fun AdminContent(
     onImportClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
+    onOrganizeClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
@@ -441,6 +447,7 @@ private fun AdminContent(
             onImportClick = onImportClick,
             onInboxClick = onInboxClick,
             onLibrarySettingsClick = onLibrarySettingsClick,
+            onOrganizeClick = onOrganizeClick,
             serverName = serverName,
             onServerNameChange = onServerNameChange,
             remoteUrl = remoteUrl,
@@ -497,6 +504,7 @@ private fun AdminContent(
                     onImportClick = onImportClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
+                    onOrganizeClick = onOrganizeClick,
                     inboxEnabled = inboxEnabled,
                 )
             }
@@ -525,6 +533,7 @@ private fun AdminTwoPaneContent(
     onImportClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
+    onOrganizeClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
@@ -587,6 +596,7 @@ private fun AdminTwoPaneContent(
                     onImportClick = onImportClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
+                    onOrganizeClick = onOrganizeClick,
                     inboxEnabled = inboxEnabled,
                 )
             }
@@ -1299,6 +1309,7 @@ internal fun ManagementSection(
     onImportClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
+    onOrganizeClick: () -> Unit,
     inboxEnabled: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -1315,6 +1326,15 @@ internal fun ManagementSection(
             subtitle = stringResource(Res.string.admin_library_settings_subtitle),
             icon = Icons.Outlined.FolderOpen,
             onClick = onLibrarySettingsClick,
+            containerColor = colors.secondaryContainer,
+            badgeColor = colors.secondary,
+            badgeContentColor = colors.onSecondary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.admin_organize),
+            subtitle = stringResource(Res.string.admin_organize_subtitle),
+            icon = Icons.Outlined.DriveFileMove,
+            onClick = onOrganizeClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
             badgeContentColor = colors.onSecondary,

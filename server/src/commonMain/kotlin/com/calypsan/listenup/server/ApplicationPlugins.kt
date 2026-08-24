@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.libraryWriteModule
+import com.calypsan.listenup.server.di.organizeModule
 import com.calypsan.listenup.server.di.mdnsModule
 import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.notificationModule
@@ -101,6 +102,7 @@ internal fun Application.installDependencies(
         modules += libraryModule()
         modules += libraryWriteModule(homeDir)
         modules += sidecarModule(applicationScope)
+        modules += organizeModule()
         modules += embeddedmetaModule
         modules += syncModule()
         modules += publicProfileModule()

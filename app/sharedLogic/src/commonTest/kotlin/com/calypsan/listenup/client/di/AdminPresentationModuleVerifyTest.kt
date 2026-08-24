@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
@@ -61,6 +62,7 @@ import org.koin.test.verify.verify
  *  - [BackupRepository] — owned by `adminModule`.
  *  - [SyncRepository] — owned by `clientSyncModule`.
  *  - [ImportRepository] — owned by `adminModule`.
+ *  - [OrganizeRepository] — owned by `adminModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class AdminPresentationModuleVerifyTest :
@@ -96,6 +98,7 @@ class AdminPresentationModuleVerifyTest :
                         BackupRepository::class,
                         SyncRepository::class,
                         ImportRepository::class,
+                        OrganizeRepository::class,
                     ),
             )
         }

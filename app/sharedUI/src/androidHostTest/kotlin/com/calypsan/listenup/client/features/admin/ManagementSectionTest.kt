@@ -38,6 +38,7 @@ class ManagementSectionTest {
                     onImportClick = {},
                     onInboxClick = {},
                     onLibrarySettingsClick = {},
+                    onOrganizeClick = {},
                     inboxEnabled = false,
                 )
             }
@@ -59,6 +60,7 @@ class ManagementSectionTest {
                     onImportClick = {},
                     onInboxClick = {},
                     onLibrarySettingsClick = { clicked = true },
+                    onOrganizeClick = {},
                     inboxEnabled = false,
                 )
             }

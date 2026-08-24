@@ -156,7 +156,9 @@ class ClientKoinGraphE2ETest :
             // The push bedrock port added rpcChannel<PushService>() (device token registry) — so 25 → 26.
             // The notifications domain added rpcChannel<NotificationService>() (markRead outbox sender +
             // preference surface) — so 26 → 27.
-            defaultInvalidator.caches shouldHaveSize 27
+            // The organizer domain added rpcChannel<OrganizeService>() (admin file-organizer settings,
+            // preview and run progress) — so 27 → 28.
+            defaultInvalidator.caches shouldHaveSize 28
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 
