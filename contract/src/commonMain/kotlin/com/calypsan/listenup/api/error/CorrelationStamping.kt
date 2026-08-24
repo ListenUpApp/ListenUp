@@ -30,7 +30,10 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is AudioMetadataError -> withCorrelationId(id)
 
-        is LibraryError -> withCorrelationId(id)
+        // LibraryError + LibraryWriteError share one branch (delegating to an exhaustive
+        // helper) to keep this function under the project's cyclomatic-complexity ceiling
+        // while preserving per-variant exhaustiveness for both families.
+        is LibraryError, is LibraryWriteError -> libraryFamilyWithCorrelationId(id)
 
         is MetadataError -> withCorrelationId(id)
 
@@ -228,6 +231,26 @@ private fun MetadataError.withCorrelationId(id: String?): MetadataError =
         is MetadataError.NotFound -> copy(correlationId = id)
         is MetadataError.Malformed -> copy(correlationId = id)
         is MetadataError.ChapterCountMismatch -> copy(correlationId = id)
+    }
+
+/**
+ * Correlation-id stamping for the library-folder error families, [LibraryError] and
+ * [LibraryWriteError].
+ *
+ * Split from [withCorrelationId] solely to keep that function under the project's
+ * cyclomatic-complexity ceiling. The `else` branch is unreachable — this is only called from
+ * the single grouped branch above.
+ */
+private fun AppError.libraryFamilyWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is LibraryError -> withCorrelationId(id)
+        is LibraryWriteError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
+private fun LibraryWriteError.withCorrelationId(id: String?): LibraryWriteError =
+    when (this) {
+        is LibraryWriteError.Unavailable -> copy(correlationId = id)
     }
 
 private fun LibraryError.withCorrelationId(id: String?): LibraryError =
