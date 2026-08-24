@@ -87,13 +87,6 @@ class OrganizeServiceImpl(
     override suspend fun saveAndExecute(settings: OrganizeSettingsDto): AppResult<OrganizeRunId> {
         requireAdmin()?.let { return it }
 
-        if (!settings.enabled) {
-            // Disable = stop: persist the schema (always possible, even against an unwritable
-            // root) and start nothing. Nothing is ever un-organized.
-            settingsStore.set(settings)
-            return AppResult.Success(OrganizeRunId(NO_RUN))
-        }
-
         probeAllRoots()?.let { unavailable -> return AppResult.Failure(unavailable) }
 
         val plan = planBuilder.build(libraryRegistry.currentLibrary(), settings.toPlannerSettings())

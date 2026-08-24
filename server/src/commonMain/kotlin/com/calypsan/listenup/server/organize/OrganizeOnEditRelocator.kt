@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.organize
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
@@ -37,13 +38,24 @@ class OrganizeOnEditRelocator(
     private val mutex = Mutex()
     private val pending = mutableMapOf<String, Job>()
 
-    /** Notifies the relocator that [bookId] was just edited. Returns immediately; the replan runs debounced. */
-    fun onBookEdited(bookId: BookId) {
+    /**
+     * Notifies the relocator that [bookId] was just edited, passing the book's state **as it was
+     * before the edit**. Returns immediately; the replan runs debounced.
+     *
+     * [previous] is the load-bearing argument. The replan runs after a debounce, by which time the
+     * stored book already carries the edit — so it cannot tell "this edit made the path stale" from
+     * "this book was never organized in the first place". The pre-edit payload answers that, and
+     * only the caller has it.
+     */
+    fun onBookEdited(
+        bookId: BookId,
+        previous: BookSyncPayload,
+    ) {
         scope.launch {
             val job =
                 scope.launch(start = CoroutineStart.LAZY) {
                     delay(debounceMs)
-                    relocateIfMoved(bookId)
+                    relocateIfMoved(bookId, previous)
                     mutex.withLock { pending.remove(bookId.value) }
                 }
             mutex.withLock {
@@ -55,10 +67,17 @@ class OrganizeOnEditRelocator(
     }
 
     /** Replans [bookId] under the current settings and executes the move when its canonical path changed. */
-    private suspend fun relocateIfMoved(bookId: BookId) {
+    private suspend fun relocateIfMoved(
+        bookId: BookId,
+        previous: BookSyncPayload,
+    ) {
         try {
             val settings = settingsStore.get()
-            if (!settings.enabled) return
+            // Conformance is maintained, never imposed: only a book that was ALREADY at its
+            // canonical path is kept there as its metadata changes. A book its owner filed
+            // somewhere else stays filed there — moving it because they fixed a typo in the title
+            // is exactly the behaviour that makes people distrust software with their files.
+            if (!planBuilder.isCanonical(previous, settings.toPlannerSettings())) return
             val entry = planBuilder.buildForBook(bookId, settings.toPlannerSettings()) ?: return
             when (val result = executor.execute(entry)) {
                 is AppResult.Success -> {

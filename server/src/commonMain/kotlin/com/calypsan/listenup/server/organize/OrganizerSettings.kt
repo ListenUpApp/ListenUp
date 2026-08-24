@@ -41,13 +41,19 @@ enum class AuthorForm {
 }
 
 /**
- * The admin's chosen organizer schema — persisted in `server_settings`. [enabled] gates whether
- * uploads/metadata-edits auto-conform and whether the enable/save flow runs a full-library
- * reorganization; the preset and knobs below are meaningless while disabled but always carry a
- * concrete value so a re-enable has something sane to preview against.
+ * The admin's chosen organizer schema — persisted in `server_settings`.
+ *
+ * There is deliberately no `enabled` flag. A folder structure is not an optional feature: an
+ * uploaded book has to land *somewhere*, so the rules always exist and merely need a default.
+ * "Off" only ever meant "don't rearrange what's already there", which is expressed far better by
+ * making the reorganize sweep an explicit, previewed action than by a flag gating everything.
+ *
+ * What the rules apply to is governed by origin, not by a toggle — *we organize what we write, we
+ * don't relocate what you placed*: uploads conform (we choose the path), scan-discovered books are
+ * left exactly where they are, and a metadata edit relocates a book only when it was already
+ * sitting at its canonical path (see [OrganizeOnEditRelocator]).
  */
 data class OrganizerSettings(
-    val enabled: Boolean = false,
     val preset: StructurePreset = StructurePreset.AUTHOR_SERIES_TITLE,
     val seriesPrefix: SeriesPrefixStyle = SeriesPrefixStyle.BOOK_N_DASH,
     val authorForm: AuthorForm = AuthorForm.FIRST_LAST,

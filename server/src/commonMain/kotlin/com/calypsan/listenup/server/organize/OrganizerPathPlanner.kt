@@ -22,7 +22,7 @@ object OrganizerPathPlanner {
     fun planForArrival(
         facts: BookOrganizeFacts,
         settings: OrganizerSettings,
-    ): String = planFor(facts, if (settings.enabled) settings else OrganizerSettings())
+    ): String = planFor(facts, settings)
 
     /** Derives [facts]'s canonical path, relative to its library folder root, under [settings]. */
     fun planFor(

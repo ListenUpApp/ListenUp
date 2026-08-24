@@ -177,7 +177,7 @@ internal class BookServiceImpl(
                 sidecarWriter?.markDirty(id.value)
                 // A title edit may change the book's canonical folder — let the organizer replan
                 // (debounced no-op when disabled or when the path is unchanged).
-                organizeRelocator?.onBookEdited(id)
+                organizeRelocator?.onBookEdited(id, current)
                 AppResult.Success(Unit)
             }
 
@@ -232,7 +232,7 @@ internal class BookServiceImpl(
             is AppResult.Success -> {
                 sidecarWriter?.markDirty(id.value)
                 // The primary author is a canonical-path segment — organizer replan (see updateBook).
-                organizeRelocator?.onBookEdited(id)
+                organizeRelocator?.onBookEdited(id, current)
                 AppResult.Success(Unit)
             }
 
@@ -338,7 +338,7 @@ internal class BookServiceImpl(
             is AppResult.Success -> {
                 sidecarWriter?.markDirty(id.value)
                 // Series name/sequence are canonical-path segments — organizer replan (see updateBook).
-                organizeRelocator?.onBookEdited(id)
+                organizeRelocator?.onBookEdited(id, current)
                 AppResult.Success(Unit)
             }
 

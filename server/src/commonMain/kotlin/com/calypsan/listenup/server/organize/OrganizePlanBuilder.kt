@@ -93,6 +93,19 @@ class OrganizePlanBuilder(
      * DB's natural-key index (another live book already at the target path gets the mover a
      * deterministic ` (n)` suffix), mirroring [build]'s in-memory occupied-set logic.
      */
+    /**
+     * True when [payload]'s stored path is already what the rules would produce for it.
+     *
+     * This is how "conformance is maintained, never imposed" is decided. A book that already sits
+     * where the rules say is under the organizer's care, so a later metadata edit may move it to
+     * keep it there. A book that does not is somewhere its owner put it, and is left alone —
+     * consulting the *pre-edit* payload matters, since after an edit every book looks non-canonical.
+     */
+    fun isCanonical(
+        payload: BookSyncPayload,
+        settings: OrganizerSettings,
+    ): Boolean = OrganizerPathPlanner.planFor(payload.toOrganizeFacts(), settings) == payload.rootRelPath
+
     suspend fun buildForBook(
         bookId: BookId,
         settings: OrganizerSettings,

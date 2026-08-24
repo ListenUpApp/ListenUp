@@ -48,14 +48,16 @@ enum class OrganizeAuthorForm {
 
 /**
  * The admin's organizer schema, as read/written through
- * [com.calypsan.listenup.api.OrganizeService]. [enabled] gates the whole feature: while `false`
- * nothing on disk moves and metadata edits don't relocate books; the preset/knob values persist
- * regardless so a re-enable previews against the last-chosen schema.
+ * [com.calypsan.listenup.api.OrganizeService].
+ *
+ * There is deliberately no `enabled` flag. A folder structure is not an optional feature — an
+ * uploaded book has to land somewhere, so the rules always exist and merely need a default. What
+ * they apply to is decided by a book's origin, not by a toggle: uploads conform, scan-discovered
+ * books are left where they are, and a metadata edit relocates a book only if it was already at
+ * its canonical path. Reorganizing existing books is an explicit, previewed action.
  */
 @Serializable
 data class OrganizeSettingsDto(
-    @SerialName("enabled")
-    val enabled: Boolean = false,
     @SerialName("preset")
     val preset: OrganizePreset = OrganizePreset.AUTHOR_SERIES_TITLE,
     @SerialName("seriesPrefix")

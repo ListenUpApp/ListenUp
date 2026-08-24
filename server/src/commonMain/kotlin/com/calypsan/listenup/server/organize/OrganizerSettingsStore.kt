@@ -45,7 +45,6 @@ class OrganizerSettingsStore(
 /** Maps the wire schema onto the planner's domain settings — the DTO↔domain boundary translation. */
 fun OrganizeSettingsDto.toPlannerSettings(): OrganizerSettings =
     OrganizerSettings(
-        enabled = enabled,
         preset =
             when (preset) {
                 OrganizePreset.AUTHOR_TITLE -> StructurePreset.AUTHOR_TITLE
