@@ -1001,6 +1001,25 @@ body { margin: 0; }
 .is-idle .ico, .is-noresults .ico, .is-searching .ico { color: var(--ink-3); }
 @media (prefers-reduced-motion: no-preference) { .is-searching .ico { animation: scanPulse 1.3s ease-in-out infinite; } }
 
+/* The palette's keyboard-selected row — a stronger, more deliberate mark than plain :hover, since
+   a mouse is never involved in putting it there. */
+.search-row.is-highlighted { background: var(--surface-2); outline: 2px solid var(--coral); outline-offset: -2px; }
+
+/* ---- command palette (⌘K / Ctrl+K / “/”) ---- */
+.cmdk-scrim { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; padding: 96px 20px 20px; background: rgba(22,15,10,.36); }
+[data-theme="dark"] .cmdk-scrim { background: rgba(0,0,0,.55); }
+.cmdk-panel { width: 100%; max-width: 620px; max-height: min(70vh, 560px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-pop); overflow: hidden; }
+.cmdk-field { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.cmdk-field .f-wrap { width: auto; }
+.cmdk-body { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
+/* A compact echo of `.empty` (see its own rule) — the palette has a fraction of the page's room. */
+.cmdk-body .empty { padding: 30px 20px; }
+.cmdk-body .empty .ico { width: 40px; height: 40px; margin-bottom: 2px; }
+.cmdk-body .empty h3 { font-size: 14.5px; }
+.cmdk-body .empty p { font-size: 12.5px; }
+.cmdk-footer { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.cmdk-hint { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+
 /* ---- page background ----
    Painted on the root because the shell's own surface does not cover the whole canvas during a
    navigation; without it the gap reads as a flash of white. */

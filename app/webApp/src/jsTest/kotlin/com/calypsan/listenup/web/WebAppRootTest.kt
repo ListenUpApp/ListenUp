@@ -15,14 +15,17 @@ import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.contributor
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.nav.Route
+import com.calypsan.listenup.web.features.search.bookHit
+import com.calypsan.listenup.web.features.search.contributorHit
+import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withTimeout
@@ -39,12 +42,8 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SearchUiState
-import com.calypsan.listenup.web.features.search.bookHit
-import com.calypsan.listenup.web.features.search.contributorHit
 import com.calypsan.listenup.web.features.search.seriesHit
-import com.calypsan.listenup.web.features.search.searchResult
 import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -72,34 +71,6 @@ class WebAppRootTest :
             window.history.replaceState(null, "", originalUrl)
         }
 
-        fun mountAt(
-            path: String,
-            isAdmin: Flow<Boolean> = flowOf(false),
-            openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
-            openContributors: OpenContributors = fixedContributors(emptyList()),
-            openLibrary: OpenLibrary = fakeLibrary(),
-            openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
-        ): Pair<HTMLElement, Router> {
-            window.history.replaceState(null, "", path)
-            val router = Router()
-            val host = document.createElement("div") as HTMLElement
-            document.body!!.appendChild(host)
-            renderComposable(root = host) {
-                WebAppRoot(
-                    router,
-                    fixedBookDetail(readyBook()),
-                    fixedBookEdit(BookEditUiState()),
-                    openContributorDetail,
-                    openContributors,
-                    openLibrary,
-                    openSearch,
-                    fixedPlayback(),
-                    observeIsAdmin = { isAdmin },
-                )
-            }
-            return host to router
-        }
-
         fun navLabels(host: HTMLElement): List<String> {
             val items = host.querySelectorAll(".nav-i")
             return (0 until items.length).map { (items.item(it) as HTMLElement).textContent.orEmpty() }
@@ -120,19 +91,20 @@ class WebAppRootTest :
             // The entry used to be hardcoded for everyone — a member saw an Admin item whose
             // every destination would refuse them. The sidebar renders it only once the
             // repository says so.
-            val (host, router) = mountAt("/")
+            val (host, router, composition) = mountAt("/")
 
             try {
                 val labels = navLabels(host)
                 labels.none { it.contains("Admin") } shouldBe true
                 labels.any { it.contains("Settings") } shouldBe true
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("an admin gets the Admin entry") {
-            val (host, router) = mountAt("/", isAdmin = flowOf(true))
+            val (host, router, composition) = mountAt("/", isAdmin = flowOf(true))
 
             try {
                 // collectAsState starts false; the flow flips it on the next recomposition.
@@ -140,34 +112,37 @@ class WebAppRootTest :
                     while (navLabels(host).none { it.contains("Admin") }) delay(10)
                 }
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("the active sidebar item derives from the URL") {
-            val (host, router) = mountAt("/library")
+            val (host, router, composition) = mountAt("/library")
 
             try {
                 val activeItem = host.querySelector(".nav-i.on") as HTMLElement
                 activeItem.textContent.orEmpty() shouldContain "Library"
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("the root URL is Home") {
-            val (host, router) = mountAt("/")
+            val (host, router, composition) = mountAt("/")
 
             try {
                 val activeItem = host.querySelector(".nav-i.on") as HTMLElement
                 activeItem.textContent.orEmpty() shouldContain "Home"
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("clicking a sidebar item rewrites the URL") {
-            val (host, router) = mountAt("/")
+            val (host, router, composition) = mountAt("/")
 
             try {
                 val items = host.querySelectorAll(".nav-i")
@@ -181,40 +156,44 @@ class WebAppRootTest :
                     .textContent
                     .orEmpty() shouldContain "Library"
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("/library/contributors renders the contributors page with Authors active") {
-            val (host, router) = mountAt("/library/contributors")
+            val (host, router, composition) = mountAt("/library/contributors")
 
             try {
                 host.querySelectorAll(".contrib-header").length shouldBe 1
                 facetChip(host, "Authors").classList.contains("is-active") shouldBe true
                 facetChip(host, "Narrators").classList.contains("is-active") shouldBe false
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("?role=narrator renders the contributors page with Narrators active") {
-            val (host, router) = mountAt("/library/contributors?role=narrator")
+            val (host, router, composition) = mountAt("/library/contributors?role=narrator")
 
             try {
                 facetChip(host, "Narrators").classList.contains("is-active") shouldBe true
                 facetChip(host, "Authors").classList.contains("is-active") shouldBe false
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("a junk role falls back to Author, not Narrator, not no chip at all") {
-            val (host, router) = mountAt("/library/contributors?role=banana")
+            val (host, router, composition) = mountAt("/library/contributors?role=banana")
 
             try {
                 facetChip(host, "Authors").classList.contains("is-active") shouldBe true
                 facetChip(host, "Narrators").classList.contains("is-active") shouldBe false
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
@@ -223,7 +202,7 @@ class WebAppRootTest :
             // The facet row is part of the Loaded library render — a Loading library shows the
             // "Loading…" placeholder and no chips at all — so this needs a library that has
             // actually answered, unlike the routing-only specs above.
-            val (host, router) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
+            val (host, router, composition) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
 
             try {
                 facetChip(host, "Authors").click()
@@ -238,6 +217,7 @@ class WebAppRootTest :
                 window.location.pathname shouldBe "/library"
                 window.location.search shouldBe ""
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
@@ -247,7 +227,7 @@ class WebAppRootTest :
             // flagged — that nothing yet proved `openContributors(role)` is re-invoked when the
             // role actually changes, which is exactly what a bare `remember { }` would get wrong.
             val recorder = RecordingContributors()
-            val (host, router) = mountAt("/library/contributors", openContributors = recorder.open)
+            val (host, router, composition) = mountAt("/library/contributors", openContributors = recorder.open)
 
             try {
                 recorder.requestedRoles shouldBe listOf(ContributorRole.AUTHOR)
@@ -257,18 +237,20 @@ class WebAppRootTest :
 
                 recorder.requestedRoles shouldBe listOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR)
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("neither an 'In progress' nor a 'Series' chip exists in the facet row") {
-            val (host, router) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
+            val (host, router, composition) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
 
             try {
                 val chips = host.querySelectorAll(".facet-chip")
                 val labels = (0 until chips.length).map { (chips.item(it) as HTMLElement).textContent }
                 labels shouldBe listOf("Books", "Authors", "Narrators")
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
@@ -321,29 +303,31 @@ class WebAppRootTest :
         }
 
         test("/search renders the search page") {
-            val (host, router) = mountAt("/search")
+            val (host, router, composition) = mountAt("/search")
 
             try {
                 host.querySelector(".search-page") shouldNotBe null
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("/search?q=dune seeds the query into the field from the URL") {
-            val (host, router) = mountAt("/search?q=dune", openSearch = reactiveSearch())
+            val (host, router, composition) = mountAt("/search?q=dune", openSearch = reactiveSearch())
 
             try {
                 withTimeout(RECOMPOSE_TIMEOUT_MS) {
                     while ((host.querySelector(".f-input") as HTMLInputElement).value != "dune") delay(10)
                 }
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("typing in the search field updates the URL without stacking a history entry") {
-            val (host, router) = mountAt("/search", openSearch = reactiveSearch())
+            val (host, router, composition) = mountAt("/search", openSearch = reactiveSearch())
 
             try {
                 val lengthBeforeTyping = window.history.length
@@ -361,6 +345,7 @@ class WebAppRootTest :
                 }
                 window.history.length shouldBe lengthBeforeTyping
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
@@ -371,7 +356,7 @@ class WebAppRootTest :
                     query = "dune",
                     hits = listOf(bookHit("b1", "Dune"), contributorHit("c1", "Frank Herbert")),
                 )
-            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+            val (host, router, composition) = mountAt("/search", openSearch = hitNavigatingSearch(result))
 
             try {
                 val bookRow =
@@ -389,6 +374,7 @@ class WebAppRootTest :
                 }
                 window.location.pathname shouldBe "/book/b1"
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
@@ -424,7 +410,7 @@ class WebAppRootTest :
             // clicking it must leave the reader exactly where they were. (CONTRIBUTOR used to
             // sit here; it became openable the moment /contributor/{id} landed.)
             val result = searchResult(query = "dune", hits = listOf(seriesHit("s1", "Dune")))
-            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+            val (host, router, composition) = mountAt("/search", openSearch = hitNavigatingSearch(result))
 
             try {
                 val row = host.querySelector(".search-row") as HTMLElement
@@ -435,12 +421,13 @@ class WebAppRootTest :
 
                 window.location.pathname shouldBe "/search"
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
 
         test("the sidebar's Search item lands on the real search page, not the placeholder") {
-            val (host, router) = mountAt("/")
+            val (host, router, composition) = mountAt("/")
 
             try {
                 val items = host.querySelectorAll(".nav-i")
@@ -453,92 +440,8 @@ class WebAppRootTest :
                 host.querySelector(".search-page") shouldNotBe null
                 host.textContent.orEmpty() shouldNotContain "This page is not built yet."
             } finally {
+                composition.dispose()
                 router.dispose()
             }
         }
     })
-
-/** An [OpenContributors] that records every role it was asked to open, in the order asked. */
-private class RecordingContributors {
-    val requestedRoles = mutableListOf<ContributorRole>()
-    val open: OpenContributors = { role ->
-        requestedRoles += role
-        ContributorsSession(state = MutableStateFlow(emptyList()), close = {})
-    }
-}
-
-/** An [OpenContributorDetail] that records every id it was asked to open, in the order asked. */
-private class RecordingContributorDetail {
-    val requestedIds = mutableListOf<String>()
-    val open: OpenContributorDetail = { id ->
-        requestedIds += id
-        ContributorDetailSession(
-            state = MutableStateFlow(readyContributor(name = "Contributor $id")),
-            close = {},
-        )
-    }
-}
-
-/** Resolves after the next animation frame — when a scheduled recomposition has applied. */
-private suspend fun awaitFrame() {
-    suspendCoroutine { continuation ->
-        window.requestAnimationFrame { window.requestAnimationFrame { continuation.resume(Unit) } }
-    }
-}
-
-/** How long a spec waits for a state-flow value to reach the DOM. */
-private const val RECOMPOSE_TIMEOUT_MS = 2_000L
-
-/**
- * A Search session whose state genuinely reacts to [onQueryChanged] — synchronously and without
- * the real ViewModel's debounce or FTS call, so a spec about the `?q=` URL seam does not need a
- * database behind it. Always [SearchUiState.Idle]; these specs assert only on `.query`, never on
- * which phase renders — that contract already belongs to `SearchPageTest`.
- */
-private fun reactiveSearch(): OpenSearch {
-    val state = MutableStateFlow<SearchUiState>(SearchUiState.Idle())
-    return {
-        SearchSession(
-            state = state,
-            onQueryChanged = { query -> state.value = SearchUiState.Idle(query = query) },
-            onToggleType = {},
-            onOpenHit = {},
-            retry = {},
-            navActions = emptyFlow(),
-            close = {},
-        )
-    }
-}
-
-/**
- * A Search session whose [SearchUiState.Results] is fixed but whose hit clicks genuinely emit
- * [SearchNavAction]s — enough to prove [com.calypsan.listenup.web.WebAppRoot] routes them without a
- * real ViewModel or FTS index behind it.
- */
-private fun hitNavigatingSearch(result: SearchResult): OpenSearch {
-    val navChannel = Channel<SearchNavAction>(Channel.BUFFERED)
-    return {
-        SearchSession(
-            state =
-                MutableStateFlow(
-                    SearchUiState.Results(query = result.query, selectedTypes = emptySet(), result = result),
-                ),
-            onQueryChanged = {},
-            onToggleType = {},
-            onOpenHit = { hit -> navChannel.trySend(navActionFor(hit)) },
-            retry = {},
-            navActions = navChannel.receiveAsFlow(),
-            close = {},
-        )
-    }
-}
-
-/** Mirrors [com.calypsan.listenup.client.presentation.search.SearchViewModel.onResultSelected]'s
- *  own id+type mapping — this fixture only needs to prove the mapping reaches the router. */
-private fun navActionFor(hit: SearchHit): SearchNavAction =
-    when (hit.type) {
-        SearchHitType.BOOK -> SearchNavAction.NavigateToBook(hit.id)
-        SearchHitType.CONTRIBUTOR -> SearchNavAction.NavigateToContributor(hit.id)
-        SearchHitType.SERIES -> SearchNavAction.NavigateToSeries(hit.id)
-        SearchHitType.TAG -> SearchNavAction.NavigateToTag(hit.id, hit.name)
-    }

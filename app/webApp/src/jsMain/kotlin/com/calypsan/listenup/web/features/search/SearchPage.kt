@@ -96,10 +96,18 @@ fun SearchPage(
     }
 }
 
+/**
+ * The search field, shared with [com.calypsan.listenup.web.features.search.CommandPalette] — the
+ * palette's own field is the same control, not a second one, so the two surfaces never drift in
+ * how a query is typed. [autoFocus] exists only for the palette: a keyboard-summoned overlay that
+ * doesn't move focus into itself strands the very keyboard user who just invoked it, so the field
+ * grabs focus the instant it mounts.
+ */
 @Composable
-private fun SearchField(
+internal fun SearchField(
     query: String,
     onQueryChanged: (String) -> Unit,
+    autoFocus: Boolean = false,
 ) {
     Div(attrs = { classes("f-wrap") }) {
         Div(attrs = { classes("f-box") }) {
@@ -110,6 +118,12 @@ private fun SearchField(
                 attr("placeholder", "Search your library")
                 attr("aria-label", "Search")
                 onInput { event -> onQueryChanged(event.value) }
+                if (autoFocus) {
+                    ref { element ->
+                        element.focus()
+                        onDispose { }
+                    }
+                }
             }
         }
     }
@@ -129,16 +143,31 @@ private fun ResultsBody(
     ResultsList(result = result, openableTypes = openableTypes, onOpenHit = onOpenHit)
 }
 
+/**
+ * Hits grouped by [SearchHitType], in the type's own declaration order — the single source of
+ * truth both [ResultsList]'s rendering order and
+ * [com.calypsan.listenup.web.features.search.openableSearchHits]'s keyboard-navigation order read
+ * from, so the row the palette highlights third is always the row a reader sees third.
+ */
+internal fun groupHitsByType(hits: List<SearchHit>): Map<SearchHitType, List<SearchHit>> = hits.groupBy { it.type }
+
+/**
+ * The grouped hit list, shared with [com.calypsan.listenup.web.features.search.CommandPalette] —
+ * the palette's own results are this same rendering, not a second copy of it, kept in sync by
+ * construction. [highlighted] is always null on the page itself; only the palette's keyboard
+ * navigation ever sets it.
+ */
 @Composable
-private fun ResultsList(
+internal fun ResultsList(
     result: SearchResult,
     openableTypes: Set<SearchHitType>,
     onOpenHit: (SearchHit) -> Unit,
+    highlighted: SearchHit? = null,
 ) {
     Div(attrs = { classes("search-results") }) {
         // `hits` is re-grouped on every recomposition otherwise; keyed on the result itself, the
         // same precedent `ContributorsPage.groupByLetter` sets for its own list.
-        val grouped = remember(result) { result.hits.groupBy { it.type } }
+        val grouped = remember(result) { groupHitsByType(result.hits) }
         SearchHitType.entries.forEach { type ->
             val hits = grouped[type].orEmpty()
             if (hits.isNotEmpty()) {
@@ -148,7 +177,12 @@ private fun ResultsList(
                         Span(attrs = { classes("search-group-count") }) { Text(hits.size.toString()) }
                     }
                     hits.forEach { hit ->
-                        SearchRow(hit = hit, isOpenable = type in openableTypes, onOpen = { onOpenHit(hit) })
+                        SearchRow(
+                            hit = hit,
+                            isOpenable = type in openableTypes,
+                            onOpen = { onOpenHit(hit) },
+                            isHighlighted = hit == highlighted,
+                        )
                     }
                 }
             }
@@ -156,14 +190,21 @@ private fun ResultsList(
     }
 }
 
+/**
+ * One search hit's row, shared with [com.calypsan.listenup.web.features.search.CommandPalette] —
+ * see [ResultsList]'s KDoc. [isHighlighted] is the palette's keyboard-selected row; the page never
+ * sets it.
+ */
 @Composable
-private fun SearchRow(
+internal fun SearchRow(
     hit: SearchHit,
     isOpenable: Boolean,
     onOpen: () -> Unit,
+    isHighlighted: Boolean = false,
 ) {
     Div(attrs = {
         classes("search-row")
+        if (isHighlighted) classes("is-highlighted")
         if (isOpenable) {
             tabIndex(0)
             attr("role", "button")
@@ -205,8 +246,11 @@ private fun SearchRow(
     }
 }
 
+// The four non-error prompts are shared with
+// com.calypsan.listenup.web.features.search.CommandPalette, which renders these same five
+// SearchUiState cases in compact form — see Prompt's own KDoc.
 @Composable
-private fun IdlePrompt() {
+internal fun IdlePrompt() {
     Prompt(
         marker = "is-idle",
         heading = "Search your library",
@@ -215,7 +259,7 @@ private fun IdlePrompt() {
 }
 
 @Composable
-private fun TooShortPrompt() {
+internal fun TooShortPrompt() {
     Prompt(
         marker = "is-tooshort",
         heading = "Keep typing",
@@ -224,12 +268,12 @@ private fun TooShortPrompt() {
 }
 
 @Composable
-private fun SearchingPrompt() {
+internal fun SearchingPrompt() {
     Prompt(marker = "is-searching", heading = "Searching…", body = null)
 }
 
 @Composable
-private fun NoResultsPrompt(query: String) {
+internal fun NoResultsPrompt(query: String) {
     Prompt(
         marker = "is-noresults",
         heading = "No results for “$query”",
@@ -254,9 +298,14 @@ private fun ErrorPrompt(
     }
 }
 
-/** The shape every non-error prompt state takes: a mark, a heading, and an optional body line. */
+/**
+ * The shape every non-error prompt state takes: a mark, a heading, and an optional body line.
+ * Also called directly by [com.calypsan.listenup.web.features.search.CommandPalette] for its own
+ * compact error line — the same marker/heading shape as [ErrorPrompt] minus the retry button the
+ * palette has no room for.
+ */
 @Composable
-private fun Prompt(
+internal fun Prompt(
     marker: String,
     heading: String,
     body: String?,

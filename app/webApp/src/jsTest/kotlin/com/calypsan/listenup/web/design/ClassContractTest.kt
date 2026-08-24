@@ -38,6 +38,7 @@ import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.web.features.nowplaying.TransportState
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.features.search.CommandPalette
 import com.calypsan.listenup.web.features.search.SearchPage
 import com.calypsan.listenup.web.features.search.bookHit
 import com.calypsan.listenup.web.features.search.contributorHit
@@ -356,6 +357,69 @@ class ClassContractTest :
                             onRetry = {},
                             openableTypes = setOf(SearchHitType.BOOK),
                         )
+                        // The command palette's own compact render of the same five
+                        // SearchUiState cases, plus the highlighted-row state SearchPage never
+                        // sets — every one of them joins this contract by hand, same as
+                        // SearchPage's block above.
+                        CommandPalette(
+                            state = SearchUiState.Idle(),
+                            onQueryChanged = {},
+                            onOpenHit = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                            highlighted = null,
+                        )
+                        CommandPalette(
+                            state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
+                            onQueryChanged = {},
+                            onOpenHit = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                            highlighted = null,
+                        )
+                        CommandPalette(
+                            state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
+                            onQueryChanged = {},
+                            onOpenHit = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                            highlighted = null,
+                        )
+                        CommandPalette(
+                            state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
+                            onQueryChanged = {},
+                            onOpenHit = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                            highlighted = null,
+                        )
+                        CommandPalette(
+                            state =
+                                SearchUiState.Results(
+                                    query = "zzzzz",
+                                    selectedTypes = emptySet(),
+                                    result = searchResult(query = "zzzzz", hits = emptyList()),
+                                ),
+                            onQueryChanged = {},
+                            onOpenHit = {},
+                            openableTypes = SearchHitType.entries.toSet(),
+                            highlighted = null,
+                        )
+                        run {
+                            val hit = bookHit("b1", "Dune", author = "Frank Herbert")
+                            CommandPalette(
+                                state =
+                                    SearchUiState.Results(
+                                        query = "dune",
+                                        selectedTypes = emptySet(),
+                                        result =
+                                            searchResult(
+                                                query = "dune",
+                                                hits = listOf(hit, contributorHit("c1", "Frank Herbert")),
+                                            ),
+                                    ),
+                                onQueryChanged = {},
+                                onOpenHit = {},
+                                openableTypes = setOf(SearchHitType.BOOK),
+                                highlighted = hit,
+                            )
+                        }
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
