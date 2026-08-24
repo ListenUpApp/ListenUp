@@ -14,8 +14,10 @@ import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.disabled
+import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -38,7 +40,23 @@ fun SetupForm(
     val error = (state as? SetupUiState.Error)?.type
     val badField = (error as? SetupErrorType.ValidationError)?.field
 
-    Div(attrs = { classes("auth-fields") }) {
+    val submit = onSubmit
+
+    // A real <form>, not a Div with a click handler — Enter in a text field submits the form it is
+    // in, which is a browser behaviour no keydown listener can reproduce (implicit submission is
+    // driven by real user input). type=submit on the button is the other half. preventDefault
+    // stops the browser's own navigation, which here would reload the page and discard both the
+    // typed values and the Kotlin/JS runtime.
+    // `this.` is load-bearing: the composable's own `onSubmit` PARAMETER shadows the attribute
+    // builder's `onSubmit`, so the bare name binds to the callback instead of registering the
+    // event.
+    Form(attrs = {
+        classes("auth-fields")
+        this.onSubmit { event ->
+            event.preventDefault()
+            submit(firstName, lastName, email, password, confirm)
+        }
+    }) {
         Div(attrs = { classes("auth-row") }) {
             Field(
                 label = "First name",
@@ -46,6 +64,7 @@ fun SetupForm(
                 onInput = { firstName = it },
                 error = badField == SetupField.FIRST_NAME,
                 id = FIRST_NAME_ID,
+                autocomplete = "given-name",
             )
             Field(
                 label = "Last name",
@@ -53,6 +72,7 @@ fun SetupForm(
                 onInput = { lastName = it },
                 error = badField == SetupField.LAST_NAME,
                 id = LAST_NAME_ID,
+                autocomplete = "family-name",
             )
         }
         Field(
@@ -64,6 +84,7 @@ fun SetupForm(
             type = InputType.Email,
             error = badField == SetupField.EMAIL,
             id = EMAIL_ID,
+            autocomplete = "username",
         )
         Div(attrs = { classes("auth-row") }) {
             PasswordField(
@@ -72,6 +93,7 @@ fun SetupForm(
                 onInput = { password = it },
                 error = badField == SetupField.PASSWORD,
                 id = PASSWORD_ID,
+                autocomplete = "new-password",
             )
             PasswordField(
                 label = "Confirm",
@@ -79,6 +101,7 @@ fun SetupForm(
                 onInput = { confirm = it },
                 error = badField == SetupField.PASSWORD_CONFIRM,
                 id = CONFIRM_ID,
+                autocomplete = "new-password",
             )
         }
 
@@ -86,9 +109,9 @@ fun SetupForm(
 
         Button(attrs = {
             classes("btn")
-            attr("type", "button")
+            attr("type", "submit")
             if (state is SetupUiState.Loading) disabled()
-            onClick { onSubmit(firstName, lastName, email, password, confirm) }
+            // No onClick: a submit button inside a form already submits it.
         }) {
             Icon(WebIcon.UserPlus, size = BUTTON_ICON_SIZE)
             Text(if (state is SetupUiState.Loading) "Creating…" else "Create admin account")
