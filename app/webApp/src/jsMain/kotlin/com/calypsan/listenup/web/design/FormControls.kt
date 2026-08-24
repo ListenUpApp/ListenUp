@@ -27,14 +27,18 @@ fun TextAreaField(
     placeholder: String = "",
     id: String? = null,
 ) {
+    val fieldId = rememberFieldId(id)
     Div(attrs = { classes("f-wrap") }) {
-        Label(attrs = { classes("f-label") }) { Text(label) }
+        Label(attrs = {
+            classes("f-label")
+            attr("for", fieldId)
+        }) { Text(label) }
         Div(attrs = { classes("f-box", "f-box-area") }) {
             TextArea(value = value) {
                 classes("f-input", "f-area")
                 attr("rows", rows.toString())
                 if (placeholder.isNotEmpty()) attr("placeholder", placeholder)
-                id?.let { attr("id", it) }
+                attr("id", fieldId)
                 onInput { event -> onInput(event.value) }
             }
         }
@@ -63,12 +67,16 @@ fun SelectField(
     emptyLabel: String = "—",
     id: String? = null,
 ) {
+    val fieldId = rememberFieldId(id)
     Div(attrs = { classes("f-wrap") }) {
-        Label(attrs = { classes("f-label") }) { Text(label) }
+        Label(attrs = {
+            classes("f-label")
+            attr("for", fieldId)
+        }) { Text(label) }
         Div(attrs = { classes("f-box") }) {
             Select(attrs = {
                 classes("f-input", "f-select")
-                id?.let { attr("id", it) }
+                attr("id", fieldId)
                 onChange { event -> onSelect(event.value?.takeIf { it.isNotEmpty() }) }
             }) {
                 Option(value = "", attrs = { if (value == null) selected() }) { Text(emptyLabel) }
@@ -95,6 +103,8 @@ fun CheckboxField(
     onChange: (Boolean) -> Unit,
     id: String? = null,
 ) {
+    // No generated id here: this label WRAPS its control, which is a valid association on its own
+    // — a `for` would be redundant, and an id nothing points at is noise.
     Label(attrs = { classes("f-check") }) {
         CheckboxInput(checked = checked) {
             id?.let { attr("id", it) }
