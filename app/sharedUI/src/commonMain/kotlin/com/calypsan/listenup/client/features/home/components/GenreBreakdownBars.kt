@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.GenreShare
+import com.calypsan.listenup.client.presentation.home.genreShareBars
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_percent
 import org.jetbrains.compose.resources.stringResource
@@ -38,19 +39,19 @@ fun GenreBreakdownBars(
     genres: List<GenreShare>,
     modifier: Modifier = Modifier,
 ) {
-    // Share of total listening across the shown genres — matches the design's summing percentages.
-    val totalSeconds = genres.sumOf { it.totalSeconds }.toDouble().coerceAtLeast(1.0)
+    // Percentages come from the shared projection — a share of the genres SHOWN, so the bars sum
+    // to roughly 100. The web client reads the same function.
+    val bars = genreShareBars(genres)
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        genres.forEach { genre ->
-            val share = (genre.totalSeconds.toDouble() / totalSeconds).coerceIn(0.0, 1.0)
+        bars.forEach { bar ->
             GenreBar(
-                genreName = genre.genreName,
-                fraction = share.toFloat(),
-                percent = (share * 100).toInt(),
+                genreName = bar.genreName,
+                fraction = bar.percent / PERCENT_SCALE,
+                percent = bar.percent,
             )
         }
     }
@@ -108,3 +109,6 @@ private fun GenreBar(
         )
     }
 }
+
+/** Percent-to-fraction divisor for the share bar's width. */
+private const val PERCENT_SCALE = 100f

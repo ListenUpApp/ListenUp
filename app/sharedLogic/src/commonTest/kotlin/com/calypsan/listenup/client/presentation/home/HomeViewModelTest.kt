@@ -63,11 +63,13 @@ class HomeViewModelTest :
             val scanProgressFlow =
                 MutableStateFlow<com.calypsan.listenup.client.domain.model.ScanProgressState?>(null)
             val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
+            val buildingInitialLibraryFlow = MutableStateFlow(false)
             var currentHour: Int = 10 // Default to morning
 
             fun build(): HomeViewModel {
                 every { syncRepository.scanProgress } returns scanProgressFlow
                 every { syncRepository.syncState } returns syncStateFlow
+                every { syncRepository.isBuildingInitialLibrary } returns buildingInitialLibraryFlow
                 return HomeViewModel(
                     homeRepository = homeRepository,
                     userRepository = userRepository,
@@ -460,6 +462,24 @@ class HomeViewModelTest :
             }
         }
 
+        test("isBuildingInitialLibrary reflects the repository, independently of isSyncing") {
+            runTest {
+                // A first seed keeps the socket `Connected`, so `isSyncing` stays FALSE throughout
+                // it. Anything explaining a short shelf has to read this field instead — the exact
+                // trap LibraryUiState.Loaded documents. Pinned here so the two cannot be conflated.
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                fixture.buildingInitialLibraryFlow.value = true
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.isBuildingInitialLibrary shouldBe true
+                ready.isSyncing shouldBe false
+            }
+        }
+
         // ========== Time-Based Greeting Tests ==========
 
         test("greeting is morning between 5 and 11") {
@@ -592,6 +612,7 @@ class HomeViewModelTest :
                 // since we bypass build() to inject the failing currentHour.
                 every { fixture.syncRepository.scanProgress } returns fixture.scanProgressFlow
                 every { fixture.syncRepository.syncState } returns fixture.syncStateFlow
+                every { fixture.syncRepository.isBuildingInitialLibrary } returns fixture.buildingInitialLibraryFlow
                 val viewModel =
                     HomeViewModel(
                         homeRepository = fixture.homeRepository,

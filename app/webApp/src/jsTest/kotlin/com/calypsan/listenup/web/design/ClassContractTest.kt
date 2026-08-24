@@ -27,6 +27,15 @@ import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
+import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
+import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.domain.GenreShare
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.web.features.home.HomePage
+import com.calypsan.listenup.web.features.home.continuing
+import com.calypsan.listenup.web.features.home.readyHome
+import com.calypsan.listenup.web.features.home.scanning
+import com.calypsan.listenup.web.features.home.weekStats
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.contributor
 import org.jetbrains.compose.web.renderComposable
@@ -438,6 +447,32 @@ class ClassContractTest :
                             onOpenLibrary = {},
                             onOpenBook = {},
                         )
+                        // Home, in every shape that renders a class of its own: loading, error,
+                        // and the loaded page across a live scan, a bare sync, an empty shelf and
+                        // all four stats states. It joins this contract by hand like the pages
+                        // above — a state nobody lists here is a state whose classes go unchecked.
+                        HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, {}, {}, {})
+                        HomePage(HomeUiState.Error("nope"), HomeStatsUiState.Loading, {}, {}, {})
+                        HomePage(readyHome(), HomeStatsUiState.Loading, {}, {}, {})
+                        HomePage(readyHome(), HomeStatsUiState.Empty, {}, {}, {})
+                        HomePage(readyHome(), HomeStatsUiState.Error(isRetryable = true), {}, {}, {})
+                        HomePage(
+                            readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
+                            weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
+                            {},
+                            {},
+                            {},
+                        )
+                        // A slot whose book has not synced yet — the skeleton card's own classes.
+                        HomePage(
+                            readyHome(continueListening = listOf(ContinueListeningItem.Loading("b2"))),
+                            weekStats(),
+                            {},
+                            {},
+                            {},
+                        )
+                        HomePage(readyHome(isBuildingInitialLibrary = true), weekStats(), {}, {}, {})
+                        HomePage(readyHome(scanProgress = scanning()), weekStats(), {}, {}, {})
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))

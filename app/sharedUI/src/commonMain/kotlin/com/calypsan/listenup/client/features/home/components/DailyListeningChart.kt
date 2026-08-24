@@ -24,12 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.domain.DayBucket
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
+import com.calypsan.listenup.client.presentation.home.weekChartColumns
 import kotlin.time.ExperimentalTime
 
 /**
@@ -54,26 +49,12 @@ fun DailyListeningChart(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
 
-    // Map dayOffset → day-of-week label. Today (offset 0) is the rightmost bar.
+    // Ordering, labels and which column is today all come from the shared projection, so this
+    // chart and the web client cannot disagree about which bar is today.
     val chartData =
-        remember(dailyBuckets) {
-            val today =
-                Clock.System
-                    .now()
-                    .toLocalDateTime(TimeZone.currentSystemDefault())
-                    .date
+        remember(dailyBuckets) { weekChartColumns(dailyBuckets) }
 
-            // Buckets are today-first (index 0 = today), so reverse for left-to-right display.
-            dailyBuckets.reversed().map { bucket ->
-                val date = today.minus(bucket.dayOffsetFromToday, DateTimeUnit.DAY)
-                ChartBar(
-                    label = date.dayOfWeek.narrow(),
-                    minutes = bucket.totalSeconds / 60f,
-                )
-            }
-        }
-
-    val maxMinutes = chartData.maxOf { it.minutes }.coerceAtLeast(1f)
+    val maxSeconds = chartData.maxOf { it.totalSeconds }.coerceAtLeast(1L).toFloat()
     val labelStyle = TextStyle(fontSize = 11.sp, color = labelColor)
 
     // Bars grow up from the baseline on screen entry, rippling left-to-right (today rises last).
@@ -100,10 +81,10 @@ fun DailyListeningChart(
         val barStagger = if (barCount > 1) (1f - BAR_GROW_FRACTION) / (barCount - 1) else 0f
         chartData.forEachIndexed { index, bar ->
             val x = index * (barWidth + barSpacing)
-            val isToday = index == chartData.lastIndex
-            val isEmpty = bar.minutes <= 0f
+            val isToday = bar.isToday
+            val isEmpty = bar.totalSeconds <= 0L
             // Empty days draw a small nub so the baseline reads as a row of days, not gaps.
-            val fullHeight = if (isEmpty) emptyStub else bar.minutes / maxMinutes * chartHeight
+            val fullHeight = if (isEmpty) emptyStub else bar.totalSeconds / maxSeconds * chartHeight
             val barProgress = ((growth.value - index * barStagger) / BAR_GROW_FRACTION).coerceIn(0f, 1f)
             val barHeight = fullHeight * LinearOutSlowInEasing.transform(barProgress)
             val barTop = chartHeight - barHeight
@@ -134,22 +115,3 @@ fun DailyListeningChart(
 
 /** Fraction of the entry animation each bar spends growing; the remainder is its stagger offset. */
 private const val BAR_GROW_FRACTION = 0.6f
-
-private data class ChartBar(
-    val label: String,
-    val minutes: Float,
-)
-
-/**
- * Narrow day-of-week label (single character).
- */
-private fun DayOfWeek.narrow(): String =
-    when (this) {
-        DayOfWeek.MONDAY -> "M"
-        DayOfWeek.TUESDAY -> "T"
-        DayOfWeek.WEDNESDAY -> "W"
-        DayOfWeek.THURSDAY -> "T"
-        DayOfWeek.FRIDAY -> "F"
-        DayOfWeek.SATURDAY -> "S"
-        DayOfWeek.SUNDAY -> "S"
-    }

@@ -70,7 +70,13 @@ sealed interface LibraryUiState {
         val isEmpty: Boolean
             get() = books.isEmpty()
 
-        /** Whether a sync operation is currently in progress. */
+        /**
+         * Whether a sync PASS is running.
+         *
+         * ⛔ Not "is my library still arriving". This tracks the connection, which is `Connected`
+         * for the whole of an initial seed, so this is false while thousands of books stream in.
+         * Anything explaining a short or empty shelf must read [isBuildingInitialLibrary] instead.
+         */
         val isSyncing: Boolean
             get() = syncState is SyncState.Syncing || syncState is SyncState.Progress
     }
