@@ -203,7 +203,7 @@ interface AdminRepository {
     suspend fun updateServerSettings(
         serverName: String? = null,
         remoteUrl: String? = null,
-        inboxEnabled: Boolean? = null,
+        holdNewBooksForReview: Boolean? = null,
         pushNotificationsEnabled: Boolean? = null,
     ): AppResult<ServerSettings>
 

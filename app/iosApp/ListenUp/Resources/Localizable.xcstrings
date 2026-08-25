@@ -756,7 +756,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New books wait in the inbox until an admin releases them."
+            "value": "Healthy new books wait here too, not just the ones with problems."
           }
         }
       }
@@ -776,7 +776,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Review and release new books waiting for approval."
+            "value": "Books that need a look before they join your library."
           }
         }
       }

@@ -40,7 +40,6 @@ class ManagementSectionTest {
                     onInboxClick = {},
                     onLibrarySettingsClick = {},
                     onOrganizeClick = {},
-                    inboxEnabled = false,
                 )
             }
         }
@@ -63,7 +62,6 @@ class ManagementSectionTest {
                     onInboxClick = {},
                     onLibrarySettingsClick = { clicked = true },
                     onOrganizeClick = {},
-                    inboxEnabled = false,
                 )
             }
         }
@@ -87,7 +85,6 @@ class ManagementSectionTest {
                     onInboxClick = {},
                     onLibrarySettingsClick = {},
                     onOrganizeClick = {},
-                    inboxEnabled = false,
                 )
             }
         }
@@ -110,7 +107,6 @@ class ManagementSectionTest {
                     onInboxClick = {},
                     onLibrarySettingsClick = {},
                     onOrganizeClick = {},
-                    inboxEnabled = false,
                 )
             }
         }

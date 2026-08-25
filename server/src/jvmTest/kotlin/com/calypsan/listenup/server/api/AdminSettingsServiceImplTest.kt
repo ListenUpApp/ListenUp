@@ -203,8 +203,8 @@ class AdminSettingsServiceImplTest :
             }
         }
 
-        // (h) inboxEnabled persists to the library and round-trips through getServerSettings
-        test("updateServerSettings inboxEnabled persists to the library and round-trips through getServerSettings") {
+        // (h) holdNewBooksForReview persists to the library and round-trips through getServerSettings
+        test("updateServerSettings holdNewBooksForReview persists to the library and round-trips through getServerSettings") {
             withSqlDatabase {
                 runTest {
                     val (svc, libraryRepository, libraryRegistry) =
@@ -214,12 +214,12 @@ class AdminSettingsServiceImplTest :
                         )
                     seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
 
-                    svc.getServerSettings().shouldSucceed().inboxEnabled shouldBe false
+                    svc.getServerSettings().shouldSucceed().holdNewBooksForReview shouldBe false
 
-                    svc.updateServerSettings(AdminServerSettingsPatch(inboxEnabled = true)).shouldSucceed()
-                    svc.getServerSettings().shouldSucceed().inboxEnabled shouldBe true
+                    svc.updateServerSettings(AdminServerSettingsPatch(holdNewBooksForReview = true)).shouldSucceed()
+                    svc.getServerSettings().shouldSucceed().holdNewBooksForReview shouldBe true
 
-                    libraryRepository.readInboxEnabled(libraryRegistry.currentLibrary()) shouldBe true
+                    libraryRepository.readHoldNewBooksForReview(libraryRegistry.currentLibrary()) shouldBe true
                 }
             }
         }

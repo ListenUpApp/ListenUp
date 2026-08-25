@@ -32,10 +32,10 @@ import kotlin.time.Clock
  * on a value class returns `"LibraryId(value=foo)"`, which would corrupt every column
  * the id is written into.
  *
- * **The `inbox_enabled` gate is OFF-payload.** It is a server-side scanner gate read by
+ * **The `hold_new_books_for_review` gate is OFF-payload.** It is a server-side scanner gate read by
  * the ingest path, deliberately absent from [LibrarySyncPayload] (not member-synced). It
- * is written/read by [setInboxEnabled] / [readInboxEnabled] through dedicated queries
- * (`setInboxEnabled` / `selectInboxEnabled`), never through the syncable `update` — so a
+ * is written/read by [setHoldNewBooksForReview] / [readHoldNewBooksForReview] through dedicated queries
+ * (`setHoldNewBooksForReview` / `selectHoldNewBooksForReview`), never through the syncable `update` — so a
  * normal library upsert never clobbers it, and a gate toggle never rewrites the synced
  * library fields.
  */
@@ -124,8 +124,8 @@ class LibraryRepository(
         existed: Boolean,
     ) {
         if (existed) {
-            // `inbox_enabled` is intentionally omitted — the syncable update must never clobber
-            // the off-payload server-side gate (its own setInboxEnabled query owns that column).
+            // `hold_new_books_for_review` is intentionally omitted — the syncable update must never clobber
+            // the off-payload server-side gate (its own setHoldNewBooksForReview query owns that column).
             db.librariesQueries.update(
                 name = value.name,
                 metadata_precedence = value.metadataPrecedence,
@@ -154,34 +154,34 @@ class LibraryRepository(
     }
 
     /**
-     * Reads the `inbox_enabled` gate for [libraryId], or `false` when no live row
+     * Reads the `hold_new_books_for_review` gate for [libraryId], or `false` when no live row
      * exists. The flag lives only on the `libraries` table — it is deliberately absent
      * from [LibrarySyncPayload] (a server-side scanner gate, not member-synced) — so the
-     * admin-facing read path resolves it directly through `selectInboxEnabled`, which
+     * admin-facing read path resolves it directly through `selectHoldNewBooksForReview`, which
      * already filters to non-tombstoned rows.
      */
-    suspend fun readInboxEnabled(libraryId: LibraryId): Boolean =
+    suspend fun readHoldNewBooksForReview(libraryId: LibraryId): Boolean =
         suspendTransaction(db) {
             db.librariesQueries
-                .selectInboxEnabled(libraryId.value)
+                .selectHoldNewBooksForReview(libraryId.value)
                 .executeAsOneOrNull()
                 ?.let { it == 1L }
                 ?: false
         }
 
     /**
-     * Sets the `inbox_enabled` gate for [libraryId] to [enabled], bumping the
+     * Sets the `hold_new_books_for_review` gate for [libraryId] to [enabled], bumping the
      * library's revision and publishing a [SyncEvent.Updated] so connected clients
      * reconcile reactively. The flag itself is not carried on [LibrarySyncPayload]
      * (server-side scanner gate, not member-synced), so this writes the column
-     * directly through `setInboxEnabled` rather than routing through [upsert] — a
+     * directly through `setHoldNewBooksForReview` rather than routing through [upsert] — a
      * gate toggle must not rewrite the synced library fields.
      *
      * Returns [LibraryError.NotFound] when no live row exists for [libraryId]. The
      * `SyncEvent.Updated` emit is deferred to after-commit via [emitAfterCommit],
      * the same publish-order-preserving path the base's own writes use.
      */
-    suspend fun setInboxEnabled(
+    suspend fun setHoldNewBooksForReview(
         libraryId: LibraryId,
         enabled: Boolean,
     ): AppResult<Unit> =
@@ -191,8 +191,8 @@ class LibraryRepository(
             val now = clock.now().toEpochMilliseconds()
             val rowsAffected =
                 db.librariesQueries
-                    .setInboxEnabled(
-                        inbox_enabled = if (enabled) 1L else 0L,
+                    .setHoldNewBooksForReview(
+                        hold_new_books_for_review = if (enabled) 1L else 0L,
                         revision = rev,
                         updated_at = now,
                         client_op_id = null,
@@ -223,7 +223,7 @@ class LibraryRepository(
      * guard makes this **first-only** — a rescan of an already-populated library writes zero rows and
      * emits nothing, so the "Building your library" screen never re-shows.
      *
-     * Like the `inbox_enabled` gate this is an OFF-payload column write (never through the syncable
+     * Like the `hold_new_books_for_review` gate this is an OFF-payload column write (never through the syncable
      * `update`), so it never rewrites the synced library fields. Returns `true` when a row was actually
      * stamped (first completion), `false` when it was already stamped or no live row exists — the emit
      * is deferred to after-commit via [emitAfterCommit] only on the `true` path.
@@ -264,7 +264,7 @@ class LibraryRepository(
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: LibraryId): String = idAsString(id)
 
-    /** Maps a generated [Libraries] row to the wire [LibrarySyncPayload] DTO (drops `inbox_enabled`). */
+    /** Maps a generated [Libraries] row to the wire [LibrarySyncPayload] DTO (drops `hold_new_books_for_review`). */
     private fun Libraries.toSyncPayload(): LibrarySyncPayload =
         LibrarySyncPayload(
             id = id,

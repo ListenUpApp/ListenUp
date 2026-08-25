@@ -1,11 +1,11 @@
 -- libraries: global (cross-user) syncable domain — a named, operator-configured
 -- collection of zero-or-more library_folders roots. Soft-deletable, revision-tracked.
 -- Column set matches V20__library_substrate.sql (base + multi-user forward-staging)
--- plus V25__library_inbox_enabled.sql (the inbox_enabled gate).
+-- plus V25__library_inbox_enabled.sql, renamed by V65__rename_inbox_enabled_to_hold_new_books.sql.
 --
--- `inbox_enabled` is a SERVER-side scanner gate — it is deliberately NOT part of
+-- `hold_new_books_for_review` is a SERVER-side scanner gate — it is deliberately NOT part of
 -- LibrarySyncPayload (not member-synced), so its read/write lives in dedicated
--- queries (selectInboxEnabled / setInboxEnabled) separate from the syncable
+-- queries (selectHoldNewBooksForReview / setHoldNewBooksForReview) separate from the syncable
 -- read/write path.
 CREATE TABLE libraries (
     id                  TEXT    NOT NULL PRIMARY KEY,
@@ -18,7 +18,7 @@ CREATE TABLE libraries (
     updated_at          INTEGER NOT NULL DEFAULT 0,
     deleted_at          INTEGER,
     client_op_id        TEXT,
-    inbox_enabled       INTEGER NOT NULL DEFAULT 0,
+    hold_new_books_for_review       INTEGER NOT NULL DEFAULT 0,
     initial_scan_completed_at INTEGER
 );
 
@@ -55,7 +55,7 @@ insert:
 INSERT INTO libraries (id, name, metadata_precedence, access_mode, created_by_user_id, created_at, revision, updated_at, deleted_at, client_op_id)
 VALUES (:id, :name, :metadata_precedence, :access_mode, :created_by_user_id, :created_at, :revision, :updated_at, :deleted_at, :client_op_id);
 
--- Updates only the LibrarySyncPayload-carried columns. `inbox_enabled` is
+-- Updates only the LibrarySyncPayload-carried columns. `hold_new_books_for_review` is
 -- intentionally left untouched — it is a server-side gate, not member-synced, so a
 -- syncable upsert must never clobber it.
 update:
@@ -65,20 +65,20 @@ SET name = :name, metadata_precedence = :metadata_precedence, access_mode = :acc
     deleted_at = :deleted_at, client_op_id = :client_op_id
 WHERE id = :id;
 
--- ── inbox_enabled gate (off-payload, server-side scanner gate) ────────────────
+-- ── hold_new_books_for_review gate (off-payload, server-side scanner gate) ────────────────
 
--- Reads the inbox_enabled flag for a live (non-tombstoned) library, or null when
+-- Reads the hold_new_books_for_review flag for a live (non-tombstoned) library, or null when
 -- no live row exists. The repository folds null → false.
-selectInboxEnabled:
-SELECT inbox_enabled FROM libraries WHERE id = :id AND deleted_at IS NULL;
+selectHoldNewBooksForReview:
+SELECT hold_new_books_for_review FROM libraries WHERE id = :id AND deleted_at IS NULL;
 
--- Sets the inbox_enabled flag and bumps revision/updated_at (the gate change is
+-- Sets the hold_new_books_for_review flag and bumps revision/updated_at (the gate change is
 -- still a syncable mutation so clients reconcile reactively). Returns the affected
 -- row count (0 = no live row). The off-payload flag column is written directly here,
 -- never through the syncable `update`.
-setInboxEnabled:
+setHoldNewBooksForReview:
 UPDATE libraries
-SET inbox_enabled = :inbox_enabled, revision = :revision, updated_at = :updated_at,
+SET hold_new_books_for_review = :hold_new_books_for_review, revision = :revision, updated_at = :updated_at,
     client_op_id = :client_op_id
 WHERE id = :id AND deleted_at IS NULL;
 
@@ -87,7 +87,7 @@ WHERE id = :id AND deleted_at IS NULL;
 -- Stamps the first-ever scan-completion time, bumping revision/updated_at so clients reconcile the
 -- flag reactively. The `initial_scan_completed_at IS NULL` guard makes it first-only — a rescan of an
 -- already-populated library never re-stamps. Returns the affected row count (0 = already stamped or no
--- live row). Like inbox_enabled, this off-payload column is written directly here, never through the
+-- live row). Like hold_new_books_for_review, this off-payload column is written directly here, never through the
 -- syncable `update`.
 markInitialScanCompleted:
 UPDATE libraries

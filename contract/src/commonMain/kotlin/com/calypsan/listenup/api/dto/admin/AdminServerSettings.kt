@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * The server-wide editable identity settings an admin manages: the display [serverName]
  * (also surfaced pre-auth via `InstanceService.getServerInfo`), the optional public
- * [remoteUrl] (null when unset), the [inboxEnabled] scanner gate for the single
+ * [remoteUrl] (null when unset), the [holdNewBooksForReview] scanner gate for the single
  * library, and the [pushNotificationsEnabled] toggle (also surfaced pre-auth via
  * `ServerInfo.pushEnabled`, ANDed there with whether a relay is configured).
  */
@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 data class AdminServerSettings(
     @SerialName("serverName") val serverName: String,
     @SerialName("remoteUrl") val remoteUrl: String?,
-    @SerialName("inboxEnabled") val inboxEnabled: Boolean,
+    @SerialName("holdNewBooksForReview") val holdNewBooksForReview: Boolean,
     @SerialName("pushNotificationsEnabled") val pushNotificationsEnabled: Boolean = true,
     /** Whether the server writes `listenup.json` curation sidecars beside books. Default on. */
     @SerialName("sidecarWritesEnabled") val sidecarWritesEnabled: Boolean = true,
@@ -28,7 +28,7 @@ data class AdminServerSettings(
 data class AdminServerSettingsPatch(
     @SerialName("serverName") val serverName: String? = null,
     @SerialName("remoteUrl") val remoteUrl: String? = null,
-    @SerialName("inboxEnabled") val inboxEnabled: Boolean? = null,
+    @SerialName("holdNewBooksForReview") val holdNewBooksForReview: Boolean? = null,
     @SerialName("pushNotificationsEnabled") val pushNotificationsEnabled: Boolean? = null,
     /** Toggles `listenup.json` curation-sidecar writes. Null leaves the setting unchanged. */
     @SerialName("sidecarWritesEnabled") val sidecarWritesEnabled: Boolean? = null,

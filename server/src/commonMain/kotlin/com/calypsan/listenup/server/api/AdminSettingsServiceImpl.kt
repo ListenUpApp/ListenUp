@@ -60,8 +60,8 @@ class AdminSettingsServiceImpl(
             settings.setRemoteUrl(url)
             changed = true
         }
-        patch.inboxEnabled?.let { enabled ->
-            when (val r = libraryRepository.setInboxEnabled(libraryRegistry.currentLibrary(), enabled)) {
+        patch.holdNewBooksForReview?.let { enabled ->
+            when (val r = libraryRepository.setHoldNewBooksForReview(libraryRegistry.currentLibrary(), enabled)) {
                 is AppResult.Failure -> return AppResult.Failure(r.error)
                 is AppResult.Success -> changed = true
             }
@@ -84,7 +84,7 @@ class AdminSettingsServiceImpl(
         AdminServerSettings(
             serverName = settings.serverName(),
             remoteUrl = settings.remoteUrl(),
-            inboxEnabled = libraryRepository.readInboxEnabled(libraryRegistry.currentLibrary()),
+            holdNewBooksForReview = libraryRepository.readHoldNewBooksForReview(libraryRegistry.currentLibrary()),
             pushNotificationsEnabled = settings.pushNotificationsEnabled(),
             // Absent key = enabled (spec: sidecar writes are on by default).
             sidecarWritesEnabled = settings.getValue(SIDECAR_WRITES_ENABLED_KEY)?.toBooleanStrictOrNull() ?: true,

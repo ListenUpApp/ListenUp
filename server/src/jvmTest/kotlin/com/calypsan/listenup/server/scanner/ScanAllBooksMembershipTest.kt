@@ -52,7 +52,7 @@ class ScanAllBooksMembershipTest :
         test("inbox gate OFF: new book joins ALL_BOOKS and NOT INBOX") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.setInboxEnabled("test-library", enabled = false)
+                sql.setHoldNewBooksForReview("test-library", enabled = false)
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val fx = allBooksFixture(this@withSqlDatabase)
@@ -80,7 +80,7 @@ class ScanAllBooksMembershipTest :
         test("inbox gate ON: new book joins INBOX and NOT ALL_BOOKS") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.setInboxEnabled("test-library", enabled = true)
+                sql.setHoldNewBooksForReview("test-library", enabled = true)
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val fx = allBooksFixture(this@withSqlDatabase)
@@ -108,7 +108,7 @@ class ScanAllBooksMembershipTest :
         test("re-scan of an existing book does not add a new membership") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.setInboxEnabled("test-library", enabled = false)
+                sql.setHoldNewBooksForReview("test-library", enabled = false)
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val fx = allBooksFixture(this@withSqlDatabase)
@@ -144,7 +144,7 @@ class ScanAllBooksMembershipTest :
         test("batched persist: new books join the resolved collection, a re-scan does not re-add") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.setInboxEnabled("test-library", enabled = false)
+                sql.setHoldNewBooksForReview("test-library", enabled = false)
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val fx = allBooksFixture(this@withSqlDatabase)

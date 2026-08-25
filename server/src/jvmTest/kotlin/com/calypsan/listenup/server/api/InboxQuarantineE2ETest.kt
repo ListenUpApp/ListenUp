@@ -55,7 +55,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 /**
  * The crown-jewel auto-quarantine proof.
  *
- * When a library is `inboxEnabled`, the scan path ([BookPersister]) must resolve the
+ * When a library is `holdNewBooksForReview`, the scan path ([BookPersister]) must resolve the
  * library's inbox once per scan and thread its id into the ingest so that — atomically
  * with the book-insert transaction — a newly-scanned book lands in the admin-only inbox.
  * The `collection_books` membership is written by the SQLDelight `collectionBooksQueries`
@@ -78,10 +78,10 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * (the admin sees every book) and keys all assertions off that resolved id.
  *
  * Two scenarios:
- *  1. inboxEnabled=true  → member never sees a scanned book (firehose + getBook); admin's
+ *  1. holdNewBooksForReview=true  → member never sees a scanned book (firehose + getBook); admin's
  *     `listInbox` contains it; `releaseBooks` converges it to the member; a re-scan does
  *     not re-inbox a released book.
- *  2. inboxEnabled=false → member sees the scanned book immediately (control).
+ *  2. holdNewBooksForReview=false → member sees the scanned book immediately (control).
  */
 class InboxQuarantineE2ETest :
     FunSpec({
@@ -106,10 +106,10 @@ class InboxQuarantineE2ETest :
                         val libraryId = registry.currentLibrary().value
 
                         // Turn on the per-library inbox gate — the toggle Task 1 exposes via
-                        // LibraryAdminService.setInboxEnabled; set directly here so this test
+                        // LibraryAdminService.setHoldNewBooksForReview; set directly here so this test
                         // isolates the scan-path wiring (the admin RPC is covered elsewhere).
                         val sqlDb by application.inject<ListenUpDatabase>()
-                        sqlDb.setInboxEnabled(libraryId, enabled = true)
+                        sqlDb.setHoldNewBooksForReview(libraryId, enabled = true)
 
                         val persister by application.inject<BookPersister>()
                         val books by application.inject<BookRepository>()
@@ -191,7 +191,7 @@ class InboxQuarantineE2ETest :
 
                     val admin = runSetup()
                     val m1 = registerMember("m1")
-                    // The bootstrap library at libraryRoot is the only library; inboxEnabled stays
+                    // The bootstrap library at libraryRoot is the only library; holdNewBooksForReview stays
                     // false (the default) — no quarantine.
 
                     val persister by application.inject<BookPersister>()
@@ -308,12 +308,12 @@ private fun publicBook(
         deletedAt = null,
     )
 
-private fun ListenUpDatabase.setInboxEnabled(
+private fun ListenUpDatabase.setHoldNewBooksForReview(
     libraryId: String,
     enabled: Boolean,
 ) {
-    librariesQueries.setInboxEnabled(
-        inbox_enabled = if (enabled) 1L else 0L,
+    librariesQueries.setHoldNewBooksForReview(
+        hold_new_books_for_review = if (enabled) 1L else 0L,
         revision = 1L,
         updated_at = System.currentTimeMillis(),
         client_op_id = null,

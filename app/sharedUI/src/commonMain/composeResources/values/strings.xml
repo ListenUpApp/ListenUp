@@ -75,9 +75,9 @@
     <string name="admin_inbox_released_count_plural">Released %1$d books</string>
     <string name="admin_inbox_review_edit">Review &amp; edit</string>
     <string name="admin_inbox_select_all">Select all</string>
-    <string name="admin_inbox_setting_subtitle">New books wait in the inbox until an admin releases them.</string>
+    <string name="admin_inbox_setting_subtitle">Healthy new books wait here too, not just the ones with problems.</string>
     <string name="admin_inbox_setting_title">Hold new books for review</string>
-    <string name="admin_inbox_subtitle">Review and release new books waiting for approval.</string>
+    <string name="admin_inbox_subtitle">Books that need a look before they join your library.</string>
     <string name="admin_inbox_workflow">Inbox Workflow</string>
     <string name="admin_info_emoji">ℹ️</string>
     <string name="admin_invite_created">Invite Created!</string>

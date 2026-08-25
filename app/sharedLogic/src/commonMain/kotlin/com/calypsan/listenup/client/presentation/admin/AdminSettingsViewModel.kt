@@ -21,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  * Manages server-identity settings: display name and optional public remote URL.
  * The text fields are local-only until the user taps the Save FAB ([saveAll]);
  * the inbox quarantine toggle, being a switch, persists immediately on tap
- * ([setInboxEnabled]) and reverts if the server rejects it.
+ * ([setHoldNewBooksForReview]) and reverts if the server rejects it.
  */
 class AdminSettingsViewModel(
     private val loadServerSettingsUseCase: LoadServerSettingsUseCase,
@@ -34,7 +34,7 @@ class AdminSettingsViewModel(
     /** Baseline values from the server, used to compute dirty state. */
     private var savedServerName: String = ""
     private var savedRemoteUrl: String = ""
-    private var savedInboxEnabled: Boolean = false
+    private var savedHoldNewBooksForReview: Boolean = false
     private var savedPushNotificationsEnabled: Boolean = true
 
     init {
@@ -47,14 +47,14 @@ class AdminSettingsViewModel(
                 is AppResult.Success -> {
                     savedServerName = result.data.serverName
                     savedRemoteUrl = result.data.remoteUrl ?: ""
-                    savedInboxEnabled = result.data.inboxEnabled
+                    savedHoldNewBooksForReview = result.data.holdNewBooksForReview
                     savedPushNotificationsEnabled = result.data.pushNotificationsEnabled
                     state.update { current ->
                         if (current is AdminSettingsUiState.Ready) {
                             current.copy(
                                 serverName = result.data.serverName,
                                 remoteUrl = result.data.remoteUrl ?: "",
-                                inboxEnabled = result.data.inboxEnabled,
+                                holdNewBooksForReview = result.data.holdNewBooksForReview,
                                 pushNotificationsEnabled = result.data.pushNotificationsEnabled,
                                 error = null,
                             )
@@ -62,7 +62,7 @@ class AdminSettingsViewModel(
                             AdminSettingsUiState.Ready(
                                 serverName = result.data.serverName,
                                 remoteUrl = result.data.remoteUrl ?: "",
-                                inboxEnabled = result.data.inboxEnabled,
+                                holdNewBooksForReview = result.data.holdNewBooksForReview,
                                 pushNotificationsEnabled = result.data.pushNotificationsEnabled,
                             )
                         }
@@ -102,13 +102,13 @@ class AdminSettingsViewModel(
      * on tap: this optimistically reflects the flip, persists it immediately, and reverts to the last
      * server-confirmed value if the save fails.
      */
-    fun setInboxEnabled(enabled: Boolean) {
+    fun setHoldNewBooksForReview(enabled: Boolean) {
         // Optimistically reflect the flip so the switch tracks the tap.
-        updateReady { it.copy(inboxEnabled = enabled).withDirty() }
+        updateReady { it.copy(holdNewBooksForReview = enabled).withDirty() }
         viewModelScope.launch {
-            when (val result = updateServerSettingsUseCase.updateInboxEnabled(enabled)) {
+            when (val result = updateServerSettingsUseCase.updateHoldNewBooksForReview(enabled)) {
                 is AppResult.Success -> {
-                    savedInboxEnabled = enabled
+                    savedHoldNewBooksForReview = enabled
                     logger.info { "Inbox setting saved: $enabled" }
                 }
 
@@ -116,14 +116,20 @@ class AdminSettingsViewModel(
                     errorBus.emit(result.error)
                     logger.error { "Failed to save inbox setting: ${result.error}" }
                     // Revert the optimistic flip to the last server-confirmed value.
-                    updateReady { it.copy(inboxEnabled = savedInboxEnabled, error = result.error).withDirty() }
+                    updateReady {
+                        it
+                            .copy(
+                                holdNewBooksForReview = savedHoldNewBooksForReview,
+                                error = result.error,
+                            ).withDirty()
+                    }
                 }
             }
         }
     }
 
     /**
-     * Toggle server-wide push notifications. Like [setInboxEnabled], a switch applies on tap:
+     * Toggle server-wide push notifications. Like [setHoldNewBooksForReview], a switch applies on tap:
      * this optimistically reflects the flip, persists it immediately, and reverts to the last
      * server-confirmed value if the save fails.
      */
@@ -213,7 +219,7 @@ class AdminSettingsViewModel(
                 }
             }
 
-            // Note: the inbox toggle is NOT saved here — [setInboxEnabled] persists it immediately on tap.
+            // Note: the inbox toggle is NOT saved here — [setHoldNewBooksForReview] persists it immediately on tap.
 
             updateReady { it.copy(isSaving = false).withDirty() }
         }
@@ -268,7 +274,7 @@ sealed interface AdminSettingsUiState {
     data class Ready(
         val serverName: String = "",
         val remoteUrl: String = "",
-        val inboxEnabled: Boolean = false,
+        val holdNewBooksForReview: Boolean = false,
         val pushNotificationsEnabled: Boolean = true,
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,

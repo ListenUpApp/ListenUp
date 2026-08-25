@@ -31,7 +31,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Covers the **inbox-gate-ON** branch of the mutually-exclusive system-collection
- * membership decision: when a library has `inboxEnabled = true`, a genuinely new
+ * membership decision: when a library has `holdNewBooksForReview = true`, a genuinely new
  * book joins INBOX (not ALL_BOOKS).
  *
  * When a library is inbox-enabled and the scan ingest resolves the INBOX system collection,
@@ -59,10 +59,10 @@ import kotlinx.coroutines.test.runTest
 class ScannerInboxIngestTest :
     FunSpec({
 
-        test("inbox_enabled + inbox id: a NEW book is committed into the inbox") {
+        test("hold_new_books_for_review + inbox id: a NEW book is committed into the inbox") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.setInboxEnabled("test-library", enabled = true)
+                sql.setHoldNewBooksForReview("test-library", enabled = true)
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val fx = fixture(this@withSqlDatabase)
@@ -86,7 +86,7 @@ class ScannerInboxIngestTest :
         test("re-resolving the SAME book (update) does not add a second membership") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                sql.setInboxEnabled("test-library", enabled = true)
+                sql.setHoldNewBooksForReview("test-library", enabled = true)
                 sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val fx = fixture(this@withSqlDatabase)

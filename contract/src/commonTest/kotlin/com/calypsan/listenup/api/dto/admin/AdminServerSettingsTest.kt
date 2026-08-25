@@ -12,7 +12,7 @@ class AdminServerSettingsTest :
                 AdminServerSettings(
                     serverName = "My Library",
                     remoteUrl = null,
-                    inboxEnabled = false,
+                    holdNewBooksForReview = false,
                     pushNotificationsEnabled = true,
                 )
             contractJson.decodeFromString<AdminServerSettings>(contractJson.encodeToString(v)) shouldBe v

@@ -7,6 +7,6 @@ package com.calypsan.listenup.client.domain.model
 data class ServerSettings(
     val serverName: String,
     val remoteUrl: String?,
-    val inboxEnabled: Boolean = false,
+    val holdNewBooksForReview: Boolean = false,
     val pushNotificationsEnabled: Boolean = true,
 )
