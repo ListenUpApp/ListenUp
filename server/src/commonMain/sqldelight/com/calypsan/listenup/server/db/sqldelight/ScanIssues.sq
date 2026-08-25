@@ -1,0 +1,52 @@
+-- scan_issues: folders the scanner walked but could not import — see V66__scan_issues.sql.
+--
+-- NOT a syncable domain. An issue names a filesystem path, which is operator information rather
+-- than library content, and it is read by exactly one admin screen. Making it syncable would buy
+-- a revision cursor and a tombstone obligation that nothing wants.
+CREATE TABLE scan_issues (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    library_id      TEXT    NOT NULL,
+    root_rel_path   TEXT    NOT NULL,
+    reason          TEXT    NOT NULL,
+    detail          TEXT,
+    first_seen_at   INTEGER NOT NULL,
+    last_seen_at    INTEGER NOT NULL,
+    dismissed_at    INTEGER
+);
+
+CREATE UNIQUE INDEX idx_scan_issue_path ON scan_issues(library_id, root_rel_path);
+CREATE INDEX idx_scan_issue_open ON scan_issues(library_id, dismissed_at, first_seen_at);
+
+-- Records a scan failure, in two dialect-safe statements the repository runs in one transaction.
+--
+-- `insertIfAbsent` establishes `first_seen_at` and never moves it, so "this has been broken for a
+-- month" stays distinguishable from "this appeared today". `refresh` then updates what can change
+-- and — deliberately — clears `dismissed_at`: the folder is still broken, and a dismissal was only
+-- ever a statement about the old notice, not a permanent waiver.
+insertIfAbsent:
+INSERT OR IGNORE INTO scan_issues(
+    id, library_id, root_rel_path, reason, detail, first_seen_at, last_seen_at, dismissed_at
+)
+VALUES (:id, :library_id, :root_rel_path, :reason, :detail, :seen_at, :seen_at, NULL);
+
+refresh:
+UPDATE scan_issues
+SET reason = :reason, detail = :detail, last_seen_at = :seen_at, dismissed_at = NULL
+WHERE library_id = :library_id AND root_rel_path = :root_rel_path;
+
+-- Open issues for a library, oldest first.
+selectOpen:
+SELECT id, root_rel_path, reason, detail, first_seen_at, last_seen_at
+FROM scan_issues
+WHERE library_id = :library_id AND dismissed_at IS NULL
+ORDER BY first_seen_at ASC;
+
+-- Clears the issue for a path that has now scanned cleanly. The row goes entirely rather than
+-- being marked dismissed: the problem is gone, not acknowledged.
+deleteByPath:
+DELETE FROM scan_issues WHERE library_id = :library_id AND root_rel_path = :root_rel_path;
+
+-- Hides an issue by id. Idempotent: dismissing an already-dismissed (or absent) issue is a
+-- no-op, because the caller's intent — "stop showing me this" — is already satisfied.
+dismissById:
+UPDATE scan_issues SET dismissed_at = :dismissed_at WHERE id = :id AND dismissed_at IS NULL;

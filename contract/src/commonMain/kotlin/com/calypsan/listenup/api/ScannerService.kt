@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanEvent
@@ -29,6 +30,9 @@ import kotlinx.rpc.annotations.Rpc
  *    result — including the books list — for read-after-scan flows that
  *    don't want to subscribe.
  *  - `observeProgress()` receives events from THE library (single-library model).
+ *  - `listScanIssues()` / `dismissScanIssue()` are the durable record of what the scanner
+ *    could NOT import. They are ROOT/ADMIN-gated: an issue names a filesystem path, which is
+ *    server-operator information rather than library content.
  */
 @Rpc
 interface ScannerService {
@@ -37,4 +41,21 @@ interface ScannerService {
     suspend fun lastScanResult(): AppResult<ScanResult>
 
     fun observeProgress(): Flow<RpcEvent<ScanEvent>>
+
+    /**
+     * The open scan issues — folders walked but not imported — oldest first.
+     *
+     * An issue survives until the folder scans cleanly (the scanner clears it) or an admin
+     * dismisses it. That persistence is the point: a failure that only ever existed as a log line
+     * is a failure the user never learns about.
+     */
+    suspend fun listScanIssues(): AppResult<List<ScanIssue>>
+
+    /**
+     * Stops showing the issue with [issueId].
+     *
+     * Dismissal is a statement about the *notice*, not the folder — nothing on disk changes, and a
+     * later scan that fails there again raises it anew rather than honouring an old dismissal.
+     */
+    suspend fun dismissScanIssue(issueId: String): AppResult<Unit>
 }

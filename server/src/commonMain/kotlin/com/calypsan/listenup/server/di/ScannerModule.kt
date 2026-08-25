@@ -4,6 +4,9 @@ import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.server.scanner.ScanIssueRepository
+import com.calypsan.listenup.server.scanner.reconcile
+import com.calypsan.listenup.server.scanner.ScanIssueStore
 import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.sidecar.SidecarWriter
 import com.calypsan.listenup.server.scanner.Scanner
@@ -186,13 +189,26 @@ fun scannerModule(
                         ScanCoordinator(
                             libraryId = library.id,
                             runFullScan = {
-                                scanner.runFullScan().also {
+                                scanner.runFullScan().also { result ->
                                     // Sidecars are a property of the library, not of having edited
                                     // something — so a completed scan reconciles them. Nullable
                                     // because the sidecar module isn't loaded in minimal containers.
                                     getOrNull<SidecarWriter>()?.backfillStaleSidecars()
+                                    // Same reasoning for the issue record: what the scanner could
+                                    // not import is a property of the library as it stands now, so
+                                    // the scan that just looked is what should say so.
+                                    getOrNull<ScanIssueRepository>()?.reconcile(
+                                        libraryId = library.id,
+                                        importedRelPaths = result.books.map { it.candidate.rootRelPath },
+                                        errors = result.errors,
+                                    )
                                 }
                             },
+                            // NOT reconciled: `runIncremental` returns Unit, so there is no result
+                            // to reconcile against. A folder fixed on disk and picked up only by the
+                            // watcher therefore keeps its issue until the next full scan (or an
+                            // admin dismisses it). Giving the incremental path a ScanResult is the
+                            // fix, and it is a scanner-shape change rather than a wiring one.
                             runIncremental = { scanner.runIncremental(it) },
                             scope = scope,
                         )
@@ -211,6 +227,10 @@ fun scannerModule(
                 // it per-request is safe and keeps the binding synchronous.
                 resolveLibraryId = { libraryRegistry.currentLibrary() },
                 eventBus = get<SharedFlow<ScanEvent>>(),
+                scanIssues = get(),
             )
         }
+
+        // The durable record of what the scanner could NOT import — see ScanIssueRepository.
+        single<ScanIssueStore> { ScanIssueRepository(db = get()) }
     }
