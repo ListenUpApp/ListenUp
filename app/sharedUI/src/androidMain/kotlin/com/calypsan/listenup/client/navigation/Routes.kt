@@ -373,6 +373,16 @@ data object RestoreFromFile : Route
 data object ImportFlow : Route
 
 /**
+ * Upload books into the library from this device — folder or loose files, admin only.
+ *
+ * Drives [com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel] through
+ * Idle → Uploading → Finalizing → Finished (or Error). The picker lives inside the screen's Idle
+ * state, so no argument is needed here.
+ */
+@Serializable
+data object UploadBooks : Route
+
+/**
  * Notifications screen - the in-app notification inbox.
  */
 @Serializable

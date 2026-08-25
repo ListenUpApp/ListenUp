@@ -9,10 +9,12 @@ import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.backup.AdminBackupScreen
 import com.calypsan.listenup.client.features.admin.import.ImportFlowScreen
+import com.calypsan.listenup.client.features.admin.upload.UploadBooksScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
 import com.calypsan.listenup.client.navigation.ImportFlow
+import com.calypsan.listenup.client.navigation.UploadBooks
 import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.AdminBackups
@@ -64,6 +66,9 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
             onImportClick = {
                 backStack.add(ImportFlow)
+            },
+            onUploadBooksClick = {
+                backStack.add(UploadBooks)
             },
             onInboxClick = {
                 backStack.add(AdminInbox)
@@ -252,6 +257,11 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
     entry<ImportFlow> {
         ImportFlowScreen(
             onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+        )
+    }
+    entry<UploadBooks> {
+        UploadBooksScreen(
+            onBackClick = { backStack.removeAt(backStack.lastIndex) },
         )
     }
     entry<RestoreFromFile> {

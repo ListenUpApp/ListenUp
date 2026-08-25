@@ -1,22 +1,11 @@
 package com.calypsan.listenup.server.upload
 
+import com.calypsan.listenup.api.dto.uploads.UploadLimits as ContractUploadLimits
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.isSymlink
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.uuid.Uuid
-
-/** One gibibyte, so the session caps below read as sizes rather than as digit piles. */
-private const val BYTES_PER_GIB: Long = 1024L * 1024 * 1024
-
-/** Default cap on files per session — a big multi-disc batch, and nothing like a fill-the-disk loop. */
-private const val DEFAULT_MAX_FILES = 1_000
-
-/** Default cap on total bytes per session, in GiB. */
-private const val DEFAULT_MAX_SESSION_GIB = 64L
-
-/** Default cap on any single file, in GiB. */
-private const val DEFAULT_MAX_FILE_GIB = 16L
 
 /**
  * Caps on one upload session. A session that would exceed either is refused and swept rather than
@@ -25,14 +14,18 @@ private const val DEFAULT_MAX_FILE_GIB = 16L
  *
  * The numbers are generous on purpose — a batch of a dozen multi-disc audiobooks is a normal
  * first-run upload, and a cap that a legitimate user hits is a bug report, not a defence.
+ *
+ * The defaults come from [ContractUploadLimits] in commonMain so the client can refuse an
+ * over-large selection *before* it starts uploading, reading the same numbers this enforces.
+ * Enforcement stays here regardless — the client's check is a courtesy, not a gate.
  */
 internal data class UploadLimits(
     /** Most files one session may stage. */
-    val maxFiles: Int = DEFAULT_MAX_FILES,
+    val maxFiles: Int = ContractUploadLimits.MAX_FILES,
     /** Most bytes one session may stage in total. */
-    val maxSessionBytes: Long = DEFAULT_MAX_SESSION_GIB * BYTES_PER_GIB,
+    val maxSessionBytes: Long = ContractUploadLimits.MAX_SESSION_BYTES,
     /** Most bytes any single file may carry. */
-    val maxFileBytes: Long = DEFAULT_MAX_FILE_GIB * BYTES_PER_GIB,
+    val maxFileBytes: Long = ContractUploadLimits.MAX_FILE_BYTES,
 )
 
 /** What a session currently holds — the numbers both the quota check and the client's progress read. */

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Notifications
@@ -114,6 +115,8 @@ import listenup.composeapp.generated.resources.admin_invite_someone
 import listenup.composeapp.generated.resources.admin_library_settings
 import listenup.composeapp.generated.resources.admin_organize
 import listenup.composeapp.generated.resources.admin_organize_subtitle
+import listenup.composeapp.generated.resources.admin_upload_books
+import listenup.composeapp.generated.resources.admin_upload_books_subtitle
 import listenup.composeapp.generated.resources.admin_library_settings_subtitle
 import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.admin_management
@@ -175,6 +178,7 @@ fun AdminScreen(
     onCategoriesClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
     onImportClick: () -> Unit = {},
+    onUploadBooksClick: () -> Unit = {},
     onInboxClick: () -> Unit = {},
     onLibrarySettingsClick: () -> Unit = {},
     onOrganizeClick: () -> Unit = {},
@@ -268,6 +272,7 @@ fun AdminScreen(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onImportClick = onImportClick,
+                    onUploadBooksClick = onUploadBooksClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
                     onOrganizeClick = onOrganizeClick,
@@ -410,6 +415,7 @@ private fun AdminContent(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onImportClick: () -> Unit,
+    onUploadBooksClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
     onOrganizeClick: () -> Unit,
@@ -445,6 +451,7 @@ private fun AdminContent(
             onCategoriesClick = onCategoriesClick,
             onBackupClick = onBackupClick,
             onImportClick = onImportClick,
+            onUploadBooksClick = onUploadBooksClick,
             onInboxClick = onInboxClick,
             onLibrarySettingsClick = onLibrarySettingsClick,
             onOrganizeClick = onOrganizeClick,
@@ -502,6 +509,7 @@ private fun AdminContent(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onImportClick = onImportClick,
+                    onUploadBooksClick = onUploadBooksClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
                     onOrganizeClick = onOrganizeClick,
@@ -531,6 +539,7 @@ private fun AdminTwoPaneContent(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onImportClick: () -> Unit,
+    onUploadBooksClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
     onOrganizeClick: () -> Unit,
@@ -594,6 +603,7 @@ private fun AdminTwoPaneContent(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onImportClick = onImportClick,
+                    onUploadBooksClick = onUploadBooksClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
                     onOrganizeClick = onOrganizeClick,
@@ -1307,6 +1317,7 @@ internal fun ManagementSection(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onImportClick: () -> Unit,
+    onUploadBooksClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
     onOrganizeClick: () -> Unit,
@@ -1329,6 +1340,15 @@ internal fun ManagementSection(
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
             badgeContentColor = colors.onSecondary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.admin_upload_books),
+            subtitle = stringResource(Res.string.admin_upload_books_subtitle),
+            icon = Icons.Outlined.CloudUpload,
+            onClick = onUploadBooksClick,
+            containerColor = colors.primaryContainer,
+            badgeColor = colors.primary,
+            badgeContentColor = colors.onPrimary,
         )
         ActionTile(
             title = stringResource(Res.string.admin_organize),
