@@ -79,6 +79,15 @@ sealed interface WriteOp {
      * directory that still has contents (an untracked file a caller's plan didn't know about, or
      * new content that landed mid-move) is left in place rather than force-deleted — cleanup is
      * best-effort and never blocks the rest of the manifest.
+     *
+     * Best-effort is what makes this the right op for an **ancestor walk**: Delete Book emits one
+     * per level above a removed book, deepest first, and the chain stops on its own at the first
+     * directory that still holds something. No caller has to predict where to stop.
+     *
+     * Two refusals stand behind it, both on *resolved* paths: the ordinary containment check every
+     * op gets, and — like [DeleteDir] — [dir] must not BE a library folder root. Containment cannot
+     * catch that one (a root is trivially inside itself), and an empty library folder is precisely
+     * the state in which an ancestor walk comes closest to deleting the library itself.
      */
     data class DeleteDirIfEmpty(
         val dir: Path,

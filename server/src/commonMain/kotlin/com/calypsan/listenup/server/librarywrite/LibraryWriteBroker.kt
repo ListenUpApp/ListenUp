@@ -192,6 +192,7 @@ class LibraryWriteBroker(
             )
         }
         if (op is WriteOp.ImportFile) refuseUnlessImportable(op)?.let { return it }
+        if (op is WriteOp.DeleteDirIfEmpty) refuseIfLibraryRoot(op.dir, "DeleteDirIfEmpty")?.let { return it }
         if (op is WriteOp.DeleteDir) refuseUnlessRecursivelyDeletable(op)?.let { return it }
         return try {
             when (op) {
@@ -283,24 +284,43 @@ class LibraryWriteBroker(
     }
 
     /**
+     * Refuses [dir] when it IS a live library folder root. Shared by both directory-removing ops,
+     * because containment cannot answer this one: a root resolves inside itself, so
+     * `firstOutsideLibrary` waves it through, and removing one would leave every book row in that
+     * folder pointing at nothing.
+     *
+     * [WriteOp.DeleteDir] has always needed it. [WriteOp.DeleteDirIfEmpty] needs it as of Delete
+     * Book's ancestor walk: "delete it only if empty" sounds self-limiting, but an empty library
+     * folder is exactly the state a freshly-emptied library is in, and that is the moment the walk
+     * is closest to the root. The guard is what makes a caller that gets the arithmetic wrong
+     * harmless rather than catastrophic.
+     */
+    private suspend fun refuseIfLibraryRoot(
+        dir: Path,
+        opName: String,
+    ): AppResult<Unit>? {
+        val resolved = resolvedForContainment(dir)
+        if (libraryRoots.roots().any { resolvedForContainment(it) == resolved }) {
+            logger.warn { "refused $opName of a library folder root: $dir" }
+            return failure(
+                LibraryWriteError.ProtectedPath(debugInfo = "$dir is a library folder root"),
+            )
+        }
+        return null
+    }
+
+    /**
      * The two refusals [WriteOp.DeleteDir] carries beyond the containment check every op gets —
      * see its KDoc. Returns the typed refusal, or null when the recursive delete may proceed.
      *
-     * Both questions are the ones containment cannot answer. A library folder root resolves inside
-     * itself, so `firstOutsideLibrary` waves it through; deleting one would erase the library and
-     * leave every book row in it pointing at nothing. And a symbolic link named as a book directory
-     * also resolves inside the library whenever its target does — but "unlink this" and "walk this
-     * and unlink everything under it" are different operations, and only the first is ever what a
-     * caller naming a link meant.
+     * Both questions are the ones containment cannot answer. The library-root half is shared with
+     * [WriteOp.DeleteDirIfEmpty] via [refuseIfLibraryRoot]. The symlink half is this op's alone: a
+     * symbolic link named as a book directory resolves inside the library whenever its target does
+     * — but "unlink this" and "walk this and unlink everything under it" are different operations,
+     * and only the first is ever what a caller naming a link meant.
      */
     private suspend fun refuseUnlessRecursivelyDeletable(op: WriteOp.DeleteDir): AppResult<Unit>? {
-        val resolved = resolvedForContainment(op.dir)
-        if (libraryRoots.roots().any { resolvedForContainment(it) == resolved }) {
-            logger.warn { "refused DeleteDir of a library folder root: ${op.dir}" }
-            return failure(
-                LibraryWriteError.ProtectedPath(debugInfo = "${op.dir} is a library folder root"),
-            )
-        }
+        refuseIfLibraryRoot(op.dir, "DeleteDir")?.let { return it }
         if (isSymlink(op.dir)) {
             logger.warn { "refused DeleteDir of a symbolic link: ${op.dir}" }
             return failure(

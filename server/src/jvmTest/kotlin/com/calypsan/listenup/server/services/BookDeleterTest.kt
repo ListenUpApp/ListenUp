@@ -72,8 +72,11 @@ class BookDeleterTest :
                     withClue("the non-audio companions go with the book — that is the whole point") {
                         bookDir.exists() shouldBe false
                     }
-                    withClue("the author folder above it was not the target") {
-                        root.resolve("AJ Sherrill").exists() shouldBe true
+                    withClue("the emptied author folder goes too — it now describes nothing") {
+                        root.resolve("AJ Sherrill").exists() shouldBe false
+                    }
+                    withClue("the walk stops at the library root, which is never a candidate") {
+                        root.exists() shouldBe true
                     }
                     sql.booksQueries
                         .selectById("b1")
@@ -307,6 +310,104 @@ class BookDeleterTest :
 
                     rig.sidecarWriteState.findByBookId("b1") shouldBe null
                     rig.sidecarWriteState.isSelfWrittenHash("deadbeef") shouldBe false
+                }
+            }
+        }
+        test("prunes an emptied series folder AND the author folder above it") {
+            withSqlDatabase {
+                val root = Files.createTempDirectory("book-deleter-prune-chain-")
+                sql.seedTestLibraryAndFolder(folderPath = root.toString())
+                val bookDir =
+                    root.resolve("Aleron Kong/Chaos Seeds/Book 1 - The Land Founding").apply { createDirectories() }
+                bookDir.resolve("01.m4b").writeText("audio")
+
+                runTest {
+                    val rig = deleterRig(this@withSqlDatabase)
+                    rig.seedBook("b1", "The Land: Founding", "Aleron Kong/Chaos Seeds/Book 1 - The Land Founding")
+
+                    rig.deleter.delete(BookId("b1")) shouldBe AppResult.Success(Unit)
+
+                    withClue("every level that the book was the last occupant of goes") {
+                        bookDir.exists() shouldBe false
+                        root.resolve("Aleron Kong/Chaos Seeds").exists() shouldBe false
+                        root.resolve("Aleron Kong").exists() shouldBe false
+                    }
+                    withClue("the library root is not an ancestor the walk may reach") {
+                        root.exists() shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("stops at the first ancestor still holding another book's directory") {
+            withSqlDatabase {
+                val root = Files.createTempDirectory("book-deleter-prune-stops-")
+                sql.seedTestLibraryAndFolder(folderPath = root.toString())
+                val bookDir =
+                    root.resolve("Aleron Kong/Chaos Seeds/Book 1 - The Land Founding").apply { createDirectories() }
+                bookDir.resolve("01.m4b").writeText("audio")
+                val sibling =
+                    root.resolve("Aleron Kong/Chaos Seeds/Book 2 - The Land Forging").apply { createDirectories() }
+                sibling.resolve("01.m4b").writeText("audio")
+
+                runTest {
+                    val rig = deleterRig(this@withSqlDatabase)
+                    rig.seedBook("b1", "The Land: Founding", "Aleron Kong/Chaos Seeds/Book 1 - The Land Founding")
+                    rig.seedBook("b2", "The Land: Forging", "Aleron Kong/Chaos Seeds/Book 2 - The Land Forging")
+
+                    rig.deleter.delete(BookId("b1")) shouldBe AppResult.Success(Unit)
+
+                    withClue("book 2 still lives here, so the chain stops dead at the series folder") {
+                        bookDir.exists() shouldBe false
+                        sibling.resolve("01.m4b").exists() shouldBe true
+                        root.resolve("Aleron Kong/Chaos Seeds").exists() shouldBe true
+                        root.resolve("Aleron Kong").exists() shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("leaves an ancestor that holds a file the library never tracked") {
+            withSqlDatabase {
+                val root = Files.createTempDirectory("book-deleter-prune-untracked-")
+                sql.seedTestLibraryAndFolder(folderPath = root.toString())
+                val bookDir = root.resolve("AJ Sherrill/Rediscovering Christmas").apply { createDirectories() }
+                bookDir.resolve("01.m4b").writeText("audio")
+                // The user's own file, sitting beside the book folder rather than inside it.
+                root.resolve("AJ Sherrill/author-notes.txt").writeText("mine")
+
+                runTest {
+                    val rig = deleterRig(this@withSqlDatabase)
+                    rig.seedBook("b1", "Rediscovering Christmas", "AJ Sherrill/Rediscovering Christmas")
+
+                    rig.deleter.delete(BookId("b1")) shouldBe AppResult.Success(Unit)
+
+                    withClue("pruning is best-effort: an ancestor we did not empty is not ours to remove") {
+                        bookDir.exists() shouldBe false
+                        root.resolve("AJ Sherrill").exists() shouldBe true
+                        root.resolve("AJ Sherrill/author-notes.txt").readText() shouldBe "mine"
+                    }
+                }
+            }
+        }
+
+        test("prunes nothing when the book sits directly under the library root") {
+            withSqlDatabase {
+                val root = Files.createTempDirectory("book-deleter-prune-flat-")
+                sql.seedTestLibraryAndFolder(folderPath = root.toString())
+                val bookDir = root.resolve("A Loose Book").apply { createDirectories() }
+                bookDir.resolve("01.m4b").writeText("audio")
+
+                runTest {
+                    val rig = deleterRig(this@withSqlDatabase)
+                    rig.seedBook("b1", "A Loose Book", "A Loose Book")
+
+                    rig.deleter.delete(BookId("b1")) shouldBe AppResult.Success(Unit)
+
+                    bookDir.exists() shouldBe false
+                    withClue("a one-segment path has no ancestors below the root — the root must survive") {
+                        root.exists() shouldBe true
+                    }
                 }
             }
         }
