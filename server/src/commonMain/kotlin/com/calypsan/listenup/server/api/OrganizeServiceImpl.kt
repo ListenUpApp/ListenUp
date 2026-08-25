@@ -202,6 +202,7 @@ class OrganizeServiceImpl(
             bookCount = bookCount,
             fileCount = fileCount,
             collisionCount = collisionCount,
+            renamedInPlaceCount = renamedInPlaceCount,
             entries =
                 entries.take(PREVIEW_ENTRY_LIMIT).map { entry ->
                     OrganizePreviewEntryDto(
@@ -209,6 +210,10 @@ class OrganizeServiceImpl(
                         fromPath = entry.fromDir.toString(),
                         toPath = entry.toRootRelPath,
                         collisionResolved = entry.collisionResolved,
+                        // Only an in-place rename carries the filenames: on a relocation the folder
+                        // row is the headline, and a second pair would just be noise.
+                        renamedFrom = entry.audioRename?.from?.takeUnless { entry.isRelocation },
+                        renamedTo = entry.audioRename?.to?.takeUnless { entry.isRelocation },
                     )
                 },
             truncated = entries.size > PREVIEW_ENTRY_LIMIT,

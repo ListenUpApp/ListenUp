@@ -1081,6 +1081,16 @@
         }
       }
     },
+    "admin.organize_already": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library is already organized"
+          }
+        }
+      }
+    },
     "admin.organize_author_first_last": {
       "localizations": {
         "en": {
@@ -1127,6 +1137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "…and %1$d more"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_renames": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio files renamed in place, to match the folder they are already in: %1$d."
           }
         }
       }

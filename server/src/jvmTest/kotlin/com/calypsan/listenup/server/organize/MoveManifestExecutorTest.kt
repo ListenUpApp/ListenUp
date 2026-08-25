@@ -120,6 +120,57 @@ class MoveManifestExecutorTest :
             }
         }
 
+        test("in-place rename: the file is renamed where it stands, the folder survives, the DB follows") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-executor-rename-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedCatalog(sql)
+
+                // Canonical folder under AUTHOR_TITLE, stale filename inside — the rig's case.
+                val canonical = "Brandon Sanderson/The Way of Kings"
+                val bookDir = libraryRoot.resolve(canonical).also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("The Way - Kings.m4b"), "a")
+                Files.writeString(bookDir.resolve("cover.jpg"), "img")
+
+                runTest {
+                    val repo = buildBookRepository(sql, driver)
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "The Way of Kings",
+                            rootRelPath = canonical,
+                            contributors = listOf(authorPayload("c1", "Brandon Sanderson")),
+                            audioFiles = listOf(audioFilePayload("af1", "The Way - Kings.m4b")),
+                        ),
+                    )
+
+                    val entry = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries.single()
+                    entry.isRelocation shouldBe false
+
+                    val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
+                    MoveManifestExecutor(broker, repo).execute(entry) shouldBe AppResult.Success(Unit)
+
+                    // EnsureDir was a no-op on an existing dir, MoveFile renamed in place, and
+                    // DeleteDirIfEmpty left the still-occupied folder alone.
+                    bookDir.toFile().exists() shouldBe true
+                    bookDir.resolve("The Way of Kings.m4b").toFile().exists() shouldBe true
+                    bookDir.resolve("The Way - Kings.m4b").toFile().exists() shouldBe false
+                    bookDir.resolve("cover.jpg").toFile().exists() shouldBe true
+
+                    // moveRootRelPath was handed an UNCHANGED path plus a changed filename: it must
+                    // not mistake "no path difference" for a missing row and fail NotFound.
+                    val row = sql.booksQueries.selectById("b1").executeAsOne()
+                    row.root_rel_path shouldBe canonical
+                    sql.bookAudioFilesQueries
+                        .selectPrimaryFilenameForBook("b1")
+                        .executeAsOne() shouldBe "The Way of Kings.m4b"
+
+                    // And the sweep has converged: a re-plan finds nothing left to do.
+                    OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries shouldBe emptyList()
+                }
+            }
+        }
+
         test("retrying a manifest after a broker failure completes cleanly with exactly one copy of every file") {
             withSqlDatabase {
                 val libraryRoot = Files.createTempDirectory("listenup-executor-retry-")

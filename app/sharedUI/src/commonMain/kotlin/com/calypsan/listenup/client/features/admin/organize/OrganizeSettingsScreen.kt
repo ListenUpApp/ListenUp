@@ -54,6 +54,8 @@ import listenup.composeapp.generated.resources.admin_organize_author_first_last
 import listenup.composeapp.generated.resources.admin_organize_author_form
 import listenup.composeapp.generated.resources.admin_organize_author_last_first
 import listenup.composeapp.generated.resources.admin_organize_confirm_more_rows
+import listenup.composeapp.generated.resources.admin_organize_already
+import listenup.composeapp.generated.resources.admin_organize_confirm_renames
 import listenup.composeapp.generated.resources.admin_organize_confirm_row
 import listenup.composeapp.generated.resources.admin_organize_confirm_run
 import listenup.composeapp.generated.resources.admin_organize_confirm_summary
@@ -89,6 +91,9 @@ private val ContentMaxWidth = 640.dp
  */
 private val FabClearance = 88.dp
 
+/** Horizontal room the floating Save action needs beside the sweep button (FAB width + breathing space). */
+private val FabInlineGutter = 72.dp
+
 /**
  * Admin file-organizer settings screen (#850): the schema pickers, plus **two visibly distinct
  * actions**, because they are two different promises.
@@ -118,10 +123,12 @@ fun OrganizeSettingsScreen(
 
     // One-shot "rules saved — nothing moved" confirmation.
     val rulesSavedMessage = stringResource(Res.string.admin_organize_saved)
+    val alreadyOrganizedMessage = stringResource(Res.string.admin_organize_already)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
                 OrganizeSettingsEvent.RulesSaved -> snackbarHostState.showSnackbar(rulesSavedMessage)
+                OrganizeSettingsEvent.AlreadyOrganized -> snackbarHostState.showSnackbar(alreadyOrganizedMessage)
             }
         }
     }
@@ -275,6 +282,10 @@ private fun OrganizeSettingsContent(
                 onClick = viewModel::organize,
                 enabled = !state.isWorking,
                 isLoading = state.isWorking,
+                // The Save FAB floats over the bottom-end corner, which is exactly where a
+                // full-width button's end sits — on device it covered the button's right edge.
+                // Yield that corner so the two peer actions sit side by side instead of stacked.
+                modifier = Modifier.padding(end = FabInlineGutter),
             )
         }
     }
@@ -300,7 +311,14 @@ private fun RadioRow(
     }
 }
 
-/** The consent dialog: full scope counts + a browsable sample of before→after rows. */
+/**
+ * The consent dialog: full scope counts + a browsable sample of before→after rows.
+ *
+ * The scope is two numbers, not one, because the plan holds two kinds of work. Folder relocations
+ * get the summary line; books already in the right folder whose audio file is merely misnamed get
+ * their own line. A plan of nothing but renames shows only the second — leading with
+ * "Moves 0 files across 0 folders" would read as a no-op for work that is real.
+ */
 @Composable
 private fun OrganizeConfirmDialog(
     preview: OrganizePreviewDto,
@@ -312,26 +330,36 @@ private fun OrganizeConfirmDialog(
         title = { Text(stringResource(Res.string.admin_organize_confirm_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    stringResource(
-                        Res.string.admin_organize_confirm_summary,
-                        preview.fileCount,
-                        preview.bookCount,
-                        preview.collisionCount,
-                    ),
-                )
-                preview.entries.take(PREVIEW_ROWS_SHOWN).forEach { entry ->
+                if (preview.bookCount > 0) {
                     Text(
-                        text =
-                            stringResource(
-                                Res.string.admin_organize_confirm_row,
-                                entry.fromPath.substringAfterLast('/'),
-                                entry.toPath,
-                            ),
+                        stringResource(
+                            Res.string.admin_organize_confirm_summary,
+                            preview.fileCount,
+                            preview.bookCount,
+                            preview.collisionCount,
+                        ),
+                    )
+                }
+                if (preview.renamedInPlaceCount > 0) {
+                    Text(
+                        stringResource(
+                            Res.string.admin_organize_confirm_renames,
+                            preview.renamedInPlaceCount,
+                        ),
+                    )
+                }
+                preview.entries.take(PREVIEW_ROWS_SHOWN).forEach { entry ->
+                    // An in-place rename's folder is unchanged, so the filenames are the story;
+                    // rendering its folder on both sides would show a change that isn't one.
+                    val before = entry.renamedFrom ?: entry.fromPath.substringAfterLast('/')
+                    val after = entry.renamedTo ?: entry.toPath
+                    Text(
+                        text = stringResource(Res.string.admin_organize_confirm_row, before, after),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                val remaining = preview.bookCount - minOf(preview.entries.size, PREVIEW_ROWS_SHOWN)
+                val plannedBooks = preview.bookCount + preview.renamedInPlaceCount
+                val remaining = plannedBooks - minOf(preview.entries.size, PREVIEW_ROWS_SHOWN)
                 if (remaining > 0) {
                     Text(
                         text = stringResource(Res.string.admin_organize_confirm_more_rows, remaining),

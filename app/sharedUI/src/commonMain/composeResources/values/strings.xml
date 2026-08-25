@@ -108,11 +108,13 @@
     <string name="admin_no_pending_registrations">No pending registrations</string>
     <string name="admin_no_users_available">No users available</string>
     <string name="admin_organize">File Organization</string>
+    <string name="admin_organize_already">Library is already organized</string>
     <string name="admin_organize_author_first_last">First Last</string>
     <string name="admin_organize_author_form">Author name style</string>
     <string name="admin_organize_author_last_first">Last, First</string>
     <string name="admin_organize_books_into_collections_for">Organize books into collections for access control</string>
     <string name="admin_organize_confirm_more_rows">…and %1$d more</string>
+    <string name="admin_organize_confirm_renames">Audio files renamed in place, to match the folder they are already in: %1$d.</string>
     <string name="admin_organize_confirm_row">%1$s → %2$s</string>
     <string name="admin_organize_confirm_run">Organize now</string>
     <string name="admin_organize_confirm_summary">Moves %1$d files across %2$d folders; %3$d collisions resolved.</string>

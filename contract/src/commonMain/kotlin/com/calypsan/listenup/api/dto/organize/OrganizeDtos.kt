@@ -66,7 +66,15 @@ data class OrganizeSettingsDto(
     val authorForm: OrganizeAuthorForm = OrganizeAuthorForm.FIRST_LAST,
 )
 
-/** One before→after row of an organize preview — the browsable move list in the save-confirm dialog. */
+/**
+ * One before→after row of an organize preview — the browsable list in the confirm dialog.
+ *
+ * Two shapes, and a row should read as whichever it is. A **relocation** moves [fromPath] to
+ * [toPath] and leaves [renamedFrom]/[renamedTo] null. An **in-place rename** leaves the book's
+ * folder alone (so [fromPath] and [toPath] describe the same place) and carries the two filenames
+ * instead — there the filename IS the change, and rendering the unchanged folder twice would make
+ * a real edit look like a no-op.
+ */
 @Serializable
 data class OrganizePreviewEntryDto(
     @SerialName("bookId")
@@ -77,12 +85,23 @@ data class OrganizePreviewEntryDto(
     val toPath: String,
     @SerialName("collisionResolved")
     val collisionResolved: Boolean,
+    /** The book's current audio filename — non-null only on an in-place-rename row. */
+    @SerialName("renamedFrom")
+    val renamedFrom: String? = null,
+    /** The folder-matching name that file takes — non-null only on an in-place-rename row. */
+    @SerialName("renamedTo")
+    val renamedTo: String? = null,
 )
 
 /**
  * The consent-dialog summary for a pending organize run: **"moves [fileCount] files across
- * [bookCount] folders; [collisionCount] collisions resolved"** plus the first
- * [entries] rows ([truncated] signals more exist than were returned).
+ * [bookCount] folders; [collisionCount] collisions resolved"**, plus [renamedInPlaceCount] books
+ * whose folder is already right and only whose audio file is renamed where it stands, plus the
+ * first [entries] rows ([truncated] signals more exist than were returned).
+ *
+ * [bookCount] and [fileCount] deliberately count relocations ONLY. A plan of nothing but in-place
+ * renames therefore reports zero folders — and the dialog must lead with [renamedInPlaceCount]
+ * there, or real work reads as a no-op.
  */
 @Serializable
 data class OrganizePreviewDto(
@@ -96,6 +115,9 @@ data class OrganizePreviewDto(
     val entries: List<OrganizePreviewEntryDto>,
     @SerialName("truncated")
     val truncated: Boolean,
+    /** Books keeping their folder, with only their single audio file renamed in place. */
+    @SerialName("renamedInPlaceCount")
+    val renamedInPlaceCount: Int = 0,
 )
 
 /** Opaque identity of one organize run — returned by `saveAndExecute`, consumed by `observeRun`. */

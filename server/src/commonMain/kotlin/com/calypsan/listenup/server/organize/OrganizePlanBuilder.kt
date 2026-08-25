@@ -17,14 +17,18 @@ import kotlinx.io.files.SystemFileSystem
  * of the book's real files (not just the ones the scanner tracks in the DB), so unmodeled
  * sidecars travel with their book.
  *
- * A moving book with exactly ONE audio file also has that file renamed to match its new folder
- * segment ([AudioFileRename]) — half a job otherwise, and visible to anyone browsing the
- * filesystem. Multi-file books' filenames are left alone.
+ * A book with exactly ONE audio file also has that file renamed to match its folder segment
+ * ([AudioFileRename]) — half a job otherwise, and visible to anyone browsing the filesystem.
+ * That holds whether the folder is moving or was **already canonical and only the filename
+ * lagged** (`Book 1 - The Land Founding/The Land - Founding.m4b`): such a book yields an in-place
+ * rename entry rather than being skipped, because a sweep that can never clean up what it left
+ * behind leaves the user no remedy but the filesystem. Multi-file books' filenames are left alone.
  *
- * Already-canonical books are excluded. Collisions between two books' canonical targets (or a
- * moving book's target colliding with a book that's staying put) are resolved deterministically
- * by processing books in `bookId` order and appending a ` (2)`, ` (3)`, … suffix to the losing
- * book's leaf segment.
+ * A book that is fully conformant — right folder AND right filename — is excluded, which is what
+ * keeps a second sweep at zero moves. Collisions between two books' canonical targets (or a moving
+ * book's target colliding with a book that's staying put) are resolved deterministically by
+ * processing books in `bookId` order and appending a ` (2)`, ` (3)`, … suffix to the losing book's
+ * leaf segment; an in-place rename never enters that loop, since it already owns its target.
  */
 class OrganizePlanBuilder(
     private val sql: ListenUpDatabase,
@@ -65,9 +69,19 @@ class OrganizePlanBuilder(
             val entries = mutableListOf<MovePlanEntry>()
             for (book in liveBooks) {
                 val planned = plannedByBookId[book.id] ?: continue
-                if (planned == book.root_rel_path) continue // already canonical — excluded
-
                 val folderRoot = folderRoots[book.folder_id] ?: continue
+
+                if (planned == book.root_rel_path) {
+                    // Already at its canonical folder. NOT automatically finished: its single audio
+                    // file may still carry an old name. Critically, this book must NOT go through
+                    // the collision loop below — its own path is already in `occupiedTargets` from
+                    // the seeding pass, so `add` would fail against ITSELF and suffix it to
+                    // "Title (2)". It already owns this target; nothing to resolve.
+                    renameOnlyEntry(payloadsById[book.id], folderRoot, book.root_rel_path, book.id)
+                        ?.let { entries += it }
+                    continue
+                }
+
                 var candidate = planned
                 var collisionResolved = false
                 var suffix = 2
@@ -95,6 +109,38 @@ class OrganizePlanBuilder(
         }
 
     /**
+     * The in-place-rename entry for a book already at its canonical folder, or null when its
+     * filename is already right (or it is multi-file, or has no single tracked audio file) — the
+     * "nothing to do" case that keeps a second sweep at zero moves.
+     *
+     * [MovePlanEntry.files] carries ONLY the rename. Enumerating the folder here and mapping every
+     * file onto itself would hand the broker a set of `MoveFile(x, x)` ops, and a move whose source
+     * and destination both exist is exactly the ambiguity it refuses rather than guesses at.
+     */
+    private fun renameOnlyEntry(
+        payload: BookSyncPayload?,
+        folderRoot: String,
+        rootRelPath: String,
+        bookId: String,
+    ): MovePlanEntry? {
+        val dir = Path(folderRoot, rootRelPath)
+        val current = payload.singleAudioFilename() ?: return null
+        val rename = renameToCanonical(current, rootRelPath) ?: return null
+        // Nothing is moving here, so there is no manifest to check the name against — confirm the
+        // file is really on disk instead, or the DB would be renamed to point at nothing.
+        if (!SystemFileSystem.exists(Path(dir, rename.from))) return null
+        return MovePlanEntry(
+            bookId = bookId,
+            fromDir = dir,
+            toDir = dir,
+            toRootRelPath = rootRelPath,
+            files = listOf(FileMove(from = Path(dir, rename.from), to = Path(dir, rename.to))),
+            collisionResolved = false,
+            audioRename = rename,
+        )
+    }
+
+    /**
      * True when [payload]'s stored path is already what the rules would produce for it.
      *
      * This is how "conformance is maintained, never imposed" is decided. A book that already sits
@@ -109,9 +155,13 @@ class OrganizePlanBuilder(
 
     /**
      * Plans a single book's relocation — the metadata-edit hook's replan. Returns null when the
-     * book is missing/tombstoned or already at its canonical path. Collisions resolve against the
-     * DB's natural-key index (another live book already at the target path gets the mover a
-     * deterministic ` (n)` suffix), mirroring [build]'s in-memory occupied-set logic.
+     * book is missing/tombstoned, or is fully conformant already (right folder AND right filename).
+     * A book at its canonical folder whose single audio file is still misnamed gets the same
+     * in-place rename [build] produces, so the two paths never disagree about what "organized"
+     * means. Collisions resolve against the DB's natural-key index (another live book already at
+     * the target path gets the mover a deterministic ` (n)` suffix), mirroring [build]'s in-memory
+     * occupied-set logic — and, exactly as there, an in-place rename skips that loop entirely
+     * because it already owns its target.
      */
     suspend fun buildForBook(
         bookId: BookId,
@@ -129,7 +179,9 @@ class OrganizePlanBuilder(
                     ?.root_path ?: return@suspendTransaction null
 
             val planned = OrganizerPathPlanner.planFor(payload.toOrganizeFacts(), settings)
-            if (planned == book.root_rel_path) return@suspendTransaction null
+            if (planned == book.root_rel_path) {
+                return@suspendTransaction renameOnlyEntry(payload, folderRoot, book.root_rel_path, bookId.value)
+            }
 
             var candidate = planned
             var collisionResolved = false
@@ -203,9 +255,34 @@ private fun audioRenameFor(
     toRootRelPath: String,
     files: List<FileMove>,
 ): AudioFileRename? {
-    val current = payload?.audioFiles?.singleOrNull()?.filename ?: return null
-    if (current.contains('/')) return null
+    val current = payload.singleAudioFilename() ?: return null
+    // Only rename a file this manifest is actually moving — renaming the DB to a name that never
+    // landed on disk would be worse than leaving the stale one.
     if (files.none { it.from == Path(fromDir, current) }) return null
+    return renameToCanonical(current, toRootRelPath)
+}
+
+/**
+ * The book's sole audio filename, or `null` when the rename rule does not apply — a multi-file book
+ * (whose filenames often encode ordering, and which other tools key on) or a name nested in a
+ * sub-folder.
+ */
+private fun BookSyncPayload?.singleAudioFilename(): String? =
+    this
+        ?.audioFiles
+        ?.singleOrNull()
+        ?.filename
+        ?.takeUnless { it.contains('/') }
+
+/**
+ * [current] renamed to match the folder leaf of [toRootRelPath], keeping its extension — or `null`
+ * when it already matches. The one place the single-file naming rule is spelled out, so the
+ * move path and the rename-only path cannot drift.
+ */
+private fun renameToCanonical(
+    current: String,
+    toRootRelPath: String,
+): AudioFileRename? {
     val extension = current.substringAfterLast('.', missingDelimiterValue = "")
     val leaf = toRootRelPath.substringAfterLast('/')
     val renamed = if (extension.isEmpty()) leaf else "$leaf.$extension"

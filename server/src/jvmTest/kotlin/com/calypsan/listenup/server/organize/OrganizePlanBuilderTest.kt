@@ -84,10 +84,26 @@ class OrganizePlanBuilderTest :
             }
         }
 
-        test("a book already at its canonical path is excluded from the plan") {
+        test("a fully conformant book — right folder AND right filename — is excluded, so a second sweep is a no-op") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder(folderPath = tempLibraryRoot().toString())
+                val libraryRoot =
+                    java.nio.file.Paths
+                        .get(currentFolderRoot(sql))
                 seedCatalog(sql)
+
+                // Exactly the state a completed sweep leaves behind: canonical folder, and a
+                // single audio file already named after it.
+                val canonical = "Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings"
+                libraryRoot.resolve(canonical).also { Files.createDirectories(it) }.let { dir ->
+                    Files.writeString(dir.resolve("Book 1 - The Way of Kings.m4b"), "a")
+                }
+                // A canonical MULTI-file book is finished too — its filenames are never ours to touch.
+                val multiCanonical = "Brandon Sanderson/Warbreaker"
+                libraryRoot.resolve(multiCanonical).also { Files.createDirectories(it) }.let { dir ->
+                    Files.writeString(dir.resolve("Part 01.mp3"), "a")
+                    Files.writeString(dir.resolve("Part 02.mp3"), "a")
+                }
 
                 runTest {
                     val repo = buildBookRepository(sql, driver)
@@ -95,17 +111,31 @@ class OrganizePlanBuilderTest :
                         bookPayloadFixture(
                             id = "b1",
                             title = "The Way of Kings",
-                            rootRelPath = "Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings",
+                            rootRelPath = canonical,
                             contributors = listOf(author("c1", "Brandon Sanderson")),
                             series = listOf(seriesMembership("s1", "Stormlight Archive", 1.0)),
-                            audioFiles = listOf(audioFile("af1", "01.m4b")),
+                            audioFiles = listOf(audioFile("af1", "Book 1 - The Way of Kings.m4b")),
+                        ),
+                    )
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b2",
+                            title = "Warbreaker",
+                            rootRelPath = multiCanonical,
+                            contributors = listOf(author("c1", "Brandon Sanderson")),
+                            audioFiles =
+                                listOf(
+                                    audioFile("af1", "Part 01.mp3"),
+                                    audioFile("af2", "Part 02.mp3", index = 1),
+                                ),
                         ),
                     )
 
                     val plan = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings)
 
-                    plan.bookCount shouldBe 0
                     plan.entries shouldBe emptyList()
+                    plan.bookCount shouldBe 0
+                    plan.renamedInPlaceCount shouldBe 0
                 }
             }
         }
@@ -151,6 +181,62 @@ class OrganizePlanBuilderTest :
                     byId.getValue("b2").toRootRelPath shouldBe
                         "Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings (2)"
                     byId.getValue("b2").collisionResolved shouldBe true
+                }
+            }
+        }
+
+        test("already-canonical book with a stale filename IS planned, in place and WITHOUT a collision suffix") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder(folderPath = tempLibraryRoot().toString())
+                val libraryRoot =
+                    java.nio.file.Paths
+                        .get(currentFolderRoot(sql))
+                seedCatalog(sql)
+
+                // The rig case: folder already organized, filename left behind by an older sweep.
+                val canonical = "Brandon Sanderson/Stormlight Archive/Book 1 - The Way of Kings"
+                val bookDir = libraryRoot.resolve(canonical).also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("The Way - Kings.m4b"), "a")
+                Files.writeString(bookDir.resolve("cover.jpg"), "cover")
+
+                runTest {
+                    val repo = buildBookRepository(sql, driver)
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "The Way of Kings",
+                            rootRelPath = canonical,
+                            contributors = listOf(author("c1", "Brandon Sanderson")),
+                            series = listOf(seriesMembership("s1", "Stormlight Archive", 1.0)),
+                            audioFiles = listOf(audioFile("af1", "The Way - Kings.m4b")),
+                        ),
+                    )
+
+                    val plan = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings)
+
+                    val entry = plan.entries.single()
+                    entry.bookId shouldBe "b1"
+                    // THE regression this guards: the book's own path is pre-seeded into the
+                    // occupied-target set, so a naive plan would collide it with ITSELF and file it
+                    // under "… (2)". It already owns this target; the path must not move at all.
+                    entry.toRootRelPath shouldBe canonical
+                    entry.collisionResolved shouldBe false
+                    entry.isRelocation shouldBe false
+                    entry.fromDir shouldBe entry.toDir
+                    plan.collisionCount shouldBe 0
+
+                    entry.audioRename shouldBe
+                        AudioFileRename(from = "The Way - Kings.m4b", to = "Book 1 - The Way of Kings.m4b")
+                    // ONLY the rename — never a self-move of cover.jpg, which the broker refuses as
+                    // an ambiguous source-and-destination-both-exist move.
+                    val move = entry.files.single()
+                    move.from.toString() shouldBe bookDir.resolve("The Way - Kings.m4b").toString()
+                    move.to.toString() shouldBe bookDir.resolve("Book 1 - The Way of Kings.m4b").toString()
+
+                    // Counted as a rename, not a folder move — the dialog must not claim otherwise.
+                    plan.bookCount shouldBe 0
+                    plan.fileCount shouldBe 0
+                    plan.renamedInPlaceCount shouldBe 1
                 }
             }
         }

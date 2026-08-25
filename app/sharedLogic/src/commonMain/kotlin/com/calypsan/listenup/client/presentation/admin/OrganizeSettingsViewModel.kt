@@ -107,8 +107,21 @@ class OrganizeSettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isWorking = true, error = null) }
             when (val result = repository.preview(ready.settings)) {
-                is AppResult.Success -> updateReady { it.copy(isWorking = false, preview = result.data) }
-                is AppResult.Failure -> failWorking(result.error)
+                is AppResult.Success -> {
+                    val preview = result.data
+                    updateReady { it.copy(isWorking = false) }
+                    // An empty plan gets no consent dialog. Confirming "do nothing" is the wrong
+                    // interaction, and a dialog whose body renders no rows at all reads as broken.
+                    if (preview.bookCount == 0 && preview.renamedInPlaceCount == 0) {
+                        eventChannel.send(OrganizeSettingsEvent.AlreadyOrganized)
+                    } else {
+                        updateReady { it.copy(preview = preview) }
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    failWorking(result.error)
+                }
             }
         }
     }
@@ -176,6 +189,9 @@ class OrganizeSettingsViewModel(
 sealed interface OrganizeSettingsEvent {
     /** The rules were persisted and nothing moved — the Save confirmation. */
     data object RulesSaved : OrganizeSettingsEvent
+
+    /** The sweep found nothing to do — every book is already where the rules say, under the right name. */
+    data object AlreadyOrganized : OrganizeSettingsEvent
 }
 
 /** Rolling progress of the in-flight (or just-finished) organize run. */
