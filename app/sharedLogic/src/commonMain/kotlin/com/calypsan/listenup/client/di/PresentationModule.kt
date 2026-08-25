@@ -216,6 +216,13 @@ internal val adminPresentationModule =
                 errorBus = get(),
             )
         }
+        // UploadBooksViewModel - pick a folder or files and stream them into the library
+        factory {
+            com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel(
+                uploadRepository = get(),
+                errorBus = get(),
+            )
+        }
         // RestoreFromFileViewModel - pick + upload a .listenup.zip, then hand off to restore
         factory {
             com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel(

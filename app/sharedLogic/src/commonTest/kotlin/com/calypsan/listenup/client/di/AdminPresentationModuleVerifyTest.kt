@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.client.domain.repository.UploadRepository
 import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
@@ -98,6 +99,7 @@ class AdminPresentationModuleVerifyTest :
                         BackupRepository::class,
                         SyncRepository::class,
                         ImportRepository::class,
+                        UploadRepository::class,
                         OrganizeRepository::class,
                     ),
             )
