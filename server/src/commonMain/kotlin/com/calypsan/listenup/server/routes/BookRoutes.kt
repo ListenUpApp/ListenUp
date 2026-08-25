@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.RateLimitBuckets
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -113,7 +114,7 @@ internal fun Route.bookBlobWriteRoutes(bookService: BookService) {
     delete<BookResources.Cover> { res ->
         when (val result = call.scoped(bookService).deleteBookCover(res.id)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
+            is AppResult.Failure -> call.respondAppError(result.error)
         }
     }
 }
@@ -129,17 +130,6 @@ internal fun Route.bookBlobWriteRoutes(bookService: BookService) {
 private fun ApplicationCall.scoped(service: BookService): BookServiceImpl {
     val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
     return (service as BookServiceImpl).copyWith(PrincipalProvider { p })
-}
-
-/**
- * Responds a bare [AppError] body (no [AppResult] envelope) with the status
- * derived from [AppError.toHttpStatus] and the correlation id stamped from
- * the call id. Used by the book REST surface which follows the third-party
- * RESTful convention of responding the unwrapped error directly.
- */
-private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
-    val typed = error.withCorrelationId(callId)
-    respond(typed.toHttpStatus(), typed)
 }
 
 /**
@@ -161,7 +151,7 @@ private suspend fun ApplicationCall.handleCoverUpload(
 ) {
     // Gate canEdit BEFORE buffering — an unauthorized caller must not force the server to
     // buffer up to 10 MiB of multipart body before receiving a 403.
-    service.checkCanEdit()?.let { return respondBareAppError(it) }
+    service.checkCanEdit()?.let { return respondAppError(it) }
 
     var bytes: ByteArray? = null
     var declared = ContentType.Application.OctetStream.toString()
@@ -184,7 +174,7 @@ private suspend fun ApplicationCall.handleCoverUpload(
     try {
         when (val result = service.setBookCover(bookId, data, declared)) {
             is AppResult.Success -> respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> respondBareAppError(result.error)
+            is AppResult.Failure -> respondAppError(result.error)
         }
     } catch (e: ImageStore.InvalidImageException) {
         respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")

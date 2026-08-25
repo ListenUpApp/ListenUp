@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -89,7 +90,7 @@ fun Route.contributorRoutes(
                         // The scoped update rejected (no canEdit / unknown id) — remove the file this
                         // request just wrote so rejected uploads can't accumulate on disk.
                         SystemFileSystem.delete(Path(imageHome.toString(), outcome.relPath), mustExist = false)
-                        call.respondBareAppError(result.error)
+                        call.respondAppError(result.error)
                     }
                 }
             }
@@ -104,9 +105,4 @@ fun Route.contributorRoutes(
 private fun ApplicationCall.scoped(service: ContributorService): ContributorService {
     val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
     return (service as ContributorServiceImpl).copyWith(PrincipalProvider { p })
-}
-
-private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
-    val typed = error.withCorrelationId(callId)
-    respond(typed.toHttpStatus(), typed)
 }

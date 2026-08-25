@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.streamFirstFilePartTo
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -91,22 +92,22 @@ internal fun Route.uploadRoutes(
 
     post(UploadRoutePaths.FINALIZE_TEMPLATE) {
         if (!call.requireUploadAdmin()) return@post
-        val sessionId = call.sessionIdOrNull() ?: return@post call.respondUploadError(UploadError.SessionNotFound())
+        val sessionId = call.sessionIdOrNull() ?: return@post call.respondAppError(UploadError.SessionNotFound())
         val sessionDir =
             staging.openSession(sessionId)
-                ?: return@post call.respondUploadError(UploadError.SessionNotFound())
+                ?: return@post call.respondAppError(UploadError.SessionNotFound())
         when (val result = finalizer.finalize(sessionId, sessionDir)) {
             is AppResult.Success -> call.respond(HttpStatusCode.OK, result.data)
-            is AppResult.Failure -> call.respondUploadError(result.error)
+            is AppResult.Failure -> call.respondAppError(result.error)
         }
     }
 
     delete(UploadRoutePaths.SESSION_TEMPLATE) {
         if (!call.requireUploadAdmin()) return@delete
-        val sessionId = call.sessionIdOrNull() ?: return@delete call.respondUploadError(UploadError.SessionNotFound())
+        val sessionId = call.sessionIdOrNull() ?: return@delete call.respondAppError(UploadError.SessionNotFound())
         val sessionDir =
             staging.openSession(sessionId)
-                ?: return@delete call.respondUploadError(UploadError.SessionNotFound())
+                ?: return@delete call.respondAppError(UploadError.SessionNotFound())
         staging.deleteSession(sessionDir)
         logger.info { "upload session abandoned: $sessionId" }
         call.respond(HttpStatusCode.NoContent)
@@ -122,14 +123,14 @@ internal fun Route.uploadRoutes(
  * on the wire can influence where it lands.
  */
 private suspend fun ApplicationCall.receiveOneFile(staging: UploadStaging) {
-    val sessionId = sessionIdOrNull() ?: return respondUploadError(UploadError.SessionNotFound())
-    val sessionDir = staging.openSession(sessionId) ?: return respondUploadError(UploadError.SessionNotFound())
+    val sessionId = sessionIdOrNull() ?: return respondAppError(UploadError.SessionNotFound())
+    val sessionDir = staging.openSession(sessionId) ?: return respondAppError(UploadError.SessionNotFound())
 
     val before = staging.stats(sessionDir)
     val remaining = staging.limits.maxSessionBytes - before.totalBytes
     if (before.fileCount >= staging.limits.maxFiles || remaining <= 0) {
         staging.deleteSession(sessionDir)
-        return respondUploadError(
+        return respondAppError(
             UploadError.SessionTooLarge(
                 debugInfo = "session $sessionId at ${before.fileCount} files / ${before.totalBytes} bytes",
             ),
@@ -138,13 +139,13 @@ private suspend fun ApplicationCall.receiveOneFile(staging: UploadStaging) {
 
     val rawRelPath = request.queryParameters[UploadRoutePaths.REL_PATH_PARAM]
     if (rawRelPath == null) {
-        return respondUploadError(UploadError.InvalidFilePath(debugInfo = "missing relPath query parameter"))
+        return respondAppError(UploadError.InvalidFilePath(debugInfo = "missing relPath query parameter"))
     }
     val target =
         when (val resolved = resolveUploadTarget(sessionDir, rawRelPath)) {
             is UploadTarget.Refused -> {
                 logger.warn { "upload $sessionId: refused a file path — ${resolved.reason}" }
-                return respondUploadError(UploadError.InvalidFilePath(debugInfo = resolved.reason))
+                return respondAppError(UploadError.InvalidFilePath(debugInfo = resolved.reason))
             }
 
             is UploadTarget.Accepted -> {
@@ -165,7 +166,7 @@ private suspend fun ApplicationCall.receiveOneFile(staging: UploadStaging) {
         }
     if (!received) {
         staging.discardFile(part)
-        return respondUploadError(UploadError.FileTransferFailed(debugInfo = "request carried no file part"))
+        return respondAppError(UploadError.FileTransferFailed(debugInfo = "request carried no file part"))
     }
 
     staging.commitFile(part, target)
@@ -195,9 +196,9 @@ private suspend fun ApplicationCall.failPartialTransfer(
     staging.discardFile(part)
     logger.warn(cause) { "upload $sessionId: file transfer failed after $landed bytes (allowance $allowance)" }
     if (landed >= allowance) {
-        respondUploadError(UploadError.SessionTooLarge(debugInfo = "file exceeded the $allowance-byte allowance"))
+        respondAppError(UploadError.SessionTooLarge(debugInfo = "file exceeded the $allowance-byte allowance"))
     } else {
-        respondUploadError(UploadError.FileTransferFailed(debugInfo = cause.message))
+        respondAppError(UploadError.FileTransferFailed(debugInfo = cause.message))
     }
 }
 
@@ -216,15 +217,10 @@ private suspend fun ApplicationCall.requireUploadAdmin(): Boolean {
         return false
     }
     if (!principal.role.isUploadAdmin()) {
-        respondUploadError(AuthError.PermissionDenied())
+        respondAppError(AuthError.PermissionDenied())
         return false
     }
     return true
 }
 
 private fun UserRole.isUploadAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
-
-private suspend fun ApplicationCall.respondUploadError(error: AppError) {
-    val typed = error.withCorrelationId(callId)
-    respond(typed.toHttpStatus(), typed)
-}

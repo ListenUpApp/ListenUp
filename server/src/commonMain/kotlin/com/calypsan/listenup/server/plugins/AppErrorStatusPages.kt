@@ -37,6 +37,8 @@ import com.calypsan.listenup.api.error.withCorrelationId as stampCorrelationId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.MalformedMultipartException
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
+import io.ktor.util.AttributeKey
+import io.ktor.server.application.ApplicationCall
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -91,9 +93,36 @@ fun Application.installAppErrorStatusPages() {
             call.respond(HttpStatusCode.InternalServerError, body)
         }
         status(HttpStatusCode.NotFound) { call, status ->
-            call.respond(status, mapOf("error" to "not_found", "path" to call.request.uri))
+            // Only describe a 404 that no route produced. A route that deliberately answered with a
+            // typed AppError has already written the body the client needs.
+            if (!call.attributes.contains(TypedAppErrorSent)) {
+                call.respond(status, mapOf("error" to "not_found", "path" to call.request.uri))
+            }
         }
     }
+}
+
+/**
+ * Marks a call whose 404 body was written deliberately by a route, so the catch-all
+ * [io.ktor.server.plugins.statuspages.StatusPagesConfig.status] hook leaves it alone.
+ *
+ * Without it that hook rewrites the body of **every** 404 — including a typed [AppError] a route
+ * meant to send — and the client decodes a generic `not_found` instead. `ImportError.ImportNotFound`
+ * has shipped with exactly that defect: its typed body is replaced before it ever reaches a client,
+ * unnoticed because nothing decoded it.
+ */
+private val TypedAppErrorSent = AttributeKey<Unit>("ListenUpTypedAppErrorSent")
+
+/**
+ * Sends [error] as a typed JSON body at its mapped status, stamped with this call's correlation id.
+ *
+ * The single responder for every non-RPC route — six byte-identical private copies of it existed
+ * before, which is also why the 404 defect above could not be fixed in one place.
+ */
+internal suspend fun ApplicationCall.respondAppError(error: AppError) {
+    val typed = error.withCorrelationId(callId)
+    attributes.put(TypedAppErrorSent, Unit)
+    respond(typed.toHttpStatus(), typed)
 }
 
 /**

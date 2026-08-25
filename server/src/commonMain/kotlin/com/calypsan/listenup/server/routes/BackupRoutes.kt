@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.backup.isSafeBackupId
 import com.calypsan.listenup.server.io.createTempFileIn
 import com.calypsan.listenup.server.io.respondSeekable
 import com.calypsan.listenup.server.io.streamFirstFilePartTo
+import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -73,7 +74,7 @@ fun Route.backupRoutes(
 ) {
     get(BackupRoutePaths.DOWNLOAD_TEMPLATE) {
         val p = call.userPrincipalOrNull() ?: return@get call.respond(HttpStatusCode.Unauthorized)
-        if (!p.role.isAdmin()) return@get call.respondBareAppError(AuthError.PermissionDenied())
+        if (!p.role.isAdmin()) return@get call.respondAppError(AuthError.PermissionDenied())
 
         val rawId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         // Reject ids containing path separators or traversal sequences before doing any I/O.
@@ -83,7 +84,7 @@ fun Route.backupRoutes(
 
         val archivePath = paths.archiveFor(rawId)
         if (SystemFileSystem.metadataOrNull(archivePath)?.isRegularFile != true) {
-            return@get call.respondBareAppError(BackupError.BackupNotFound())
+            return@get call.respondAppError(BackupError.BackupNotFound())
         }
 
         call.response.header(
@@ -97,7 +98,7 @@ fun Route.backupRoutes(
 
     post(BackupRoutePaths.UPLOAD) {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
-        if (!p.role.isAdmin()) return@post call.respondBareAppError(AuthError.PermissionDenied())
+        if (!p.role.isAdmin()) return@post call.respondAppError(AuthError.PermissionDenied())
         call.handleUpload(paths, archive)
     }
 }
@@ -164,7 +165,7 @@ private suspend fun ApplicationCall.validateUpload(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        respondBareAppError(BackupError.CorruptArchive(debugInfo = e.message))
+        respondAppError(BackupError.CorruptArchive(debugInfo = e.message))
         null
     }
 
@@ -182,8 +183,3 @@ private fun deriveSafeId(manifest: BackupManifest): String {
 }
 
 private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
-
-private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
-    val typed = error.withCorrelationId(callId)
-    respond(typed.toHttpStatus(), typed)
-}
