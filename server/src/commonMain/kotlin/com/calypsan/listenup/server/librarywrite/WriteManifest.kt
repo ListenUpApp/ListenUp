@@ -83,6 +83,35 @@ sealed interface WriteOp {
     data class DeleteDirIfEmpty(
         val dir: Path,
     ) : WriteOp
+
+    /**
+     * Deletes [dir] **and everything inside it**, recursively. The most destructive op in the
+     * system: it is the only one that removes bytes the caller never enumerated, so a caller that
+     * is wrong about which directory it named is wrong about every file in it.
+     *
+     * Three refusals stand behind it, all checked on *resolved* paths inside
+     * [LibraryWriteBroker.applyOp] before a single entry is unlinked:
+     * - the ordinary containment check every op gets — [dir] must resolve inside a live library
+     *   folder;
+     * - [dir] must not BE a library folder root. Containment cannot catch that one (a root is
+     *   trivially inside itself), and a book whose `root_rel_path` came out empty would otherwise
+     *   erase the entire library;
+     * - [dir] must not be a symbolic link. It would resolve inside the library happily enough while
+     *   pointing at another book's directory, and recursing through a link is a different operation
+     *   from unlinking it.
+     *
+     * The walk itself never follows a symbolic link either: a link encountered inside [dir] is
+     * unlinked, never descended into, so a link planted in a book folder cannot redirect the delete
+     * out of the tree.
+     *
+     * Idempotency rule: a missing directory means the delete already happened — skip. Unlike
+     * [DeleteDirIfEmpty] this is not best-effort cleanup: a directory it cannot empty fails the
+     * manifest typed and keeps the journal, so an interrupted delete resumes rather than leaving a
+     * half-deleted book behind forever.
+     */
+    data class DeleteDir(
+        val dir: Path,
+    ) : WriteOp
 }
 
 /** The result of a single successful [LibraryWriteBroker.writeFile] — the landed path and its content hash. */

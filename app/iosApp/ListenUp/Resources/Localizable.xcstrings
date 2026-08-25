@@ -3111,6 +3111,46 @@
         }
       }
     },
+    "book.detail_delete_book_blocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” is in the same folder, so deleting this book would take it too. Nothing was deleted."
+          }
+        }
+      }
+    },
+    "book.detail_delete_book_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This permanently deletes the book’s folder from your server. ListenUp tracks %1$d files in it (%2$@), and everything else in that folder goes too — PDFs, artwork, bonus material — whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone."
+          }
+        }
+      }
+    },
+    "book.detail_delete_book_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Forever"
+          }
+        }
+      }
+    },
+    "book.detail_delete_book_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete “%1$@”?"
+          }
+        }
+      }
+    },
     "book.detail_details": {
       "localizations": {
         "en": {

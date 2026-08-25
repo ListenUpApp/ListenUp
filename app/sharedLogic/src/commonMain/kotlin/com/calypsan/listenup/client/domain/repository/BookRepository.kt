@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -150,6 +151,24 @@ interface BookRepository {
      * @param query The raw search query. A blank query yields an empty list.
      */
     fun search(query: String): Flow<List<BookListItem>>
+
+    /**
+     * **Permanently deletes [id] from the server library and from the server's disk** — the book's
+     * whole folder, including every non-audio file in it (bonus PDFs, artwork). Admin-only, and
+     * there is no undo.
+     *
+     * Deliberately NOT offline-first, and the one book write that isn't. Every other edit queues in
+     * the outbox because replaying it later is harmless; replaying a destroy is not — a delete
+     * requested on a plane must not fire itself three days later against whatever now lives at that
+     * path. So this goes straight to the server, and offline it fails immediately and visibly.
+     *
+     * Refusals arrive typed, with nothing removed on the server:
+     * [com.calypsan.listenup.api.error.BookError.FolderNotExclusive] when another book shares the
+     * folder, and [com.calypsan.listenup.api.error.LibraryWriteError.ProtectedPath] when the folder
+     * is a library root. On success the server's tombstone reaches this device — and every other —
+     * through the sync firehose, which is what removes the row from Room.
+     */
+    suspend fun deleteBook(id: BookId): AppResult<Unit>
 }
 
 /**

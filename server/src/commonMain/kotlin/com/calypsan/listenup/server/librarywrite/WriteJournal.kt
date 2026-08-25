@@ -72,6 +72,10 @@ class WriteJournal(
                         is WriteOp.DeleteDirIfEmpty -> {
                             PersistedOp.PersistedDeleteDirIfEmpty(dir = op.dir.toString())
                         }
+
+                        is WriteOp.DeleteDir -> {
+                            PersistedOp.PersistedDeleteDir(dir = op.dir.toString())
+                        }
                     }
                 }
             jsonFor(manifest.opId).writeText(json.encodeToString(PersistedManifest(manifest.opId, persistedOps)))
@@ -167,6 +171,10 @@ class WriteJournal(
 
             is PersistedOp.PersistedDeleteDirIfEmpty -> {
                 WriteOp.DeleteDirIfEmpty(Path(dir))
+            }
+
+            is PersistedOp.PersistedDeleteDir -> {
+                WriteOp.DeleteDir(Path(dir))
             }
         }
 
@@ -269,6 +277,21 @@ private sealed interface PersistedOp {
         @SerialName("done")
         override val done: Boolean = false,
     ) : PersistedOp
+
+    /**
+     * Persisted [WriteOp.DeleteDir]: the directory to delete recursively. Only the path is
+     * recorded — the refusals that gate the op are re-asked from live library state on replay, so
+     * a folder that stopped being a library root (or started being one) between the crash and the
+     * resume is judged as it is *now*, not as it was.
+     */
+    @Serializable
+    @SerialName("PersistedOp.DeleteDir")
+    data class PersistedDeleteDir(
+        @SerialName("dir")
+        val dir: String,
+        @SerialName("done")
+        override val done: Boolean = false,
+    ) : PersistedOp
 }
 
 private fun PersistedOp.markDone(): PersistedOp =
@@ -279,4 +302,5 @@ private fun PersistedOp.markDone(): PersistedOp =
         is PersistedOp.PersistedWriteFile -> copy(done = true)
         is PersistedOp.PersistedDeleteFile -> copy(done = true)
         is PersistedOp.PersistedDeleteDirIfEmpty -> copy(done = true)
+        is PersistedOp.PersistedDeleteDir -> copy(done = true)
     }

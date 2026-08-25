@@ -277,6 +277,7 @@ private fun LibraryWriteError.withCorrelationId(id: String?): LibraryWriteError 
     when (this) {
         is LibraryWriteError.Unavailable -> copy(correlationId = id)
         is LibraryWriteError.OutsideLibrary -> copy(correlationId = id)
+        is LibraryWriteError.ProtectedPath -> copy(correlationId = id)
     }
 
 private fun LibraryError.withCorrelationId(id: String?): LibraryError =
@@ -308,6 +309,7 @@ private fun BookError.withCorrelationId(id: String?): BookError =
     when (this) {
         is BookError.NotFound -> copy(correlationId = id)
         is BookError.InvalidInput -> copy(correlationId = id)
+        is BookError.FolderNotExclusive -> copy(correlationId = id)
     }
 
 private fun CoverError.withCorrelationId(id: String?): CoverError =

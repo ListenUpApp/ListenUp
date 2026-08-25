@@ -389,6 +389,10 @@ private fun LibraryWriteError.toHttpStatus(): HttpStatusCode =
         // Not 503: the mount is fine, the path is wrong. Mirrors LibraryError.InvalidPath, and
         // keeps a caller bug out of the retryable-5xx bucket.
         is LibraryWriteError.OutsideLibrary -> HttpStatusCode.BadRequest
+
+        // Also a caller bug rather than a mount problem: the path is inside the library but is not
+        // the caller's to destroy (a folder root, or a symlink standing in for a book directory).
+        is LibraryWriteError.ProtectedPath -> HttpStatusCode.BadRequest
     }
 
 private fun LibraryError.toHttpStatus(): HttpStatusCode =
@@ -431,7 +435,12 @@ private fun MoodError.toHttpStatus(): HttpStatusCode =
 private fun BookError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is BookError.NotFound -> HttpStatusCode.NotFound
+
         is BookError.InvalidInput -> HttpStatusCode.BadRequest
+
+        // 409, not 400: the request is well-formed and the book exists — it is the current state of
+        // the library (two books in one folder) that makes the delete unsafe.
+        is BookError.FolderNotExclusive -> HttpStatusCode.Conflict
     }
 
 private fun CoverError.toHttpStatus(): HttpStatusCode =

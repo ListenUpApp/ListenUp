@@ -40,8 +40,11 @@ import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.AnalyzedBookMapper
+import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
+import com.calypsan.listenup.server.services.BookDeleter
 import com.calypsan.listenup.server.services.BookGenreWriter
 import com.calypsan.listenup.server.services.BookIngestPort
+import com.calypsan.listenup.server.sidecar.SidecarWriteStateRepository
 import com.calypsan.listenup.server.services.BookMoodWriter
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookRepository
@@ -149,6 +152,16 @@ fun booksModule(
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
         single { UserPermissionPolicy(db = get<ListenUpDatabase>()) }
+        single {
+            BookDeleter(
+                sql = get<ListenUpDatabase>(),
+                bookRepository = get<BookRepository>(),
+                broker = get<LibraryWriteBroker>(),
+                // Nullable — a books slice without the sidecar module still deletes books; it just
+                // has no `sidecar_write_state` row to clear.
+                sidecarWriteState = getOrNull<SidecarWriteStateRepository>(),
+            )
+        }
         single<BookService> {
             BookServiceImpl(
                 repo = get<BookRepository>(),
@@ -164,6 +177,7 @@ fun booksModule(
                 sidecarWriter = getOrNull<SidecarWriter>(),
                 // Nullable — the organize module may not be loaded in minimal test containers.
                 organizeRelocator = getOrNull(),
+                bookDeleter = get<BookDeleter>(),
             )
         }
         single<ContributorService> {

@@ -49,4 +49,30 @@ sealed interface LibraryWriteError : AppError {
         override val code: String = "LIBRARY_WRITE_OUTSIDE_LIBRARY"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * The write was refused because its target is structurally protected, even though it resolves
+     * inside a live library folder.
+     *
+     * Distinct from [OutsideLibrary]: containment answers "is this ours?", and this answers "is it
+     * ours to destroy?". A library folder root is inside itself by definition, so containment waves
+     * a recursive delete of the whole root straight through — the only thing standing between an
+     * empty `root_rel_path` and an erased library is this refusal. A symbolic link standing in for
+     * a book directory is refused here too: it resolves inside the library, but unlinking it and
+     * recursing through it are different operations with very different blast radii, and the caller
+     * meant the former.
+     *
+     * [isRetryable] is `false` — the shape of the request is wrong, and re-firing it identically
+     * cannot change the answer.
+     */
+    @Serializable
+    @SerialName("LibraryWriteError.ProtectedPath")
+    data class ProtectedPath(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : LibraryWriteError {
+        override val message: String = "That folder is protected and can't be removed."
+        override val code: String = "LIBRARY_WRITE_PROTECTED_PATH"
+        override val isRetryable: Boolean = false
+    }
 }

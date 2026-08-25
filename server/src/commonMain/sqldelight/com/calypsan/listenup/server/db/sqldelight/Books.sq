@@ -134,6 +134,14 @@ SELECT chapter_source FROM books WHERE id = :id;
 selectLiveIdsAndPathsForLibrary:
 SELECT id, folder_id, root_rel_path FROM books WHERE library_id = :library_id AND deleted_at IS NULL;
 
+-- Every live book's (id, title, folder_id, root_rel_path), across ALL libraries — the sibling
+-- guard behind BookDeleter: before a book's directory is deleted recursively, no OTHER live book
+-- may resolve to that directory or anywhere beneath it. Deliberately NOT library-scoped: two
+-- library folders can be nested on disk, so a same-library sweep could miss the very book the
+-- delete would take with it. `title` is projected so the refusal can name the blocking book.
+selectLiveIdsTitlesAndPaths:
+SELECT id, title, folder_id, root_rel_path FROM books WHERE deleted_at IS NULL;
+
 -- Live book id at an exact (folder_id, root_rel_path) — softDeleteByPath's idempotent
 -- single-row lookup for incremental-scan Removed events. Folder-scoped so a Removed in one
 -- folder never tombstones a same-named book in another.

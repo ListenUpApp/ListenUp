@@ -9,7 +9,10 @@ import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.server.services.BookDeleter
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
@@ -100,6 +103,7 @@ internal class BookServiceImpl(
     private val coverImageStore: CoverImageStore? = null,
     private val sidecarWriter: SidecarWriter? = null,
     private val organizeRelocator: OrganizeOnEditRelocator? = null,
+    private val bookDeleter: BookDeleter? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -137,6 +141,7 @@ internal class BookServiceImpl(
             coverImageStore = coverImageStore,
             sidecarWriter = sidecarWriter,
             organizeRelocator = organizeRelocator,
+            bookDeleter = bookDeleter,
         )
 
     /**
@@ -149,6 +154,36 @@ internal class BookServiceImpl(
     private suspend fun requireCanEdit(): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
         return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
+    /**
+     * ROOT/ADMIN only — the gate for [deleteBook], which destroys files rather than editing rows.
+     * The `canEdit` flag a trusted MEMBER may hold buys metadata edits, not the power to erase a
+     * folder off the disk. Returns null when the caller is an admin, the denial otherwise. Same
+     * shape as `OrganizeServiceImpl.requireAdmin`.
+     */
+    private fun requireAdmin(): AppResult.Failure? {
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
+        val isAdmin = caller.role == UserRole.ROOT || caller.role == UserRole.ADMIN
+        return if (isAdmin) null else AppResult.Failure(AuthError.PermissionDenied())
+    }
+
+    /**
+     * Deletes the book's directory and everything in it, then tombstones the row — see
+     * [BookService.deleteBook] for the contract and [BookDeleter] for the guards.
+     *
+     * Admin-gated here, before [BookDeleter] is reached, so a non-admin request never touches the
+     * filesystem at all. A container wired without [bookDeleter] (a books slice loaded without the
+     * library-write slice) reports the capability as unavailable rather than pretending to delete.
+     */
+    override suspend fun deleteBook(id: BookId): AppResult<Unit> {
+        requireAdmin()?.let { return it }
+        val deleter =
+            bookDeleter
+                ?: return AppResult.Failure(
+                    LibraryWriteError.Unavailable(debugInfo = "BookDeleter not wired — library-write slice absent"),
+                )
+        return deleter.delete(id)
     }
 
     override suspend fun updateBook(

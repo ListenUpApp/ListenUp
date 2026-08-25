@@ -124,4 +124,31 @@ interface BookService {
      * [com.calypsan.listenup.api.error.BookError.NotFound] when no book exists.
      */
     suspend fun deleteBookCover(id: BookId): AppResult<Unit>
+
+    /**
+     * **Deletes the book identified by [id] from the library and from the disk** — its whole
+     * directory, including every non-audio file in it (bonus PDFs, cover art, anything else the
+     * folder holds). Admin-only. There is no undo.
+     *
+     * The folder goes as a unit deliberately: deleting only the audio would strand its companions
+     * in a directory that no longer corresponds to anything the app can show — litter the user can
+     * neither see nor manage. Callers must say so plainly before asking; a confirmation that does
+     * not mention the extra files is consent to something the user was never told.
+     *
+     * Three refusals, each re-checked at delete time and each leaving **everything on disk
+     * untouched**:
+     * - [com.calypsan.listenup.api.error.BookError.FolderNotExclusive] — another live book sits in
+     *   the same directory, or in one nested beneath it. The error names that book.
+     * - [com.calypsan.listenup.api.error.LibraryWriteError.ProtectedPath] — the directory resolves
+     *   to a library folder root itself, or is a symbolic link.
+     * - [com.calypsan.listenup.api.error.LibraryWriteError.OutsideLibrary] — the directory does not
+     *   resolve inside any live library folder.
+     *
+     * Returns [com.calypsan.listenup.api.error.BookError.NotFound] when no such book exists or it
+     * is already tombstoned, and [com.calypsan.listenup.api.error.AuthError.PermissionDenied] for a
+     * non-admin caller.
+     *
+     * On success the book's tombstone rides the sync firehose, so every other device drops it.
+     */
+    suspend fun deleteBook(id: BookId): AppResult<Unit>
 }

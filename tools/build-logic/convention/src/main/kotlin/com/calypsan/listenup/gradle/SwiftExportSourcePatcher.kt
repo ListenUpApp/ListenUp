@@ -381,7 +381,8 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.auth.RegisterUiState" to 4,
             "com.calypsan.listenup.client.presentation.auth.SetupErrorType" to 4,
             "com.calypsan.listenup.client.presentation.auth.SetupUiState" to 4,
-            "com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction" to 2,
+            // 3 since Delete Book added BookDeleted beside OpenDocumentViewer/ShowViewerComingSoon.
+            "com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction" to 3,
             "com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState" to 3,
             "com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState" to 4,
             "com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction" to 2,

@@ -158,6 +158,8 @@ class BookDetailViewModel(
             showCollectionPicker = previous.showCollectionPicker,
             isAddingToCollection = previous.isAddingToCollection,
             collectionError = previous.collectionError,
+            isDeletingBook = previous.isDeletingBook,
+            deleteError = previous.deleteError,
         )
     }
 
@@ -682,6 +684,42 @@ class BookDetailViewModel(
     }
 
     /**
+     * **Permanently deletes this book — its folder and every file in it — from the server.**
+     * Admin-only; the menu entry that reaches here is gated on [BookDetailUiState.Ready.isAdmin],
+     * and the server gates it again.
+     *
+     * On success the screen is done: [BookDetailNavAction.BookDeleted] tells the host to leave,
+     * because staying would sit on a book whose row is about to vanish underneath it when the
+     * tombstone syncs. On failure nothing was deleted — the typed refusal goes to [errorBus] for
+     * the global snackbar, and [BookDetailUiState.Ready.deleteError] carries it back to the
+     * confirm dialog so the reason is legible where the decision was made.
+     */
+    fun deleteBook() {
+        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id ?: return
+        viewModelScope.launch {
+            updateReady { it.copy(isDeletingBook = true, deleteError = null) }
+            when (val result = bookRepository.deleteBook(bookId)) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(isDeletingBook = false) }
+                    logger.info { "Deleted book ${bookId.value} and its folder" }
+                    _navActions.trySend(BookDetailNavAction.BookDeleted)
+                }
+
+                is AppResult.Failure -> {
+                    updateReady { it.copy(isDeletingBook = false, deleteError = result.error) }
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to delete book ${bookId.value}: ${result.error.code}" }
+                }
+            }
+        }
+    }
+
+    /** Clears the inline delete refusal so the confirm dialog can be dismissed or retried cleanly. */
+    fun clearDeleteError() {
+        updateReady { it.copy(deleteError = null) }
+    }
+
+    /**
      * Handle a tap on a supplementary document row.
      *
      * For PDF documents: downloads (if not already cached) then emits
@@ -774,6 +812,15 @@ sealed interface BookDetailUiState {
         val showCollectionPicker: Boolean = false,
         val isAddingToCollection: Boolean = false,
         val collectionError: String? = null,
+        /** True while [BookDetailViewModel.deleteBook] is in flight — the confirm dialog goes busy. */
+        val isDeletingBook: Boolean = false,
+        /**
+         * The typed refusal from the last delete attempt, or null. Held as an [AppError] rather
+         * than a rendered string so the UI can name the blocking book from
+         * [com.calypsan.listenup.api.error.BookError.FolderNotExclusive] instead of parsing a
+         * sentence back apart.
+         */
+        val deleteError: AppError? = null,
         val downloadStatus: BookDownloadStatus = BookDownloadStatus.NotDownloaded(""), // overwritten before emit; "" id never observed
         val isPlaybackAvailable: Boolean = true,
         val canPlay: Boolean = true,
@@ -904,4 +951,13 @@ sealed interface BookDetailNavAction {
      * for this document format.
      */
     data object ShowViewerComingSoon : BookDetailNavAction
+
+    /**
+     * The book was deleted from the server, folder and all — leave this screen.
+     *
+     * A one-shot event rather than a state flag because the row is about to disappear from Room
+     * when the tombstone syncs, and a detail screen watching a book that no longer exists has
+     * nothing honest left to render.
+     */
+    data object BookDeleted : BookDetailNavAction
 }

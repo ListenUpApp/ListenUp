@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.failure
 import com.calypsan.listenup.server.io.hashBytesSha256
+import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
@@ -179,6 +180,10 @@ class LibraryWriteBroker(
                 is WriteOp.DeleteFile -> arrayOf(op.target)
 
                 is WriteOp.DeleteDirIfEmpty -> arrayOf(op.dir)
+
+                // Containment is necessary but nowhere near sufficient here — see
+                // [refuseUnlessRecursivelyDeletable], which runs below.
+                is WriteOp.DeleteDir -> arrayOf(op.dir)
             }
         firstOutsideLibrary(*touched)?.let { escaping ->
             logger.warn { "refused ${op::class.simpleName} that resolves outside every library folder: $escaping" }
@@ -187,6 +192,7 @@ class LibraryWriteBroker(
             )
         }
         if (op is WriteOp.ImportFile) refuseUnlessImportable(op)?.let { return it }
+        if (op is WriteOp.DeleteDir) refuseUnlessRecursivelyDeletable(op)?.let { return it }
         return try {
             when (op) {
                 is WriteOp.EnsureDir -> {
@@ -216,6 +222,11 @@ class LibraryWriteBroker(
 
                 is WriteOp.DeleteDirIfEmpty -> {
                     deleteDirIfEmpty(op.dir)
+                    AppResult.Success(Unit)
+                }
+
+                is WriteOp.DeleteDir -> {
+                    deleteDirRecursively(op.dir)
                     AppResult.Success(Unit)
                 }
             }
@@ -250,6 +261,53 @@ class LibraryWriteBroker(
         if (SystemFileSystem.list(dir).isNotEmpty()) return
         registry.register(dir, suppressionTtlMs)
         SystemFileSystem.delete(dir, mustExist = false)
+    }
+
+    /**
+     * [WriteOp.DeleteDir]'s body — see its KDoc for the idempotency rule and the refusals that
+     * gate it. Post-order (children before parents), and every path is claimed with [registry]
+     * before it is unlinked so the watcher swallows the whole burst as self-writes.
+     *
+     * Deliberately NOT `com.calypsan.listenup.server.io.deleteRecursively`: that one asks
+     * `metadataOrNull`, which follows symbolic links, so a link to a directory reads as a directory
+     * and the walk descends through it — deleting somebody else's files and reporting success. Here
+     * a link is a leaf, always, whatever it points at.
+     */
+    private fun deleteDirRecursively(dir: Path) {
+        if (!SystemFileSystem.exists(dir) && !isSymlink(dir)) return
+        if (!isSymlink(dir) && SystemFileSystem.metadataOrNull(dir)?.isDirectory == true) {
+            for (child in SystemFileSystem.list(dir)) deleteDirRecursively(child)
+        }
+        registry.register(dir, suppressionTtlMs)
+        SystemFileSystem.delete(dir, mustExist = false)
+    }
+
+    /**
+     * The two refusals [WriteOp.DeleteDir] carries beyond the containment check every op gets —
+     * see its KDoc. Returns the typed refusal, or null when the recursive delete may proceed.
+     *
+     * Both questions are the ones containment cannot answer. A library folder root resolves inside
+     * itself, so `firstOutsideLibrary` waves it through; deleting one would erase the library and
+     * leave every book row in it pointing at nothing. And a symbolic link named as a book directory
+     * also resolves inside the library whenever its target does — but "unlink this" and "walk this
+     * and unlink everything under it" are different operations, and only the first is ever what a
+     * caller naming a link meant.
+     */
+    private suspend fun refuseUnlessRecursivelyDeletable(op: WriteOp.DeleteDir): AppResult<Unit>? {
+        val resolved = resolvedForContainment(op.dir)
+        if (libraryRoots.roots().any { resolvedForContainment(it) == resolved }) {
+            logger.warn { "refused DeleteDir of a library folder root: ${op.dir}" }
+            return failure(
+                LibraryWriteError.ProtectedPath(debugInfo = "${op.dir} is a library folder root"),
+            )
+        }
+        if (isSymlink(op.dir)) {
+            logger.warn { "refused DeleteDir of a symbolic link: ${op.dir}" }
+            return failure(
+                LibraryWriteError.ProtectedPath(debugInfo = "${op.dir} is a symbolic link, not a directory"),
+            )
+        }
+        return null
     }
 
     /**

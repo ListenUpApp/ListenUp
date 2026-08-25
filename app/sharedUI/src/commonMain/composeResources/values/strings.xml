@@ -312,6 +312,10 @@ One beautiful library.</string>
     <string name="book_detail_credits_hint">Opens cast and credits</string>
     <string name="book_detail_credits_placeholder">Credits go here</string>
     <string name="book_detail_credits_subtitle">%1$d contributors · %2$s</string>
+    <string name="book_detail_delete_book_blocked">“%1$s” is in the same folder, so deleting this book would take it too. Nothing was deleted.</string>
+    <string name="book_detail_delete_book_body">This permanently deletes the book’s folder from your server. ListenUp tracks %1$d files in it (%2$s), and everything else in that folder goes too — PDFs, artwork, bonus material — whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone.</string>
+    <string name="book_detail_delete_book_confirm">Delete Forever</string>
+    <string name="book_detail_delete_book_title">Delete “%1$s”?</string>
     <string name="book_detail_details">Details</string>
     <string name="book_detail_document_meta">%1$s · %2$s</string>
     <string name="book_detail_document_pages_back">Reading</string>
