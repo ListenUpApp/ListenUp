@@ -172,14 +172,8 @@ fun UploadBooksScreen(
         when (val s = state) {
             is UploadBooksUiState.Idle -> {
                 IdleContent(
-                    onChooseFolder = {
-                        haptics.press()
-                        pickFolder()
-                    },
-                    onChooseFiles = {
-                        haptics.press()
-                        pickFiles()
-                    },
+                    onChooseFolder = pickFolder,
+                    onChooseFiles = pickFiles,
                     modifier = Modifier.padding(padding),
                 )
             }
@@ -187,10 +181,7 @@ fun UploadBooksScreen(
             is UploadBooksUiState.Uploading -> {
                 UploadingContent(
                     state = s,
-                    onCancel = {
-                        haptics.press()
-                        viewModel.cancel()
-                    },
+                    onCancel = viewModel::cancel,
                     modifier = Modifier.padding(padding),
                 )
             }
@@ -203,7 +194,6 @@ fun UploadBooksScreen(
                 FinishedContent(
                     state = s,
                     onDone = {
-                        haptics.press()
                         viewModel.reset()
                         onBackClick()
                     },
@@ -215,7 +205,6 @@ fun UploadBooksScreen(
                 FailedContent(
                     message = s.error.localized(),
                     onTryAgain = {
-                        haptics.press()
                         viewModel.reset()
                         pickFolder()
                     },
@@ -314,6 +303,9 @@ private fun IdleContent(
             onClick = onChooseFiles,
             text = stringResource(Res.string.admin_upload_books_choose_files),
             leadingIcon = Icons.Outlined.InsertDriveFile,
+            // Secondary: a folder is the better answer almost always, so only one of these two
+            // should read as the primary action.
+            filled = false,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -376,6 +368,7 @@ private fun UploadingContent(
         ListenUpButton(
             onClick = onCancel,
             text = stringResource(Res.string.admin_upload_books_cancel),
+            filled = false,
             modifier = Modifier.fillMaxWidth(),
         )
     }
