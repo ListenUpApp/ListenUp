@@ -50,6 +50,14 @@ class WriteJournal(
                             PersistedOp.PersistedMoveFile(from = op.from.toString(), to = op.to.toString())
                         }
 
+                        is WriteOp.ImportFile -> {
+                            PersistedOp.PersistedImportFile(
+                                from = op.from.toString(),
+                                to = op.to.toString(),
+                                fromRoot = op.fromRoot.toString(),
+                            )
+                        }
+
                         is WriteOp.WriteFile -> {
                             val index = dataIndex++
                             SystemFileSystem.createDirectories(dataDirFor(manifest.opId))
@@ -142,6 +150,10 @@ class WriteJournal(
                 WriteOp.MoveFile(Path(from), Path(to))
             }
 
+            is PersistedOp.PersistedImportFile -> {
+                WriteOp.ImportFile(Path(from), Path(to), Path(fromRoot))
+            }
+
             is PersistedOp.PersistedWriteFile -> {
                 WriteOp.WriteFile(
                     Path(target),
@@ -208,6 +220,24 @@ private sealed interface PersistedOp {
         override val done: Boolean = false,
     ) : PersistedOp
 
+    /**
+     * Persisted [WriteOp.ImportFile]: source, destination, and the staging root the source must
+     * resolve inside. [fromRoot] is persisted rather than re-derived so a crash-resume asks the
+     * broker exactly the containment question the first attempt asked.
+     */
+    @Serializable
+    @SerialName("PersistedOp.ImportFile")
+    data class PersistedImportFile(
+        @SerialName("from")
+        val from: String,
+        @SerialName("to")
+        val to: String,
+        @SerialName("fromRoot")
+        val fromRoot: String,
+        @SerialName("done")
+        override val done: Boolean = false,
+    ) : PersistedOp
+
     /** Persisted [WriteOp.WriteFile]: target path plus the index of its staged bytes under `<opId>.data/`. */
     @Serializable
     @SerialName("PersistedOp.WriteFile")
@@ -245,6 +275,7 @@ private fun PersistedOp.markDone(): PersistedOp =
     when (this) {
         is PersistedOp.PersistedEnsureDir -> copy(done = true)
         is PersistedOp.PersistedMoveFile -> copy(done = true)
+        is PersistedOp.PersistedImportFile -> copy(done = true)
         is PersistedOp.PersistedWriteFile -> copy(done = true)
         is PersistedOp.PersistedDeleteFile -> copy(done = true)
         is PersistedOp.PersistedDeleteDirIfEmpty -> copy(done = true)

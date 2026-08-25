@@ -20,7 +20,11 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is DownloadError -> withCorrelationId(id)
 
-        is ImportError -> withCorrelationId(id)
+        // ImportError + UploadError share one branch (delegating to an exhaustive helper) to keep
+        // this function under the project's cyclomatic-complexity ceiling while preserving
+        // per-variant exhaustiveness for both families. They pair naturally — both are content
+        // arriving from outside the server: someone else's backup, and someone's own files.
+        is ImportError, is UploadError -> arrivalFamilyWithCorrelationId(id)
 
         is ScanError -> withCorrelationId(id)
 
@@ -191,6 +195,17 @@ private fun DownloadError.withCorrelationId(id: String?): DownloadError =
         is DownloadError.NotSupported -> copy(correlationId = id)
     }
 
+/**
+ * Exhaustive stamping for the content-arrival families, [ImportError] and [UploadError], which
+ * [withCorrelationId] dispatches to from the single grouped branch above.
+ */
+private fun AppError.arrivalFamilyWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is ImportError -> withCorrelationId(id)
+        is UploadError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
 private fun ImportError.withCorrelationId(id: String?): ImportError =
     when (this) {
         is ImportError.UploadFailed -> copy(correlationId = id)
@@ -198,6 +213,16 @@ private fun ImportError.withCorrelationId(id: String?): ImportError =
         is ImportError.ApplyFailed -> copy(correlationId = id)
         is ImportError.ImportNotFound -> copy(correlationId = id)
         is ImportError.MappingInvalid -> copy(correlationId = id)
+    }
+
+private fun UploadError.withCorrelationId(id: String?): UploadError =
+    when (this) {
+        is UploadError.SessionNotFound -> copy(correlationId = id)
+        is UploadError.InvalidFilePath -> copy(correlationId = id)
+        is UploadError.SessionTooLarge -> copy(correlationId = id)
+        is UploadError.FileTransferFailed -> copy(correlationId = id)
+        is UploadError.NoBooksFound -> copy(correlationId = id)
+        is UploadError.NoLibraryFolder -> copy(correlationId = id)
     }
 
 private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectError =

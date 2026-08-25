@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.failure
 import com.calypsan.listenup.server.io.hashBytesSha256
+import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.buffered
@@ -166,9 +167,17 @@ class LibraryWriteBroker(
         val touched =
             when (op) {
                 is WriteOp.EnsureDir -> arrayOf(op.dir)
+
                 is WriteOp.MoveFile -> arrayOf(op.from, op.to)
+
+                // Only the destination is a library path; the source is staging, and its own
+                // containment is checked by [refuseUnlessImportable] below.
+                is WriteOp.ImportFile -> arrayOf(op.to)
+
                 is WriteOp.WriteFile -> arrayOf(op.target)
+
                 is WriteOp.DeleteFile -> arrayOf(op.target)
+
                 is WriteOp.DeleteDirIfEmpty -> arrayOf(op.dir)
             }
         firstOutsideLibrary(*touched)?.let { escaping ->
@@ -177,6 +186,7 @@ class LibraryWriteBroker(
                 LibraryWriteError.OutsideLibrary(debugInfo = "$escaping does not resolve inside any library folder"),
             )
         }
+        if (op is WriteOp.ImportFile) refuseUnlessImportable(op)?.let { return it }
         return try {
             when (op) {
                 is WriteOp.EnsureDir -> {
@@ -185,7 +195,11 @@ class LibraryWriteBroker(
                 }
 
                 is WriteOp.MoveFile -> {
-                    applyMove(op)
+                    applyMove(op.from, op.to)
+                }
+
+                is WriteOp.ImportFile -> {
+                    applyImport(op)
                 }
 
                 is WriteOp.WriteFile -> {
@@ -238,27 +252,130 @@ class LibraryWriteBroker(
         SystemFileSystem.delete(dir, mustExist = false)
     }
 
-    /** [WriteOp.MoveFile]'s idempotency rule — see its KDoc for the four-way case breakdown. */
-    private fun applyMove(op: WriteOp.MoveFile): AppResult<Unit> {
+    /**
+     * The extra containment [WriteOp.ImportFile] carries beyond the destination check every op
+     * gets — see its KDoc. Returns the typed refusal, or null when the op may proceed.
+     *
+     * Two questions, both asked on *resolved* paths so `..` and symlinks cannot dodge them:
+     * does the source really live under the declared staging root, and is that staging root
+     * really outside the library? Together they pin ImportFile to bringing content in, and stop
+     * it standing in for a [WriteOp.MoveFile] whose two-sided check the caller would rather skip.
+     */
+    private suspend fun refuseUnlessImportable(op: WriteOp.ImportFile): AppResult<Unit>? {
+        val resolvedRoot = resolvedForContainment(op.fromRoot)
+        if (!resolvedForContainment(op.from).isUnder(resolvedRoot)) {
+            logger.warn { "refused ImportFile whose source escapes its staging root: ${op.from} !under ${op.fromRoot}" }
+            return failure(
+                LibraryWriteError.OutsideLibrary(debugInfo = "${op.from} does not resolve inside ${op.fromRoot}"),
+            )
+        }
+        if (isInsideAnyRoot(op.fromRoot, libraryRoots.roots())) {
+            logger.warn { "refused ImportFile whose staging root is inside a library folder: ${op.fromRoot}" }
+            return failure(
+                LibraryWriteError.OutsideLibrary(
+                    debugInfo = "${op.fromRoot} resolves inside a library folder — use MoveFile",
+                ),
+            )
+        }
+        return null
+    }
+
+    /**
+     * [WriteOp.ImportFile]: same idempotency rule as [WriteOp.MoveFile], but the move itself has
+     * to survive the source and destination living on **different filesystems** — staging sits
+     * under `$LISTENUP_HOME` and a library folder is very often a separate mount, where
+     * `rename(2)` fails with `EXDEV` rather than copying.
+     *
+     * So: try the atomic rename first (free when they share a device, the common single-disk
+     * case), and fall back to copy-into-a-sibling-temp + rename + delete-source. The fallback
+     * keeps the destination's atomic visibility — a reader or the watcher never sees a partial
+     * file at [WriteOp.ImportFile.to], only the finished one appearing in a single rename. Both
+     * the temp and the final path are claimed with [registry] before either exists, exactly as
+     * [writeFile] does.
+     */
+    private fun applyImport(op: WriteOp.ImportFile): AppResult<Unit> {
         val fromExists = SystemFileSystem.exists(op.from)
         val toExists = SystemFileSystem.exists(op.to)
+        return when {
+            !fromExists && toExists -> {
+                AppResult.Success(Unit)
+            }
+
+            // already imported
+            fromExists && toExists -> {
+                failure(
+                    LibraryWriteError.Unavailable(debugInfo = "ambiguous import: both ${op.from} and ${op.to} exist"),
+                )
+            }
+
+            !fromExists -> {
+                failure(LibraryWriteError.Unavailable(debugInfo = "import source missing: ${op.from}"))
+            }
+
+            else -> {
+                importBytes(op)
+            }
+        }
+    }
+
+    /** The two-strategy body of [applyImport] — atomic rename when possible, copy + rename when not. */
+    private fun importBytes(op: WriteOp.ImportFile): AppResult<Unit> {
+        val parent =
+            op.to.parent
+                ?: return failure(LibraryWriteError.Unavailable(debugInfo = "no parent directory: ${op.to}"))
+        val tmp = Path(parent, ".listenup-tmp-${Uuid.random()}")
+        registry.register(op.to, suppressionTtlMs)
+        registry.register(tmp, suppressionTtlMs)
+        return try {
+            SystemFileSystem.atomicMove(op.from, op.to)
+            AppResult.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (crossDevice: Exception) {
+            logger.debug(crossDevice) { "atomic import rename unavailable for ${op.from} — copying instead" }
+            try {
+                SystemFileSystem.source(op.from).use { input ->
+                    SystemFileSystem.sink(tmp).buffered().use { it.transferFrom(input) }
+                }
+                SystemFileSystem.atomicMove(tmp, op.to)
+                SystemFileSystem.delete(op.from, mustExist = false)
+                AppResult.Success(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SystemFileSystem.delete(tmp, mustExist = false)
+                registry.release(op.to)
+                registry.release(tmp)
+                logger.warn(e) { "import failed for ${op.from} -> ${op.to}" }
+                failure(LibraryWriteError.Unavailable(debugInfo = "${op.to}: ${e.message}"))
+            }
+        }
+    }
+
+    /** [WriteOp.MoveFile]'s idempotency rule — see its KDoc for the four-way case breakdown. */
+    private fun applyMove(
+        from: Path,
+        to: Path,
+    ): AppResult<Unit> {
+        val fromExists = SystemFileSystem.exists(from)
+        val toExists = SystemFileSystem.exists(to)
         return when {
             !fromExists && toExists -> {
                 AppResult.Success(Unit) // already moved
             }
 
             fromExists && toExists -> {
-                failure(LibraryWriteError.Unavailable(debugInfo = "ambiguous move: both ${op.from} and ${op.to} exist"))
+                failure(LibraryWriteError.Unavailable(debugInfo = "ambiguous move: both $from and $to exist"))
             }
 
             !fromExists -> {
-                failure(LibraryWriteError.Unavailable(debugInfo = "move source missing: ${op.from}"))
+                failure(LibraryWriteError.Unavailable(debugInfo = "move source missing: $from"))
             }
 
             else -> {
-                registry.register(op.from, suppressionTtlMs)
-                registry.register(op.to, suppressionTtlMs)
-                SystemFileSystem.atomicMove(op.from, op.to)
+                registry.register(from, suppressionTtlMs)
+                registry.register(to, suppressionTtlMs)
+                SystemFileSystem.atomicMove(from, to)
                 AppResult.Success(Unit)
             }
         }

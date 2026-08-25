@@ -31,6 +31,7 @@ import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.UnknownError
+import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.error.withCorrelationId as stampCorrelationId
 import com.calypsan.listenup.api.result.AppResult
@@ -118,7 +119,11 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is DownloadError -> toHttpStatus()
 
-        is ImportError -> toHttpStatus()
+        // ImportError + UploadError share one branch (delegating to an exhaustive helper) for the
+        // same reason as the grouped branches below: it keeps this function's cyclomatic
+        // complexity under the project threshold. Both are content arriving from outside the
+        // server — someone else's backup, and someone's own files.
+        is ImportError, is UploadError -> arrivalFamilyHttpStatus()
 
         is ScanError -> toHttpStatus()
 
@@ -249,6 +254,17 @@ private fun DownloadError.toHttpStatus(): HttpStatusCode =
         is DownloadError.NotSupported -> HttpStatusCode.ServiceUnavailable
     }
 
+/**
+ * Status mapping for the content-arrival families, [ImportError] and [UploadError], which
+ * [toHttpStatus] dispatches to from the single grouped branch above.
+ */
+private fun AppError.arrivalFamilyHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ImportError -> toHttpStatus()
+        is UploadError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
 private fun ImportError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ImportError.UploadFailed -> HttpStatusCode.UnprocessableEntity
@@ -256,6 +272,28 @@ private fun ImportError.toHttpStatus(): HttpStatusCode =
         is ImportError.ApplyFailed -> HttpStatusCode.ServiceUnavailable
         is ImportError.ImportNotFound -> HttpStatusCode.NotFound
         is ImportError.MappingInvalid -> HttpStatusCode.BadRequest
+    }
+
+private fun UploadError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        // 410 Gone, not 404, for two reasons that agree. Semantically an upload session is a
+        // resource that existed and has since been finalized or abandoned, which is exactly what
+        // Gone means. Practically, [installAppErrorStatusPages] installs a `status(NotFound)`
+        // handler that rewrites the body of EVERY 404 — including one a route deliberately sent —
+        // into a generic `{"error":"not_found"}`, so a typed 404 body never reaches the client at
+        // all. The upload client has to tell "start a fresh session" apart from every other
+        // failure, and it needs the typed value to do it.
+        is UploadError.SessionNotFound -> HttpStatusCode.Gone
+
+        is UploadError.InvalidFilePath -> HttpStatusCode.BadRequest
+
+        is UploadError.SessionTooLarge -> HttpStatusCode.PayloadTooLarge
+
+        is UploadError.FileTransferFailed -> HttpStatusCode.UnprocessableEntity
+
+        is UploadError.NoBooksFound -> HttpStatusCode.UnprocessableEntity
+
+        is UploadError.NoLibraryFolder -> HttpStatusCode.ServiceUnavailable
     }
 
 private fun ServerConnectError.toHttpStatus(): HttpStatusCode =

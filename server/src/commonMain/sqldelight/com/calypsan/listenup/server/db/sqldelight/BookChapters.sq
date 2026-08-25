@@ -28,3 +28,13 @@ VALUES (:book_id, :ordinal, :id, :title, :duration, :start_time);
 -- Wholesale-replace step.
 deleteByBookId:
 DELETE FROM book_chapters WHERE book_id = :book_id;
+
+-- Upload duplicate detection, chapter-fingerprint tier: (book_id, title, duration) for every
+-- live book in a library, in chapter order. One pass lets the caller recompute each book's
+-- canonical chapter fingerprint without loading whole aggregates for a library-wide comparison.
+selectChapterIdentityForLibrary:
+SELECT c.book_id AS book_id, c.title AS title, c.duration AS duration
+FROM book_chapters c
+JOIN books b ON b.id = c.book_id
+WHERE b.library_id = :library_id AND b.deleted_at IS NULL
+ORDER BY c.book_id, c.ordinal;

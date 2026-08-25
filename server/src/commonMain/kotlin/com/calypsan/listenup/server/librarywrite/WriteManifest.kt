@@ -34,6 +34,31 @@ sealed interface WriteOp {
     ) : WriteOp
 
     /**
+     * Moves [from] — which lives **outside** every library folder, under the caller's staging
+     * root [fromRoot] — to [to] inside one. The uploads path: an arriving file has no home yet,
+     * so it is streamed into staging first and only becomes library content here.
+     *
+     * [MoveFile] cannot express this. Its containment check requires *both* endpoints to resolve
+     * inside a library folder, which is exactly what stops a caller moving library content out;
+     * relaxing it would cost that guarantee for every mover. So this op carries its own,
+     * narrower contract instead: [to] is checked against the live library roots as usual, [from]
+     * must resolve strictly inside [fromRoot], and [fromRoot] itself must resolve *outside* every
+     * library folder. An ImportFile can therefore only ever bring content **in** — it can neither
+     * take anything out nor shuffle files around inside the library behind [MoveFile]'s back.
+     *
+     * [fromRoot] rides on the op rather than on the broker so a manifest is self-describing: the
+     * journal replays it verbatim at boot, and the containment question a crash-resume asks is
+     * the same one the first attempt asked.
+     *
+     * Idempotency rule: identical to [MoveFile] — see its KDoc for the four-way case breakdown.
+     */
+    data class ImportFile(
+        val from: Path,
+        val to: Path,
+        val fromRoot: Path,
+    ) : WriteOp
+
+    /**
      * Writes [bytes] to [target] atomically (temp + rename). Idempotency rule: always safe to
      * rewrite unconditionally — the write is atomic and re-writing the same bytes produces the
      * same outcome.

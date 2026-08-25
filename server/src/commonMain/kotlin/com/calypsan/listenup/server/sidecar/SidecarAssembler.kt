@@ -5,10 +5,6 @@ import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
-import com.calypsan.listenup.server.io.hashBytesSha256
-
-/** Bucket width (ms) chapter durations are rounded to before hashing — see [SidecarIdentity.chapterFingerprint]. */
-private const val FINGERPRINT_DURATION_BUCKET_MS = 5_000L
 
 /**
  * Pure projection from a [BookSyncPayload] aggregate to a [ListenUpSidecar] — no filesystem,
@@ -100,14 +96,9 @@ class SidecarAssembler {
 
     /**
      * The canonical v1 chapter-snapshot fingerprint — see [SidecarIdentity.chapterFingerprint]'s
-     * KDoc for the formula. `null` when the book has no chapters at all.
+     * KDoc for the formula, and [chapterFingerprintOf] for the one implementation of it. `null`
+     * when the book has no chapters at all.
      */
-    private fun chapterFingerprint(chapters: List<BookChapterPayload>): String? {
-        if (chapters.isEmpty()) return null
-        val key =
-            chapters.joinToString("|") { chapter ->
-                "${chapter.title.trim().lowercase()}:${chapter.duration / FINGERPRINT_DURATION_BUCKET_MS}"
-            }
-        return hashBytesSha256(key.encodeToByteArray())
-    }
+    private fun chapterFingerprint(chapters: List<BookChapterPayload>): String? =
+        chapterFingerprintOf(chapters.map { it.title to it.duration })
 }

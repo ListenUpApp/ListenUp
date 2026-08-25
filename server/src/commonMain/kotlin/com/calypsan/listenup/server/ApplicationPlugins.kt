@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.di.shelfModule
 import com.calypsan.listenup.server.di.sidecarModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.di.userPreferencesModule
+import com.calypsan.listenup.server.di.uploadModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installAutoHeadResponse
@@ -120,6 +121,7 @@ internal fun Application.installDependencies(
         modules += userPreferencesModule()
         modules += backupModule(homeDir)
         modules += importModule(homeDir)
+        modules += uploadModule(homeDir)
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(

@@ -303,8 +303,15 @@ private fun applyRename(
     }
 }
 
-/** Appends a deterministic ` (n)` disambiguation suffix to [relPath]'s leaf segment. */
-private fun withCollisionSuffix(
+/**
+ * Appends a deterministic ` (n)` disambiguation suffix to [relPath]'s leaf segment.
+ *
+ * Shared with the upload arrival path, which faces the same question from the other direction:
+ * the organizer resolves a collision between two books it is moving, an upload resolves one
+ * between the book arriving and whatever already occupies its canonical path. One suffix
+ * spelling for both, so a library never grows two flavours of "same title, second copy".
+ */
+internal fun withCollisionSuffix(
     relPath: String,
     n: Int,
 ): String {

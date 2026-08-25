@@ -49,6 +49,12 @@ class LibraryWritesGoThroughBrokerRule :
                 // CoverSpool stages embedded-cover bytes under $LISTENUP_HOME/scan-spool — the
                 // server data home, never a library folder (see its class KDoc).
                 "server/scanner/CoverSpool.kt",
+                // UploadStaging owns every filesystem operation the upload domain performs, and
+                // all of it lives under $LISTENUP_HOME/uploads/ — the server data home, outside
+                // every library root by construction (see UploadPaths' KDoc). The moment a staged
+                // file becomes library content it goes through the broker as a
+                // WriteOp.ImportFile, which is exactly the boundary this rule protects.
+                "server/upload/UploadStaging.kt",
             )
 
         test("library-content packages have no direct FS-write tokens — the broker is the sole library writer") {
