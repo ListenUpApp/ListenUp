@@ -36,6 +36,7 @@ class ManagementSectionTest {
                     onCategoriesClick = {},
                     onBackupClick = {},
                     onImportClick = {},
+                    onUploadBooksClick = {},
                     onInboxClick = {},
                     onLibrarySettingsClick = {},
                     onOrganizeClick = {},
@@ -58,6 +59,7 @@ class ManagementSectionTest {
                     onCategoriesClick = {},
                     onBackupClick = {},
                     onImportClick = {},
+                    onUploadBooksClick = {},
                     onInboxClick = {},
                     onLibrarySettingsClick = { clicked = true },
                     onOrganizeClick = {},
@@ -71,7 +73,55 @@ class ManagementSectionTest {
         clicked shouldBe true
     }
 
+    @Test
+    fun `upload books tile is shown`() {
+        composeRule.setContent {
+            MaterialTheme {
+                ManagementSection(
+                    onInviteClick = {},
+                    onCollectionsClick = {},
+                    onCategoriesClick = {},
+                    onBackupClick = {},
+                    onImportClick = {},
+                    onUploadBooksClick = {},
+                    onInboxClick = {},
+                    onLibrarySettingsClick = {},
+                    onOrganizeClick = {},
+                    inboxEnabled = false,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(UPLOAD_BOOKS_TITLE).assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping the upload books tile invokes its callback`() {
+        var clicked = false
+        composeRule.setContent {
+            MaterialTheme {
+                ManagementSection(
+                    onInviteClick = {},
+                    onCollectionsClick = {},
+                    onCategoriesClick = {},
+                    onBackupClick = {},
+                    onImportClick = {},
+                    onUploadBooksClick = { clicked = true },
+                    onInboxClick = {},
+                    onLibrarySettingsClick = {},
+                    onOrganizeClick = {},
+                    inboxEnabled = false,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(UPLOAD_BOOKS_TITLE).performClick()
+
+        clicked shouldBe true
+    }
+
     private companion object {
         const val LIBRARY_SETTINGS_TITLE = "Library Settings"
+        const val UPLOAD_BOOKS_TITLE = "Upload Books"
     }
 }
