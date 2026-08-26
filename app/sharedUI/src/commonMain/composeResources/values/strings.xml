@@ -70,6 +70,19 @@
     <string name="admin_inbox">Inbox</string>
     <string name="admin_inbox_deselect_all">Deselect all</string>
     <string name="admin_inbox_empty">Inbox Empty</string>
+    <string name="admin_inbox_issue_dismiss">Dismiss</string>
+    <string name="admin_inbox_issue_metadata">The tags couldn't be read</string>
+    <string name="admin_inbox_issue_metadata_fix">The audio is there, but its metadata is unreadable. Re-tagging usually fixes it.</string>
+    <string name="admin_inbox_issue_no_audio">No audio in this folder</string>
+    <string name="admin_inbox_issue_no_audio_fix">Add the audio files, or dismiss this if the folder isn't a book.</string>
+    <string name="admin_inbox_issue_title">No title could be worked out</string>
+    <string name="admin_inbox_issue_title_fix">Name the folder after the book, or give the audio a title tag.</string>
+    <string name="admin_inbox_issue_unknown">Something went wrong here</string>
+    <string name="admin_inbox_issue_unknown_fix">The scan couldn't say why. The details below are what it reported.</string>
+    <string name="admin_inbox_issue_unreadable">A file here couldn't be read</string>
+    <string name="admin_inbox_issue_unreadable_fix">Check the file is still there and ListenUp has permission to read it.</string>
+    <string name="admin_inbox_needs_attention">Needs attention</string>
+    <string name="admin_inbox_needs_attention_subtitle">ListenUp walked these folders but couldn't make a book from them.</string>
     <string name="admin_inbox_release_count">Release %1$d</string>
     <string name="admin_inbox_released_count">Released %1$d book</string>
     <string name="admin_inbox_released_count_plural">Released %1$d books</string>
@@ -78,6 +91,7 @@
     <string name="admin_inbox_setting_subtitle">Healthy new books wait here too, not just the ones with problems.</string>
     <string name="admin_inbox_setting_title">Hold new books for review</string>
     <string name="admin_inbox_subtitle">Books that need a look before they join your library.</string>
+    <string name="admin_inbox_waiting_review">Waiting for review</string>
     <string name="admin_inbox_workflow">Inbox Workflow</string>
     <string name="admin_info_emoji">ℹ️</string>
     <string name="admin_invite_created">Invite Created!</string>

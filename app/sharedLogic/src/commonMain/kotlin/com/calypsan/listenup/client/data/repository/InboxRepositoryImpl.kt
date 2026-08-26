@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -20,6 +22,9 @@ import com.calypsan.listenup.core.LibraryId
  */
 internal class InboxRepositoryImpl(
     private val channel: RpcChannel<CollectionService>,
+    // Scan issues are a scanner concern, not collection membership — they ride the scanner's own
+    // channel rather than being bolted onto the collection surface for proximity's sake.
+    private val scannerChannel: RpcChannel<ScannerService>,
 ) : InboxRepository {
     override suspend fun listInbox(libraryId: String): AppResult<List<String>> =
         channel
@@ -38,4 +43,10 @@ internal class InboxRepositoryImpl(
                 },
             )
         }
+
+    override suspend fun listScanIssues(): AppResult<List<ScanIssue>> =
+        scannerChannel.call(idempotent = true) { it.listScanIssues() }
+
+    override suspend fun dismissScanIssue(issueId: String): AppResult<Unit> =
+        scannerChannel.call { it.dismissScanIssue(issueId) }
 }

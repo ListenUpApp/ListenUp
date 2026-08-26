@@ -701,6 +701,136 @@
         }
       }
     },
+    "admin.inbox_issue_dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_metadata": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The tags couldn't be read"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_metadata_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The audio is there, but its metadata is unreadable. Re-tagging usually fixes it."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_no_audio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No audio in this folder"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_no_audio_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the audio files, or dismiss this if the folder isn't a book."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No title could be worked out"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_title_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name the folder after the book, or give the audio a title tag."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong here"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unknown_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The scan couldn't say why. The details below are what it reported."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unreadable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A file here couldn't be read"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unreadable_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the file is still there and ListenUp has permission to read it."
+          }
+        }
+      }
+    },
+    "admin.inbox_needs_attention": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs attention"
+          }
+        }
+      }
+    },
+    "admin.inbox_needs_attention_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp walked these folders but couldn't make a book from them."
+          }
+        }
+      }
+    },
     "admin.inbox_release_count": {
       "localizations": {
         "en": {
@@ -777,6 +907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Books that need a look before they join your library."
+          }
+        }
+      }
+    },
+    "admin.inbox_waiting_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for review"
           }
         }
       }
