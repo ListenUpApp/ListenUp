@@ -313,10 +313,20 @@ class LibraryWriteBroker(
         opName: String,
     ): AppResult<Unit>? {
         val resolved = resolvedForContainment(dir)
-        if (libraryRoots.roots().any { resolvedForContainment(it) == resolved }) {
-            logger.warn { "refused $opName of a library folder root: $dir" }
+        val offending =
+            libraryRoots.roots().map { resolvedForContainment(it) }.firstOrNull { root ->
+                // At-or-under. Identity is the obvious case, but nothing forbids one library
+                // folder being configured inside another — and a recursive delete of a directory
+                // that CONTAINS a root erases that whole library folder while passing both the
+                // containment check (it really is inside the outer root) and an identity-only
+                // root check. Refusing the containing directory too is what makes the guard's
+                // promise — "deleting one would erase the library" — actually hold.
+                root == resolved || root.isUnder(resolved)
+            }
+        if (offending != null) {
+            logger.warn { "refused $opName of a directory at or above a library folder root: $dir (root $offending)" }
             return failure(
-                LibraryWriteError.ProtectedPath(debugInfo = "$dir is a library folder root"),
+                LibraryWriteError.ProtectedPath(debugInfo = "$dir is, or contains, the library folder root $offending"),
             )
         }
         return null

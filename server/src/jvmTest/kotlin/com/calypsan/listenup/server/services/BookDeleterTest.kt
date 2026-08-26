@@ -411,6 +411,35 @@ class BookDeleterTest :
                 }
             }
         }
+
+        test("refuses when the book's directory sits UNDER another live book's directory") {
+            withSqlDatabase {
+                val root = Files.createTempDirectory("book-deleter-nested-inner-")
+                sql.seedTestLibraryAndFolder(folderPath = root.toString())
+                val outer = root.resolve("Aleron Kong/Omnibus").apply { createDirectories() }
+                outer.resolve("01.m4b").writeText("outer audio")
+                val inner = root.resolve("Aleron Kong/Omnibus/Book 1").apply { createDirectories() }
+                inner.resolve("01.m4b").writeText("inner audio")
+
+                runTest {
+                    val rig = deleterRig(this@withSqlDatabase)
+                    rig.seedBook("outer", "The Omnibus", "Aleron Kong/Omnibus")
+                    rig.seedBook("inner", "Book One", "Aleron Kong/Omnibus/Book 1")
+
+                    // Deleting the INNER book removes a subtree of the OUTER book's live directory.
+                    // The guard used to look only for books BENEATH the target, so this direction
+                    // sailed through and quietly destroyed a second book.
+                    val result = rig.deleter.delete(BookId("inner"))
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<BookError.FolderNotExclusive>()
+                    withClue("a refusal that deletes first is worse than no refusal") {
+                        inner.resolve("01.m4b").exists() shouldBe true
+                        outer.resolve("01.m4b").exists() shouldBe true
+                    }
+                }
+            }
+        }
     })
 
 /** Everything a delete test needs, wired against one migrated test database. */

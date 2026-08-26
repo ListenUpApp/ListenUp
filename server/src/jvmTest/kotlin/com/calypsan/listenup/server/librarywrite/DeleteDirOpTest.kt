@@ -260,6 +260,30 @@ class DeleteDirOpTest :
                 }
             }
         }
+        test("refuses a directory that CONTAINS a library folder root") {
+            runTest {
+                val (root, _) = escapeFixture()
+                // A second library folder configured deeper in the same tree — nothing forbids
+                // nested roots, and a not-yet-scanned one holds no book rows for BookDeleter's
+                // own guard to find.
+                val nestedRoot = Path(root, "Author", "Omnibus")
+                SystemFileSystem.createDirectories(nestedRoot)
+                writeExternally(Path(nestedRoot, "01.m4b"), AUDIO)
+                val target = Path(root, "Author")
+
+                val result =
+                    testBroker(roots = listOf(root, nestedRoot)).executeManifest(
+                        WriteManifest(opId = "delete-dir-contains-root", ops = listOf(WriteOp.DeleteDir(target))),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                result.error.shouldBeInstanceOf<LibraryWriteError.ProtectedPath>()
+                withClue("erasing a library folder is the one mistake that takes the library with it") {
+                    SystemFileSystem.exists(Path(nestedRoot, "01.m4b")) shouldBe true
+                    SystemFileSystem.exists(target) shouldBe true
+                }
+            }
+        }
     })
 
 private val AUDIO = "AUDIO BYTES".encodeToByteArray()

@@ -200,9 +200,17 @@ class BookDeleter(
             }.filterNot { it.id == id.value }
         for (other in others) {
             val otherRoot = rootsByFolderId[other.folder_id] ?: continue
-            if (!resolvedForContainment(Path(otherRoot, other.root_rel_path)).isUnder(target)) continue
+            val otherDir = resolvedForContainment(Path(otherRoot, other.root_rel_path))
+            // BOTH directions. The obvious one is another book beneath the target — delete the
+            // target and its files go too. The other is the target sitting beneath ANOTHER book's
+            // directory: deleting it then removes a subtree of a live book, whose row is left
+            // pointing at missing files until the next scan tombstones it. One book quietly
+            // destroying another is the same fault whichever way the nesting runs, and checking
+            // only downward caught only half of it.
+            val overlaps = otherDir.isUnder(target) || target.isUnder(otherDir)
+            if (!overlaps) continue
             logger.warn {
-                "refused deleting book ${id.value}: book ${other.id} also lives in or under $bookDir"
+                "refused deleting book ${id.value}: book ${other.id} shares this directory tree with $bookDir"
             }
             return AppResult.Failure(
                 BookError.FolderNotExclusive(
