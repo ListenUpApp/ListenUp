@@ -128,17 +128,13 @@ fun UploadBooksScreen(
     var emptySelection by remember { mutableStateOf(false) }
 
     fun offer(candidates: List<UploadCandidate>) {
-        when {
-            candidates.isEmpty() -> {
-                emptySelection = true
-            }
-
-            else -> {
-                when (val refused = refusalFor(candidates)) {
-                    null -> viewModel.onFilesPicked(candidates)
-                    else -> refusal = refused
-                }
-            }
+        if (candidates.isEmpty()) {
+            emptySelection = true
+            return
+        }
+        when (val refused = refusalFor(candidates)) {
+            null -> viewModel.onFilesPicked(candidates)
+            else -> refusal = refused
         }
     }
 

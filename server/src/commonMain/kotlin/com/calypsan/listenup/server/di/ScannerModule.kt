@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.ScanIssueRepository
@@ -197,12 +198,7 @@ fun scannerModule(
                                     // Same reasoning for the issue record: what the scanner could
                                     // not import is a property of the library as it stands now, so
                                     // the scan that just looked is what should say so.
-                                    getOrNull<ScanIssueRepository>()?.reconcile(
-                                        libraryId = library.id,
-                                        folderRoots = library.folders.mapNotNull { it.rootPath },
-                                        importedRelPaths = result.books.map { it.candidate.rootRelPath },
-                                        errors = result.errors,
-                                    )
+                                    getOrNull<ScanIssueRepository>().reconcileWith(library, result)
                                 }
                             },
                             runIncremental = { path ->
@@ -212,12 +208,7 @@ fun scannerModule(
                                 // the pass was superseded — its result is stale, so it says nothing
                                 // about the current state and must not clear anything.
                                 scanner.runIncremental(path)?.let { result ->
-                                    getOrNull<ScanIssueRepository>()?.reconcile(
-                                        libraryId = library.id,
-                                        folderRoots = library.folders.mapNotNull { it.rootPath },
-                                        importedRelPaths = result.books.map { it.candidate.rootRelPath },
-                                        errors = result.errors,
-                                    )
+                                    getOrNull<ScanIssueRepository>().reconcileWith(library, result)
                                 }
                                 Unit
                             },
@@ -251,3 +242,22 @@ fun scannerModule(
         single { ScanIssueRepository(db = get()) }
         single<ScanIssueStore> { get<ScanIssueRepository>() }
     }
+
+/**
+ * Brings the scan-issue record in line with a completed scan.
+ *
+ * Null receiver means the container has no issue record bound — the minimal test containers — and
+ * reconciling is then a no-op. Extracted from the two `runFullScan` / `runIncremental` lambdas so
+ * `scannerModule` reads as wiring rather than as logic, and so the two paths cannot drift apart.
+ */
+private suspend fun ScanIssueRepository?.reconcileWith(
+    library: Library,
+    result: ScanResult,
+) {
+    this?.reconcile(
+        libraryId = library.id,
+        folderRoots = library.folders.mapNotNull { it.rootPath },
+        importedRelPaths = result.books.map { it.candidate.rootRelPath },
+        errors = result.errors,
+    )
+}

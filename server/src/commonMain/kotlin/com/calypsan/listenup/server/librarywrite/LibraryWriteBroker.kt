@@ -191,9 +191,7 @@ class LibraryWriteBroker(
                 LibraryWriteError.OutsideLibrary(debugInfo = "$escaping does not resolve inside any library folder"),
             )
         }
-        if (op is WriteOp.ImportFile) refuseUnlessImportable(op)?.let { return it }
-        if (op is WriteOp.DeleteDirIfEmpty) refuseIfLibraryRoot(op.dir, "DeleteDirIfEmpty")?.let { return it }
-        if (op is WriteOp.DeleteDir) refuseUnlessRecursivelyDeletable(op)?.let { return it }
+        refusalFor(op)?.let { return it }
         return try {
             when (op) {
                 is WriteOp.EnsureDir -> {
@@ -282,6 +280,21 @@ class LibraryWriteBroker(
         registry.register(dir, suppressionTtlMs)
         SystemFileSystem.delete(dir, mustExist = false)
     }
+
+    /**
+     * The extra refusals a given op kind carries beyond the containment check every op gets.
+     *
+     * Gathered into one dispatch rather than a run of `if (op is ...)` lines inside `applyOp`: the
+     * guards are the load-bearing part of this class and read better named together, and `applyOp`
+     * stays a description of what each op *does*.
+     */
+    private suspend fun refusalFor(op: WriteOp): AppResult<Unit>? =
+        when (op) {
+            is WriteOp.ImportFile -> refuseUnlessImportable(op)
+            is WriteOp.DeleteDirIfEmpty -> refuseIfLibraryRoot(op.dir, "DeleteDirIfEmpty")
+            is WriteOp.DeleteDir -> refuseUnlessRecursivelyDeletable(op)
+            else -> null
+        }
 
     /**
      * Refuses [dir] when it IS a live library folder root. Shared by both directory-removing ops,

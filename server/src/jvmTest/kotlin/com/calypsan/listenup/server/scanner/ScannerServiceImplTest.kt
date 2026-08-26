@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -202,7 +203,7 @@ private suspend fun newService(
 
 /** Scan-issue store that holds nothing — these tests exercise scanning, not the issue record. */
 private object NoScanIssues : ScanIssueStore {
-    override suspend fun listOpen(libraryId: com.calypsan.listenup.core.LibraryId) = emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>()
+    override suspend fun listOpen(libraryId: LibraryId) = emptyList<ScanIssue>()
 
     override suspend fun dismiss(issueId: String) = Unit
 }
