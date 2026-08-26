@@ -80,6 +80,22 @@ private class FakePolicyStream(
     override fun streamPolicy(): Flow<RegistrationPolicy> = flow
 }
 
+/** An [InstanceRepository] that answers the one question a signed-out boot asks it. */
+private fun serverSaying(setupRequired: Boolean): InstanceRepository =
+    createMockInstanceRepository().also {
+        everySuspend { it.getServerInfo(forceRefresh = true) } returns
+            AppResult.Success(createTestServerInfo(setupRequired = setupRequired))
+    }
+
+/** A [ServerConfig] that has a URL — i.e. past the `NeedsServerUrl` branch. */
+private fun configuredServer(): ServerConfig =
+    createMockServerConfig().also {
+        everySuspend { it.getServerUrl() } returns ServerUrl("http://test:8088")
+    }
+
+/** Storage holding no credentials at all: the cold-start-with-no-session shape. */
+private fun signedOutStorage(): SecureStorage = RecordingStorage()
+
 private fun createStore(
     storage: SecureStorage = createMockStorage(),
     serverConfig: ServerConfig = createMockServerConfig(),
@@ -177,48 +193,31 @@ class AuthSessionStoreTest :
             }
         }
 
-        test("a completed setup clears the cached setupRequired, so a later cold start lands on sign-in") {
+        test("a completed setup does not strand the next cold start on the setup form") {
             runTest {
                 val storage = RecordingStorage()
                 val store = createStore(storage = storage)
 
-                // First boot against a server with no admin caches "setup required" — the only
-                // place this key is ever written is checkServerStatus().
-                storage.data["setup_required"] = "true"
-
                 // Completing setup funnels through saveAuthTokens exactly as login and register do.
                 store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "s", "u")
-
-                // Holding a session is proof the server has an admin, whatever the cache last said.
-                storage.data["setup_required"] shouldBe "false"
 
                 // Sign out, then relaunch: a new store over the same storage IS a cold start.
                 store.clearAuthTokens()
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://api.example.com")
-                val relaunched = createStore(storage = storage, serverConfig = serverConfig)
+                val relaunched =
+                    createStore(
+                        storage = storage,
+                        serverConfig = serverConfig,
+                        instanceRepository = serverSaying(setupRequired = false),
+                    )
                 relaunched.initializeAuthState()
 
-                // Before the fix this was NeedsSetup — the first-run screen, on a configured server,
-                // recoverable only by filling in the whole form and being told it already exists.
+                // The admin this setup created is exactly what the server now reports, so the
+                // reader lands on sign-in. Nothing about that answer is remembered locally —
+                // it is re-asked on every signed-out boot.
                 relaunched.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
-            }
-        }
-
-        test("a stale-epoch saveAuthTokens does not touch the cached setupRequired") {
-            runTest {
-                val storage = RecordingStorage()
-                val store = createStore(storage = storage)
-                store.saveAuthTokens(AccessToken("a0"), RefreshToken("r0"), "s0", "u0")
-                val epoch = store.currentAuthEpoch()
-                store.clearAuthTokens()
-                storage.data["setup_required"] = "true"
-
-                // A refresh that lost the race to a logout establishes no session, so it has
-                // learned nothing about the server and must not overwrite what is cached.
-                store.saveAuthTokens(AccessToken("a1"), RefreshToken("r1"), "s1", "u1", ifEpoch = epoch)
-
-                storage.data["setup_required"] shouldBe "true"
+                storage.data.containsKey("setup_required") shouldBe false
             }
         }
 
@@ -373,8 +372,13 @@ class AuthSessionStoreTest :
                 everySuspend { storage.read("session_id") } returns null
                 everySuspend { storage.read("pending_user_id") } returns null
                 everySuspend { storage.read("open_registration") } returns null
-                everySuspend { storage.read("setup_required") } returns null
-                val store = createStore(storage = storage, serverConfig = serverConfig)
+                everySuspend { storage.save(any(), any()) } returns Unit
+                val store =
+                    createStore(
+                        storage = storage,
+                        serverConfig = serverConfig,
+                        instanceRepository = serverSaying(setupRequired = false),
+                    )
 
                 store.initializeAuthState()
 
@@ -397,25 +401,110 @@ class AuthSessionStoreTest :
             }
         }
 
-        test("initializeAuthState returns NeedsSetup when setup was required on the last server check") {
+        test("initializeAuthState routes a signed-out boot to setup when the server says it has no admin") {
             runTest {
-                // Regression: a relaunch runs the offline deriveAuthState (no network), which must honour
-                // the cached setupRequired flag. Otherwise a fresh server (no admin yet) resolves to the
-                // Login screen, whose "Create Account" leads to the approval-gated request flow with no
-                // path back to admin setup — a fresh-server dead-end.
-                val storage = createMockStorage()
-                val serverConfig = createMockServerConfig()
-                everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8088")
-                everySuspend { storage.read("access_token") } returns null
-                everySuspend { storage.read("user_id") } returns null
-                everySuspend { storage.read("session_id") } returns null
-                everySuspend { storage.read("pending_user_id") } returns null
-                everySuspend { storage.read("setup_required") } returns "true"
-                val store = createStore(storage = storage, serverConfig = serverConfig)
+                // A fresh server (no admin yet) must reach the setup screen, or its "Create Account"
+                // leads only to the approval-gated request flow with nobody to approve it — a
+                // fresh-server dead-end. The answer comes from the server on this very boot; there
+                // is no cached flag to honour.
+                val store =
+                    createStore(
+                        storage = signedOutStorage(),
+                        serverConfig = configuredServer(),
+                        instanceRepository = serverSaying(setupRequired = true),
+                    )
 
                 store.initializeAuthState()
 
                 store.authState.value.shouldBeInstanceOf<AuthState.NeedsSetup>()
+            }
+        }
+
+        test("initializeAuthState routes to sign-in when the server has an admin, whatever a stale cache says") {
+            runTest {
+                // The reported bug. A first boot against an empty server used to persist
+                // setupRequired=true; if the admin was then created anywhere else (another device,
+                // a second browser, the CLI), every later boot re-read that flag and offered to
+                // create an admin the server already had — discoverable only by filling in the
+                // whole form and being told it was pointless.
+                val storage = RecordingStorage()
+                storage.data["setup_required"] = "true"
+                val store =
+                    createStore(
+                        storage = storage,
+                        serverConfig = configuredServer(),
+                        instanceRepository = serverSaying(setupRequired = false),
+                    )
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+            }
+        }
+
+        test("initializeAuthState routes to setup on a wiped server, even though the last boot cached otherwise") {
+            runTest {
+                // The mirror-image dead-end, and the reason the cache could not simply be corrected
+                // rather than deleted: a server whose users were wiped needs setup again, and a
+                // stale "false" would pin the reader to a sign-in screen no account can satisfy.
+                val storage = RecordingStorage()
+                storage.data["setup_required"] = "false"
+                val store =
+                    createStore(
+                        storage = storage,
+                        serverConfig = configuredServer(),
+                        instanceRepository = serverSaying(setupRequired = true),
+                    )
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsSetup>()
+            }
+        }
+
+        test("initializeAuthState falls back to sign-in when the server cannot be reached") {
+            runTest {
+                // Never Stranded, pointed the safe way: with no answer available, a sign-in screen
+                // is merely useless where a setup form would be actively wrong. "Create account"
+                // stays honest via the separately cached open-registration flag.
+                val storage = RecordingStorage()
+                storage.data["open_registration"] = "true"
+                val instanceRepository = createMockInstanceRepository()
+                everySuspend { instanceRepository.getServerInfo(forceRefresh = true) } returns
+                    Failure(Exception("Network error"))
+                val store =
+                    createStore(
+                        storage = storage,
+                        serverConfig = configuredServer(),
+                        instanceRepository = instanceRepository,
+                    )
+
+                store.initializeAuthState()
+
+                val state = store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                state.openRegistration shouldBe true
+            }
+        }
+
+        test("initializeAuthState reaches no server at all when a session is already held") {
+            runTest {
+                // The cost guard on asking the server every signed-out boot: the overwhelmingly
+                // common boot is a signed-in one, and it must still resolve from storage alone.
+                val storage = RecordingStorage()
+                val store = createStore(storage = storage, serverConfig = configuredServer())
+                store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "s", "u")
+
+                val instanceRepository = createMockInstanceRepository()
+                val relaunched =
+                    createStore(
+                        storage = storage,
+                        serverConfig = configuredServer(),
+                        instanceRepository = instanceRepository,
+                    )
+                relaunched.initializeAuthState()
+
+                relaunched.authState.value.shouldBeInstanceOf<AuthState.Authenticated>()
+                verifySuspend(VerifyMode.exactly(0)) { instanceRepository.getServerInfo(any()) }
             }
         }
 
@@ -569,7 +658,10 @@ class AuthSessionStoreTest :
             }
         }
 
-        // ── Cold-start derivation matrix (spec T15, offline-first — no network call) ──
+        // ── Cold-start derivation matrix (spec T15) ──
+        //
+        // Offline for every branch a signed-in device can land in. The fresh-install row is the one
+        // exception: with no session at all, "setup or sign-in?" is asked of the server.
 
         test("deriveAuthState: persisted userId WITHOUT an access token derives SessionLapsed") {
             runTest {
@@ -590,9 +682,18 @@ class AuthSessionStoreTest :
             runTest {
                 val storage = createMockStorage()
                 everySuspend { storage.read(any()) } returns null
+                everySuspend { storage.save(any(), any()) } returns Unit
                 val serverConfig = createMockServerConfig()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8080")
-                val store = createStore(storage = storage, serverConfig = serverConfig)
+                // A fresh install holds no session, so this row is the branch that asks the server.
+                // An instance that already has an admin answers "sign in" — the locked expectation
+                // below is unchanged, but it is now the server's answer rather than a cache's.
+                val store =
+                    createStore(
+                        storage = storage,
+                        serverConfig = serverConfig,
+                        instanceRepository = serverSaying(setupRequired = false),
+                    )
 
                 store.initializeAuthState()
 
