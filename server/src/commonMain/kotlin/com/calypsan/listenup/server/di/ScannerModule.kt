@@ -243,5 +243,11 @@ fun scannerModule(
         }
 
         // The durable record of what the scanner could NOT import — see ScanIssueRepository.
-        single<ScanIssueStore> { ScanIssueRepository(db = get()) }
+        //
+        // Registered under BOTH types on purpose. The scan reconcile resolves the concrete
+        // repository (it needs `record`/`clear`, which are not on the port), while ScannerService
+        // takes the narrow read port. Binding only the port left the reconcile's `getOrNull` lookup
+        // returning null, so it silently did nothing — no error, no issues ever recorded.
+        single { ScanIssueRepository(db = get()) }
+        single<ScanIssueStore> { get<ScanIssueRepository>() }
     }
