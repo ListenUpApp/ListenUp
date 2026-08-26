@@ -120,7 +120,14 @@ class LibraryWriteBroker(
     suspend fun executeManifest(manifest: WriteManifest): AppResult<Unit> =
         try {
             journal.persist(manifest)
-            applyFrom(manifest, doneFlags = List(manifest.ops.size) { false })
+            applyFrom(manifest, doneFlags = List(manifest.ops.size) { false }).also { result ->
+                // The caller has been told. For a manifest that opted out of post-failure resume,
+                // that report is the end of it — leaving the entry would let a later boot carry
+                // out a destructive action nobody has asked for since.
+                if (result is AppResult.Failure && !manifest.resumeAfterReportedFailure) {
+                    journal.delete(manifest.opId)
+                }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -402,11 +409,25 @@ class LibraryWriteBroker(
                 AppResult.Success(Unit)
             }
 
-            // already imported
+            // Both ends present. For a rename this would be genuinely ambiguous, but the
+            // cross-device fallback (copy → move-into-place → delete source) makes it a NORMAL
+            // crash state: a crash after the copy landed but before the source was removed leaves
+            // exactly this. Refusing outright wedged the manifest in the journal permanently,
+            // since nothing ever collects it — so decide instead, on the only evidence available.
             fromExists && toExists -> {
-                failure(
-                    LibraryWriteError.Unavailable(debugInfo = "ambiguous import: both ${op.from} and ${op.to} exist"),
-                )
+                val fromSize = SystemFileSystem.metadataOrNull(op.from)?.size
+                val toSize = SystemFileSystem.metadataOrNull(op.to)?.size
+                if (fromSize != null && fromSize == toSize) {
+                    // The copy completed; only the source removal was lost. Finish that step.
+                    registry.register(op.from, suppressionTtlMs)
+                    SystemFileSystem.delete(op.from, mustExist = false)
+                    AppResult.Success(Unit)
+                } else {
+                    // A short/absent destination means the copy was interrupted. Redo it —
+                    // importBytes writes via a temp file and moves into place, so overwriting a
+                    // partial destination is safe.
+                    importBytes(op)
+                }
             }
 
             !fromExists -> {

@@ -242,6 +242,12 @@ internal class UploadFinalizer(
         val dirs = (listOf(destDir) + moves.mapNotNull { it.second.parent }).distinctBy { it.toString() }
         return WriteManifest(
             opId = "upload-import-$sessionId-$index",
+            // Finalize sweeps the staging directory on the way out, so a manifest that failed and
+            // SAID SO can never be resumed — its sources are gone. Retaining the entry would only
+            // wedge the journal: every boot would retry it, fail on the missing source, and keep
+            // it forever, because nothing collects journal entries. A crash mid-finalize is the
+            // case resume is still for, and that path leaves the staging directory intact.
+            resumeAfterReportedFailure = false,
             ops =
                 buildList {
                     dirs.sortedBy { it.toString().length }.forEach { add(WriteOp.EnsureDir(it)) }

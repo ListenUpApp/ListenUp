@@ -9,8 +9,10 @@ import com.calypsan.listenup.server.io.writeText
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.writeString
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -78,7 +80,9 @@ class WriteJournal(
                         }
                     }
                 }
-            jsonFor(manifest.opId).writeText(json.encodeToString(PersistedManifest(manifest.opId, persistedOps)))
+            jsonFor(manifest.opId).writeJournalAtomically(
+                json.encodeToString(PersistedManifest(manifest.opId, persistedOps)),
+            )
         }
 
     /** Marks op [index] of manifest [opId] as done, so a later [listPending] skips re-applying it. */
@@ -90,7 +94,7 @@ class WriteJournal(
             val file = jsonFor(opId)
             val current = json.decodeFromString<PersistedManifest>(file.readText())
             val updated = current.copy(ops = current.ops.mapIndexed { i, op -> if (i == index) op.markDone() else op })
-            file.writeText(json.encodeToString(updated))
+            file.writeJournalAtomically(json.encodeToString(updated))
         }
 
     /** Removes the journal entry and any staged data for [opId] — call once every op has completed. */
@@ -304,3 +308,18 @@ private fun PersistedOp.markDone(): PersistedOp =
         is PersistedOp.PersistedDeleteDirIfEmpty -> copy(done = true)
         is PersistedOp.PersistedDeleteDir -> copy(done = true)
     }
+
+/**
+ * Writes journal JSON via a temp file and an atomic rename.
+ *
+ * A bare truncate-and-write is the one thing the journal must not do: `markOpDone` runs
+ * immediately after **every destructive op**, so a crash during that rewrite truncates the very
+ * file that records what has already happened. `listPending` then skips the manifest as
+ * unreadable and the half-applied change is never resumed — precisely the "half-changed forever"
+ * outcome the journal exists to prevent, reachable through the journal's own writer.
+ */
+private fun Path.writeJournalAtomically(text: String) {
+    val tmp = Path(parent ?: this, ".$name.tmp")
+    SystemFileSystem.sink(tmp).buffered().use { it.writeString(text) }
+    SystemFileSystem.atomicMove(tmp, this)
+}

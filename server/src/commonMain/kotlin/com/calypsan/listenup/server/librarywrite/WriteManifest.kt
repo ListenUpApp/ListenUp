@@ -12,6 +12,23 @@ import kotlinx.io.files.Path
 data class WriteManifest(
     val opId: String,
     val ops: List<WriteOp>,
+    /**
+     * Whether a failure that was **returned to the caller** should stay in the journal for the
+     * boot-time resume to retry.
+     *
+     * The journal cannot otherwise tell two very different situations apart: the process died
+     * mid-manifest (nobody was told, resuming is the only way to finish the job) versus an op
+     * failed and the typed failure went back to whoever asked (they were told, and they decided
+     * what to do next). Replaying the second is the server re-deciding on the user's behalf,
+     * possibly months later at the next reboot.
+     *
+     * Default true, which is right for organize moves: a half-moved book must be finished, and
+     * nobody is harmed by finishing it late. Set **false** for destructive manifests — an admin
+     * told "the delete failed" who then keeps the book must not have it deleted out from under
+     * them by an unrelated restart. A partially-applied delete abandoned this way is still safe:
+     * the book row is untouched and the next scan reconciles what is actually on disk.
+     */
+    val resumeAfterReportedFailure: Boolean = true,
 )
 
 /** A single filesystem step inside a [WriteManifest]. See each subtype's KDoc for its idempotency rule under crash-resume. */

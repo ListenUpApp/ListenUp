@@ -88,6 +88,10 @@ class BookDeleter(
                 WriteManifest(
                     opId = "delete-book-${id.value}",
                     ops = listOf(WriteOp.DeleteDir(bookDir)) + ancestorPruneOps(bookDir, book.rootRelPath),
+                    // A delete the admin was told had failed must not run itself later. See the
+                    // property's KDoc — the book row is untouched by a partial delete, so the next
+                    // scan reconciles disk reality either way.
+                    resumeAfterReportedFailure = false,
                 ),
             )
         if (deleted is AppResult.Failure) {

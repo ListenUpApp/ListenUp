@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
@@ -281,6 +282,45 @@ class DeleteDirOpTest :
                 withClue("erasing a library folder is the one mistake that takes the library with it") {
                     SystemFileSystem.exists(Path(nestedRoot, "01.m4b")) shouldBe true
                     SystemFileSystem.exists(target) shouldBe true
+                }
+            }
+        }
+        test("a REPORTED failure on a no-resume manifest leaves nothing for a later boot to replay") {
+            runTest {
+                val (root, _) = escapeFixture()
+                val journal = WriteJournal(tempJournalDir())
+                // A DeleteDir aimed at a library root: guaranteed to fail the guard, having
+                // touched nothing — the same shape as a delete refused by a transient fault.
+                val result =
+                    testBroker(roots = listOf(root), journal = journal).executeManifest(
+                        WriteManifest(
+                            opId = "delete-book-reported-failure",
+                            ops = listOf(WriteOp.DeleteDir(root)),
+                            resumeAfterReportedFailure = false,
+                        ),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                withClue("the caller was told it failed; a reboot must not re-decide for them") {
+                    journal.listPending().shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a REPORTED failure on a normal manifest stays journalled, as organize moves need") {
+            runTest {
+                val (root, _) = escapeFixture()
+                val journal = WriteJournal(tempJournalDir())
+
+                val result =
+                    testBroker(roots = listOf(root), journal = journal).executeManifest(
+                        // Same guaranteed failure, default resume semantics.
+                        WriteManifest(opId = "organize-move-keeps-entry", ops = listOf(WriteOp.DeleteDir(root))),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                withClue("a half-finished move must still be finishable at the next boot") {
+                    journal.listPending().map { it.manifest.opId } shouldBe listOf("organize-move-keeps-entry")
                 }
             }
         }

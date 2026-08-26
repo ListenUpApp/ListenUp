@@ -3,8 +3,12 @@ package com.calypsan.listenup.server.upload
 import com.calypsan.listenup.api.dto.uploads.UploadLimits as ContractUploadLimits
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.isSymlink
+import com.calypsan.listenup.server.io.statFile
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
 /**
@@ -48,6 +52,8 @@ internal data class UploadSessionStats(
  * Sessions are **filesystem-truth**: a session exists exactly as long as its directory does.
  * There is no table, no in-memory registry to lose on restart, and no way for the two to disagree.
  */
+private val logger = loggerFor<UploadStaging>()
+
 internal class UploadStaging(
     private val paths: UploadPaths,
     val limits: UploadLimits = UploadLimits(),
@@ -156,7 +162,48 @@ internal class UploadStaging(
         deleteRecursively(sessionDir)
     }
 
+    /**
+     * Removes staging directories older than [maxAge], returning how many went.
+     *
+     * A session exists exactly as long as its directory does — there is no row to age out — so
+     * without this nothing ever collects one that was abandoned rather than finalized. Three
+     * ordinary paths strand one permanently: the network dies mid-transfer (so the client's
+     * abandon request dies with it), the app is killed during an hour-long upload, or the
+     * `createSession` response is lost so the client never learns the id. Each orphan can hold up
+     * to [UploadLimits.maxSessionBytes], on a self-hosted machine whose disk is the user's own.
+     *
+     * Age is taken from the directory's own mtime, which every accepted file bumps, so a genuinely
+     * long upload is never swept out from under itself.
+     */
+    fun sweepStaleSessions(
+        now: Long,
+        maxAge: Duration = STALE_SESSION_AGE,
+    ): Int {
+        val root = paths.uploadsDir
+        if (SystemFileSystem.metadataOrNull(root)?.isDirectory != true) return 0
+        var swept = 0
+        for (dir in SystemFileSystem.list(root)) {
+            if (isSymlink(dir)) continue
+            if (SystemFileSystem.metadataOrNull(dir)?.isDirectory != true) continue
+            val modified = statFile(dir)?.mtimeMs ?: continue
+            if (now - modified < maxAge.inWholeMilliseconds) continue
+            logger.info { "sweeping stale upload session ${dir.name} (idle ${(now - modified) / 3_600_000}h)" }
+            deleteRecursively(dir)
+            swept++
+        }
+        return swept
+    }
+
     private companion object {
+        /**
+         * How long a staging directory may sit untouched before it is collected.
+         *
+         * Generous on purpose: it must comfortably exceed the slowest legitimate gap between two
+         * files of one upload, because sweeping a live session destroys work in progress. A day
+         * clears real orphans while never threatening an upload that is merely slow.
+         */
+        val STALE_SESSION_AGE: Duration = 24.hours
+
         /** Suffix marking a transfer still in flight; see [beginFile]. */
         const val PART_SUFFIX = ".listenup-part"
     }

@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.sync.ChangeBus
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
+import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
@@ -118,6 +119,16 @@ internal fun Application.startBackgroundTasks(
         // coroutine — the ordering is structural, not timing-based.
         runNeverFatal("write-journal recovery failed") {
             libraryWriteBroker.recoverJournal()
+        }
+        // Upload sessions are filesystem-truth with no row to age out, so an abandoned one is
+        // otherwise immortal: the network dying mid-transfer takes the client's abandon request
+        // with it, and a killed app never runs its cleanup at all. Each orphan can hold gigabytes
+        // on the operator's own disk.
+        runNeverFatal("stale upload sweep failed") {
+            val swept =
+                koinGet<com.calypsan.listenup.server.upload.UploadStaging>()
+                    .sweepStaleSessions(now = Clock.System.now().toEpochMilliseconds())
+            if (swept > 0) logger.info { "swept $swept stale upload session(s)" }
         }
         runNeverFatal("library bootstrap failed") {
             bootstrapLibraries(
