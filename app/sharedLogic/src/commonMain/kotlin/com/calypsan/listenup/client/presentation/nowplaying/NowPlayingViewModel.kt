@@ -572,8 +572,14 @@ class NowPlayingViewModel internal constructor(
         }
 
         val currentBookPos = playbackManager.currentPositionMs.value
-        val speed = playbackManager.playbackSpeed.value
-        val newBookPos = (currentBookPos - (seconds * speed * 1000).toLong()).coerceAtLeast(0)
+        val newBookPos =
+            skipTargetMs(
+                currentPositionMs = currentBookPos,
+                seconds = seconds,
+                speed = playbackManager.playbackSpeed.value,
+                totalDurationMs = playbackManager.totalDurationMs.value,
+                forward = false,
+            )
         logger.debug { "skipBack: currentPos=$currentBookPos, newPos=$newBookPos" }
 
         playbackController.seekTo(newBookPos)
@@ -592,10 +598,13 @@ class NowPlayingViewModel internal constructor(
 
         val currentBookPos = playbackManager.currentPositionMs.value
         val totalDuration = playbackManager.totalDurationMs.value
-        val speed = playbackManager.playbackSpeed.value
         val newBookPos =
-            (currentBookPos + (seconds * speed * 1000).toLong()).coerceAtMost(
-                totalDuration,
+            skipTargetMs(
+                currentPositionMs = currentBookPos,
+                seconds = seconds,
+                speed = playbackManager.playbackSpeed.value,
+                totalDurationMs = totalDuration,
+                forward = true,
             )
         logger.debug { "skipForward: currentPos=$currentBookPos, newPos=$newBookPos, totalDuration=$totalDuration" }
 
@@ -700,11 +709,7 @@ class NowPlayingViewModel internal constructor(
     }
 
     fun cycleSpeed() {
-        val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
-        val currentSpeed = playbackManager.playbackSpeed.value
-        val currentIndex = speeds.indexOfFirst { it >= currentSpeed - 0.01f }
-        val nextIndex = if (currentIndex == -1 || currentIndex >= speeds.lastIndex) 0 else currentIndex + 1
-        setSpeed(speeds[nextIndex])
+        setSpeed(nextPlaybackSpeed(playbackManager.playbackSpeed.value))
     }
 
     /** Snapshot of the current book's chapters (non-reactive; for one-shot reads). */

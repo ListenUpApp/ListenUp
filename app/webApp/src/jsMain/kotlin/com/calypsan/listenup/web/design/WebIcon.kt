@@ -64,6 +64,12 @@ enum class WebIcon(
     ),
     Play("M8 5l11 7-11 7z", solid = true),
     Search("M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M20 20l-3.6-3.6"),
+
+    // The two below are the set's only entries NOT mirrored from the design project's icon
+    // tables — it carries no skip glyphs, so these are the standard counter-clockwise/clockwise
+    // rotation arrows the whole category uses. Reconcile them if the design project grows a pair.
+    SkipBack("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5"),
+    SkipForward("M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8 M21 3v5h-5"),
     Shield("M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M9 12l2 2 4-4"),
     Scissors(
         "M6 6l12 12 M18 6L9.5 14.5 M5 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0 " +

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackState
@@ -13,6 +14,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import com.calypsan.listenup.client.presentation.nowplaying.nextPlaybackSpeed
+import com.calypsan.listenup.client.presentation.nowplaying.skipTargetMs
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +39,9 @@ class PlaybackSession(
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onPlayBook: (BookId) -> Unit,
+    val onSkipBack: () -> Unit,
+    val onSkipForward: () -> Unit,
+    val onCycleSpeed: () -> Unit,
     val onDismissError: () -> Unit,
     val close: () -> Unit,
 )
@@ -53,6 +60,7 @@ fun graphPlayback(koin: Koin): OpenPlayback =
             playbackManager = koin.get(),
             playbackController = koin.get(),
             audioPlayer = koin.get(),
+            playbackPreferences = koin.get(),
         ).asSession()
     }
 
@@ -77,6 +85,9 @@ fun fixedPlayback(
             onPlayPause = {},
             onSeek = {},
             onPlayBook = {},
+            onSkipBack = {},
+            onSkipForward = {},
+            onCycleSpeed = {},
             onDismissError = {},
             close = {},
         )
@@ -107,6 +118,7 @@ internal class LivePlayback(
     private val playbackManager: PlaybackManager,
     private val playbackController: PlaybackController,
     private val audioPlayer: HtmlAudioPlayer,
+    private val playbackPreferences: PlaybackPreferences,
     // appCoroutineExceptionHandler, not a bare scope: [playBook] deliberately lets a failed
     // prepare propagate rather than swallowing it, so without a handler the only report of "your
     // book did not start" would be an unhandled rejection in the console.
@@ -148,14 +160,46 @@ internal class LivePlayback(
             .map { it?.message }
             .stateIn(scope, SharingStarted.Eagerly, playbackManager.playbackError.value?.message)
 
+    /**
+     * How far each skip control moves, straight from the listener's own settings.
+     *
+     * Read here rather than baked into the bar so web and the native clients skip by the same
+     * amount: these are the very flows `NowPlayingViewModel` reads, and they are synced, so a
+     * change made on a phone reaches this tab.
+     */
+    private val skipBackwardSec: StateFlow<Int> =
+        playbackPreferences
+            .observeDefaultSkipBackwardSec()
+            .stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC)
+
+    private val skipForwardSec: StateFlow<Int> =
+        playbackPreferences
+            .observeDefaultSkipForwardSec()
+            .stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC)
+
+    /**
+     * Position and duration as one value, because [combine] is only typed to five flows and the
+     * bar needs seven. Paired rather than any other two: they change on the same tick.
+     */
+    private val timeline: Flow<Pair<Long, Long>> =
+        combine(playbackManager.currentPositionMs, playbackManager.totalDurationMs) { position, duration ->
+            position to duration
+        }
+
+    /** The three values the transport controls display, folded for the same [combine] arity reason. */
+    private val controls: Flow<Triple<Float, Int, Int>> =
+        combine(playbackManager.playbackSpeed, skipBackwardSec, skipForwardSec) { speed, back, forward ->
+            Triple(speed, back, forward)
+        }
+
     val state: StateFlow<TransportState?> =
         combine(
             playbackManager.currentBookId,
             title,
             playbackManager.isPlaying,
-            playbackManager.currentPositionMs,
-            playbackManager.totalDurationMs,
-        ) { bookId, bookTitle, isPlaying, positionMs, durationMs ->
+            timeline,
+            controls,
+        ) { bookId, bookTitle, isPlaying, (positionMs, durationMs), (speed, backSec, forwardSec) ->
             if (bookId == null || bookTitle == null) {
                 null
             } else {
@@ -164,6 +208,9 @@ internal class LivePlayback(
                     isPlaying = isPlaying,
                     positionMs = positionMs,
                     durationMs = durationMs,
+                    speed = speed,
+                    skipBackSec = backSec,
+                    skipForwardSec = forwardSec,
                 )
             }
         }.stateIn(scope, SharingStarted.Eagerly, null)
@@ -287,6 +334,53 @@ internal class LivePlayback(
     }
 
     /**
+     * Move back by the listener's configured interval.
+     *
+     * The arithmetic is [skipTargetMs] — shared with `NowPlayingViewModel` rather than restated —
+     * so a browser skip and a phone skip land in the same place, including the speed scaling that
+     * makes the gesture worth the same amount of *listening* at any rate.
+     *
+     * Guarded on a loaded timeline for the reason that function documents: with no book there is
+     * no duration to clamp against.
+     */
+    fun skipBack() = skipBy(seconds = skipBackwardSec.value, forward = false)
+
+    /** Move forward by the listener's configured interval. See [skipBack]. */
+    fun skipForward() = skipBy(seconds = skipForwardSec.value, forward = true)
+
+    private fun skipBy(
+        seconds: Int,
+        forward: Boolean,
+    ) {
+        if (playbackManager.currentTimeline.value == null) return
+        val target =
+            skipTargetMs(
+                currentPositionMs = playbackManager.currentPositionMs.value,
+                seconds = seconds,
+                speed = playbackManager.playbackSpeed.value,
+                totalDurationMs = playbackManager.totalDurationMs.value,
+                forward = forward,
+            )
+        playbackController.seekTo(target)
+        // Same follow-up NowPlayingViewModel makes: the element reports its new position on its own
+        // schedule, and a paused listener pressing skip would otherwise watch the label sit still.
+        playbackManager.updatePosition(target)
+    }
+
+    /**
+     * Step to the next speed on the shared ladder, wrapping at the top.
+     *
+     * Both halves matter: the controller is what the `<audio>` element actually obeys, and
+     * [PlaybackManager.onSpeedChanged] is what records the choice against this book, so it survives
+     * the next time it is opened.
+     */
+    fun cycleSpeed() {
+        val next = nextPlaybackSpeed(playbackManager.playbackSpeed.value)
+        playbackController.setPlaybackSpeed(next)
+        playbackManager.onSpeedChanged(next)
+    }
+
+    /**
      * End the listening session: stop the audio, then stop observing it.
      *
      * [HtmlAudioPlayer.releasePlayer] rather than [HtmlAudioPlayer.pause], because the only thing
@@ -315,6 +409,9 @@ internal class LivePlayback(
             onPlayPause = ::playPause,
             onSeek = ::seek,
             onPlayBook = ::playBook,
+            onSkipBack = ::skipBack,
+            onSkipForward = ::skipForward,
+            onCycleSpeed = ::cycleSpeed,
             onDismissError = ::dismissError,
             close = ::close,
         )

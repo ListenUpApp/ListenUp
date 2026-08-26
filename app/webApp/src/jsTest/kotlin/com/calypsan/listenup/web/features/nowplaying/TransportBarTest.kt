@@ -41,6 +41,22 @@ private const val PLAYING_TIMEOUT_MS = 15_000L
 /** How many `input` events one drag is stood in for. Any number above one makes the point. */
 private const val DRAG_SAMPLES = 5
 
+/** A skip pair deliberately unlike the stock 10/30, so a hard-coded default cannot pass. */
+private const val CUSTOM_SKIP_BACK_SEC = 15
+
+private const val CUSTOM_SKIP_FORWARD_SEC = 45
+
+/** The rung above 1.0 on the shared speed ladder — what one press of the speed control reaches. */
+private const val STEPPED_SPEED = 1.25f
+
+private const val FASTER_SPEED = 1.5f
+
+private const val QUARTER_SPEED_STEP = 1.25f
+
+private const val HALF_SPEED = 0.5f
+
+private const val TRIPLE_SPEED = 3.0f
+
 /**
  * Every host this spec has mounted, so [TransportBarTest] can take them back out again.
  *
@@ -83,6 +99,9 @@ class TransportBarTest :
                         state = TransportState("Dune", isPlaying = false, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
                         onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
                     )
                 }
             val playing =
@@ -91,6 +110,9 @@ class TransportBarTest :
                         state = TransportState("Dune", isPlaying = true, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
                         onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
                     )
                 }
 
@@ -106,12 +128,129 @@ class TransportBarTest :
                         state = TransportState("Dune", isPlaying = false, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = { clicks++ },
                         onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
                     )
                 }
 
             (host.querySelector(".tport-b") as HTMLElement).click()
 
             clicks shouldBe 1
+        }
+
+        test("the skip controls announce the listener's own interval, not a stock one") {
+            // The number is the whole point of the control. A bar that says "30" to someone who set
+            // 15 is worse than one that says nothing, because it looks authoritative.
+            val host =
+                mount {
+                    TransportBar(
+                        state =
+                            TransportState(
+                                "Dune",
+                                isPlaying = true,
+                                positionMs = 0,
+                                durationMs = SHORT_BOOK_MS,
+                                skipBackSec = CUSTOM_SKIP_BACK_SEC,
+                                skipForwardSec = CUSTOM_SKIP_FORWARD_SEC,
+                            ),
+                        onPlayPause = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
+                    )
+                }
+
+            val skips = host.querySelectorAll(".tport-skip")
+            skips.length shouldBe 2
+            (skips.item(0) as HTMLElement).getAttribute("aria-label") shouldBe "Back $CUSTOM_SKIP_BACK_SEC seconds"
+            (skips.item(1) as HTMLElement).getAttribute("aria-label") shouldBe "Forward $CUSTOM_SKIP_FORWARD_SEC seconds"
+            host.querySelectorAll(".tport-skip-n").let { numerals ->
+                (numerals.item(0) as HTMLElement).textContent shouldBe CUSTOM_SKIP_BACK_SEC.toString()
+                (numerals.item(1) as HTMLElement).textContent shouldBe CUSTOM_SKIP_FORWARD_SEC.toString()
+            }
+        }
+
+        test("each skip control reports its own press, and neither is the other") {
+            var back = 0
+            var forward = 0
+            val host =
+                mount {
+                    TransportBar(
+                        state = TransportState("Dune", isPlaying = true, positionMs = 0, durationMs = SHORT_BOOK_MS),
+                        onPlayPause = {},
+                        onSeek = {},
+                        onSkipBack = { back++ },
+                        onSkipForward = { forward++ },
+                        onCycleSpeed = {},
+                    )
+                }
+
+            val skips = host.querySelectorAll(".tport-skip")
+            (skips.item(0) as HTMLElement).click()
+
+            back shouldBe 1
+            forward shouldBe 0
+
+            (skips.item(1) as HTMLElement).click()
+
+            back shouldBe 1
+            forward shouldBe 1
+        }
+
+        test("the speed control shows the current rate and offers to change it") {
+            val host =
+                mount {
+                    TransportBar(
+                        state =
+                            TransportState(
+                                "Dune",
+                                isPlaying = true,
+                                positionMs = 0,
+                                durationMs = SHORT_BOOK_MS,
+                                speed = FASTER_SPEED,
+                            ),
+                        onPlayPause = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
+                    )
+                }
+
+            host.querySelector(".tport-speed")!!.textContent shouldBe "$FASTER_SPEED\u00D7"
+            // The visible text is terse by necessity; the label is what a screen reader gets.
+            host.querySelector(".tport-speed")!!.getAttribute("aria-label") shouldContain FASTER_SPEED.toString()
+        }
+
+        test("the speed control reports exactly one press") {
+            var cycles = 0
+            val host =
+                mount {
+                    TransportBar(
+                        state = TransportState("Dune", isPlaying = true, positionMs = 0, durationMs = SHORT_BOOK_MS),
+                        onPlayPause = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = { cycles++ },
+                    )
+                }
+
+            (host.querySelector(".tport-speed") as HTMLElement).click()
+
+            cycles shouldBe 1
+        }
+
+        test("a speed renders as short as it can without lying about itself") {
+            // 40px of bar. "1.00x" spends a third of it saying nothing, and "1.2x" would be a
+            // different speed from the one playing.
+            formatSpeed(1.0f) shouldBe "1"
+            formatSpeed(FASTER_SPEED) shouldBe "1.5"
+            formatSpeed(QUARTER_SPEED_STEP) shouldBe "1.25"
+            formatSpeed(HALF_SPEED) shouldBe "0.5"
+            formatSpeed(TRIPLE_SPEED) shouldBe "3"
         }
 
         test("elapsed time reads H:MM:SS at an hour and M:SS below it") {
@@ -125,7 +264,17 @@ class TransportBarTest :
 
         test("with no book loaded the bar renders nothing at all") {
             // An empty transport bar is chrome that lies about there being something to play.
-            val host = mount { TransportBar(state = null, onPlayPause = {}, onSeek = {}) }
+            val host =
+                mount {
+                    TransportBar(
+                        state = null,
+                        onPlayPause = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
+                    )
+                }
 
             host.querySelector(".tport") shouldBe null
             host.textContent.orEmpty() shouldBe ""
@@ -146,6 +295,9 @@ class TransportBarTest :
                             seeks++
                             seekedTo = it
                         },
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
                     )
                 }
 
@@ -191,6 +343,7 @@ class TransportBarTest :
                     playbackManager = manager,
                     playbackController = WebPlaybackController(player, manager),
                     audioPlayer = player,
+                    playbackPreferences = FakePlaybackPreferences(),
                 )
 
             // Exactly what Book Detail's Play button does.
@@ -205,7 +358,17 @@ class TransportBarTest :
             state.shouldNotBeNull().title shouldBe "Dune"
 
             // …and the bar built from that state offers the way to stop it.
-            val host = mount { TransportBar(state = state, onPlayPause = playback::playPause, onSeek = playback::seek) }
+            val host =
+                mount {
+                    TransportBar(
+                        state = state,
+                        onPlayPause = playback::playPause,
+                        onSeek = playback::seek,
+                        onSkipBack = playback::skipBack,
+                        onSkipForward = playback::skipForward,
+                        onCycleSpeed = playback::cycleSpeed,
+                    )
+                }
             host.querySelector(".tport-b")!!.getAttribute("aria-label") shouldBe "Pause"
             host.textContent.orEmpty() shouldContain "Dune"
 
@@ -230,6 +393,9 @@ class TransportBarTest :
                             ),
                         onPlayPause = {},
                         onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
                     )
                 }
 
@@ -250,7 +416,7 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val doomed = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(doomed, title = "Dune", prepare = PrepareOutcome.THROWS)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
 
             playback.playBook(BookId("book-1"))
             // The window closing is the `finally` having run — deterministic, unlike a delay.
@@ -273,7 +439,7 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val pending = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(pending, title = "Dune", prepare = PrepareOutcome.NEVER_RETURNS)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
 
             playback.playBook(BookId("book-1"))
             playback.close()
@@ -300,7 +466,7 @@ class TransportBarTest :
             // its title already null, and the assertion below would hold whether or not `playBook`
             // ever cleared anything — proof of nothing.
             val manager = fakePlaybackManager(segment, title = "Dune", prepare = PrepareOutcome.STALLS_AFTER_FIRST)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
 
             playback.playBook(BookId("book-1"))
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
@@ -323,7 +489,7 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val segment = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(segment, title = "Dune")
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
 
             playback.playBook(BookId("book-1"))
             player.awaitState(PlaybackState.Playing)
@@ -343,7 +509,7 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val segment = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(segment, title = "Dune")
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
 
             playback.playBook(BookId("book-1"))
             // Wait on the manager's flow, not the player's: `playPause` branches on exactly this
@@ -363,11 +529,55 @@ class TransportBarTest :
             URL.revokeObjectURL(segment.url)
         }
 
+        test("the listener's own skip intervals reach the bar, rather than the stock pair") {
+            // TransportState carries defaults so the presentational specs stay terse, which means a
+            // LivePlayback that forgot to plumb preferences through would render a plausible 10/30
+            // and pass every DOM assertion above. This is the spec that would notice.
+            val player = HtmlAudioPlayer()
+            val manager = fakePlaybackManager(silentSegment(AUDIO_SEGMENT_MS), title = "Dune")
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(player, manager),
+                    player,
+                    FakePlaybackPreferences(skipForwardSec = CUSTOM_SKIP_FORWARD_SEC, skipBackwardSec = 15),
+                )
+
+            playback.playBook(BookId("book-1"))
+            val state = withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
+
+            state.shouldNotBeNull().skipForwardSec shouldBe CUSTOM_SKIP_FORWARD_SEC
+            state.skipBackSec shouldBe CUSTOM_SKIP_BACK_SEC
+
+            playback.close()
+        }
+
+        test("cycling the speed changes what is playing and what the bar says, together") {
+            // Two separate calls under one gesture — the controller is what the element obeys, the
+            // manager is what remembers the choice for this book. Dropping either leaves the bar
+            // and the audio disagreeing about how fast the story is going.
+            val player = HtmlAudioPlayer()
+            val manager = fakePlaybackManager(silentSegment(AUDIO_SEGMENT_MS), title = "Dune")
+            val playback =
+                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+
+            playback.playBook(BookId("book-1"))
+            withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
+
+            playback.cycleSpeed()
+
+            val stepped = withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it?.speed != 1.0f } }
+            stepped.shouldNotBeNull().speed shouldBe STEPPED_SPEED
+            manager.playbackSpeed.value shouldBe STEPPED_SPEED
+
+            playback.close()
+        }
+
         test("a failed prepare is reported to the listener rather than swallowed") {
             val player = HtmlAudioPlayer()
             val segment = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(segment, title = "Dune", prepare = PrepareOutcome.THROWS)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
 
             playback.playBook(BookId("book-1"))
 
@@ -395,6 +605,9 @@ class TransportBarTest :
                             TransportState("Dune", isPlaying = true, positionMs = SEEK_TARGET_MS, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
                         onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onCycleSpeed = {},
                     )
                 }
 

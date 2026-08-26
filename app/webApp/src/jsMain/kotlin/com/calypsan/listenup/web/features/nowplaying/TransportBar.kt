@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -13,6 +14,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import kotlin.math.roundToInt
 
 /**
  * What the transport bar shows.
@@ -25,6 +27,12 @@ data class TransportState(
     val isPlaying: Boolean,
     val positionMs: Long,
     val durationMs: Long,
+    /** Current playback rate, shown on the speed control and used to size a skip. */
+    val speed: Float = 1.0f,
+    /** How far the back control moves, in seconds of listening. The listener's own setting. */
+    val skipBackSec: Int = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+    /** How far the forward control moves, in seconds of listening. The listener's own setting. */
+    val skipForwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
 )
 
 /**
@@ -51,6 +59,9 @@ fun TransportBar(
     state: TransportState?,
     onPlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
+    onSkipBack: () -> Unit,
+    onSkipForward: () -> Unit,
+    onCycleSpeed: () -> Unit,
 ) {
     if (state == null) return
 
@@ -59,15 +70,29 @@ fun TransportBar(
 
     val label = if (state.isPlaying) "Pause" else "Play"
     Div(attrs = { classes("tport") }) {
+        SkipButton(
+            icon = WebIcon.SkipBack,
+            seconds = state.skipBackSec,
+            label = "Back ${state.skipBackSec} seconds",
+            onClick = onSkipBack,
+        )
+
         Button(attrs = {
             classes("tport-b")
-            attr("type", "button")
-            attr("aria-label", label)
-            attr("title", label)
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_ARIA_LABEL, label)
+            attr(ATTR_TITLE, label)
             onClick { onPlayPause() }
         }) {
             Icon(if (state.isPlaying) WebIcon.Pause else WebIcon.Play, size = TRANSPORT_ICON_SIZE)
         }
+
+        SkipButton(
+            icon = WebIcon.SkipForward,
+            seconds = state.skipForwardSec,
+            label = "Forward ${state.skipForwardSec} seconds",
+            onClick = onSkipForward,
+        )
 
         Span(attrs = { classes("tport-t") }) { Text(state.title) }
 
@@ -83,7 +108,7 @@ fun TransportBar(
             // Without this the range keeps its default step of 1 — one MILLISECOND per arrow key,
             // so a keyboard listener would need thirty thousand presses to skip half a minute.
             attr("step", STEP_MS.toString())
-            attr("aria-label", "Seek")
+            attr(ATTR_ARIA_LABEL, "Seek")
             // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
             // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.
             attr("aria-valuetext", formatElapsed(shownPositionMs))
@@ -97,6 +122,66 @@ fun TransportBar(
         }
 
         Span(attrs = { classes("mono", "tport-time") }) { Text(formatElapsed(state.durationMs)) }
+
+        // A cycle rather than a menu: the ladder is nine rungs, and a listener adjusting speed is
+        // hunting a feel, not picking a value. `aria-label` carries the current rate because the
+        // visible text is the terse form — a screen reader saying "one point five ex" is not it.
+        Button(attrs = {
+            classes("tport-speed")
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_ARIA_LABEL, "Playback speed ${formatSpeed(state.speed)}, change")
+            attr(ATTR_TITLE, "Playback speed")
+            onClick { onCycleSpeed() }
+        }) {
+            Text("${formatSpeed(state.speed)}\u00D7")
+        }
+    }
+}
+
+/**
+ * One skip control: the rotation arrow with the interval written inside it.
+ *
+ * The number is rendered rather than baked into the glyph because the interval is the listener's
+ * own setting — a fixed "30" drawn into the icon would be a lie the moment they changed it.
+ */
+@Composable
+private fun SkipButton(
+    icon: WebIcon,
+    seconds: Int,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Button(attrs = {
+        classes("tport-skip")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, label)
+        attr(ATTR_TITLE, label)
+        onClick { onClick() }
+    }) {
+        Icon(icon, size = TRANSPORT_ICON_SIZE)
+        // aria-hidden: the button's own label already says "Back 10 seconds", and without this a
+        // screen reader appends a bare "10" to it.
+        Span(attrs = {
+            classes("tport-skip-n")
+            attr("aria-hidden", "true")
+        }) { Text(seconds.toString()) }
+    }
+}
+
+/**
+ * A speed as the shortest text that still reads as that speed: `1x`, `1.5x`, `1.25x`.
+ *
+ * Trailing zeros are dropped because the control is 40px wide and "1.00" spends a third of it
+ * saying nothing.
+ */
+internal fun formatSpeed(speed: Float): String {
+    val hundredths = (speed * HUNDREDTHS).roundToInt()
+    val whole = hundredths / HUNDREDTHS
+    val fraction = hundredths % HUNDREDTHS
+    return when {
+        fraction == 0 -> whole.toString()
+        fraction % TENTHS == 0 -> "$whole.${fraction / TENTHS}"
+        else -> "$whole.${fraction.toString().padStart(2, '0')}"
     }
 }
 
@@ -125,9 +210,9 @@ fun PlaybackNotice(
         Span(attrs = { classes("tport-note-t") }) { Text(message) }
         Button(attrs = {
             classes("tport-note-x")
-            attr("type", "button")
-            attr("aria-label", "Dismiss")
-            attr("title", "Dismiss")
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_ARIA_LABEL, "Dismiss")
+            attr(ATTR_TITLE, "Dismiss")
             onClick { onDismiss() }
         }) {
             Icon(WebIcon.X, size = NOTICE_ICON_SIZE)
@@ -173,3 +258,17 @@ private const val STEP_MS = 1_000L
 private const val TRANSPORT_ICON_SIZE = 18
 
 private const val NOTICE_ICON_SIZE = 15
+
+/** Attribute names, named once: four buttons in this file set the same three. */
+private const val ATTR_TYPE = "type"
+
+private const val ATTR_ARIA_LABEL = "aria-label"
+
+private const val ATTR_TITLE = "title"
+
+private const val VALUE_BUTTON = "button"
+
+/** A speed is carried as hundredths so the ladder's quarter steps stay exact in integer maths. */
+private const val HUNDREDTHS = 100
+
+private const val TENTHS = 10
