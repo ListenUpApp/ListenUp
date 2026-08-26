@@ -336,6 +336,7 @@ object SwiftExportSourcePatcher {
      */
     internal val expectedSealedSubtypeCounts: Map<String, Int> =
         mapOf(
+            "com.calypsan.listenup.api.dto.organize.OrganizeRunEvent" to 4,
             "com.calypsan.listenup.client.data.repository.ShortcutAction" to 8,
             "com.calypsan.listenup.client.domain.chapter.DriftResult" to 1,
             "com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult" to 3,
@@ -351,6 +352,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.domain.repository.PlaybackUpdate" to 10,
             "com.calypsan.listenup.client.domain.repository.Reachability" to 3,
             "com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus" to 3,
+            "com.calypsan.listenup.client.domain.repository.UploadStep" to 4,
             "com.calypsan.listenup.client.playback.NowPlayingOverlay" to 5,
             "com.calypsan.listenup.client.playback.NowPlayingState" to 3,
             "com.calypsan.listenup.client.playback.PlaybackState" to 6,
@@ -370,10 +372,13 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.admin.CreateInviteUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent" to 1,
             "com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState" to 3,
+            "com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent" to 2,
+            "com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState" to 4,
             "com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.UserDetailUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState" to 7,
+            "com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState" to 5,
             "com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState" to 7,
             "com.calypsan.listenup.client.presentation.auth.LoginErrorType" to 4,
             "com.calypsan.listenup.client.presentation.auth.LoginUiState" to 4,
