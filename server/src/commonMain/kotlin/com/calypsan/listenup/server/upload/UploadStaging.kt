@@ -9,6 +9,7 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.Uuid
 
 /**
@@ -181,17 +182,32 @@ internal class UploadStaging(
     ): Int {
         val root = paths.uploadsDir
         if (SystemFileSystem.metadataOrNull(root)?.isDirectory != true) return 0
-        var swept = 0
-        for (dir in SystemFileSystem.list(root)) {
-            if (isSymlink(dir)) continue
-            if (SystemFileSystem.metadataOrNull(dir)?.isDirectory != true) continue
-            val modified = statFile(dir)?.mtimeMs ?: continue
-            if (now - modified < maxAge.inWholeMilliseconds) continue
-            logger.info { "sweeping stale upload session ${dir.name} (idle ${(now - modified) / 3_600_000}h)" }
+        // Selecting first, then acting, keeps "which directories are stale" separate from "remove
+        // them" — the predicate reads as the rule it is, rather than as four early exits.
+        val stale =
+            SystemFileSystem
+                .list(root)
+                .filter { it.isStaleSessionDir(now, maxAge) }
+        stale.forEach { dir ->
+            val idleHours = (now - (statFile(dir)?.mtimeMs ?: now)).milliseconds.inWholeHours
+            logger.info { "sweeping stale upload session ${dir.name} (idle ${idleHours}h)" }
             deleteRecursively(dir)
-            swept++
         }
-        return swept
+        return stale.size
+    }
+
+    /**
+     * A staging directory nothing has touched for [maxAge] — and only a real directory: a symlink
+     * here is not ours to follow, and a stray file is not a session.
+     */
+    private fun Path.isStaleSessionDir(
+        now: Long,
+        maxAge: Duration,
+    ): Boolean {
+        if (isSymlink(this)) return false
+        if (SystemFileSystem.metadataOrNull(this)?.isDirectory != true) return false
+        val modified = statFile(this)?.mtimeMs ?: return false
+        return now - modified >= maxAge.inWholeMilliseconds
     }
 
     private companion object {
