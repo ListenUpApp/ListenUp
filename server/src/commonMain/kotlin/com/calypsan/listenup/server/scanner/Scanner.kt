@@ -305,8 +305,14 @@ internal class Scanner(
      *
      * If the bookRoot directory no longer exists, all previously-known
      * books at or under that path are emitted as Removed.
+     *
+     * Returns the subtree-scoped [ScanResult] — books and errors for this subtree only — or null
+     * when the pass was superseded and its result discarded. Callers use it to reconcile state a
+     * scan is supposed to keep true: the fix for a broken folder usually arrives as a file change
+     * the watcher notices, which lands here rather than in a full scan, so returning nothing left
+     * the scan-issue record stale on the *commonest* repair path.
      */
-    suspend fun runIncremental(bookRoot: Path) {
+    suspend fun runIncremental(bookRoot: Path): ScanResult? {
         val correlationId = correlationIdFactory()
         val started = clock()
         logger.info { "incremental scan started: library=${library.id.value} root=$bookRoot corr=$correlationId" }
@@ -422,10 +428,11 @@ internal class Scanner(
                 "incremental scan superseded by a bundle rebuild — dropping stale result " +
                     "[library=${library.id.value}] corr=$correlationId"
             }
-            return
+            return null
         }
         // BookPersister emits ScanEvent.Completed after persisting this incremental result.
         scanResultBus.emit(incrementalResult)
+        return incrementalResult
     }
 
     /**

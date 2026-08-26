@@ -205,12 +205,22 @@ fun scannerModule(
                                     )
                                 }
                             },
-                            // NOT reconciled: `runIncremental` returns Unit, so there is no result
-                            // to reconcile against. A folder fixed on disk and picked up only by the
-                            // watcher therefore keeps its issue until the next full scan (or an
-                            // admin dismisses it). Giving the incremental path a ScanResult is the
-                            // fix, and it is a scanner-shape change rather than a wiring one.
-                            runIncremental = { scanner.runIncremental(it) },
+                            runIncremental = { path ->
+                                // The commonest repair path: the user fixes a folder on disk and
+                                // the watcher re-analyses just that subtree. Reconciling here is
+                                // what stops a fixed book sitting in the inbox forever. Null means
+                                // the pass was superseded — its result is stale, so it says nothing
+                                // about the current state and must not clear anything.
+                                scanner.runIncremental(path)?.let { result ->
+                                    getOrNull<ScanIssueRepository>()?.reconcile(
+                                        libraryId = library.id,
+                                        folderRoots = library.folders.mapNotNull { it.rootPath },
+                                        importedRelPaths = result.books.map { it.candidate.rootRelPath },
+                                        errors = result.errors,
+                                    )
+                                }
+                                Unit
+                            },
                             scope = scope,
                         )
                     ScannerBundle(library, scanner, coordinator)
