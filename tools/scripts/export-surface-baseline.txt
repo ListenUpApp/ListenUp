@@ -221,7 +221,6 @@ GenreId
 GenreIdentity
 GenreRepository
 GenreShare
-GenreShareBar
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
@@ -333,6 +332,19 @@ NowPlayingOverlay
 NowPlayingScreenState
 NowPlayingState
 NowPlayingViewModel
+OrganizeAuthorForm
+OrganizePreset
+OrganizePreviewDto
+OrganizePreviewEntryDto
+OrganizeRepository
+OrganizeRunEvent
+OrganizeRunId
+OrganizeRunProgress
+OrganizeSeriesPrefix
+OrganizeSettingsDto
+OrganizeSettingsEvent
+OrganizeSettingsUiState
+OrganizeSettingsViewModel
 PasswordChange
 PasswordResetRepository
 PasswordResetRequest
@@ -399,6 +411,8 @@ RoleSection
 RoleWithBookCount
 RpcCacheInvalidator
 ScanBookRef
+ScanIssue
+ScanIssueReason
 ScanProgressState
 SearchFacets
 SearchHit
@@ -502,6 +516,14 @@ ThemeMode
 TimelineFileInput
 Timestamp
 TitleSortUtils
+UploadBooksUiState
+UploadBooksViewModel
+UploadCandidate
+UploadFinalizeResult
+UploadRepository
+UploadStep
+UploadedBook
+UploadedBookStatus
 User
 UserDetailUiState
 UserDetailViewModel
@@ -519,5 +541,4 @@ VerifiedServer
 VoiceHints
 VoiceIntentResolver
 VolumeGain
-WeekChartColumn
 WeeklyStats
