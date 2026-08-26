@@ -36,7 +36,7 @@ final class AdminSettingsObserver {
     func reload() { viewModel.loadSettings() }
     func setServerName(_ name: String) { viewModel.setServerName(name: name) }
     func setRemoteUrl(_ url: String) { viewModel.setRemoteUrl(url: url) }
-    func setInboxEnabled(_ enabled: Bool) { viewModel.setInboxEnabled(enabled: enabled) }
+    func setHoldNewBooksForReview(_ enabled: Bool) { viewModel.setHoldNewBooksForReview(enabled: enabled) }
 
     func setPushNotificationsEnabled(_ enabled: Bool) { viewModel.setPushNotificationsEnabled(enabled: enabled) }
     func save() { viewModel.saveAll() }
@@ -72,7 +72,7 @@ enum AdminSettingsPhase: Equatable {
 struct AdminSettingsReadyModel: Equatable {
     let serverName: String
     let remoteUrl: String
-    let inboxEnabled: Bool
+    let holdNewBooksForReview: Bool
     let pushNotificationsEnabled: Bool
     let isDirty: Bool
     let isSaving: Bool
@@ -85,7 +85,7 @@ struct AdminSettingsReadyModel: Equatable {
         AdminSettingsReadyModel(
             serverName: ready.serverName,
             remoteUrl: ready.remoteUrl,
-            inboxEnabled: ready.inboxEnabled,
+            holdNewBooksForReview: ready.holdNewBooksForReview,
             pushNotificationsEnabled: ready.pushNotificationsEnabled,
             isDirty: ready.isDirty,
             isSaving: ready.isSaving,
