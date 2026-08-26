@@ -29,7 +29,8 @@ struct AdminInboxPhaseTests {
             selectedBookIds: ["b1"],
             isReleasing: true,
             lastReleasedCount: 3,
-            error: "partial"
+            error: "partial",
+            scanIssues: []
         )
         guard case .ready(let model) = AdminInboxObserver.phase(from: state) else {
             Issue.record("expected .ready")
@@ -54,7 +55,8 @@ struct AdminInboxPhaseTests {
             selectedBookIds: [],
             isReleasing: false,
             lastReleasedCount: nil,
-            error: nil
+            error: nil,
+            scanIssues: []
         )
         guard case .ready(let model) = AdminInboxObserver.phase(from: state) else {
             Issue.record("expected .ready")
@@ -77,7 +79,8 @@ struct AdminInboxPhaseTests {
             selectedBookIds: ["b1", "b2"],
             isReleasing: false,
             lastReleasedCount: nil,
-            error: nil
+            error: nil,
+            scanIssues: []
         )
         guard case .ready(let model) = AdminInboxObserver.phase(from: state) else {
             Issue.record("expected .ready")
