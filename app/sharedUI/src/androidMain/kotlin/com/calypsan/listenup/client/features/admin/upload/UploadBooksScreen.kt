@@ -40,6 +40,7 @@ import com.calypsan.listenup.api.dto.uploads.UploadLimits
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
@@ -142,6 +143,13 @@ fun UploadBooksScreen(
     val pickFiles = rememberUploadFilePicker(::offer)
 
     val busy = state is UploadBooksUiState.Uploading || state is UploadBooksUiState.Finalizing
+
+    // Hiding the toolbar arrow while busy stops one way out; the back GESTURE is the other, and
+    // it fires from an edge touch as easily as from intent. Without this, forty minutes into an
+    // upload a reflexive swipe pops the entry, clears the ViewModel, cancels the collector and
+    // abandons the session — every staged byte gone, with no confirmation and no notice. Swallow
+    // it: Cancel is the deliberate way to stop, and it says what it does.
+    PlatformBackHandler(enabled = busy) { /* deliberately inert while a transfer is in flight */ }
 
     ListenUpScaffold(
         topBar = {

@@ -8,9 +8,13 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.core.AndroidFileSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -55,13 +59,21 @@ fun rememberUploadFilePicker(onPicked: (List<UploadCandidate>) -> Unit): () -> U
 @Composable
 fun rememberUploadFolderPicker(onPicked: (List<UploadCandidate>) -> Unit): () -> Unit {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->
             if (treeUri == null) {
                 onPicked(emptyList())
                 return@rememberLauncherForActivityResult
             }
-            onPicked(context.contentResolver.candidatesUnderTree(treeUri))
+            // The walk costs one binder round-trip to the DocumentsProvider PER DIRECTORY. A real
+            // audiobook folder is hundreds of directories, and a cloud-backed or SD-card provider
+            // can take 10-100ms each — comfortably an ANR if this ran where the result callback
+            // lands, which is the main thread.
+            scope.launch {
+                val candidates = withContext(Dispatchers.IO) { context.contentResolver.candidatesUnderTree(treeUri) }
+                onPicked(candidates)
+            }
         }
     return { launcher.launch(null) }
 }
@@ -100,16 +112,51 @@ private fun ContentResolver.candidatesUnderTree(treeUri: Uri): List<UploadCandid
             ?: return emptyList()
 
     val candidates = mutableListOf<UploadCandidate>()
-    collectInto(candidates, treeUri, rootId, rootName)
+    // Iterative, not recursive: a directory's cursor is closed before its children are visited,
+    // so the walk holds one CursorWindow at a time instead of one per level of depth.
+    val queue = ArrayDeque(listOf(rootId to rootName))
+    // A DocumentsProvider is free to expose a cyclic tree (symlinked storage, third-party
+    // providers). Recursion had no defence and would run until StackOverflow; the file cap in the
+    // screen is checked only after the walk returns, so it bounded nothing here.
+    val visited = mutableSetOf(rootId)
+
+    while (queue.isNotEmpty()) {
+        val (documentId, prefix) = queue.removeFirst()
+        for (child in childrenOf(treeUri, documentId)) {
+            val relPath = "$prefix/${child.name}"
+            if (child.isDirectory) {
+                if (visited.add(child.documentId)) queue.addLast(child.documentId to relPath)
+            } else {
+                candidates +=
+                    UploadCandidate(
+                        relPath = relPath,
+                        source =
+                            AndroidFileSource(
+                                contentResolver = this,
+                                uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, child.documentId),
+                                filename = child.name,
+                                size = child.size,
+                            ),
+                    )
+            }
+        }
+    }
     return candidates
 }
 
-private fun ContentResolver.collectInto(
-    into: MutableList<UploadCandidate>,
+/** One entry under a tree directory. */
+private data class TreeChild(
+    val documentId: String,
+    val name: String,
+    val isDirectory: Boolean,
+    val size: Long?,
+)
+
+/** Reads one directory's children and closes its cursor before returning. */
+private fun ContentResolver.childrenOf(
     treeUri: Uri,
     documentId: String,
-    prefix: String,
-) {
+): List<TreeChild> {
     val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
     val cursor =
         try {
@@ -117,30 +164,21 @@ private fun ContentResolver.collectInto(
         } catch (e: SecurityException) {
             logger.warn(e) { "no permission to list $documentId under $treeUri" }
             null
-        } ?: return
+        } ?: return emptyList()
 
-    cursor.use {
-        while (it.moveToNext()) {
-            val childId = it.getString(0) ?: continue
-            val name = it.getString(1) ?: continue
-            val mimeType = it.getString(2)
-            val size = if (it.isNull(3)) null else it.getLong(3)
-            val relPath = "$prefix/$name"
-
-            if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
-                collectInto(into, treeUri, childId, relPath)
-            } else {
-                into +=
-                    UploadCandidate(
-                        relPath = relPath,
-                        source =
-                            AndroidFileSource(
-                                contentResolver = this,
-                                uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId),
-                                filename = name,
-                                size = size,
-                            ),
-                    )
+    return cursor.use {
+        buildList {
+            while (it.moveToNext()) {
+                val childId = it.getString(0) ?: continue
+                val name = it.getString(1) ?: continue
+                add(
+                    TreeChild(
+                        documentId = childId,
+                        name = name,
+                        isDirectory = it.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                        size = if (it.isNull(3)) null else it.getLong(3),
+                    ),
+                )
             }
         }
     }

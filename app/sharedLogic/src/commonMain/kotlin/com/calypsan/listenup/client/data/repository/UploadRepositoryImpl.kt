@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.uploads.UploadFinalizeResult
+import com.calypsan.listenup.api.dto.uploads.UploadSessionSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.UploadApiContract
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
@@ -8,12 +9,27 @@ import com.calypsan.listenup.client.domain.repository.UploadRepository
 import com.calypsan.listenup.client.domain.repository.UploadStep
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * How many times one file may be sent before the session gives up on it.
+ *
+ * The session is the expensive thing: by file 480 of 500 there are tens of gigabytes staged, and
+ * throwing all of it away over one dropped packet is a far worse answer than sending that file
+ * again. Bounded, because retrying forever is its own failure mode — a server that will never
+ * accept this file should be discovered in seconds, not never.
+ */
+internal const val MAX_FILE_ATTEMPTS: Int = 3
+
+/** Grows between attempts so a brief outage isn't met with three requests inside a second. */
+private val RETRY_BACKOFF = listOf(1.seconds, 4.seconds)
 
 /**
  * Production [UploadRepository] — the session state machine over [UploadApiContract].
@@ -75,7 +91,19 @@ internal class UploadRepositoryImpl(
         sessionId: String,
         candidates: List<UploadCandidate>,
     ): Boolean {
-        val totalBytes = candidates.sumOf { it.source.size ?: 0L }
+        // A single unknown size makes the whole total a lie: that file's real bytes still land in
+        // `bytesSent`, so the bar climbs past the total, pins at 100% while data is still moving,
+        // then snaps backwards at the file boundary. Unknown sizes are ordinary — cloud-backed SAF
+        // providers return no size — so an honest indeterminate bar beats a confident wrong one.
+        val totalBytes =
+            if (candidates.any {
+                    it.source.size == null
+                }
+            ) {
+                0L
+            } else {
+                candidates.sumOf { it.source.size ?: 0L }
+            }
         var completedBytes = 0L
 
         candidates.forEachIndexed { index, candidate ->
@@ -90,16 +118,14 @@ internal class UploadRepositoryImpl(
             )
 
             val uploaded =
-                api.uploadFile(
-                    sessionId = sessionId,
-                    relPath = candidate.relPath,
-                    source = candidate.source,
-                ) { sent, _ ->
+                sendWithRetry(sessionId, candidate) { sent ->
                     send(
                         UploadStep.Staging(
                             fileIndex = index,
                             fileCount = candidates.size,
                             filename = candidate.source.filename,
+                            // A retry restarts `sent` at zero, so progress rewinds to the start of
+                            // this file rather than double-counting the bytes of the failed try.
                             bytesSent = completedBytes + sent,
                             totalBytes = totalBytes,
                         ),
@@ -129,6 +155,40 @@ internal class UploadRepositoryImpl(
                 send(UploadStep.Done(finalized.data))
                 true
             }
+        }
+    }
+
+    /**
+     * Sends one file, retrying a *retryable* failure up to [MAX_FILE_ATTEMPTS] times.
+     *
+     * Honours the error's own contract: `isRetryable` exists to say "re-firing this exact call is
+     * the right response", and nothing else in the stack acts on it for an upload — Ktor's
+     * `HttpRequestRetry` covers idempotent methods only, and these are POSTs. A failure the server
+     * calls non-retryable (a quota breach, a dead session) is returned immediately; sending it
+     * again would only fail the same way.
+     */
+    private suspend fun sendWithRetry(
+        sessionId: String,
+        candidate: UploadCandidate,
+        onProgress: suspend (Long) -> Unit,
+    ): AppResult<UploadSessionSummary> {
+        var attempt = 1
+        while (true) {
+            val result =
+                api.uploadFile(
+                    sessionId = sessionId,
+                    relPath = candidate.relPath,
+                    source = candidate.source,
+                ) { sent, _ -> onProgress(sent) }
+            if (result is AppResult.Success) return result
+
+            val error = (result as AppResult.Failure).error
+            if (!error.isRetryable || attempt >= MAX_FILE_ATTEMPTS) return result
+            logger.info {
+                "upload of ${candidate.relPath} failed (attempt $attempt/$MAX_FILE_ATTEMPTS): ${error.code} — retrying"
+            }
+            delay(RETRY_BACKOFF[(attempt - 1).coerceAtMost(RETRY_BACKOFF.lastIndex)])
+            attempt++
         }
     }
 

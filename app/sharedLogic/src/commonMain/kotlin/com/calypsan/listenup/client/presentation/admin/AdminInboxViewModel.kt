@@ -209,7 +209,13 @@ class AdminInboxViewModel internal constructor(
                                 )
                             }
                         }
-                    updateReady { it.copy(books = books) }
+                    // Filter against the CURRENT id-set, not the one this collector was started
+                    // with. Releasing a book prunes `bookIds` without restarting hydration, and a
+                    // released book is not deleted from Room — so the next Room invalidation (a
+                    // cover download, a position write, any sync) would otherwise recompute over
+                    // the stale list and put released books straight back in the grid, disagreeing
+                    // with the header count and with what `selectAll` selects.
+                    updateReady { ready -> ready.copy(books = books.filter { it.id in ready.bookIds }) }
                 }
             }
     }

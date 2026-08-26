@@ -49,8 +49,11 @@ class UploadRepositoryImplTest :
             private val finalizeResult: AppResult<UploadFinalizeResult> =
                 AppResult.Success(UploadFinalizeResult(books = emptyList())),
             private val progressChunks: List<Long> = emptyList(),
+            /** relPath -> how many leading attempts should fail before it succeeds. */
+            private val transientFailures: Map<String, Int> = emptyMap(),
         ) : UploadApiContract {
             val uploadedRelPaths = mutableListOf<String>()
+            val attemptsPerPath = mutableMapOf<String, Int>()
             var abandonCount = 0
             var finalizeCount = 0
 
@@ -63,7 +66,12 @@ class UploadRepositoryImplTest :
                 onProgress: suspend (Long, Long?) -> Unit,
             ): AppResult<UploadSessionSummary> {
                 uploadedRelPaths += relPath
+                val attempt = (attemptsPerPath[relPath] ?: 0) + 1
+                attemptsPerPath[relPath] = attempt
                 progressChunks.forEach { onProgress(it, source.size) }
+                transientFailures[relPath]?.let { failFor ->
+                    if (attempt <= failFor) return AppResult.Failure(UploadError.FileTransferFailed())
+                }
                 return uploadResults[relPath]
                     ?: AppResult.Success(UploadSessionSummary(sessionId, uploadedRelPaths.size, 0))
             }
@@ -149,8 +157,11 @@ class UploadRepositoryImplTest :
                             listOf(candidate("01.m4b", 10), candidate("02.m4b", 10), candidate("03.m4b", 10)),
                         ).toList()
 
-                withClue("a dead transfer must not keep pushing the remaining files at it") {
-                    api.uploadedRelPaths shouldContainExactly listOf("01.m4b", "02.m4b")
+                withClue("a dead transfer must not keep pushing the REMAINING files at it") {
+                    api.uploadedRelPaths.distinct() shouldContainExactly listOf("01.m4b", "02.m4b")
+                }
+                withClue("but the failing file itself is retried before the session is given up") {
+                    api.attemptsPerPath["02.m4b"] shouldBe MAX_FILE_ATTEMPTS
                 }
                 api.finalizeCount shouldBe 0
                 withClue("the staged bytes are ours to clean up — nothing else will") {
@@ -215,6 +226,57 @@ class UploadRepositoryImplTest :
                     steps shouldContainExactly
                         listOf(UploadStep.Done(UploadFinalizeResult(books = emptyList())))
                 }
+            }
+        }
+        test("retries a retryable file failure instead of throwing the whole session away") {
+            runTest {
+                // One hiccup on the second file, then it succeeds. UploadError.FileTransferFailed
+                // declares isRetryable = true and promises "the session's other files are
+                // untouched" — abandoning 479 staged files over one dropped packet made that
+                // promise a lie and the per-file architecture pointless.
+                val api = RecordingApi(transientFailures = mapOf("02.m4b" to 1))
+
+                val steps =
+                    UploadRepositoryImpl(api)
+                        .upload(listOf(candidate("01.m4b", 10), candidate("02.m4b", 10), candidate("03.m4b", 10)))
+                        .toList()
+
+                api.attemptsPerPath["02.m4b"] shouldBe 2
+                withClue("every file must still land, and the session must survive the hiccup") {
+                    api.finalizeCount shouldBe 1
+                    api.abandonCount shouldBe 0
+                }
+                steps.last().shouldBeInstanceOf<UploadStep.Done>()
+            }
+        }
+
+        test("gives up on a file that keeps failing, and only then abandons") {
+            runTest {
+                val api = RecordingApi(transientFailures = mapOf("01.m4b" to Int.MAX_VALUE))
+
+                val steps = UploadRepositoryImpl(api).upload(listOf(candidate("01.m4b", 10))).toList()
+
+                withClue("retrying forever is its own failure mode") {
+                    api.attemptsPerPath["01.m4b"] shouldBe MAX_FILE_ATTEMPTS
+                }
+                api.abandonCount shouldBe 1
+                steps.last().shouldBeInstanceOf<UploadStep.Failed>()
+            }
+        }
+
+        test("does not retry a failure the server says is not retryable") {
+            runTest {
+                val api =
+                    RecordingApi(
+                        uploadResults = mapOf("01.m4b" to AppResult.Failure(UploadError.SessionTooLarge())),
+                    )
+
+                UploadRepositoryImpl(api).upload(listOf(candidate("01.m4b", 10))).toList()
+
+                withClue("re-sending a file that broke the quota just breaks it again") {
+                    api.attemptsPerPath["01.m4b"] shouldBe 1
+                }
+                api.abandonCount shouldBe 1
             }
         }
     })
