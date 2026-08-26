@@ -256,7 +256,10 @@ class ScannerTest :
 
                     result.books.map { it.candidate.rootRelPath } shouldBe listOf("Author/Real Book")
                     result.errors.size shouldBe 1
-                    val error = result.errors.single().shouldBeInstanceOf<ScanError.FileUnreadable>()
+                    // A folder holding no audio is NOT an unreadable file, and saying so sent people
+                    // to check permissions on a folder that just needed audio in it. The two ask the
+                    // user for different things, so they are different errors.
+                    val error = result.errors.single().shouldBeInstanceOf<ScanError.NoRecognizedAudio>()
                     // The error names the failing book's own directory, not the library root.
                     error.path shouldBe fixture.root.resolve("Author/Coverless").toString()
                 }

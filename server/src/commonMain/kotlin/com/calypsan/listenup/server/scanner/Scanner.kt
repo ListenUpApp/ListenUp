@@ -674,10 +674,14 @@ internal class Scanner(
             (t as? BookAnalysisFailure)
                 ?.let { Path(folderRoot, it.rootRelPath).toString() }
                 ?: folderRoot.toString()
-        return ScanError.FileUnreadable(
-            path = path,
-            debugInfo = t.message ?: "unknown error",
-        )
+        val detail = t.message ?: "unknown error"
+        // A folder with no audio is the commonest real case by far, and it is not an unreadable
+        // file. Flattening every failure into FileUnreadable told every user the same wrong story.
+        return if ((t as? BookAnalysisFailure)?.cause is NoRecognizedAudio) {
+            ScanError.NoRecognizedAudio(path = path, debugInfo = detail)
+        } else {
+            ScanError.FileUnreadable(path = path, debugInfo = detail)
+        }
     }
 }
 

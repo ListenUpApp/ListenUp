@@ -199,6 +199,7 @@ fun scannerModule(
                                     // the scan that just looked is what should say so.
                                     getOrNull<ScanIssueRepository>()?.reconcile(
                                         libraryId = library.id,
+                                        folderRoots = library.folders.mapNotNull { it.rootPath },
                                         importedRelPaths = result.books.map { it.candidate.rootRelPath },
                                         errors = result.errors,
                                     )

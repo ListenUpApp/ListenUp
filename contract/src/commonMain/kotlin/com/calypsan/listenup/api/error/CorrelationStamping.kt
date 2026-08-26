@@ -153,6 +153,7 @@ private fun ScanError.withCorrelationId(id: String?): ScanError =
         is ScanError.AlreadyRunning -> copy(correlationId = id)
         is ScanError.LibraryPathNotConfigured -> copy(correlationId = id)
         is ScanError.LibraryPathNotFound -> copy(correlationId = id)
+        is ScanError.NoRecognizedAudio -> copy(correlationId = id)
         is ScanError.FileUnreadable -> copy(correlationId = id)
         is ScanError.MetadataParseError -> copy(correlationId = id)
         is ScanError.TitleInferenceError -> copy(correlationId = id)

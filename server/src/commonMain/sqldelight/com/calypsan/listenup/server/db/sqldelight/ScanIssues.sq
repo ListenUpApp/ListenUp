@@ -31,7 +31,13 @@ VALUES (:id, :library_id, :root_rel_path, :reason, :detail, :seen_at, :seen_at, 
 
 refresh:
 UPDATE scan_issues
-SET reason = :reason, detail = :detail, last_seen_at = :seen_at, dismissed_at = NULL
+SET reason = :reason,
+    detail = :detail,
+    last_seen_at = :seen_at,
+    -- A dismissal is scoped to (path, reason). The same folder failing the same way is the thing
+    -- the user already told us to stop reporting, so it stays hidden; a DIFFERENT failure is new
+    -- information and comes back. The CASE reads the pre-update reason, which is what we compare.
+    dismissed_at = CASE WHEN reason = :reason THEN dismissed_at ELSE NULL END
 WHERE library_id = :library_id AND root_rel_path = :root_rel_path;
 
 -- Open issues for a library, oldest first.
@@ -40,6 +46,12 @@ SELECT id, root_rel_path, reason, detail, first_seen_at, last_seen_at
 FROM scan_issues
 WHERE library_id = :library_id AND dismissed_at IS NULL
 ORDER BY first_seen_at ASC;
+
+-- Every path this library holds an issue against, dismissed ones included. Read once per
+-- reconcile so a clean scan of N books costs one query rather than N delete transactions —
+-- the set is almost always empty, and a 1,198-book library should not pay per book for that.
+selectAllPaths:
+SELECT root_rel_path FROM scan_issues WHERE library_id = :library_id;
 
 -- Clears the issue for a path that has now scanned cleanly. The row goes entirely rather than
 -- being marked dismissed: the problem is gone, not acknowledged.

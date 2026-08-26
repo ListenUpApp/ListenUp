@@ -243,10 +243,19 @@ private fun AuthError.toHttpStatus(): HttpStatusCode =
 private fun ScanError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ScanError.AlreadyRunning -> HttpStatusCode.Conflict
+
         is ScanError.LibraryPathNotConfigured -> HttpStatusCode.ServiceUnavailable
+
         is ScanError.LibraryPathNotFound -> HttpStatusCode.ServiceUnavailable
+
+        // Not a server fault: the folder simply holds no audio. 422 says "I understood the
+        // request and the content is unusable", which is exactly the situation.
+        is ScanError.NoRecognizedAudio -> HttpStatusCode.UnprocessableEntity
+
         is ScanError.FileUnreadable -> HttpStatusCode.InternalServerError
+
         is ScanError.MetadataParseError -> HttpStatusCode.InternalServerError
+
         is ScanError.TitleInferenceError -> HttpStatusCode.InternalServerError
     }
 

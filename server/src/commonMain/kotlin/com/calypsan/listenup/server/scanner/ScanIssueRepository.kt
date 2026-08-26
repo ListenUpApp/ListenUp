@@ -101,6 +101,15 @@ class ScanIssueRepository(
                 }
         }
 
+    /** Every path this library holds an issue against, dismissed ones included. */
+    suspend fun pathsWithIssues(libraryId: LibraryId): Set<String> =
+        suspendTransaction(db) {
+            db.scanIssuesQueries
+                .selectAllPaths(libraryId.value)
+                .executeAsList()
+                .toSet()
+        }
+
     override suspend fun dismiss(issueId: String) {
         suspendTransaction(db) {
             db.scanIssuesQueries.dismissById(
@@ -130,6 +139,7 @@ private fun String.toReason(): ScanIssueReason =
  */
 fun ScanError.toIssueReason(): ScanIssueReason =
     when (this) {
+        is ScanError.NoRecognizedAudio -> ScanIssueReason.NO_RECOGNIZED_AUDIO
         is ScanError.FileUnreadable -> ScanIssueReason.FILE_UNREADABLE
         is ScanError.MetadataParseError -> ScanIssueReason.METADATA_PARSE_FAILED
         is ScanError.TitleInferenceError -> ScanIssueReason.TITLE_INFERENCE_FAILED
@@ -145,6 +155,7 @@ fun ScanError.toIssueReason(): ScanIssueReason =
  */
 fun ScanError.issuePathOrNull(): String? =
     when (this) {
+        is ScanError.NoRecognizedAudio -> path
         is ScanError.FileUnreadable -> path
         is ScanError.MetadataParseError -> path
         is ScanError.TitleInferenceError -> path
@@ -152,21 +163,59 @@ fun ScanError.issuePathOrNull(): String? =
     }
 
 /**
+ * The path a [ScanError] blames, expressed the way the user's own directory tree reads.
+ *
+ * The scanner reports failures against **absolute** paths (`Scanner.toScanError` joins the folder
+ * root onto the book's relative path) while it reports imports against **library-relative** ones.
+ * Those two path spaces must be reconciled somewhere or the record never matches the library, and
+ * `clear` silently no-ops forever while appearing to work — so it is reconciled here, once, at the
+ * only point that sees both.
+ *
+ * Falls back to the absolute path when no root contains it. An ugly path in the list beats a
+ * failure that vanished because it could not be placed.
+ */
+internal fun relativizeToRoot(
+    absolutePath: String,
+    folderRoots: List<String>,
+): String =
+    folderRoots
+        .asSequence()
+        .map { it.trimEnd('/') }
+        // Longest root first: with nested roots, the deeper one is the more specific answer.
+        .sortedByDescending { it.length }
+        .firstOrNull { absolutePath.startsWith("$it/") }
+        ?.let { absolutePath.removePrefix("$it/") }
+        ?: absolutePath
+
+/**
  * Brings the issue record in line with what a completed scan just found.
  *
- * Order matters: clears first, then records. A folder that failed and now imports must lose its
- * issue, and doing the clears afterwards could wipe a fresh issue recorded in the same pass for a
- * path that appears in both lists.
+ * Clears first, then records: a folder that failed and now imports must lose its issue, and doing
+ * the clears afterwards could wipe a fresh issue recorded in the same pass for a path appearing in
+ * both lists.
+ *
+ * The clear reads the issue set once and intersects, rather than issuing a delete per imported
+ * book. The set is nearly always empty, and a 1,198-book library should not pay 1,198 write
+ * transactions per scan to discover that.
  */
 suspend fun ScanIssueRepository.reconcile(
     libraryId: LibraryId,
+    folderRoots: List<String>,
     importedRelPaths: List<String>,
     errors: List<ScanError>,
 ) {
-    importedRelPaths.forEach { clear(libraryId, it) }
+    val recorded = pathsWithIssues(libraryId)
+    if (recorded.isNotEmpty()) {
+        importedRelPaths.asSequence().filter { it in recorded }.forEach { clear(libraryId, it) }
+    }
     errors.forEach { error ->
-        error.issuePathOrNull()?.let { path ->
-            record(libraryId, path, error.toIssueReason(), error.debugInfo)
+        error.issuePathOrNull()?.let { absolute ->
+            record(
+                libraryId = libraryId,
+                rootRelPath = relativizeToRoot(absolute, folderRoots),
+                reason = error.toIssueReason(),
+                detail = error.debugInfo,
+            )
         }
     }
 }

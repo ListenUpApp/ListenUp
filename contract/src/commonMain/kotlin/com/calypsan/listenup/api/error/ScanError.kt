@@ -47,6 +47,27 @@ sealed interface ScanError : AppError {
         override val isRetryable: Boolean = false
     }
 
+    /**
+     * A folder held nothing the scanner recognises as audio. The scan continues; this lands in
+     * `ScanResult.errors`.
+     *
+     * Distinct from [FileUnreadable] because the two ask the user for different things: this one
+     * wants files added (or the folder left alone), while an unreadable file wants permissions
+     * looked at. Reporting both as "could not be read" — which is what the scanner did before this
+     * existed — sends people to check permissions on a folder that simply has no audio in it.
+     */
+    @Serializable
+    @SerialName("ScanError.NoRecognizedAudio")
+    data class NoRecognizedAudio(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+        val path: String,
+    ) : ScanError {
+        override val message: String = "No audio files were found in this folder."
+        override val code: String = "SCAN_NO_RECOGNIZED_AUDIO"
+        override val isRetryable: Boolean = false
+    }
+
     /** Walker / Analyzer hit an unreadable file. The scan continues; this lands in `ScanResult.errors`. */
     @Serializable
     @SerialName("ScanError.FileUnreadable")
