@@ -44,8 +44,8 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -151,7 +151,19 @@ class PlaybackPreparerBackgroundDownloadGateTest :
 
         // Device B: a coarse-pointer mobile browser classifies as DeviceType.Phone, same as a real
         // phone — that IS the bug: form factor alone must not be trusted to imply downloadability.
-        fun buildPreparer(downloadService: DownloadService): PlaybackPreparer {
+        // The scope is a parameter, not a hardcoded `CoroutineScope(Job())`, because the thing
+        // under test is a fire-and-forget `scope.launch`. A real scope runs it on
+        // Dispatchers.Default, concurrently with the assertion — a footrace the test wins on a
+        // many-core machine and loses roughly two runs in five on a 2-core CI runner.
+        //
+        // Callers pass the `TestScope` itself, so the launch becomes a CHILD of the test
+        // coroutine and `advanceUntilIdle()` runs it. Note `backgroundScope` does NOT work here:
+        // it is for work the test deliberately does not wait for, and the verify still observed
+        // nothing — measured, not assumed (0/10 on two cores).
+        fun buildPreparer(
+            downloadService: DownloadService,
+            scope: CoroutineScope,
+        ): PlaybackPreparer {
             val localPreferences: LocalPreferences = mock()
             every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
 
@@ -181,7 +193,7 @@ class PlaybackPreparerBackgroundDownloadGateTest :
                 downloadService = downloadService,
                 prepareRepository = prepareRepository,
                 channel = RpcChannel.forTest(mock<BookService>()),
-                scope = CoroutineScope(Job()),
+                scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
                 localPreferences = localPreferences,
             )
@@ -197,13 +209,15 @@ class PlaybackPreparerBackgroundDownloadGateTest :
                 everySuspend { downloadService.getLocalPath(any()) } returns null
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
 
-                val preparer = buildPreparer(downloadService)
+                val preparer = buildPreparer(downloadService, this)
 
                 preparer.prepare(bookId).shouldNotBeNull()
 
                 // The gate is checked synchronously, before the fire-and-forget scope.launch that
-                // would otherwise call downloadBook() — so no dispatcher advance is needed to prove
-                // it was never even attempted.
+                // would otherwise call downloadBook(). Settling the scheduler anyway is what makes
+                // this a real proof of absence: without it, "never called" and "not called YET"
+                // are the same observation.
+                advanceUntilIdle()
                 verifySuspend(VerifyMode.not) { downloadService.downloadBook(any()) }
             }
         }
@@ -217,10 +231,14 @@ class PlaybackPreparerBackgroundDownloadGateTest :
                 everySuspend { downloadService.downloadBook(any()) } returns
                     AppResult.Success(DownloadOutcome.AlreadyDownloaded)
 
-                val preparer = buildPreparer(downloadService)
+                val preparer = buildPreparer(downloadService, this)
 
                 preparer.prepare(bookId).shouldNotBeNull()
 
+                // The download is launched, not awaited, so `prepare` returning proves nothing
+                // about it yet. Settle the scheduler first; asserting straight after the call was
+                // a race that passed locally and failed roughly two runs in five on two cores.
+                advanceUntilIdle()
                 verifySuspend(VerifyMode.exactly(1)) { downloadService.downloadBook(any()) }
             }
         }
