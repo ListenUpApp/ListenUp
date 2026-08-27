@@ -1136,6 +1136,22 @@ body { margin: 0; }
 }
 .luw .shelf-book-x:hover { background: var(--surface-2); color: var(--coral); }
 
+/* A refused mutation, said out loud. Sits above the shelf rather than over it: the shelf is still
+   usable, and a message that blocks it would be a bigger interruption than the failure warrants. */
+.luw .shelf-notice {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.7rem 1rem; border-radius: 12px;
+  background: var(--coral-soft); border: 1px solid var(--coral-ring);
+  font-size: 0.88rem; font-weight: 600; color: var(--coral);
+}
+.luw .shelf-notice-t { flex: 1; min-width: 0; }
+.luw .shelf-notice-x {
+  flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px;
+  background: transparent; color: inherit; cursor: pointer; opacity: 0.75;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.luw .shelf-notice-x:hover { opacity: 1; background: var(--surface-2); }
+
 .luw .shelf-edit { display: flex; flex-direction: column; gap: 1.4rem; max-width: 34rem; }
 .luw .shelf-form { display: flex; flex-direction: column; gap: 1.1rem; }
 .luw .shelf-form-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }

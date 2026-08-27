@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import com.calypsan.listenup.client.presentation.shelf.reorderedBy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -197,6 +204,7 @@ fun ShelfDetailScreen(
                         detail = current.detail,
                         isOwner = current.isOwner,
                         onBookClick = onBookClick,
+                        onReorder = viewModel::reorderBooks,
                     )
                 }
             }
@@ -217,10 +225,45 @@ private fun ShelfDetailContent(
     detail: ShelfDetail,
     isOwner: Boolean,
     onBookClick: (String) -> Unit,
+    onReorder: (List<String>) -> Unit,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var sort by rememberSaveable { mutableStateOf(ShelfBookSort.ADDED_NEWEST) }
     val sortedBooks = sortShelfBooks(detail.books, sort)
+
+    val gridState = rememberLazyGridState()
+    // Reordering is the owner's, and only in Manual — every other sort is a lens over the shelf, so
+    // a drag under one would either fight the sort or rewrite stored order from a view that never
+    // was it. See ShelfBookSort.MANUAL.
+    val canReorder = isOwner && sort == ShelfBookSort.MANUAL
+    var draggingKey by remember(sortedBooks, canReorder) { mutableStateOf<String?>(null) }
+    var dragPosition by remember { mutableStateOf(Offset.Zero) }
+
+    fun dropAt(position: Offset) {
+        val from = draggingKey
+        draggingKey = null
+        if (from == null) return
+        val cells =
+            gridState.layoutInfo.visibleItemsInfo.map { info ->
+                ShelfCellBounds(
+                    key = info.key.toString(),
+                    left = info.offset.x.toFloat(),
+                    top = info.offset.y.toFloat(),
+                    right = (info.offset.x + info.size.width).toFloat(),
+                    bottom = (info.offset.y + info.size.height).toFloat(),
+                )
+            }
+        val targetKey = cellKeyAt(cells, position.x, position.y) ?: return
+        val fromIndex = sortedBooks.indexOfFirst { it.id.value == from }
+        val toIndex = sortedBooks.indexOfFirst { it.id.value == targetKey }
+        // -1 for either means the drop landed on something that is not a book — a header cell, or a
+        // row that scrolled away mid-drag. Neither is a reorder.
+        if (fromIndex < 0 || toIndex < 0) return
+        val reordered = reorderedBy(sortedBooks, fromIndex, toIndex)
+        if (reordered !== sortedBooks) {
+            onReorder(reordered.map { it.id.value })
+        }
+    }
 
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val gridWidth =
@@ -240,11 +283,50 @@ private fun ShelfDetailContent(
     val isWide = gridWidth != ShelfGridWidth.Compact
 
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Adaptive(minSize = 160.dp),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .then(
+                    // After a long press, not on touch: the grid scrolls, and a plain drag gesture
+                    // would take every scroll with it.
+                    if (!canReorder) {
+                        Modifier
+                    } else {
+                        Modifier.pointerInput(sortedBooks) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { offset ->
+                                    dragPosition = offset
+                                    val cells =
+                                        gridState.layoutInfo.visibleItemsInfo.map { info ->
+                                            ShelfCellBounds(
+                                                key = info.key.toString(),
+                                                left = info.offset.x.toFloat(),
+                                                top = info.offset.y.toFloat(),
+                                                right = (info.offset.x + info.size.width).toFloat(),
+                                                bottom = (info.offset.y + info.size.height).toFloat(),
+                                            )
+                                        }
+                                    val key = cellKeyAt(cells, offset.x, offset.y)
+                                    draggingKey =
+                                        key?.takeIf { candidate ->
+                                            sortedBooks.any { it.id.value == candidate }
+                                        }
+                                },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    dragPosition += amount
+                                },
+                                onDragEnd = { dropAt(dragPosition) },
+                                onDragCancel = { draggingKey = null },
+                            )
+                        }
+                    },
+                ),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             ShelfHero(
@@ -278,7 +360,12 @@ private fun ShelfDetailContent(
             }
         } else {
             items(items = sortedBooks, key = { it.id.value }) { book ->
-                ShelfBookGridItem(book = book, onClick = { onBookClick(book.id.value) })
+                ShelfBookGridItem(
+                    book = book,
+                    isLifted = book.id.value == draggingKey,
+                    onClick = { onBookClick(book.id.value) },
+                    modifier = Modifier.animateItem(),
+                )
             }
         }
     }
@@ -533,13 +620,23 @@ private fun ShelfSortPill(
 @Composable
 private fun ShelfBookGridItem(
     book: ShelfBook,
+    isLifted: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    // The lifted card fades rather than follows the finger. Following would be nicer, and is the
+    // obvious next iteration; a card that visibly changes state at least confirms the long press
+    // registered, which is the part a listener cannot otherwise tell.
+    val liftAlpha by animateFloatAsState(if (isLifted) LIFTED_ALPHA else 1f, label = "lift")
     BookCard(
         cover = book.toCoverModel(),
         onClick = onClick,
+        modifier = modifier.alpha(liftAlpha),
     )
 }
+
+/** How far a lifted card fades while it is being dragged. */
+private const val LIFTED_ALPHA = 0.4f
 
 /** Empty-state block shown when the shelf has no books. */
 @Composable

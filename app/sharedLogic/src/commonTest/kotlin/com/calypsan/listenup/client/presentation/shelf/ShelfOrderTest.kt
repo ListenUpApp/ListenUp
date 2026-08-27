@@ -1,4 +1,4 @@
-package com.calypsan.listenup.web.features.shelf
+package com.calypsan.listenup.client.presentation.shelf
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -6,8 +6,8 @@ import io.kotest.matchers.shouldBe
 /**
  * Where a dragged book lands.
  *
- * Worth its own spec rather than being proved through the DOM: the off-by-one in a downward drag
- * is invisible in a screenshot and obvious in a list.
+ * Worth its own spec rather than being proved through any one client: the off-by-one in a downward
+ * drag is invisible in a screenshot and obvious in a list, and every platform asks the same question.
  */
 class ShelfOrderTest :
     FunSpec({
