@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
 import com.calypsan.listenup.web.features.discover.fixedDiscover
@@ -54,12 +56,14 @@ private fun mountGate(graph: FakeAuthGraph): HTMLElement {
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
             openDiscover = fixedDiscover(),
+            openSettings = fixedSettings(),
             openShelfDetail = fixedShelfDetail(),
             openShelfEdit = fixedShelfEdit(),
             openLibrary = fakeLibrary(),
             openSearch = fixedSearch(SearchUiState.Idle()),
             openPlayback = fixedPlayback(),
             observeIsAdmin = { flowOf(false) },
+            observeThemeMode = { flowOf(ThemeMode.SYSTEM) },
         )
     }
     return host

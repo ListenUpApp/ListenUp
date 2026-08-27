@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -18,6 +19,7 @@ import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
 import com.calypsan.listenup.web.features.discover.graphDiscover
 import com.calypsan.listenup.web.features.home.graphHome
+import com.calypsan.listenup.web.features.settings.graphSettings
 import com.calypsan.listenup.web.features.shelf.graphShelfDetail
 import com.calypsan.listenup.web.features.shelf.graphShelfEdit
 import com.calypsan.listenup.web.features.search.graphSearch
@@ -78,11 +80,13 @@ fun main() {
                 openLibrary = graphLibrary(koin),
                 openHome = graphHome(koin),
                 openDiscover = graphDiscover(koin),
+                openSettings = graphSettings(koin),
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),
                 openSearch = graphSearch(koin),
                 openPlayback = graphPlayback(koin),
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
+                observeThemeMode = { koin.get<LocalPreferences>().themeMode },
             )
         }
     }

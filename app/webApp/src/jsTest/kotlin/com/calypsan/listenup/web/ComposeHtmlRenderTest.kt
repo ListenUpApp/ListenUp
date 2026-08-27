@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
 import com.calypsan.listenup.web.features.discover.fixedDiscover
@@ -59,6 +60,7 @@ class ComposeHtmlRenderTest :
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),
+                        fixedSettings(),
                         fixedShelfDetail(),
                         fixedShelfEdit(),
                         fakeLibrary(),
@@ -88,6 +90,7 @@ class ComposeHtmlRenderTest :
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),
+                        fixedSettings(),
                         fixedShelfDetail(),
                         fixedShelfEdit(),
                         fakeLibrary(),
