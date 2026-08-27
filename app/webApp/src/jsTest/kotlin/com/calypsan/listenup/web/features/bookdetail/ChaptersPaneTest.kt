@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
+import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
 import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.home.fixedHome
@@ -58,6 +60,8 @@ class ChaptersPaneTest :
                     fixedContributors(emptyList()),
                     fixedHome(HomeUiState.Loading),
                     fixedDiscover(),
+                    fixedShelfDetail(),
+                    fixedShelfEdit(),
                     fakeLibrary(),
                     fixedSearch(SearchUiState.Idle()),
                     fixedPlayback(),

@@ -1095,6 +1095,86 @@ body { margin: 0; }
 }
 .luw .home-status-fill { height: 100%; border-radius: 99px; background: var(--coral); }
 
+/* ---- Shelves — one shelf's books, and the form that makes or changes a shelf. */
+.luw .shelf { display: flex; flex-direction: column; gap: 1.6rem; }
+.luw .shelf-skel { height: 12rem; border-radius: 16px; }
+.luw .shelf-head { display: flex; gap: 1.2rem; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.luw .shelf-head-text { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.luw .shelf-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .shelf-desc { margin: 0; font-size: 0.95rem; color: var(--ink-2); line-height: 1.55; max-width: 60ch; }
+.luw .shelf-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--ink-3); }
+.luw .shelf-private { display: inline-flex; align-items: center; gap: 0.3rem; }
+
+/* One row per book rather than a grid: the order is the point of a shelf, and a grid that wraps
+   makes "third" mean different things at different widths. */
+.luw .shelf-books { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .shelf-book {
+  display: flex; align-items: center; gap: 0.9rem;
+  padding: 0.6rem 0.9rem; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.luw .shelf-book[draggable="true"] { cursor: grab; }
+.luw .shelf-book-open {
+  display: flex; align-items: center; gap: 0.9rem; flex: 1; min-width: 0;
+  padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;
+}
+.luw .shelf-book-open:hover .shelf-book-t { color: var(--coral); }
+.luw .shelf-book-t { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .shelf-book-sub { font-size: 0.82rem; color: var(--ink-2); }
+/* The grip is a real focusable control, so it needs a real focus ring — it is the only way a
+   keyboard user finds the reorder affordance at all. */
+.luw .shelf-grip {
+  flex: none; width: 28px; height: 28px; padding: 0; border: none; border-radius: 8px;
+  background: transparent; color: var(--ink-3); cursor: grab;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.luw .shelf-grip:hover { background: var(--surface-2); color: var(--ink); }
+.luw .shelf-book-x {
+  flex: none; width: 28px; height: 28px; padding: 0; border: none; border-radius: 8px;
+  background: transparent; color: var(--ink-3); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.luw .shelf-book-x:hover { background: var(--surface-2); color: var(--coral); }
+
+.luw .shelf-edit { display: flex; flex-direction: column; gap: 1.4rem; max-width: 34rem; }
+.luw .shelf-form { display: flex; flex-direction: column; gap: 1.1rem; }
+.luw .shelf-form-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.luw .shelf-form-error { margin: 0; font-size: 0.9rem; color: var(--coral); }
+/* Set apart from the form above it: deleting is not one of the form's actions, and putting it in
+   the same row as Save is how someone deletes a shelf they meant to rename. */
+.luw .shelf-danger {
+  display: flex; flex-direction: column; gap: 0.7rem; align-items: flex-start;
+  padding-top: 1.2rem; border-top: 1px solid var(--line);
+}
+.luw .shelf-danger-q { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+
+/* Home's shelf row */
+.luw .home-section-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.luw .home-shelves { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.luw .home-shelf {
+  display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;
+  padding: 0.8rem 1.1rem; border-radius: 14px; cursor: pointer; text-align: left;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.luw .home-shelf:hover { border-color: var(--coral-ring); }
+.luw .home-shelf:hover .home-shelf-t { color: var(--coral); }
+.luw .home-shelf-t { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.luw .home-shelf-sub { font-size: 0.8rem; color: var(--ink-3); }
+
+/* Discover's shared shelves, grouped by owner */
+.luw .disc-shelf-owner { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+.luw .disc-shelf-who { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); }
+.luw .disc-shelves { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.luw .disc-shelf {
+  display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;
+  padding: 0.7rem 1rem; border-radius: 14px; cursor: pointer; text-align: left;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.luw .disc-shelf:hover { border-color: var(--coral-ring); }
+.luw .disc-shelf:hover .disc-shelf-t { color: var(--coral); }
+.luw .disc-shelf-t { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.luw .disc-shelf-sub { font-size: 0.78rem; color: var(--ink-3); }
+
 /* ---- Discover — the social page. Five independent sections, each of which renders its own
    loading, empty, error and populated shape, so one failing upstream costs exactly one section. */
 .luw .disc { display: flex; flex-direction: column; gap: 2.2rem; }

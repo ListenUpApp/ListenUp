@@ -55,7 +55,7 @@ internal fun readyHome(
         scanProgress = scanProgress,
     )
 
-/** A shelf with enough shape to prove Home does NOT render one. */
+/** A shelf with enough shape for Home to render a row for it. */
 internal fun shelf(name: String): Shelf =
     Shelf(
         id = ShelfId("shelf-$name"),

@@ -20,6 +20,8 @@ import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
+import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
+import com.calypsan.listenup.web.features.shelf.OpenShelfEdit
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.coroutines.CancellationException
@@ -52,6 +54,8 @@ fun AuthGate(
     openLibrary: OpenLibrary,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
+    openShelfDetail: OpenShelfDetail,
+    openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
@@ -112,6 +116,8 @@ fun AuthGate(
                     openLibrary = openLibrary,
                     openHome = openHome,
                     openDiscover = openDiscover,
+                    openShelfDetail = openShelfDetail,
+                    openShelfEdit = openShelfEdit,
                     openSearch = openSearch,
                     onSignOut = { scope.launch { authGraph.signOut() } },
                     openPlayback = openPlayback,

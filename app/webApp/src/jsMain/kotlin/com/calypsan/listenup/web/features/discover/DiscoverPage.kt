@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import com.calypsan.listenup.client.presentation.discover.activityParts
@@ -16,6 +17,7 @@ import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.features.shelf.bookCountLabel
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -49,9 +51,9 @@ private const val LISTENER_COVER_HEIGHT = 84
  * being restated here. This screen is almost entirely copy, and copy that exists twice is copy that
  * disagrees with itself the first time either side is reworded.
  *
- * **Deliberately not rendered:** the native screen's User Shelves section. It opens a shelf, and web
- * has no shelf route — a card that cannot be clicked is worse than a section never promised. It
- * arrives with its screen, alongside Home's shelves row, which is waiting on the same thing.
+ * The shelves section groups by owner rather than listing shelves flat: on a shared server the
+ * interesting unit is a person's taste, and a flat list of forty shelves says nothing about whose
+ * they are.
  *
  * [nowMs] is passed in rather than read here so a row cannot flicker "3 days ago" to "4 days ago"
  * mid-recomposition, and so a spec can pin the clock. Same reasoning the Compose screen gives.
@@ -63,8 +65,10 @@ fun DiscoverPage(
     currentlyListening: CurrentlyListeningUiState,
     leaderboard: LeaderboardUiState,
     activity: ActivityFeedUiState,
+    shelves: DiscoverShelvesUiState,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenShelf: (String) -> Unit,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
 ) {
@@ -74,6 +78,7 @@ fun DiscoverPage(
         CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook)
         DiscoverBooksSection(books, onOpenBook)
         RecentlyAddedSection(recentlyAdded, onOpenBook)
+        SharedShelvesSection(shelves, onOpenShelf)
         LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory)
         ActivityFeedSection(activity, nowMs, onOpenBook)
     }
@@ -453,3 +458,54 @@ private fun categoryLabel(category: LeaderboardCategory): String =
 private const val ATTR_TYPE = "type"
 
 private const val VALUE_BUTTON = "button"
+
+/**
+ * Other people's shelves, grouped under the person who made them.
+ *
+ * Only public shelves reach here — the server filters, so this renders whatever it is given without
+ * a privacy branch of its own. A client-side filter would be a second opinion about a question the
+ * server has already answered, and the wrong place to be wrong.
+ */
+@Composable
+private fun SharedShelvesSection(
+    state: DiscoverShelvesUiState,
+    onOpenShelf: (String) -> Unit,
+) {
+    Section("Shelves from others") {
+        when (state) {
+            is DiscoverShelvesUiState.Loading -> {
+                SectionSkeleton()
+            }
+
+            is DiscoverShelvesUiState.Error -> {
+                SectionError(state.message)
+            }
+
+            is DiscoverShelvesUiState.Ready -> {
+                if (state.isEmpty) {
+                    Empty("No shared shelves yet", "Shelves other people make public show up here.")
+                } else {
+                    state.users.forEach { owner ->
+                        Div(attrs = { classes("disc-shelf-owner") }) {
+                            Span(attrs = { classes("disc-shelf-who") }) { Text(owner.user.displayName) }
+                            Div(attrs = { classes("disc-shelves") }) {
+                                owner.shelves.forEach { shelf ->
+                                    Button(attrs = {
+                                        classes("disc-shelf")
+                                        attr(ATTR_TYPE, VALUE_BUTTON)
+                                        onClick { onOpenShelf(shelf.id) }
+                                    }) {
+                                        Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
+                                        Span(attrs = { classes("disc-shelf-sub") }) {
+                                            Text(bookCountLabel(shelf.bookCount))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

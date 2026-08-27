@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
@@ -29,14 +30,14 @@ import org.koin.core.Koin
  * has no store to hand their lifetime to, so the page owns it, exactly as
  * [com.calypsan.listenup.web.features.home.HomeSession] does.
  *
- * The shelves section of the native screen is deliberately absent: it opens a shelf, and the web
- * client has no shelf route to open. A card that cannot be clicked is worse than a section that
- * was never promised.
+ * The shelves section renders other people's public shelves. It was absent from Discover's first
+ * version because a card had nowhere to lead; it arrived with the shelf screens.
  */
 class DiscoverSession(
     val books: StateFlow<DiscoverBooksUiState>,
     val recentlyAdded: StateFlow<RecentlyAddedUiState>,
     val currentlyListening: StateFlow<CurrentlyListeningUiState>,
+    val shelves: StateFlow<DiscoverShelvesUiState>,
     val leaderboard: StateFlow<LeaderboardUiState>,
     val activity: StateFlow<ActivityFeedUiState>,
     val onSelectPeriod: (LeaderboardPeriod) -> Unit,
@@ -72,6 +73,7 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             books = discover.discoverBooksState,
             recentlyAdded = discover.recentlyAddedState,
             currentlyListening = discover.currentlyListeningState,
+            shelves = discover.discoverShelvesState,
             leaderboard = leaderboard.uiState,
             activity = activity.state,
             onSelectPeriod = leaderboard::selectPeriod,
@@ -85,6 +87,7 @@ fun fixedDiscover(
     books: DiscoverBooksUiState = DiscoverBooksUiState.Loading,
     recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Loading,
     currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
+    shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
     activity: ActivityFeedUiState = ActivityFeedUiState.Loading,
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
@@ -95,6 +98,7 @@ fun fixedDiscover(
             books = MutableStateFlow(books),
             recentlyAdded = MutableStateFlow(recentlyAdded),
             currentlyListening = MutableStateFlow(currentlyListening),
+            shelves = MutableStateFlow(shelves),
             leaderboard = MutableStateFlow(leaderboard),
             activity = MutableStateFlow(activity),
             onSelectPeriod = onSelectPeriod,

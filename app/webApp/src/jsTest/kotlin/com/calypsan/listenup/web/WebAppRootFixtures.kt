@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
+import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
 import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -82,6 +84,8 @@ internal fun mountAt(
                 openContributors,
                 openHome,
                 fixedDiscover(),
+                fixedShelfDetail(),
+                fixedShelfEdit(),
                 openLibrary,
                 openSearch,
                 fixedPlayback(),

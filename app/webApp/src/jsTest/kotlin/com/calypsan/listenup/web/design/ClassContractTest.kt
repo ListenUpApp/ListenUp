@@ -1,5 +1,18 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.client.domain.model.ShelfBook
+import com.calypsan.listenup.client.domain.model.ShelfDetail
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
+import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
+import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
+import com.calypsan.listenup.web.features.home.shelf
+import com.calypsan.listenup.web.features.shelf.ShelfDetailPage
+import com.calypsan.listenup.web.features.shelf.ShelfEditPage
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
@@ -465,14 +478,16 @@ class ClassContractTest :
                         // and the loaded page across a live scan, a bare sync, an empty shelf and
                         // all four stats states. It joins this contract by hand like the pages
                         // above — a state nobody lists here is a state whose classes go unchecked.
-                        HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, {}, {}, {})
-                        HomePage(HomeUiState.Error("nope"), HomeStatsUiState.Loading, {}, {}, {})
-                        HomePage(readyHome(), HomeStatsUiState.Loading, {}, {}, {})
-                        HomePage(readyHome(), HomeStatsUiState.Empty, {}, {}, {})
-                        HomePage(readyHome(), HomeStatsUiState.Error(isRetryable = true), {}, {}, {})
+                        HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, {}, {}, {}, {}, {})
+                        HomePage(HomeUiState.Error("nope"), HomeStatsUiState.Loading, {}, {}, {}, {}, {})
+                        HomePage(readyHome(), HomeStatsUiState.Loading, {}, {}, {}, {}, {})
+                        HomePage(readyHome(), HomeStatsUiState.Empty, {}, {}, {}, {}, {})
+                        HomePage(readyHome(), HomeStatsUiState.Error(isRetryable = true), {}, {}, {}, {}, {})
                         HomePage(
                             readyHome(continueListening = listOf(continuing("b1", "The Institute"))),
                             weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
+                            {},
+                            {},
                             {},
                             {},
                             {},
@@ -484,13 +499,19 @@ class ClassContractTest :
                             {},
                             {},
                             {},
+                            {},
+                            {},
                         )
-                        HomePage(readyHome(isBuildingInitialLibrary = true), weekStats(), {}, {}, {})
-                        HomePage(readyHome(scanProgress = scanning()), weekStats(), {}, {}, {})
+                        HomePage(readyHome(isBuildingInitialLibrary = true), weekStats(), {}, {}, {}, {}, {})
+                        HomePage(readyHome(scanProgress = scanning()), weekStats(), {}, {}, {}, {}, {})
+                        // With shelves, so the row's own classes are checked, and without,
+                        // so its empty state's are.
+                        HomePage(readyHome(myShelves = listOf(shelf("Finished"))), weekStats(), {}, {}, {}, {}, {})
                         // Discover joins by hand for the same reason Home does. Every section is
                         // listed in all four of its shapes, because a state nobody renders here is
                         // a state whose classes nothing checks — and this page is mostly states.
                         discoverShapes().forEach { it() }
+                        shelfShapes().forEach { it() }
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
@@ -636,6 +657,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
         leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
         activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
+        shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     ): @Composable () -> Unit =
         {
             DiscoverPage(
@@ -644,8 +666,10 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 currentlyListening = currentlyListening,
                 leaderboard = leaderboard,
                 activity = activityState,
+                shelves = shelves,
                 nowMs = 0L,
                 onOpenBook = {},
+                onOpenShelf = {},
                 onSelectPeriod = {},
                 onSelectCategory = {},
             )
@@ -661,6 +685,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             currentlyListening = CurrentlyListeningUiState.Error("nope"),
             leaderboard = LeaderboardUiState.Error(isRetryable = true),
             activityState = ActivityFeedUiState.Error("nope"),
+            shelves = DiscoverShelvesUiState.Error("nope"),
         ),
         // Every section empty.
         page(
@@ -669,6 +694,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             currentlyListening = CurrentlyListeningUiState.Ready(emptyList()),
             leaderboard = LeaderboardUiState.Empty,
             activityState = ActivityFeedUiState.Ready(emptyList()),
+            shelves = DiscoverShelvesUiState.Ready(emptyList()),
         ),
         // Every section populated — where most of the classes actually live.
         page(
@@ -682,6 +708,24 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                     category = LeaderboardCategory.Time,
                 ),
             activityState = ActivityFeedUiState.Ready(listOf(activity, joined)),
+            shelves =
+                DiscoverShelvesUiState.Ready(
+                    listOf(
+                        DiscoverUserShelves(
+                            user = DiscoverShelfOwner(id = "u1", displayName = "Ada"),
+                            shelves =
+                                listOf(
+                                    DiscoverShelfUi(
+                                        id = "s1",
+                                        name = "Comfort reads",
+                                        description = null,
+                                        bookCount = 4,
+                                        totalDurationSeconds = 0,
+                                    ),
+                                ),
+                        ),
+                    ),
+                ),
         ),
     )
 }
@@ -705,3 +749,59 @@ private fun recentBook() =
         coverHash = null,
         createdAt = 0L,
     )
+
+/**
+ * Every shape the two shelf screens can be in.
+ *
+ * The owner and non-owner variants are both listed: the grip and the remove control exist only for
+ * an owner, so a contract that rendered one of them would leave the other's classes unchecked.
+ */
+private fun shelfShapes(): List<@Composable () -> Unit> {
+    val book =
+        ShelfBook(
+            id = BookId("b1"),
+            title = "The Institute",
+            authorNames = listOf("Stephen King"),
+            coverPath = null,
+            coverHash = null,
+        )
+
+    fun detail(
+        isOwner: Boolean,
+        books: List<ShelfBook>,
+        isPrivate: Boolean = false,
+    ) = ShelfDetailUiState.Ready(
+        detail =
+            ShelfDetail(
+                id = ShelfId("s1"),
+                name = "Comfort reads",
+                description = "Books to fall asleep to.",
+                isPrivate = isPrivate,
+                isOwner = isOwner,
+                bookCount = books.size,
+                totalDurationSeconds = 7_200,
+                books = books,
+            ),
+        isOwner = isOwner,
+    )
+
+    fun detailPage(state: ShelfDetailUiState): @Composable () -> Unit = { ShelfDetailPage(state, {}, {}, {}, {}, {}) }
+
+    fun editPage(
+        state: CreateEditShelfUiState,
+        isEditing: Boolean,
+    ): @Composable () -> Unit = { ShelfEditPage(state, isEditing, { _, _, _ -> }, {}, {}, {}) }
+
+    return listOf(
+        detailPage(ShelfDetailUiState.Loading),
+        detailPage(ShelfDetailUiState.Error("nope")),
+        detailPage(detail(isOwner = true, books = emptyList())),
+        detailPage(detail(isOwner = true, books = listOf(book), isPrivate = true)),
+        detailPage(detail(isOwner = false, books = listOf(book))),
+        editPage(CreateEditShelfUiState.Idle, isEditing = false),
+        editPage(CreateEditShelfUiState.LoadingExisting, isEditing = true),
+        editPage(CreateEditShelfUiState.Loaded("Comfort reads", "", true), isEditing = true),
+        editPage(CreateEditShelfUiState.Saving, isEditing = true),
+        editPage(CreateEditShelfUiState.Error("nope"), isEditing = true),
+    )
+}

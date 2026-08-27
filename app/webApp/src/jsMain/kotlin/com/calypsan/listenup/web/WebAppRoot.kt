@@ -37,6 +37,12 @@ import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
+import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
+import com.calypsan.listenup.web.features.shelf.OpenShelfEdit
+import com.calypsan.listenup.web.features.shelf.ShelfDetailPage
+import com.calypsan.listenup.web.features.shelf.ShelfEditPage
+import com.calypsan.listenup.web.features.shelf.ShelfRoute
+import com.calypsan.listenup.web.features.shelf.shelfRouteOf
 import com.calypsan.listenup.web.features.search.CommandPalette
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchPage
@@ -97,6 +103,8 @@ fun WebAppRoot(
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
+    openShelfDetail: OpenShelfDetail,
+    openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
     openSearch: OpenSearch,
     openPlayback: OpenPlayback,
@@ -150,6 +158,8 @@ fun WebAppRoot(
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
+            openShelfDetail = openShelfDetail,
+            openShelfEdit = openShelfEdit,
             openSearch = openSearch,
             librarySession = librarySession,
             playback = playback,
@@ -196,12 +206,15 @@ private fun RouteContent(
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
+    openShelfDetail: OpenShelfDetail,
+    openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
     librarySession: LibrarySession,
     playback: PlaybackSession,
     heroBookId: String?,
     onHeroBookIdChange: (String) -> Unit,
 ) {
+    val shelfRoute = shelfRouteOf(route.segments)
     val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
     // `/book/{id}/edit` — a route of its own rather than a mode of Book Detail, so the form is
     // linkable, Back leaves it, and a half-finished edit cannot be mistaken for the book.
@@ -284,6 +297,14 @@ private fun RouteContent(
         SearchRoute(router = router, route = route, openSearch = openSearch)
     } else if (active == HOME_KEY) {
         HomeRoute(router = router, openHome = openHome, onHeroBookIdChange = onHeroBookIdChange)
+    } else if (shelfRoute != null) {
+        ShelfRouteContent(
+            shelfRoute = shelfRoute,
+            router = router,
+            openShelfDetail = openShelfDetail,
+            openShelfEdit = openShelfEdit,
+            onHeroBookIdChange = onHeroBookIdChange,
+        )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
     } else {
@@ -321,6 +342,8 @@ private fun HomeRoute(
         },
         onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY))) },
         onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
+        onCreateShelf = { router.navigate(Route(listOf(SHELF_KEY, NEW_KEY))) },
     )
 }
 
@@ -352,11 +375,13 @@ private fun DiscoverRoute(
         currentlyListening = session.currentlyListening.collectAsState().value,
         leaderboard = session.leaderboard.collectAsState().value,
         activity = session.activity.collectAsState().value,
+        shelves = session.shelves.collectAsState().value,
         nowMs = nowMs,
         onOpenBook = { id ->
             onHeroBookIdChange(id)
             router.navigate(Route(listOf(BOOK_KEY, id)))
         },
+        onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
         onSelectPeriod = session.onSelectPeriod,
         onSelectCategory = session.onSelectCategory,
     )
@@ -839,6 +864,10 @@ private const val HOME_KEY = "home"
 
 private const val DISCOVER_KEY = "discover"
 
+private const val SHELF_KEY = "shelf"
+
+private const val NEW_KEY = "new"
+
 private const val BOOK_KEY = "book"
 
 /** The trailing segment that turns a book route into its edit form. */
@@ -885,3 +914,118 @@ private val FOOTER_NAV =
         NavEntry(ADMIN_KEY, "Admin", WebIcon.Shield),
         NavEntry("settings", "Settings", WebIcon.Cog),
     )
+
+/**
+ * The `/shelf/{id}` branch — one shelf, its books, and the owner's controls.
+ *
+ * The session loads the shelf, keyed on [shelfId], so walking from one shelf to another replaces
+ * the session rather than showing the previous shelf's books under the new one's name.
+ */
+@Composable
+private fun ShelfDetailRoute(
+    router: Router,
+    openShelfDetail: OpenShelfDetail,
+    shelfId: String,
+    onHeroBookIdChange: (String) -> Unit,
+) {
+    val session = remember(shelfId) { openShelfDetail(shelfId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    ShelfDetailPage(
+        state = session.state.collectAsState().value,
+        onOpenBook = { id ->
+            onHeroBookIdChange(id)
+            router.navigate(Route(listOf(BOOK_KEY, id)))
+        },
+        onRemoveBook = session.onRemoveBook,
+        onReorder = session.onReorder,
+        onEditShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id, EDIT_KEY))) },
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+    )
+}
+
+/**
+ * The `/shelf/new` and `/shelf/{id}/edit` branches — one form, two modes.
+ *
+ * ## Where "back" goes
+ *
+ * `NavigateBack` is the only thing the ViewModel says on success, and it says the same word for a
+ * save and for a delete — so the destination is decided here, where the difference is known:
+ *
+ * - **Created** a shelf → Home, which is where My Shelves lives. The new shelf's id never reaches
+ *   this client, so the shelf itself is not a destination we could offer.
+ * - **Saved** an edit → back to the shelf, which is what you were looking at.
+ * - **Deleted** → Home. Returning to the shelf would land on its own "could not be opened" error,
+ *   which is a true statement and a terrible way to confirm that a deletion worked.
+ *
+ * [deleted] exists only to tell the last two apart. It is set when Delete is pressed rather than
+ * derived from state, because by the time `NavigateBack` arrives the shelf is already gone.
+ */
+@Composable
+private fun ShelfEditRoute(
+    router: Router,
+    openShelfEdit: OpenShelfEdit,
+    shelfId: String?,
+) {
+    val session = remember(shelfId) { openShelfEdit(shelfId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    var deleted by remember(shelfId) { mutableStateOf(false) }
+
+    val goHome = { router.navigate(Route(emptyList())) }
+
+    LaunchedEffect(session) {
+        session.navActions.collect {
+            if (shelfId == null || deleted) {
+                goHome()
+            } else {
+                router.navigate(Route(listOf(SHELF_KEY, shelfId)))
+            }
+        }
+    }
+
+    ShelfEditPage(
+        state = session.state.collectAsState().value,
+        isEditing = shelfId != null,
+        onSave = session.onSave,
+        onDelete = {
+            deleted = true
+            session.onDelete()
+        },
+        onDismissError = session.onDismissError,
+        onCancel = { if (shelfId == null) goHome() else router.navigate(Route(listOf(SHELF_KEY, shelfId))) },
+    )
+}
+
+/**
+ * The three shelf screens, behind the shell's single shelf branch.
+ *
+ * Split out so [RouteContent] has one condition for shelves rather than three. The URL grammar is
+ * [shelfRouteOf]'s job; this only maps a parsed route to a screen.
+ */
+@Composable
+private fun ShelfRouteContent(
+    shelfRoute: ShelfRoute,
+    router: Router,
+    openShelfDetail: OpenShelfDetail,
+    openShelfEdit: OpenShelfEdit,
+    onHeroBookIdChange: (String) -> Unit,
+) {
+    when (shelfRoute) {
+        is ShelfRoute.Create -> {
+            ShelfEditRoute(router = router, openShelfEdit = openShelfEdit, shelfId = null)
+        }
+
+        is ShelfRoute.Edit -> {
+            ShelfEditRoute(router = router, openShelfEdit = openShelfEdit, shelfId = shelfRoute.shelfId)
+        }
+
+        is ShelfRoute.Detail -> {
+            ShelfDetailRoute(
+                router = router,
+                openShelfDetail = openShelfDetail,
+                shelfId = shelfRoute.shelfId,
+                onHeroBookIdChange = onHeroBookIdChange,
+            )
+        }
+    }
+}
