@@ -10,7 +10,7 @@ import Shared
 @Suite("ChapterMath.Window")
 struct ChapterMathWindowTests {
     private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
-        Chapter(id: id, title: id, duration: duration, startTime: start)
+        Chapter(id: id, title: id, duration: duration, startTime: start, partTitle: nil, bookTitle: nil)
     }
 
     // MARK: - Now-Playing window
