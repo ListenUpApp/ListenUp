@@ -11,6 +11,7 @@ ActiveSessionRepository
 Activity
 ActivityFeedUiState
 ActivityFeedViewModel
+ActivityParts
 ActivityRepository
 ActivityUiModel
 AdminBackupUiState
