@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.domain.model.ThemeMode
 import app.cash.turbine.test
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.ServerUrl
@@ -38,6 +39,35 @@ class SettingsRepositoryTest :
             storage: SecureStorage = createMockStorage(),
             authSession: AuthSession = createMockAuthSession(),
         ): SettingsRepositoryImpl = SettingsRepositoryImpl(storage, lazyOf(authSession))
+
+        test("setThemeMode both persists the choice and tells whoever is watching") {
+            // The seam the theme switcher hangs off. Persisting without emitting would leave the
+            // page light until a reload; emitting without persisting would lose the choice on one.
+            // Both halves silently, and only the second is visible while you are testing by hand.
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save(any(), any()) } returns Unit
+                val repository = createRepository(storage = storage)
+
+                repository.setThemeMode(ThemeMode.DARK)
+
+                repository.themeMode.value shouldBe ThemeMode.DARK
+                verifySuspend { storage.save("theme_mode", ThemeMode.DARK.toStorageString()) }
+            }
+        }
+
+        test("a stored theme is read back on start, so a reload does not forget it") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read(any()) } returns null
+                everySuspend { storage.read("theme_mode") } returns ThemeMode.DARK.toStorageString()
+                val repository = createRepository(storage = storage)
+
+                repository.initializeLocalPreferences()
+
+                repository.themeMode.value shouldBe ThemeMode.DARK
+            }
+        }
 
         test("setServerUrl persists the URL and triggers offline derive when already authenticated") {
             runTest {
