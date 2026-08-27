@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import kotlinx.coroutines.flow.flowOf
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
@@ -215,4 +217,33 @@ private class FakePlaybackManager(
     override fun clearError() {
         playbackError.value = null
     }
+}
+
+/**
+ * A [PlaybackPreferences] that answers from constructor values and never touches storage.
+ *
+ * Hand-written rather than mocked: the transport specs only ever read the two skip intervals, and
+ * a mock would need all eight members stubbed at every call site to avoid throwing on the ones the
+ * bar reads incidentally.
+ */
+internal class FakePlaybackPreferences(
+    private val skipForwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
+    private val skipBackwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+    private val speed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+) : PlaybackPreferences {
+    override fun observeDefaultPlaybackSpeed(): Flow<Float> = flowOf(speed)
+
+    override suspend fun getDefaultPlaybackSpeed(): Float = speed
+
+    override fun observeDefaultVolumeBoostDb(): Flow<Float> = flowOf(PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
+
+    override suspend fun getDefaultVolumeBoostDb(): Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB
+
+    override fun observeDefaultSkipForwardSec(): Flow<Int> = flowOf(skipForwardSec)
+
+    override fun observeDefaultSkipBackwardSec(): Flow<Int> = flowOf(skipBackwardSec)
+
+    override suspend fun getDefaultSkipForwardSec(): Int = skipForwardSec
+
+    override suspend fun getDefaultSkipBackwardSec(): Int = skipBackwardSec
 }

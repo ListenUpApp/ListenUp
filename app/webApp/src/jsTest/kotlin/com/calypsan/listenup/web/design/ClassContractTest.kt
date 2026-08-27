@@ -545,6 +545,9 @@ class ClassContractTest :
                                 ),
                             onPlayPause = {},
                             onSeek = {},
+                            onSkipBack = {},
+                            onSkipForward = {},
+                            onCycleSpeed = {},
                         )
                     }
                 }

@@ -501,6 +501,17 @@ body { margin: 0; }
 .tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:none; }
 .tport-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
 .tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
+/* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
+   bar read as three equal actions, when only one of them is the one you reach for. `position:
+   relative` anchors the interval numeral over the arrow. */
+.tport-skip { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
+.tport-skip:hover { background:var(--surface-2); color:var(--ink); }
+/* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
+   two-digit interval still has to fit. */
+.tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
+/* Text, not an icon: the current rate IS the label, and no glyph says "1.5x" as directly. */
+.tport-speed { flex:none; min-width:40px; height:30px; padding:0 8px; border:1px solid var(--line); border-radius:15px; background:transparent; color:var(--ink-2); font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; }
+.tport-speed:hover { background:var(--surface-2); color:var(--ink); }
 /* The playback failure notice. Sits directly above the bar and, more often, alone — the failures
    worth reporting are the ones that leave nothing playing. */
 .tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral); border-top:1px solid var(--line); font-size:13.5px; font-weight:600; }
@@ -510,6 +521,7 @@ body { margin: 0; }
 @media (max-width: 759px) {
   .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
   .tport-t { display:none; }
+  .tport-skip { display:none; }
   .tport-note { margin:16px -14px 0; padding:10px 12px; }
 }
 

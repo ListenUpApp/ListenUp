@@ -164,6 +164,9 @@ fun WebAppRoot(
             state = playback.state.collectAsState().value,
             onPlayPause = playback.onPlayPause,
             onSeek = playback.onSeek,
+            onSkipBack = playback.onSkipBack,
+            onSkipForward = playback.onSkipForward,
+            onCycleSpeed = playback.onCycleSpeed,
         )
 
         // Last of all: the palette overlays everything above it, including the transport bar.
