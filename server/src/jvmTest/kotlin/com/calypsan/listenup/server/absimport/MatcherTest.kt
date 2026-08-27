@@ -269,6 +269,8 @@ private fun insertBook(
         root_rel_path = relPath,
         inode = null,
         scanned_at = now,
+        book_tier_label = null,
+        part_tier_label = null,
         revision = 1L,
         created_at = now,
         updated_at = now,

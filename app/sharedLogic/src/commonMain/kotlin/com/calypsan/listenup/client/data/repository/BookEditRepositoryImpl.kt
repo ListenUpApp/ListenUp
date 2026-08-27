@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -13,6 +14,7 @@ import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.TierLabelLimits
 
 /**
  * Offline-first book editor.
@@ -78,6 +80,36 @@ internal class BookEditRepositoryImpl(
         val totalDuration = bookDao.getById(id)?.totalDuration
         validateChapterSet(chapters, totalDuration)?.let { return AppResult.Failure(it) }
         return edit(id, BookMutation.SetChapters(chapters))
+    }
+
+    override suspend fun setBookTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit> {
+        validateTierLabel(bookTierLabel)?.let { return AppResult.Failure(it) }
+        validateTierLabel(partTierLabel)?.let { return AppResult.Failure(it) }
+        return edit(id, BookMutation.SetTierLabels(bookTierLabel, partTierLabel))
+    }
+
+    /**
+     * The same shape check the server runs, run here first.
+     *
+     * Not belt-and-braces: this edit is offline-first, so without a local check a blank label would
+     * be written to Room, shown to the user as saved, and only refused when the outbox eventually
+     * drained — the failure would surface minutes later attached to nothing the user was doing.
+     */
+    private fun validateTierLabel(label: String?): AppError? {
+        if (label == null) return null
+        if (label.isBlank()) {
+            return BookError.InvalidInput(debugInfo = "tier label must be null rather than blank")
+        }
+        if (label.length > TierLabelLimits.MAX_LENGTH) {
+            return BookError.InvalidInput(
+                debugInfo = "tier label: length ${label.length} exceeds max ${TierLabelLimits.MAX_LENGTH}",
+            )
+        }
+        return null
     }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> = edit(id, BookMutation.DeleteCover)

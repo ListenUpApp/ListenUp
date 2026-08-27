@@ -58,6 +58,8 @@ class BookRepositoryReadTest :
                             root_rel_path = "Sanderson/Way of Kings",
                             inode = null,
                             scanned_at = 1_730_000_000_000L,
+                            book_tier_label = null,
+                            part_tier_label = null,
                             revision = 1L,
                             created_at = 1_730_000_000_000L,
                             updated_at = 1_730_000_000_000L,
@@ -139,6 +141,8 @@ class BookRepositoryReadTest :
                             title = "Prologue",
                             duration = 1_200_000L,
                             start_time = 0L,
+                            part_title = null,
+                            book_title = null,
                         )
                         sql.bookChaptersQueries.insert(
                             book_id = "b1",
@@ -147,6 +151,8 @@ class BookRepositoryReadTest :
                             title = "Chapter 1",
                             duration = 1_800_000L,
                             start_time = 1_200_000L,
+                            part_title = null,
+                            book_title = null,
                         )
                         sql.bookAudioFilesQueries.insert(
                             book_id = "b1",
@@ -229,6 +235,8 @@ class BookRepositoryReadTest :
                             root_rel_path = "no-cover",
                             inode = null,
                             scanned_at = 0L,
+                            book_tier_label = null,
+                            part_tier_label = null,
                             revision = 1L,
                             created_at = 0L,
                             updated_at = 0L,

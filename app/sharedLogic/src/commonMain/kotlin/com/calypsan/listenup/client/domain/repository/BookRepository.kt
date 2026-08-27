@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.model.TierLabels
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 
@@ -35,6 +36,15 @@ interface BookRepository {
 
     /** Observe a book's chapters, ordered by start time. Emits on every local or synced change. */
     fun observeChapters(bookId: String): Flow<List<Chapter>>
+
+    /**
+     * Observe the book's own names for its two chapter-grouping tiers.
+     *
+     * Emits [TierLabels.None] when the book names neither tier, and when the book is absent — an
+     * unknown book has no vocabulary, which is the same thing to every reader and saves each one a
+     * null branch it would answer identically.
+     */
+    fun observeBookTierLabels(bookId: String): Flow<TierLabels>
 
     /**
      * Observe whether [id] is currently live (present, not tombstoned) in the local mirror.

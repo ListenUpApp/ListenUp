@@ -417,3 +417,14 @@ internal data class ContributorWithAliases(
     )
     val aliases: List<String>,
 )
+
+/**
+ * The two tier-name columns alone, for [BookDao.observeTierLabels].
+ *
+ * A projection rather than the whole [BookEntity] so the chapter editor's seed flow only fires when
+ * a tier name actually changes.
+ */
+internal data class BookTierLabelRow(
+    val bookTierLabel: String?,
+    val partTierLabel: String?,
+)

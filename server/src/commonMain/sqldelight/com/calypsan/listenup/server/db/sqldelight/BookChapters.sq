@@ -13,6 +13,10 @@ CREATE TABLE book_chapters (
     title      TEXT    NOT NULL,
     duration   INTEGER NOT NULL,
     start_time INTEGER NOT NULL,
+    -- Headers on the chapter that OPENS a group; null on every other chapter. Grouping is derived
+    -- by reading in ordinal order, so a chapter can move without renumbering its siblings.
+    part_title TEXT,
+    book_title TEXT,
     PRIMARY KEY (book_id, ordinal)
 );
 
@@ -22,8 +26,8 @@ selectByBookIds:
 SELECT * FROM book_chapters WHERE book_id IN :ids ORDER BY ordinal;
 
 insert:
-INSERT INTO book_chapters (book_id, ordinal, id, title, duration, start_time)
-VALUES (:book_id, :ordinal, :id, :title, :duration, :start_time);
+INSERT INTO book_chapters (book_id, ordinal, id, title, duration, start_time, part_title, book_title)
+VALUES (:book_id, :ordinal, :id, :title, :duration, :start_time, :part_title, :book_title);
 
 -- Wholesale-replace step.
 deleteByBookId:

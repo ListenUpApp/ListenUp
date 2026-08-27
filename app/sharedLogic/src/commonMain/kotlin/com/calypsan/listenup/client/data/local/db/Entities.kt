@@ -119,6 +119,11 @@ internal data class BookEntity(
     // null when the file carries no tag. The tag-fallback input to VolumeGain.effectiveGainDb, behind the
     // client-measured LoudnessMeter reading on PlaybackPositionEntity.measuredGainDb.
     val normalizationGainDb: Float? = null,
+    // The book's own names for its two chapter-grouping tiers ("Part"/"Book", "Sequence"/"Era"),
+    // mirrored from BookSyncPayload. Null means that tier is unnamed — the UI shows each group's
+    // own title with no type chip rather than inventing a word the author never used.
+    val bookTierLabel: String? = null,
+    val partTierLabel: String? = null,
     // Timestamps from the server
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
@@ -142,6 +147,11 @@ internal data class ChapterEntity(
     val title: String,
     val duration: Long, // Milliseconds
     val startTime: Long, // Milliseconds from start of book
+    // Section headers, mirrored from BookChapterPayload. Non-null only on the chapter that OPENS a
+    // group; grouping is derived by reading in start-time order, so a chapter can move without
+    // renumbering its siblings.
+    val partTitle: String? = null,
+    val bookTitle: String? = null,
 )
 
 /**

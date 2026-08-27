@@ -53,6 +53,19 @@ data class BookSyncPayload(
     /** Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat. */
     val chapterSource: ChapterSource = ChapterSource.EMBEDDED,
     /**
+     * The book's own name for its OUTER chapter-grouping tier — "Book", "Volume", whatever this
+     * work calls it. Pairs with the per-chapter [BookChapterPayload.bookTitle], which names the
+     * individual groups. Null means the tier is unnamed: the UI shows each group's own title with
+     * no type chip rather than inventing a word the author never used. Defaults to null so a
+     * payload from a server that predates tiers still decodes.
+     */
+    @SerialName("bookTierLabel") val bookTierLabel: String? = null,
+    /**
+     * The book's own name for its INNER chapter-grouping tier — "Part", "Sequence". Pairs with
+     * [BookChapterPayload.partTitle]. Same null semantics as [bookTierLabel].
+     */
+    @SerialName("partTierLabel") val partTierLabel: String? = null,
+    /**
      * Per-field provenance — the authority that wrote each metadata field's current value, keyed by
      * [BookField]. Governs rescan safety via the tier rule: a write may replace a field iff its tier
      * is `>=` the stored provenance's tier (scan `0` < enrichment `1` < user `2`). A scanner-produced
@@ -180,6 +193,15 @@ data class BookChapterPayload(
     val title: String,
     val duration: Long,
     val startTime: Long,
+    /**
+     * The name of the Part this chapter OPENS, or null when it opens none. A header, not a
+     * membership pointer: grouping is derived by reading the ordered list and starting a new group
+     * wherever a title appears, so nothing has to be renumbered when a chapter moves. Free text —
+     * the server never synthesizes it.
+     */
+    @SerialName("partTitle") val partTitle: String? = null,
+    /** The name of the Book this chapter OPENS, or null. May co-occur with [partTitle]. */
+    @SerialName("bookTitle") val bookTitle: String? = null,
 )
 
 /**

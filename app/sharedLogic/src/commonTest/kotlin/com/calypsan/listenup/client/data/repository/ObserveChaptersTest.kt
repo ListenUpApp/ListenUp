@@ -27,6 +27,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import com.calypsan.listenup.client.data.local.db.BookTierLabelRow
+import com.calypsan.listenup.client.domain.model.TierLabels
 
 /**
  * Verifies that [BookRepositoryImpl.observeChapters] maps [ChapterEntity] rows to
@@ -35,11 +37,14 @@ import kotlinx.coroutines.test.runTest
 class ObserveChaptersTest :
     FunSpec({
 
-        fun createRepository(chapterDao: ChapterDao): BookRepositoryImpl {
+        fun createRepository(
+            chapterDao: ChapterDao,
+            bookDao: BookDao = mock<BookDao>(MockMode.autoUnit),
+        ): BookRepositoryImpl {
             val networkMonitor = mock<NetworkMonitor>()
             every { networkMonitor.isOnline() } returns false
             return BookRepositoryImpl(
-                bookDao = mock<BookDao>(MockMode.autoUnit),
+                bookDao = bookDao,
                 chapterDao = chapterDao,
                 audioFileDao = mock<AudioFileDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
@@ -85,6 +90,64 @@ class ObserveChaptersTest :
                 val result = repo.observeChapters("b2").first()
 
                 result shouldBe emptyList()
+            }
+        }
+
+        test("observeChapters carries the section headers that drive grouping") {
+            runTest {
+                val chapterDao = mock<ChapterDao>(MockMode.autoUnit)
+                every { chapterDao.observeChaptersForBook(BookId("b4")) } returns
+                    flowOf(
+                        listOf(
+                            ChapterEntity(
+                                id = ChapterId("c1"),
+                                bookId = BookId("b4"),
+                                title = "Prologue",
+                                duration = 1000L,
+                                startTime = 0L,
+                                partTitle = "Part One",
+                                bookTitle = "Book One",
+                            ),
+                            ChapterEntity(
+                                id = ChapterId("c2"),
+                                bookId = BookId("b4"),
+                                title = "Chapter 1",
+                                duration = 1000L,
+                                startTime = 1000L,
+                            ),
+                        ),
+                    )
+                val repo = createRepository(chapterDao)
+
+                val result = repo.observeChapters("b4").first()
+
+                result[0].partTitle shouldBe "Part One"
+                result[0].bookTitle shouldBe "Book One"
+                result[1].partTitle shouldBe null
+            }
+        }
+
+        test("observeBookTierLabels reads the book's own vocabulary") {
+            runTest {
+                val bookDao = mock<BookDao>(MockMode.autoUnit)
+                every { bookDao.observeTierLabels(BookId("b1")) } returns
+                    flowOf(BookTierLabelRow(bookTierLabel = "Volume", partTierLabel = "Sequence"))
+                val repo = createRepository(mock<ChapterDao>(MockMode.autoUnit), bookDao)
+
+                repo.observeBookTierLabels("b1").first() shouldBe
+                    TierLabels(bookTierLabel = "Volume", partTierLabel = "Sequence")
+            }
+        }
+
+        test("observeBookTierLabels reports an absent book as naming neither tier") {
+            // An unknown book has no vocabulary, which is what every reader would conclude from a
+            // null anyway — collapsing it here saves each of them an identical branch.
+            runTest {
+                val bookDao = mock<BookDao>(MockMode.autoUnit)
+                every { bookDao.observeTierLabels(BookId("gone")) } returns flowOf(null)
+                val repo = createRepository(mock<ChapterDao>(MockMode.autoUnit), bookDao)
+
+                repo.observeBookTierLabels("gone").first() shouldBe TierLabels.None
             }
         }
 

@@ -109,6 +109,8 @@ internal fun assembleBookPayload(
         chapterSource =
             ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) }
                 ?: ChapterSource.EMBEDDED,
+        bookTierLabel = bookRow.book_tier_label,
+        partTierLabel = bookRow.part_tier_label,
         fieldProvenance = bookRow.field_provenance.toFieldProvenance(),
         documents = documents,
         revision = bookRow.revision,
@@ -176,6 +178,8 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
                         title = row.title,
                         duration = row.duration,
                         startTime = row.start_time,
+                        partTitle = row.part_title,
+                        bookTitle = row.book_title,
                     ),
                 )
         }

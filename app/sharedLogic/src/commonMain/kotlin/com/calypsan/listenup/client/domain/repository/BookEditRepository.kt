@@ -77,6 +77,20 @@ interface BookEditRepository {
     ): AppResult<Unit>
 
     /**
+     * Renames the two chapter-grouping tiers of the book identified by [id] — the vocabulary the
+     * book uses for its own structure.
+     *
+     * Offline-first via the `books` outbox, like every other book edit: the pair is written to Room
+     * immediately and replays on reconnect. Either may be null to leave that tier unnamed; callers
+     * normalize a cleared field to null rather than passing blank, which the server refuses.
+     */
+    suspend fun setBookTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit>
+
+    /**
      * Removes the cover from the book identified by [id]: nulls cover state on
      * the book row and best-effort-deletes the underlying file after commit.
      */

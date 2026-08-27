@@ -80,8 +80,12 @@ class SidecarAssembler {
                     SidecarChapter(
                         title = it.title,
                         startMs = it.startTime,
+                        partTitle = it.partTitle,
+                        bookTitle = it.bookTitle,
                     )
                 },
+            bookTierLabel = book.bookTierLabel,
+            partTierLabel = book.partTierLabel,
         )
     }
 

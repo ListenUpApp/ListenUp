@@ -102,11 +102,23 @@ data class SidecarChapters(
     /** Always `"USER"` today — a literal string (not the enum) so the disk format never depends on enum ordinals. */
     @SerialName("source") val source: String,
     @SerialName("entries") val entries: List<SidecarChapter>,
+    /**
+     * The book's own name for its outer grouping tier ("Book", "Volume"), or null when unnamed.
+     * Lives beside the entries because it names the structure they describe — a tier vocabulary
+     * without the chapters it groups would restore into nothing.
+     */
+    @SerialName("bookTierLabel") val bookTierLabel: String? = null,
+    /** The book's own name for its inner grouping tier ("Part", "Sequence"), or null when unnamed. */
+    @SerialName("partTierLabel") val partTierLabel: String? = null,
 )
 
-/** One user-edited chapter: a title and its start offset from the start of the book. */
+/** One user-edited chapter: a title, its start offset from the start of the book, and any group it opens. */
 @Serializable
 data class SidecarChapter(
     @SerialName("title") val title: String,
     @SerialName("startMs") val startMs: Long,
+    /** The name of the Part this chapter opens, or null. */
+    @SerialName("partTitle") val partTitle: String? = null,
+    /** The name of the Book this chapter opens, or null. */
+    @SerialName("bookTitle") val bookTitle: String? = null,
 )

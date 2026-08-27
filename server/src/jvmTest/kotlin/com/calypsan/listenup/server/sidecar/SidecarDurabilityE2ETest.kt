@@ -94,9 +94,19 @@ class SidecarDurabilityE2ETest :
                             BookId(bookId),
                             listOf(
                                 ChapterInput(id = "c1", title = "Prelude", startTime = 0L, duration = 4_000L),
-                                ChapterInput(id = "c2", title = "Chapter One", startTime = 4_000L, duration = 6_000L),
+                                ChapterInput(
+                                    id = "c2",
+                                    title = "Chapter One",
+                                    startTime = 4_000L,
+                                    duration = 6_000L,
+                                    partTitle = "The Way of Kings",
+                                    bookTitle = "Book One",
+                                ),
                             ),
                         ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    books
+                        .setBookTierLabels(BookId(bookId), bookTierLabel = "Volume", partTierLabel = "Sequence")
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // Await BOTH debounced background jobs — the sidecar write and the organizer's
                     // edit-relocation — by resolving the sidecar from the book's live path on every
@@ -107,7 +117,11 @@ class SidecarDurabilityE2ETest :
                             val candidate = libraryDir / currentRootRelPath(db, bookId) / "listenup.json"
                             if (candidate.exists()) {
                                 val parsed = SidecarJson.parseOrNull(candidate.readBytes())
-                                if (parsed?.metadata?.title == CURATED_TITLE && parsed.chapters?.entries?.size == 2) {
+                                val settled =
+                                    parsed?.metadata?.title == CURATED_TITLE &&
+                                        parsed.chapters?.entries?.size == 2 &&
+                                        parsed.chapters?.bookTierLabel == "Volume"
+                                if (settled) {
                                     sidecarFile = candidate
                                     break
                                 }
@@ -123,6 +137,12 @@ class SidecarDurabilityE2ETest :
                     // The provenance is recorded per field, at the tier the edit carried.
                     parsed.fieldProvenance["TITLE"]?.kind shouldBe FieldSourceKind.USER
                     parsed.chapters?.source shouldBe "USER"
+                    // The structure the user built is on disk, not just its chapter titles.
+                    parsed.chapters?.partTierLabel shouldBe "Sequence"
+                    parsed.chapters
+                        ?.entries
+                        ?.get(1)
+                        ?.bookTitle shouldBe "Book One"
 
                     // The write-state row records exactly the landed file's content hash.
                     val state = SidecarWriteStateRepository(db).findByBookId(bookId)
@@ -145,10 +165,26 @@ class SidecarDurabilityE2ETest :
                     restored.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.USER
                     restored.chapterSource shouldBe ChapterSource.USER
                     restored.chapters.map { it.title } shouldBe listOf("Prelude", "Chapter One")
+                    // A book's own vocabulary for its structure is curation like any other, and
+                    // comes back with it. Without this, naming your tiers would be the one edit the
+                    // sidecar silently failed to protect.
+                    restored.bookTierLabel shouldBe "Volume"
+                    restored.partTierLabel shouldBe "Sequence"
+                    restored.chapters[1].bookTitle shouldBe "Book One"
+                    restored.chapters[1].partTitle shouldBe "The Way of Kings"
+                    restored.chapters[0].bookTitle shouldBe null
 
                     // A second scan does not undo the restore: the USER tier out-ranks the files.
+                    val revisionBeforeRescan = restored.revision
                     authedService<ScannerService>(root.token).scanFull()
-                    repo.findById(BookId(restoredId))?.title shouldBe CURATED_TITLE
+                    val rescanned = repo.findById(BookId(restoredId))
+                    rescanned?.title shouldBe CURATED_TITLE
+                    rescanned?.bookTierLabel shouldBe "Volume"
+                    // …and it does not churn either. The scanner's payload knows nothing about
+                    // tiers, so comparing those columns would make every scan of a tier-named book
+                    // look changed and bump its revision forever — a sync storm from a field no
+                    // scan can even write.
+                    rescanned?.revision shouldBe revisionBeforeRescan
 
                     // No write echo: ingestion must not re-trigger the SidecarWriter. The file
                     // bytes are still exactly server A's write, and B has no write-state row.

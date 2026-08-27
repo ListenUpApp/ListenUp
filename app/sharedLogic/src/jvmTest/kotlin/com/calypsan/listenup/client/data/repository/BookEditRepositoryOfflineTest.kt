@@ -353,6 +353,110 @@ class BookEditRepositoryOfflineTest :
                 }
             }
         }
+
+        test("setBookTierLabels writes both names optimistically and enqueues SetTierLabels") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val bookId = BookId("book1")
+                    db.seedBook(bookId, title = "Book")
+                    val repo = db.bookEditRepository()
+
+                    val result = repo.setBookTierLabels(bookId, bookTierLabel = "Volume", partTierLabel = "Sequence")
+
+                    result shouldBe AppResult.Success(Unit)
+                    val book = db.bookDao().getById(bookId)
+                    book?.bookTierLabel shouldBe "Volume"
+                    book?.partTierLabel shouldBe "Sequence"
+
+                    val mutation = db.singleQueuedBooksOp().decodeMutation()
+                    mutation.shouldBeInstanceOf<BookMutation.SetTierLabels>()
+                    mutation.bookTierLabel shouldBe "Volume"
+                    mutation.partTierLabel shouldBe "Sequence"
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("setBookTierLabels clears a name offline — null is a value, not 'leave it alone'") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val bookId = BookId("book1")
+                    db.seedBook(bookId, title = "Book")
+                    val repo = db.bookEditRepository()
+                    repo.setBookTierLabels(bookId, "Volume", "Sequence")
+
+                    repo.setBookTierLabels(bookId, bookTierLabel = null, partTierLabel = "Part")
+
+                    val book = db.bookDao().getById(bookId)
+                    book?.bookTierLabel.shouldBeNull()
+                    book?.partTierLabel shouldBe "Part"
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("setBookTierLabels refuses a blank name locally rather than queueing a doomed op") {
+            // Without the local check the blank would be written to Room, shown as saved, and only
+            // refused when the outbox eventually drained — a failure arriving minutes later,
+            // attached to nothing the user was doing.
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val bookId = BookId("book1")
+                    db.seedBook(bookId, title = "Book")
+                    val repo = db.bookEditRepository()
+
+                    val result = repo.setBookTierLabels(bookId, bookTierLabel = "  ", partTierLabel = null)
+
+                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<BookError.InvalidInput>()
+                    db
+                        .bookDao()
+                        .getById(bookId)
+                        ?.bookTierLabel
+                        .shouldBeNull()
+                    db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).shouldBeEmpty()
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("setBookChapters carries section headers into the optimistic Room write") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val bookId = BookId("book1")
+                    db.seedBook(bookId, title = "Book")
+                    val repo = db.bookEditRepository()
+
+                    repo.setBookChapters(
+                        bookId,
+                        listOf(
+                            ChapterInput(
+                                id = "ch1",
+                                title = "Prologue",
+                                startTime = 0L,
+                                duration = 100L,
+                                partTitle = "Part One",
+                                bookTitle = "Book One",
+                            ),
+                            ChapterInput(id = "ch2", title = "Chapter 1", startTime = 100L, duration = 100L),
+                        ),
+                    )
+
+                    val chapters = db.chapterDao().getChaptersForBook(bookId)
+                    chapters.single { it.id == ChapterId("ch1") }.partTitle shouldBe "Part One"
+                    chapters.single { it.id == ChapterId("ch1") }.bookTitle shouldBe "Book One"
+                    chapters.single { it.id == ChapterId("ch2") }.partTitle.shouldBeNull()
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

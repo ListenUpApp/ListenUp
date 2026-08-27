@@ -901,7 +901,20 @@ private fun ListenUpSidecar.toCuration(): SidecarCuration =
             chapters
                 ?.takeIf { it.source.equals("USER", ignoreCase = true) }
                 ?.entries
-                ?.map { SidecarCurationChapter(title = it.title, startMs = it.startMs) },
+                ?.map {
+                    SidecarCurationChapter(
+                        title = it.title,
+                        startMs = it.startMs,
+                        // Blank-to-null here, not deeper: a sidecar is a file on disk that anyone
+                        // may hand-edit, so unlike the RPC path (where `ChapterInput` refuses a
+                        // blank outright) this reader has to normalize rather than reject — losing
+                        // the whole book's curation over one empty string would be the worse answer.
+                        partTitle = it.partTitle?.takeIf(String::isNotBlank),
+                        bookTitle = it.bookTitle?.takeIf(String::isNotBlank),
+                    )
+                },
+        bookTierLabel = chapters?.bookTierLabel?.takeIf(String::isNotBlank),
+        partTierLabel = chapters?.partTierLabel?.takeIf(String::isNotBlank),
     )
 
 /**
