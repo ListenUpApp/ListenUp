@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
+import com.calypsan.listenup.client.presentation.shelf.reorderedBy
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
@@ -34,10 +35,16 @@ private const val DRAG_ICON_SIZE = 16
  * Ownership is the server's answer ([ShelfDetail.isOwner]), not a guess from the current user id.
  * A shelf shared with you renders identically minus the controls, which is why the read path has no
  * owner branches in it at all.
+ *
+ * [notice] is how a refused mutation reaches the reader. `ShelfDetailViewModel` has always pushed
+ * these into a channel; nothing on web read it, so a reorder the server rejected reverted the list
+ * on reload and said nothing at all about why.
  */
 @Composable
 fun ShelfDetailPage(
     state: ShelfDetailUiState,
+    notice: String?,
+    onDismissNotice: () -> Unit,
     onOpenBook: (String) -> Unit,
     onRemoveBook: (String) -> Unit,
     onReorder: (List<String>) -> Unit,
@@ -45,6 +52,8 @@ fun ShelfDetailPage(
     onOpenLibrary: () -> Unit,
 ) {
     Div(attrs = { classes("shelf") }) {
+        ShelfNotice(notice, onDismissNotice)
+
         when (state) {
             is ShelfDetailUiState.Idle, is ShelfDetailUiState.Loading -> {
                 Div(attrs = { classes("skel", "shelf-skel") })
@@ -262,3 +271,29 @@ internal fun bookCountLabel(count: Int): String = "$count book${if (count == 1) 
 private const val ATTR_TYPE = "type"
 
 private const val VALUE_BUTTON = "button"
+
+/**
+ * What went wrong with the last thing you asked for.
+ *
+ * A reorder or a removal that the server refuses is otherwise invisible: the shelf simply reloads
+ * into the order it already had, which reads as the gesture not registering rather than as a
+ * refusal. Dismissable, because the shelf underneath is still perfectly usable.
+ */
+@Composable
+private fun ShelfNotice(
+    message: String?,
+    onDismiss: () -> Unit,
+) {
+    if (message == null) return
+
+    Div(attrs = { classes("shelf-notice") }) {
+        Span(attrs = { classes("shelf-notice-t") }) { Text(message) }
+        Button(attrs = {
+            classes("shelf-notice-x")
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr("aria-label", "Dismiss")
+            attr("title", "Dismiss")
+            onClick { onDismiss() }
+        }) { Icon(WebIcon.Check, size = DRAG_ICON_SIZE) }
+    }
+}

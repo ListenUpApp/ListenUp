@@ -785,7 +785,10 @@ private fun shelfShapes(): List<@Composable () -> Unit> {
         isOwner = isOwner,
     )
 
-    fun detailPage(state: ShelfDetailUiState): @Composable () -> Unit = { ShelfDetailPage(state, {}, {}, {}, {}, {}) }
+    fun detailPage(
+        state: ShelfDetailUiState,
+        notice: String? = null,
+    ): @Composable () -> Unit = { ShelfDetailPage(state, notice, {}, {}, {}, {}, {}, {}) }
 
     fun editPage(
         state: CreateEditShelfUiState,
@@ -794,6 +797,8 @@ private fun shelfShapes(): List<@Composable () -> Unit> {
 
     return listOf(
         detailPage(ShelfDetailUiState.Loading),
+        // With a notice, so its own classes are checked.
+        detailPage(ShelfDetailUiState.Loading, notice = "Could not reorder this shelf."),
         detailPage(ShelfDetailUiState.Error("nope")),
         detailPage(detail(isOwner = true, books = emptyList())),
         detailPage(detail(isOwner = true, books = listOf(book), isPrivate = true)),

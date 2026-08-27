@@ -931,8 +931,16 @@ private fun ShelfDetailRoute(
     val session = remember(shelfId) { openShelfDetail(shelfId) }
     DisposableEffect(session) { onDispose { session.close() } }
 
+    // The ViewModel reports a refused mutation exactly once, into a channel. Held here so the page
+    // can render it until dismissed — a message that vanished on the next recomposition would be
+    // no better than the silence this replaced.
+    var notice by remember(session) { mutableStateOf<String?>(null) }
+    LaunchedEffect(session) { session.messages.collect { notice = it } }
+
     ShelfDetailPage(
         state = session.state.collectAsState().value,
+        notice = notice,
+        onDismissNotice = { notice = null },
         onOpenBook = { id ->
             onHeroBookIdChange(id)
             router.navigate(Route(listOf(BOOK_KEY, id)))

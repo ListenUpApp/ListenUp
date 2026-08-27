@@ -1,17 +1,20 @@
-package com.calypsan.listenup.web.features.shelf
+package com.calypsan.listenup.client.presentation.shelf
 
 /**
- * The list that results from dragging the item at [from] onto position [to].
+ * The list that results from moving the item at [from] onto position [to].
  *
- * Remove-then-insert, which is what makes a downward drag land where the pointer is rather than one
+ * Remove-then-insert, which is what makes a downward move land where the pointer is rather than one
  * short of it: once the item is lifted, everything after it has already shifted up by one, and
  * inserting at the raw target index would account for that shift twice.
  *
  * Out-of-range or no-op moves return the list unchanged rather than throwing. A drag can end
  * anywhere — outside the list, on itself, on a row that has since gone — and none of those are
  * errors worth interrupting someone over.
+ *
+ * Shared rather than per-client because every platform's drag ends in the same question, and the
+ * off-by-one is invisible in a screenshot: it looks like the list simply moved to the wrong place.
  */
-internal fun <T> reorderedBy(
+fun <T> reorderedBy(
     items: List<T>,
     from: Int,
     to: Int,

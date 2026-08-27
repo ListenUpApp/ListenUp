@@ -110,7 +110,7 @@ class ShelfPagesTest :
             // advertising an ability they do not have.
             val host =
                 mount {
-                    ShelfDetailPage(ready(listOf(book("b1", "Dune")), isOwner = false), {}, {}, {}, {}, {})
+                    ShelfDetailPage(ready(listOf(book("b1", "Dune")), isOwner = false), null, {}, {}, {}, {}, {}, {})
                 }
 
             host.textContent.orEmpty() shouldContain "Dune"
@@ -122,7 +122,7 @@ class ShelfPagesTest :
         test("an owner gets a grip and a remove control on every book") {
             val host =
                 mount {
-                    ShelfDetailPage(ready(listOf(book("b1", "Dune"), book("b2", "Piranesi"))), {}, {}, {}, {}, {})
+                    ShelfDetailPage(ready(listOf(book("b1", "Dune"), book("b2", "Piranesi"))), null, {}, {}, {}, {}, {}, {})
                 }
 
             host.querySelectorAll(".shelf-grip").length shouldBe 2
@@ -136,6 +136,8 @@ class ShelfPagesTest :
                 mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"), book("c", "C"))),
+                        null,
+                        {},
                         {},
                         {},
                         { ordered = it },
@@ -156,6 +158,8 @@ class ShelfPagesTest :
                 mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"), book("c", "C"))),
+                        null,
+                        {},
                         {},
                         {},
                         { ordered = it },
@@ -176,6 +180,8 @@ class ShelfPagesTest :
                 mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"))),
+                        null,
+                        {},
                         {},
                         {},
                         { calls++ },
@@ -195,6 +201,8 @@ class ShelfPagesTest :
                 mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"), book("c", "C"))),
+                        null,
+                        {},
                         {},
                         {},
                         { ordered = it },
@@ -219,6 +227,8 @@ class ShelfPagesTest :
                 mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"))),
+                        null,
+                        {},
                         {},
                         {},
                         { calls++ },
@@ -240,6 +250,8 @@ class ShelfPagesTest :
                 mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "Piranesi"))),
+                        null,
+                        {},
                         {},
                         { removed = it },
                         {},
@@ -255,8 +267,56 @@ class ShelfPagesTest :
             removed shouldBe "b"
         }
 
+        test("a refused mutation is said out loud, not just logged") {
+            // The regression this exists for: ShelfDetailViewModel has always pushed a message into
+            // a channel on failure, and nothing on web read it — so a reorder the server rejected
+            // reverted the list and explained nothing.
+            val host =
+                mount {
+                    ShelfDetailPage(
+                        ready(listOf(book("a", "A"))),
+                        "Could not reorder this shelf.",
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            host.textContent.orEmpty() shouldContain "Could not reorder this shelf."
+        }
+
+        test("a shelf with nothing to report renders no notice at all") {
+            val host = mount { ShelfDetailPage(ready(listOf(book("a", "A"))), null, {}, {}, {}, {}, {}, {}) }
+
+            host.querySelector(".shelf-notice") shouldBe null
+        }
+
+        test("dismissing the notice reports it once") {
+            var dismissed = 0
+            val host =
+                mount {
+                    ShelfDetailPage(
+                        ready(listOf(book("a", "A"))),
+                        "Could not reorder this shelf.",
+                        { dismissed++ },
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            (host.querySelector(".shelf-notice-x") as HTMLElement).click()
+
+            dismissed shouldBe 1
+        }
+
         test("an empty shelf explains itself rather than showing an empty frame") {
-            val host = mount { ShelfDetailPage(ready(emptyList()), {}, {}, {}, {}, {}) }
+            val host = mount { ShelfDetailPage(ready(emptyList()), null, {}, {}, {}, {}, {}, {}) }
 
             host.textContent.orEmpty() shouldContain "This shelf is empty"
         }
@@ -265,9 +325,9 @@ class ShelfPagesTest :
             // Every shelf that is not private is shared, so labelling the common case spends a word
             // on every shelf to inform nobody.
             val privateHost =
-                mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = true), {}, {}, {}, {}, {}) }
+                mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = true), null, {}, {}, {}, {}, {}, {}) }
             val sharedHost =
-                mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = false), {}, {}, {}, {}, {}) }
+                mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = false), null, {}, {}, {}, {}, {}, {}) }
 
             privateHost.textContent.orEmpty() shouldContain "Private"
             sharedHost.textContent.orEmpty() shouldNotContain "Private"
