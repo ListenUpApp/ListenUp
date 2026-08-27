@@ -185,19 +185,6 @@ class ShelfRepositoryImplTest :
             }
         }
 
-        test("reorderBooks maps ids and dispatches the new order") {
-            runTest {
-                val service =
-                    mock<ShelfService> {
-                        everySuspend {
-                            reorderShelfBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1")))
-                        } returns AppResult.Success(Unit)
-                    }
-                repo(service = service).reorderBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1")))
-                verifySuspend { service.reorderShelfBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1"))) }
-            }
-        }
-
         test("discoverShelves maps owner identity and access-filtered counts") {
             runTest {
                 val service =
@@ -335,14 +322,16 @@ class ShelfRepositoryImplTest :
 
         test("CancellationException from the service is re-raised, not swallowed") {
             runTest {
-                // reorderBooks is a still-online surface — it exercises the RPC boundary directly.
+                // createShelf, not reorderBooks: reorder went offline-first, so it no longer touches
+                // the RPC from here. createShelf is the shelf surface that stays online — the server
+                // mints the id — which makes it the one that still exercises this boundary.
                 val service =
                     mock<ShelfService> {
-                        everySuspend { reorderShelfBooks(ShelfId("s1"), listOf(BookId("b1"))) } throws
+                        everySuspend { createShelf(any(), any(), any()) } throws
                             CancellationException("cancelled")
                     }
                 shouldThrow<CancellationException> {
-                    repo(service = service).reorderBooks(ShelfId("s1"), listOf(BookId("b1")))
+                    repo(service = service).createShelf("New", null, isPrivate = false)
                 }
             }
         }

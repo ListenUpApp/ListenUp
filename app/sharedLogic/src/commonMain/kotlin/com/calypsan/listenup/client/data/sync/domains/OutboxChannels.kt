@@ -128,14 +128,16 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
-    // Junction add/remove: both idempotent server-side (re-adding an existing member or re-removing an
-    // absent one returns Success). Unlike book_tags/book_moods, adding a book mints no server id — the
-    // book already exists — so add is offline-first too.
+    // Junction add/remove/reorder: all idempotent server-side (re-adding an existing member or
+    // re-removing an absent one returns Success; a permutation re-writes the same indices). Unlike
+    // book_tags/book_moods, adding a book mints no server id — the book already exists — so add is
+    // offline-first too. Reorder rides the same channel under Update, keyed by SHELF rather than by
+    // junction, which is what lets it coalesce — see ShelfRepositoryImpl.reorderBooks.
     val ShelfBooks =
         OutboxChannel(
             SyncDomains.SHELF_BOOKS.name,
             ShelfBookMutation.serializer(),
-            setOf(OpKind.Create, OpKind.Delete),
+            setOf(OpKind.Create, OpKind.Delete, OpKind.Update),
             idempotent = true,
         )
 

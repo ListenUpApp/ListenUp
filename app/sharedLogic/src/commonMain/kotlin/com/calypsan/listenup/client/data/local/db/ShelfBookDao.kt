@@ -78,6 +78,18 @@ internal interface ShelfBookDao {
         deletedAt: Long,
     )
 
+    /**
+     * The live (non-tombstoned) junction rows for a shelf, in sort order.
+     *
+     * Whole rows rather than ids because the one caller — an optimistic reorder — rewrites each
+     * row's `sortOrder` and must carry its existing `revision` through untouched, so the server's
+     * echo still reconciles against it.
+     */
+    @Query(
+        "SELECT * FROM shelf_books WHERE shelfId = :shelfId AND deletedAt IS NULL ORDER BY sortOrder ASC",
+    )
+    suspend fun liveForShelf(shelfId: String): List<ShelfBookEntity>
+
     /** Observe the live (non-tombstoned) book ids for a shelf, in sort order. */
     @Query(
         "SELECT bookId FROM shelf_books WHERE shelfId = :shelfId AND deletedAt IS NULL ORDER BY sortOrder ASC",
