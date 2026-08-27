@@ -1162,7 +1162,7 @@ private class FakeAdminRepository(
     override suspend fun updateServerSettings(
         serverName: String?,
         remoteUrl: String?,
-        inboxEnabled: Boolean?,
+        holdNewBooksForReview: Boolean?,
         pushNotificationsEnabled: Boolean?,
     ): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = serverName ?: "Test", remoteUrl = remoteUrl))
 

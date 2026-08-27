@@ -159,7 +159,7 @@ struct AdminView: View {
                 tint: .luTint,
                 title: String(localized: "admin.inbox_setting_title"),
                 subtitle: String(localized: "admin.inbox_setting_subtitle"),
-                isOn: inboxEnabledBinding(settings: settings, model: settingsModel(settings))
+                isOn: holdNewBooksForReviewBinding(settings: settings, model: settingsModel(settings))
             )
             .fieldCard()
             Spacer().frame(height: 10)
@@ -350,20 +350,19 @@ struct AdminView: View {
                     subtitle: String(localized: "admin.share_your_audiobook_library_with"),
                     action: { showingInviteSheet = true }
                 )
-                // Inbox is only meaningful when hold-for-review is on — gate the tile on it, as
-                // Android does (AdminScreen inboxEnabled).
-                if settingsModel(settings)?.inboxEnabled == true {
-                    rowSeparator
-                    NavigationLink(value: AdminInboxDestination()) {
-                        NavigationActionRow(
-                            systemImage: "tray.full",
-                            tint: .luTint,
-                            title: String(localized: "common.inbox"),
-                            subtitle: String(localized: "admin.inbox_setting_subtitle")
-                        )
-                    }
-                    .buttonStyle(.plain)
+                // Unconditional, matching Android. Hold-for-review governs whether *healthy*
+                // books wait here; a folder the scanner could not import lands here regardless,
+                // so the way in must not depend on a setting the admin may never have turned on.
+                rowSeparator
+                NavigationLink(value: AdminInboxDestination()) {
+                    NavigationActionRow(
+                        systemImage: "tray.full",
+                        tint: .luTint,
+                        title: String(localized: "common.inbox"),
+                        subtitle: String(localized: "admin.inbox_subtitle")
+                    )
                 }
+                .buttonStyle(.plain)
                 rowSeparator
                 NavigationLink(value: AdminCollectionsDestination()) {
                     NavigationActionRow(
@@ -447,11 +446,11 @@ struct AdminView: View {
         return nil
     }
 
-    private func inboxEnabledBinding(
+    private func holdNewBooksForReviewBinding(
         settings: AdminSettingsObserver,
         model: AdminSettingsReadyModel?
     ) -> Binding<Bool> {
-        Binding(get: { model?.inboxEnabled ?? false }, set: { settings.setInboxEnabled($0) })
+        Binding(get: { model?.holdNewBooksForReview ?? false }, set: { settings.setHoldNewBooksForReview($0) })
     }
 
     private func pushNotificationsEnabledBinding(

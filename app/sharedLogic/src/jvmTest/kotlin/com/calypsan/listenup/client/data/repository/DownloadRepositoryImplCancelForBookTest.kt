@@ -199,4 +199,7 @@ private class NoopBookRepository : BookRepository {
     override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null
+
+    /** Not exercised here — these fakes cover read paths, and a delete is a server-only write. */
+    override suspend fun deleteBook(id: BookId): AppResult<Unit> = AppResult.Success(Unit)
 }

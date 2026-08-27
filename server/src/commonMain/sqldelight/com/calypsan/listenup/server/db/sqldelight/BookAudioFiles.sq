@@ -49,6 +49,14 @@ insert:
 INSERT INTO book_audio_files (book_id, ordinal, id, filename, format, codec, duration, size, codecProfile, spatial, bitrate, sampleRate, channels)
 VALUES (:book_id, :ordinal, :id, :filename, :format, :codec, :duration, :size, :codecProfile, :spatial, :bitrate, :sampleRate, :channels);
 
+-- The one single-row update path, and deliberately narrow: the organizer renames a SINGLE-FILE
+-- book's audio file to match its folder, and the stored filename must move with it in the same
+-- transaction as `books.root_rel_path` — otherwise AudioFileLocator resolves a path that is no
+-- longer on disk. Unqualified by ordinal because the only caller has already established the
+-- book has exactly one row.
+updateFilenameForSingleFileBook:
+UPDATE book_audio_files SET filename = :filename WHERE book_id = :book_id;
+
 -- Wholesale-replace step.
 deleteByBookId:
 DELETE FROM book_audio_files WHERE book_id = :book_id;

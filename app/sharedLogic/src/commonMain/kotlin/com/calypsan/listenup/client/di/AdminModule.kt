@@ -6,15 +6,21 @@ import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.api.OrganizeService
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
+import com.calypsan.listenup.client.data.remote.UploadApi
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
+import com.calypsan.listenup.client.data.repository.UploadRepositoryImpl
+import com.calypsan.listenup.client.data.repository.OrganizeRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.client.domain.repository.UploadRepository
+import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DecidePasswordResetUseCase
@@ -67,6 +73,20 @@ internal val adminModule: Module =
         // ImportRepository — admin Audiobookshelf import via ImportService RPC channel + REST upload.
         single<ImportRepository> {
             ImportRepositoryImpl(channel = rpcChannel(), clientFactory = get())
+        }
+
+        // UploadRepository — admin book upload. No RPC channel: the whole surface is REST, because
+        // multi-GiB audio cannot ride a JSON-RPC frame.
+        single<UploadRepository> {
+            UploadRepositoryImpl(api = UploadApi(clientFactory = get()))
+        }
+
+        // OrganizeService RPC channel — admin file organizer (settings, preview, run progress).
+        rpcChannel<OrganizeService>()
+
+        // OrganizeRepository — admin file-organizer settings/preview/run via OrganizeService RPC channel.
+        single<OrganizeRepository> {
+            OrganizeRepositoryImpl(channel = rpcChannel())
         }
 
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)

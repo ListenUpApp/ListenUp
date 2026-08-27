@@ -20,7 +20,11 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is DownloadError -> withCorrelationId(id)
 
-        is ImportError -> withCorrelationId(id)
+        // ImportError + UploadError share one branch (delegating to an exhaustive helper) to keep
+        // this function under the project's cyclomatic-complexity ceiling while preserving
+        // per-variant exhaustiveness for both families. They pair naturally — both are content
+        // arriving from outside the server: someone else's backup, and someone's own files.
+        is ImportError, is UploadError -> arrivalFamilyWithCorrelationId(id)
 
         is ScanError -> withCorrelationId(id)
 
@@ -30,7 +34,10 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is AudioMetadataError -> withCorrelationId(id)
 
-        is LibraryError -> withCorrelationId(id)
+        // LibraryError + LibraryWriteError share one branch (delegating to an exhaustive
+        // helper) to keep this function under the project's cyclomatic-complexity ceiling
+        // while preserving per-variant exhaustiveness for both families.
+        is LibraryError, is LibraryWriteError -> libraryFamilyWithCorrelationId(id)
 
         is MetadataError -> withCorrelationId(id)
 
@@ -146,6 +153,7 @@ private fun ScanError.withCorrelationId(id: String?): ScanError =
         is ScanError.AlreadyRunning -> copy(correlationId = id)
         is ScanError.LibraryPathNotConfigured -> copy(correlationId = id)
         is ScanError.LibraryPathNotFound -> copy(correlationId = id)
+        is ScanError.NoRecognizedAudio -> copy(correlationId = id)
         is ScanError.FileUnreadable -> copy(correlationId = id)
         is ScanError.MetadataParseError -> copy(correlationId = id)
         is ScanError.TitleInferenceError -> copy(correlationId = id)
@@ -188,6 +196,17 @@ private fun DownloadError.withCorrelationId(id: String?): DownloadError =
         is DownloadError.NotSupported -> copy(correlationId = id)
     }
 
+/**
+ * Exhaustive stamping for the content-arrival families, [ImportError] and [UploadError], which
+ * [withCorrelationId] dispatches to from the single grouped branch above.
+ */
+private fun AppError.arrivalFamilyWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is ImportError -> withCorrelationId(id)
+        is UploadError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
 private fun ImportError.withCorrelationId(id: String?): ImportError =
     when (this) {
         is ImportError.UploadFailed -> copy(correlationId = id)
@@ -195,6 +214,16 @@ private fun ImportError.withCorrelationId(id: String?): ImportError =
         is ImportError.ApplyFailed -> copy(correlationId = id)
         is ImportError.ImportNotFound -> copy(correlationId = id)
         is ImportError.MappingInvalid -> copy(correlationId = id)
+    }
+
+private fun UploadError.withCorrelationId(id: String?): UploadError =
+    when (this) {
+        is UploadError.SessionNotFound -> copy(correlationId = id)
+        is UploadError.InvalidFilePath -> copy(correlationId = id)
+        is UploadError.SessionTooLarge -> copy(correlationId = id)
+        is UploadError.FileTransferFailed -> copy(correlationId = id)
+        is UploadError.NoBooksFound -> copy(correlationId = id)
+        is UploadError.NoLibraryFolder -> copy(correlationId = id)
     }
 
 private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectError =
@@ -230,6 +259,28 @@ private fun MetadataError.withCorrelationId(id: String?): MetadataError =
         is MetadataError.ChapterCountMismatch -> copy(correlationId = id)
     }
 
+/**
+ * Correlation-id stamping for the library-folder error families, [LibraryError] and
+ * [LibraryWriteError].
+ *
+ * Split from [withCorrelationId] solely to keep that function under the project's
+ * cyclomatic-complexity ceiling. The `else` branch is unreachable — this is only called from
+ * the single grouped branch above.
+ */
+private fun AppError.libraryFamilyWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is LibraryError -> withCorrelationId(id)
+        is LibraryWriteError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
+private fun LibraryWriteError.withCorrelationId(id: String?): LibraryWriteError =
+    when (this) {
+        is LibraryWriteError.Unavailable -> copy(correlationId = id)
+        is LibraryWriteError.OutsideLibrary -> copy(correlationId = id)
+        is LibraryWriteError.ProtectedPath -> copy(correlationId = id)
+    }
+
 private fun LibraryError.withCorrelationId(id: String?): LibraryError =
     when (this) {
         is LibraryError.NotFound -> copy(correlationId = id)
@@ -259,6 +310,7 @@ private fun BookError.withCorrelationId(id: String?): BookError =
     when (this) {
         is BookError.NotFound -> copy(correlationId = id)
         is BookError.InvalidInput -> copy(correlationId = id)
+        is BookError.FolderNotExclusive -> copy(correlationId = id)
     }
 
 private fun CoverError.withCorrelationId(id: String?): CoverError =

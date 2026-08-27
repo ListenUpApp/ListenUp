@@ -402,6 +402,11 @@ final class BookDetailObserver {
             documentToOpen = ReaderDocument(localPath: open.localPath, title: title)
         case .showViewerComingSoon:
             showComingSoon = true
+        case .bookDeleted:
+            // Delete Book ships on Compose first; iOS has no delete affordance yet, so nothing here
+            // can emit this. Named explicitly rather than swept into `.unknown` so the switch stays
+            // exhaustive, and so whoever adds the iOS entry point lands on this line.
+            Log.error("BookDetailNavAction.BookDeleted reached iOS, which has no delete affordance")
         case .unknown:
             Log.error("Unexpected BookDetailNavAction case")
         }

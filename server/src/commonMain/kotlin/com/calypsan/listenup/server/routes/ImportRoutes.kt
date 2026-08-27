@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.io.streamFirstFilePartTo
 import com.calypsan.listenup.server.io.writeText
+import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -74,7 +75,7 @@ fun Route.importRoutes(
 ) {
     post(ImportRoutePaths.ABS_UPLOAD) {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
-        if (!p.role.isImportAdmin()) return@post call.respondImportAppError(AuthError.PermissionDenied())
+        if (!p.role.isImportAdmin()) return@post call.respondAppError(AuthError.PermissionDenied())
         call.handleImportUpload(paths, clock)
     }
 }
@@ -93,7 +94,7 @@ private suspend fun ApplicationCall.handleImportUpload(
     val tmpZip = createTempFileIn(paths.tmpDir, "abs-upload-", ".audiobookshelf")
     try {
         if (!streamFirstFilePartTo(tmpZip, MAX_BACKUP_UPLOAD_BYTES)) {
-            respondImportAppError(ImportError.UploadFailed(debugInfo = "missing file part"))
+            respondAppError(ImportError.UploadFailed(debugInfo = "missing file part"))
             return
         }
 
@@ -117,13 +118,13 @@ private suspend fun ApplicationCall.handleImportUpload(
             )
         } catch (e: AbsDatabaseMissingException) {
             deleteRecursively(importDir)
-            respondImportAppError(ImportError.UploadFailed(debugInfo = e.message))
+            respondAppError(ImportError.UploadFailed(debugInfo = e.message))
         } catch (e: CancellationException) {
             deleteRecursively(importDir)
             throw e
         } catch (e: Exception) {
             deleteRecursively(importDir)
-            respondImportAppError(ImportError.UploadFailed(debugInfo = e.message))
+            respondAppError(ImportError.UploadFailed(debugInfo = e.message))
         }
     } finally {
         SystemFileSystem.delete(tmpZip, mustExist = false)
@@ -178,8 +179,3 @@ private data class UploadMeta(
 )
 
 private fun UserRole.isImportAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
-
-private suspend fun ApplicationCall.respondImportAppError(error: AppError) {
-    val typed = error.withCorrelationId(callId)
-    respond(typed.toHttpStatus(), typed)
-}

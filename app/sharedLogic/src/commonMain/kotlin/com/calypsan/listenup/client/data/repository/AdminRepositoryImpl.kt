@@ -202,7 +202,7 @@ internal class AdminRepositoryImpl(
             ServerSettings(
                 it.serverName,
                 it.remoteUrl,
-                it.inboxEnabled,
+                it.holdNewBooksForReview,
                 it.pushNotificationsEnabled,
             )
         }
@@ -210,7 +210,7 @@ internal class AdminRepositoryImpl(
     override suspend fun updateServerSettings(
         serverName: String?,
         remoteUrl: String?,
-        inboxEnabled: Boolean?,
+        holdNewBooksForReview: Boolean?,
         pushNotificationsEnabled: Boolean?,
     ): AppResult<ServerSettings> =
         adminSettingsChannel
@@ -219,11 +219,11 @@ internal class AdminRepositoryImpl(
                     AdminServerSettingsPatch(
                         serverName = serverName,
                         remoteUrl = remoteUrl,
-                        inboxEnabled = inboxEnabled,
+                        holdNewBooksForReview = holdNewBooksForReview,
                         pushNotificationsEnabled = pushNotificationsEnabled,
                     ),
                 )
-            }.map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled, it.pushNotificationsEnabled) }
+            }.map { ServerSettings(it.serverName, it.remoteUrl, it.holdNewBooksForReview, it.pushNotificationsEnabled) }
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT

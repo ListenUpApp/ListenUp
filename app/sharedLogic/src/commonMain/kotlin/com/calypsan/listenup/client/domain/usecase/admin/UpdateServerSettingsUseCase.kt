@@ -22,8 +22,8 @@ open class UpdateServerSettingsUseCase(
         adminRepository.updateServerSettings(remoteUrl = remoteUrl)
 
     /** Enable or disable the server-wide inbox quarantine gate. */
-    open suspend fun updateInboxEnabled(enabled: Boolean): AppResult<ServerSettings> =
-        adminRepository.updateServerSettings(inboxEnabled = enabled)
+    open suspend fun updateHoldNewBooksForReview(enabled: Boolean): AppResult<ServerSettings> =
+        adminRepository.updateServerSettings(holdNewBooksForReview = enabled)
 
     /** Enable or disable server-wide push notifications (FCM relay delivery). */
     open suspend fun updatePushNotificationsEnabled(enabled: Boolean): AppResult<ServerSettings> =

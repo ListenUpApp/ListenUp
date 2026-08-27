@@ -96,3 +96,14 @@ DELETE FROM library_folders WHERE root_path = :root_path;
 -- rows are created by LibraryRegistry.currentLibrary's path-less library bootstrap.
 countAll:
 SELECT COUNT(*) FROM library_folders;
+
+-- Every live folder root, across all libraries — the allow-list LibraryWriteBroker checks a write
+-- target against. Deleted folders are excluded: a removed folder is no longer somewhere we may write.
+selectLiveRootPaths:
+SELECT root_path FROM library_folders WHERE deleted_at IS NULL;
+
+-- Every live folder root paired with its id, across all libraries — lets BookDeleter turn each
+-- live book's (folder_id, root_rel_path) into an absolute directory from ONE read, rather than a
+-- folder lookup per book.
+selectLiveFolderRoots:
+SELECT id, root_path FROM library_folders WHERE deleted_at IS NULL;

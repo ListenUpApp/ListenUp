@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.scanner.pipeline.NoRecognizedAudio
 import com.calypsan.listenup.server.scanner.pipeline.Differ
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
+import com.calypsan.listenup.server.scanner.sidecar.ListenUpSidecarReader
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.io.isUnder
@@ -84,6 +85,7 @@ internal class Scanner(
     private val clock: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     private val correlationIdFactory: () -> String = { Uuid.random().toString() },
     private val coverSpool: CoverSpool? = null,
+    private val listenUpSidecarReader: ListenUpSidecarReader? = null,
 ) : ScannerResultPort {
     @Volatile
     private var lastResult: ScanResult? = null
@@ -200,6 +202,7 @@ internal class Scanner(
                     parseSubtitle,
                     sidecarParsers,
                     metadataPrecedence,
+                    listenUpSidecarReader = listenUpSidecarReader,
                 )
             val pass =
                 collectAnalyzed(
@@ -302,8 +305,14 @@ internal class Scanner(
      *
      * If the bookRoot directory no longer exists, all previously-known
      * books at or under that path are emitted as Removed.
+     *
+     * Returns the subtree-scoped [ScanResult] — books and errors for this subtree only — or null
+     * when the pass was superseded and its result discarded. Callers use it to reconcile state a
+     * scan is supposed to keep true: the fix for a broken folder usually arrives as a file change
+     * the watcher notices, which lands here rather than in a full scan, so returning nothing left
+     * the scan-issue record stale on the *commonest* repair path.
      */
-    suspend fun runIncremental(bookRoot: Path) {
+    suspend fun runIncremental(bookRoot: Path): ScanResult? {
         val correlationId = correlationIdFactory()
         val started = clock()
         logger.info { "incremental scan started: library=${library.id.value} root=$bookRoot corr=$correlationId" }
@@ -344,6 +353,7 @@ internal class Scanner(
                 parseSubtitle,
                 sidecarParsers,
                 metadataPrecedence,
+                listenUpSidecarReader = listenUpSidecarReader,
             )
         // For incremental scans the dirty-check only covers the affected subtree;
         // the untouched books are preserved via previousUntouched below.
@@ -418,10 +428,11 @@ internal class Scanner(
                 "incremental scan superseded by a bundle rebuild — dropping stale result " +
                     "[library=${library.id.value}] corr=$correlationId"
             }
-            return
+            return null
         }
         // BookPersister emits ScanEvent.Completed after persisting this incremental result.
         scanResultBus.emit(incrementalResult)
+        return incrementalResult
     }
 
     /**
@@ -670,10 +681,14 @@ internal class Scanner(
             (t as? BookAnalysisFailure)
                 ?.let { Path(folderRoot, it.rootRelPath).toString() }
                 ?: folderRoot.toString()
-        return ScanError.FileUnreadable(
-            path = path,
-            debugInfo = t.message ?: "unknown error",
-        )
+        val detail = t.message ?: "unknown error"
+        // A folder with no audio is the commonest real case by far, and it is not an unreadable
+        // file. Flattening every failure into FileUnreadable told every user the same wrong story.
+        return if ((t as? BookAnalysisFailure)?.cause is NoRecognizedAudio) {
+            ScanError.NoRecognizedAudio(path = path, debugInfo = detail)
+        } else {
+            ScanError.FileUnreadable(path = path, debugInfo = detail)
+        }
     }
 }
 

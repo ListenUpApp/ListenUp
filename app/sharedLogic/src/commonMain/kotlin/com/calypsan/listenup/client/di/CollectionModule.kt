@@ -41,7 +41,7 @@ internal val collectionModule: Module =
 
         // InboxRepository — admin collection-inbox over CollectionService RPC
         single<InboxRepository> {
-            InboxRepositoryImpl(channel = rpcChannel())
+            InboxRepositoryImpl(channel = rpcChannel(), scannerChannel = rpcChannel())
         }
 
         // AddBooksToCollectionUseCase — bulk add for multi-select flows

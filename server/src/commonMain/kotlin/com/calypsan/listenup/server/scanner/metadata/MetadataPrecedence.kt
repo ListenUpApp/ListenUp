@@ -5,6 +5,12 @@ package com.calypsan.listenup.server.scanner.metadata
  * [fallback] (the operator-global default). A blank value inherits [fallback] (not `parse`'s
  * hardcoded all-sources DEFAULT); an unparseable value also falls back rather than failing the
  * scan — a malformed per-library config must never strand ingest.
+ *
+ * Note: libraries created before the [MetadataPrecedenceSource.LISTENUP] slot existed persisted
+ * a precedence string WITHOUT `listenup.json`, so the ListenUp sidecar's precedence-gated
+ * textual fields never ingest for them (curation provenance and USER chapters still rehydrate —
+ * they don't consult precedence). Accepted under the pre-1.0 wipe-beta-DBs policy: libraries
+ * created at 1.0+ get the new default order with LISTENUP on top.
  */
 fun resolveLibraryPrecedence(
     libraryValue: String,
@@ -20,6 +26,8 @@ fun resolveLibraryPrecedence(
 enum class MetadataPrecedenceSource(
     val token: String,
 ) {
+    /** ListenUp's own `listenup.json` curation sidecar — the highest-precedence source. */
+    LISTENUP("listenup.json"),
     ABS_METADATA("metadata.json"),
     EMBEDDED("embedded"),
     SIDECAR("sidecar"),

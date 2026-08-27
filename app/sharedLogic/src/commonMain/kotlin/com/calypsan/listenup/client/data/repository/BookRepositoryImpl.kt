@@ -125,6 +125,20 @@ internal class BookRepositoryImpl(
     override suspend fun refreshBooks(): AppResult<Unit> = AppResult.Success(Unit)
 
     /**
+     * Server-only, by design — see
+     * [com.calypsan.listenup.client.domain.repository.BookRepository.deleteBook] for why this one
+     * write skips the outbox.
+     *
+     * Not marked `idempotent`: a delete whose reply is lost must not be blindly re-fired. It would
+     * be harmless against this same book (the server refuses an already-tombstoned one), but blind
+     * retries have no business on the one call that destroys files.
+     *
+     * No optimistic Room write either. The tombstone the server publishes is what removes the row
+     * here, exactly as it does on every other device — one path, and it is the authoritative one.
+     */
+    override suspend fun deleteBook(id: BookId): AppResult<Unit> = channel.call { it.deleteBook(id) }
+
+    /**
      * Get chapters for a book from the local database.
      *
      * @param bookId The book ID

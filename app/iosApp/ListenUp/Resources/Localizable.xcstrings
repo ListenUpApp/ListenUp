@@ -701,6 +701,136 @@
         }
       }
     },
+    "admin.inbox_issue_dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_metadata": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The tags couldn't be read"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_metadata_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The audio is there, but its metadata is unreadable. Re-tagging usually fixes it."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_no_audio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No audio in this folder"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_no_audio_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the audio files, or dismiss this if the folder isn't a book."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No title could be worked out"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_title_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name the folder after the book, or give the audio a title tag."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong here"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unknown_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The scan couldn't say why. The details below are what it reported."
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unreadable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A file here couldn't be read"
+          }
+        }
+      }
+    },
+    "admin.inbox_issue_unreadable_fix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the file is still there and ListenUp has permission to read it."
+          }
+        }
+      }
+    },
+    "admin.inbox_needs_attention": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs attention"
+          }
+        }
+      }
+    },
+    "admin.inbox_needs_attention_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp walked these folders but couldn't make a book from them."
+          }
+        }
+      }
+    },
     "admin.inbox_release_count": {
       "localizations": {
         "en": {
@@ -756,7 +886,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New books wait in the inbox until an admin releases them."
+            "value": "Healthy new books wait here too, not just the ones with problems."
           }
         }
       }
@@ -776,7 +906,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Review and release new books waiting for approval."
+            "value": "Books that need a look before they join your library."
+          }
+        }
+      }
+    },
+    "admin.inbox_waiting_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for review"
           }
         }
       }
@@ -1071,12 +1211,292 @@
         }
       }
     },
+    "admin.organize": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File Organization"
+          }
+        }
+      }
+    },
+    "admin.organize_already": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library is already organized"
+          }
+        }
+      }
+    },
+    "admin.organize_author_first_last": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First Last"
+          }
+        }
+      }
+    },
+    "admin.organize_author_form": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author name style"
+          }
+        }
+      }
+    },
+    "admin.organize_author_last_first": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last, First"
+          }
+        }
+      }
+    },
     "admin.organize_books_into_collections_for": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Organize books into collections for access control"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_more_rows": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "…and %1$d more"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_renames": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio files renamed in place, to match the folder they are already in: %1$d."
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_run": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize now"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moves %1$d files across %2$d folders; %3$d collisions resolved."
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize library?"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_book_n_dash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book 1 - Title"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_bracket_n": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[1] Title"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_n_dash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 - Title"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No number"
+          }
+        }
+      }
+    },
+    "admin.organize_preset_author_series_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author / Series / Title"
+          }
+        }
+      }
+    },
+    "admin.organize_preset_author_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author / Title"
+          }
+        }
+      }
+    },
+    "admin.organize_preset_flat_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title only"
+          }
+        }
+      }
+    },
+    "admin.organize_progress_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d books"
+          }
+        }
+      }
+    },
+    "admin.organize_progress_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organizing library…"
+          }
+        }
+      }
+    },
+    "admin.organize_report_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library organized"
+          }
+        }
+      }
+    },
+    "admin.organize_report_resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "admin.organize_report_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books moved, %2$d failed."
+          }
+        }
+      }
+    },
+    "admin.organize_run": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize Library"
+          }
+        }
+      }
+    },
+    "admin.organize_saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organization settings saved."
+          }
+        }
+      }
+    },
+    "admin.organize_series_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series number style"
+          }
+        }
+      }
+    },
+    "admin.organize_structure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder structure"
+          }
+        }
+      }
+    },
+    "admin.organize_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep library folders tidy and consistent"
           }
         }
       }
@@ -1827,6 +2247,226 @@
           "stringUnit": {
             "state": "translated",
             "value": "Top level"
+          }
+        }
+      }
+    },
+    "admin.upload_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload Books"
+          }
+        }
+      }
+    },
+    "admin.upload_books_cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Upload"
+          }
+        }
+      }
+    },
+    "admin.upload_books_choose_files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Files"
+          }
+        }
+      }
+    },
+    "admin.upload_books_choose_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Folder"
+          }
+        }
+      }
+    },
+    "admin.upload_books_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a folder and everything inside it comes across — audio, artwork, PDFs. ListenUp reads the tags to work out which files belong to which book, then files them where your organisation rules say they go."
+          }
+        }
+      }
+    },
+    "admin.upload_books_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "admin.upload_books_duplicates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d already in your library"
+          }
+        }
+      }
+    },
+    "admin.upload_books_failed_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload failed"
+          }
+        }
+      }
+    },
+    "admin.upload_books_failures": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d couldn't be added"
+          }
+        }
+      }
+    },
+    "admin.upload_books_file_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File %1$d of %2$d"
+          }
+        }
+      }
+    },
+    "admin.upload_books_file_too_large_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” is %2$@, and a single file can be at most %3$@."
+          }
+        }
+      }
+    },
+    "admin.upload_books_file_too_large_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One file is too big"
+          }
+        }
+      }
+    },
+    "admin.upload_books_finalizing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding to your library"
+          }
+        }
+      }
+    },
+    "admin.upload_books_finished_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload finished"
+          }
+        }
+      }
+    },
+    "admin.upload_books_imported": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d added"
+          }
+        }
+      }
+    },
+    "admin.upload_books_nothing_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to upload — that selection had no files in it."
+          }
+        }
+      }
+    },
+    "admin.upload_books_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add audiobooks from this device to your library"
+          }
+        }
+      }
+    },
+    "admin.upload_books_too_large_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One upload can carry %1$@. That selection is %2$@, so try it in smaller batches."
+          }
+        }
+      }
+    },
+    "admin.upload_books_too_large_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That's too much at once"
+          }
+        }
+      }
+    },
+    "admin.upload_books_too_many_files_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One upload can carry %1$d files. That selection has %2$d, so try it in smaller batches."
+          }
+        }
+      }
+    },
+    "admin.upload_books_too_many_files_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That's too many files"
+          }
+        }
+      }
+    },
+    "admin.upload_books_uploading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending %1$@"
           }
         }
       }
@@ -2827,6 +3467,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d contributors · %2$@"
+          }
+        }
+      }
+    },
+    "book.detail_delete_book_blocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” is in the same folder, so deleting this book would take it too. Nothing was deleted."
+          }
+        }
+      }
+    },
+    "book.detail_delete_book_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This permanently deletes the book’s folder from your server. ListenUp tracks %1$d files in it (%2$@), and everything else in that folder goes too — PDFs, artwork, bonus material — whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone."
+          }
+        }
+      }
+    },
+    "book.detail_delete_book_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Forever"
+          }
+        }
+      }
+    },
+    "book.detail_delete_book_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete “%1$@”?"
           }
         }
       }

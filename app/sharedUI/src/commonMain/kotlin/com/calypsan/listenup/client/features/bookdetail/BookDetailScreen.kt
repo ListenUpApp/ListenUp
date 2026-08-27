@@ -135,13 +135,28 @@ fun BookDetailScreen(
 
     val snackbarHostState = LocalSnackbarHostState.current
     val viewerComingSoonLabel = stringResource(Res.string.book_detail_document_viewer_coming_soon)
+    val navPlatformActions: BookDetailPlatformActions = koinInject()
 
     // Consume one-shot navigation events from the ViewModel.
     LaunchedEffect(viewModel) {
         viewModel.navActions.collect { action ->
             when (action) {
-                is BookDetailNavAction.OpenDocumentViewer -> onOpenDocumentViewer(action.localPath)
-                is BookDetailNavAction.ShowViewerComingSoon -> snackbarHostState.showSnackbar(viewerComingSoonLabel)
+                is BookDetailNavAction.OpenDocumentViewer -> {
+                    onOpenDocumentViewer(action.localPath)
+                }
+
+                is BookDetailNavAction.ShowViewerComingSoon -> {
+                    snackbarHostState.showSnackbar(viewerComingSoonLabel)
+                }
+
+                is BookDetailNavAction.BookDeleted -> {
+                    // Purge this device's copy before leaving: the book's files are gone on the
+                    // server, so a download left behind would keep playing a book that no longer
+                    // exists — offline, indefinitely, with no way to reach it from the library.
+                    navPlatformActions.deleteDownload(BookId(bookId))
+                    // Then leave, before the tombstone lands and the row disappears underneath us.
+                    onBackClick()
+                }
             }
         }
     }
@@ -289,6 +304,7 @@ private fun BookDetailReadyContent(
     val isPreparing = preparingBookId == BookId(bookId)
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showDeleteBookDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
     var showMarkNotStartedDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
@@ -342,7 +358,10 @@ private fun BookDetailReadyContent(
                 }
             }
         },
-        onDeleteBookClick = { /* TODO: Implement */ },
+        onDeleteBookClick = {
+            viewModel.clearDeleteError()
+            showDeleteBookDialog = true
+        },
         onPlayClick = { platformActions.playBook(BookId(bookId)) },
         canPlay = state.canPlay,
         canDownload = state.canDownload,
@@ -388,6 +407,28 @@ private fun BookDetailReadyContent(
                 showDeleteDialog = false
             },
             onDismiss = { showDeleteDialog = false },
+        )
+    }
+
+    if (showDeleteBookDialog) {
+        // What ListenUp knows is in the folder: the audio files plus any synced documents. The
+        // dialog frames this as "tracked", because the folder may hold more (66 folders in a real
+        // library carry bonus PDFs) and every one of those goes too.
+        val trackedFiles = book.audioFiles.size + documents.size
+        val trackedBytes = book.audioFiles.sumOf { it.size } + documents.sumOf { it.size }
+        DeleteBookDialog(
+            bookTitle = book.title,
+            trackedFileCount = trackedFiles,
+            trackedBytes = trackedBytes,
+            error = state.deleteError,
+            isDeleting = state.isDeletingBook,
+            onConfirm = { viewModel.deleteBook() },
+            // Left open on failure so the refusal is readable; the success path never returns here,
+            // it navigates away on BookDetailNavAction.BookDeleted.
+            onDismiss = {
+                showDeleteBookDialog = false
+                viewModel.clearDeleteError()
+            },
         )
     }
 

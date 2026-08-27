@@ -96,7 +96,7 @@ private val UNKNOWN_FOLDER_ID = FolderId("unknown")
  * write the managed cover file after the book id is known. When null (e.g. in
  * pure orchestration tests), cover extraction is skipped.
  *
- * [libraryRepository] reads the per-library `inboxEnabled` gate; [collectionService]
+ * [libraryRepository] reads the per-library `holdNewBooksForReview` gate; [collectionService]
  * resolves (or creates) the appropriate system collection (ALL_BOOKS or INBOX) each scan.
  * Both back the system-collection auto-membership described above.
  */
@@ -470,7 +470,7 @@ class BookPersister internal constructor(
     private suspend fun resolveSystemCollectionId(libraryId: LibraryId): String? =
         try {
             val type =
-                if (libraryRepository.readInboxEnabled(libraryId)) {
+                if (libraryRepository.readHoldNewBooksForReview(libraryId)) {
                     SystemCollectionType.INBOX
                 } else {
                     SystemCollectionType.ALL_BOOKS

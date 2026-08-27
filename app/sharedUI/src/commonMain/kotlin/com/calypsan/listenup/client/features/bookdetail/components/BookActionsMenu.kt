@@ -48,7 +48,8 @@ import org.jetbrains.compose.resources.stringResource
  * @param onRestartClick Called when Restart Book is clicked (shown when there is progress or it is complete)
  * @param onAddToShelfClick Called when Add to Shelf is clicked
  * @param onAddToCollectionClick Called when Add to Collection is clicked (admin only)
- * @param onDeleteClick Called when Delete Book is clicked (admin only)
+ * @param onDeleteClick Called when Delete Book is clicked (admin only) — the caller is expected to
+ *   confirm before anything is destroyed; this row only opens that conversation.
  */
 @Suppress("LongParameterList")
 @Composable
@@ -147,22 +148,19 @@ fun BookActionsMenu(
             enabled = actionsEnabled,
         )
 
-        // Delete Book (admin only) — not yet implemented
+        // Delete Book (admin only) — destroys the book's folder on the server. Set apart by a
+        // divider and painted in the error colour: everything above it is reversible and this is
+        // not. The confirmation dialog is where the consequences get spelled out.
         if (isAdmin) {
             HorizontalDivider()
 
+            val haptics = LocalHaptics.current
             DropdownMenuItem(
-                text = {
-                    Text(
-                        text = stringResource(Res.string.common_delete_name, "Book"),
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                    )
-                },
+                text = { Text(text = stringResource(Res.string.common_delete_name, "Book")) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
                     )
                 },
                 colors =
@@ -170,8 +168,11 @@ fun BookActionsMenu(
                         textColor = MaterialTheme.colorScheme.error,
                         leadingIconColor = MaterialTheme.colorScheme.error,
                     ),
-                onClick = onDeleteClick,
-                enabled = false, // Not yet implemented
+                onClick = {
+                    haptics.press()
+                    onDeleteClick()
+                },
+                enabled = actionsEnabled,
             )
         }
     }

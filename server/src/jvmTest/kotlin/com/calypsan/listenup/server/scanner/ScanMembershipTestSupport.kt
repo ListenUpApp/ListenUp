@@ -10,21 +10,21 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 /*
  * Shared test utilities for ScannerInboxIngestTest and ScanAllBooksMembershipTest.
  *
- * Provides setInboxEnabled (toggling the hold gate on a test library) and
+ * Provides setHoldNewBooksForReview (toggling the hold gate on a test library) and
  * buildAnalyzedBook (minimal AnalyzedBook factory). Both helpers are stable
  * across the two test files; keep them here rather than duplicating.
  */
 
 /**
- * Toggles the `inbox_enabled` gate on the given [libraryId] row — used by tests that run inside
+ * Toggles the `hold_new_books_for_review` gate on the given [libraryId] row — used by tests that run inside
  * [com.calypsan.listenup.server.testing.withSqlDatabase].
  */
-internal fun ListenUpDatabase.setInboxEnabled(
+internal fun ListenUpDatabase.setHoldNewBooksForReview(
     libraryId: String,
     enabled: Boolean,
 ) {
-    librariesQueries.setInboxEnabled(
-        inbox_enabled = if (enabled) 1L else 0L,
+    librariesQueries.setHoldNewBooksForReview(
+        hold_new_books_for_review = if (enabled) 1L else 0L,
         revision = 1L,
         updated_at = System.currentTimeMillis(),
         client_op_id = null,

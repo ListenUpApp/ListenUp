@@ -46,13 +46,13 @@ class AdminSettingsViewModelTest :
         fun createServerSettings(
             serverName: String = "My Server",
             remoteUrl: String? = null,
-            inboxEnabled: Boolean = false,
+            holdNewBooksForReview: Boolean = false,
             pushNotificationsEnabled: Boolean = true,
         ): ServerSettings =
             ServerSettings(
                 serverName = serverName,
                 remoteUrl = remoteUrl,
-                inboxEnabled = inboxEnabled,
+                holdNewBooksForReview = holdNewBooksForReview,
                 pushNotificationsEnabled = pushNotificationsEnabled,
             )
 
@@ -151,31 +151,31 @@ class AdminSettingsViewModelTest :
             }
         }
 
-        test("setInboxEnabled persists immediately and does not mark dirty") {
+        test("setHoldNewBooksForReview persists immediately and does not mark dirty") {
             runTest {
-                val fixture = createFixture(settings = createServerSettings(inboxEnabled = false))
-                everySuspend { fixture.updateServerSettingsUseCase.updateInboxEnabled(true) } returns
-                    AppResult.Success(createServerSettings(inboxEnabled = true))
+                val fixture = createFixture(settings = createServerSettings(holdNewBooksForReview = false))
+                everySuspend { fixture.updateServerSettingsUseCase.updateHoldNewBooksForReview(true) } returns
+                    AppResult.Success(createServerSettings(holdNewBooksForReview = true))
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
-                viewModel.setInboxEnabled(true)
+                viewModel.setHoldNewBooksForReview(true)
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
-                ready.inboxEnabled shouldBe true
+                ready.holdNewBooksForReview shouldBe true
                 // A switch applies on tap — no Save needed, so it never enters the dirty/Save-FAB state.
                 ready.isDirty shouldBe false
                 verifySuspend(VerifyMode.atLeast(1)) {
-                    fixture.updateServerSettingsUseCase.updateInboxEnabled(true)
+                    fixture.updateServerSettingsUseCase.updateHoldNewBooksForReview(true)
                 }
             }
         }
 
-        test("setInboxEnabled failure reverts the toggle and surfaces the error") {
+        test("setHoldNewBooksForReview failure reverts the toggle and surfaces the error") {
             runTest {
-                val fixture = createFixture(settings = createServerSettings(inboxEnabled = false))
-                everySuspend { fixture.updateServerSettingsUseCase.updateInboxEnabled(true) } returns
+                val fixture = createFixture(settings = createServerSettings(holdNewBooksForReview = false))
+                everySuspend { fixture.updateServerSettingsUseCase.updateHoldNewBooksForReview(true) } returns
                     AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Forbidden"),
@@ -183,12 +183,12 @@ class AdminSettingsViewModelTest :
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
-                viewModel.setInboxEnabled(true)
+                viewModel.setHoldNewBooksForReview(true)
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 // The optimistic flip reverts to the server-confirmed value on failure.
-                ready.inboxEnabled shouldBe false
+                ready.holdNewBooksForReview shouldBe false
                 (ready.error?.message?.contains("Forbidden") == true) shouldBe true
             }
         }

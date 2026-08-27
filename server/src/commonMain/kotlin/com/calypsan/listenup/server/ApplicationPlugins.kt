@@ -8,6 +8,8 @@ import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
+import com.calypsan.listenup.server.di.libraryWriteModule
+import com.calypsan.listenup.server.di.organizeModule
 import com.calypsan.listenup.server.di.mdnsModule
 import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.notificationModule
@@ -18,8 +20,10 @@ import com.calypsan.listenup.server.di.pushModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.shelfModule
+import com.calypsan.listenup.server.di.sidecarModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.di.userPreferencesModule
+import com.calypsan.listenup.server.di.uploadModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installAutoHeadResponse
@@ -97,6 +101,9 @@ internal fun Application.installDependencies(
         modules += metadataModule(homeDir)
         modules += playbackModule(homeDir, applicationScope)
         modules += libraryModule()
+        modules += libraryWriteModule(homeDir)
+        modules += sidecarModule(applicationScope)
+        modules += organizeModule()
         modules += embeddedmetaModule
         modules += syncModule()
         modules += publicProfileModule()
@@ -114,6 +121,7 @@ internal fun Application.installDependencies(
         modules += userPreferencesModule()
         modules += backupModule(homeDir)
         modules += importModule(homeDir)
+        modules += uploadModule(homeDir)
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(

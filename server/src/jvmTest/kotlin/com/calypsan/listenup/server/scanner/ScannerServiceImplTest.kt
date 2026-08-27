@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -93,7 +94,7 @@ class ScannerServiceImplTest :
                         scannerFactory = { error("scannerFactory unused by observeProgress") },
                         watcherSupervisor = NoOpWatcherSupervisor,
                     )
-                val service = ScannerServiceImpl(orchestrator, { TEST_LIBRARY_ID }, eventBus.asSharedFlow())
+                val service = ScannerServiceImpl(orchestrator, { TEST_LIBRARY_ID }, eventBus.asSharedFlow(), NoScanIssues)
 
                 eventBus.emit(ScanEvent.Started(correlationId = "c", libraryId = TEST_LIBRARY_ID, rootPath = "/x"))
                 // A Change carries a full AnalyzedBook (artwork bytes) — must NOT reach the progress stream.
@@ -196,8 +197,15 @@ private suspend fun newService(
             watcherSupervisor = NoOpWatcherSupervisor,
         )
     orchestrator.onLibraryAdded(library)
-    val service = ScannerServiceImpl(orchestrator, { TEST_LIBRARY_ID }, eventBus.asSharedFlow())
+    val service = ScannerServiceImpl(orchestrator, { TEST_LIBRARY_ID }, eventBus.asSharedFlow(), NoScanIssues)
     return service to orchestrator
+}
+
+/** Scan-issue store that holds nothing — these tests exercise scanning, not the issue record. */
+private object NoScanIssues : ScanIssueStore {
+    override suspend fun listOpen(libraryId: LibraryId) = emptyList<ScanIssue>()
+
+    override suspend fun dismiss(issueId: String) = Unit
 }
 
 /** Watcher supervisor that does nothing — used when the test doesn't need FS events. */

@@ -114,10 +114,14 @@ class BackupRoutesTest :
                         client.get("/api/v1/admin/backups/backup-nonexistent/download") {
                             bearerAuth(token)
                         }
-                    // The route returns BackupNotFound (→ 404); the StatusPages generic 404 handler
-                    // then takes over for the REST surface. Status is the reliable assertion here —
-                    // typed errors from this domain cross the wire as AppError on the RPC surface.
                     response.status shouldBe HttpStatusCode.NotFound
+                    // A deliberate 404 must keep the body the route wrote. The catch-all
+                    // StatusPages 404 handler used to overwrite it with a generic `not_found`,
+                    // and this assertion was weakened to status-only with a comment explaining
+                    // the replacement as if it were intended — so the defect stayed invisible.
+                    val body = response.body<AppError>()
+                    body.shouldBeInstanceOf<BackupError.BackupNotFound>()
+                    body.code shouldBe "BACKUP_NOT_FOUND"
                 }
             } finally {
                 homeDir.toFile().deleteRecursively()

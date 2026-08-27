@@ -675,7 +675,7 @@ internal class CollectionServiceImpl(
      * **Distinct from the scan hook.** Scan-time auto-quarantine now lands inbox membership
      * *atomically* in the book-insert transaction (see
      * [com.calypsan.listenup.server.services.BookPersister] +
-     * [com.calypsan.listenup.server.services.BookRepository], gated on `library.inboxEnabled`),
+     * [com.calypsan.listenup.server.services.BookRepository], gated on `library.holdNewBooksForReview`),
      * so a new book never has a momentarily-public window. This `addToInbox` is the separate
      * *deliberate admin action* for an already-public book: the firehose evaluates
      * `BookAccessPolicy.canAccess` at delivery, so the book is hidden from members as soon as

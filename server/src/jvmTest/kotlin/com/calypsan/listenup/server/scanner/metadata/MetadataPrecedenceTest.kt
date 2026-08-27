@@ -7,15 +7,20 @@ import io.kotest.matchers.shouldBe
 
 class MetadataPrecedenceTest :
     FunSpec({
-        test("default precedence is metadata.json, embedded, sidecar, filename, folder") {
+        test("default precedence is listenup.json, metadata.json, embedded, sidecar, filename, folder") {
             MetadataPrecedence.DEFAULT.order shouldContainExactly
                 listOf(
+                    MetadataPrecedenceSource.LISTENUP,
                     MetadataPrecedenceSource.ABS_METADATA,
                     MetadataPrecedenceSource.EMBEDDED,
                     MetadataPrecedenceSource.SIDECAR,
                     MetadataPrecedenceSource.FILENAME,
                     MetadataPrecedenceSource.FOLDER,
                 )
+        }
+        test("parse accepts the listenup.json token") {
+            MetadataPrecedence.parse("listenup.json,embedded").order shouldContainExactly
+                listOf(MetadataPrecedenceSource.LISTENUP, MetadataPrecedenceSource.EMBEDDED)
         }
         test("parse reorders and disables") {
             MetadataPrecedence.parse("embedded,folder").order shouldContainExactly

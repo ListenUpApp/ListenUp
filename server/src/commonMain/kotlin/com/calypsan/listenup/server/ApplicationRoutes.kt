@@ -23,6 +23,7 @@ import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
+import com.calypsan.listenup.server.api.OrganizeServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.InviteServiceImpl
@@ -51,6 +52,7 @@ import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.hlsRoutes
 import com.calypsan.listenup.server.routes.webAppRoutes
 import com.calypsan.listenup.server.routes.importRoutes
+import com.calypsan.listenup.server.routes.uploadRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
@@ -112,6 +114,8 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
+    val uploadStaging by inject<com.calypsan.listenup.server.upload.UploadStaging>()
+    val uploadFinalizer by inject<com.calypsan.listenup.server.upload.UploadFinalizer>()
     val avatarImageStore by inject<ImageStore>()
     val publicProfileMaintainer by inject<PublicProfileMaintainer>()
     val sql by inject<ListenUpDatabase>()
@@ -133,6 +137,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
+            uploadRoutes(uploadStaging, uploadFinalizer)
         }
         // The only place the access-token cookie buys anything. Two rules govern this block — it
         // is a SIBLING of the one above rather than nested inside it, and it carries GETs only —
@@ -184,6 +189,7 @@ private fun Application.rpcServiceBundle(): RpcServices =
         libraryAdminService = koinGet<LibraryAdminService>(),
         tagService = koinGet<TagService>(),
         moodService = koinGet<MoodService>(),
+        organizeService = koinGet<OrganizeServiceImpl>(),
         genreService = koinGet<GenreService>(),
         collectionService = koinGet<CollectionService>(),
         shelfService = koinGet<ShelfService>(),

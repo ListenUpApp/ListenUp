@@ -76,6 +76,10 @@ private class HangingScannerService : ScannerService {
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = flow { awaitCancellation() }
+
+    override suspend fun listScanIssues() = AppResult.Success(emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>())
+
+    override suspend fun dismissScanIssue(issueId: String) = AppResult.Success(Unit)
 }
 
 /** Runs past several poll windows then completes normally, emitting nothing — the gate must not interfere. */
@@ -88,6 +92,10 @@ private class FiniteScannerService : ScannerService {
         flow {
             kotlinx.coroutines.delay(PRODUCTION_POLL_MILLIS * 3) // spans several poll windows
         }
+
+    override suspend fun listScanIssues() = AppResult.Success(emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>())
+
+    override suspend fun dismissScanIssue(issueId: String) = AppResult.Success(Unit)
 }
 
 private suspend fun <T> collectAll(flow: Flow<T>): List<T> =

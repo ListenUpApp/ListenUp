@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.error.AppError
@@ -47,6 +48,7 @@ internal class ScannerServiceImpl(
     private val orchestrator: ScanOrchestrator,
     private val resolveLibraryId: suspend () -> LibraryId,
     private val eventBus: SharedFlow<ScanEvent>,
+    private val scanIssues: ScanIssueStore,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ScannerService {
     override suspend fun scanFull(): AppResult<ScanResultSummary> {
@@ -68,9 +70,25 @@ internal class ScannerServiceImpl(
             .filter { it !is ScanEvent.Change }
             .map { RpcEvent.Data(it) }
 
+    /**
+     * Admin-gated: a scan issue names a filesystem path, which is server-operator information and
+     * not library content. A member who can see the library still has no business reading the
+     * shape of the operator's disk.
+     */
+    override suspend fun listScanIssues(): AppResult<List<ScanIssue>> {
+        requireAdmin()?.let { return AppResult.Failure(it) }
+        return AppResult.Success(scanIssues.listOpen(resolveLibraryId()))
+    }
+
+    override suspend fun dismissScanIssue(issueId: String): AppResult<Unit> {
+        requireAdmin()?.let { return AppResult.Failure(it) }
+        scanIssues.dismiss(issueId)
+        return AppResult.Success(Unit)
+    }
+
     /** Returns a copy scoped to [principal]. The RPC mount and the REST handler call this per-request. */
     fun copyWith(principal: PrincipalProvider): ScannerServiceImpl =
-        ScannerServiceImpl(orchestrator, resolveLibraryId, eventBus, principal)
+        ScannerServiceImpl(orchestrator, resolveLibraryId, eventBus, scanIssues, principal)
 
     /**
      * Admin gate: null when the caller is ROOT/ADMIN; [AuthError.PermissionDenied] for a

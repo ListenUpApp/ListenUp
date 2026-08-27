@@ -27,9 +27,9 @@ import kotlinx.coroutines.test.runTest
  * [com.calypsan.listenup.server.testing.withSqlDatabase]).
  *
  * Coverage: the base substrate path (create/update/delete + pull cursor) plus the
- * load-bearing **off-payload `inbox_enabled` gate**: a syncable upsert never clobbers
- * it, [LibraryRepository.setInboxEnabled] flips it and publishes an Updated event, and
- * [LibraryRepository.readInboxEnabled] round-trips it.
+ * load-bearing **off-payload `hold_new_books_for_review` gate**: a syncable upsert never clobbers
+ * it, [LibraryRepository.setHoldNewBooksForReview] flips it and publishes an Updated event, and
+ * [LibraryRepository.readHoldNewBooksForReview] round-trips it.
  */
 class LibraryRepositoryTest :
     FunSpec({
@@ -137,31 +137,31 @@ class LibraryRepositoryTest :
             }
         }
 
-        // ── inbox_enabled: the off-payload server-side gate ───────────────────────
+        // ── hold_new_books_for_review: the off-payload server-side gate ───────────────────────
 
-        test("inbox_enabled defaults to false and round-trips through set/read") {
+        test("hold_new_books_for_review defaults to false and round-trips through set/read") {
             withSqlDatabase {
                 val repo = LibraryRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(libraryPayload(id = "lib1", name = "Lib"))
 
                     // Default off — sharing is the default.
-                    repo.readInboxEnabled(LibraryId("lib1")) shouldBe false
+                    repo.readHoldNewBooksForReview(LibraryId("lib1")) shouldBe false
 
                     repo
-                        .setInboxEnabled(LibraryId("lib1"), enabled = true)
+                        .setHoldNewBooksForReview(LibraryId("lib1"), enabled = true)
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    repo.readInboxEnabled(LibraryId("lib1")) shouldBe true
+                    repo.readHoldNewBooksForReview(LibraryId("lib1")) shouldBe true
 
                     repo
-                        .setInboxEnabled(LibraryId("lib1"), enabled = false)
+                        .setHoldNewBooksForReview(LibraryId("lib1"), enabled = false)
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    repo.readInboxEnabled(LibraryId("lib1")) shouldBe false
+                    repo.readHoldNewBooksForReview(LibraryId("lib1")) shouldBe false
                 }
             }
         }
 
-        test("setInboxEnabled bumps revision and publishes Updated") {
+        test("setHoldNewBooksForReview bumps revision and publishes Updated") {
             withSqlDatabase {
                 val bus = ChangeBus()
                 val repo = LibraryRepository(db = sql, bus = bus, registry = SyncRegistry())
@@ -171,7 +171,7 @@ class LibraryRepositoryTest :
                     advanceUntilIdle()
 
                     val created = repo.upsert(libraryPayload(id = "lib1", name = "Lib")) as AppResult.Success
-                    repo.setInboxEnabled(LibraryId("lib1"), enabled = true)
+                    repo.setHoldNewBooksForReview(LibraryId("lib1"), enabled = true)
 
                     val busEvent = deferred.await()
                     busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<LibrarySyncPayload>>()
@@ -182,12 +182,12 @@ class LibraryRepositoryTest :
             }
         }
 
-        test("setInboxEnabled does not clobber the synced library fields") {
+        test("setHoldNewBooksForReview does not clobber the synced library fields") {
             withSqlDatabase {
                 val repo = LibraryRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(libraryPayload(id = "lib1", name = "My Library", accessMode = "private"))
-                    repo.setInboxEnabled(LibraryId("lib1"), enabled = true)
+                    repo.setHoldNewBooksForReview(LibraryId("lib1"), enabled = true)
 
                     // The off-payload gate write must leave name/accessMode untouched.
                     val page = repo.pullSince(userId = null, cursor = 0L, limit = 100)
@@ -203,21 +203,21 @@ class LibraryRepositoryTest :
                 val repo = LibraryRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(libraryPayload(id = "lib1", name = "Lib"))
-                    repo.setInboxEnabled(LibraryId("lib1"), enabled = true)
+                    repo.setHoldNewBooksForReview(LibraryId("lib1"), enabled = true)
 
                     // A plain rename must NOT reset the off-payload gate (the update query omits it).
                     repo.upsert(libraryPayload(id = "lib1", name = "Renamed"))
-                    repo.readInboxEnabled(LibraryId("lib1")) shouldBe true
+                    repo.readHoldNewBooksForReview(LibraryId("lib1")) shouldBe true
                 }
             }
         }
 
-        test("setInboxEnabled on a missing library returns Failure") {
+        test("setHoldNewBooksForReview on a missing library returns Failure") {
             withSqlDatabase {
                 val repo = LibraryRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo
-                        .setInboxEnabled(LibraryId("does-not-exist"), enabled = true)
+                        .setHoldNewBooksForReview(LibraryId("does-not-exist"), enabled = true)
                         .shouldBeInstanceOf<AppResult.Failure>()
                 }
             }

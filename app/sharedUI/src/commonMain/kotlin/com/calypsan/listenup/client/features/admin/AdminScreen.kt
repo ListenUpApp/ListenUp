@@ -24,9 +24,11 @@ import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Notifications
@@ -111,6 +113,10 @@ import listenup.composeapp.generated.resources.admin_create_backups_and_restore_
 import listenup.composeapp.generated.resources.admin_deny_registration
 import listenup.composeapp.generated.resources.admin_invite_someone
 import listenup.composeapp.generated.resources.admin_library_settings
+import listenup.composeapp.generated.resources.admin_organize
+import listenup.composeapp.generated.resources.admin_organize_subtitle
+import listenup.composeapp.generated.resources.admin_upload_books
+import listenup.composeapp.generated.resources.admin_upload_books_subtitle
 import listenup.composeapp.generated.resources.admin_library_settings_subtitle
 import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.admin_management
@@ -172,15 +178,17 @@ fun AdminScreen(
     onCategoriesClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
     onImportClick: () -> Unit = {},
+    onUploadBooksClick: () -> Unit = {},
     onInboxClick: () -> Unit = {},
     onLibrarySettingsClick: () -> Unit = {},
+    onOrganizeClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
     serverName: String = "",
     onServerNameChange: (String) -> Unit = {},
     remoteUrl: String = "",
     onRemoteUrlChange: (String) -> Unit = {},
-    inboxEnabled: Boolean = false,
-    onInboxEnabledChange: (Boolean) -> Unit = {},
+    holdNewBooksForReview: Boolean = false,
+    onHoldNewBooksForReviewChange: (Boolean) -> Unit = {},
     pushNotificationsEnabled: Boolean = true,
     onPushNotificationsEnabledChange: (Boolean) -> Unit = {},
     isDirty: Boolean = false,
@@ -264,14 +272,16 @@ fun AdminScreen(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onImportClick = onImportClick,
+                    onUploadBooksClick = onUploadBooksClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
+                    onOrganizeClick = onOrganizeClick,
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
                     onRemoteUrlChange = onRemoteUrlChange,
-                    inboxEnabled = inboxEnabled,
-                    onInboxEnabledChange = onInboxEnabledChange,
+                    holdNewBooksForReview = holdNewBooksForReview,
+                    onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
                     pushNotificationsEnabled = pushNotificationsEnabled,
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     modifier = Modifier.padding(innerPadding),
@@ -405,14 +415,16 @@ private fun AdminContent(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onImportClick: () -> Unit,
+    onUploadBooksClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
+    onOrganizeClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
-    inboxEnabled: Boolean,
-    onInboxEnabledChange: (Boolean) -> Unit,
+    holdNewBooksForReview: Boolean,
+    onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -439,14 +451,16 @@ private fun AdminContent(
             onCategoriesClick = onCategoriesClick,
             onBackupClick = onBackupClick,
             onImportClick = onImportClick,
+            onUploadBooksClick = onUploadBooksClick,
             onInboxClick = onInboxClick,
             onLibrarySettingsClick = onLibrarySettingsClick,
+            onOrganizeClick = onOrganizeClick,
             serverName = serverName,
             onServerNameChange = onServerNameChange,
             remoteUrl = remoteUrl,
             onRemoteUrlChange = onRemoteUrlChange,
-            inboxEnabled = inboxEnabled,
-            onInboxEnabledChange = onInboxEnabledChange,
+            holdNewBooksForReview = holdNewBooksForReview,
+            onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
             pushNotificationsEnabled = pushNotificationsEnabled,
             onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
             modifier = modifier,
@@ -467,8 +481,8 @@ private fun AdminContent(
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
                     onRemoteUrlChange = onRemoteUrlChange,
-                    inboxEnabled = inboxEnabled,
-                    onInboxEnabledChange = onInboxEnabledChange,
+                    holdNewBooksForReview = holdNewBooksForReview,
+                    onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
                     pushNotificationsEnabled = pushNotificationsEnabled,
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     onRegistrationPolicyChange = onRegistrationPolicyChange,
@@ -495,9 +509,10 @@ private fun AdminContent(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onImportClick = onImportClick,
+                    onUploadBooksClick = onUploadBooksClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
-                    inboxEnabled = inboxEnabled,
+                    onOrganizeClick = onOrganizeClick,
                 )
             }
         }
@@ -523,14 +538,16 @@ private fun AdminTwoPaneContent(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onImportClick: () -> Unit,
+    onUploadBooksClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
+    onOrganizeClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
-    inboxEnabled: Boolean,
-    onInboxEnabledChange: (Boolean) -> Unit,
+    holdNewBooksForReview: Boolean,
+    onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -551,8 +568,8 @@ private fun AdminTwoPaneContent(
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
                     onRemoteUrlChange = onRemoteUrlChange,
-                    inboxEnabled = inboxEnabled,
-                    onInboxEnabledChange = onInboxEnabledChange,
+                    holdNewBooksForReview = holdNewBooksForReview,
+                    onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
                     pushNotificationsEnabled = pushNotificationsEnabled,
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     onRegistrationPolicyChange = onRegistrationPolicyChange,
@@ -585,9 +602,10 @@ private fun AdminTwoPaneContent(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onImportClick = onImportClick,
+                    onUploadBooksClick = onUploadBooksClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
-                    inboxEnabled = inboxEnabled,
+                    onOrganizeClick = onOrganizeClick,
                 )
             }
         }
@@ -605,8 +623,8 @@ private fun ServerSettingsSection(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
-    inboxEnabled: Boolean,
-    onInboxEnabledChange: (Boolean) -> Unit,
+    holdNewBooksForReview: Boolean,
+    onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
@@ -647,8 +665,8 @@ private fun ServerSettingsSection(
             showDivider = true,
         ) {
             Switch(
-                checked = inboxEnabled,
-                onCheckedChange = onInboxEnabledChange,
+                checked = holdNewBooksForReview,
+                onCheckedChange = onHoldNewBooksForReviewChange,
             )
         }
         SettingRow(
@@ -1297,9 +1315,10 @@ internal fun ManagementSection(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onImportClick: () -> Unit,
+    onUploadBooksClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
-    inboxEnabled: Boolean,
+    onOrganizeClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1319,17 +1338,36 @@ internal fun ManagementSection(
             badgeColor = colors.secondary,
             badgeContentColor = colors.onSecondary,
         )
-        if (inboxEnabled) {
-            ActionTile(
-                title = stringResource(Res.string.admin_inbox),
-                subtitle = stringResource(Res.string.admin_inbox_subtitle),
-                icon = Icons.Outlined.Inbox,
-                onClick = onInboxClick,
-                containerColor = colors.tertiaryContainer,
-                badgeColor = colors.tertiary,
-                badgeContentColor = colors.onTertiary,
-            )
-        }
+        ActionTile(
+            title = stringResource(Res.string.admin_upload_books),
+            subtitle = stringResource(Res.string.admin_upload_books_subtitle),
+            icon = Icons.Outlined.CloudUpload,
+            onClick = onUploadBooksClick,
+            containerColor = colors.primaryContainer,
+            badgeColor = colors.primary,
+            badgeContentColor = colors.onPrimary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.admin_organize),
+            subtitle = stringResource(Res.string.admin_organize_subtitle),
+            icon = Icons.Outlined.DriveFileMove,
+            onClick = onOrganizeClick,
+            containerColor = colors.secondaryContainer,
+            badgeColor = colors.secondary,
+            badgeContentColor = colors.onSecondary,
+        )
+        // Unconditional. The hold-for-review setting governs whether *healthy* books wait here;
+        // a book the scanner could not understand lands here regardless, so the way in must not
+        // depend on a setting the admin may never have turned on.
+        ActionTile(
+            title = stringResource(Res.string.admin_inbox),
+            subtitle = stringResource(Res.string.admin_inbox_subtitle),
+            icon = Icons.Outlined.Inbox,
+            onClick = onInboxClick,
+            containerColor = colors.tertiaryContainer,
+            badgeColor = colors.tertiary,
+            badgeContentColor = colors.onTertiary,
+        )
         ActionTile(
             title = stringResource(Res.string.admin_invite_someone),
             subtitle = stringResource(Res.string.admin_share_your_audiobook_library_with),

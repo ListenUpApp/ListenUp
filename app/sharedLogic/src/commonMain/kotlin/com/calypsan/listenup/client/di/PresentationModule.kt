@@ -152,6 +152,12 @@ internal val adminPresentationModule =
             )
         }
         factory {
+            com.calypsan.listenup.client.presentation.admin.OrganizeSettingsViewModel(
+                repository = get(),
+                errorBus = get(),
+            )
+        }
+        factory {
             com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel(
                 inboxRepository = get(),
                 libraryRepository = get(),
@@ -207,6 +213,13 @@ internal val adminPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel(
                 backupRepository = get(),
+                errorBus = get(),
+            )
+        }
+        // UploadBooksViewModel - pick a folder or files and stream them into the library
+        factory {
+            com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel(
+                uploadRepository = get(),
                 errorBus = get(),
             )
         }

@@ -160,6 +160,7 @@ fun AdminInboxScreen(
             onBookClick = onBookClick,
             onMatchClick = onMatchClick,
             onBookSelectionToggle = viewModel::toggleBookSelection,
+            onDismissScanIssue = viewModel::dismissScanIssue,
             onSelectAll = viewModel::selectAll,
             onClearSelection = viewModel::clearSelection,
             onRelease = { showReleaseConfirmation = true },
@@ -195,6 +196,7 @@ private fun AdminInboxBody(
     onBookClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
+    onDismissScanIssue: (String) -> Unit,
     onSelectAll: () -> Unit,
     onClearSelection: () -> Unit,
     onRelease: () -> Unit,
@@ -226,6 +228,7 @@ private fun AdminInboxBody(
                     onBookClick = onBookClick,
                     onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
+                    onDismissScanIssue = onDismissScanIssue,
                     onSelectAll = onSelectAll,
                     onClearSelection = onClearSelection,
                     onRelease = onRelease,
@@ -238,6 +241,7 @@ private fun AdminInboxBody(
                     onBookClick = onBookClick,
                     onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
+                    onDismissScanIssue = onDismissScanIssue,
                     onSelectAll = onSelectAll,
                     onClearSelection = onClearSelection,
                     onRelease = onRelease,
@@ -257,6 +261,7 @@ private fun InboxPhoneLayout(
     onBookClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
+    onDismissScanIssue: (String) -> Unit,
     onSelectAll: () -> Unit,
     onClearSelection: () -> Unit,
     onRelease: () -> Unit,
@@ -280,6 +285,8 @@ private fun InboxPhoneLayout(
                 )
             }
 
+            scanIssueItems(issues = state.scanIssues, onDismiss = onDismissScanIssue)
+
             if (state.hasBooks) {
                 inboxRowItems(
                     state = state,
@@ -288,7 +295,10 @@ private fun InboxPhoneLayout(
                     onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
                 )
-            } else {
+            } else if (state.isEmpty) {
+                // Empty means BOTH halves are empty. Issues with no held books is a populated
+                // inbox, and telling the user it is empty while listing problems in it would be
+                // the screen contradicting itself.
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     EmptyInbox(big = false, modifier = Modifier.padding(top = 40.dp))
                 }
@@ -316,6 +326,7 @@ private fun InboxWideLayout(
     onBookClick: (String) -> Unit,
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
+    onDismissScanIssue: (String) -> Unit,
     onSelectAll: () -> Unit,
     onClearSelection: () -> Unit,
     onRelease: () -> Unit,
@@ -339,6 +350,8 @@ private fun InboxWideLayout(
             )
         }
 
+        scanIssueItems(issues = state.scanIssues, onDismiss = onDismissScanIssue)
+
         if (state.hasBooks) {
             inboxRowItems(
                 state = state,
@@ -347,7 +360,7 @@ private fun InboxWideLayout(
                 onMatchClick = onMatchClick,
                 onBookSelectionToggle = onBookSelectionToggle,
             )
-        } else {
+        } else if (state.isEmpty) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 EmptyInbox(big = true, modifier = Modifier.padding(top = 60.dp))
             }

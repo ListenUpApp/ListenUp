@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -51,6 +52,7 @@ class AdminInboxViewModel internal constructor(
 
     init {
         loadInboxBooks()
+        loadScanIssues()
         observeAdminEvents()
     }
 
@@ -60,6 +62,8 @@ class AdminInboxViewModel internal constructor(
                 when (event) {
                     is AdminEvent.InboxBookAdded -> {
                         loadInboxBooks()
+                        // A scan that just added a book may equally have fixed or raised an issue.
+                        loadScanIssues()
                     }
 
                     is AdminEvent.InboxBookReleased -> {
@@ -82,6 +86,61 @@ class AdminInboxViewModel internal constructor(
                 )
             } else {
                 ready
+            }
+        }
+    }
+
+    /**
+     * Loads the folders the scanner could not import.
+     *
+     * Failure here is reported but never downgrades the screen to [AdminInboxUiState.Error]: the
+     * held-books half is independently useful, and losing the whole inbox because one call failed
+     * would be a worse answer than showing what we do have.
+     */
+    fun loadScanIssues() {
+        viewModelScope.launch {
+            when (val result = inboxRepository.listScanIssues()) {
+                is AppResult.Success -> {
+                    state.update { current ->
+                        when (current) {
+                            is AdminInboxUiState.Ready -> current.copy(scanIssues = result.data)
+
+                            // Loading has nothing to lose; the books load fills in the rest.
+                            is AdminInboxUiState.Loading -> AdminInboxUiState.Ready(scanIssues = result.data)
+
+                            // Error must STICK. Promoting it to Ready because a different call
+                            // happened to succeed would hide the inbox failing to load behind a
+                            // half-populated screen — the failure the user needs to see, silenced
+                            // by the very surface built to stop silencing failures.
+                            is AdminInboxUiState.Error -> current
+                        }
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                }
+            }
+        }
+    }
+
+    /** Stops showing [issueId], and drops it from the list without a round trip. */
+    fun dismissScanIssue(issueId: String) {
+        viewModelScope.launch {
+            when (val result = inboxRepository.dismissScanIssue(issueId)) {
+                is AppResult.Success -> {
+                    state.update { current ->
+                        if (current is AdminInboxUiState.Ready) {
+                            current.copy(scanIssues = current.scanIssues.filterNot { it.id == issueId })
+                        } else {
+                            current
+                        }
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                }
             }
         }
     }
@@ -150,7 +209,13 @@ class AdminInboxViewModel internal constructor(
                                 )
                             }
                         }
-                    updateReady { it.copy(books = books) }
+                    // Filter against the CURRENT id-set, not the one this collector was started
+                    // with. Releasing a book prunes `bookIds` without restarting hydration, and a
+                    // released book is not deleted from Room — so the next Room invalidation (a
+                    // cover download, a position write, any sync) would otherwise recompute over
+                    // the stale list and put released books straight back in the grid, disagreeing
+                    // with the header count and with what `selectAll` selects.
+                    updateReady { ready -> ready.copy(books = books.filter { it.id in ready.bookIds }) }
                 }
             }
     }
@@ -266,8 +331,16 @@ sealed interface AdminInboxUiState {
         val isReleasing: Boolean = false,
         val lastReleasedCount: Int? = null,
         val error: String? = null,
+        /**
+         * Folders the scanner could not import. Independent of [bookIds]: an issue is not a book
+         * awaiting a decision, it is a thing that went wrong and produced no book at all — so the
+         * inbox has content even when nothing is being held for review.
+         */
+        val scanIssues: List<ScanIssue> = emptyList(),
     ) : AdminInboxUiState {
         val hasBooks: Boolean get() = bookIds.isNotEmpty()
+        val hasIssues: Boolean get() = scanIssues.isNotEmpty()
+        val isEmpty: Boolean get() = bookIds.isEmpty() && scanIssues.isEmpty()
         val hasSelection: Boolean get() = selectedBookIds.isNotEmpty()
         val selectedCount: Int get() = selectedBookIds.size
         val allSelected: Boolean get() = selectedBookIds.size == bookIds.size && bookIds.isNotEmpty()

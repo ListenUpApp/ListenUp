@@ -9,10 +9,12 @@ import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.backup.AdminBackupScreen
 import com.calypsan.listenup.client.features.admin.import.ImportFlowScreen
+import com.calypsan.listenup.client.features.admin.upload.UploadBooksScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
 import com.calypsan.listenup.client.navigation.ImportFlow
+import com.calypsan.listenup.client.navigation.UploadBooks
 import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.AdminBackups
@@ -20,6 +22,7 @@ import com.calypsan.listenup.client.navigation.AdminCategories
 import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.AdminCollections
 import com.calypsan.listenup.client.navigation.AdminLibrarySettings
+import com.calypsan.listenup.client.navigation.AdminOrganizeSettings
 import com.calypsan.listenup.client.navigation.AdminUserDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.CreateBackup
@@ -64,11 +67,17 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onImportClick = {
                 backStack.add(ImportFlow)
             },
+            onUploadBooksClick = {
+                backStack.add(UploadBooks)
+            },
             onInboxClick = {
                 backStack.add(AdminInbox)
             },
             onLibrarySettingsClick = {
                 backStack.add(AdminLibrarySettings)
+            },
+            onOrganizeClick = {
+                backStack.add(AdminOrganizeSettings)
             },
             onUserClick = { userId ->
                 backStack.add(AdminUserDetail(userId))
@@ -77,8 +86,8 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onServerNameChange = { settingsViewModel.setServerName(it) },
             remoteUrl = readySettings?.remoteUrl ?: "",
             onRemoteUrlChange = { settingsViewModel.setRemoteUrl(it) },
-            inboxEnabled = readySettings?.inboxEnabled ?: false,
-            onInboxEnabledChange = { settingsViewModel.setInboxEnabled(it) },
+            holdNewBooksForReview = readySettings?.holdNewBooksForReview ?: false,
+            onHoldNewBooksForReviewChange = { settingsViewModel.setHoldNewBooksForReview(it) },
             pushNotificationsEnabled = readySettings?.pushNotificationsEnabled ?: true,
             onPushNotificationsEnabledChange = { settingsViewModel.setPushNotificationsEnabled(it) },
             isDirty = readySettings?.isDirty == true,
@@ -186,6 +195,16 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
             },
         )
     }
+    entry<AdminOrganizeSettings> {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.OrganizeSettingsViewModel =
+            koinViewModel()
+        com.calypsan.listenup.client.features.admin.organize.OrganizeSettingsScreen(
+            viewModel = viewModel,
+            onBackClick = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+        )
+    }
 }
 
 /** Admin maintenance navigation entries (backups, restores, ABS import). */
@@ -238,6 +257,11 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
     entry<ImportFlow> {
         ImportFlowScreen(
             onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+        )
+    }
+    entry<UploadBooks> {
+        UploadBooksScreen(
+            onBackClick = { backStack.removeAt(backStack.lastIndex) },
         )
     }
     entry<RestoreFromFile> {

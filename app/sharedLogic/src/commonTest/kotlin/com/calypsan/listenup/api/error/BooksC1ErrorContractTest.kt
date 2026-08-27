@@ -41,6 +41,55 @@ class BooksC1ErrorContractTest :
         test("should mark BookError subtypes as not retryable") {
             BookError.NotFound().isRetryable shouldBe false
             BookError.InvalidInput().isRetryable shouldBe false
+            BookError.FolderNotExclusive(otherBookId = "b2", otherBookTitle = "Animal Farm").isRetryable shouldBe false
+        }
+
+        // ── Delete Book refusals ──────────────────────────────────────────────
+
+        test("should round-trip BookError.FolderNotExclusive, blocking book and all, through AppError serializer") {
+            val original: AppError =
+                BookError.FolderNotExclusive(
+                    otherBookId = "b2",
+                    otherBookTitle = "Animal Farm",
+                    correlationId = "req-9",
+                    debugInfo = "book b1 at /library/George Orwell also holds book b2",
+                )
+            val json = contractJson.encodeToString(AppError.serializer(), original)
+            val decoded = contractJson.decodeFromString(AppError.serializer(), json)
+            // Naming the blocking book is the whole point of this subtype, and the constant
+            // body-level `message` cannot carry it — so it has to survive the wire on its own fields.
+            decoded shouldBe original
+            (decoded as BookError.FolderNotExclusive).otherBookTitle shouldBe "Animal Farm"
+        }
+
+        test("should embed stable discriminator for BookError.FolderNotExclusive") {
+            val json =
+                contractJson.encodeToString(
+                    AppError.serializer(),
+                    BookError.FolderNotExclusive(otherBookId = "b2", otherBookTitle = "Animal Farm"),
+                )
+            json.contains("\"BookError.FolderNotExclusive\"") shouldBe true
+        }
+
+        test("should keep BookError.FolderNotExclusive's body-level message constant across instances") {
+            BookError.FolderNotExclusive(otherBookId = "b2", otherBookTitle = "x").message shouldBe
+                BookError.FolderNotExclusive(otherBookId = "b3", otherBookTitle = "y").message
+        }
+
+        test("should round-trip LibraryWriteError.ProtectedPath through AppError serializer") {
+            val original: AppError = LibraryWriteError.ProtectedPath(debugInfo = "/library is a library folder root")
+            val json = contractJson.encodeToString(AppError.serializer(), original)
+            contractJson.decodeFromString(AppError.serializer(), json) shouldBe original
+        }
+
+        test("should embed stable discriminator for LibraryWriteError.ProtectedPath") {
+            val json = contractJson.encodeToString(AppError.serializer(), LibraryWriteError.ProtectedPath())
+            json.contains("\"LibraryWriteError.ProtectedPath\"") shouldBe true
+        }
+
+        test("should mark LibraryWriteError.ProtectedPath not retryable — re-firing it cannot change the answer") {
+            LibraryWriteError.ProtectedPath().isRetryable shouldBe false
+            LibraryWriteError.ProtectedPath().message shouldBe LibraryWriteError.ProtectedPath(debugInfo = "x").message
         }
 
         // ── ContributorError ──────────────────────────────────────────────────

@@ -1,0 +1,226 @@
+package com.calypsan.listenup.server.upload
+
+import com.calypsan.listenup.api.dto.uploads.UploadLimits as ContractUploadLimits
+import com.calypsan.listenup.server.io.deleteRecursively
+import com.calypsan.listenup.server.io.isSymlink
+import com.calypsan.listenup.server.io.statFile
+import com.calypsan.listenup.server.logging.loggerFor
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.uuid.Uuid
+
+/**
+ * Caps on one upload session. A session that would exceed either is refused and swept rather than
+ * left half-staged: an admin-only endpoint is still an endpoint, and an unbounded one is a way to
+ * fill the server's data disk with a single request loop.
+ *
+ * The numbers are generous on purpose — a batch of a dozen multi-disc audiobooks is a normal
+ * first-run upload, and a cap that a legitimate user hits is a bug report, not a defence.
+ *
+ * The defaults come from [ContractUploadLimits] in commonMain so the client can refuse an
+ * over-large selection *before* it starts uploading, reading the same numbers this enforces.
+ * Enforcement stays here regardless — the client's check is a courtesy, not a gate.
+ */
+internal data class UploadLimits(
+    /** Most files one session may stage. */
+    val maxFiles: Int = ContractUploadLimits.MAX_FILES,
+    /** Most bytes one session may stage in total. */
+    val maxSessionBytes: Long = ContractUploadLimits.MAX_SESSION_BYTES,
+    /** Most bytes any single file may carry. */
+    val maxFileBytes: Long = ContractUploadLimits.MAX_FILE_BYTES,
+)
+
+/** What a session currently holds — the numbers both the quota check and the client's progress read. */
+internal data class UploadSessionStats(
+    val fileCount: Int,
+    val totalBytes: Long,
+)
+
+/**
+ * Every filesystem operation the upload domain performs, all of it under
+ * `$LISTENUP_HOME/uploads/` and none of it inside a library folder.
+ *
+ * That separation is why this class exists as a seam at all: library-folder content is the
+ * [com.calypsan.listenup.server.librarywrite.LibraryWriteBroker]'s exclusive business, and the
+ * upload flow only becomes the broker's business at the moment a staged file is moved *into* the
+ * library. Everything before that — creating the session directory, streaming a part file,
+ * renaming it into place, sweeping the session — happens out here where a failure leaves no trace
+ * anything else can trip over.
+ *
+ * Sessions are **filesystem-truth**: a session exists exactly as long as its directory does.
+ * There is no table, no in-memory registry to lose on restart, and no way for the two to disagree.
+ */
+private val logger = loggerFor<UploadStaging>()
+
+internal class UploadStaging(
+    private val paths: UploadPaths,
+    val limits: UploadLimits = UploadLimits(),
+) {
+    /**
+     * Mints a fresh session and creates its staging directory, returning the session id.
+     *
+     * The id is server-minted (`up-<UUID>`) and never derived from anything the client sent, so
+     * it cannot contain a path separator or a traversal sequence — the same rule the ABS import
+     * ids follow, for the same reason.
+     */
+    fun createSession(): String {
+        val sessionId = "$UPLOAD_SESSION_ID_PREFIX${Uuid.random()}"
+        SystemFileSystem.createDirectories(paths.dirFor(sessionId))
+        return sessionId
+    }
+
+    /**
+     * The staging directory for [sessionId], or null when there is no such live session.
+     *
+     * Three things must hold, and the third is the one that isn't obvious: the id must be one of
+     * ours ([isSafeUploadSessionId]), the directory must exist — and it must be a **real
+     * directory, not a symbolic link**. A symlinked session directory would make every later
+     * containment check tautological: `resolvedForContainment` would resolve the session root to
+     * wherever the link points and then happily confirm that files under it are "inside the
+     * session". Refusing the link is what keeps that check meaningful.
+     */
+    fun openSession(sessionId: String): Path? {
+        if (!isSafeUploadSessionId(sessionId)) return null
+        val dir = paths.dirFor(sessionId)
+        if (isSymlink(dir)) return null
+        if (SystemFileSystem.metadataOrNull(dir)?.isDirectory != true) return null
+        return dir
+    }
+
+    /** What [sessionDir] currently holds. Walks the staged tree — sessions are small and bounded by [limits]. */
+    fun stats(sessionDir: Path): UploadSessionStats {
+        var files = 0
+        var bytes = 0L
+        for (file in stagedFiles(sessionDir)) {
+            files += 1
+            bytes += SystemFileSystem.metadataOrNull(file)?.size ?: 0L
+        }
+        return UploadSessionStats(fileCount = files, totalBytes = bytes)
+    }
+
+    /** Every regular file staged under [sessionDir], recursively — the finalize's walk input and the quota's. */
+    fun stagedFiles(sessionDir: Path): List<Path> {
+        val out = mutableListOf<Path>()
+
+        fun recurse(dir: Path) {
+            for (child in SystemFileSystem.list(dir)) {
+                if (SystemFileSystem.metadataOrNull(child)?.isDirectory == true) recurse(child) else out += child
+            }
+        }
+        if (SystemFileSystem.metadataOrNull(sessionDir)?.isDirectory == true) recurse(sessionDir)
+        return out
+    }
+
+    /**
+     * Prepares to receive [target]: creates its parent directories and returns the temporary
+     * `.part` path the body streams into.
+     *
+     * The `.part` indirection is what stops a dropped connection from leaving a **truncated file
+     * that looks complete**. Finalize walks the session directory and treats what it finds as the
+     * user's book; a half-written `.m4b` sitting there under its real name would be analysed,
+     * planned, and moved into the library as if it were whole. A part file is instead invisible to
+     * [stagedFiles]'s consumers by name and is swept with the session.
+     */
+    fun beginFile(target: Path): Path {
+        target.parent?.let { SystemFileSystem.createDirectories(it) }
+        val part = Path("$target$PART_SUFFIX")
+        SystemFileSystem.delete(part, mustExist = false)
+        return part
+    }
+
+    /** Publishes a fully-received [part] as [target] with a single rename — the file appears complete or not at all. */
+    fun commitFile(
+        part: Path,
+        target: Path,
+    ) {
+        SystemFileSystem.atomicMove(part, target)
+    }
+
+    /** Removes a [part] whose transfer failed. Best effort — the session sweep catches whatever this misses. */
+    fun discardFile(part: Path) {
+        SystemFileSystem.delete(part, mustExist = false)
+    }
+
+    /**
+     * Deletes every leftover `.part` file under [sessionDir] and reports how many there were.
+     *
+     * Finalize calls this first. A part file is by definition an interrupted transfer, and the
+     * scanner pipeline has no notion of one — it would group the fragment into the book, move it
+     * into the library, and leave a corrupt file sitting beside the real ones. Sweeping them is
+     * also the honest signal that the upload was incomplete, which the caller can act on.
+     */
+    fun sweepPartFiles(sessionDir: Path): Int {
+        val parts = stagedFiles(sessionDir).filter { it.name.endsWith(PART_SUFFIX) }
+        parts.forEach { SystemFileSystem.delete(it, mustExist = false) }
+        return parts.size
+    }
+
+    /** Removes [sessionDir] and everything staged in it. Idempotent — a missing directory is a no-op. */
+    fun deleteSession(sessionDir: Path) {
+        deleteRecursively(sessionDir)
+    }
+
+    /**
+     * Removes staging directories older than [maxAge], returning how many went.
+     *
+     * A session exists exactly as long as its directory does — there is no row to age out — so
+     * without this nothing ever collects one that was abandoned rather than finalized. Three
+     * ordinary paths strand one permanently: the network dies mid-transfer (so the client's
+     * abandon request dies with it), the app is killed during an hour-long upload, or the
+     * `createSession` response is lost so the client never learns the id. Each orphan can hold up
+     * to [UploadLimits.maxSessionBytes], on a self-hosted machine whose disk is the user's own.
+     *
+     * Age is taken from the directory's own mtime, which every accepted file bumps, so a genuinely
+     * long upload is never swept out from under itself.
+     */
+    fun sweepStaleSessions(
+        now: Long,
+        maxAge: Duration = STALE_SESSION_AGE,
+    ): Int {
+        val root = paths.uploadsDir
+        if (SystemFileSystem.metadataOrNull(root)?.isDirectory != true) return 0
+        // Selecting first, then acting, keeps "which directories are stale" separate from "remove
+        // them" — the predicate reads as the rule it is, rather than as four early exits.
+        val stale =
+            SystemFileSystem
+                .list(root)
+                .filter { it.isStaleSessionDir(now, maxAge) }
+        stale.forEach { dir ->
+            val idleHours = (now - (statFile(dir)?.mtimeMs ?: now)).milliseconds.inWholeHours
+            logger.info { "sweeping stale upload session ${dir.name} (idle ${idleHours}h)" }
+            deleteRecursively(dir)
+        }
+        return stale.size
+    }
+
+    /**
+     * A staging directory nothing has touched for [maxAge] — and only a real directory: a symlink
+     * here is not ours to follow, and a stray file is not a session.
+     */
+    private fun Path.isStaleSessionDir(
+        now: Long,
+        maxAge: Duration,
+    ): Boolean {
+        if (isSymlink(this)) return false
+        if (SystemFileSystem.metadataOrNull(this)?.isDirectory != true) return false
+        val modified = statFile(this)?.mtimeMs ?: return false
+        return now - modified >= maxAge.inWholeMilliseconds
+    }
+
+    private companion object {
+        /**
+         * How long a staging directory may sit untouched before it is collected.
+         *
+         * Generous on purpose: it must comfortably exceed the slowest legitimate gap between two
+         * files of one upload, because sweeping a live session destroys work in progress. A day
+         * clears real orphans while never threatening an upload that is merely slow.
+         */
+        val STALE_SESSION_AGE: Duration = 24.hours
+
+        /** Suffix marking a transfer still in flight; see [beginFile]. */
+        const val PART_SUFFIX = ".listenup-part"
+    }
+}

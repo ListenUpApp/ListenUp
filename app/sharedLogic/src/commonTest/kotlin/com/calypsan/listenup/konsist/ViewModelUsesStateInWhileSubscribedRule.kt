@@ -69,6 +69,13 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 // refusal), driven by user actions with no upstream flow to project — the same
                 // imperative shape as the admin command-pipeline VMs above.
                 "NotificationPrefsViewModel",
+                // By-design: same imperative command-pipeline shape (edit buffer -> preview ->
+                // save-and-run, driven by user actions + run progress events).
+                "OrganizeSettingsViewModel",
+                // By-design: the same shape as ImportFlowViewModel above — a user-triggered
+                // transfer (pick -> stage each file -> finalize) whose state is driven by upload
+                // progress, not projected from an upstream flow.
+                "UploadBooksViewModel",
             )
 
         test("every UiState-exposing ViewModel uses stateIn(WhileSubscribed) (excluding legacy backlog)") {

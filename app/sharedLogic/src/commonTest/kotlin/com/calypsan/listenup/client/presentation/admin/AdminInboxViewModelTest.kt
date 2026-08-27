@@ -13,6 +13,9 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
+import com.calypsan.listenup.api.dto.scan.ScanIssue
+import com.calypsan.listenup.api.dto.scan.ScanIssueReason
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -26,6 +29,7 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -109,6 +113,10 @@ class AdminInboxViewModelTest :
             init {
                 // Default: no hydrated books (overridden per-test for hydration cases).
                 every { bookDao.observeByIdsWithContributors(any()) } returns flowOf(emptyList())
+                // The VM loads issues on init, so EVERY test hits this whether it cares or not.
+                // Defaulting it here keeps the scan-issue surface from breaking tests about
+                // something else; the tests that do care override it.
+                everySuspend { inboxRepo.listScanIssues() } returns AppResult.Success(emptyList())
                 every { imageStorage.exists(any()) } returns false
                 every { imageStorage.getCoverPath(any()) } returns ""
             }
@@ -306,6 +314,75 @@ class AdminInboxViewModelTest :
                 ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
                 ready.bookIds shouldBe listOf("b2")
                 ready.books.map { it.id } shouldBe listOf("b2")
+            }
+        }
+        test("scan issues load alongside the held books") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                everySuspend { f.inboxRepo.listInbox("lib1") } returns AppResult.Success(emptyList())
+                everySuspend { f.inboxRepo.listScanIssues() } returns
+                    AppResult.Success(
+                        listOf(
+                            ScanIssue(
+                                id = "i1",
+                                rootRelPath = "Author/No Audio Here",
+                                reason = ScanIssueReason.NO_RECOGNIZED_AUDIO,
+                                detail = "found: cover.jpg",
+                                firstSeenAt = 1L,
+                                lastSeenAt = 2L,
+                            ),
+                        ),
+                    )
+
+                val vm = f.build()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.scanIssues.single().rootRelPath shouldBe "Author/No Audio Here"
+                withClue("issues with no held books is a POPULATED inbox, not an empty one") {
+                    ready.isEmpty shouldBe false
+                }
+            }
+        }
+
+        test("a failure loading issues does not take the whole inbox down with it") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                everySuspend { f.inboxRepo.listInbox("lib1") } returns AppResult.Success(listOf("b1"))
+                everySuspend { f.inboxRepo.listScanIssues() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+
+                val vm = f.build()
+                advanceUntilIdle()
+
+                withClue("the held-books half is independently useful — show what we do have") {
+                    val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                    ready.bookIds shouldBe listOf("b1")
+                    ready.scanIssues shouldBe emptyList()
+                }
+            }
+        }
+
+        test("dismissing an issue drops it without a reload") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                everySuspend { f.inboxRepo.listInbox("lib1") } returns AppResult.Success(emptyList())
+                everySuspend { f.inboxRepo.listScanIssues() } returns
+                    AppResult.Success(
+                        listOf(
+                            ScanIssue("i1", "Author/A", ScanIssueReason.FILE_UNREADABLE, null, 1L, 1L),
+                            ScanIssue("i2", "Author/B", ScanIssueReason.FILE_UNREADABLE, null, 1L, 1L),
+                        ),
+                    )
+                everySuspend { f.inboxRepo.dismissScanIssue("i1") } returns AppResult.Success(Unit)
+
+                val vm = f.build()
+                advanceUntilIdle()
+                vm.dismissScanIssue("i1")
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.scanIssues.map { it.id } shouldBe listOf("i2")
             }
         }
     })

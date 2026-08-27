@@ -232,6 +232,22 @@ internal class ScanOrchestrator(
     /** The registered library id, or null before the library is configured. */
     fun registeredLibraryId(): LibraryId? = bundle?.library?.id
 
+    /**
+     * Triggers an incremental re-analysis of the subtree at [subtreePath] — the same work a
+     * watcher event for that path would have caused.
+     *
+     * The upload flow needs an explicit trigger because it writes through
+     * [com.calypsan.listenup.server.librarywrite.LibraryWriteBroker], which **suppresses the
+     * watcher** so the server never reacts to its own writes. For an organizer move that is
+     * exactly right — the book's row is updated in the same step. An uploaded book has no row
+     * yet, so suppression alone would leave it invisible until the next full scan. A path outside
+     * every registered folder is ignored here for the same reason [onFileChanged] ignores one.
+     */
+    fun reanalyzeSubtree(subtreePath: Path) {
+        val libraryId = bundle?.library?.id ?: return
+        onFileChanged(libraryId, subtreePath)
+    }
+
     private fun onFileChanged(
         libraryId: LibraryId,
         subtreePath: Path,

@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.LibraryError
+import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -30,11 +31,14 @@ import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.UnknownError
+import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.error.withCorrelationId as stampCorrelationId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.MalformedMultipartException
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
+import io.ktor.util.AttributeKey
+import io.ktor.server.application.ApplicationCall
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -89,9 +93,36 @@ fun Application.installAppErrorStatusPages() {
             call.respond(HttpStatusCode.InternalServerError, body)
         }
         status(HttpStatusCode.NotFound) { call, status ->
-            call.respond(status, mapOf("error" to "not_found", "path" to call.request.uri))
+            // Only describe a 404 that no route produced. A route that deliberately answered with a
+            // typed AppError has already written the body the client needs.
+            if (!call.attributes.contains(TypedAppErrorSent)) {
+                call.respond(status, mapOf("error" to "not_found", "path" to call.request.uri))
+            }
         }
     }
+}
+
+/**
+ * Marks a call whose 404 body was written deliberately by a route, so the catch-all
+ * [io.ktor.server.plugins.statuspages.StatusPagesConfig.status] hook leaves it alone.
+ *
+ * Without it that hook rewrites the body of **every** 404 — including a typed [AppError] a route
+ * meant to send — and the client decodes a generic `not_found` instead. `ImportError.ImportNotFound`
+ * has shipped with exactly that defect: its typed body is replaced before it ever reaches a client,
+ * unnoticed because nothing decoded it.
+ */
+private val TypedAppErrorSent = AttributeKey<Unit>("ListenUpTypedAppErrorSent")
+
+/**
+ * Sends [error] as a typed JSON body at its mapped status, stamped with this call's correlation id.
+ *
+ * The single responder for every non-RPC route — six byte-identical private copies of it existed
+ * before, which is also why the 404 defect above could not be fixed in one place.
+ */
+internal suspend fun ApplicationCall.respondAppError(error: AppError) {
+    val typed = error.withCorrelationId(callId)
+    attributes.put(TypedAppErrorSent, Unit)
+    respond(typed.toHttpStatus(), typed)
 }
 
 /**
@@ -117,7 +148,11 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is DownloadError -> toHttpStatus()
 
-        is ImportError -> toHttpStatus()
+        // ImportError + UploadError share one branch (delegating to an exhaustive helper) for the
+        // same reason as the grouped branches below: it keeps this function's cyclomatic
+        // complexity under the project threshold. Both are content arriving from outside the
+        // server — someone else's backup, and someone's own files.
+        is ImportError, is UploadError -> arrivalFamilyHttpStatus()
 
         is ScanError -> toHttpStatus()
 
@@ -127,7 +162,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is AudioMetadataError -> toHttpStatus()
 
-        is LibraryError -> toHttpStatus()
+        // LibraryError + LibraryWriteError share one branch (delegating to an exhaustive helper)
+        // to keep this function's cyclomatic complexity under the project threshold while
+        // preserving per-variant exhaustiveness for both families.
+        is LibraryError, is LibraryWriteError -> libraryFamilyHttpStatus()
 
         is MetadataError -> toHttpStatus()
 
@@ -205,10 +243,19 @@ private fun AuthError.toHttpStatus(): HttpStatusCode =
 private fun ScanError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ScanError.AlreadyRunning -> HttpStatusCode.Conflict
+
         is ScanError.LibraryPathNotConfigured -> HttpStatusCode.ServiceUnavailable
+
         is ScanError.LibraryPathNotFound -> HttpStatusCode.ServiceUnavailable
+
+        // Not a server fault: the folder simply holds no audio. 422 says "I understood the
+        // request and the content is unusable", which is exactly the situation.
+        is ScanError.NoRecognizedAudio -> HttpStatusCode.UnprocessableEntity
+
         is ScanError.FileUnreadable -> HttpStatusCode.InternalServerError
+
         is ScanError.MetadataParseError -> HttpStatusCode.InternalServerError
+
         is ScanError.TitleInferenceError -> HttpStatusCode.InternalServerError
     }
 
@@ -245,6 +292,17 @@ private fun DownloadError.toHttpStatus(): HttpStatusCode =
         is DownloadError.NotSupported -> HttpStatusCode.ServiceUnavailable
     }
 
+/**
+ * Status mapping for the content-arrival families, [ImportError] and [UploadError], which
+ * [toHttpStatus] dispatches to from the single grouped branch above.
+ */
+private fun AppError.arrivalFamilyHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ImportError -> toHttpStatus()
+        is UploadError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
 private fun ImportError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ImportError.UploadFailed -> HttpStatusCode.UnprocessableEntity
@@ -252,6 +310,28 @@ private fun ImportError.toHttpStatus(): HttpStatusCode =
         is ImportError.ApplyFailed -> HttpStatusCode.ServiceUnavailable
         is ImportError.ImportNotFound -> HttpStatusCode.NotFound
         is ImportError.MappingInvalid -> HttpStatusCode.BadRequest
+    }
+
+private fun UploadError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        // 410 Gone, not 404, for two reasons that agree. Semantically an upload session is a
+        // resource that existed and has since been finalized or abandoned, which is exactly what
+        // Gone means. Practically, [installAppErrorStatusPages] installs a `status(NotFound)`
+        // handler that rewrites the body of EVERY 404 — including one a route deliberately sent —
+        // into a generic `{"error":"not_found"}`, so a typed 404 body never reaches the client at
+        // all. The upload client has to tell "start a fresh session" apart from every other
+        // failure, and it needs the typed value to do it.
+        is UploadError.SessionNotFound -> HttpStatusCode.Gone
+
+        is UploadError.InvalidFilePath -> HttpStatusCode.BadRequest
+
+        is UploadError.SessionTooLarge -> HttpStatusCode.PayloadTooLarge
+
+        is UploadError.FileTransferFailed -> HttpStatusCode.UnprocessableEntity
+
+        is UploadError.NoBooksFound -> HttpStatusCode.UnprocessableEntity
+
+        is UploadError.NoLibraryFolder -> HttpStatusCode.ServiceUnavailable
     }
 
 private fun ServerConnectError.toHttpStatus(): HttpStatusCode =
@@ -297,6 +377,33 @@ private fun MetadataError.toHttpStatus(): HttpStatusCode =
         is MetadataError.ChapterCountMismatch -> HttpStatusCode.UnprocessableEntity
     }
 
+/**
+ * Status mapping for the library-folder error families, [LibraryError] and [LibraryWriteError].
+ *
+ * Split from [toHttpStatus] solely to keep that function's cyclomatic complexity under the
+ * project threshold. The `else` branch is unreachable — this is only called from the single
+ * grouped branch in [toHttpStatus].
+ */
+private fun AppError.libraryFamilyHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryError -> toHttpStatus()
+        is LibraryWriteError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+private fun LibraryWriteError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryWriteError.Unavailable -> HttpStatusCode.ServiceUnavailable
+
+        // Not 503: the mount is fine, the path is wrong. Mirrors LibraryError.InvalidPath, and
+        // keeps a caller bug out of the retryable-5xx bucket.
+        is LibraryWriteError.OutsideLibrary -> HttpStatusCode.BadRequest
+
+        // Also a caller bug rather than a mount problem: the path is inside the library but is not
+        // the caller's to destroy (a folder root, or a symlink standing in for a book directory).
+        is LibraryWriteError.ProtectedPath -> HttpStatusCode.BadRequest
+    }
+
 private fun LibraryError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is LibraryError.NotFound -> HttpStatusCode.NotFound
@@ -337,7 +444,12 @@ private fun MoodError.toHttpStatus(): HttpStatusCode =
 private fun BookError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is BookError.NotFound -> HttpStatusCode.NotFound
+
         is BookError.InvalidInput -> HttpStatusCode.BadRequest
+
+        // 409, not 400: the request is well-formed and the book exists — it is the current state of
+        // the library (two books in one folder) that makes the delete unsafe.
+        is BookError.FolderNotExclusive -> HttpStatusCode.Conflict
     }
 
 private fun CoverError.toHttpStatus(): HttpStatusCode =

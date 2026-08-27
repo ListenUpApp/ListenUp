@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -29,7 +30,7 @@ import kotlinx.coroutines.test.runTest
 class InboxRepositoryImplTest :
     FunSpec({
 
-        fun buildRepo(service: CollectionService): InboxRepositoryImpl = InboxRepositoryImpl(RpcChannel.forTest(service))
+        fun buildRepo(service: CollectionService): InboxRepositoryImpl = InboxRepositoryImpl(RpcChannel.forTest(service), RpcChannel.forTest(mock<ScannerService>()))
 
         test("listInbox forwards to the service and returns the mapped book ids") {
             runTest {

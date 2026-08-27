@@ -203,8 +203,8 @@ class AdminSettingsServiceImplTest :
             }
         }
 
-        // (h) inboxEnabled persists to the library and round-trips through getServerSettings
-        test("updateServerSettings inboxEnabled persists to the library and round-trips through getServerSettings") {
+        // (h) holdNewBooksForReview persists to the library and round-trips through getServerSettings
+        test("updateServerSettings holdNewBooksForReview persists to the library and round-trips through getServerSettings") {
             withSqlDatabase {
                 runTest {
                     val (svc, libraryRepository, libraryRegistry) =
@@ -214,12 +214,12 @@ class AdminSettingsServiceImplTest :
                         )
                     seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
 
-                    svc.getServerSettings().shouldSucceed().inboxEnabled shouldBe false
+                    svc.getServerSettings().shouldSucceed().holdNewBooksForReview shouldBe false
 
-                    svc.updateServerSettings(AdminServerSettingsPatch(inboxEnabled = true)).shouldSucceed()
-                    svc.getServerSettings().shouldSucceed().inboxEnabled shouldBe true
+                    svc.updateServerSettings(AdminServerSettingsPatch(holdNewBooksForReview = true)).shouldSucceed()
+                    svc.getServerSettings().shouldSucceed().holdNewBooksForReview shouldBe true
 
-                    libraryRepository.readInboxEnabled(libraryRegistry.currentLibrary()) shouldBe true
+                    libraryRepository.readHoldNewBooksForReview(libraryRegistry.currentLibrary()) shouldBe true
                 }
             }
         }
@@ -265,6 +265,29 @@ class AdminSettingsServiceImplTest :
                         frame.userId shouldBe ChangeBus.BROADCAST
                         cancelAndIgnoreRemainingEvents()
                     }
+                }
+            }
+        }
+
+        // (k) sidecarWritesEnabled defaults to true and round-trips through the settings KV store
+        test("updateServerSettings sidecarWritesEnabled defaults true, persists, and round-trips") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+
+                    // Absent key = enabled (spec: sidecar writes are on by default).
+                    svc.getServerSettings().shouldSucceed().sidecarWritesEnabled shouldBe true
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(sidecarWritesEnabled = false)).shouldSucceed()
+                    svc.getServerSettings().shouldSucceed().sidecarWritesEnabled shouldBe false
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(sidecarWritesEnabled = true)).shouldSucceed()
+                    svc.getServerSettings().shouldSucceed().sidecarWritesEnabled shouldBe true
                 }
             }
         }

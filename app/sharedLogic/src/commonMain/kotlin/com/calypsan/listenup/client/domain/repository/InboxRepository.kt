@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.result.AppResult
 
 /**
@@ -28,4 +29,16 @@ interface InboxRepository {
         libraryId: String,
         assignments: Map<String, List<String>>,
     ): AppResult<Unit>
+
+    /**
+     * The folders the scanner walked but could not import, oldest first.
+     *
+     * These are not books awaiting a decision — they are things that went wrong and produced no
+     * book at all. Before this surface existed they were a log line and nothing else, which is why
+     * they belong in the inbox whether or not the admin holds healthy books for review.
+     */
+    suspend fun listScanIssues(): AppResult<List<ScanIssue>>
+
+    /** Stops showing the issue with [issueId]. */
+    suspend fun dismissScanIssue(issueId: String): AppResult<Unit>
 }

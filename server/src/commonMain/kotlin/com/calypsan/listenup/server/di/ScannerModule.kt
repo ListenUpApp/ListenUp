@@ -2,17 +2,24 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.server.scanner.ScanIssueRepository
+import com.calypsan.listenup.server.scanner.reconcile
+import com.calypsan.listenup.server.scanner.ScanIssueStore
 import com.calypsan.listenup.server.scanner.ScanCoordinator
+import com.calypsan.listenup.server.sidecar.SidecarWriter
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.ScannerBundle
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.resolveLibraryPrecedence
 import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
+import com.calypsan.listenup.server.scanner.sidecar.ListenUpSidecarReader
 import com.calypsan.listenup.server.scanner.sidecar.NfoParser
 import com.calypsan.listenup.server.scanner.sidecar.OpfParser
 import com.calypsan.listenup.server.scanner.sidecar.ReaderTxtParser
@@ -112,6 +119,7 @@ fun scannerModule(
         single<WatcherSupervisorPort> {
             val scope: CoroutineScope = get()
             val debouncer: StableSizeDebouncer = get()
+            val selfWrites: SelfWriteRegistry = get()
             WatcherSupervisor { folder, onEvent ->
                 // Scanner-internal refs are always system-built with a real path; a null here
                 // means a member-redacted projection leaked into the scanner — fail loudly.
@@ -126,6 +134,7 @@ fun scannerModule(
                         libraryRoot = folderPath,
                         scope = scope,
                         debouncer = debouncer,
+                        selfWrites = selfWrites,
                     )
                 val job: Job =
                     scope.launch {
@@ -175,12 +184,34 @@ fun scannerModule(
                                     metadataPrecedence,
                                 ),
                             coverSpool = get(),
+                            listenUpSidecarReader = ListenUpSidecarReader(get()),
                         )
                     val coordinator =
                         ScanCoordinator(
                             libraryId = library.id,
-                            runFullScan = { scanner.runFullScan() },
-                            runIncremental = { scanner.runIncremental(it) },
+                            runFullScan = {
+                                scanner.runFullScan().also { result ->
+                                    // Sidecars are a property of the library, not of having edited
+                                    // something — so a completed scan reconciles them. Nullable
+                                    // because the sidecar module isn't loaded in minimal containers.
+                                    getOrNull<SidecarWriter>()?.backfillStaleSidecars()
+                                    // Same reasoning for the issue record: what the scanner could
+                                    // not import is a property of the library as it stands now, so
+                                    // the scan that just looked is what should say so.
+                                    getOrNull<ScanIssueRepository>().reconcileWith(library, result)
+                                }
+                            },
+                            runIncremental = { path ->
+                                // The commonest repair path: the user fixes a folder on disk and
+                                // the watcher re-analyses just that subtree. Reconciling here is
+                                // what stops a fixed book sitting in the inbox forever. Null means
+                                // the pass was superseded — its result is stale, so it says nothing
+                                // about the current state and must not clear anything.
+                                scanner.runIncremental(path)?.let { result ->
+                                    getOrNull<ScanIssueRepository>().reconcileWith(library, result)
+                                }
+                                Unit
+                            },
                             scope = scope,
                         )
                     ScannerBundle(library, scanner, coordinator)
@@ -198,6 +229,35 @@ fun scannerModule(
                 // it per-request is safe and keeps the binding synchronous.
                 resolveLibraryId = { libraryRegistry.currentLibrary() },
                 eventBus = get<SharedFlow<ScanEvent>>(),
+                scanIssues = get(),
             )
         }
+
+        // The durable record of what the scanner could NOT import — see ScanIssueRepository.
+        //
+        // Registered under BOTH types on purpose. The scan reconcile resolves the concrete
+        // repository (it needs `record`/`clear`, which are not on the port), while ScannerService
+        // takes the narrow read port. Binding only the port left the reconcile's `getOrNull` lookup
+        // returning null, so it silently did nothing — no error, no issues ever recorded.
+        single { ScanIssueRepository(db = get()) }
+        single<ScanIssueStore> { get<ScanIssueRepository>() }
     }
+
+/**
+ * Brings the scan-issue record in line with a completed scan.
+ *
+ * Null receiver means the container has no issue record bound — the minimal test containers — and
+ * reconciling is then a no-op. Extracted from the two `runFullScan` / `runIncremental` lambdas so
+ * `scannerModule` reads as wiring rather than as logic, and so the two paths cannot drift apart.
+ */
+private suspend fun ScanIssueRepository?.reconcileWith(
+    library: Library,
+    result: ScanResult,
+) {
+    this?.reconcile(
+        libraryId = library.id,
+        folderRoots = library.folders.mapNotNull { it.rootPath },
+        importedRelPaths = result.books.map { it.candidate.rootRelPath },
+        errors = result.errors,
+    )
+}

@@ -1285,4 +1285,77 @@ class BookDetailViewModelTest :
                 }
             }
         }
+
+        // ========== Delete Book ==========
+
+        test("deleteBook success emits BookDeleted so the screen leaves before the row vanishes") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                everySuspend { fixture.bookRepository.deleteBook(BookId("book-1")) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val navActions = viewModel.navActions.testIn(backgroundScope)
+                    val states = viewModel.state.testIn(backgroundScope)
+                    states.awaitItem()
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    states.expectMostRecentItem()
+
+                    viewModel.deleteBook()
+                    advanceUntilIdle()
+
+                    navActions.awaitItem() shouldBe BookDetailNavAction.BookDeleted
+                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    ready.isDeletingBook shouldBe false
+                    ready.deleteError shouldBe null
+                    navActions.cancel()
+                    states.cancel()
+                }
+            }
+        }
+
+        test("deleteBook refusal keeps the screen, carries the typed error, and navigates nowhere") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                val refusal = BookError.FolderNotExclusive(otherBookId = "book-2", otherBookTitle = "Animal Farm")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                everySuspend {
+                    fixture.bookRepository.deleteBook(BookId("book-1"))
+                } returns AppResult.Failure(refusal)
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val navActions = viewModel.navActions.testIn(backgroundScope)
+                    val states = viewModel.state.testIn(backgroundScope)
+                    states.awaitItem()
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    states.expectMostRecentItem()
+
+                    viewModel.deleteBook()
+                    advanceUntilIdle()
+
+                    // Nothing was deleted, so nothing may navigate — leaving the screen here would
+                    // read as success.
+                    navActions.expectNoEvents()
+                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    ready.isDeletingBook shouldBe false
+                    // The typed error, not a rendered sentence: the dialog names the blocking book
+                    // from these fields.
+                    ready.deleteError shouldBe refusal
+
+                    viewModel.clearDeleteError()
+                    advanceUntilIdle()
+                    (states.expectMostRecentItem() as BookDetailUiState.Ready).deleteError shouldBe null
+                    navActions.cancel()
+                    states.cancel()
+                }
+            }
+        }
     })
