@@ -75,6 +75,14 @@ struct ShelfDetailSnapshot: Equatable {
     }
 }
 
+/// The shared shelf-order functions, under a name short enough to read at the call site.
+///
+/// Swift Export publishes top-level Kotlin functions under their full package path
+/// (`ExportedKotlinPackages.com.calypsan.…`), which is accurate and unreadable. Note it also
+/// exports the generic `reorderedBy` — as `[any _KotlinBridgeable]?` — which is exactly why the
+/// shared side grew the id-shaped `reorderedIds` for this call to use.
+private typealias SharedShelfOrder = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.shelf
+
 /// Observes `ShelfDetailViewModel`, flattening `ShelfDetailUiState` into flat
 /// `@Observable` properties the SwiftUI screen binds to.
 @Observable
@@ -113,7 +121,7 @@ final class ShelfDetailObserver {
         else { return }
 
         let ids = books.map(\.id)
-        let reordered = ShelfOrderKt.reorderedIds(ids: ids, from: Int32(from), to: Int32(to))
+        let reordered = SharedShelfOrder.reorderedIds(ids: ids, from: Int32(from), to: Int32(to))
         guard reordered != ids else { return }
 
         // Optimistic: the grid follows the finger now, and the shelf reloads from the server on

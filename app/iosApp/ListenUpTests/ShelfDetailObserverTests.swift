@@ -12,7 +12,7 @@ import Testing
 ///
 /// The same limit applies to `isOwner`: the branch that reads it lives inside `from(_:)`, so it is
 /// covered by the green-build pass rather than by an assertion. The reorder arithmetic it gates is
-/// not iOS's own — `ShelfOrderKt.reorderedIds` is the shared function, pinned in `ShelfOrderTest`.
+/// not iOS's own — `reorderedIds` is the shared function, pinned in `ShelfOrderTest`.
 @Suite("ShelfDetailSnapshot")
 struct ShelfDetailObserverTests {
     @Test func singleBookUsesSingularKey() {
