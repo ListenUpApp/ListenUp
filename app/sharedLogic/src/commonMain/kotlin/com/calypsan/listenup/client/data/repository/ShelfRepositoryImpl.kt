@@ -247,14 +247,53 @@ internal class ShelfRepositoryImpl(
         }
     }
 
+    /**
+     * Offline-first: rewrite the shelf's local sort orders optimistically and enqueue ONE durable
+     * permutation on the `shelf_books` channel.
+     *
+     * ## Keyed by the shelf, not by a junction
+     *
+     * Add and remove are keyed `"$shelfId:$bookId"` — one op per junction. A reorder is not about a
+     * junction; it is the whole shelf's order, so its outbox key is the bare shelf id. That cannot
+     * collide with a junction key, which always carries a colon, and it is what makes [coalesce]
+     * meaningful: ten drags while offline are one permutation and nine round-trips nobody needs.
+     *
+     * ## What that costs, and why it is affordable
+     *
+     * Per-entity FIFO holds within a key, not across them, so a reorder can reach the server either
+     * side of an add or a removal it was composed against. The server absorbs both directions: ids
+     * no longer on the shelf are skipped, and books on the shelf but absent from the list keep the
+     * position they had. So the worst case is a shelf whose newest book sits at the end rather than
+     * where a stale permutation imagined it — which the next reorder fixes, and which no amount of
+     * cross-key ordering could have prevented on a client that was offline for both.
+     *
+     * The local rewrite only touches books named in [orderedBookIds], mirroring the server rule
+     * rather than restating it: a list that has drifted must not silently renumber the rest.
+     */
     override suspend fun reorderBooks(
         shelfId: ShelfId,
         orderedBookIds: List<BookId>,
     ): AppResult<Unit> =
-        // TODO(offline-first): reorderBooks deferred — needs a shelf-scoped sortOrder-reconciling op
-        // (whole-shelf permutation) that doesn't fit the single-junction shield model.
-        channel.call {
-            it.reorderShelfBooks(shelfId, orderedBookIds)
+        offlineEditor.edit(
+            OutboxChannels.ShelfBooks,
+            shelfId.value,
+            ShelfBookMutation.Reorder(
+                shelfId = shelfId.value,
+                orderedBookIds = orderedBookIds.map { it.value },
+            ),
+            op = OpKind.Update,
+            coalesce = true,
+        ) {
+            val live = shelfBookDao.liveForShelf(shelfId.value).associateBy { it.bookId }
+            val now = currentEpochMilliseconds()
+            val rewritten =
+                orderedBookIds.mapIndexedNotNull { index, bookId ->
+                    val row = live[bookId.value] ?: return@mapIndexedNotNull null
+                    if (row.sortOrder == index) null else row.copy(sortOrder = index, updatedAt = now)
+                }
+            if (rewritten.isNotEmpty()) {
+                shelfBookDao.upsertAll(rewritten)
+            }
         }
 
     // ── Mapping ───────────────────────────────────────────────────────────────────

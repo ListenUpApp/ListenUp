@@ -332,6 +332,15 @@ internal val clientSyncModule =
                                     it.removeBookFromShelf(ShelfId(mutation.shelfId), BookId(mutation.bookId))
                                 }
                             }
+
+                            is ShelfBookMutation.Reorder -> {
+                                shelfChannel.call {
+                                    it.reorderShelfBooks(
+                                        ShelfId(mutation.shelfId),
+                                        mutation.orderedBookIds.map(::BookId),
+                                    )
+                                }
+                            }
                         }
                     },
                     // The op's entityId is the collectionId; the sender reconstructs the CollectionId from it.

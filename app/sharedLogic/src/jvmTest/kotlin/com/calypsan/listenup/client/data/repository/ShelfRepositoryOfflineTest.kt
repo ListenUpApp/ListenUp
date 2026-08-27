@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.ShelfBookMutation
+import io.kotest.matchers.string.shouldContain
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.dto.shelf.Shelf as ShelfDto
 import com.calypsan.listenup.api.result.AppResult
@@ -189,17 +192,99 @@ class ShelfRepositoryOfflineTest :
             }
         }
 
-        test("reorderBooks stays online — it dispatches to the RPC and enqueues nothing") {
+        test("reorderBooks rewrites the local order and enqueues ONE op keyed by the shelf") {
+            // This spec used to assert the opposite — that reorder stayed online and enqueued
+            // nothing. It was the one shelf mutation that could not be performed on a train.
             runTest {
                 val db = createInMemoryTestDatabase()
-                val service = mock<ShelfService>()
-                everySuspend { service.reorderShelfBooks(any(), any()) } returns AppResult.Success(Unit)
-                val repo = repo(db, service)
+                db.shelfBookDao().upsert(junction("s1", "b1", 0))
+                db.shelfBookDao().upsert(junction("s1", "b2", 1))
+                val repo = repo(db)
 
                 val result = repo.reorderBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1")))
 
                 result shouldBe AppResult.Success(Unit)
-                db.pendingOperationV2Dao().nextDispatchable().shouldBeEmpty()
+                db.shelfBookDao().findByShelfAndBook("s1", "b2")?.sortOrder shouldBe 0
+                db.shelfBookDao().findByShelfAndBook("s1", "b1")?.sortOrder shouldBe 1
+
+                val op = db.pendingOperationV2Dao().nextDispatchable().single()
+                op.domainName shouldBe "shelf_books"
+                // The bare shelf id, NOT "$shelfId:$bookId" — a permutation is the shelf's, not a
+                // junction's, and a key with no colon cannot collide with a junction's.
+                op.entityId shouldBe "s1"
+                op.opType shouldBe "update"
+                // The order itself rides in the payload, not the key — this is what the dispatcher
+                // hands to `reorderShelfBooks`, and the assertion the old online-path spec made.
+                op.payload shouldContain "\"b2\""
+                val decoded = contractJson.decodeFromString<ShelfBookMutation>(op.payload)
+                decoded.shouldBeInstanceOf<ShelfBookMutation.Reorder>()
+                decoded.orderedBookIds shouldBe listOf("b2", "b1")
+                db.close()
+            }
+        }
+
+        test("dragging repeatedly offline leaves one permutation queued, not one per drag") {
+            // Every reorder carries the whole terminal order, so an earlier one has nothing left to
+            // say. Without coalescing, a minute of tidying offline becomes a minute of round-trips.
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.shelfBookDao().upsert(junction("s1", "b1", 0))
+                db.shelfBookDao().upsert(junction("s1", "b2", 1))
+                db.shelfBookDao().upsert(junction("s1", "b3", 2))
+                val repo = repo(db)
+
+                repo.reorderBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1"), BookId("b3")))
+                repo.reorderBooks(ShelfId("s1"), listOf(BookId("b3"), BookId("b2"), BookId("b1")))
+
+                // countDispatchable, NOT nextDispatchable: the latter returns one op per entity
+                // (`WHERE rn = 1`, preserving per-entity FIFO), so it reads as 1 whether or not the
+                // earlier op was coalesced away. Counting every queued row is what tells them apart.
+                db.pendingOperationV2Dao().countDispatchable() shouldBe 1
+                // And it is the LAST order, not the first.
+                db.shelfBookDao().findByShelfAndBook("s1", "b3")?.sortOrder shouldBe 0
+                db.shelfBookDao().findByShelfAndBook("s1", "b1")?.sortOrder shouldBe 2
+                db.close()
+            }
+        }
+
+        test("a reorder naming a book that has left the shelf leaves the others where they are") {
+            // The offline cost of keying by shelf: a reorder can be composed before a removal and
+            // drain after it. The local rewrite mirrors the server's tolerance rather than
+            // restating it — books not named keep their positions, and an unknown id is skipped.
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.shelfBookDao().upsert(junction("s1", "b1", 0))
+                db.shelfBookDao().upsert(junction("s1", "b2", 1))
+                db.shelfBookDao().upsert(junction("s1", "b3", 2))
+                val repo = repo(db)
+
+                // "gone" holds index 0 and is skipped; b3 is named at index 1 and moves there.
+                // b1 and b2 are not named at all, so whatever happens must not touch them — which
+                // is only visible because b2 sits where the skipped id's index would land.
+                repo.reorderBooks(ShelfId("s1"), listOf(BookId("gone"), BookId("b3")))
+
+                db.shelfBookDao().findByShelfAndBook("s1", "b3")?.sortOrder shouldBe 1
+                db.shelfBookDao().findByShelfAndBook("s1", "b1")?.sortOrder shouldBe 0
+                db.shelfBookDao().findByShelfAndBook("s1", "b2")?.sortOrder shouldBe 1
+                db.close()
+            }
+        }
+
+        test("a reorder does not disturb a tombstoned junction") {
+            // Tombstones are still rows. Renumbering one would resurrect it into the shelf's order
+            // the moment the tombstone was reconciled away.
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.shelfBookDao().upsert(junction("s1", "b1", 0))
+                db.shelfBookDao().upsert(junction("s1", "b2", 1))
+                db.shelfBookDao().softDelete(id = "s1:b2", deletedAt = 123L, revision = 0)
+                val repo = repo(db)
+
+                repo.reorderBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1")))
+
+                val dead = db.shelfBookDao().findByShelfAndBook("s1", "b2").shouldNotBeNull()
+                dead.deletedAt shouldBe 123L
+                dead.sortOrder shouldBe 1
                 db.close()
             }
         }

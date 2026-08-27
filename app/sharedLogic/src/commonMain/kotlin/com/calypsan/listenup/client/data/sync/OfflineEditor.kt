@@ -39,12 +39,19 @@ internal class OfflineEditor(
      * collector: it could wake, read pre-commit state that can't yet see the new row, find
      * nothing, and strand the op until the next unrelated trigger. Passing `signal = false`
      * and calling [PendingOperationQueue.signalEnqueued] post-commit closes that window.
+     *
+     * [coalesce] drops any op already queued for the same channel, entity and kind before enqueuing
+     * this one. Off by default: for most edits every queued op is a step someone took, and dropping
+     * the earlier ones would lose intent. It is right only where the payload carries the whole
+     * terminal state, so an earlier one has nothing left to say — a shelf permutation, for
+     * instance, of which ten dragged offline are nine round-trips nobody needs.
      */
     suspend fun <T : Any> edit(
         channel: OutboxChannel<T>,
         entityId: String,
         patch: T,
         op: OpKind = OpKind.Update,
+        coalesce: Boolean = false,
         applyLocally: suspend () -> Unit,
     ): AppResult<Unit> {
         val ownerUserId =
@@ -59,6 +66,7 @@ internal class OfflineEditor(
                     op = op,
                     payload = contractJson.encodeToString(channel.serializer, patch),
                     ownerUserId = ownerUserId,
+                    coalesce = coalesce,
                     signal = false,
                 )
             }

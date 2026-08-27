@@ -42,4 +42,23 @@ sealed interface ShelfBookMutation {
         @SerialName("shelfId") val shelfId: String,
         @SerialName("bookId") val bookId: String,
     ) : ShelfBookMutation
+
+    /**
+     * Set the shelf's whole order to [orderedBookIds].
+     *
+     * A permutation rather than a per-book move, because that is what the server's
+     * `reorderShelfBooks` takes and what makes the op idempotent: re-firing it writes the same
+     * indices. Last-write-wins by nature, which is why the outbox coalesces these.
+     *
+     * The server is tolerant of a list that has drifted from the shelf — ids no longer on it are
+     * skipped, and books on the shelf but absent from the list are left where they are. That
+     * matters offline: this op is keyed by shelf while add and remove are keyed by junction, so a
+     * reorder can reach the server either side of an add or a removal it was composed against.
+     */
+    @Serializable
+    @SerialName("ShelfBookMutation.Reorder")
+    data class Reorder(
+        @SerialName("shelfId") val shelfId: String,
+        @SerialName("orderedBookIds") val orderedBookIds: List<String>,
+    ) : ShelfBookMutation
 }
