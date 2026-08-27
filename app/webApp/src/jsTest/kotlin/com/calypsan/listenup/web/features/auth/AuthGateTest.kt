@@ -1,5 +1,10 @@
 package com.calypsan.listenup.web.features.auth
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
+import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
 import com.calypsan.listenup.web.features.discover.fixedDiscover
@@ -40,7 +45,10 @@ import com.calypsan.listenup.web.features.search.fixedSearch
  */
 private val routers = mutableListOf<Router>()
 
-private fun mountGate(graph: FakeAuthGraph): HTMLElement {
+private fun mountGate(
+    graph: FakeAuthGraph,
+    themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
+): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     val router = Router().also { routers += it }
@@ -54,12 +62,14 @@ private fun mountGate(graph: FakeAuthGraph): HTMLElement {
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
             openDiscover = fixedDiscover(),
+            openSettings = fixedSettings(),
             openShelfDetail = fixedShelfDetail(),
             openShelfEdit = fixedShelfEdit(),
             openLibrary = fakeLibrary(),
             openSearch = fixedSearch(SearchUiState.Idle()),
             openPlayback = fixedPlayback(),
             observeIsAdmin = { flowOf(false) },
+            observeThemeMode = { themeMode },
         )
     }
     return host
@@ -207,6 +217,56 @@ class AuthGateTest :
             awaitFrame()
 
             graph.closed shouldBe listOf("login")
+        }
+        test("the reader's theme reaches the document, from the gate up") {
+            // The link nothing else covers. `shouldUseDarkTheme` and `applyTheme` are proved on
+            // their own, and the Settings page is proved to report a chosen mode — but a
+            // ThemeEffect that was never mounted, or a flow nothing collected, would leave every
+            // one of those green while the page stayed stubbornly light.
+            document.documentElement?.removeAttribute("data-theme")
+
+            mountGate(FakeAuthGraph(AuthState.NeedsLogin()), themeMode = flowOf(ThemeMode.DARK))
+            awaitFrame()
+
+            document.documentElement?.getAttribute("data-theme") shouldBe "dark"
+        }
+
+        test("dark applies on the sign-in screen, not only inside the shell") {
+            // Deliberately asserted against NeedsLogin: a ThemeEffect placed inside the
+            // authenticated branch would pass every other spec and still flash a white sign-in
+            // screen at someone who chose dark.
+            document.documentElement?.removeAttribute("data-theme")
+
+            val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()), themeMode = flowOf(ThemeMode.DARK))
+            awaitFrame()
+
+            host.textContent.orEmpty() shouldContain "Sign in"
+            document.documentElement?.getAttribute("data-theme") shouldBe "dark"
+        }
+
+        test("choosing light takes the attribute back off again") {
+            document.documentElement?.setAttribute("data-theme", "dark")
+
+            mountGate(FakeAuthGraph(AuthState.NeedsLogin()), themeMode = flowOf(ThemeMode.LIGHT))
+            awaitFrame()
+
+            document.documentElement?.hasAttribute("data-theme") shouldBe false
+        }
+
+        test("a later change reaches the document too, not just the first value") {
+            // A `LaunchedEffect(Unit)` that read one value and stopped would pass the specs above
+            // and leave the switcher dead after its first use.
+            document.documentElement?.removeAttribute("data-theme")
+            val modes = MutableStateFlow(ThemeMode.LIGHT)
+
+            mountGate(FakeAuthGraph(AuthState.NeedsLogin()), themeMode = modes)
+            awaitFrame()
+            document.documentElement?.hasAttribute("data-theme") shouldBe false
+
+            modes.value = ThemeMode.DARK
+            awaitFrame()
+
+            document.documentElement?.getAttribute("data-theme") shouldBe "dark"
         }
     })
 

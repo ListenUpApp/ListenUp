@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.features.settings.SettingsPage
+import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.client.domain.model.ShelfBook
@@ -512,6 +514,22 @@ class ClassContractTest :
                         // a state whose classes nothing checks — and this page is mostly states.
                         discoverShapes().forEach { it() }
                         shelfShapes().forEach { it() }
+                        // Loading and loaded: the skeleton's class lives only in the former.
+                        SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {})
+                        SettingsPage(
+                            SettingsUiState(
+                                isLoading = false,
+                                serverUrl = "https://listenup.example",
+                                serverVersion = "0.9.1",
+                            ),
+                            {},
+                            {},
+                            {},
+                            {},
+                            {},
+                            {},
+                            {},
+                        )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))

@@ -1095,6 +1095,23 @@ body { margin: 0; }
 }
 .luw .home-status-fill { height: 100%; border-radius: 99px; background: var(--coral); }
 
+/* ---- Settings. Narrow by intent: these are one-line decisions, and a full-width row makes a
+   checkbox look like it belongs to whatever is beside it. */
+.luw .set { display: flex; flex-direction: column; gap: 2rem; max-width: 34rem; }
+.luw .set-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .set-skel { height: 16rem; border-radius: 16px; }
+.luw .set-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .set-section-h { margin: 0; font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.luw .set-section-note { margin: 0 0 0.4rem; font-size: 0.82rem; color: var(--ink-3); }
+.luw .set-fields { display: flex; flex-direction: column; gap: 1rem; }
+.luw .set-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--line);
+}
+.luw .set-row:last-child { border-bottom: none; }
+.luw .set-row-k { font-size: 0.9rem; color: var(--ink-2); }
+.luw .set-row-v { font-size: 0.85rem; color: var(--ink); word-break: break-all; }
+
 /* ---- Shelves — one shelf's books, and the form that makes or changes a shelf. */
 .luw .shelf { display: flex; flex-direction: column; gap: 1.6rem; }
 .luw .shelf-skel { height: 12rem; border-radius: 16px; }

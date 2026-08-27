@@ -1,5 +1,11 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.features.settings.OpenSettings
+import com.calypsan.listenup.web.features.settings.watchSystemTheme
+import com.calypsan.listenup.web.features.settings.systemPrefersDark
+import com.calypsan.listenup.web.features.settings.shouldUseDarkTheme
+import com.calypsan.listenup.web.features.settings.applyTheme
+import com.calypsan.listenup.client.domain.model.ThemeMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -54,14 +60,20 @@ fun AuthGate(
     openLibrary: OpenLibrary,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
+    openSettings: OpenSettings,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
+    observeThemeMode: () -> Flow<ThemeMode>,
 ) {
     val scope = rememberCoroutineScope()
     val authState by authGraph.authState.collectAsState()
+
+    // Above the auth branch, not inside the shell: someone who prefers dark should get it on the
+    // sign-in screen too, and a theme that only arrives after login is a flash of the wrong one.
+    ThemeEffect(observeThemeMode)
 
     LaunchedEffect(Unit) {
         // A failed probe must not take the page down with it. Same reasoning as the server-URL
@@ -116,6 +128,7 @@ fun AuthGate(
                     openLibrary = openLibrary,
                     openHome = openHome,
                     openDiscover = openDiscover,
+                    openSettings = openSettings,
                     openShelfDetail = openShelfDetail,
                     openShelfEdit = openShelfEdit,
                     openSearch = openSearch,
@@ -220,4 +233,26 @@ private fun PendingApprovalBranch(
 @Composable
 private fun AuthBoot() {
     Div(attrs = { classes("auth-boot") }) { Text("Checking your session…") }
+}
+
+/**
+ * Keeps the document's theme in step with the reader's choice and their OS.
+ *
+ * Both inputs matter and either can change while the page is open: the reader can pick a mode here,
+ * and the OS can flip under a reader who chose to follow it. `web.css` has always carried the dark
+ * palette; this is the only thing that turns it on.
+ */
+@Composable
+private fun ThemeEffect(observeThemeMode: () -> Flow<ThemeMode>) {
+    var mode by remember { mutableStateOf(ThemeMode.SYSTEM) }
+    var systemDark by remember { mutableStateOf(systemPrefersDark()) }
+
+    LaunchedEffect(Unit) { observeThemeMode().collect { mode = it } }
+    DisposableEffect(Unit) {
+        val stop = watchSystemTheme { systemDark = it }
+        onDispose { stop() }
+    }
+
+    // A plain effect keyed on both, so the attribute is rewritten exactly when one of them moves.
+    LaunchedEffect(mode, systemDark) { applyTheme(shouldUseDarkTheme(mode, systemDark)) }
 }

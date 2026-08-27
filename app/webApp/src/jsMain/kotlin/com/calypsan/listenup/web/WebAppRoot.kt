@@ -37,6 +37,8 @@ import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
+import com.calypsan.listenup.web.features.settings.OpenSettings
+import com.calypsan.listenup.web.features.settings.SettingsPage
 import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
 import com.calypsan.listenup.web.features.shelf.OpenShelfEdit
 import com.calypsan.listenup.web.features.shelf.ShelfDetailPage
@@ -103,6 +105,7 @@ fun WebAppRoot(
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
+    openSettings: OpenSettings,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -158,6 +161,7 @@ fun WebAppRoot(
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
+            openSettings = openSettings,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -206,6 +210,7 @@ private fun RouteContent(
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
+    openSettings: OpenSettings,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -305,6 +310,8 @@ private fun RouteContent(
             openShelfEdit = openShelfEdit,
             onHeroBookIdChange = onHeroBookIdChange,
         )
+    } else if (active == SETTINGS_KEY) {
+        SettingsRoute(openSettings = openSettings)
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
     } else {
@@ -909,10 +916,12 @@ private val PRIMARY_NAV =
 
 private const val ADMIN_KEY = "admin"
 
+private const val SETTINGS_KEY = "settings"
+
 private val FOOTER_NAV =
     listOf(
         NavEntry(ADMIN_KEY, "Admin", WebIcon.Shield),
-        NavEntry("settings", "Settings", WebIcon.Cog),
+        NavEntry(SETTINGS_KEY, "Settings", WebIcon.Cog),
     )
 
 /**
@@ -1036,4 +1045,27 @@ private fun ShelfRouteContent(
             )
         }
     }
+}
+
+/**
+ * The `/settings` branch.
+ *
+ * No router: nothing on this page navigates. Every control writes a preference and the effect is
+ * the page itself changing — the theme most visibly, since it repaints the whole shell.
+ */
+@Composable
+private fun SettingsRoute(openSettings: OpenSettings) {
+    val session = remember { openSettings() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    SettingsPage(
+        state = session.state.collectAsState().value,
+        onThemeMode = session.onThemeMode,
+        onDefaultSpeed = session.onDefaultSpeed,
+        onSkipForward = session.onSkipForward,
+        onSkipBackward = session.onSkipBackward,
+        onAutoRewind = session.onAutoRewind,
+        onIgnoreTitleArticles = session.onIgnoreTitleArticles,
+        onHideSingleBookSeries = session.onHideSingleBookSeries,
+    )
 }
