@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -212,7 +211,7 @@ private fun NarrowSeriesDetailContent(
         itemsIndexed(state.books, key = { _, b -> b.id.value }) { index, book ->
             SeriesBookRow(
                 book = book,
-                positionLabel = book.seriesSequence?.let(::formatSeriesSequence) ?: (index + 1).toString(),
+                positionLabel = book.seriesSequenceLabel ?: (index + 1).toString(),
                 finished = book.id in state.finishedBookIds,
                 progress = state.bookProgress[book.id],
                 highlighted = book.id == state.resumeTarget && state.bookProgress[book.id] != null,
@@ -278,7 +277,7 @@ private fun WideSeriesDetailContent(
             itemsIndexed(state.books, key = { _, b -> b.id.value }) { index, book ->
                 SeriesBookCard(
                     book = book,
-                    positionLabel = book.seriesSequence?.let(::formatSeriesSequence) ?: (index + 1).toString(),
+                    positionLabel = book.seriesSequenceLabel ?: (index + 1).toString(),
                     finished = book.id in state.finishedBookIds,
                     progress = state.bookProgress[book.id],
                     highlighted = book.id == state.resumeTarget && state.bookProgress[book.id] != null,
@@ -486,7 +485,7 @@ private fun HeroStat(
 
 /** Brand "Continue / Start Book N" pill. Hidden when the whole series is finished. */
 @Composable
-private fun ContinueButton(
+internal fun ContinueButton(
     state: SeriesDetailUiState.Ready,
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -495,7 +494,7 @@ private fun ContinueButton(
     val targetId = state.resumeTarget ?: return
     val target = state.books.firstOrNull { it.id == targetId } ?: return
     val index = state.books.indexOfFirst { it.id == targetId }
-    val positionLabel = target.seriesSequence ?: (index + 1).toString()
+    val positionLabel = target.seriesSequenceLabel ?: (index + 1).toString()
     val continueLabel =
         if (state.bookProgress[targetId] != null) {
             stringResource(Res.string.series_continue_book, positionLabel)

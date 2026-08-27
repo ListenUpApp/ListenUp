@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.client.core.DurationFormatter
-import com.calypsan.listenup.client.core.formatSeriesSequence
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -28,16 +27,24 @@ interface BookSummaryFields {
     val seriesName: String? get() = series.firstOrNull()?.seriesName
     val seriesSequence: Double? get() = series.firstOrNull()?.sequence
 
+    /**
+     * [seriesSequence] as a person would write it — `"1"`, not `"1.0"`. Null when unnumbered.
+     *
+     * Every display site reads this; [seriesSequence] is for sorting and comparison only. See
+     * [BookSeries.sequenceLabel] for why the split exists.
+     */
+    val seriesSequenceLabel: String? get() = series.firstOrNull()?.sequenceLabel
+
     val hasCover: Boolean get() = coverPath != null
 
     val fullSeriesTitle: String?
         get() {
             val firstSeries = series.firstOrNull() ?: return null
             val name = firstSeries.seriesName
-            val seq = firstSeries.sequence
-            // formatSeriesSequence, not string interpolation: a whole number prints as "1.0",
-            // and "Mistborn #1.0" is not how a series title is written.
-            return if (seq != null) "$name #${formatSeriesSequence(seq)}" else name
+            // sequenceLabel, not the raw Double: a whole number prints as "1.0", and
+            // "Mistborn #1.0" is not how a series title is written.
+            val seq = firstSeries.sequenceLabel
+            return if (seq != null) "$name #$seq" else name
         }
 
     val authorNames: String get() = authors.joinToString(", ") { it.name }

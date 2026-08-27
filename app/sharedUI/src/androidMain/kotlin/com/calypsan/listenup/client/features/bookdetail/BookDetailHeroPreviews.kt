@@ -47,7 +47,9 @@ private val previewNarrators =
 private val previewSeries =
     listOf(
         BookSeries(seriesId = "s1", seriesName = "Mistborn", sequence = 1.0),
-        BookSeries(seriesId = "s2", seriesName = "The Cosmere", sequence = 3.0),
+        // Fractional on purpose: whole numbers alone would never show a reviewer the case the
+        // Double exists for, and would hide a regression that renders "Book 3.0".
+        BookSeries(seriesId = "s2", seriesName = "The Cosmere", sequence = 3.5),
     )
 
 @Composable
