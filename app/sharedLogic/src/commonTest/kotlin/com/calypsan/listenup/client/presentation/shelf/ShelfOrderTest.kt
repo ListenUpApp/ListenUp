@@ -39,6 +39,16 @@ class ShelfOrderTest :
             reorderedBy(emptyList<String>(), from = 0, to = 0) shouldBe emptyList()
         }
 
+        test("the id-shaped wrapper Swift calls agrees with the generic one") {
+            // It exists so iOS does not restate the rule; if the two ever disagree, the platform
+            // that disagreed is the one nobody would think to check.
+            val ids = listOf("a", "b", "c", "d")
+
+            reorderedIds(ids, from = 0, to = 2) shouldBe reorderedBy(ids, from = 0, to = 2)
+            reorderedIds(ids, from = 2, to = 0) shouldBe reorderedBy(ids, from = 2, to = 0)
+            reorderedIds(ids, from = 0, to = 9) shouldBe ids
+        }
+
         test("neighbours swap cleanly in both directions") {
             reorderedBy(books, from = 1, to = 2) shouldBe listOf("a", "c", "b", "d")
             reorderedBy(books, from = 2, to = 1) shouldBe listOf("a", "c", "b", "d")
