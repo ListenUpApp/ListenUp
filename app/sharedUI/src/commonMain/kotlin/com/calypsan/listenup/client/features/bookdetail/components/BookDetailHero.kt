@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -574,7 +573,7 @@ private fun WideContributorRow(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SeriesChips(
+internal fun SeriesChips(
     series: List<BookSeries>,
     onSeriesClick: (seriesId: String) -> Unit,
     contentColor: Color,
@@ -629,8 +628,8 @@ private fun SeriesChip(
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
             color = contentColor,
         )
-        val sequence = membership.sequence
-        if (sequence != null) {
+        val sequenceLabel = membership.sequenceLabel
+        if (sequenceLabel != null) {
             Box(
                 modifier =
                     Modifier
@@ -638,7 +637,7 @@ private fun SeriesChip(
                         .background(contentColor.copy(alpha = 0.45f), CircleShape),
             )
             Text(
-                text = stringResource(Res.string.series_book_sequence, sequence),
+                text = stringResource(Res.string.series_book_sequence, sequenceLabel),
                 style = MaterialTheme.typography.labelLarge,
                 color = contentColor.copy(alpha = 0.72f),
             )
