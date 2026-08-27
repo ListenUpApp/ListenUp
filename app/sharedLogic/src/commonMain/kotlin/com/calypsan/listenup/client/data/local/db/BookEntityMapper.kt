@@ -75,6 +75,10 @@ internal class BookEntityMapper {
             hasScanWarning = payload.hasScanWarning,
             // Wire-authoritative: the server's tag-read gain fallback for playback normalization.
             normalizationGainDb = payload.normalizationGainDb,
+            // Wire-authoritative: the tier names are a targeted server-side column write, so the
+            // payload always carries the current pair — including nulls, which mean "unnamed".
+            bookTierLabel = payload.bookTierLabel,
+            partTierLabel = payload.partTierLabel,
             // Timestamps: payload carries epoch-ms Longs; BookEntity uses the Timestamp value class.
             createdAt = Timestamp(payload.createdAt),
             updatedAt = Timestamp(payload.updatedAt),

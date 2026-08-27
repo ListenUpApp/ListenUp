@@ -157,6 +157,8 @@ private fun ListenUpDatabase.seedBookWithChapters(
             root_rel_path = "seed/$bookId",
             inode = null,
             scanned_at = 1L,
+            book_tier_label = null,
+            part_tier_label = null,
             revision = 1L,
             created_at = 1L,
             updated_at = 1L,
@@ -171,6 +173,8 @@ private fun ListenUpDatabase.seedBookWithChapters(
                 title = chapterTitle,
                 duration = durationMs,
                 start_time = 0L,
+                part_title = null,
+                book_title = null,
             )
         }
     }

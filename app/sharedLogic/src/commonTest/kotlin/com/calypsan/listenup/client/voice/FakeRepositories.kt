@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.client.domain.model.TierLabels
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
@@ -135,6 +136,8 @@ class FakeBookRepository : BookRepository {
     override suspend fun getChapters(bookId: String): List<Chapter> = chapters[bookId] ?: emptyList()
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = MutableStateFlow(chapters[bookId].orEmpty())
+
+    override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = MutableStateFlow(TierLabels.None)
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = MutableStateFlow(true)
 

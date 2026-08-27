@@ -116,6 +116,27 @@ interface BookService {
     ): AppResult<Unit>
 
     /**
+     * Renames the two chapter-grouping tiers of the book identified by [id] — the vocabulary the
+     * book uses for its own structure ("Part"/"Book", "Sequence"/"Era").
+     *
+     * Either may be null to leave that tier unnamed. A non-null label must be non-blank and at most
+     * [com.calypsan.listenup.domain.TierLabelLimits.MAX_LENGTH] characters; violations surface as
+     * [com.calypsan.listenup.api.error.BookError.InvalidInput]. Returns
+     * [com.calypsan.listenup.api.error.BookError.NotFound] when no book exists.
+     *
+     * This is a targeted two-column update, not a read-then-upsert of the whole aggregate: a tier
+     * name the user chose must survive a concurrent rescan rewriting the rest of the row. On
+     * success the substrate emits a sync `Updated<BookSyncPayload>` carrying
+     * [com.calypsan.listenup.api.sync.BookSyncPayload.bookTierLabel] /
+     * [com.calypsan.listenup.api.sync.BookSyncPayload.partTierLabel]; clients update Room reactively.
+     */
+    suspend fun setBookTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit>
+
+    /**
      * Removes the cover from the book identified by [id]: nulls cover state on
      * the book row and best-effort-deletes the underlying file after commit.
      *

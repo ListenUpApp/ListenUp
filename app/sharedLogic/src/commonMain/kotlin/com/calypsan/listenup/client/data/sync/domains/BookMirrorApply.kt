@@ -201,6 +201,8 @@ internal class BookMirrorApply(
                     title = chapter.title,
                     duration = chapter.duration,
                     startTime = chapter.startTime,
+                    partTitle = chapter.partTitle,
+                    bookTitle = chapter.bookTitle,
                 )
             },
         )

@@ -223,6 +223,8 @@ class BookRepositoryUpsertTest :
                             root_rel_path = "books/corrupt-cover",
                             inode = null,
                             scanned_at = 1_730_000_000_000L,
+                            book_tier_label = null,
+                            part_tier_label = null,
                             revision = 1L,
                             created_at = 0L,
                             updated_at = 0L,

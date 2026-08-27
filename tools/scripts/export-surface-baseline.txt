@@ -75,6 +75,7 @@ BookEditViewModel
 BookEvent
 BookField
 BookGenreInput
+BookGroup
 BookId
 BookListItem
 BookMetadata
@@ -347,6 +348,7 @@ OrganizeSettingsDto
 OrganizeSettingsEvent
 OrganizeSettingsUiState
 OrganizeSettingsViewModel
+PartGroup
 PasswordChange
 PasswordResetRepository
 PasswordResetRequest
@@ -515,6 +517,7 @@ Tag
 TagId
 TagRepository
 ThemeMode
+TierLabels
 TimelineFileInput
 Timestamp
 TitleSortUtils

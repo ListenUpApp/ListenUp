@@ -137,6 +137,18 @@ internal interface BookDao {
     fun observeIsLive(id: BookId): Flow<Boolean>
 
     /**
+     * Observe just the book's two chapter-grouping tier names.
+     *
+     * Two columns rather than the whole row because the chapter editor re-seeds its draft on every
+     * emission: observing the full book would re-seed on a cover hash landing or a play count
+     * ticking, and the editor would flicker for reasons that have nothing to do with it.
+     *
+     * @return Flow emitting the pair, or null once the row is gone
+     */
+    @Query("SELECT bookTierLabel, partTierLabel FROM books WHERE id = :id AND deletedAt IS NULL")
+    fun observeTierLabels(id: BookId): Flow<BookTierLabelRow?>
+
+    /**
      * Get multiple books by IDs with their contributors in a single batched query.
      *
      * Uses Room Relations to efficiently load books and their contributors,

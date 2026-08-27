@@ -100,6 +100,8 @@ class BookRepositoryReadPayloadsTest :
                                     title = "Chapter $ci",
                                     duration = 100L,
                                     start_time = (ci * 100).toLong(),
+                                    part_title = null,
+                                    book_title = null,
                                 )
                                 sql.bookAudioFilesQueries.insert(
                                     book_id = bookId,
@@ -241,6 +243,8 @@ private fun ListenUpDatabase.seedBook(
         root_rel_path = "path/$bookId",
         inode = null,
         scanned_at = if (coverHash == null) 0L else 1L,
+        book_tier_label = null,
+        part_tier_label = null,
         revision = revision,
         created_at = if (coverHash == null) 0L else 1L,
         updated_at = if (coverHash == null) 0L else 1L,

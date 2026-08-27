@@ -224,6 +224,53 @@ class AnalyzerListenUpSidecarTest :
                 }
             }
         }
+
+        test("a hand-edited sidecar's blank section names read back as unnamed, not as empty groups") {
+            // Unlike the RPC path — where ChapterInput refuses a blank outright — this is a file
+            // anyone may open in a text editor. Rejecting the book over one empty string would
+            // discard the rest of its curation, so the reader normalizes instead.
+            withSqlDatabase {
+                audioLibrary {
+                    book("Author/My Book") {
+                        audio("01.mp3")
+                    }
+                }.use { fixture ->
+                    runTest {
+                        val bookDir = fixture.root / "Author/My Book"
+                        val sidecar =
+                            curatedSidecar(
+                                title = "Curated Title",
+                                chapters =
+                                    SidecarChapters(
+                                        source = "USER",
+                                        entries =
+                                            listOf(
+                                                SidecarChapter(
+                                                    title = "Prelude",
+                                                    startMs = 0L,
+                                                    partTitle = "   ",
+                                                    bookTitle = "Book One",
+                                                ),
+                                            ),
+                                        bookTierLabel = "",
+                                        partTierLabel = "Sequence",
+                                    ),
+                            )
+                        (bookDir / "listenup.json").writeBytes(SidecarJson.serialize(sidecar))
+                        val reader = ListenUpSidecarReader(SidecarWriteStateRepository(sql))
+
+                        val book = analyze(fixture.root.toString(), "Author/My Book", metadataReader, emptyParser, reader)
+
+                        val curation = book.sidecarCuration
+                        curation.shouldNotBeNull()
+                        curation.userChapters?.single()?.partTitle shouldBe null
+                        curation.userChapters?.single()?.bookTitle shouldBe "Book One"
+                        curation.bookTierLabel shouldBe null
+                        curation.partTierLabel shouldBe "Sequence"
+                    }
+                }
+            }
+        }
     })
 
 private suspend fun analyze(

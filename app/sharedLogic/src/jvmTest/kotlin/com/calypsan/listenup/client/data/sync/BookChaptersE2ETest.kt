@@ -98,6 +98,92 @@ class BookChaptersE2ETest :
                 serverBook.chapters[1].title shouldBe "Act One"
             }
         }
+
+        test("a book's tier vocabulary round-trips client → server → back through the sync echo") {
+            withClientSyncEngineAgainstServer {
+                engine.start(currentUserId = "u1")
+                serverBookRepository.upsert(chapterBookFixture(id = "tiers-b1", title = "Tier Test Book"))
+                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
+                    while (clientDatabase.bookDao().getById(BookId("tiers-b1")) == null) {
+                        delay(50)
+                    }
+                }
+
+                bookEditRepository
+                    .setBookTierLabels(BookId("tiers-b1"), bookTierLabel = "Volume", partTierLabel = "Sequence")
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // The op drains over the real RPC transport — proof the edit reached the server,
+                // not just the optimistic Room write it also made.
+                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
+                    while (serverBookRepository.findById(BookId("tiers-b1"))?.bookTierLabel != "Volume") {
+                        delay(50)
+                    }
+                }
+                serverBookRepository.findById(BookId("tiers-b1"))?.partTierLabel shouldBe "Sequence"
+
+                // Now the READ path, isolated: change the pair server-side and watch the firehose
+                // echo carry it into Room. The optimistic write cannot account for this one, so it
+                // is the only assertion here that exercises the payload → entity mapping.
+                serverBookRepository.setTierLabels(BookId("tiers-b1"), "Era", null)
+                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
+                    while (clientDatabase.bookDao().getById(BookId("tiers-b1"))?.bookTierLabel != "Era") {
+                        delay(50)
+                    }
+                }
+                val mirrored = clientDatabase.bookDao().getById(BookId("tiers-b1"))
+                checkNotNull(mirrored) { "client book row missing after the tier-label echo" }
+                mirrored.bookTierLabel shouldBe "Era"
+                // Null crossed the wire as a value, not as "leave the old one" — a clear that
+                // silently kept "Sequence" would be the exact bug the targeted update exists to avoid.
+                mirrored.partTierLabel shouldBe null
+            }
+        }
+
+        test("per-chapter section headers survive the whole round trip into client Room") {
+            withClientSyncEngineAgainstServer {
+                engine.start(currentUserId = "u1")
+                serverBookRepository.upsert(chapterBookFixture(id = "sections-b1", title = "Section Test Book"))
+                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
+                    while (clientDatabase.bookDao().getById(BookId("sections-b1")) == null) {
+                        delay(50)
+                    }
+                }
+
+                bookEditRepository
+                    .setBookChapters(
+                        BookId("sections-b1"),
+                        listOf(
+                            ChapterInput(
+                                id = "c1",
+                                title = "Prologue",
+                                startTime = 0L,
+                                duration = 600_000L,
+                                bookTitle = "Book One",
+                                partTitle = "The Way of Kings",
+                            ),
+                            ChapterInput(id = "c2", title = "Act One", startTime = 600_000L, duration = 600_000L),
+                        ),
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
+                    while (serverBookRepository.findById(BookId("sections-b1"))?.chapters?.size != 2) {
+                        delay(50)
+                    }
+                }
+
+                val serverChapters = serverBookRepository.findById(BookId("sections-b1"))?.chapters
+                checkNotNull(serverChapters) { "server-side chapters missing after setBookChapters" }
+                serverChapters[0].bookTitle shouldBe "Book One"
+                serverChapters[0].partTitle shouldBe "The Way of Kings"
+                serverChapters[1].bookTitle shouldBe null
+
+                val clientChapters = clientDatabase.chapterDao().getChaptersForBook(BookId("sections-b1"))
+                clientChapters.single { it.id.value == "c1" }.bookTitle shouldBe "Book One"
+                clientChapters.single { it.id.value == "c1" }.partTitle shouldBe "The Way of Kings"
+                clientChapters.single { it.id.value == "c2" }.partTitle shouldBe null
+            }
+        }
     })
 
 private fun chapterBookFixture(

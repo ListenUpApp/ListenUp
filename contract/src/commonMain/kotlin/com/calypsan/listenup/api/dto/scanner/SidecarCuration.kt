@@ -31,13 +31,30 @@ data class SidecarCuration(
     /** The sidecar's USER-sourced chapter set, or null when the sidecar carries none. */
     @SerialName("userChapters")
     val userChapters: List<SidecarCurationChapter>? = null,
+    /**
+     * The book's own names for its two chapter-grouping tiers, as the sidecar recorded them.
+     *
+     * Restored only alongside [userChapters]: the vocabulary names a structure, and a name with no
+     * structure left to name would be a label pointing at nothing.
+     */
+    @SerialName("bookTierLabel")
+    val bookTierLabel: String? = null,
+    @SerialName("partTierLabel")
+    val partTierLabel: String? = null,
 )
 
-/** One user-curated chapter from a `listenup.json` sidecar: title + start offset in the book. */
+/**
+ * One user-curated chapter from a `listenup.json` sidecar: title, start offset in the book, and
+ * the names of any groups it opens.
+ */
 @Serializable
 data class SidecarCurationChapter(
     @SerialName("title")
     val title: String,
     @SerialName("startMs")
     val startMs: Long,
+    @SerialName("partTitle")
+    val partTitle: String? = null,
+    @SerialName("bookTitle")
+    val bookTitle: String? = null,
 )

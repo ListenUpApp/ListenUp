@@ -436,6 +436,8 @@ class BookRepository(
                 root_rel_path = value.rootRelPath,
                 inode = value.inode,
                 scanned_at = value.scannedAt,
+                book_tier_label = value.bookTierLabel,
+                part_tier_label = value.partTierLabel,
                 revision = rev,
                 created_at = now,
                 updated_at = now,
@@ -1399,6 +1401,12 @@ class BookRepository(
         return withProvenance.copy(
             chapters = userChapters.toChapterPayloads(totalDuration),
             chapterSource = ChapterSource.USER,
+            // Restored only on the insert path (`books.insert` writes these columns; the rescan's
+            // `updateContent` never does), which is exactly the shape wanted: after a wipe the row
+            // is new and the sidecar's vocabulary comes back with it, while against a live database
+            // a stale sidecar cannot overwrite a name the user has since changed.
+            bookTierLabel = curation.bookTierLabel,
+            partTierLabel = curation.partTierLabel,
         )
     }
 
@@ -1406,8 +1414,8 @@ class BookRepository(
      * True when [this] freshly-scanned payload matches the [stored] aggregate in every content field.
      *
      * Normalizes the scanned payload's placeholder server-assigned fields (revision/updatedAt/createdAt
-     * = 0, scannedAt = now), its `null` cover, and its empty `genres` to the stored values before
-     * comparing, so the result reflects only real content changes. Audio-file and chapter rows drop
+     * = 0, scannedAt = now), its `null` cover, its empty `genres`, and its unset tier labels to the
+     * stored values before comparing, so the result reflects only real content changes. Audio-file and chapter rows drop
      * their `id` (server-generated UUID at rest, `""` from the mapper) before comparing.
      *
      * `fieldProvenance` is normalized away too: it is derived metadata *about* the values, not content.
@@ -1426,6 +1434,13 @@ class BookRepository(
                 cover = stored.cover,
                 genres = stored.genres,
                 fieldProvenance = stored.fieldProvenance,
+                // Tier names are normalized away for the same reason the cover is: no write on
+                // this path can change them (`updateContent` does not name those columns), so a
+                // difference here is never a real content change. Comparing them would make every
+                // rescan of a book whose tiers the user named look "changed" and churn its
+                // revision on every scan, forever.
+                bookTierLabel = stored.bookTierLabel,
+                partTierLabel = stored.partTierLabel,
                 audioFiles = audioFiles.map { it.copy(id = "") },
                 chapters = chapters.map { it.copy(id = "") },
             )
@@ -1489,6 +1504,43 @@ class BookRepository(
                 cover_source = source.name.lowercase(),
                 cover_path = relPath,
                 cover_hash = hash,
+                revision = rev,
+                updated_at = now,
+                id = idStr,
+            )
+            if (db.booksQueries.changes().executeAsOne() == 0L) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                publishUpdatedAfterCommit(idStr, rev, now, capture)
+                AppResult.Success(Unit)
+            }
+        }
+    }
+
+    /**
+     * Writes the book's two chapter-grouping tier names and bumps the row's revision so the change
+     * propagates to clients.
+     *
+     * A targeted two-column update, not a read-then-upsert: the scanner's `updateContent` never
+     * touches these columns, so a tier name the user chose survives every rescan — the same
+     * stickiness the UPLOADED cover gets, for the same reason. Both columns are always written;
+     * null IS the "unnamed" value, so coalescing would make clearing a name impossible.
+     *
+     * Opens its own transaction; publishes `SyncEvent.Updated` after commit.
+     */
+    suspend fun setTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit> {
+        val idStr = idAsString(id)
+        val capture = currentCoroutineContext()[FrameCapture.Key]
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            db.booksQueries.updateTierLabels(
+                book_tier_label = bookTierLabel,
+                part_tier_label = partTierLabel,
                 revision = rev,
                 updated_at = now,
                 id = idStr,
@@ -1790,6 +1842,8 @@ private fun List<SidecarCurationChapter>.toChapterPayloads(totalDurationMs: Long
             title = chapter.title,
             duration = (end - chapter.startMs).coerceAtLeast(0L),
             startTime = chapter.startMs,
+            partTitle = chapter.partTitle,
+            bookTitle = chapter.bookTitle,
         )
     }
 }

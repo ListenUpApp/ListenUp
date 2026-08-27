@@ -510,6 +510,16 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                                 bookChannel.call { it.setBookChapters(bookId, mutation.chapters) }
                                             }
 
+                                            is BookMutation.SetTierLabels -> {
+                                                bookChannel.call {
+                                                    it.setBookTierLabels(
+                                                        bookId,
+                                                        mutation.bookTierLabel,
+                                                        mutation.partTierLabel,
+                                                    )
+                                                }
+                                            }
+
                                             is BookMutation.SetCollections -> {
                                                 collectionChannel.call {
                                                     it.setBookCollections(

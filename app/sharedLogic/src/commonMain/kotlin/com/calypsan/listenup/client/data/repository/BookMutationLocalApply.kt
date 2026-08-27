@@ -67,13 +67,37 @@ internal class BookMutationLocalApply(
         mutation: BookMutation,
     ) {
         when (mutation) {
-            is BookMutation.Update -> applyUpdate(bookId, mutation.patch)
-            is BookMutation.SetContributors -> applyContributors(bookId, mutation.contributors)
-            is BookMutation.SetSeries -> applySeries(bookId, mutation.series)
-            is BookMutation.SetGenres -> applyGenres(bookId, mutation.genres)
-            is BookMutation.SetChapters -> applyChapters(bookId, mutation.chapters)
-            is BookMutation.SetCollections -> applyCollections(bookId, mutation.collectionIds)
-            is BookMutation.DeleteCover -> applyDeleteCover(bookId)
+            is BookMutation.Update -> {
+                applyUpdate(bookId, mutation.patch)
+            }
+
+            is BookMutation.SetContributors -> {
+                applyContributors(bookId, mutation.contributors)
+            }
+
+            is BookMutation.SetSeries -> {
+                applySeries(bookId, mutation.series)
+            }
+
+            is BookMutation.SetGenres -> {
+                applyGenres(bookId, mutation.genres)
+            }
+
+            is BookMutation.SetChapters -> {
+                applyChapters(bookId, mutation.chapters)
+            }
+
+            is BookMutation.SetTierLabels -> {
+                applyTierLabels(bookId, mutation.bookTierLabel, mutation.partTierLabel)
+            }
+
+            is BookMutation.SetCollections -> {
+                applyCollections(bookId, mutation.collectionIds)
+            }
+
+            is BookMutation.DeleteCover -> {
+                applyDeleteCover(bookId)
+            }
         }
     }
 
@@ -167,6 +191,21 @@ internal class BookMutationLocalApply(
         genreDao.insertAllBookGenres(known.map { BookGenreCrossRef(bookId = bookId, genreId = it.genreId.value) })
     }
 
+    /**
+     * Write the book's two tier names — mirrors the server's targeted column update.
+     *
+     * Both are always written: null IS the "unnamed" value, so a `?: existing` here would make
+     * clearing a name impossible offline while it worked perfectly online.
+     */
+    private suspend fun applyTierLabels(
+        bookId: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ) {
+        val existing = bookDao.getById(bookId) ?: return
+        bookDao.upsert(existing.copy(bookTierLabel = bookTierLabel, partTierLabel = partTierLabel))
+    }
+
     /** Replace the book's chapter rows — mirrors `BookMirrorApply.applyChapters` exactly. */
     private suspend fun applyChapters(
         bookId: BookId,
@@ -181,6 +220,8 @@ internal class BookMutationLocalApply(
                     title = chapter.title,
                     duration = chapter.duration,
                     startTime = chapter.startTime,
+                    partTitle = chapter.partTitle,
+                    bookTitle = chapter.bookTitle,
                 )
             },
         )

@@ -19,6 +19,7 @@ import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.TierLabelLimits
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
@@ -293,7 +294,14 @@ internal class BookServiceImpl(
         validateChapterSet(chapters, current.totalDuration)?.let { return AppResult.Failure(it) }
         val payloadChapters =
             chapters.map {
-                BookChapterPayload(id = it.id, title = it.title, duration = it.duration, startTime = it.startTime)
+                BookChapterPayload(
+                    id = it.id,
+                    title = it.title,
+                    duration = it.duration,
+                    startTime = it.startTime,
+                    partTitle = it.partTitle,
+                    bookTitle = it.bookTitle,
+                )
             }
         return when (
             val res =
@@ -310,6 +318,47 @@ internal class BookServiceImpl(
                 AppResult.Failure(res.error)
             }
         }
+    }
+
+    override suspend fun setBookTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        validateTierLabel("bookTierLabel", bookTierLabel)?.let { return AppResult.Failure(it) }
+        validateTierLabel("partTierLabel", partTierLabel)?.let { return AppResult.Failure(it) }
+        return when (val res = repo.setTierLabels(id, bookTierLabel, partTierLabel)) {
+            is AppResult.Success -> {
+                sidecarWriter?.markDirty(id.value)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(res.error)
+            }
+        }
+    }
+
+    /**
+     * Shape check for one tier name. Null is valid — it means the tier is unnamed. Blank is not:
+     * the editor normalizes a cleared field to null before sending, so blank arriving here is a
+     * caller bug, and storing it would leave a tier that claims a name and renders as nothing.
+     */
+    private fun validateTierLabel(
+        field: String,
+        label: String?,
+    ): AppError? {
+        if (label == null) return null
+        if (label.isBlank()) {
+            return BookError.InvalidInput(debugInfo = "$field must be null rather than blank")
+        }
+        if (label.length > TierLabelLimits.MAX_LENGTH) {
+            return BookError.InvalidInput(
+                debugInfo = "$field: length ${label.length} exceeds max ${TierLabelLimits.MAX_LENGTH}",
+            )
+        }
+        return null
     }
 
     /** Set-level invariants (per-row shape is already checked by ChapterInput.init). Null = valid. */

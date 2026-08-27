@@ -50,6 +50,8 @@ CREATE TABLE books (
     cover_path       TEXT,
     cover_hash       TEXT,
     chapter_source   TEXT    NOT NULL DEFAULT 'embedded',
+    book_tier_label  TEXT,
+    part_tier_label  TEXT,
     field_provenance TEXT    NOT NULL DEFAULT '{}',
     root_rel_path    TEXT    NOT NULL,
     inode            INTEGER,
@@ -172,19 +174,23 @@ SELECT id FROM books WHERE id IN :ids AND deleted_at IS NULL;
 
 -- ── writes ───────────────────────────────────────────────────────────────────
 
+-- Note the tier-label columns: they are written HERE but deliberately NOT in updateContent.
+-- That asymmetry is the whole stickiness rule. A brand-new row takes whatever the sidecar restored
+-- (the DB-wipe recovery path); an existing row keeps the name the user gave it, because the only
+-- statement that can change it is the targeted updateTierLabels below.
 insert:
 INSERT INTO books (
     id, library_id, folder_id, title, sort_title, subtitle, description,
     publish_year, normalization_gain_db, publisher, language, isbn, asin, abridged,
     explicit, has_scan_warning, total_duration, cover_source, cover_path, cover_hash,
-    field_provenance, root_rel_path, inode, scanned_at, revision, created_at,
-    updated_at, deleted_at, client_op_id
+    field_provenance, root_rel_path, inode, scanned_at, book_tier_label, part_tier_label,
+    revision, created_at, updated_at, deleted_at, client_op_id
 ) VALUES (
     :id, :library_id, :folder_id, :title, :sort_title, :subtitle, :description,
     :publish_year, :normalization_gain_db, :publisher, :language, :isbn, :asin, :abridged,
     :explicit, :has_scan_warning, :total_duration, :cover_source, :cover_path, :cover_hash,
-    :field_provenance, :root_rel_path, :inode, :scanned_at, :revision, :created_at,
-    :updated_at, :deleted_at, :client_op_id
+    :field_provenance, :root_rel_path, :inode, :scanned_at, :book_tier_label, :part_tier_label,
+    :revision, :created_at, :updated_at, :deleted_at, :client_op_id
 );
 
 -- Full content update (the writePayload edit branch). Writes every scalar column
@@ -276,6 +282,17 @@ SELECT total_duration FROM books WHERE id = :id AND deleted_at IS NULL;
 -- land here via BookRepository.writePayload).
 updateChapterSource:
 UPDATE books SET chapter_source = :chapter_source WHERE id = :id;
+
+-- Tier-vocabulary write (setBookTierLabels): the book's two chapter-grouping tier names, plus the
+-- substrate bump. Deliberately a targeted column update rather than a read-then-upsert of the
+-- aggregate: a name the user chose has to survive a rescan rewriting the rest of the row, and a
+-- full upsert would race one. Both columns are always written — null IS the "unnamed" value, so a
+-- coalesce here would make clearing a name impossible.
+updateTierLabels:
+UPDATE books
+SET book_tier_label = :book_tier_label, part_tier_label = :part_tier_label,
+    revision = :revision, updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL;
 
 -- Rows affected by the most recent statement on this connection — lets the repo
 -- distinguish a 0-row update (NotFound) from a successful one.

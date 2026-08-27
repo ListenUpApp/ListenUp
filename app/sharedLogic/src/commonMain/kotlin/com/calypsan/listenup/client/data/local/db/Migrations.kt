@@ -181,3 +181,21 @@ internal val MIGRATION_6_7 =
             )
         }
     }
+
+/**
+ * v7 → v8: two-tier chapter grouping.
+ *
+ * `books.bookTierLabel`/`partTierLabel` are the book's own names for its two grouping tiers;
+ * `chapters.partTitle`/`bookTitle` are the headers that open each group. All four are nullable
+ * with no default — the overwhelmingly common book has a flat chapter list and names nothing, and
+ * an unnamed tier must stay distinguishable from one named the empty string.
+ */
+internal val MIGRATION_7_8 =
+    object : Migration(7, 8) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `books` ADD COLUMN `bookTierLabel` TEXT")
+            connection.executeDdl("ALTER TABLE `books` ADD COLUMN `partTierLabel` TEXT")
+            connection.executeDdl("ALTER TABLE `chapters` ADD COLUMN `partTitle` TEXT")
+            connection.executeDdl("ALTER TABLE `chapters` ADD COLUMN `bookTitle` TEXT")
+        }
+    }
