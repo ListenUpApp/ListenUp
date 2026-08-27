@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
+import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
@@ -10,6 +13,7 @@ import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
@@ -25,6 +29,12 @@ import org.w3c.dom.HTMLElement
 private const val TWO_DAYS_MS = 172_800_000L
 
 private const val NOW_MS = 1_000_000_000L
+
+/** Listeners, something new, recently added, shelves, leaderboard, activity. */
+private const val DISCOVER_SECTIONS = 6
+
+/** Any count above one, so the shelf card's plural reads naturally. */
+private const val SHELF_BOOK_COUNT = 4
 
 private val mountedHosts = mutableListOf<HTMLElement>()
 
@@ -97,8 +107,10 @@ private fun page(
     currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
     leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
     activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
+    shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
     nowMs: Long = NOW_MS,
     onOpenBook: (String) -> Unit = {},
+    onOpenShelf: (String) -> Unit = {},
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
 ) {
@@ -108,8 +120,10 @@ private fun page(
         currentlyListening = currentlyListening,
         leaderboard = leaderboard,
         activity = activityState,
+        shelves = shelves,
         nowMs = nowMs,
         onOpenBook = onOpenBook,
+        onOpenShelf = onOpenShelf,
         onSelectPeriod = onSelectPeriod,
         onSelectCategory = onSelectCategory,
     )
@@ -136,9 +150,10 @@ class DiscoverPageTest :
             val host = mount { page() }
 
             val headings = host.querySelectorAll(".disc-section-h")
-            headings.length shouldBe 5
+            headings.length shouldBe DISCOVER_SECTIONS
             host.textContent.orEmpty() shouldContain "What others are listening to"
             host.textContent.orEmpty() shouldContain "Leaderboard"
+            host.textContent.orEmpty() shouldContain "Shelves from others"
         }
 
         test("one section failing costs exactly that section") {
@@ -269,6 +284,35 @@ class DiscoverPageTest :
 
             (rows.item(0) as HTMLElement).click()
             opened shouldBe "b1"
+        }
+
+        test("a shared shelf opens, grouped under whoever made it") {
+            var opened: String? = null
+            val host =
+                mount {
+                    page(
+                        shelves =
+                            DiscoverShelvesUiState.Ready(
+                                listOf(
+                                    DiscoverUserShelves(
+                                        user = DiscoverShelfOwner(id = "u1", displayName = "Ada"),
+                                        shelves =
+                                            listOf(
+                                                DiscoverShelfUi("s1", "Comfort reads", null, SHELF_BOOK_COUNT, 0),
+                                                DiscoverShelfUi("s2", "Long haul", null, 1, 0),
+                                            ),
+                                    ),
+                                ),
+                            ),
+                        onOpenShelf = { opened = it },
+                    )
+                }
+
+            host.textContent.orEmpty() shouldContain "Ada"
+            host.querySelectorAll(".disc-shelf").length shouldBe 2
+            // The second one, so a mis-wired click handler cannot pass by always reporting the first.
+            (host.querySelectorAll(".disc-shelf").item(1) as HTMLElement).click()
+            opened shouldBe "s2"
         }
 
         test("opening a book from a discovery card reports that book") {

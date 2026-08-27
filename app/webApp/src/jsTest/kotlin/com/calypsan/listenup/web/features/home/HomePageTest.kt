@@ -21,6 +21,8 @@ private fun homePage(
     onOpenBook: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
     onOpenLibrary: () -> Unit = {},
+    onOpenShelf: (String) -> Unit = {},
+    onCreateShelf: () -> Unit = {},
 ): HTMLElement {
     val root = document.createElement("div") as HTMLElement
     document.body?.appendChild(root)
@@ -31,6 +33,8 @@ private fun homePage(
             onOpenBook = onOpenBook,
             onOpenSearch = onOpenSearch,
             onOpenLibrary = onOpenLibrary,
+            onOpenShelf = onOpenShelf,
+            onCreateShelf = onCreateShelf,
         )
     }
     return root
@@ -157,13 +161,35 @@ class HomePageTest :
             host.textContent.orEmpty() shouldNotContain "See all"
         }
 
-        test("shelves are not rendered at all while web has no shelf screen to open") {
-            // The state carries them and the design sheet draws them; a row that cannot be opened
-            // is worse than an absent section, so Home leaves them out until the screen exists.
+        test("every shelf is rendered, now that each one opens") {
+            // This spec used to assert the opposite: Home withheld the section entirely while there
+            // was no shelf screen, because a row that cannot be opened is worse than an absent one.
+            // The screen exists, so the honesty guard flips rather than being deleted.
             val host = homePage(readyHome(myShelves = listOf(shelf("Finished"), shelf("Want to Listen"))))
 
-            host.textContent.orEmpty() shouldNotContain "Finished"
-            host.textContent.orEmpty() shouldNotContain "Want to Listen"
+            host.textContent.orEmpty() shouldContain "Finished"
+            host.textContent.orEmpty() shouldContain "Want to Listen"
+            host.count(".home-shelf") shouldBe 2
+        }
+
+        test("opening a shelf reports that shelf, not the first one on the row") {
+            var opened: String? = null
+            val host =
+                homePage(
+                    readyHome(myShelves = listOf(shelf("Finished"), shelf("Want to Listen"))),
+                    onOpenShelf = { opened = it },
+                )
+
+            (host.querySelectorAll(".home-shelf").item(1) as HTMLElement).click()
+
+            opened shouldBe "shelf-Want to Listen"
+        }
+
+        test("someone with no shelves is offered one rather than shown an empty row") {
+            val host = homePage(readyHome(myShelves = emptyList()))
+
+            host.textContent.orEmpty() shouldContain "No shelves yet"
+            host.count(".home-shelf") shouldBe 0
         }
 
         // ── the week chart ──────────────────────────────────────────────────────

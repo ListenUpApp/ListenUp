@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.home
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.WeekChartColumn
@@ -11,6 +12,7 @@ import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.features.shelf.bookCountLabel
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -41,8 +43,9 @@ private const val CONTINUE_COVER_HEIGHT = 252
  * exist:
  * - No "See all" over Continue Listening. There is no in-progress screen to see all of, and the
  *   Compose clients do not offer one either — the design sheet's action is a canvas convenience.
- * - No My Shelves section. Web has no shelf detail and no shelf list, so every row and the
- *   section's own "See all" would be a control that does nothing. It arrives with its screen.
+ * - No "See all" over My Shelves. Every shelf the reader owns is already in the row, so the
+ *   control would lead to a longer version of a complete list. The section itself arrived with the
+ *   shelf screens it needed.
  */
 @Composable
 fun HomePage(
@@ -51,6 +54,8 @@ fun HomePage(
     onOpenBook: (String) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenShelf: (String) -> Unit,
+    onCreateShelf: () -> Unit,
 ) {
     Div(attrs = { classes("home") }) {
         when (state) {
@@ -69,6 +74,7 @@ fun HomePage(
                 HomeHeader(greeting = state.greeting, onOpenSearch = onOpenSearch)
                 LibraryStatus(state)
                 ContinueListening(state.continueListening, onOpenBook, onOpenLibrary)
+                MyShelves(state.myShelves, onOpenShelf, onCreateShelf)
                 ThisWeek(stats)
             }
         }
@@ -104,7 +110,7 @@ private fun HomeHeader(
         // shortcut to answer. The hint teaches the shortcut rather than replacing it.
         Button(attrs = {
             classes("home-search")
-            attr("type", "button")
+            attr(ATTR_TYPE, VALUE_BUTTON)
             attr("aria-label", "Search your library")
             onClick { onOpenSearch() }
         }) {
@@ -184,7 +190,7 @@ private fun ContinueListening(
                 P { Text("Start a book and it will wait for you here.") }
                 Button(attrs = {
                     classes("btn")
-                    attr("type", "button")
+                    attr(ATTR_TYPE, VALUE_BUTTON)
                     onClick { onOpenLibrary() }
                 }) { Text("Browse library") }
             }
@@ -364,3 +370,57 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
         }
     }
 }
+
+/**
+ * The reader's own shelves.
+ *
+ * Cut from Home's first version because there was nowhere for a card to lead; it arrives now with
+ * the shelf screens. The data never went anywhere — `HomeUiState.Ready.myShelves` has been
+ * populated since the beginning, which is why this is a rendering change and not a plumbing one.
+ *
+ * The empty state offers to make the first shelf rather than explaining what shelves are: someone
+ * who has none learns more from making one than from a paragraph about them.
+ */
+@Composable
+private fun MyShelves(
+    shelves: List<Shelf>,
+    onOpenShelf: (String) -> Unit,
+    onCreateShelf: () -> Unit,
+) {
+    Div(attrs = { classes("home-section") }) {
+        Div(attrs = { classes("home-section-row") }) {
+            H3(attrs = { classes("home-section-h") }) { Text("My shelves") }
+            Button(attrs = {
+                classes("btn-o")
+                attr(ATTR_TYPE, VALUE_BUTTON)
+                onClick { onCreateShelf() }
+            }) { Text("New shelf") }
+        }
+
+        if (shelves.isEmpty()) {
+            Div(attrs = { classes(EMPTY_CLASS) }) {
+                H3 { Text("No shelves yet") }
+                P { Text("A shelf is a way to group books — a series, a mood, a plan for the winter.") }
+            }
+        } else {
+            Div(attrs = { classes("home-shelves") }) {
+                shelves.forEach { shelf ->
+                    Button(attrs = {
+                        classes("home-shelf")
+                        attr(ATTR_TYPE, VALUE_BUTTON)
+                        onClick { onOpenShelf(shelf.idString) }
+                    }) {
+                        Span(attrs = { classes("home-shelf-t") }) { Text(shelf.name) }
+                        Span(attrs = { classes("home-shelf-sub") }) {
+                            Text(bookCountLabel(shelf.bookCount))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private const val ATTR_TYPE = "type"
+
+private const val VALUE_BUTTON = "button"
