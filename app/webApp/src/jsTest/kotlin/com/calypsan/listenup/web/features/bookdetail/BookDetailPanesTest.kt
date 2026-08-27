@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
@@ -59,6 +60,7 @@ class BookDetailPanesTest :
                     fixedContributorDetail(ContributorDetailUiState.Loading),
                     fixedContributors(emptyList()),
                     fixedHome(HomeUiState.Loading),
+                    fixedDiscover(),
                     fakeLibrary(),
                     fixedSearch(SearchUiState.Idle()),
                     fixedPlayback(),

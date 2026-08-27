@@ -34,6 +34,8 @@ import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.web.features.home.HomePage
+import com.calypsan.listenup.web.features.discover.DiscoverPage
+import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.search.CommandPalette
 import com.calypsan.listenup.web.features.search.OpenSearch
@@ -41,6 +43,7 @@ import com.calypsan.listenup.web.features.search.SearchPage
 import com.calypsan.listenup.web.features.search.SearchSession
 import com.calypsan.listenup.web.features.search.openableSearchHits
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
@@ -93,6 +96,7 @@ fun WebAppRoot(
     openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
     openHome: OpenHome,
+    openDiscover: OpenDiscover,
     openLibrary: OpenLibrary,
     openSearch: OpenSearch,
     openPlayback: OpenPlayback,
@@ -145,6 +149,7 @@ fun WebAppRoot(
             openContributorDetail = openContributorDetail,
             openContributors = openContributors,
             openHome = openHome,
+            openDiscover = openDiscover,
             openSearch = openSearch,
             librarySession = librarySession,
             playback = playback,
@@ -190,6 +195,7 @@ private fun RouteContent(
     openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
     openHome: OpenHome,
+    openDiscover: OpenDiscover,
     openSearch: OpenSearch,
     librarySession: LibrarySession,
     playback: PlaybackSession,
@@ -278,6 +284,8 @@ private fun RouteContent(
         SearchRoute(router = router, route = route, openSearch = openSearch)
     } else if (active == HOME_KEY) {
         HomeRoute(router = router, openHome = openHome, onHeroBookIdChange = onHeroBookIdChange)
+    } else if (active == DISCOVER_KEY) {
+        DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
     } else {
         PagePlaceholder(active)
     }
@@ -313,6 +321,44 @@ private fun HomeRoute(
         },
         onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY))) },
         onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+    )
+}
+
+/**
+ * The `/discover` branch — Discover's session lifecycle and its one destination.
+ *
+ * The session opens when Discover starts showing and closes when it stops, the arrangement
+ * [HomeRoute] makes for the same reason: a browser has no `ViewModelStore` to hand three
+ * ViewModels' lifetimes to. Not held for the shell's lifetime — Discover's upstreams are cheap to
+ * resubscribe, and its leaderboard would otherwise keep querying behind every other page.
+ *
+ * `nowMs` is read once per visit rather than ticking. Every relative time on this page is at least
+ * a minute old ("3 minutes ago", "2 days ago"), so a ticking clock would buy a correction almost
+ * nobody is on screen long enough to see, at the cost of re-rendering the whole feed each second.
+ */
+@Composable
+private fun DiscoverRoute(
+    router: Router,
+    openDiscover: OpenDiscover,
+    onHeroBookIdChange: (String) -> Unit,
+) {
+    val session = remember { openDiscover() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val nowMs = remember { currentEpochMilliseconds() }
+
+    DiscoverPage(
+        books = session.books.collectAsState().value,
+        recentlyAdded = session.recentlyAdded.collectAsState().value,
+        currentlyListening = session.currentlyListening.collectAsState().value,
+        leaderboard = session.leaderboard.collectAsState().value,
+        activity = session.activity.collectAsState().value,
+        nowMs = nowMs,
+        onOpenBook = { id ->
+            onHeroBookIdChange(id)
+            router.navigate(Route(listOf(BOOK_KEY, id)))
+        },
+        onSelectPeriod = session.onSelectPeriod,
+        onSelectCategory = session.onSelectCategory,
     )
 }
 
@@ -791,6 +837,8 @@ private fun routeFor(facet: LibraryFacet): Route =
 
 private const val HOME_KEY = "home"
 
+private const val DISCOVER_KEY = "discover"
+
 private const val BOOK_KEY = "book"
 
 /** The trailing segment that turns a book route into its edit form. */
@@ -825,7 +873,7 @@ private val PRIMARY_NAV =
             listOf(
                 NavEntry(HOME_KEY, "Home", WebIcon.Home),
                 NavEntry(LIBRARY_KEY, "Library", WebIcon.Book),
-                NavEntry("discover", "Discover", WebIcon.Compass),
+                NavEntry(DISCOVER_KEY, "Discover", WebIcon.Compass),
                 NavEntry("search", "Search", WebIcon.Search),
             ),
     )

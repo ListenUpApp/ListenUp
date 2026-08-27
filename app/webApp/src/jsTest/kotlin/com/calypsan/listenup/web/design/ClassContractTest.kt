@@ -1,5 +1,19 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
+import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
+import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
+import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
+import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
+import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.auth.LoginErrorType
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
@@ -473,6 +487,10 @@ class ClassContractTest :
                         )
                         HomePage(readyHome(isBuildingInitialLibrary = true), weekStats(), {}, {}, {})
                         HomePage(readyHome(scanProgress = scanning()), weekStats(), {}, {}, {})
+                        // Discover joins by hand for the same reason Home does. Every section is
+                        // listed in all four of its shapes, because a state nobody renders here is
+                        // a state whose classes nothing checks — and this page is mostly states.
+                        discoverShapes().forEach { it() }
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
@@ -558,3 +576,132 @@ class ClassContractTest :
     })
 
 private val CLASS_SELECTOR = Regex("\\.([A-Za-z][A-Za-z0-9_-]*)")
+
+/**
+ * Every shape Discover can be in, as callable render blocks.
+ *
+ * A list rather than a single call because the page has five sections with four states each, and
+ * only the populated ones render most of the classes — a contract that only listed the happy path
+ * would leave every skeleton, empty and error class unchecked.
+ */
+private fun discoverShapes(): List<@Composable () -> Unit> {
+    val entry =
+        LeaderboardEntry(
+            rank = 1,
+            userId = "u1",
+            displayName = "Simon",
+            totalSeconds = 7_500,
+            booksFinished = 3,
+            currentStreakDays = 2,
+            longestStreakDays = 9,
+        )
+    val snapshot = LeaderboardSnapshot(time = listOf(entry), books = listOf(entry), streak = listOf(entry))
+    val listener =
+        CurrentlyListeningUiSession(
+            sessionId = "s1",
+            userId = "u1",
+            bookId = "b1",
+            bookTitle = "The Institute",
+            authorName = "Stephen King",
+            coverPath = null,
+            coverHash = null,
+            displayName = "Simon",
+            lastActiveAt = 0L,
+            isLive = true,
+        )
+    val activity =
+        ActivityUiModel(
+            id = "a1",
+            userId = "u1",
+            type = "finished_book",
+            occurredAt = 0L,
+            userDisplayName = "Simon",
+            bookId = "b1",
+            bookTitle = "The Institute",
+            bookAuthorName = "Stephen King",
+            bookCoverPath = null,
+            isReread = false,
+            durationMs = 0L,
+            milestoneValue = 0,
+            milestoneUnit = null,
+            shelfId = null,
+            shelfName = null,
+        )
+    // A row with no book: the plain-text variant, which renders a different element entirely.
+    val joined = activity.copy(id = "a2", type = "user_joined", bookId = null, bookTitle = null)
+
+    fun page(
+        books: DiscoverBooksUiState = DiscoverBooksUiState.Loading,
+        recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Loading,
+        currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
+        leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
+        activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
+    ): @Composable () -> Unit =
+        {
+            DiscoverPage(
+                books = books,
+                recentlyAdded = recentlyAdded,
+                currentlyListening = currentlyListening,
+                leaderboard = leaderboard,
+                activity = activityState,
+                nowMs = 0L,
+                onOpenBook = {},
+                onSelectPeriod = {},
+                onSelectCategory = {},
+            )
+        }
+
+    return listOf(
+        // Every section in its skeleton.
+        page(),
+        // Every section in its error.
+        page(
+            books = DiscoverBooksUiState.Error("nope"),
+            recentlyAdded = RecentlyAddedUiState.Error("nope"),
+            currentlyListening = CurrentlyListeningUiState.Error("nope"),
+            leaderboard = LeaderboardUiState.Error(isRetryable = true),
+            activityState = ActivityFeedUiState.Error("nope"),
+        ),
+        // Every section empty.
+        page(
+            books = DiscoverBooksUiState.Ready(emptyList()),
+            recentlyAdded = RecentlyAddedUiState.Ready(emptyList()),
+            currentlyListening = CurrentlyListeningUiState.Ready(emptyList()),
+            leaderboard = LeaderboardUiState.Empty,
+            activityState = ActivityFeedUiState.Ready(emptyList()),
+        ),
+        // Every section populated — where most of the classes actually live.
+        page(
+            books = DiscoverBooksUiState.Ready(listOf(discoverBook())),
+            recentlyAdded = RecentlyAddedUiState.Ready(listOf(recentBook())),
+            currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener, listener.copy(sessionId = "s2", isLive = false))),
+            leaderboard =
+                LeaderboardUiState.Data(
+                    snapshot = snapshot,
+                    period = LeaderboardPeriod.Week,
+                    category = LeaderboardCategory.Time,
+                ),
+            activityState = ActivityFeedUiState.Ready(listOf(activity, joined)),
+        ),
+    )
+}
+
+private fun discoverBook() =
+    DiscoverUiBook(
+        id = "b1",
+        title = "The Institute",
+        authorName = "Stephen King",
+        coverPath = null,
+        coverHash = null,
+        seriesName = null,
+    )
+
+private fun recentBook() =
+    RecentlyAddedUiBook(
+        id = "b2",
+        title = "Dune",
+        authorName = "Frank Herbert",
+        coverPath = null,
+        coverHash = null,
+        createdAt = 0L,
+    )

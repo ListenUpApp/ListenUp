@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
+import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -165,12 +166,10 @@ private fun DataContent(
         modifier = Modifier.fillMaxWidth(),
     ) { page ->
         val category = categories[page]
-        val entries =
-            when (category) {
-                LeaderboardCategory.Time -> data.snapshot.time
-                LeaderboardCategory.Books -> data.snapshot.books
-                LeaderboardCategory.Streak -> data.snapshot.streak
-            }
+        // `category` (this page's), NOT `data.category` (the selected one): the pager renders all
+        // three boards side by side, and reading the selection here would show the same list on
+        // every page while the tabs still moved.
+        val entries = leaderboardEntries(data.snapshot, category)
         LeaderboardList(
             entries = entries,
             category = category,
