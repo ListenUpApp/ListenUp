@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.design.components.RankBadge
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
+import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_leaderboard_show_all
@@ -169,7 +170,7 @@ private fun LeaderboardEntryRow(
 
         // Animated value label — fades when value changes
         AnimatedContent(
-            targetState = entry.labelFor(category),
+            targetState = leaderboardLabel(entry, category),
             transitionSpec = {
                 fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow)) togetherWith
                     fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow))
@@ -183,29 +184,5 @@ private fun LeaderboardEntryRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-/**
- * Format a [LeaderboardEntry] value for the given [category].
- *
- * Lives here (in the UI layer) because formatting is a display concern, not a
- * domain concern. The domain entry carries raw numeric values; this extension
- * converts them to user-readable strings.
- */
-private fun LeaderboardEntry.labelFor(category: LeaderboardCategory): String =
-    when (category) {
-        LeaderboardCategory.Time -> formatSeconds(totalSeconds)
-        LeaderboardCategory.Books -> "$booksFinished books"
-        LeaderboardCategory.Streak -> "$longestStreakDays days"
-    }
-
-private fun formatSeconds(seconds: Long): String {
-    val hours = seconds / 3_600
-    val minutes = (seconds % 3_600) / 60
-    return when {
-        hours == 0L -> "${minutes}m"
-        minutes == 0L -> "${hours}h"
-        else -> "${hours}h ${minutes}m"
     }
 }

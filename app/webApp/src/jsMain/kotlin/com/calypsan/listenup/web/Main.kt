@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.features.contributordetail.graphContributorDeta
 import com.calypsan.listenup.web.features.contributors.graphContributors
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
+import com.calypsan.listenup.web.features.discover.graphDiscover
 import com.calypsan.listenup.web.features.home.graphHome
 import com.calypsan.listenup.web.features.search.graphSearch
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
@@ -74,6 +75,7 @@ fun main() {
                 openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
                 openHome = graphHome(koin),
+                openDiscover = graphDiscover(koin),
                 openSearch = graphSearch(koin),
                 openPlayback = graphPlayback(koin),
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },

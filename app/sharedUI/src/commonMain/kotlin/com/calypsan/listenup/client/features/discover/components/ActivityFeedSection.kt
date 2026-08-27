@@ -36,6 +36,8 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
+import com.calypsan.listenup.client.presentation.discover.ActivityParts
+import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_activity_feed
@@ -218,58 +220,6 @@ private fun ActivityItem(
     }
 }
 
-/**
- * Structured pieces of an activity sentence: the [predicate] (e.g. "finished") and an optional
- * [highlight] (the book or shelf name) rendered in the brand colour, plus an optional [suffix]
- * (e.g. " by Author") shown as plain trailing text.
- */
-private data class ActivityParts(
-    val predicate: String,
-    val highlight: String?,
-    val suffix: String,
-)
-
-private const val A_BOOK = "a book"
-
-private fun activityParts(activity: ActivityUiModel): ActivityParts {
-    val authorSuffix = formatActivityAuthor(activity.bookAuthorName)?.let { " by $it" }.orEmpty()
-    return when (activity.type) {
-        "started_book" -> {
-            val predicate = if (activity.isReread) "started re-reading" else "started reading"
-            ActivityParts(predicate, activity.bookTitle ?: A_BOOK, authorSuffix)
-        }
-
-        "finished_book" -> {
-            ActivityParts("finished", activity.bookTitle ?: A_BOOK, authorSuffix)
-        }
-
-        "listening_session" -> {
-            val durationText = formatDurationMinutes(activity.durationMs)
-            ActivityParts("listened to $durationText of", activity.bookTitle ?: A_BOOK, "")
-        }
-
-        "streak_milestone" -> {
-            ActivityParts("reached a ${activity.milestoneValue}-day listening streak", null, "")
-        }
-
-        "listening_milestone" -> {
-            ActivityParts("listened for ${activity.milestoneValue} hours total", null, "")
-        }
-
-        "shelf_created" -> {
-            ActivityParts("created the shelf", activity.shelfName ?: "a shelf", "")
-        }
-
-        "user_joined" -> {
-            ActivityParts("joined the server", null, "")
-        }
-
-        else -> {
-            ActivityParts("did something awesome", null, "")
-        }
-    }
-}
-
 /** Build the activity sentence: bold actor, plain predicate, brand-coloured highlight, plain suffix. */
 private fun activityLine(
     actor: String,
@@ -297,34 +247,3 @@ private fun activityLine(
             }
         }
     }
-
-/**
- * Format author name for activity feed display.
- * Shows "FirstAuthor et al." when there are multiple authors.
- */
-private fun formatActivityAuthor(authorName: String?): String? {
-    if (authorName.isNullOrBlank()) return null
-
-    // Check for multiple authors (comma-separated)
-    val authors = authorName.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-
-    return if (authors.size <= 1) authorName else "${authors.first()} et al."
-}
-
-/**
- * Format duration in milliseconds to a human-readable string.
- * Examples: "30 seconds", "5 minutes", "1 hour", "1 hour 30 minutes"
- */
-private fun formatDurationMinutes(durationMs: Long): String {
-    val totalSeconds = (durationMs / 1_000).toInt()
-    val totalMinutes = totalSeconds / 60
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-
-    return when {
-        totalMinutes == 0 -> "$totalSeconds second${if (totalSeconds != 1) "s" else ""}"
-        hours == 0 -> "$minutes minute${if (minutes != 1) "s" else ""}"
-        minutes == 0 -> "$hours hour${if (hours != 1) "s" else ""}"
-        else -> "$hours hour${if (hours != 1) "s" else ""} $minutes minute${if (minutes != 1) "s" else ""}"
-    }
-}

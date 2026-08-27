@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -50,6 +51,7 @@ private fun mountGate(graph: FakeAuthGraph): HTMLElement {
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
+            openDiscover = fixedDiscover(),
             openLibrary = fakeLibrary(),
             openSearch = fixedSearch(SearchUiState.Idle()),
             openPlayback = fixedPlayback(),

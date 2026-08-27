@@ -18,6 +18,7 @@ import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetai
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
+import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.nav.Router
@@ -50,6 +51,7 @@ fun AuthGate(
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
     openHome: OpenHome,
+    openDiscover: OpenDiscover,
     openSearch: OpenSearch,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
@@ -109,6 +111,7 @@ fun AuthGate(
                     openContributors = openContributors,
                     openLibrary = openLibrary,
                     openHome = openHome,
+                    openDiscover = openDiscover,
                     openSearch = openSearch,
                     onSignOut = { scope.launch { authGraph.signOut() } },
                     openPlayback = openPlayback,

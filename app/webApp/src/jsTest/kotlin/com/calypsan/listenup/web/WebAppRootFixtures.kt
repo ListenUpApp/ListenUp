@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
@@ -80,6 +81,7 @@ internal fun mountAt(
                 openContributorDetail,
                 openContributors,
                 openHome,
+                fixedDiscover(),
                 openLibrary,
                 openSearch,
                 fixedPlayback(),
