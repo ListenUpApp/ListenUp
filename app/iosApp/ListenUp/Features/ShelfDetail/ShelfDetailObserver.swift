@@ -42,6 +42,8 @@ struct ShelfDetailSnapshot: Equatable {
     var shelfName: String = ""
     var shelfDescription: String?
     var books: [ShelfBookRow] = []
+    /// The server's answer, not a guess from the signed-in user id. Gates reordering.
+    var isOwner: Bool = false
 
     var bookCount: Int { books.count }
 
@@ -61,7 +63,8 @@ struct ShelfDetailSnapshot: Equatable {
                 phase: .ready,
                 shelfName: r.detail.name,
                 shelfDescription: r.detail.description_,
-                books: r.detail.books.map { ShelfBookRow($0) }
+                books: r.detail.books.map { ShelfBookRow($0) },
+                isOwner: r.isOwner
             )
         case .error(let errorState):
             return ShelfDetailSnapshot(phase: .error(errorState.message))
@@ -81,6 +84,7 @@ final class ShelfDetailObserver {
     private(set) var shelfName: String = ""
     private(set) var shelfDescription: String?
     private(set) var books: [ShelfBookRow] = []
+    private(set) var isOwner: Bool = false
 
     var bookCount: Int { books.count }
 
@@ -96,11 +100,34 @@ final class ShelfDetailObserver {
 
     func loadShelf(_ id: String) { viewModel.loadShelf(shelfId: id) }
 
+    /// Move `draggedId` onto the position currently held by `targetId`.
+    ///
+    /// The arithmetic is the shared `reorderedIds`, not a Swift reimplementation: every client's
+    /// drag ends in the same question, and the off-by-one in a downward move is invisible on screen
+    /// and obvious in a list. A drag that lands on nothing, or on itself, is left alone here rather
+    /// than sent to the server as a no-op write.
+    func reorder(draggedId: String, onto targetId: String) {
+        guard draggedId != targetId,
+              let from = books.firstIndex(where: { $0.id == draggedId }),
+              let to = books.firstIndex(where: { $0.id == targetId })
+        else { return }
+
+        let ids = books.map(\.id)
+        let reordered = ShelfOrderKt.reorderedIds(ids: ids, from: Int32(from), to: Int32(to))
+        guard reordered != ids else { return }
+
+        // Optimistic: the grid follows the finger now, and the shelf reloads from the server on
+        // success. A failure reverts it and reports itself through the ViewModel's own channel.
+        books = reordered.compactMap { id in books.first { $0.id == id } }
+        viewModel.reorderBooks(orderedBookIds: reordered)
+    }
+
     private func apply(_ state: ShelfDetailUiState) {
         let snapshot = ShelfDetailSnapshot.from(state)
         phase = snapshot.phase
         shelfName = snapshot.shelfName
         shelfDescription = snapshot.shelfDescription
         books = snapshot.books
+        isOwner = snapshot.isOwner
     }
 }

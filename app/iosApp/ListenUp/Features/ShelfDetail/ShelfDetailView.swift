@@ -87,6 +87,13 @@ struct ShelfDetailView: View {
                             ShelfBookCoverCard(book: book)
                         }
                         .buttonStyle(.plain)
+                        .modifier(
+                            ShelfBookReorder(
+                                isEnabled: observer.isOwner,
+                                bookId: book.id,
+                                onDrop: { dragged in observer.reorder(draggedId: dragged, onto: book.id) }
+                            )
+                        )
                     }
                 }
             }
@@ -155,5 +162,33 @@ private struct ShelfBookCoverCard: View {
 #Preview {
     NavigationStack {
         ShelfDetailView(shelfId: "preview")
+    }
+}
+
+/// Makes one cover both a drag source and a drop target, for an owner.
+///
+/// A modifier rather than inline `.draggable`/`.dropDestination` so the not-an-owner case is a
+/// single early return: a visitor's cover carries no drag affordance at all, rather than one that
+/// looks liftable and refuses.
+///
+/// The payload is the book's id. `String` is already `Transferable`, so there is no custom type to
+/// register — and an id is the whole of what a reorder needs to say.
+private struct ShelfBookReorder: ViewModifier {
+    let isEnabled: Bool
+    let bookId: String
+    let onDrop: (String) -> Void
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .draggable(bookId)
+                .dropDestination(for: String.self) { items, _ in
+                    guard let dragged = items.first else { return false }
+                    onDrop(dragged)
+                    return true
+                }
+        } else {
+            content
+        }
     }
 }

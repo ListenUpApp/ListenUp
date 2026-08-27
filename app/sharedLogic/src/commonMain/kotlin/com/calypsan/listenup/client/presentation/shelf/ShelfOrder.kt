@@ -27,3 +27,16 @@ fun <T> reorderedBy(
     mutable.add(to, moved)
     return mutable
 }
+
+/**
+ * [reorderedBy] over plain ids — the shape Swift can call.
+ *
+ * The generic version does not survive the export boundary usefully, and a Swift reimplementation
+ * would be a third copy of the one rule this file exists to keep singular. Ids rather than models
+ * because that is what a reorder sends anyway.
+ */
+fun reorderedIds(
+    ids: List<String>,
+    from: Int,
+    to: Int,
+): List<String> = reorderedBy(ids, from, to)
