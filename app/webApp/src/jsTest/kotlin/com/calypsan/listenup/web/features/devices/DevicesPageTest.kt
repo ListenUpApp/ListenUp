@@ -1,7 +1,8 @@
 package com.calypsan.listenup.web.features.devices
 
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.AuthError.SessionExpired
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.web.awaitFrame
@@ -195,15 +196,35 @@ class DevicesPageTest :
             host.textContent.orEmpty() shouldContain "You are not signed in anywhere else."
         }
 
-        test("a failed load offers a way to try again") {
+        test("a failed load offers a way to try again when trying again could work") {
             var retried = 0
             val host =
                 mount {
-                    DevicesPage(DevicesUiState.Error(InternalError(debugInfo = "nope")), NOW_MS, {}, {}, { retried++ })
+                    DevicesPage(
+                        DevicesUiState.Error(TransportError.NetworkUnavailable(debugInfo = "offline")),
+                        NOW_MS,
+                        {},
+                        {},
+                        { retried++ },
+                    )
                 }
 
             (host.querySelector("button") as HTMLElement).click()
 
             retried shouldBe 1
+        }
+
+        test("a failure the reader has to act on is not offered a retry that cannot work") {
+            // This test used to assert the opposite, with an InternalError — which is isRetryable
+            // = false — so it was pinning the dead button in place. The case that exposed it: an
+            // expired session reads "Please sign in again." directly above a Try again that can
+            // only fail again, which is a way out only in appearance.
+            val host =
+                mount {
+                    DevicesPage(DevicesUiState.Error(SessionExpired()), NOW_MS, {}, {}, {})
+                }
+
+            host.textContent.orEmpty() shouldContain "Please sign in again."
+            host.querySelectorAll("button").length shouldBe 0
         }
     })
