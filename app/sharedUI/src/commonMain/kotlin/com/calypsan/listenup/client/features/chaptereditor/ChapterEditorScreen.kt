@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -318,30 +319,34 @@ private fun ChapterEditorBody(
             } else {
                 val windowLength = DEFAULT_WINDOW_MS.coerceAtMost(state.bookDurationMs)
                 val start = windowStartMs.coerceIn(0L, (state.bookDurationMs - windowLength).coerceAtLeast(0L))
-                ChapterEditorContent(
-                    chapters = state.chapters.numbered(),
-                    bookDurationMs = state.bookDurationMs,
-                    geometry = TimelineGeometry(start, start + windowLength, 0f),
-                    isWide =
-                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
-                            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
-                        ),
-                    selectedChapterId = state.selectedChapterId,
-                    playheadMs = playheadMs,
-                    onSelect = viewModel::select,
-                    onNudge = { id, step -> viewModel.nudge(id, step * NUDGE_MS) },
-                    onSnapToPlayhead = { id -> playheadMs?.let { viewModel.snapToPlayhead(id, it) } },
-                    onToggleLock = viewModel::toggleLock,
-                    onMore = onMore,
-                    onSeekFraction = { fraction ->
-                        // The minimap hands back where in the book to look; centre the lane there.
-                        val centre = (fraction.toDouble() * state.bookDurationMs).toLong()
-                        onWindowStartChange(centre - windowLength / 2)
-                    },
-                    contentPadding = padding,
-                    fileBoundaries = fileBoundaries,
-                    lockedChapterIds = state.lockedChapterIds,
-                )
+                Column(Modifier.padding(padding)) {
+                    if (state.changedElsewhere) {
+                        ChangedElsewhereBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                    }
+                    ChapterEditorContent(
+                        chapters = state.chapters.numbered(),
+                        bookDurationMs = state.bookDurationMs,
+                        geometry = TimelineGeometry(start, start + windowLength, 0f),
+                        isWide =
+                            currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                                WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
+                            ),
+                        selectedChapterId = state.selectedChapterId,
+                        playheadMs = playheadMs,
+                        onSelect = viewModel::select,
+                        onNudge = { id, step -> viewModel.nudge(id, step * NUDGE_MS) },
+                        onSnapToPlayhead = { id -> playheadMs?.let { viewModel.snapToPlayhead(id, it) } },
+                        onToggleLock = viewModel::toggleLock,
+                        onMore = onMore,
+                        onSeekFraction = { fraction ->
+                            // The minimap hands back where in the book to look; centre the lane there.
+                            val centre = (fraction.toDouble() * state.bookDurationMs).toLong()
+                            onWindowStartChange(centre - windowLength / 2)
+                        },
+                        fileBoundaries = fileBoundaries,
+                        lockedChapterIds = state.lockedChapterIds,
+                    )
+                }
             }
         }
     }
