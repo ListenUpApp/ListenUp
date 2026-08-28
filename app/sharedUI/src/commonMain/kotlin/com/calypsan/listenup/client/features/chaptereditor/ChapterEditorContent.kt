@@ -20,6 +20,15 @@ import androidx.compose.material.icons.filled.Search
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import listenup.composeapp.generated.resources.chapter_editor_jump_to_title
 import listenup.composeapp.generated.resources.chapter_editor_no_matches
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,6 +102,7 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param onQueryChange the search box changed.
  * @param onMore open a row's overflow.
  * @param onSeekFraction move the detail lane's window from the minimap.
+ * @param onRetime a boundary was dragged to a new start.
  * @param modifier Modifier for the content.
  * @param contentPadding insets from the scaffold.
  * @param fileBoundaries read-only audio-file dividers.
@@ -113,6 +123,7 @@ fun ChapterEditorContent(
     onMore: (String) -> Unit,
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    onRetime: (String, Long) -> Unit = { _, _ -> },
     lockedChapterIds: Set<String> = emptySet(),
     query: String = "",
     onQueryChange: (String) -> Unit = {},
@@ -131,6 +142,7 @@ fun ChapterEditorContent(
             fileBoundaries = fileBoundaries,
             ghosts = ghosts,
             lockedChapterIds = lockedChapterIds,
+            onRetime = onRetime,
             modifier = paneModifier,
         )
     }
@@ -181,8 +193,15 @@ private fun TimelinePane(
     fileBoundaries: List<TimelineFileBoundary>,
     ghosts: List<TimelineChapter>,
     lockedChapterIds: Set<String>,
+    onRetime: (String, Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val localDensity = LocalDensity.current
+    // The lane reports its own measured width; the geometry handed in carries none, because only
+    // the lane knows how wide it ended up. Gestures need real pixels to map to real time.
+    var laneWidthPx by remember { mutableStateOf(0f) }
+    var drag by remember { mutableStateOf<ScrubDrag?>(null) }
+    var dragStartY by remember { mutableStateOf(0f) }
     val starts = chapters.map { it.chapter.startTime }
     val density = chapterDensity(starts, bookDurationMs, MINIMAP_BUCKETS)
     val markers =
@@ -219,15 +238,71 @@ private fun TimelinePane(
             trailing = stringResource(Res.string.chapter_editor_zoom_hint),
             modifier = Modifier.padding(top = 10.dp),
         )
-        ChapterDetailLane(
-            geometry = geometry,
-            chapters = markers,
-            fileBoundaries = fileBoundaries,
-            ghosts = ghosts,
-            playheadMs = playheadMs,
-            contentDescription =
-                stringResource(Res.string.chapter_editor_lane_description, chapters.size),
-        )
+        Box {
+            ChapterDetailLane(
+                geometry = geometry,
+                chapters = markers,
+                fileBoundaries = fileBoundaries,
+                ghosts = ghosts,
+                playheadMs = playheadMs,
+                contentDescription =
+                    stringResource(Res.string.chapter_editor_lane_description, chapters.size),
+                modifier =
+                    Modifier
+                        .onSizeChanged { laneWidthPx = it.width.toFloat() }
+                        .pointerInput(markers, laneWidthPx, geometry.windowStartMs, geometry.windowEndMs) {
+                            // The lane draws; it does not gesture. Dragging belongs here, with the
+                            // caller that owns the draft and the undo stack — which is what keeps
+                            // the lane reusable for the drift preview, where nothing is draggable.
+                            val lane = geometry.copy(widthPx = laneWidthPx)
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    dragStartY = offset.y
+                                    drag =
+                                        chapterGrabbedAt(offset.x, markers, lane)
+                                            // A locked boundary is pinned against drift; it must
+                                            // not be draggable either, or the lock means two
+                                            // different things depending on how you move it.
+                                            ?.takeIf { it.id !in lockedChapterIds }
+                                            ?.let { ScrubDrag(it.id, it.startMs) }
+                                },
+                                onDragEnd = { drag = null },
+                                onDragCancel = { drag = null },
+                            ) { change, amount ->
+                                val current = drag ?: return@detectDragGestures
+                                // Measured from where the drag began, not from the lane's middle:
+                                // a marker grabbed near the top can only be pulled downward, and
+                                // anchoring to the centre would make the gesture unreachable there.
+                                val pulledDp =
+                                    with(localDensity) { (change.position.y - dragStartY).toDp().value }
+                                val next =
+                                    current.advanced(
+                                        dragPx = amount.x,
+                                        verticalDistanceDp = pulledDp,
+                                        msPerPixel = lane.msPerPixel,
+                                    )
+                                drag = next
+                                onRetime(next.chapterId, next.targetMs)
+                            }
+                        },
+            )
+            // Says which step the pull landed in. "Somewhere around a seventh" is not a thing
+            // anyone can aim for, which is why the steps are discrete and named.
+            drag?.let { active ->
+                Text(
+                    active.step.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
+        }
     }
 }
 
