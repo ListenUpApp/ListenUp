@@ -29,15 +29,11 @@ import org.jetbrains.compose.web.dom.Text
 /** The shared empty-state block, borrowed rather than restyled per section. */
 private const val EMPTY_CLASS = "empty"
 
-/** Cover width for a discovery card, in px. Portrait 2:3, so the frame is 1.5x as tall. */
+/** Cover size for a discovery card, in px. Square, like the artwork. */
 private const val CARD_COVER_WIDTH = 140
-
-private const val CARD_COVER_HEIGHT = 210
 
 /** Cover width for a listener row's book, in px. */
 private const val LISTENER_COVER_WIDTH = 56
-
-private const val LISTENER_COVER_HEIGHT = 84
 
 /**
  * Discover — the social half of the app, and the only screen that shows the reader other people.
@@ -136,7 +132,6 @@ private fun ListenerCard(
             title = session.bookTitle,
             imageUrl = coverUrl(session.bookId, session.coverHash, width = LISTENER_COVER_WIDTH),
             size = LISTENER_COVER_WIDTH,
-            height = LISTENER_COVER_HEIGHT,
         )
         Div(attrs = { classes("disc-listener-text") }) {
             Span(attrs = { classes("disc-listener-who") }) { Text(session.displayName) }
@@ -230,7 +225,6 @@ private fun BookCard(
             title = title,
             imageUrl = coverUrl(bookId, coverHash, width = CARD_COVER_WIDTH),
             size = CARD_COVER_WIDTH,
-            height = CARD_COVER_HEIGHT,
         )
         Span(attrs = { classes("disc-card-t") }) { Text(title) }
         authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }

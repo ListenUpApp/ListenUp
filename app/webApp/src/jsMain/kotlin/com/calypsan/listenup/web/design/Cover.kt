@@ -27,15 +27,18 @@ import org.jetbrains.compose.web.dom.Text
  * same cover across sessions, devices and reloads. A cover that changes on refresh reads as a
  * bug even when nothing is wrong.
  *
- * [height] defaults to [size], so every existing call site keeps rendering a square frame; a
- * caller that wants the cover's true 2:3 portrait aspect passes both explicitly.
+ * A cover is always SQUARE, which is why [size] is one number and not two. Audiobook artwork is
+ * 1:1 — the server stores and serves it that way — so a portrait frame does not letterbox a cover,
+ * it crops a third of it off the sides with `object-fit: cover`, taking the title and the author's
+ * name with it. There was a `height` parameter here once, defaulting to [size] and documented as
+ * the way to get "the cover's true 2:3 portrait aspect"; that aspect was never true of this app,
+ * and five call sites had taken it up. Deleting the parameter is what stops it coming back.
  */
 @Composable
 fun Cover(
     title: String,
     imageUrl: String? = null,
     size: Int = DEFAULT_COVER_SIZE,
-    height: Int = size,
     radius: Int = DEFAULT_COVER_RADIUS,
     heroName: String? = null,
     heroBookId: String? = null,
@@ -58,7 +61,7 @@ fun Cover(
         }
         style {
             property("width", "${size}px")
-            property("height", "${height}px")
+            property("height", "${size}px")
             property("border-radius", "${radius}px")
             property("overflow", "hidden")
             property("flex-shrink", "0")
@@ -100,7 +103,7 @@ fun Cover(
                     addEventListener("error") { failed = true }
                 },
             )
-        } else {
+        } else if (size >= MIN_SIZE_FOR_FALLBACK_TITLE) {
             Span(attrs = {
                 style {
                     property("position", "absolute")
@@ -137,6 +140,16 @@ private const val COVER_FIRST_LIGHTNESS = 34
 private const val COVER_SECOND_SATURATION = 32
 
 private const val COVER_SECOND_LIGHTNESS = 14
+
+/**
+ * Below this, the generated cover is a bare gradient.
+ *
+ * A tile this small cannot hold two lines of the smallest legible text once its padding is taken
+ * out, so a title set inside one is clipped mid-word rather than read. Both call sites under it —
+ * a search hit and a Discover listener row — already print the book's name beside the tile, so
+ * nothing is lost by leaving it off; a cropped word next to an intact one is purely noise.
+ */
+private const val MIN_SIZE_FOR_FALLBACK_TITLE = 72
 
 private const val MIN_FALLBACK_TEXT = 10
 

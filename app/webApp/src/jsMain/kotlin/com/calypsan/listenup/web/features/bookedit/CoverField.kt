@@ -35,7 +35,7 @@ import kotlin.coroutines.resume
 /**
  * The cover on Book Edit — the web analogue of Android's tappable cover in the identity header.
  *
- * The artwork renders at its true 2:3 aspect in a fixed frame; a dropzone card beside it is the
+ * The artwork renders square in a fixed frame, which is its true aspect; a dropzone card beside it is the
  * pick affordance — click it, or drop an image on it, to choose a replacement. The current
  * artwork comes from the server via [coverUrl]; a pending replacement renders from
  * [BookEditUiState.pendingCoverData] — never from `displayCoverPath`, because the browser's
@@ -67,7 +67,6 @@ fun CoverField(
                     title = state.title,
                     imageUrl = coverUrl(state.bookId, state.coverHash, width = COVER_EDIT_FETCH_WIDTH),
                     size = COVER_ART_WIDTH,
-                    height = COVER_ART_HEIGHT,
                 )
             }
         }
@@ -163,8 +162,6 @@ private suspend fun File.readByteArray(): ByteArray? =
     }
 
 private const val COVER_ART_WIDTH = 132
-
-private const val COVER_ART_HEIGHT = 198
 
 /** 2× the rendered width, so the derivative the server picks stays sharp on dense displays. */
 private const val COVER_EDIT_FETCH_WIDTH = 264
