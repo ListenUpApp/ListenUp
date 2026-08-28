@@ -23,7 +23,7 @@ private const val MIN_GAP_MS = 1L
  * reordering the book. The last chapter is additionally bounded by [bookDurationMs], since a
  * boundary past the end of the audio addresses nothing.
  */
-fun List<Chapter>.retimed(
+internal fun List<Chapter>.retimed(
     chapterId: String,
     newStartMs: Long,
     bookDurationMs: Long,
@@ -54,7 +54,7 @@ fun List<Chapter>.retimed(
  * millisecond is not a set the rest of the editor can reason about, and the user gets nothing
  * useful from a zero-length chapter.
  */
-fun List<Chapter>.added(
+internal fun List<Chapter>.added(
     id: String,
     title: String,
     atMs: Long,
@@ -74,7 +74,7 @@ fun List<Chapter>.added(
  * Refused on the last remaining chapter: a book with no chapters at all is the empty state, which
  * is a different screen and a deliberate act, not the tail of a delete.
  */
-fun List<Chapter>.removed(
+internal fun List<Chapter>.removed(
     chapterId: String,
     bookDurationMs: Long,
 ): List<Chapter> {
@@ -88,7 +88,7 @@ fun List<Chapter>.removed(
 }
 
 /** Retitles [chapterId]. A blank title is refused — an untitled boundary is unnavigable. */
-fun List<Chapter>.retitled(
+internal fun List<Chapter>.retitled(
     chapterId: String,
     title: String,
 ): List<Chapter> {

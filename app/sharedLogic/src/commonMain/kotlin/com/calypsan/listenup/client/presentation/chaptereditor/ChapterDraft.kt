@@ -18,7 +18,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
  * @property forkedFrom the server-confirmed set this was forked from.
  * @property undo snapshots to walk back through, oldest first. Empty when nothing has been edited.
  */
-data class ChapterDraft(
+internal data class ChapterDraft(
     val chapters: List<Chapter>,
     val forkedFrom: List<Chapter>,
     val undo: List<List<Chapter>> = emptyList(),

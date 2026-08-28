@@ -54,7 +54,7 @@ sealed interface ChapterSetProblem {
  * @param bookDurationMs the book's own duration. Boundaries at or past this address no audio.
  * @return every problem found, in chapter order. Empty means the set is safe to send.
  */
-fun List<Chapter>.validateForSave(bookDurationMs: Long): List<ChapterSetProblem> {
+internal fun List<Chapter>.validateForSave(bookDurationMs: Long): List<ChapterSetProblem> {
     val problems = mutableListOf<ChapterSetProblem>()
     forEachIndexed { index, chapter ->
         if (chapter.title.isBlank()) {
