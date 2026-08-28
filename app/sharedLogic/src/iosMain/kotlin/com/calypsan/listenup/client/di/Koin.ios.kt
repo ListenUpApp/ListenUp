@@ -29,6 +29,7 @@ import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.playback.AudioTokenProvider
@@ -210,6 +211,20 @@ object KoinHelper {
     fun getServerConfig(): ServerConfig = resolve(ServerConfig::class)
 
     fun getDeepLinkManager(): DeepLinkManager = resolve(DeepLinkManager::class)
+
+    /**
+     * Loads this device's local preferences — theme mode, auto-rewind, Wi-Fi-only downloads,
+     * haptics — from storage into the `StateFlow`s the UI observes.
+     *
+     * `SettingsRepositoryImpl` seeds those flows with hard-coded defaults, and `SecureStorage.read`
+     * is suspend, so nothing but this call ever replaces them with what the reader actually chose.
+     * Without it the settings screen writes every change faithfully and reads none of them back —
+     * which is how iOS spent a long time forgetting a haptics toggle on every launch.
+     *
+     * `ListenUpApp` starts this the moment Koin exists. Nothing awaits it: every consumer observes
+     * the flows and re-reads on emission, so the seed only has to happen, not to happen first.
+     */
+    suspend fun initializeLocalPreferences() = resolve(LocalPreferences::class).initializeLocalPreferences()
 
     /**
      * Receives the APNs device token from the AppDelegate callback (already hex-encoded by

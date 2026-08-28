@@ -13,6 +13,13 @@ struct ListenUpApp: App {
     init() {
         // Koin must be initialised before any UI (or observer) accesses it.
         ExportedKotlinPackages.com.calypsan.listenup.client.di.startDependencyInjection()
+        // Device-local preferences — haptics, auto-rewind, Wi-Fi-only downloads — sit behind a
+        // suspend read, so they arrive as a boot step or not at all: the shared StateFlows start on
+        // hard-coded defaults and nothing else ever replaces them. Started here rather than awaited
+        // in a view because every consumer observes those flows and re-reads on emission, so the
+        // only thing that matters is that it starts as soon as Koin exists. A failure leaves the
+        // defaults in place — exactly the behaviour before this call — and must never block launch.
+        Task { try? await KoinHelper.shared.initializeLocalPreferences() }
         Log.info("ListenUp iOS app initialized")
         // Make the app's player available to the Live Activity intents.
         AppDependencyManager.shared.add(dependency: PlaybackController() as any PlaybackControlling)
