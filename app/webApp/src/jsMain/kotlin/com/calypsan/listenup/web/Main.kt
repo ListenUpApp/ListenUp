@@ -68,6 +68,12 @@ fun main() {
     // impossible without blocking the JS thread — suspension yields, it doesn't freeze the tab.
     CoroutineScope(Dispatchers.Default).launch {
         seedServerUrlIfNeeded(koin)
+        // Device-local preferences sit behind a suspend read, so they arrive as a boot step or not
+        // at all — the StateFlows start on hard-coded defaults and nothing else ever replaces them.
+        // Sequenced ahead of the mount for the same reason as the URL seed, plus one of its own:
+        // the theme is read during the first composition, so loading it afterwards would paint the
+        // wrong theme and then correct it in front of the reader.
+        koin.get<LocalPreferences>().initializeLocalPreferences()
         connectSyncWhenAuthenticated(koin, this)
 
         val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)

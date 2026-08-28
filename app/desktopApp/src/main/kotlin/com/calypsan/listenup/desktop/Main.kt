@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.di.desktopPlaybackModule
 import com.calypsan.listenup.client.di.jvmPlaybackPresentationModule
 import com.calypsan.listenup.client.di.jvmSharedModules
 import com.calypsan.listenup.client.di.platformModule
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.desktop.di.desktopAppModule
 import com.calypsan.listenup.desktop.media.GlobalMediaKeyManager
@@ -43,6 +44,14 @@ fun main() {
     // Attach the rotating file sink to the logging tap (the logback ListenUpFileAppender).
     // From here on, every log line — plus the buffered startup lines — is persisted.
     LogSinkRegistry.attach(getKoin().get<FileLogSink>())
+
+    // Device-local preferences sit behind a suspend read, so they arrive as a boot step or not at
+    // all — the StateFlows start on hard-coded defaults and nothing else ever replaces them.
+    // ListenUpWindow themes itself from themeMode during composition, so this has to complete
+    // before the first frame or the window paints the wrong theme and corrects it in view of the
+    // user. Blocking here is deliberate and bounded: a handful of storage reads on a cold process
+    // with no UI yet to keep responsive — the same ordering MainActivity holds behind its splash.
+    runBlocking { getKoin().get<LocalPreferences>().initializeLocalPreferences() }
 
     // One-time cleanup of the pre-sink log location: logback.xml used to roll files under
     // ~/.listenup/logs before file persistence moved to FileLogSink in the XDG data dir.
