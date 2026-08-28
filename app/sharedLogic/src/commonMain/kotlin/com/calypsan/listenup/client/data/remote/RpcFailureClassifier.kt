@@ -28,6 +28,29 @@ internal object RpcFailureClassifier {
     fun isWsHandshake401(t: Throwable): Boolean = t is WebSocketException && t.message?.contains("401") == true
 
     /**
+     * A WebSocket handshake failure on a platform that cannot say what the server answered.
+     *
+     * [isWsHandshake401] reads the status out of Ktor's exception message, which works wherever the
+     * engine upgrades over a real HTTP response. The browser is not such a platform — see
+     * [handshakeStatusIsVisible] — so there a 401 from an expired session and an unplugged cable
+     * arrive as the same bare [WebSocketException], and the 401 branch can never be taken.
+     *
+     * Rather than guess, the caller asks: routing this into the same token refresh the 401 branch
+     * uses lets the refresh's own three-way outcome name what happened — refreshed, transiently
+     * failed (so: really offline, keep the session), or server-confirmed dead (so: lapse and sign
+     * in again). Deliberately narrower than [isPreDeliveryTransportFailure]: a
+     * `ConnectTimeoutException` never reached a server to be refused by one, so it carries no
+     * ambiguity to resolve.
+     *
+     * [statusIsVisible] defaults to the platform fact and is a parameter only so both branches are
+     * reachable from a test on any platform.
+     */
+    fun isWsHandshakeOfUnknownStatus(
+        t: Throwable,
+        statusIsVisible: Boolean = handshakeStatusIsVisible,
+    ): Boolean = t is WebSocketException && !statusIsVisible
+
+    /**
      * A transport failure that proves the RPC frame was never delivered — the WebSocket handshake
      * failed ([WebSocketException]) or the connection was never established ([ConnectTimeoutException]).
      * Safe to invalidate the dead proxy and retry once, even for a non-idempotent mutation.

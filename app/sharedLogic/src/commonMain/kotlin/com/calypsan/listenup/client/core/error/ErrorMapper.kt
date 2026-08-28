@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import com.calypsan.listenup.client.data.remote.ServerUrlSchemeUnsupportedException
+import com.calypsan.listenup.client.data.remote.SessionLapsedException
 import com.calypsan.listenup.client.data.remote.TransientAuthRefreshException
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
@@ -34,6 +35,14 @@ internal object ErrorMapper {
             // timeout / 5xx, NOT a server-confirmed dead token. Surface a RETRYABLE transport error and
             // keep the session — a network blip must never log the user out. Checked FIRST so the
             // wrapped handshake-401 cause it carries can't be misread as SessionExpired below.
+            // A server-confirmed dead refresh token during a handshake heal. Checked ahead of every
+            // transport arm below, and typed rather than re-derived: on the browser the throwable it
+            // wraps carries no status to read, which is exactly how an ended session used to be
+            // reported as a dead network.
+            exception is SessionLapsedException -> {
+                AuthError.SessionExpired(debugInfo = exception.cause?.toString() ?: exception.message)
+            }
+
             exception is TransientAuthRefreshException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }

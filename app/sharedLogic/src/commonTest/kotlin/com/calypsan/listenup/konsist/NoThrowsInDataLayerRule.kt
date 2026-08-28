@@ -144,6 +144,12 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // Same category as RpcOutcomeUnknownException — a typed transport signal, not a swallowed
             // failure.
             !line.contains("throw TransientAuthRefreshException(") &&
+            // Its counterpart: RpcProxyCache throws this when the same heal's refresh comes back
+            // server-confirmed DEAD, so the boundary types it as SessionExpired and the reader is
+            // sent to sign in. Typed for the same reason as the line above — the two outcomes must
+            // not be guessed apart at the boundary, least of all from a status string the browser
+            // does not provide.
+            !line.contains("throw SessionLapsedException(") &&
             // Flow error channel: RegistrationStatusStreamImpl throws this typed failure INTO the
             // stream so the ViewModel's catch-retry-then-poll fallback fires — a business
             // RpcEvent.Error (e.g. an unrecognised registration id) must not look like a silent
