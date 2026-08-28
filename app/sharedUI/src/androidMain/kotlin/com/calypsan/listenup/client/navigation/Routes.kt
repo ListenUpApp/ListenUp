@@ -66,6 +66,16 @@ data class BookEdit(
 ) : Route
 
 /**
+ * Chapter editor - correct a book's chapter boundaries and titles.
+ *
+ * @property bookId The unique ID of the book whose chapters are being edited.
+ */
+@Serializable
+data class ChapterEditor(
+    val bookId: String,
+) : Route
+
+/**
  * Match preview screen - preview Audible metadata before applying.
  *
  * Shows side-by-side comparison of current book metadata vs metadata

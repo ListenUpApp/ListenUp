@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.features.genredestination.GenreDestinationSc
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
+import com.calypsan.listenup.client.navigation.ChapterEditor
 import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.DocumentViewer
@@ -63,6 +64,9 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
                 onOpenDocumentViewer = { localPath ->
                     backStack.add(DocumentViewer(localPath))
                 },
+                onEditChaptersClick = { id ->
+                    backStack.add(ChapterEditor(id))
+                },
             )
         }
     }
@@ -113,6 +117,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
             },
         )
     }
+    chapterEditorEntry(backStack)
     entry<MetadataSearch> { args ->
         com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
             bookId = args.bookId,
@@ -139,6 +144,18 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
                 if (backStack.lastOrNull() is MetadataSearch) {
                     backStack.removeAt(backStack.lastIndex)
                 }
+            },
+        )
+    }
+}
+
+/** The chapter editor entry, split out to keep [bookEntries] within the method-length limit. */
+private fun EntryProviderScope<NavKey>.chapterEditorEntry(backStack: NavBackStack<NavKey>) {
+    entry<ChapterEditor> { args ->
+        com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen(
+            bookId = args.bookId,
+            onBack = {
+                backStack.removeAt(backStack.lastIndex)
             },
         )
     }

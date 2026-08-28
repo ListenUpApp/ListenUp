@@ -23,9 +23,11 @@ private const val BOOK_MS = 30_000L
  * screen would still be wrong if nothing carried one to the other — the icon would sit there
  * unlit while drift correction quietly exempted the boundary anyway. These render the real
  * content with a locked id and assert it arrives, which is the seam that was missing.
+ *
+ * The device is configured tall enough that the list's `LazyColumn` composes every row: at the
+ * default height only the first is in the viewport, and the counts below would be measuring the
+ * window rather than the code.
  */
-// Tall enough that the list's LazyColumn composes every row: at the default device height only
-// the first is in the viewport, and the assertions would be measuring the window, not the code.
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w1280dp-h2400dp")
 class ChapterEditorContentLockTest {
