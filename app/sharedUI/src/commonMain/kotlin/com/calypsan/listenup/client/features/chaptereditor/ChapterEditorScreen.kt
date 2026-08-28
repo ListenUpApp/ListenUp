@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,14 +35,17 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.timeline.TimelineFileBoundary
+import com.calypsan.listenup.client.design.timeline.TimelineChapter
 import com.calypsan.listenup.client.design.timeline.TimelineGeometry
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorViewModel
+import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.core.BookId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.chapter_editor_done
+import listenup.composeapp.generated.resources.chapter_editor_drift_title
 import listenup.composeapp.generated.resources.chapter_editor_new_chapter_title
 import listenup.composeapp.generated.resources.chapter_editor_saving
 import listenup.composeapp.generated.resources.chapter_editor_subtitle
@@ -157,6 +161,16 @@ fun ChapterEditorScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = viewModel::beginDrift,
+                        // Nothing to interpolate between on an empty or single-chapter book.
+                        enabled = editing != null && editing.chapters.size > 1 && editing.drift == null,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Timeline,
+                            stringResource(Res.string.chapter_editor_drift_title),
+                        )
+                    }
                     IconButton(onClick = viewModel::undo, enabled = editing?.canUndo == true) {
                         Icon(Icons.AutoMirrored.Filled.Undo, stringResource(Res.string.chapter_editor_undo))
                     }
@@ -179,6 +193,11 @@ fun ChapterEditorScreen(
             fileBoundaries = fileBoundaries,
             windowStartMs = windowStartMs,
             onWindowStartChange = { windowStartMs = it },
+            onPinAnchor = {
+                val selected = editing?.selectedChapterId
+                val at = playheadMs
+                if (selected != null && at != null) viewModel.pinAnchor(selected, at)
+            },
             newChapterTitle = newChapterTitle,
             viewModel = viewModel,
             onMore = { rowAction = RowAction.Choosing(it) },
@@ -293,6 +312,7 @@ private fun ChapterEditorBody(
     fileBoundaries: List<TimelineFileBoundary>,
     windowStartMs: Long,
     onWindowStartChange: (Long) -> Unit,
+    onPinAnchor: () -> Unit,
     newChapterTitle: String,
     viewModel: ChapterEditorViewModel,
     onMore: (String) -> Unit,
@@ -323,6 +343,18 @@ private fun ChapterEditorBody(
                     if (state.changedElsewhere) {
                         ChangedElsewhereBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                     }
+                    state.drift?.let { drift ->
+                        DriftSheet(
+                            drift = drift,
+                            chapters = state.chapters,
+                            hasSelection = state.selectedChapterId != null,
+                            hasPlayhead = playheadMs != null,
+                            onPin = onPinAnchor,
+                            onApply = viewModel::applyDrift,
+                            onCancel = viewModel::cancelDrift,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        )
+                    }
                     ChapterEditorContent(
                         chapters = state.chapters.numbered(),
                         bookDurationMs = state.bookDurationMs,
@@ -344,11 +376,27 @@ private fun ChapterEditorBody(
                             onWindowStartChange(centre - windowLength / 2)
                         },
                         fileBoundaries = fileBoundaries,
+                        // The corrected positions, drawn beside the current ones. This is the
+                        // parameter the lane has always accepted and nothing ever supplied.
+                        ghosts = driftGhosts(state),
                         lockedChapterIds = state.lockedChapterIds,
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * The previewed positions as lane markers, or nothing when there is no proposal to show.
+ *
+ * Numbered by position in the corrected set, so a ghost carries the number the chapter *would*
+ * have — which is the whole question when a correction re-sorts boundaries.
+ */
+private fun driftGhosts(state: ChapterEditorUiState.Editing): List<TimelineChapter> {
+    val ready = state.drift?.preview as? DriftPreview.Ready ?: return emptyList()
+    return ready.corrected.mapIndexed { index, chapter ->
+        TimelineChapter(id = chapter.id, number = index + 1, startMs = chapter.startTime)
     }
 }
 
