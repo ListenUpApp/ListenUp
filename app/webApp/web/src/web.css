@@ -13,6 +13,12 @@
    ============================================================ */
 
 :root {
+  /* The one thing the browser draws that this sheet cannot: the open list of a <select>, and the
+     scrollbars. Left unset they follow the OS, so a reader on a dark desktop who chooses Light
+     gets a light app whose dropdowns open black. Declared in both palettes so the choice governs
+     the native chrome as well as ours. */
+  color-scheme: light;
+
   /* brand */
   --coral:       #F0512F;
   --coral-press: #D8431F;
@@ -46,6 +52,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --ink:       #F3EEE8;
   --ink-2:     rgba(243,238,232,0.62);
   --ink-3:     rgba(243,238,232,0.40);
@@ -652,7 +659,17 @@ body { margin: 0; }
    fixed height rather than fighting it. */
 .f-box-area { height:auto; padding:12px 15px; }
 .f-area { resize:vertical; min-height:120px; line-height:1.55; font-weight:450; padding:0; }
-.f-select { appearance:none; cursor:pointer; background:none; }
+/* A select stops looking like a select the moment `appearance:none` takes the native arrow away,
+   and everything else here wants that shape — so the sheet owes it a chevron back. Overlaid on the
+   box rather than sat beside it as a flex sibling: the arrow is the part people aim at, and a
+   sibling would carve those exact pixels out of the control into a dead zone. */
+.f-select { appearance:none; cursor:pointer; background:none; padding-right:24px; }
+.f-box-select { position:relative; }
+.f-caret {
+  position:absolute; right:15px; top:50%; transform:translateY(-50%);
+  display:flex; pointer-events:none; color:var(--ink-3); transition:color .15s;
+}
+.f-box-select:focus-within .f-caret { color:var(--coral); }
 .f-check {
   display:inline-flex; align-items:center; gap:10px; cursor:pointer;
   font-size:14px; font-weight:600; color:var(--ink-2);

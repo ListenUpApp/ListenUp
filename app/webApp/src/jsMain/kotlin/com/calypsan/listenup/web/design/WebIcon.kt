@@ -27,6 +27,7 @@ enum class WebIcon(
     Book("M5 4a1 1 0 0 1 1-1h13v16H6a2 2 0 0 0-2 2V5 M9 3v15"),
     Bookmark("M6 3h12v18l-6-4-6 4z"),
     Check("M4.5 12.5l5 5 10-10"),
+    ChevronDown("M6 9l6 6 6-6"),
     ChevronRight("M9 5l7 7-7 7"),
     Clock("M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M12 7v5.5l3.5 2"),
     Cog(
