@@ -54,9 +54,15 @@ data class SelectOption(
 /**
  * A single-choice picker.
  *
- * [value] is nullable and [emptyLabel] names the unset case, because "no language recorded" is a
- * real and common state for imported metadata — offering only concrete languages would force the
- * reader to invent one.
+ * Carries its own chevron. The sheet sets `appearance:none` to get the field shape it wants, which
+ * also removes the arrow the browser draws — so without one here a select is pixel-identical to a
+ * text input, and reads as a box that inexplicably refuses to accept typing.
+ *
+ * [emptyLabel] names the unset case and defaults to absent, because most pickers do not have one:
+ * a theme is always one of three, and offering a fourth "—" invites a reader to choose a state the
+ * screen cannot be in. Metadata is where unset is real ("no language recorded"), so those call
+ * sites name it. A null [value] still renders a placeholder whatever the caller passed — better a
+ * bare dash than a select silently showing its first option as though it were the stored one.
  */
 @Composable
 fun SelectField(
@@ -64,7 +70,7 @@ fun SelectField(
     value: String?,
     options: List<SelectOption>,
     onSelect: (String?) -> Unit,
-    emptyLabel: String = "—",
+    emptyLabel: String? = null,
     id: String? = null,
 ) {
     val fieldId = rememberFieldId(id)
@@ -73,19 +79,24 @@ fun SelectField(
             classes("f-label")
             attr("for", fieldId)
         }) { Text(label) }
-        Div(attrs = { classes("f-box") }) {
+        Div(attrs = { classes("f-box", "f-box-select") }) {
             Select(attrs = {
                 classes("f-input", "f-select")
                 attr("id", fieldId)
                 onChange { event -> onSelect(event.value?.takeIf { it.isNotEmpty() }) }
             }) {
-                Option(value = "", attrs = { if (value == null) selected() }) { Text(emptyLabel) }
+                if (emptyLabel != null || value == null) {
+                    Option(value = "", attrs = { if (value == null) selected() }) {
+                        Text(emptyLabel ?: "—")
+                    }
+                }
                 options.forEach { option ->
                     Option(value = option.value, attrs = { if (option.value == value) selected() }) {
                         Text(option.label)
                     }
                 }
             }
+            Icon(WebIcon.ChevronDown, size = SELECT_CARET_SIZE, attrs = { classes("f-caret") })
         }
     }
 }
@@ -116,3 +127,6 @@ fun CheckboxField(
 
 /** Enough room to read a paragraph of a synopsis without the box dominating the form. */
 private const val TEXTAREA_ROWS = 6
+
+/** A shade under the 19px field icons: a disclosure hint, not a thing to look at. */
+private const val SELECT_CARET_SIZE = 17
