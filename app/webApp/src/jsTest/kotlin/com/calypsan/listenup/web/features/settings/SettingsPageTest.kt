@@ -49,6 +49,7 @@ private fun page(
     onAutoRewind: (Boolean) -> Unit = {},
     onIgnoreTitleArticles: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
+    onOpenDevices: () -> Unit = {},
 ) {
     SettingsPage(
         state = state,
@@ -59,6 +60,7 @@ private fun page(
         onAutoRewind = onAutoRewind,
         onIgnoreTitleArticles = onIgnoreTitleArticles,
         onHideSingleBookSeries = onHideSingleBookSeries,
+        onOpenDevices = onOpenDevices,
     )
 }
 

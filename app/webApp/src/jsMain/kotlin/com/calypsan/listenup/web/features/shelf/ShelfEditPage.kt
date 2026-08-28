@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.web.design.CheckboxField
+import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.TextAreaField
 import org.jetbrains.compose.web.attributes.onSubmit
@@ -26,6 +27,11 @@ import org.jetbrains.compose.web.dom.Text
  * The text lives here rather than in [CreateEditShelfUiState], exactly as the Compose screen keeps
  * it in `rememberSaveable`: a ViewModel that owned every keystroke would re-emit the whole state on
  * each one, and the shared VM deliberately does not.
+ *
+ * Deleting asks through the shared [ConfirmDialog]. It shipped as a two-step inline confirm because
+ * web had no dialog primitive and inventing one inside a feature would have committed the design
+ * system to an unreviewed pattern; "sign out everywhere" was the second destructive action, which is
+ * where that pattern got decided. Two shapes of "are you sure" in one app was the thing to avoid.
  *
  * [CreateEditShelfUiState.Loaded] seeds the inputs by keying their `remember` on it. Re-seeding on
  * every emission would overwrite whatever the person had typed the moment anything else
@@ -117,63 +123,13 @@ fun ShelfEditPage(
         }
 
         if (isEditing) {
-            DeleteShelf(
-                confirming = confirmingDelete,
+            DeleteShelfSection(
                 saving = saving,
+                confirming = confirmingDelete,
                 onAsk = { confirmingDelete = true },
-                onCancel = { confirmingDelete = false },
-                onConfirm = onDelete,
+                onDismiss = { confirmingDelete = false },
+                onDelete = onDelete,
             )
-        }
-    }
-}
-
-/**
- * Deleting a shelf, asked twice.
- *
- * Two steps in place rather than a modal: web has no dialog primitive yet, and inventing one inside
- * a feature would commit the design system to a pattern nobody has reviewed. The second step is a
- * different button in a different place, which is the part that actually prevents the accident —
- * the modal is only ever the packaging.
- *
- * No red: the sheet has no danger token, and coral is already the "this is the action" colour, so
- * borrowing it for the opening Delete would make an option look like a recommendation. Opening is
- * quiet; only the confirm is filled, by which point the question has been asked in words.
- */
-@Composable
-private fun DeleteShelf(
-    confirming: Boolean,
-    saving: Boolean,
-    onAsk: () -> Unit,
-    onCancel: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    Div(attrs = { classes("shelf-danger") }) {
-        if (!confirming) {
-            Button(attrs = {
-                classes(QUIET_BUTTON)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onAsk() }
-            }) { Text("Delete shelf") }
-        } else {
-            // Says what survives, because that is the actual question: a shelf is a grouping, and
-            // someone about to delete one wants to know whether the books go with it.
-            P(attrs = { classes("shelf-danger-q") }) {
-                Text("Delete this shelf? The books stay in your library.")
-            }
-            Div(attrs = { classes("shelf-form-actions") }) {
-                Button(attrs = {
-                    classes("btn")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    if (saving) attr("disabled", "")
-                    onClick { onConfirm() }
-                }) { Text("Delete") }
-                Button(attrs = {
-                    classes(QUIET_BUTTON)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onCancel() }
-                }) { Text("Keep it") }
-            }
         }
     }
 }
@@ -181,6 +137,47 @@ private fun DeleteShelf(
 private const val ATTR_TYPE = "type"
 
 private const val VALUE_BUTTON = "button"
+
+/**
+ * Deleting a shelf: a quiet way in, and the shared dialog for the actual question.
+ *
+ * Its own composable because inlining it pushed [ShelfEditPage] past its cognitive-complexity
+ * limit — which was a fair complaint, not a metric to route around: the form and the destructive
+ * action beside it are two different things to reason about.
+ *
+ * Set apart from the form above it, because deleting is not one of the form's actions. Putting it
+ * in the same row as Save is how someone deletes a shelf they meant to rename.
+ */
+@Composable
+private fun DeleteShelfSection(
+    saving: Boolean,
+    confirming: Boolean,
+    onAsk: () -> Unit,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Div(attrs = { classes("shelf-danger") }) {
+        Button(attrs = {
+            classes(QUIET_BUTTON)
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            if (saving) attr("disabled", "")
+            onClick { onAsk() }
+        }) { Text("Delete shelf") }
+    }
+
+    ConfirmDialog(
+        open = confirming,
+        title = "Delete this shelf?",
+        // Answers the question someone deleting a grouping actually has.
+        body = "The shelf is removed for everyone it was shared with. The books stay in your library.",
+        confirmLabel = "Delete shelf",
+        onConfirm = {
+            onDismiss()
+            onDelete()
+        },
+        onDismiss = onDismiss,
+    )
+}
 
 /** The outline button. Every action on this page that is not the primary one wears it. */
 private const val QUIET_BUTTON = "btn-o"

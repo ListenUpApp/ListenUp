@@ -37,6 +37,8 @@ import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
+import com.calypsan.listenup.web.features.devices.DevicesPage
+import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.SettingsPage
 import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
@@ -106,6 +108,7 @@ fun WebAppRoot(
     openHome: OpenHome,
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
+    openDevices: OpenDevices,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -162,6 +165,7 @@ fun WebAppRoot(
             openHome = openHome,
             openDiscover = openDiscover,
             openSettings = openSettings,
+            openDevices = openDevices,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -211,6 +215,7 @@ private fun RouteContent(
     openHome: OpenHome,
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
+    openDevices: OpenDevices,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -310,8 +315,10 @@ private fun RouteContent(
             openShelfEdit = openShelfEdit,
             onHeroBookIdChange = onHeroBookIdChange,
         )
+    } else if (route.segments.firstOrNull() == SETTINGS_KEY && route.segments.getOrNull(1) == DEVICES_KEY) {
+        DevicesRoute(openDevices = openDevices)
     } else if (active == SETTINGS_KEY) {
-        SettingsRoute(openSettings = openSettings)
+        SettingsRoute(router = router, openSettings = openSettings)
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
     } else {
@@ -918,6 +925,8 @@ private const val ADMIN_KEY = "admin"
 
 private const val SETTINGS_KEY = "settings"
 
+private const val DEVICES_KEY = "devices"
+
 private val FOOTER_NAV =
     listOf(
         NavEntry(ADMIN_KEY, "Admin", WebIcon.Shield),
@@ -1054,7 +1063,10 @@ private fun ShelfRouteContent(
  * the page itself changing — the theme most visibly, since it repaints the whole shell.
  */
 @Composable
-private fun SettingsRoute(openSettings: OpenSettings) {
+private fun SettingsRoute(
+    router: Router,
+    openSettings: OpenSettings,
+) {
     val session = remember { openSettings() }
     DisposableEffect(session) { onDispose { session.close() } }
 
@@ -1067,5 +1079,29 @@ private fun SettingsRoute(openSettings: OpenSettings) {
         onAutoRewind = session.onAutoRewind,
         onIgnoreTitleArticles = session.onIgnoreTitleArticles,
         onHideSingleBookSeries = session.onHideSingleBookSeries,
+        onOpenDevices = { router.navigate(Route(listOf(SETTINGS_KEY, DEVICES_KEY))) },
+    )
+}
+
+/**
+ * The `/settings/devices` branch.
+ *
+ * `nowMs` is read once per visit, as on Discover: every timestamp here is at least a minute old, so
+ * a ticking clock would re-render the list each second to change nothing anyone is watching.
+ */
+@Composable
+private fun DevicesRoute(openDevices: OpenDevices) {
+    val session = remember { openDevices() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val nowMs = remember { currentEpochMilliseconds() }
+
+    DevicesPage(
+        state = session.state.collectAsState().value,
+        nowMs = nowMs,
+        onRevoke = session.onRevoke,
+        // The callback exists so a caller can navigate after the fact; signing out drops the whole
+        // shell on its own, so there is nothing for this one to do.
+        onSignOutEverywhere = { session.onSignOutEverywhere {} },
+        onRetry = session.onRetry,
     )
 }
