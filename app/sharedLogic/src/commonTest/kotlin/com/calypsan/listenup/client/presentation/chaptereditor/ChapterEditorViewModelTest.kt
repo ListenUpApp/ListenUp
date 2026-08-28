@@ -22,6 +22,8 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -311,6 +313,54 @@ class ChapterEditorViewModelTest :
                     awaitItem().shouldBeInstanceOf<ChapterEditorEvent.SaveFailed>().error.shouldNotBeNull()
                     cancelAndIgnoreRemainingEvents()
                 }
+            }
+        }
+
+        test("AN INVALID SET IS REFUSED LOCALLY AND NEVER REACHES THE WIRE") {
+            // The realistic route here is a drift apply with mis-set anchors rewriting every
+            // boundary at once. Without this check the set would be mapped onto ChapterInput,
+            // whose `init` throws — inside the save coroutine, surfacing as a save that vanished.
+            val (vm, _, saved) = rig()
+            runTest {
+                backgroundScope.launch { vm.state.collect {} }
+                advanceUntilIdle()
+
+                vm.replaceAll(
+                    listOf(
+                        Chapter(id = "c0", title = "Fine", duration = 0L, startTime = 900_000L),
+                        Chapter(id = "c1", title = "Out of order", duration = 0L, startTime = 300_000L),
+                    ),
+                )
+                advanceUntilIdle()
+
+                vm.events.test {
+                    vm.save()
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<ChapterEditorEvent.Invalid>().problems.shouldNotBeEmpty()
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+                withClue("nothing left the device") { saved.shouldBeEmpty() }
+                withClue("and the user's work is still there to fix") {
+                    vm.state.value
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .isDirty shouldBe true
+                }
+            }
+        }
+
+        test("a valid set still saves — the guard refuses the broken, not the ordinary") {
+            val (vm, _, saved) = rig()
+            runTest {
+                backgroundScope.launch { vm.state.collect {} }
+                advanceUntilIdle()
+                vm.retitle("c1", "Perfectly fine")
+                advanceUntilIdle()
+
+                vm.save()
+                advanceUntilIdle()
+
+                saved.single().single { it.id == "c1" }.title shouldBe "Perfectly fine"
             }
         }
 

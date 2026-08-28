@@ -59,4 +59,15 @@ sealed interface ChapterEditorEvent {
     data class SaveFailed(
         val error: AppError,
     ) : ChapterEditorEvent
+
+    /**
+     * The set was not fit to send, so nothing was sent.
+     *
+     * Distinct from [SaveFailed]: nothing left the device, the problems name the rows responsible,
+     * and every one of them is fixable right here. Folding this into a generic failure would tell
+     * the user their save broke when in fact it never started.
+     */
+    data class Invalid(
+        val problems: List<ChapterSetProblem>,
+    ) : ChapterEditorEvent
 }

@@ -152,6 +152,9 @@ class ChapterEditorViewModel(
     /**
      * Saves the working set.
      *
+     * The set is validated first and refused locally if it cannot be sent — see
+     * [validateForSave] for why that is a crash rather than an error otherwise.
+     *
      * On success the draft is dropped so the editor follows the mirror again — which is already
      * correct, because the repository writes the edit to Room before the round-trip. On failure the
      * draft is kept untouched: the user's work is the one thing a failed save must never cost them.
@@ -159,6 +162,16 @@ class ChapterEditorViewModel(
     fun save() {
         val editing = state.value as? ChapterEditorUiState.Editing ?: return
         if (saving.value) return
+
+        // Checked before anything is mapped onto the wire types, because ChapterInput validates in
+        // its `init` — an invalid set would not be refused there, it would THROW, inside this
+        // coroutine, and reach the user as a save that silently vanished.
+        val problems = editing.chapters.validateForSave(editing.bookDurationMs)
+        if (problems.isNotEmpty()) {
+            eventChannel.trySend(ChapterEditorEvent.Invalid(problems))
+            return
+        }
+
         viewModelScope.launch {
             saving.value = true
             val result = bookEditRepository.setBookChapters(BookId(bookId), editing.chapters.map { it.toInput() })
