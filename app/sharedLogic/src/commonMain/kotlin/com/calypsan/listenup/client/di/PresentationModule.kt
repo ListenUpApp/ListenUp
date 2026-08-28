@@ -367,6 +367,16 @@ internal val bookPresentationModule =
                 errorBus = get(),
             )
         }
+        // Scoped to one book by parameter: the editor is always entered for a specific book and
+        // never switches, so the id is a construction detail rather than something to re-set.
+        factory { params ->
+            com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorViewModel(
+                bookId = params.get(),
+                bookRepository = get(),
+                bookEditRepository = get(),
+                errorBus = get(),
+            )
+        }
     }
 
 /**

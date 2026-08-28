@@ -1520,6 +1520,18 @@
     "empty_lookup": "Look up chapters",
     "lane_description": "Chapter timeline showing %1$d chapters",
     "minimap_description": "Whole book overview; drag to move the detail lane",
-    "empty_detect_soon": "Detect from silence · coming soon"
+    "empty_detect_soon": "Detect from silence · coming soon",
+    "discard_title": "Discard your chapter edits?",
+    "discard_body": "The changes you made here will be lost.",
+    "rename_title": "Rename chapter",
+    "rename_label": "Chapter title",
+    "delete_title": "Delete this chapter?",
+    "delete_body": "Its span joins the chapter before it. The audio is untouched.",
+    "new_chapter_title": "New chapter",
+    "problem_blank_title": "Chapter %1$d needs a title.",
+    "problem_title_too_long": "Chapter %1$d\u2019s title is too long.",
+    "problem_not_increasing": "Chapter %1$d starts at or before the one before it.",
+    "problem_outside_book": "Chapter %1$d starts outside the book.",
+    "problem_unknown_chapter": "A chapter that is no longer in the list is invalid."
   }
 }

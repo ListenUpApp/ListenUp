@@ -5231,12 +5231,52 @@
         }
       }
     },
+    "chapter_editor.delete_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its span joins the chapter before it. The audio is untouched."
+          }
+        }
+      }
+    },
+    "chapter_editor.delete_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this chapter?"
+          }
+        }
+      }
+    },
     "chapter_editor.detail_lane": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Detail lane"
+          }
+        }
+      }
+    },
+    "chapter_editor.discard_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The changes you made here will be lost."
+          }
+        }
+      }
+    },
+    "chapter_editor.discard_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard your chapter edits?"
           }
         }
       }
@@ -5361,6 +5401,16 @@
         }
       }
     },
+    "chapter_editor.new_chapter_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New chapter"
+          }
+        }
+      }
+    },
     "chapter_editor.now_playing": {
       "localizations": {
         "en": {
@@ -5391,12 +5441,82 @@
         }
       }
     },
+    "chapter_editor.problem_blank_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d needs a title."
+          }
+        }
+      }
+    },
+    "chapter_editor.problem_not_increasing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d starts at or before the one before it."
+          }
+        }
+      }
+    },
+    "chapter_editor.problem_outside_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d starts outside the book."
+          }
+        }
+      }
+    },
+    "chapter_editor.problem_title_too_long": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d’s title is too long."
+          }
+        }
+      }
+    },
+    "chapter_editor.problem_unknown_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A chapter that is no longer in the list is invalid."
+          }
+        }
+      }
+    },
     "chapter_editor.redo": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Redo"
+          }
+        }
+      }
+    },
+    "chapter_editor.rename_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter title"
+          }
+        }
+      }
+    },
+    "chapter_editor.rename_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename chapter"
           }
         }
       }

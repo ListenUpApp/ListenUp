@@ -59,6 +59,7 @@ import com.calypsan.listenup.client.features.contributormetadata.ContributorMeta
 import com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
+import com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen
 import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
@@ -120,6 +121,10 @@ sealed interface DetailDestination {
     ) : DetailDestination
 
     data class BookEdit(
+        val bookId: String,
+    ) : DetailDestination
+
+    data class ChapterEditor(
         val bookId: String,
     ) : DetailDestination
 
@@ -354,6 +359,7 @@ private fun DetailScreen(
                 onBackClick = navigateBack,
                 onEditClick = { navigateTo(DetailDestination.BookEdit(it)) },
                 onMetadataSearchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
+                onEditChaptersClick = { navigateTo(DetailDestination.ChapterEditor(it)) },
                 onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                 onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
                 onGenreClick = { navigateTo(DetailDestination.Genre(it)) },
@@ -368,6 +374,13 @@ private fun DetailScreen(
                 bookId = destination.bookId,
                 onBackClick = navigateBack,
                 onSaveSuccess = navigateBack,
+            )
+        }
+
+        is DetailDestination.ChapterEditor -> {
+            ChapterEditorScreen(
+                bookId = destination.bookId,
+                onBack = navigateBack,
             )
         }
 

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
@@ -23,6 +24,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
 import listenup.composeapp.generated.resources.book_detail_edit_book
+import listenup.composeapp.generated.resources.chapter_editor_title
 import listenup.composeapp.generated.resources.book_detail_mark_as_finished
 import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
 import listenup.composeapp.generated.resources.book_detail_restart_book
@@ -61,6 +63,7 @@ fun BookActionsMenu(
     isAdmin: Boolean,
     onEditClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
+    onEditChaptersClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
     onRestartClick: () -> Unit,
@@ -89,6 +92,16 @@ fun BookActionsMenu(
             onClick = onFindMetadataClick,
             enabled = actionsEnabled,
         )
+
+        // Edit chapters — admin-only, like every other action that rewrites the library's own data.
+        if (isAdmin) {
+            ActionMenuItem(
+                label = stringResource(Res.string.chapter_editor_title),
+                icon = Icons.Outlined.FormatListNumbered,
+                onClick = onEditChaptersClick,
+                enabled = actionsEnabled,
+            )
+        }
 
         HorizontalDivider()
 
