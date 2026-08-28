@@ -29,6 +29,8 @@ sealed interface ChapterEditorUiState {
      * @property changedElsewhere the set changed on another device while this draft was open.
      *   Derived, never latched: it is true exactly while the draft's fork point disagrees with what
      *   the mirror now holds, so it clears itself the moment the user saves or resets.
+     * @property lockedChapterIds boundaries pinned against drift correction. Intersected with
+     *   [chapters], so a lock naming a chapter that has since been removed cannot survive.
      */
     data class Editing(
         val bookTitle: String,
@@ -39,6 +41,7 @@ sealed interface ChapterEditorUiState {
         val canUndo: Boolean = false,
         val isSaving: Boolean = false,
         val changedElsewhere: Boolean = false,
+        val lockedChapterIds: Set<String> = emptySet(),
     ) : ChapterEditorUiState {
         /** True when the book has no chapters at all — the "never stranded" empty state. */
         val isEmpty: Boolean get() = chapters.isEmpty()

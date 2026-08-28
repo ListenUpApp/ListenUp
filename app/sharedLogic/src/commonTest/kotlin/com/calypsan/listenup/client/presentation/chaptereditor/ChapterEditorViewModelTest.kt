@@ -383,4 +383,68 @@ class ChapterEditorViewModelTest :
             vm.close()
             vm.close()
         }
+
+        test("locking a boundary pins it, and locking it again lets it go") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().lockedChapterIds.shouldBeEmpty()
+
+                    vm.toggleLock("c1")
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().lockedChapterIds shouldBe setOf("c1")
+
+                    vm.toggleLock("c1")
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().lockedChapterIds.shouldBeEmpty()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a lock outlives an edit, because it is a decision about the boundary, not about the draft") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.toggleLock("c1")
+                    awaitItem()
+
+                    vm.retitle("c2", "Renamed")
+                    val edited = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    withClue("editing a different chapter must not quietly release the pin") {
+                        edited.lockedChapterIds shouldBe setOf("c1")
+                    }
+
+                    vm.undo()
+                    withClue("undo steps back an edit; it does not un-decide a lock") {
+                        awaitItem()
+                            .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                            .lockedChapterIds shouldBe setOf("c1")
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a lock on a chapter that no longer exists is dropped, not carried") {
+            // Derived by intersection rather than removed by hand, so there is no path where a
+            // stale id survives — it would reach previewDrift naming a boundary that isn't there,
+            // and quietly exempt nothing while claiming to exempt something.
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.toggleLock("c2")
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().lockedChapterIds shouldBe setOf("c2")
+
+                    vm.remove("c2")
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().lockedChapterIds.shouldBeEmpty()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })

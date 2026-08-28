@@ -80,6 +80,8 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param onNudge move a boundary by a signed step.
  * @param onSnapToPlayhead take the playhead's exact millisecond.
  * @param onToggleLock pin a boundary against drift.
+ * @param lockedChapterIds boundaries currently pinned, so the row's lock reads as state rather
+ *   than as a button that does nothing visible.
  * @param onMore open a row's overflow.
  * @param onSeekFraction move the detail lane's window from the minimap.
  * @param modifier Modifier for the content.
@@ -102,6 +104,7 @@ fun ChapterEditorContent(
     onMore: (String) -> Unit,
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    lockedChapterIds: Set<String> = emptySet(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
     fileBoundaries: List<TimelineFileBoundary> = emptyList(),
     ghosts: List<TimelineChapter> = emptyList(),
@@ -116,6 +119,7 @@ fun ChapterEditorContent(
             onSeekFraction = onSeekFraction,
             fileBoundaries = fileBoundaries,
             ghosts = ghosts,
+            lockedChapterIds = lockedChapterIds,
             modifier = paneModifier,
         )
     }
@@ -129,6 +133,7 @@ fun ChapterEditorContent(
             onSnapToPlayhead = onSnapToPlayhead,
             onToggleLock = onToggleLock,
             onMore = onMore,
+            lockedChapterIds = lockedChapterIds,
             modifier = paneModifier,
         )
     }
@@ -162,6 +167,7 @@ private fun TimelinePane(
     onSeekFraction: (Float) -> Unit,
     fileBoundaries: List<TimelineFileBoundary>,
     ghosts: List<TimelineChapter>,
+    lockedChapterIds: Set<String>,
     modifier: Modifier = Modifier,
 ) {
     val starts = chapters.map { it.chapter.startTime }
@@ -172,6 +178,7 @@ private fun TimelinePane(
                 id = it.chapter.id,
                 number = it.number,
                 startMs = it.chapter.startTime,
+                locked = it.chapter.id in lockedChapterIds,
                 selected = it.chapter.id == selectedChapterId,
             )
         }
@@ -221,6 +228,7 @@ private fun ChapterListPane(
     onSnapToPlayhead: (String) -> Unit,
     onToggleLock: (String) -> Unit,
     onMore: (String) -> Unit,
+    lockedChapterIds: Set<String>,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -244,6 +252,7 @@ private fun ChapterListPane(
                 onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
                 onToggleLock = { onToggleLock(numbered.chapter.id) },
                 onMore = { onMore(numbered.chapter.id) },
+                isLocked = numbered.chapter.id in lockedChapterIds,
             )
         }
     }

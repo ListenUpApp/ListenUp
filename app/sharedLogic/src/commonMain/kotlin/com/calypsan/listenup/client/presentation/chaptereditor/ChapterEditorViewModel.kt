@@ -55,6 +55,19 @@ class ChapterEditorViewModel(
     private val selectedChapterId = MutableStateFlow<String?>(null)
     private val saving = MutableStateFlow(false)
 
+    /**
+     * Boundaries pinned against drift correction.
+     *
+     * Deliberately outside [ChapterDraft]: a lock is a decision about a boundary, not an edit to
+     * one. Folding it into the draft would make `isDirty` true for a book nobody has changed, and
+     * make `undo` un-decide a pin the user never meant to undo.
+     */
+    private val lockedChapterIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /** The parts of the editor the user drives directly, combined once to stay inside `combine`'s arity. */
+    private val session =
+        combine(draft, selectedChapterId, saving, lockedChapterIds, ::EditorSession)
+
     private val eventChannel = Channel<ChapterEditorEvent>(Channel.BUFFERED)
 
     /** Save outcomes, delivered once. Collect at the screen's entry point. */
@@ -64,24 +77,26 @@ class ChapterEditorViewModel(
         combine(
             bookRepository.observeChapters(bookId),
             bookRepository.observeBookDetail(bookId),
-            draft,
-            selectedChapterId,
-            saving,
-        ) { mirrored, book, workingDraft, selected, isSaving ->
+            session,
+        ) { mirrored, book, current ->
             if (book == null) {
                 ChapterEditorUiState.Loading
             } else {
+                val chapters = current.draft?.chapters ?: mirrored
                 ChapterEditorUiState.Editing(
                     bookTitle = book.title,
-                    chapters = workingDraft?.chapters ?: mirrored,
+                    chapters = chapters,
                     bookDurationMs = book.duration,
-                    selectedChapterId = selected,
-                    isDirty = workingDraft?.isDirty == true,
-                    canUndo = workingDraft?.canUndo == true,
-                    isSaving = isSaving,
+                    selectedChapterId = current.selectedChapterId,
+                    isDirty = current.draft?.isDirty == true,
+                    canUndo = current.draft?.canUndo == true,
+                    isSaving = current.isSaving,
                     // Derived, not latched: true exactly while the draft's fork point disagrees
                     // with what the mirror now holds.
-                    changedElsewhere = workingDraft != null && workingDraft.forkedFrom != mirrored,
+                    changedElsewhere = current.draft != null && current.draft.forkedFrom != mirrored,
+                    // Intersected rather than pruned on removal: a lock naming a chapter that is
+                    // no longer there cannot survive, by construction rather than by remembering.
+                    lockedChapterIds = current.lockedIds intersect chapters.mapTo(mutableSetOf()) { it.id },
                 )
             }
         }.stateIn(
@@ -89,6 +104,11 @@ class ChapterEditorViewModel(
             SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
             ChapterEditorUiState.Loading,
         )
+
+    /** Pins or unpins [chapterId] against drift correction. */
+    fun toggleLock(chapterId: String) {
+        lockedChapterIds.update { if (chapterId in it) it - chapterId else it + chapterId }
+    }
 
     /** Focuses one boundary; the list and the detail lane both follow it. */
     fun select(chapterId: String?) {
@@ -220,6 +240,14 @@ class ChapterEditorViewModel(
         }
     }
 }
+
+/** What the user is driving right now, as one value — see [ChapterEditorViewModel.session]. */
+private data class EditorSession(
+    val draft: ChapterDraft?,
+    val selectedChapterId: String?,
+    val isSaving: Boolean,
+    val lockedIds: Set<String>,
+)
 
 /** The wire shape, carrying the grouping headers through untouched. */
 private fun Chapter.toInput(): ChapterInput =
