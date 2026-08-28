@@ -48,11 +48,18 @@ fun DevicesPage(
                 Div(attrs = { classes("empty") }) {
                     H2 { Text("Could not load your devices") }
                     P { Text(state.error.message) }
-                    Button(attrs = {
-                        classes("btn")
-                        attr("type", "button")
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                    // Only where retrying can actually work. `isRetryable` is the error hierarchy's
+                    // strict contract — false means the call needs the reader to DO something first,
+                    // so a button that just re-fires it is a dead end dressed as a way out. An
+                    // expired session is the case that made this visible: the message says to sign
+                    // in again, directly above a button that can only fail again.
+                    if (state.error.isRetryable) {
+                        Button(attrs = {
+                            classes("btn")
+                            attr("type", "button")
+                            onClick { onRetry() }
+                        }) { Text("Try again") }
+                    }
                 }
             }
 
