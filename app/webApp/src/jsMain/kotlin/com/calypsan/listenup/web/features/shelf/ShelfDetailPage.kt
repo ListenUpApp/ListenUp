@@ -25,8 +25,6 @@ private const val EMPTY_CLASS = "empty"
 
 private const val SHELF_COVER_WIDTH = 120
 
-private const val SHELF_COVER_HEIGHT = 180
-
 private const val DRAG_ICON_SIZE = 16
 
 /**
@@ -203,7 +201,6 @@ private fun ShelfBooks(
                         title = book.title,
                         imageUrl = coverUrl(book.idString, book.coverHash, width = SHELF_COVER_WIDTH),
                         size = SHELF_COVER_WIDTH,
-                        height = SHELF_COVER_HEIGHT,
                     )
                     Span(attrs = { classes("shelf-book-t") }) { Text(book.title) }
                     book.authorNames.takeIf { it.isNotEmpty() }?.let { authors ->

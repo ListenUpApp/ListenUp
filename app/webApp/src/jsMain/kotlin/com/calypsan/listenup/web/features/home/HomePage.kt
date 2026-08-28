@@ -24,9 +24,8 @@ import org.jetbrains.compose.web.dom.Text
 /** The shared empty-state block, borrowed rather than restyled per section. */
 private const val EMPTY_CLASS = "empty"
 
-/** Cover width for a Continue Listening card, in px. Portrait 2:3, so the frame is 1.5× as tall. */
+/** Cover size for a Continue Listening card, in px. Square, like the artwork. */
 private const val CONTINUE_COVER_WIDTH = 168
-private const val CONTINUE_COVER_HEIGHT = 252
 
 /**
  * Home — the root route, and the first thing a reader sees after signing in.
@@ -240,7 +239,6 @@ private fun ContinueCard(
                     title = book.title,
                     imageUrl = coverUrl(book.bookId, book.coverHash, width = CONTINUE_COVER_WIDTH),
                     size = CONTINUE_COVER_WIDTH,
-                    height = CONTINUE_COVER_HEIGHT,
                 )
                 Div(attrs = { classes("home-card-progress") }) {
                     Div(attrs = {
