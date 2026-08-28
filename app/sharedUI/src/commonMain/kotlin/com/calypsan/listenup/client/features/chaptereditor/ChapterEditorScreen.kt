@@ -387,6 +387,9 @@ private fun ChapterEditorBody(
                         lockedChapterIds = state.lockedChapterIds,
                         query = query,
                         onQueryChange = onQueryChange,
+                        // Clamped between neighbours by the ViewModel, so a drag can never push a
+                        // boundary past the one beside it however far the finger travels.
+                        onRetime = viewModel::retime,
                     )
                 }
             }
