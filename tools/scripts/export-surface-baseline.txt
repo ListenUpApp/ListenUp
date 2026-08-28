@@ -101,9 +101,14 @@ CachedAudioTokenProvider
 CachedUserProfile
 Chapter
 ChapterAnchor
+ChapterEditorEvent
+ChapterEditorUiState
+ChapterEditorViewModel
 ChapterInput
 ChapterNameRow
+ChapterSetProblem
 ChapterSuggestion
+ChapterTimeFormat
 ChapterUiModel
 ClaimInviteUiState
 ClaimInviteViewModel
@@ -192,6 +197,9 @@ DownloadRepository
 DownloadService
 DownloadStatus
 DownloadedBookSummary
+DriftPreview
+DriftProposal
+DriftRefusal
 DriftResult
 DurationFormatter
 EditProfileEvent

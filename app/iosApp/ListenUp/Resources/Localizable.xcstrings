@@ -5201,6 +5201,336 @@
         }
       }
     },
+    "chapter_editor.add_at_playhead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add chapter at playhead"
+          }
+        }
+      }
+    },
+    "chapter_editor.changed_elsewhere_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your edits are kept. Review before saving."
+          }
+        }
+      }
+    },
+    "chapter_editor.changed_elsewhere_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapters changed on another device"
+          }
+        }
+      }
+    },
+    "chapter_editor.detail_lane": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detail lane"
+          }
+        }
+      }
+    },
+    "chapter_editor.done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "chapter_editor.empty_add_first": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add first chapter at playhead"
+          }
+        }
+      }
+    },
+    "chapter_editor.empty_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book was never chaptered. Add your first boundary at the playhead, or look one up."
+          }
+        }
+      }
+    },
+    "chapter_editor.empty_detect_soon": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detect from silence · coming soon"
+          }
+        }
+      }
+    },
+    "chapter_editor.empty_lookup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look up chapters"
+          }
+        }
+      }
+    },
+    "chapter_editor.empty_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No chapters yet"
+          }
+        }
+      }
+    },
+    "chapter_editor.fix_drift": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix drift"
+          }
+        }
+      }
+    },
+    "chapter_editor.jump_to_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jump to title…"
+          }
+        }
+      }
+    },
+    "chapter_editor.lane_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter timeline showing %1$d chapters"
+          }
+        }
+      }
+    },
+    "chapter_editor.lock": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock chapter"
+          }
+        }
+      }
+    },
+    "chapter_editor.minimap_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole book overview; drag to move the detail lane"
+          }
+        }
+      }
+    },
+    "chapter_editor.more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions"
+          }
+        }
+      }
+    },
+    "chapter_editor.now_playing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOW"
+          }
+        }
+      }
+    },
+    "chapter_editor.nudge_back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge back"
+          }
+        }
+      }
+    },
+    "chapter_editor.nudge_forward": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge forward"
+          }
+        }
+      }
+    },
+    "chapter_editor.redo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redo"
+          }
+        }
+      }
+    },
+    "chapter_editor.review_changes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review changes"
+          }
+        }
+      }
+    },
+    "chapter_editor.saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved"
+          }
+        }
+      }
+    },
+    "chapter_editor.saving": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving…"
+          }
+        }
+      }
+    },
+    "chapter_editor.snap_to_playhead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set start at playhead"
+          }
+        }
+      }
+    },
+    "chapter_editor.subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$d chapters"
+          }
+        }
+      }
+    },
+    "chapter_editor.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit chapters"
+          }
+        }
+      }
+    },
+    "chapter_editor.undo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        }
+      }
+    },
+    "chapter_editor.unlock": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock chapter"
+          }
+        }
+      }
+    },
+    "chapter_editor.unsaved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsaved"
+          }
+        }
+      }
+    },
+    "chapter_editor.whole_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole book"
+          }
+        }
+      }
+    },
+    "chapter_editor.zoom_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scroll to zoom · drag a marker, then pull away to fine-tune"
+          }
+        }
+      }
+    },
+    "chapter_editor.zoom_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom in"
+          }
+        }
+      }
+    },
+    "chapter_editor.zoom_out": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom out"
+          }
+        }
+      }
+    },
     "common.about": {
       "localizations": {
         "en": {
