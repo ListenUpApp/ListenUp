@@ -37,6 +37,8 @@ import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
+import com.calypsan.listenup.web.features.admin.AdminPage
+import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.settings.OpenSettings
@@ -109,6 +111,7 @@ fun WebAppRoot(
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
     openDevices: OpenDevices,
+    openAdmin: OpenAdmin,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -166,6 +169,7 @@ fun WebAppRoot(
             openDiscover = openDiscover,
             openSettings = openSettings,
             openDevices = openDevices,
+            openAdmin = openAdmin,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -216,6 +220,7 @@ private fun RouteContent(
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
     openDevices: OpenDevices,
+    openAdmin: OpenAdmin,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -315,10 +320,15 @@ private fun RouteContent(
             openShelfEdit = openShelfEdit,
             onHeroBookIdChange = onHeroBookIdChange,
         )
-    } else if (route.segments.firstOrNull() == SETTINGS_KEY && route.segments.getOrNull(1) == DEVICES_KEY) {
-        DevicesRoute(openDevices = openDevices)
-    } else if (active == SETTINGS_KEY) {
-        SettingsRoute(router = router, openSettings = openSettings)
+    } else if (isAccountRoute(route.segments, active)) {
+        AccountRouteContent(
+            segments = route.segments,
+            active = active,
+            router = router,
+            openSettings = openSettings,
+            openDevices = openDevices,
+            openAdmin = openAdmin,
+        )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
     } else {
@@ -1104,4 +1114,75 @@ private fun DevicesRoute(openDevices: OpenDevices) {
         onSignOutEverywhere = { session.onSignOutEverywhere {} },
         onRetry = session.onRetry,
     )
+}
+
+/**
+ * The `/admin` branch — the people on this server.
+ *
+ * The sidebar entry is already gated on `observeIsAdmin`, so this route is only reachable by an
+ * admin through the UI. That is a convenience, not the guard: every action here is owner-gated
+ * server-side, which is what actually stops a typed URL.
+ */
+@Composable
+private fun AdminRoute(openAdmin: OpenAdmin) {
+    val session = remember { openAdmin() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val nowMs = remember { currentEpochMilliseconds() }
+
+    AdminPage(
+        state = session.state.collectAsState().value,
+        nowMs = nowMs,
+        onApproveUser = session.onApproveUser,
+        onDenyUser = session.onDenyUser,
+        onDeleteUser = session.onDeleteUser,
+        onRevokeInvite = session.onRevokeInvite,
+        onDecidePasswordReset = session.onDecidePasswordReset,
+        onDismissResetCode = session.onDismissResetCode,
+        onSetRegistrationPolicy = session.onSetRegistrationPolicy,
+        onClearError = session.onClearError,
+        onRetry = session.onRetry,
+    )
+}
+
+/**
+ * Whether these segments belong to the account family — settings, devices, admin.
+ *
+ * Grouped for the same reason the shelf routes were: [RouteContent]'s chain grows a branch per
+ * screen and tripped its complexity limit on the third of these. One condition here, one `when`
+ * below, and the shell's chain stops caring how many account screens exist.
+ */
+private fun isAccountRoute(
+    segments: List<String>,
+    active: String,
+): Boolean = active == SETTINGS_KEY || active == ADMIN_KEY || segments.firstOrNull() == SETTINGS_KEY
+
+/** The account family: settings, the devices beneath it, and admin. */
+@Composable
+private fun AccountRouteContent(
+    segments: List<String>,
+    active: String,
+    router: Router,
+    openSettings: OpenSettings,
+    openDevices: OpenDevices,
+    openAdmin: OpenAdmin,
+) {
+    when {
+        segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
+            DevicesRoute(openDevices = openDevices)
+        }
+
+        active == ADMIN_KEY -> {
+            AdminRoute(openAdmin = openAdmin)
+        }
+
+        active == SETTINGS_KEY -> {
+            SettingsRoute(router = router, openSettings = openSettings)
+        }
+
+        // A `/settings/anything-else` URL. Falls through to the shell's own not-found rather than
+        // silently showing Settings, so a mistyped path says so.
+        else -> {
+            PagePlaceholder(active)
+        }
+    }
 }

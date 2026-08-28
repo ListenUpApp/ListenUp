@@ -61,6 +61,10 @@ kotlin {
             // sharedLogic keeps them `implementation` and they don't arrive transitively.
             implementation(libs.koin.core)
             implementation(libs.androidx.lifecycle.viewmodel)
+            // Same reason as the two above: :contract's DTOs are @Serializable, so naming one of
+            // their enum constants (Admin's registration policy) needs the serialization runtime on
+            // this module's own compile classpath — the generated companion's supertype lives there.
+            implementation(libs.kotlinx.serialization.json)
             // The sqlite-web driver ships NO worker script — it only speaks a documented
             // message protocol (see WebWorkerSQLiteDriver's KDoc). The worker is a local npm
             // module we supply (webApp/worker), wrapping @sqlite.org/sqlite-wasm; webpack

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
@@ -65,6 +66,7 @@ private fun mountGate(
             openDiscover = fixedDiscover(),
             openSettings = fixedSettings(),
             openDevices = fixedDevices(),
+            openAdmin = fixedAdmin(),
             openShelfDetail = fixedShelfDetail(),
             openShelfEdit = fixedShelfEdit(),
             openLibrary = fakeLibrary(),
