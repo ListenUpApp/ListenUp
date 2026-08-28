@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
@@ -86,6 +87,7 @@ internal fun mountAt(
                 openHome,
                 fixedDiscover(),
                 fixedSettings(),
+                fixedDevices(),
                 fixedShelfDetail(),
                 fixedShelfEdit(),
                 openLibrary,

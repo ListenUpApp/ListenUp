@@ -1,5 +1,11 @@
 package com.calypsan.listenup.web.design
 
+import org.w3c.dom.HTMLDialogElement
+import com.calypsan.listenup.web.features.devices.DevicesPage
+import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.client.presentation.settings.DevicesUiState
+import com.calypsan.listenup.client.presentation.settings.DeviceRow
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.web.features.settings.SettingsPage
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.core.BookId
@@ -142,6 +148,16 @@ class ClassContractTest :
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
             renderComposable(root = host) { content() }
+
+            // A modal <dialog> holds focus for the whole document and makes everything behind it
+            // inert. This harness renders and never disposes, so an open one would leak that state
+            // into every spec that ran afterwards — which it did, taking the command palette's
+            // focus tests with it. Closing leaves the element and its classes exactly where they
+            // are, which is all this contract reads.
+            val dialogs = host.querySelectorAll("dialog")
+            for (i in 0 until dialogs.length) {
+                (dialogs.item(i) as? HTMLDialogElement)?.takeIf { it.open }?.close()
+            }
 
             val used = mutableSetOf<String>()
             val all = host.querySelectorAll("*")
@@ -514,14 +530,16 @@ class ClassContractTest :
                         // a state whose classes nothing checks — and this page is mostly states.
                         discoverShapes().forEach { it() }
                         shelfShapes().forEach { it() }
+                        devicesShapes().forEach { it() }
                         // Loading and loaded: the skeleton's class lives only in the former.
-                        SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {})
+                        SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {})
                         SettingsPage(
                             SettingsUiState(
                                 isLoading = false,
                                 serverUrl = "https://listenup.example",
                                 serverVersion = "0.9.1",
                             ),
+                            {},
                             {},
                             {},
                             {},
@@ -826,5 +844,51 @@ private fun shelfShapes(): List<@Composable () -> Unit> {
         editPage(CreateEditShelfUiState.Loaded("Comfort reads", "", true), isEditing = true),
         editPage(CreateEditShelfUiState.Saving, isEditing = true),
         editPage(CreateEditShelfUiState.Error("nope"), isEditing = true),
+    )
+}
+
+/**
+ * Every shape the Devices screen can be in, plus the dialog it opens.
+ *
+ * The dialog is rendered here rather than only in its own spec because its classes belong to the
+ * sheet like any other — and it is the one component that renders outside the mount's subtree, in
+ * the browser's top layer, which is exactly the kind of thing a contract stops going unstyled.
+ */
+private fun devicesShapes(): List<@Composable () -> Unit> {
+    fun device(
+        id: String,
+        name: String,
+        isCurrent: Boolean = false,
+    ) = DeviceRow(
+        sessionId = id,
+        displayName = name,
+        secondary = "iOS 17.2 · ListenUp 1.0.0",
+        lastUsedAt = 0L,
+        isCurrent = isCurrent,
+    )
+
+    fun page(state: DevicesUiState): @Composable () -> Unit = { DevicesPage(state, 0L, {}, {}, {}) }
+
+    return listOf(
+        page(DevicesUiState.Loading),
+        page(DevicesUiState.Error(InternalError(debugInfo = "nope"))),
+        // No other devices: the empty line has its own class.
+        page(DevicesUiState.Ready(listOf(device("s1", "This Mac", isCurrent = true)))),
+        page(
+            DevicesUiState.Ready(
+                devices = listOf(device("s1", "This Mac", isCurrent = true), device("s2", "Simon's iPhone")),
+                signingOut = setOf("s2"),
+            ),
+        ),
+        {
+            ConfirmDialog(
+                open = true,
+                title = "Sign out everywhere?",
+                body = "Every device is signed out, including this one.",
+                confirmLabel = "Sign out everywhere",
+                onConfirm = {},
+                onDismiss = {},
+            )
+        },
     )
 }

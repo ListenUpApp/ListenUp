@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.shelf
 
+import io.kotest.matchers.nulls.shouldNotBeNull
 import com.calypsan.listenup.web.awaitFrame
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ShelfBook
@@ -368,7 +369,7 @@ class ShelfPagesTest :
             host.textContent.orEmpty() shouldNotContain "Delete shelf"
         }
 
-        test("deleting asks first, and says what survives") {
+        test("deleting asks first, in a dialog, and says what survives") {
             var deleted = 0
             val host =
                 mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
@@ -377,33 +378,37 @@ class ShelfPagesTest :
             awaitFrame()
 
             deleted shouldBe 0
-            host.textContent.orEmpty() shouldContain "The books stay in your library."
+            // The two-step inline confirm this replaced is gone; the question now arrives in the
+            // shared dialog, so there is one shape of "are you sure" in the app rather than two.
+            val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
+            dialog.textContent.orEmpty() shouldContain "The books stay in your library."
         }
 
-        test("the second press is the one that deletes") {
+        test("confirming in the dialog is what deletes") {
             var deleted = 0
             val host =
                 mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()
-            (host.querySelectorAll(".shelf-danger button").item(0) as HTMLElement).click()
+            // Cancel is first in the DOM so a hurried Return lands on the safe choice; the confirm
+            // is the second.
+            (host.querySelectorAll("dialog.dlg .dlg-actions button").item(1) as HTMLElement).click()
 
             deleted shouldBe 1
         }
 
-        test("backing out of a delete leaves the shelf alone") {
+        test("cancelling the dialog leaves the shelf alone") {
             var deleted = 0
             val host =
                 mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()
-            // "Keep it" is the second button once the question is showing.
-            (host.querySelectorAll(".shelf-danger button").item(1) as HTMLElement).click()
+            (host.querySelectorAll("dialog.dlg .dlg-actions button").item(0) as HTMLElement).click()
             awaitFrame()
 
             deleted shouldBe 0
-            host.textContent.orEmpty() shouldContain "Delete shelf"
+            host.querySelector("dialog.dlg") shouldBe null
         }
     })

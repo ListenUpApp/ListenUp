@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
@@ -37,6 +38,7 @@ fun SettingsPage(
     onAutoRewind: (Boolean) -> Unit,
     onIgnoreTitleArticles: (Boolean) -> Unit,
     onHideSingleBookSeries: (Boolean) -> Unit,
+    onOpenDevices: () -> Unit,
 ) {
     Div(attrs = { classes("set") }) {
         H1(attrs = { classes("set-title") }) { Text("Settings") }
@@ -92,6 +94,14 @@ fun SettingsPage(
                 checked = state.hideSingleBookSeries,
                 onChange = onHideSingleBookSeries,
             )
+        }
+
+        Section("Account", null) {
+            Button(attrs = {
+                classes("btn-o")
+                attr("type", "button")
+                onClick { onOpenDevices() }
+            }) { Text("Devices you are signed in on") }
         }
 
         Section("About", null) {

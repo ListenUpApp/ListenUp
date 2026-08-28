@@ -19,6 +19,7 @@ import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
 import com.calypsan.listenup.web.features.discover.graphDiscover
 import com.calypsan.listenup.web.features.home.graphHome
+import com.calypsan.listenup.web.features.devices.graphDevices
 import com.calypsan.listenup.web.features.settings.graphSettings
 import com.calypsan.listenup.web.features.shelf.graphShelfDetail
 import com.calypsan.listenup.web.features.shelf.graphShelfEdit
@@ -81,6 +82,7 @@ fun main() {
                 openHome = graphHome(koin),
                 openDiscover = graphDiscover(koin),
                 openSettings = graphSettings(koin),
+                openDevices = graphDevices(koin),
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),
                 openSearch = graphSearch(koin),

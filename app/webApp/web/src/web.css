@@ -1095,6 +1095,40 @@ body { margin: 0; }
 }
 .luw .home-status-fill { height: 100%; border-radius: 99px; background: var(--coral); }
 
+/* ---- The confirm dialog. `<dialog>` gives the top layer and the backdrop pseudo-element, so all
+   this has to do is look like the rest of the app. */
+.luw .dlg, dialog.dlg {
+  padding: 0; border: none; border-radius: 18px; max-width: 26rem; width: calc(100vw - 2rem);
+  background: var(--surface); color: var(--ink); box-shadow: var(--shadow-pop);
+}
+dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
+.luw .dlg-body, dialog.dlg .dlg-body { display: flex; flex-direction: column; gap: 0.7rem; padding: 1.4rem; }
+.luw .dlg-t, dialog.dlg .dlg-t {
+  margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
+}
+.luw .dlg-p, dialog.dlg .dlg-p { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-2); }
+.luw .dlg-actions, dialog.dlg .dlg-actions {
+  display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.5rem; flex-wrap: wrap;
+}
+
+/* ---- Devices */
+.luw .dev { display: flex; flex-direction: column; gap: 1.8rem; max-width: 40rem; }
+.luw .dev-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .dev-skel { height: 12rem; border-radius: 16px; }
+.luw .dev-section { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .dev-section-h { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.luw .dev-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+.luw .dev-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.9rem 1.1rem; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.luw .dev-card-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.luw .dev-card-t { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .dev-card-sub { font-size: 0.82rem; color: var(--ink-2); }
+.luw .dev-card-when { font-size: 0.78rem; color: var(--ink-3); }
+.luw .dev-danger { padding-top: 1.2rem; border-top: 1px solid var(--line); }
+
 /* ---- Settings. Narrow by intent: these are one-line decisions, and a full-width row makes a
    checkbox look like it belongs to whatever is beside it. */
 .luw .set { display: flex; flex-direction: column; gap: 2rem; max-width: 34rem; }
