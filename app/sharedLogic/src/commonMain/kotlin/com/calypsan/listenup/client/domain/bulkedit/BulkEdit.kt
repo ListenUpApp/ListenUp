@@ -4,6 +4,9 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.api.dto.BookUpdate
+
+private const val NOTHING_TO_ADD = "an instruction with nothing to add is not an instruction"
 
 /**
  * One thing the user asked to change across a selection.
@@ -13,7 +16,7 @@ import com.calypsan.listenup.api.dto.BookSeriesInput
  * the failure every bulk-edit UI has, where saving blanks the fields nobody edited.
  *
  * The verb is in the name. `Set*` replaces, `Add*` unions with what the book already has. No field
- * is ambiguous about which it does, and no runtime flag decides, so a call site cannot be misread.
+ * is ambiguous about which it does, and no runtime flag decides, so a call site says which it does.
  */
 sealed interface BulkEdit {
     /** Replaces the publisher. */
@@ -22,9 +25,15 @@ sealed interface BulkEdit {
     ) : BulkEdit
 
     /** Replaces the publication year. */
-    data class SetYear(
+    data class SetPublishYear(
         val year: Int,
-    ) : BulkEdit
+    ) : BulkEdit {
+        init {
+            require(year in BookUpdate.MIN_YEAR..BookUpdate.MAX_YEAR) {
+                "year must be in ${BookUpdate.MIN_YEAR}..${BookUpdate.MAX_YEAR}"
+            }
+        }
+    }
 
     /** Replaces the language. */
     data class SetLanguage(
@@ -34,44 +43,78 @@ sealed interface BulkEdit {
     /**
      * Adds a series membership.
      *
-     * Series is multi-valued — a book can belong to several — so this unions rather than replaces.
+     * This unions rather than replaces: a book can belong to several series, and replacing the whole
+     * list would destroy memberships the user never saw or intended to touch.
      * [BookSeriesInput.position] is left null: sequence is inherently per-book, and one value across
      * forty books would make them all "Book 1".
      */
-    data class AddSeries(
+    data class AddToSeries(
         val series: BookSeriesInput,
     ) : BulkEdit
 
-    /** Adds contributors, keeping the ones already credited. */
+    /**
+     * Adds contributors, keeping the ones already credited.
+     *
+     * [BookContributorInput.position] is ignored: it is a per-book ordinal, and the planner renumbers
+     * the whole credit list against each book so positions stay contiguous from zero. Callers may pass
+     * any value.
+     */
     data class AddContributors(
         val contributors: List<BookContributorInput>,
-    ) : BulkEdit
+    ) : BulkEdit {
+        init {
+            require(contributors.isNotEmpty()) { NOTHING_TO_ADD }
+        }
+    }
 
     /** Adds genres, keeping the ones already set. */
     data class AddGenres(
         val genres: List<BookGenreInput>,
-    ) : BulkEdit
+    ) : BulkEdit {
+        init {
+            require(genres.isNotEmpty()) { NOTHING_TO_ADD }
+        }
+    }
 
-    /** Adds tags by slug. Tags travel their own repository, not [BookMutation]. */
+    /** Adds tags by slug. */
     data class AddTags(
         val slugs: List<String>,
-    ) : BulkEdit
+    ) : BulkEdit {
+        init {
+            require(slugs.isNotEmpty()) { NOTHING_TO_ADD }
+        }
+    }
 
-    /** Adds moods by slug. Moods travel their own repository, not [BookMutation]. */
+    /** Adds moods by slug. */
     data class AddMoods(
         val slugs: List<String>,
-    ) : BulkEdit
+    ) : BulkEdit {
+        init {
+            require(slugs.isNotEmpty()) { NOTHING_TO_ADD }
+        }
+    }
 }
 
 /**
  * One concrete change to make to one book.
  *
- * Two roads reach a book's metadata: most fields go through [BookMutation] and
- * `BookEditRepository`, while tags and moods go through their own repositories. Both are
- * offline-first through `OfflineEditor`; they are simply different doors. This type is what lets a
- * single pure function describe work on either road.
+ * Most fields go through [BookMutation] and `BookEditRepository`, which is offline-first. Tags and
+ * moods go through their own repositories, which are offline-first only for a tag or mood that
+ * already exists locally — a brand-new one mints its id server-side and needs a connection. The bulk
+ * form therefore offers existing tags and moods rather than free-text creation. This type is what
+ * lets a single pure function describe work on either road.
+ *
+ * The type carries no book identity — which book an action applies to is the caller's context, not
+ * this type's; `BulkEditApplier` is the next reader, pairing each action with its book.
+ *
+ * One [BulkAction] is exactly one repository call — the unit of failure and retry. That is why
+ * `AddTags(slugs)` fans out to one [AddTag] per slug rather than carrying the whole list: a failure
+ * partway through a batch must not silently swallow the slugs that came after it.
+ *
+ * Internal: produced by the planner and consumed by the applier, both within `:app:sharedLogic`.
+ * Only [BulkEdit] crosses into `:app:sharedUI`.
  */
-sealed interface BulkAction {
+internal sealed interface BulkAction {
     /** A change expressible as a [BookMutation]. */
     data class Mutate(
         val mutation: BookMutation,
