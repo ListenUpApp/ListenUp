@@ -5231,6 +5231,16 @@
         }
       }
     },
+    "chapter_editor.clear_search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear search"
+          }
+        }
+      }
+    },
     "chapter_editor.delete_body": {
       "localizations": {
         "en": {
@@ -5557,6 +5567,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New chapter"
+          }
+        }
+      }
+    },
+    "chapter_editor.no_matches": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No chapters match “%1$@”."
           }
         }
       }

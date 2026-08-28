@@ -113,6 +113,7 @@ fun ChapterEditorScreen(
     var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
     var windowStartMs by remember { mutableStateOf(0L) }
+    var query by remember { mutableStateOf("") }
 
     val editing = state as? ChapterEditorUiState.Editing
     val isDirty = editing?.isDirty == true
@@ -193,6 +194,8 @@ fun ChapterEditorScreen(
             fileBoundaries = fileBoundaries,
             windowStartMs = windowStartMs,
             onWindowStartChange = { windowStartMs = it },
+            query = query,
+            onQueryChange = { query = it },
             onPinAnchor = {
                 val selected = editing?.selectedChapterId
                 val at = playheadMs
@@ -312,6 +315,8 @@ private fun ChapterEditorBody(
     fileBoundaries: List<TimelineFileBoundary>,
     windowStartMs: Long,
     onWindowStartChange: (Long) -> Unit,
+    query: String,
+    onQueryChange: (String) -> Unit,
     onPinAnchor: () -> Unit,
     newChapterTitle: String,
     viewModel: ChapterEditorViewModel,
@@ -380,6 +385,8 @@ private fun ChapterEditorBody(
                         // parameter the lane has always accepted and nothing ever supplied.
                         ghosts = driftGhosts(state),
                         lockedChapterIds = state.lockedChapterIds,
+                        query = query,
+                        onQueryChange = onQueryChange,
                     )
                 }
             }

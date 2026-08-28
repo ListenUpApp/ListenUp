@@ -14,6 +14,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import com.calypsan.listenup.client.design.components.ListenUpTextField
+import listenup.composeapp.generated.resources.chapter_editor_jump_to_title
+import listenup.composeapp.generated.resources.chapter_editor_no_matches
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +88,9 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param onToggleLock pin a boundary against drift.
  * @param lockedChapterIds boundaries currently pinned, so the row's lock reads as state rather
  *   than as a button that does nothing visible.
+ * @param query narrows the list only — the timeline keeps showing the whole book, because the lane
+ *   is a picture of the audio and hiding parts of it would misrepresent what is there.
+ * @param onQueryChange the search box changed.
  * @param onMore open a row's overflow.
  * @param onSeekFraction move the detail lane's window from the minimap.
  * @param modifier Modifier for the content.
@@ -105,6 +114,8 @@ fun ChapterEditorContent(
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
     lockedChapterIds: Set<String> = emptySet(),
+    query: String = "",
+    onQueryChange: (String) -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(0.dp),
     fileBoundaries: List<TimelineFileBoundary> = emptyList(),
     ghosts: List<TimelineChapter> = emptyList(),
@@ -134,6 +145,8 @@ fun ChapterEditorContent(
             onToggleLock = onToggleLock,
             onMore = onMore,
             lockedChapterIds = lockedChapterIds,
+            query = query,
+            onQueryChange = onQueryChange,
             modifier = paneModifier,
         )
     }
@@ -229,31 +242,58 @@ private fun ChapterListPane(
     onToggleLock: (String) -> Unit,
     onMore: (String) -> Unit,
     lockedChapterIds: Set<String>,
+    query: String,
+    onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
+    // Filtered here, after numbering: `chapters` arrives numbered against the whole book, so a
+    // narrowed list still calls chapter 213 by its real number. See [matching].
+    val visible = chapters.matching(query)
+
+    Column(
         modifier
             .clip(PANE_SHAPE)
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Keyed by chapter id, not index: retiming re-sorts the list, and an index key would make
-        // Compose reuse the wrong row's state — the selected row's highlight would jump to whatever
-        // now occupies its old position.
-        items(chapters, key = { it.chapter.id }) { numbered ->
-            ChapterEditRow(
-                chapter = numbered.chapter,
-                number = numbered.number,
-                isSelected = numbered.chapter.id == selectedChapterId,
-                isPlaying = playheadMs != null && playheadMs.isInside(numbered.chapter),
-                onSelect = { onSelect(numbered.chapter.id) },
-                onNudge = { step -> onNudge(numbered.chapter.id, step) },
-                onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
-                onToggleLock = { onToggleLock(numbered.chapter.id) },
-                onMore = { onMore(numbered.chapter.id) },
-                isLocked = numbered.chapter.id in lockedChapterIds,
+        ListenUpTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = stringResource(Res.string.chapter_editor_jump_to_title),
+            leadingIcon = Icons.Default.Search,
+            trailingIcon = if (query.isEmpty()) null else Icons.Default.Close,
+            onTrailingClick = { onQueryChange("") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        if (visible.isEmpty()) {
+            Text(
+                stringResource(Res.string.chapter_editor_no_matches, query.trim()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 12.dp),
             )
+        }
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // Keyed by chapter id, not index: retiming re-sorts the list, and an index key would
+            // make Compose reuse the wrong row's state — the selected row's highlight would jump
+            // to whatever now occupies its old position.
+            items(visible, key = { it.chapter.id }) { numbered ->
+                ChapterEditRow(
+                    chapter = numbered.chapter,
+                    number = numbered.number,
+                    isSelected = numbered.chapter.id == selectedChapterId,
+                    isPlaying = playheadMs != null && playheadMs.isInside(numbered.chapter),
+                    onSelect = { onSelect(numbered.chapter.id) },
+                    onNudge = { step -> onNudge(numbered.chapter.id, step) },
+                    onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
+                    onToggleLock = { onToggleLock(numbered.chapter.id) },
+                    onMore = { onMore(numbered.chapter.id) },
+                    isLocked = numbered.chapter.id in lockedChapterIds,
+                )
+            }
         }
     }
 }
