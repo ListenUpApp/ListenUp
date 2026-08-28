@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isDeadRpcClient
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isPreDeliveryTransportFailure
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isWsHandshake401
+import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isWsHandshakeOfUnknownStatus
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
@@ -88,8 +89,20 @@ internal class RpcProxyCache<T : Any>(
      * Injectable so a virtual-time test can drive it deterministically.
      */
     private val preDeliveryRetryBackoff: Duration = PRE_DELIVERY_RETRY_BACKOFF,
+    /**
+     * Whether a rejected handshake names its status here. Defaults to the platform fact; a
+     * parameter only so a test can drive the browser's blindness on any platform.
+     */
+    private val handshakeStatusVisible: Boolean = handshakeStatusIsVisible,
     private val connect: suspend (rpcClient: HttpClient, wsBaseUrl: String) -> T,
 ) : RpcDispatch<T> {
+    /**
+     * Whether this cache serves the bearer-gated mount. The public mount is constructed with
+     * [RpcAuthRecovery.None], so identity against it is the same discriminator the class already
+     * uses to mean "this connection has a session behind it".
+     */
+    private val isAuthedMount: Boolean get() = authRecovery !== RpcAuthRecovery.None
+
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedProxy: T? = null
@@ -195,11 +208,15 @@ internal class RpcProxyCache<T : Any>(
                 when {
                     // A handshake 401 before the first emit heals per the C5 outcome: refresh + resubscribe,
                     // keep-session-retryable on a transient refresh failure, or lapse on a confirmed-dead token.
-                    !emitted && isWsHandshake401(e) -> {
+                    !emitted &&
+                        (
+                            isWsHandshake401(e) ||
+                                (isAuthedMount && isWsHandshakeOfUnknownStatus(e, handshakeStatusVisible))
+                        ) -> {
                         when (authRecovery.refreshAndRebuild()) {
                             AuthRecoveryOutcome.Refreshed -> resubscribe(subscribe)
                             AuthRecoveryOutcome.Transient -> throw TransientAuthRefreshException(e)
-                            AuthRecoveryOutcome.SessionInvalid -> throw e
+                            AuthRecoveryOutcome.SessionInvalid -> throw SessionLapsedException(e)
                         }
                     }
 
@@ -298,6 +315,16 @@ internal class RpcProxyCache<T : Any>(
                 return retryAfterAuthRefresh(e, leasedGeneration, timeout, block)
             }
 
+            // Same heal, reached the only way the browser allows. There a 401 is invisible, so this
+            // arm stands in for the one above and lets the refresh outcome say which it was. Gated
+            // on the authed mount: the public one passes RpcAuthRecovery.None, whose refresh is a
+            // no-op that reports SessionInvalid, and routing a pre-auth handshake into it would
+            // lapse a session over a plain network fault.
+            isAuthedMount && isWsHandshakeOfUnknownStatus(e, handshakeStatusVisible) -> {
+                logger.info { "RPC handshake failed with no readable status; asking the refresh which it was" }
+                return retryAfterAuthRefresh(e, leasedGeneration, timeout, block)
+            }
+
             // Provably pre-delivery: handshake, connect, or a dead-client ISE ("RpcClient was cancelled",
             // thrown BEFORE send). The frame never left — retry cannot double-apply.
             isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> {
@@ -387,10 +414,12 @@ internal class RpcProxyCache<T : Any>(
                 throw TransientAuthRefreshException(e)
             }
 
-            // Server-confirmed invalid refresh token — surface the 401 so the session lapses.
+            // Server-confirmed invalid refresh token — lapse the session. Typed rather than a
+            // re-raised `e`, whose meaning used to be re-derived from a status string the browser
+            // never provides; see SessionLapsedException.
             AuthRecoveryOutcome.SessionInvalid -> {
-                logger.warn { "Refresh token server-confirmed invalid; surfacing the 401 (session lapse)" }
-                throw e
+                logger.warn { "Refresh token server-confirmed invalid; surfacing a session lapse" }
+                throw SessionLapsedException(e)
             }
         }
     }

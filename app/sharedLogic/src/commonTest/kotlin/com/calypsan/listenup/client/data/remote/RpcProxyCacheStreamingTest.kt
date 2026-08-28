@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import io.kotest.assertions.throwables.shouldThrow
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
@@ -69,10 +70,16 @@ class RpcProxyCacheStreamingTest :
         fun scriptedStreamCache(
             script: ArrayDeque<() -> kotlinx.coroutines.flow.Flow<String>>,
             authRecovery: RpcAuthRecovery = RpcAuthRecovery.None,
+            handshakeStatusVisible: Boolean = true,
         ): Pair<RpcProxyCache<FakeStreamProxy>, () -> Int> {
             var connectCount = 0
             val cache =
-                RpcProxyCache(mockFactory(), mockServerConfig(), authRecovery) { _, _ ->
+                RpcProxyCache(
+                    mockFactory(),
+                    mockServerConfig(),
+                    authRecovery,
+                    handshakeStatusVisible = handshakeStatusVisible,
+                ) { _, _ ->
                     connectCount++
                     FakeStreamProxy(script.removeFirst())
                 }
@@ -113,6 +120,38 @@ class RpcProxyCacheStreamingTest :
                 cache.streaming { it.observe() }.toList() shouldBe listOf("authed")
                 recovery.count shouldBe 1 // refreshed exactly once
                 connects() shouldBe 2
+            }
+        }
+
+        test("a status-less handshake on a dead session lapses the firehose instead of blaming the network") {
+            runTest {
+                // The shape the reader actually met: the sync firehose reconnecting forever, logging
+                // TRANSPORT_NETWORK_UNAVAILABLE on a browser whose network was fine and whose session
+                // had simply ended. Note the message carries no status — none does, on the browser.
+                val recovery =
+                    object : RpcAuthRecovery {
+                        var count = 0
+
+                        override suspend fun refreshAndRebuild(): AuthRecoveryOutcome {
+                            count++
+                            return AuthRecoveryOutcome.SessionInvalid
+                        }
+                    }
+                val (cache, connects) =
+                    scriptedStreamCache(
+                        ArrayDeque(
+                            listOf(
+                                { flow { throw WebSocketException("Fail to connect") } },
+                                { flowOf("must-not-run") },
+                            ),
+                        ),
+                        authRecovery = recovery,
+                        handshakeStatusVisible = false,
+                    )
+
+                shouldThrow<SessionLapsedException> { cache.streaming { it.observe() }.toList() }
+                recovery.count shouldBe 1
+                connects() shouldBe 1 // no resubscribe against a session the server has refused
             }
         }
 

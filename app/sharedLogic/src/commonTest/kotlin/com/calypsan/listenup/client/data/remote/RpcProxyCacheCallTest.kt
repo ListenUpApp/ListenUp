@@ -82,15 +82,41 @@ class RpcProxyCacheCallTest :
             script: ArrayDeque<suspend () -> String>,
             authRecovery: RpcAuthRecovery = RpcAuthRecovery.None,
             preDeliveryRetryBackoff: Duration = 300.milliseconds,
+            handshakeStatusVisible: Boolean = true,
         ): Pair<RpcProxyCache<FakeProxy>, () -> Int> {
             var connectCount = 0
             val cache =
-                RpcProxyCache(mockFactory(), mockServerConfig(), authRecovery, preDeliveryRetryBackoff) { _, _ ->
+                RpcProxyCache(
+                    mockFactory(),
+                    mockServerConfig(),
+                    authRecovery,
+                    preDeliveryRetryBackoff,
+                    handshakeStatusVisible,
+                ) { _, _ ->
                     connectCount++
                     FakeProxy(script.removeFirst())
                 }
             return cache to { connectCount }
         }
+
+        /** A refresh that always reports [outcome], and counts how often it was asked. */
+        class ScriptedAuthRecovery(
+            private val outcome: AuthRecoveryOutcome,
+        ) : RpcAuthRecovery {
+            var count = 0
+                private set
+
+            override suspend fun refreshAndRebuild(): AuthRecoveryOutcome {
+                count++
+                return outcome
+            }
+        }
+
+        // A browser cannot see the status of a rejected upgrade, so an expired session and a dead
+        // network arrive as the SAME bare WebSocketException — note none of these carry "401", which
+        // is what the message-matching arm needs and can never find here. The engine resolves the
+        // ambiguity by asking the refresh, and these pin all four answers it can get.
+        fun statuslessHandshake(): suspend () -> String = { throw WebSocketException("Fail to connect") }
 
         test("a from-below CancellationException (post-delivery) is surfaced outcome-unknown, NOT retried") {
             // kotlinx.rpc throws a bare CancellationException("Client cancelled") from below when it
@@ -276,6 +302,112 @@ class RpcProxyCacheCallTest :
 
                 results shouldBe List(5) { "healed" }
                 connects() shouldBe 2 // 1 original + exactly 1 reconnect — not 6
+            }
+        }
+
+        test("a status-less handshake whose refresh is server-confirmed dead surfaces SessionExpired") {
+            runTest {
+                // THE BUG: before this, a browser reader whose session had ended was told
+                // "No internet connection. Check your network." and was never sent to sign in.
+                val recovery = ScriptedAuthRecovery(AuthRecoveryOutcome.SessionInvalid)
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(listOf(statuslessHandshake(), { "must-not-run" })),
+                        authRecovery = recovery,
+                        handshakeStatusVisible = false,
+                    )
+
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.SessionExpired>()
+                recovery.count shouldBe 1
+                connects() shouldBe 1 // no retry against a session the server has already refused
+            }
+        }
+
+        test("a status-less handshake whose refresh fails transiently is genuinely offline, and keeps the session") {
+            runTest {
+                // The other half of the ambiguity: the refresh could not reach the server either, so
+                // "check your network" is now the honest answer rather than the default one.
+                val recovery = ScriptedAuthRecovery(AuthRecoveryOutcome.Transient)
+                val (cache, _) =
+                    scriptedCache(
+                        ArrayDeque(listOf(statuslessHandshake(), { "must-not-run" })),
+                        authRecovery = recovery,
+                        handshakeStatusVisible = false,
+                    )
+
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
+
+                val error = result.shouldBeInstanceOf<AppResult.Failure>().error
+                error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                error.isRetryable shouldBe true
+                recovery.count shouldBe 1
+            }
+        }
+
+        test("a status-less handshake on a merely stale token refreshes and retries, and the call succeeds") {
+            runTest {
+                val recovery = ScriptedAuthRecovery(AuthRecoveryOutcome.Refreshed)
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(listOf(statuslessHandshake(), { "healed" })),
+                        authRecovery = recovery,
+                        handshakeStatusVisible = false,
+                    )
+
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
+
+                result.shouldBeInstanceOf<AppResult.Success<String>>().data shouldBe "healed"
+                recovery.count shouldBe 1
+                connects() shouldBe 2
+            }
+        }
+
+        test("a status-less handshake on the PUBLIC mount is a transport failure, never a session lapse") {
+            runTest {
+                // The public mount passes RpcAuthRecovery.None, whose refresh is a no-op reporting
+                // SessionInvalid. Routing a pre-auth handshake into it would end a session over a
+                // network fault — so the ambiguity arm must not fire here at all.
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(listOf(statuslessHandshake(), statuslessHandshake())),
+                        handshakeStatusVisible = false,
+                    )
+
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                connects() shouldBe 2 // the ordinary pre-delivery reconnect-and-retry-once, unchanged
+            }
+        }
+
+        test("where the status IS readable, a non-401 handshake failure stays a plain transport failure") {
+            runTest {
+                // Guards the platforms that can read a status: they must keep today's behaviour
+                // exactly, and must not spend a token rotation on every flaky socket.
+                val recovery = ScriptedAuthRecovery(AuthRecoveryOutcome.SessionInvalid)
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(listOf(statuslessHandshake(), statuslessHandshake())),
+                        authRecovery = recovery,
+                        handshakeStatusVisible = true,
+                    )
+
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                recovery.count shouldBe 0 // no refresh asked for, no rotation burned
+                connects() shouldBe 2
             }
         }
 
