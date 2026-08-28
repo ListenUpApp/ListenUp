@@ -1502,6 +1502,8 @@
     "zoom_in": "Zoom in",
     "zoom_out": "Zoom out",
     "jump_to_title": "Jump to title…",
+    "no_matches": "No chapters match \u201c%1$s\u201d.",
+    "clear_search": "Clear search",
     "add_at_playhead": "Add chapter at playhead",
     "nudge_back": "Nudge back",
     "nudge_forward": "Nudge forward",
