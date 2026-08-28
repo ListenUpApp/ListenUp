@@ -557,7 +557,6 @@ One beautiful library.</string>
     <string name="chapter_editor_saved">Saved</string>
     <string name="chapter_editor_saving">Saving…</string>
     <string name="chapter_editor_snap_to_playhead">Set start at playhead</string>
-    <string name="chapter_editor_status_saved">Saved</string>
     <string name="chapter_editor_subtitle">%1$s · %2$d chapters</string>
     <string name="chapter_editor_title">Edit chapters</string>
     <string name="chapter_editor_undo">Undo</string>

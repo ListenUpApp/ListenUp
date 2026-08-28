@@ -1521,7 +1521,6 @@
     "lane_description": "Chapter timeline showing %1$d chapters",
     "minimap_description": "Whole book overview; drag to move the detail lane",
     "empty_detect_soon": "Detect from silence · coming soon",
-    "status_saved": "Saved",
     "discard_title": "Discard your chapter edits?",
     "discard_body": "The changes you made here will be lost.",
     "rename_title": "Rename chapter",

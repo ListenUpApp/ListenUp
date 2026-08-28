@@ -12,7 +12,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -31,6 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.design.timeline.TimelineGeometry
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -42,7 +43,6 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.chapter_editor_done
 import listenup.composeapp.generated.resources.chapter_editor_new_chapter_title
 import listenup.composeapp.generated.resources.chapter_editor_saving
-import listenup.composeapp.generated.resources.chapter_editor_status_saved
 import listenup.composeapp.generated.resources.chapter_editor_subtitle
 import listenup.composeapp.generated.resources.chapter_editor_title
 import listenup.composeapp.generated.resources.chapter_editor_undo
@@ -115,6 +115,16 @@ fun ChapterEditorScreen(
 
     val newChapterTitle = stringResource(Res.string.chapter_editor_new_chapter_title)
 
+    // The toolbar arrow is not the only way out. Without this the system back gesture pops the
+    // screen straight past the confirmation, and the draft — the only copy of the work — is gone.
+    PlatformBackHandler(enabled = isDirty) { pendingDiscard = true }
+
+    // Open where the listener already is. A 65-hour book opened at 0:00 is technically correct and
+    // useless; when this book is the one loaded, the interesting boundary is the one being heard.
+    LaunchedEffect(isThisBookLoaded) {
+        if (isThisBookLoaded) windowStartMs = positionMs - DEFAULT_WINDOW_MS / 2
+    }
+
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
@@ -124,9 +134,7 @@ fun ChapterEditorScreen(
 
                 // SaveFailed already reaches the user through the global error bus; repeating it
                 // here would show the same failure twice.
-                is ChapterEditorEvent.SaveFailed -> {
-                    Unit
-                }
+                is ChapterEditorEvent.SaveFailed -> {}
 
                 is ChapterEditorEvent.Invalid -> {
                     // Read through the ViewModel rather than the captured composition value, so the
@@ -138,7 +146,7 @@ fun ChapterEditorScreen(
         }
     }
 
-    Scaffold(
+    ListenUpScaffold(
         topBar = {
             TopAppBar(
                 title = { EditorTitle(editing) },
@@ -237,9 +245,7 @@ private fun RowActionDialogs(
     onDelete: (String) -> Unit,
 ) {
     when (action) {
-        null -> {
-            Unit
-        }
+        null -> {}
 
         is RowAction.Choosing -> {
             ChapterActionsDialog(
@@ -359,12 +365,14 @@ private fun EditorTitle(editing: ChapterEditorUiState.Editing?) {
 
 @Composable
 private fun EditorStatus(editing: ChapterEditorUiState.Editing?) {
+    // Nothing at all when the set is clean: a book just opened has not been "Saved", and saying so
+    // would be the screen's only untrue statement.
     val label =
         when {
             editing == null -> null
             editing.isSaving -> stringResource(Res.string.chapter_editor_saving)
             editing.isDirty -> stringResource(Res.string.chapter_editor_unsaved)
-            else -> stringResource(Res.string.chapter_editor_status_saved)
+            else -> null
         }
     label?.let {
         Text(

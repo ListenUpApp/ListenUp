@@ -5561,16 +5561,6 @@
         }
       }
     },
-    "chapter_editor.status_saved": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved"
-          }
-        }
-      }
-    },
     "chapter_editor.subtitle": {
       "localizations": {
         "en": {
