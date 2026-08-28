@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
@@ -69,6 +70,7 @@ class BookDetailTest :
                     fixedDiscover(),
                     fixedSettings(),
                     fixedDevices(),
+                    fixedAdmin(),
                     fixedShelfDetail(),
                     fixedShelfEdit(),
                     fakeLibrary(),

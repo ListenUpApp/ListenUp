@@ -1111,6 +1111,36 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.5rem; flex-wrap: wrap;
 }
 
+/* ---- Admin: people. Rows of a person and what you can decide about them. */
+.luw .adm { display: flex; flex-direction: column; gap: 1.8rem; max-width: 42rem; }
+.luw .adm-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .adm-skel { height: 14rem; border-radius: 16px; }
+.luw .adm-section { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .adm-section-h { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.luw .adm-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+.luw .adm-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  padding: 0.8rem 1.1rem; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.luw .adm-row-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.luw .adm-row-t { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .adm-row-sub { font-size: 0.82rem; color: var(--ink-2); }
+.luw .adm-row-when { font-size: 0.78rem; color: var(--ink-3); }
+.luw .adm-row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.luw .adm-badge {
+  align-self: flex-start; margin-top: 0.2rem; padding: 0.1rem 0.5rem; border-radius: 99px;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
+  background: var(--coral-soft); color: var(--coral);
+}
+.luw .adm-error {
+  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+  padding: 0.7rem 1rem; border-radius: 12px;
+  background: var(--coral-soft); border: 1px solid var(--coral-ring);
+  font-size: 0.88rem; font-weight: 600; color: var(--coral);
+}
+.luw .adm-error-t { flex: 1; min-width: 12rem; }
+
 /* ---- Devices */
 .luw .dev { display: flex; flex-direction: column; gap: 1.8rem; max-width: 40rem; }
 .luw .dev-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }

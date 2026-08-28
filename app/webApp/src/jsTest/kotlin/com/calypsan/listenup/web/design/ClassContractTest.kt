@@ -1,5 +1,11 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.features.admin.AdminPage
+import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.client.domain.model.InviteInfo
+import com.calypsan.listenup.client.domain.model.AdminUserInfo
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import org.w3c.dom.HTMLDialogElement
 import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.design.ConfirmDialog
@@ -531,6 +537,7 @@ class ClassContractTest :
                         discoverShapes().forEach { it() }
                         shelfShapes().forEach { it() }
                         devicesShapes().forEach { it() }
+                        adminShapes().forEach { it() }
                         // Loading and loaded: the skeleton's class lives only in the former.
                         SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {})
                         SettingsPage(
@@ -890,5 +897,63 @@ private fun devicesShapes(): List<@Composable () -> Unit> {
                 onDismiss = {},
             )
         },
+    )
+}
+
+/** Admin in its loading, populated and errored shapes — the badge and banner live only in some. */
+private fun adminShapes(): List<@Composable () -> Unit> {
+    fun user(
+        id: String,
+        name: String,
+        isRoot: Boolean = false,
+        status: String = "ACTIVE",
+    ) = AdminUserInfo(
+        id = id,
+        email = "$id@example.com",
+        displayName = name,
+        firstName = null,
+        lastName = null,
+        isRoot = isRoot,
+        role = "MEMBER",
+        status = status,
+        createdAt = "2026-01-01",
+    )
+
+    fun page(state: AdminUiState): @Composable () -> Unit = { AdminPage(state, 0L, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}) }
+
+    return listOf(
+        page(AdminUiState.Loading),
+        page(AdminUiState.Ready(error = "nope")),
+        page(
+            AdminUiState.Ready(
+                users = listOf(user("u1", "Simon", isRoot = true), user("u2", "Ada")),
+                pendingUsers = listOf(user("u3", "Grace", status = "PENDING_APPROVAL")),
+                pendingInvites =
+                    listOf(
+                        InviteInfo(
+                            id = "i1",
+                            code = "ABC123",
+                            name = "Alan",
+                            email = "alan@example.com",
+                            role = "MEMBER",
+                            expiresAt = "2026-02-01",
+                            claimedAt = null,
+                            url = "https://listenup.example/i/ABC123",
+                            createdAt = "2026-01-01",
+                        ),
+                    ),
+                pendingPasswordResets =
+                    listOf(
+                        PasswordResetRequest(
+                            id = "r1",
+                            userId = UserId("u2"),
+                            displayName = "Ada",
+                            email = "ada@example.com",
+                            requestedAt = 0L,
+                            expiresAt = 0L,
+                        ),
+                    ),
+            ),
+        ),
     )
 }
