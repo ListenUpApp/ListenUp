@@ -31,6 +31,8 @@ sealed interface ChapterEditorUiState {
      *   the mirror now holds, so it clears itself the moment the user saves or resets.
      * @property lockedChapterIds boundaries pinned against drift correction. Intersected with
      *   [chapters], so a lock naming a chapter that has since been removed cannot survive.
+     * @property drift the guided drift flow, or null when it is not open. Its preview is derived
+     *   from [chapters], so it cannot describe a set the user is no longer looking at.
      */
     data class Editing(
         val bookTitle: String,
@@ -42,10 +44,32 @@ sealed interface ChapterEditorUiState {
         val isSaving: Boolean = false,
         val changedElsewhere: Boolean = false,
         val lockedChapterIds: Set<String> = emptySet(),
+        val drift: DriftState? = null,
     ) : ChapterEditorUiState {
         /** True when the book has no chapters at all — the "never stranded" empty state. */
         val isEmpty: Boolean get() = chapters.isEmpty()
     }
+
+    /**
+     * The guided drift flow while it is open.
+     *
+     * The preview is recomputed from the working set rather than stored alongside it, so the
+     * ghosts on screen are always what applying would actually produce — there is no cached
+     * result that could go stale when a sync frame lands mid-proposal.
+     *
+     * Both fields are null while the flow is open but nothing has been pinned yet, which is the
+     * state the user starts in — a non-null [ChapterEditorUiState.Editing.drift] means "the flow is
+     * open", so the screen can prompt for the first anchor instead of having to infer openness from
+     * the absence of a preview.
+     *
+     * @property proposal the anchors pinned so far; null until the first one is.
+     * @property preview what those anchors would do, or why they cannot; null until there is
+     *   something to preview. "You have not pinned anything yet" is not a refusal worth reporting.
+     */
+    data class DriftState(
+        val proposal: DriftProposal? = null,
+        val preview: DriftPreview? = null,
+    )
 
     /** The book could not be loaded. */
     data class Error(

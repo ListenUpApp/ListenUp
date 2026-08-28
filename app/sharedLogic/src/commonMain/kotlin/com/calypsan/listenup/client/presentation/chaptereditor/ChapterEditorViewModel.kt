@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.chapter.ChapterAnchor
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -64,9 +65,18 @@ class ChapterEditorViewModel(
      */
     private val lockedChapterIds = MutableStateFlow<Set<String>>(emptySet())
 
+    /**
+     * The anchors pinned so far, or null while the guided drift flow is closed.
+     *
+     * Only the anchors are stored. The preview is recomputed from them and the current chapters
+     * every time state is projected, so a proposal cannot describe a set that has since changed —
+     * the same reason `changedElsewhere` is derived rather than latched.
+     */
+    private val driftAnchors = MutableStateFlow<DriftAnchors?>(null)
+
     /** The parts of the editor the user drives directly, combined once to stay inside `combine`'s arity. */
     private val session =
-        combine(draft, selectedChapterId, saving, lockedChapterIds, ::EditorSession)
+        combine(draft, selectedChapterId, saving, lockedChapterIds, driftAnchors, ::EditorSession)
 
     private val eventChannel = Channel<ChapterEditorEvent>(Channel.BUFFERED)
 
@@ -83,6 +93,9 @@ class ChapterEditorViewModel(
                 ChapterEditorUiState.Loading
             } else {
                 val chapters = current.draft?.chapters ?: mirrored
+                // Intersected rather than pruned on removal: a lock naming a chapter that is no
+                // longer there cannot survive, by construction rather than by remembering.
+                val locked = current.lockedIds intersect chapters.mapTo(mutableSetOf()) { it.id }
                 ChapterEditorUiState.Editing(
                     bookTitle = book.title,
                     chapters = chapters,
@@ -96,7 +109,8 @@ class ChapterEditorViewModel(
                     changedElsewhere = current.draft != null && current.draft.forkedFrom != mirrored,
                     // Intersected rather than pruned on removal: a lock naming a chapter that is
                     // no longer there cannot survive, by construction rather than by remembering.
-                    lockedChapterIds = current.lockedIds intersect chapters.mapTo(mutableSetOf()) { it.id },
+                    lockedChapterIds = locked,
+                    drift = current.driftAnchors?.let { driftStateFor(it, chapters, locked, book.duration) },
                 )
             }
         }.stateIn(
@@ -158,6 +172,48 @@ class ChapterEditorViewModel(
 
     /** Replaces the whole set — the commit step of drift correction. */
     fun replaceAll(chapters: List<Chapter>) = edit { _, duration -> chapters.withDerivedDurations(duration) }
+
+    /** Opens the guided drift flow with nothing pinned yet. */
+    fun beginDrift() {
+        driftAnchors.value = DriftAnchors()
+    }
+
+    /**
+     * Pins [chapterId] as really starting at [trueStartMs].
+     *
+     * The first pin becomes the earlier anchor and the second the later one. A third **replaces**
+     * the second rather than being appended: `correctDrift` rejects more than two anchors outright,
+     * so a flow that could accumulate them would only ever produce a refusal the user cannot read.
+     */
+    fun pinAnchor(
+        chapterId: String,
+        trueStartMs: Long,
+    ) {
+        val anchor = ChapterAnchor(chapterId, trueStartMs)
+        driftAnchors.update { current ->
+            val open = current ?: DriftAnchors()
+            if (open.first == null) open.copy(first = anchor) else open.copy(second = anchor)
+        }
+    }
+
+    /** Abandons the proposal. Nothing moved, so there is nothing to undo. */
+    fun cancelDrift() {
+        driftAnchors.value = null
+    }
+
+    /**
+     * Commits the previewed correction as a single undoable edit.
+     *
+     * Reads the preview out of [state] rather than recomputing it, so what lands is precisely the
+     * set whose ghosts the user approved. A refused proposal applies nothing — the flow stays open
+     * so the mis-set anchor can be fixed rather than silently discarded.
+     */
+    fun applyDrift() {
+        val editing = state.value as? ChapterEditorUiState.Editing ?: return
+        val ready = editing.drift?.preview as? DriftPreview.Ready ?: return
+        replaceAll(ready.corrected)
+        driftAnchors.value = null
+    }
 
     /** Steps back one edit. A no-op when there is nothing to undo. */
     fun undo() {
@@ -247,7 +303,41 @@ private data class EditorSession(
     val selectedChapterId: String?,
     val isSaving: Boolean,
     val lockedIds: Set<String>,
+    val driftAnchors: DriftAnchors?,
 )
+
+/**
+ * The anchors pinned in the guided drift flow, before they are worth previewing.
+ *
+ * Distinct from [DriftProposal] because that type requires a first anchor, and the flow is opened
+ * with none — the user pins after opening, not before.
+ */
+private data class DriftAnchors(
+    val first: ChapterAnchor? = null,
+    val second: ChapterAnchor? = null,
+)
+
+/**
+ * Turns pinned anchors into something to show.
+ *
+ * An open flow always produces a state, even with nothing pinned — that empty state is what tells
+ * the screen to prompt for the first anchor. Only once one exists is there a proposal worth
+ * previewing; before that there is nothing to refuse, and reporting a refusal would be describing
+ * the user's progress as an error.
+ */
+private fun driftStateFor(
+    anchors: DriftAnchors,
+    chapters: List<Chapter>,
+    lockedIds: Set<String>,
+    bookDurationMs: Long,
+): ChapterEditorUiState.DriftState {
+    val first = anchors.first ?: return ChapterEditorUiState.DriftState()
+    val proposal = DriftProposal(first = first, second = anchors.second, lockedIds = lockedIds)
+    return ChapterEditorUiState.DriftState(
+        proposal = proposal,
+        preview = previewDrift(chapters, proposal, bookDurationMs),
+    )
+}
 
 /** The wire shape, carrying the grouping headers through untouched. */
 private fun Chapter.toInput(): ChapterInput =
