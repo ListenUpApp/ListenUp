@@ -5291,6 +5291,156 @@
         }
       }
     },
+    "chapter_editor.drift_anchor_at": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d · %2$@"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_anchor_first": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First anchor"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_anchor_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not pinned"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_anchor_second": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Second anchor"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_apply": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply correction"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin a chapter you can hear is right, then a second one later in the book. Everything between them is corrected."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_needs_playhead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play the book to the spot you can hear, then pin."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_needs_selection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a chapter in the list, play to where you hear it start, then pin."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_pin_first": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin first anchor at playhead"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_pin_second": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin second anchor at playhead"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_refused_anchors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Those anchors cannot be used. Pin two different chapters."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_refused_inverted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The second anchor is earlier than the first. Audio does not run backwards, so one of them is wrong."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d boundaries move. Drift spreads %2$@ across the book."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_summary_single": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d boundaries move by %2$@."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix drift"
+          }
+        }
+      }
+    },
     "chapter_editor.empty_add_first": {
       "localizations": {
         "en": {
