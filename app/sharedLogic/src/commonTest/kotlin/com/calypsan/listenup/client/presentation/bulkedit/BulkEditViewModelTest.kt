@@ -74,6 +74,7 @@ class BulkEditViewModelTest :
         fun rig(
             books: List<BookDetail>,
             failOn: BookId? = null,
+            requestedIds: List<String>? = null,
         ): BulkEditViewModel {
             val byId = books.associateBy { it.id.value }
             val repo = mock<BookRepository>(MockMode.autoUnit)
@@ -92,7 +93,7 @@ class BulkEditViewModelTest :
             val moods = mock<MoodRepository>(MockMode.autoUnit)
 
             return BulkEditViewModel(
-                bookIds = books.map { it.id.value },
+                bookIds = requestedIds ?: books.map { it.id.value },
                 bookRepository = repo,
                 applier = BulkEditApplier(edits, tags, moods),
                 errorBus = ErrorBus(),
@@ -203,6 +204,26 @@ class BulkEditViewModelTest :
                         vm.state.value
                             .shouldBeInstanceOf<BulkEditUiState.Editing>()
                             .isApplying shouldBe false
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+        test("a book that could not be loaded is not counted as one Apply will change") {
+            // The selection can shrink between the grid and this screen — a book deleted from
+            // another device is the realistic way. bookCount must describe what Apply will touch,
+            // while requestedCount remembers what the user actually selected, so the screen can own
+            // up to the difference instead of quietly editing fewer books than were chosen.
+            val vm = rig(listOf(book("b1")), requestedIds = listOf("b1", "gone"))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    advanceUntilIdle()
+
+                    val editing = vm.state.value.shouldBeInstanceOf<BulkEditUiState.Editing>()
+                    editing.bookCount shouldBe 1
+                    withClue("the user selected two, and the screen must be able to say so") {
+                        editing.requestedCount shouldBe 2
                     }
                     cancelAndIgnoreRemainingEvents()
                 }

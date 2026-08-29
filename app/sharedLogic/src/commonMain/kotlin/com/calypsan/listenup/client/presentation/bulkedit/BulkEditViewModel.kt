@@ -61,6 +61,7 @@ class BulkEditViewModel internal constructor(
             } else {
                 BulkEditUiState.Editing(
                     bookCount = loaded.size,
+                    requestedCount = bookIds.size,
                     edits = current,
                     preview =
                         current.map { edit ->
@@ -175,11 +176,12 @@ class BulkEditViewModel internal constructor(
      * not agree on an order of their own. Sorting makes the selection read the same on phone,
      * desktop, web and iOS, and makes the preview rows stable.
      *
-     * A book that fails to load is **dropped silently**: [BulkEditUiState.Editing.bookCount] then
-     * describes the books actually loaded, not the number the user selected, and Apply touches only
-     * those. That is the honest count for what will happen, but it does mean a selection can quietly
+     * A book that fails to load is dropped, so [BulkEditUiState.Editing.bookCount] describes the
+     * books Apply will actually touch rather than the number the user selected. The selection can
      * shrink between the grid and this screen — a book deleted from another device is the realistic
-     * way it happens.
+     * way — so the count the user chose is kept as
+     * [BulkEditUiState.Editing.requestedCount] and the screen owns up to the difference. An
+     * operation with no undo must not quietly do less than it was asked to.
      */
     private suspend fun loadSelection() {
         books.value = bookIds.mapNotNull { bookRepository.getBookDetail(it) }.sortedBy { it.title }

@@ -16,7 +16,12 @@ sealed interface BulkEditUiState {
     /**
      * The form.
      *
-     * @property bookCount how many books are selected — the number on the Apply button.
+     * @property bookCount how many books were actually loaded — the number Apply will change,
+     *   and the number on the Apply button.
+     * @property requestedCount how many books the user selected. Equal to [bookCount] in the
+     *   normal case; larger when a selected book could not be loaded, which happens when one was
+     *   deleted from another device between the grid and this screen. The screen shows the
+     *   difference rather than quietly editing fewer books than were chosen.
      * @property edits the instructions built so far. Empty means nothing has been touched.
      * @property preview per-instruction counts of books that would actually change.
      * @property isApplying an apply is in flight.
@@ -27,6 +32,7 @@ sealed interface BulkEditUiState {
      */
     data class Editing(
         val bookCount: Int,
+        val requestedCount: Int = bookCount,
         val edits: List<BulkEdit> = emptyList(),
         val preview: List<BulkEditPreviewRow> = emptyList(),
         val isApplying: Boolean = false,
