@@ -10,10 +10,16 @@ import com.calypsan.listenup.core.BookId
 /**
  * Carries out the actions [actionsFor] planned, for one book.
  *
- * Every call here is offline-first: `BookEditRepository` and both facet repositories route through
+ * Every `BookEditRepository` call is offline-first: all eight of its methods route through
  * `OfflineEditor`, which writes the optimistic Room merge and enqueues the outbox row in one
- * transaction. So applying is a **local** operation that completes at disk speed; the server
- * outcome belongs to the sync engine, drained in the background and retried on reconnect.
+ * transaction. So the mutation half is a **local** operation that completes at disk speed; the
+ * server outcome belongs to the sync engine, drained in the background and retried on reconnect.
+ *
+ * Tags and moods are offline-first only when the named tag already exists locally — `TagRepository`
+ * resolves by slug, then by name, and falls back to an online-only path when neither hits, because
+ * minting a new tag's id needs the server. So a bulk edit adding an existing tag applies offline
+ * like everything else, while one naming a brand-new tag needs a connection. That is why the form
+ * offers tags and moods from the existing set rather than free text.
  *
  * This is the only place that knows which repository serves which action, which is what keeps
  * [actionsFor] pure and stops the screen growing a dependency per field.
