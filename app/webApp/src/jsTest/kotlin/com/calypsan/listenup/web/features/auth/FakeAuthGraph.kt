@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.client.presentation.auth.RegisterUiState
@@ -47,6 +48,11 @@ class FakeAuthGraph(
     val setupState = MutableStateFlow<SetupUiState>(SetupUiState.Idle)
     val registerState = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
     val pendingState = MutableStateFlow<PendingApprovalUiState>(PendingApprovalUiState.Waiting)
+    val forgotState = MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.EnterEmail)
+
+    /** The address the most recent reset request was opened for, or null. */
+    var resetRequestedFor: String? = null
+        private set
 
     override suspend fun initialize() {
         initializeCalls++
@@ -98,4 +104,14 @@ class FakeAuthGraph(
         acknowledgeApproval = {},
         close = { closed += "pending" },
     )
+
+    override fun openForgotPassword() =
+        ForgotPasswordSession(
+            state = forgotState,
+            requestReset = { email -> resetRequestedFor = email },
+            completeReset = { _, _ -> },
+            checkStatus = {},
+            retryRequest = {},
+            close = { closed += "forgot" },
+        )
 }

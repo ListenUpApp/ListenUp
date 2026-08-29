@@ -3,6 +3,8 @@ package com.calypsan.listenup.web.features.auth
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
 import com.calypsan.listenup.client.presentation.auth.LoginViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
@@ -49,6 +51,8 @@ interface AuthGraph {
         userId: String,
         email: String,
     ): PendingApprovalSession
+
+    fun openForgotPassword(): ForgotPasswordSession
 }
 
 /**
@@ -79,6 +83,22 @@ class RegisterSession(
     val state: StateFlow<RegisterUiState>,
     val submit: (email: String, password: String, firstName: String, lastName: String) -> Unit,
     val clearError: () -> Unit,
+    val close: () -> Unit,
+)
+
+/**
+ * An open forgot-password screen and the teardown for it. See [LoginSession].
+ *
+ * Four actions rather than one submit, because this flow is a conversation with an admin rather
+ * than a single request: ask, wait (and re-ask, since the status watch is a socket), finish with
+ * their code, and — after a decline — ask a second time without walking back through sign-in.
+ */
+class ForgotPasswordSession(
+    val state: StateFlow<ForgotPasswordUiState>,
+    val requestReset: (email: String) -> Unit,
+    val completeReset: (code: String, newPassword: String) -> Unit,
+    val checkStatus: () -> Unit,
+    val retryRequest: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -151,6 +171,18 @@ fun graphAuth(koin: Koin): AuthGraph =
                 checkStatus = viewModel::checkStatus,
                 cancelRegistration = viewModel::cancelRegistration,
                 acknowledgeApproval = viewModel::acknowledgeApproval,
+                close = viewModel::close,
+            )
+        }
+
+        override fun openForgotPassword(): ForgotPasswordSession {
+            val viewModel = koin.get<ForgotPasswordViewModel>()
+            return ForgotPasswordSession(
+                state = viewModel.state,
+                requestReset = viewModel::requestReset,
+                completeReset = viewModel::completeReset,
+                checkStatus = viewModel::checkStatus,
+                retryRequest = viewModel::retryRequest,
                 close = viewModel::close,
             )
         }

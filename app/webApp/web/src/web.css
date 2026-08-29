@@ -747,6 +747,9 @@ body { margin: 0; }
   display: flex; align-items: center; justify-content: center; gap: 6px;
   margin-top: 6px; font-size: 14.5px; color: var(--ink-2);
 }
+/* A link that belongs to the field above it — right-aligned, and pulled up tight against it
+   so it reads as part of that field rather than as another row of the form. */
+.auth-aside { display: flex; justify-content: flex-end; margin-top: -4px; }
 .auth-err { color: var(--coral); font-size: 14px; font-weight: 600; }
 .auth-boot {
   display: flex; align-items: center; justify-content: center;
