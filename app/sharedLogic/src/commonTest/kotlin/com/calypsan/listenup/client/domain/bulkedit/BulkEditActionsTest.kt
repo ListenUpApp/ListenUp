@@ -379,21 +379,43 @@ class BulkEditActionsTest :
             contributors.map { it.name } shouldContainExactly listOf("Kate Reading")
         }
 
-        test("tags and moods become their own actions, one per slug") {
+        test("tags and moods become their own actions, one per name") {
             val edits =
                 listOf(
-                    BulkEdit.AddTags(listOf("found-family", "grimdark")),
-                    BulkEdit.AddMoods(listOf("bleak")),
+                    BulkEdit.AddTags(listOf("Found Family", "Grimdark")),
+                    BulkEdit.AddMoods(listOf("Bleak")),
                 )
 
             val actions = edits.actionsFor(book())
 
-            actions.filterIsInstance<BulkAction.AddTag>().map { it.slug } shouldContainExactly
-                listOf("found-family", "grimdark")
-            actions.filterIsInstance<BulkAction.AddMood>().map { it.slug } shouldContainExactly listOf("bleak")
+            actions.filterIsInstance<BulkAction.AddTag>().map { it.name } shouldContainExactly
+                listOf("Found Family", "Grimdark")
+            actions.filterIsInstance<BulkAction.AddMood>().map { it.name } shouldContainExactly listOf("Bleak")
         }
 
-        test("a tag the book already carries produces no action") {
+        test("a tag is carried as the display name the user read, not as its slug") {
+            // addTagToBook slugifies server-side. Handing it a slug names any newly-created tag
+            // "found-family" — permanently, for everyone, on every device.
+            val edits = listOf(BulkEdit.AddTags(listOf("  Found Family  ")))
+
+            val tag = edits.actionsFor(book()).filterIsInstance<BulkAction.AddTag>().single()
+            withClue("trimmed so the padding cannot become part of the created tag's name, and never lowercased") {
+                tag.name shouldBe "Found Family"
+            }
+        }
+
+        test("a tag the book already carries under that slug produces no action") {
+            // The book holds "Found Family"/"found-family"; the picker offers the display name. If
+            // the dedupe compared only the slug, the instruction would look new and re-add a tag the
+            // user can already see on the book.
+            val edits = listOf(BulkEdit.AddTags(listOf("Found Family")))
+
+            val existing = listOf(Tag(id = "t1", name = "Found Family", slug = "found-family"))
+
+            edits.actionsFor(book(tags = existing)).shouldBeEmpty()
+        }
+
+        test("a tag named by its slug is still recognised as already carried") {
             val edits = listOf(BulkEdit.AddTags(listOf("found-family")))
 
             val existing = listOf(Tag(id = "t1", name = "Found Family", slug = "found-family"))
@@ -401,33 +423,32 @@ class BulkEditActionsTest :
             edits.actionsFor(book(tags = existing)).shouldBeEmpty()
         }
 
-        test("a mood the book already carries produces no action") {
-            val edits = listOf(BulkEdit.AddMoods(listOf("bleak")))
-
+        test("a mood the book already carries produces no action, by name or by slug") {
             val existing = listOf(Mood(id = "m1", name = "Bleak", slug = "bleak"))
 
-            edits.actionsFor(book(moods = existing)).shouldBeEmpty()
+            listOf(BulkEdit.AddMoods(listOf("Bleak"))).actionsFor(book(moods = existing)).shouldBeEmpty()
+            listOf(BulkEdit.AddMoods(listOf("bleak"))).actionsFor(book(moods = existing)).shouldBeEmpty()
         }
 
-        test("a slug named twice, within or across instructions, becomes one action") {
+        test("a name given twice, within or across instructions, becomes one action") {
             val edits =
                 listOf(
-                    BulkEdit.AddTags(listOf("grimdark", "grimdark")),
-                    BulkEdit.AddTags(listOf("grimdark")),
-                    BulkEdit.AddMoods(listOf("bleak", "bleak")),
-                    BulkEdit.AddMoods(listOf("bleak")),
+                    BulkEdit.AddTags(listOf("Grimdark", "grimdark")),
+                    BulkEdit.AddTags(listOf(" Grimdark ")),
+                    BulkEdit.AddMoods(listOf("Bleak", "bleak")),
+                    BulkEdit.AddMoods(listOf("Bleak")),
                 )
 
             val actions = edits.actionsFor(book())
 
-            actions.filterIsInstance<BulkAction.AddTag>().map { it.slug } shouldContainExactly listOf("grimdark")
-            actions.filterIsInstance<BulkAction.AddMood>().map { it.slug } shouldContainExactly listOf("bleak")
+            actions.filterIsInstance<BulkAction.AddTag>().map { it.name } shouldContainExactly listOf("Grimdark")
+            actions.filterIsInstance<BulkAction.AddMood>().map { it.name } shouldContainExactly listOf("Bleak")
         }
 
         test("an Add instruction with nothing to add is rejected, and names the empty list") {
             shouldThrow<IllegalArgumentException> { BulkEdit.AddTags(emptyList()) }
                 .message
-                .orEmpty() shouldContain "slugs"
+                .orEmpty() shouldContain "names"
             shouldThrow<IllegalArgumentException> { BulkEdit.AddGenres(emptyList()) }
                 .message
                 .orEmpty() shouldContain "genres"

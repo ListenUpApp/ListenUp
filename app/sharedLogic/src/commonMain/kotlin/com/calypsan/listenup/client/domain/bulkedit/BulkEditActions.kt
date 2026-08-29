@@ -37,6 +37,9 @@ internal fun List<BulkEdit>.actionsFor(book: BookDetail): List<BulkAction> =
  * stores them verbatim. Comparing them raw means "Author" against a book already credited "author"
  * survives the dedupe — and since the junction key is `(book, contributor, role)`, that persists a
  * *second* credit for the same person rather than merely wasting a write.
+ *
+ * Tag and mood names use it for the comparison only. Lowercasing is right for deciding sameness and
+ * wrong for the write, because the name is what a reader sees — see [tagActions].
  */
 private fun String.dedupKey() = trim().lowercase()
 
@@ -172,23 +175,31 @@ private fun List<BulkEdit>.genreMutation(book: BookDetail): BookMutation.SetGenr
  * One action per tag the book does not already carry.
  *
  * Unlike genres, `addTagToBook` is inherently additive, so there is no read-merge-write here — the
- * union is free and only the genuinely-new slugs need naming.
+ * union is free and only the genuinely-new names need naming.
+ *
+ * A tag is matched against **both** spellings the book holds — its display name and its slug —
+ * because a picker may hand over either, and matching only one would re-add a tag the book visibly
+ * already has. What is *emitted*, though, is the display name trimmed and never lowercased: the
+ * repository slugifies server-side, so lowercasing here would create `found family` where the user
+ * typed `Found Family`. Same reasoning as the contributor name above.
  */
 private fun List<BulkEdit>.tagActions(book: BookDetail): List<BulkAction.AddTag> {
-    val existing = book.tags.map { it.slug }.toSet()
+    val existing = book.tags.flatMap { listOf(it.name.dedupKey(), it.slug.dedupKey()) }.toSet()
     return filterIsInstance<BulkEdit.AddTags>()
-        .flatMap { it.slugs }
-        .distinct()
-        .filter { it !in existing }
+        .flatMap { it.names }
+        .map { it.trim() }
+        .distinctBy { it.dedupKey() }
+        .filter { it.dedupKey() !in existing }
         .map { BulkAction.AddTag(it) }
 }
 
-/** One action per mood the book does not already carry. Additive, like tags. */
+/** One action per mood the book does not already carry. Additive and name-carrying, like tags. */
 private fun List<BulkEdit>.moodActions(book: BookDetail): List<BulkAction.AddMood> {
-    val existing = book.moods.map { it.slug }.toSet()
+    val existing = book.moods.flatMap { listOf(it.name.dedupKey(), it.slug.dedupKey()) }.toSet()
     return filterIsInstance<BulkEdit.AddMoods>()
-        .flatMap { it.slugs }
-        .distinct()
-        .filter { it !in existing }
+        .flatMap { it.names }
+        .map { it.trim() }
+        .distinctBy { it.dedupKey() }
+        .filter { it.dedupKey() !in existing }
         .map { BulkAction.AddMood(it) }
 }

@@ -51,8 +51,12 @@ internal class BulkEditApplier(
     ): AppResult<Unit> =
         when (action) {
             is BulkAction.Mutate -> applyMutation(bookId, action.mutation)
-            is BulkAction.AddTag -> tagRepository.addTagToBook(bookId.value, action.slug).toUnit()
-            is BulkAction.AddMood -> moodRepository.addMoodToBook(bookId.value, action.slug).toUnit()
+
+            // Both take a display NAME and slugify it server-side; a slug passed here would become
+            // the created tag's or mood's own display name.
+            is BulkAction.AddTag -> tagRepository.addTagToBook(bookId.value, action.name).toUnit()
+
+            is BulkAction.AddMood -> moodRepository.addMoodToBook(bookId.value, action.name).toUnit()
         }
 
     // NOTE ON COALESCING. `OfflineEditor.edit` takes a `coalesce` flag that drops queued ops

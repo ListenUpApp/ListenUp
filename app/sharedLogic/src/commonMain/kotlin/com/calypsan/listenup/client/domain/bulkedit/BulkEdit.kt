@@ -121,21 +121,34 @@ sealed interface BulkEdit {
         }
     }
 
-    /** Adds tags by slug. */
+    /**
+     * Adds tags, keeping the ones already applied.
+     *
+     * [names] are **display names**, not slugs — `TagRepository.addTagToBook` takes the name a reader
+     * sees and slugifies it server-side with `TagSlug.normalize`. That normalisation lives on the
+     * server and appears nowhere in client code, so the client cannot reproduce it and must not try:
+     * handing over a slug works only while a tag matches, and on the find-or-create path it mints a
+     * tag *called* `found-family` instead of `Found Family`, permanently and for everyone.
+     */
     data class AddTags(
-        val slugs: List<String>,
+        val names: List<String>,
     ) : BulkEdit {
         init {
-            requireNotEmpty(slugs, "slugs")
+            requireNotEmpty(names, "names")
         }
     }
 
-    /** Adds moods by slug. */
+    /**
+     * Adds moods, keeping the ones already applied.
+     *
+     * [names] are display names, for the same reason as [AddTags]: `MoodRepository.addMoodToBook`
+     * slugifies server-side, and a slug passed in its place becomes the created mood's display name.
+     */
     data class AddMoods(
-        val slugs: List<String>,
+        val names: List<String>,
     ) : BulkEdit {
         init {
-            requireNotEmpty(slugs, "slugs")
+            requireNotEmpty(names, "names")
         }
     }
 }
@@ -153,8 +166,8 @@ sealed interface BulkEdit {
  * this type's; `BulkEditApplier` is the next reader, pairing each action with its book.
  *
  * One [BulkAction] is exactly one repository call — the unit of failure and retry. That is why
- * `AddTags(slugs)` fans out to one [AddTag] per slug rather than carrying the whole list: a failure
- * partway through a batch must not silently swallow the slugs that came after it.
+ * `AddTags(names)` fans out to one [AddTag] per name rather than carrying the whole list: a failure
+ * partway through a batch must not silently swallow the names that came after it.
  *
  * Internal: produced by the planner and consumed by the applier, both within `:app:sharedLogic`.
  * Only [BulkEdit] crosses into `:app:sharedUI`.
@@ -165,13 +178,18 @@ internal sealed interface BulkAction {
         val mutation: BookMutation,
     ) : BulkAction
 
-    /** Associate a tag, by slug. */
+    /**
+     * Associate a tag, by display name.
+     *
+     * The name, not the slug: `TagRepository.addTagToBook` slugifies server-side, and passing a slug
+     * would name any newly-created tag after its own slug.
+     */
     data class AddTag(
-        val slug: String,
+        val name: String,
     ) : BulkAction
 
-    /** Associate a mood, by slug. */
+    /** Associate a mood, by display name — for the same reason as [AddTag]. */
     data class AddMood(
-        val slug: String,
+        val name: String,
     ) : BulkAction
 }

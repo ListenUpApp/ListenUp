@@ -17,6 +17,8 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode.Companion.exactly
 import dev.mokkery.verifySuspend
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -30,7 +32,15 @@ import kotlinx.coroutines.test.runTest
 class BulkEditApplierTest :
     FunSpec({
 
-        fun rig(): Triple<BulkEditApplier, BookEditRepository, TagRepository> {
+        /** The applier and the three repositories it dispatches to, each stubbed to succeed. */
+        data class Rig(
+            val applier: BulkEditApplier,
+            val books: BookEditRepository,
+            val tags: TagRepository,
+            val moods: MoodRepository,
+        )
+
+        fun rig(): Rig {
             val books = mock<BookEditRepository>(MockMode.autoUnit)
             everySuspend { books.updateBook(any(), any()) } returns AppResult.Success(Unit)
 
@@ -42,38 +52,62 @@ class BulkEditApplierTest :
             everySuspend { moods.addMoodToBook(any(), any()) } returns
                 AppResult.Success(Mood(id = "m1", name = "Bleak", slug = "bleak"))
 
-            return Triple(BulkEditApplier(books, tags, moods), books, tags)
+            return Rig(BulkEditApplier(books, tags, moods), books, tags, moods)
         }
 
         test("a Mutate action reaches the book edit repository") {
-            val (applier, books, _) = rig()
+            val rig = rig()
             runTest {
                 val action = BulkAction.Mutate(BookMutation.Update(BookUpdate(publisher = "Tor")))
 
-                applier.apply(BookId("b1"), listOf(action)) shouldBe AppResult.Success(Unit)
+                rig.applier.apply(BookId("b1"), listOf(action)) shouldBe AppResult.Success(Unit)
 
-                verifySuspend(exactly(1)) { books.updateBook(BookId("b1"), BookUpdate(publisher = "Tor")) }
+                verifySuspend(exactly(1)) { rig.books.updateBook(BookId("b1"), BookUpdate(publisher = "Tor")) }
             }
         }
 
-        test("a tag action reaches the tag repository by slug") {
-            val (applier, _, tags) = rig()
+        test("a tag action reaches the tag repository by display name") {
+            val rig = rig()
             runTest {
-                applier.apply(BookId("b1"), listOf(BulkAction.AddTag("found-family")))
+                rig.applier.apply(BookId("b1"), listOf(BulkAction.AddTag("Found Family")))
 
-                verifySuspend(exactly(1)) { tags.addTagToBook("b1", "found-family") }
+                withClue("addTagToBook slugifies; a slug passed here would name the created tag") {
+                    verifySuspend(exactly(1)) { rig.tags.addTagToBook("b1", "Found Family") }
+                }
+            }
+        }
+
+        test("a mood action reaches the mood repository by display name") {
+            val rig = rig()
+            runTest {
+                rig.applier.apply(BookId("b1"), listOf(BulkAction.AddMood("Bleak"))) shouldBe
+                    AppResult.Success(Unit)
+
+                verifySuspend(exactly(1)) { rig.moods.addMoodToBook("b1", "Bleak") }
+            }
+        }
+
+        test("a mutation a bulk edit cannot express is refused loudly, not silently ignored") {
+            // actionsFor never plans one. If a ninth BookMutation ever reaches here, failing is the
+            // only honest answer — quietly doing nothing would report a bulk edit as applied.
+            val rig = rig()
+            runTest {
+                shouldThrow<IllegalStateException> {
+                    rig.applier.apply(BookId("b1"), listOf(BulkAction.Mutate(BookMutation.DeleteCover)))
+                }
             }
         }
 
         test("applying nothing touches no repository") {
             // A book the instructions already satisfy must cost nothing at all — no call, no outbox
             // row, no sync frame.
-            val (applier, books, tags) = rig()
+            val rig = rig()
             runTest {
-                applier.apply(BookId("b1"), emptyList()) shouldBe AppResult.Success(Unit)
+                rig.applier.apply(BookId("b1"), emptyList()) shouldBe AppResult.Success(Unit)
 
-                verifySuspend(exactly(0)) { books.updateBook(any(), any()) }
-                verifySuspend(exactly(0)) { tags.addTagToBook(any(), any()) }
+                verifySuspend(exactly(0)) { rig.books.updateBook(any(), any()) }
+                verifySuspend(exactly(0)) { rig.tags.addTagToBook(any(), any()) }
+                verifySuspend(exactly(0)) { rig.moods.addMoodToBook(any(), any()) }
             }
         }
 
@@ -92,7 +126,7 @@ class BulkEditApplierTest :
                         BookId("b1"),
                         listOf(
                             BulkAction.Mutate(BookMutation.Update(BookUpdate(publisher = "Tor"))),
-                            BulkAction.AddTag("found-family"),
+                            BulkAction.AddTag("Found Family"),
                         ),
                     )
 
