@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
@@ -108,6 +109,7 @@ fun main() {
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
                 observeThemeMode = { koin.get<LocalPreferences>().themeMode },
                 initialInviteCode = inviteCode,
+                observeErrors = { koin.get<ErrorBus>().errors },
             )
         }
     }

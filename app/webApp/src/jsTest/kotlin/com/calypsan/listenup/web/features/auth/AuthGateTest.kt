@@ -14,6 +14,9 @@ import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
@@ -26,6 +29,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
@@ -56,6 +61,7 @@ private fun mountGate(
     graph: FakeAuthGraph,
     themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
     inviteCode: String? = null,
+    errors: Flow<AppError> = emptyFlow(),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -81,6 +87,7 @@ private fun mountGate(
             observeIsAdmin = { flowOf(false) },
             observeThemeMode = { themeMode },
             initialInviteCode = inviteCode,
+            observeErrors = { errors },
         )
     }
     return host
@@ -327,6 +334,43 @@ class AuthGateTest :
             awaitFrame()
 
             graph.refreshOpenRegistrationCalls shouldBe 1
+        }
+
+        test("an error emitted anywhere reaches the reader") {
+            // The link nothing else covers, and the reason this exists at all: 96 `errorBus.emit`
+            // calls across the shared ViewModels fed a bus that NOTHING on web subscribed to, so
+            // every failure the shared layer reported was silent in a browser. ToastQueue is
+            // proved on its own and the sheet styles `.toast`; only this proves they are joined.
+            val errors = MutableSharedFlow<AppError>(extraBufferCapacity = 4)
+            val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()), errors = errors)
+            awaitFrame()
+
+            errors.tryEmit(TransportError.NetworkUnavailable())
+            awaitFrame()
+
+            (host.querySelector(".toast") as HTMLElement)
+                .textContent
+                .orEmpty() shouldContain "No internet connection."
+        }
+
+        test("errors reach the reader on the signed-out screens too") {
+            // Where it matters most: someone who cannot sign in is driven by shared ViewModels
+            // that report through the same bus, and a toast layer living inside the shell would
+            // drop exactly those.
+            val errors = MutableSharedFlow<AppError>(extraBufferCapacity = 4)
+            val host =
+                mountGate(
+                    FakeAuthGraph(AuthState.PendingApproval(UserId("u1"), "ada@example.com")),
+                    errors = errors,
+                )
+            awaitFrame()
+
+            errors.tryEmit(AuthError.RateLimited(retryAfterSeconds = 30))
+            awaitFrame()
+
+            (host.querySelector(".toast") as HTMLElement)
+                .textContent
+                .orEmpty() shouldContain "Try again in 30s."
         }
 
         test("a closed screen tears its ViewModel down") {
