@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookSeries
@@ -15,11 +16,13 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
@@ -74,6 +77,26 @@ class BulkEditActionsTest :
             val edits = listOf(BulkEdit.SetPublisher("Tor"))
 
             edits.actionsFor(book(publisher = "Tor")).shouldBeEmpty()
+        }
+
+        test("a scalar that differs only in surrounding space is not a change") {
+            listOf(BulkEdit.SetPublisher(" Tor ")).actionsFor(book(publisher = "Tor")).shouldBeEmpty()
+        }
+
+        test("the last Set instruction wins") {
+            val edits = listOf(BulkEdit.SetPublisher("Gollancz"), BulkEdit.SetPublisher("Tor"))
+
+            val update =
+                edits
+                    .actionsFor(book())
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.Update>()
+                    .patch
+            withClue("a later instruction is the user correcting an earlier one") {
+                update.publisher shouldBe "Tor"
+            }
         }
 
         test("scalars merge into a single Update rather than three") {
@@ -136,8 +159,29 @@ class BulkEditActionsTest :
             edits.actionsFor(book(genres = listOf(genre("epic-fantasy")))).shouldBeEmpty()
         }
 
+        test("a genre named twice across instructions is added once") {
+            val edits =
+                listOf(
+                    BulkEdit.AddGenres(listOf(BookGenreInput(genreId = GenreId("grimdark")))),
+                    BulkEdit.AddGenres(listOf(BookGenreInput(genreId = GenreId("grimdark")))),
+                )
+
+            val genres =
+                edits
+                    .actionsFor(book())
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.SetGenres>()
+                    .genres
+            genres.map { it.genreId.value } shouldContainExactly listOf("grimdark")
+        }
+
         test("adding a series unions, and leaves sequence unset") {
-            val edits = listOf(BulkEdit.AddToSeries(BookSeriesInput(id = null, name = "Stormlight")))
+            // The instruction carries a position on purpose: the planner must drop it, or forty
+            // selected books all become "Book 1".
+            val edits =
+                listOf(BulkEdit.AddToSeries(BookSeriesInput(id = null, name = "Stormlight", position = 1.0)))
 
             val actions =
                 edits.actionsFor(
@@ -166,6 +210,32 @@ class BulkEditActionsTest :
             val existing = listOf(BookSeries(seriesId = "s1", seriesName = "Cosmere", sequence = 3.0))
 
             edits.actionsFor(book(series = existing)).shouldBeEmpty()
+        }
+
+        test("a series the book is already in, differing only in case, produces no action") {
+            val edits = listOf(BulkEdit.AddToSeries(BookSeriesInput(id = null, name = " cosmere ")))
+
+            val existing = listOf(BookSeries(seriesId = "s1", seriesName = "Cosmere", sequence = 3.0))
+
+            edits.actionsFor(book(series = existing)).shouldBeEmpty()
+        }
+
+        test("a series named twice across instructions is added once, first spelling winning") {
+            val edits =
+                listOf(
+                    BulkEdit.AddToSeries(BookSeriesInput(id = null, name = "Stormlight")),
+                    BulkEdit.AddToSeries(BookSeriesInput(id = null, name = "Stormlight")),
+                )
+
+            val series =
+                edits
+                    .actionsFor(book())
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.SetSeries>()
+                    .series
+            series.map { it.name } shouldContainExactly listOf("Stormlight")
         }
 
         test("adding contributors keeps existing credits and renumbers positions") {
@@ -215,6 +285,100 @@ class BulkEditActionsTest :
             edits.actionsFor(book(contributors = existing)).shouldBeEmpty()
         }
 
+        test("a credit that differs only in case or spacing produces no action") {
+            // The junction key is (book, contributor, role) and roles are stored verbatim, so an
+            // exact-match dedupe would persist a *second* credit for the same person.
+            val edits =
+                listOf(
+                    BulkEdit.AddContributors(
+                        listOf(
+                            BookContributorInput(
+                                id = null,
+                                name = " Brandon Sanderson ",
+                                role = "Author",
+                                position = 0,
+                            ),
+                        ),
+                    ),
+                )
+
+            val existing =
+                listOf(BookContributor(id = "c1", name = "Brandon Sanderson", roles = listOf("author")))
+
+            edits.actionsFor(book(contributors = existing)).shouldBeEmpty()
+        }
+
+        test("the same person in a different role is a genuinely new credit") {
+            val edits =
+                listOf(
+                    BulkEdit.AddContributors(
+                        listOf(
+                            BookContributorInput(
+                                id = null,
+                                name = "Brandon Sanderson",
+                                role = "narrator",
+                                position = 0,
+                            ),
+                        ),
+                    ),
+                )
+
+            val existing =
+                listOf(BookContributor(id = "c1", name = "Brandon Sanderson", roles = listOf("author")))
+
+            val contributors =
+                edits
+                    .actionsFor(book(contributors = existing))
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.SetContributors>()
+                    .contributors
+            withClue("the role is half the key — an author is not already a narrator") {
+                contributors.map { it.role } shouldContainExactly listOf("author", "narrator")
+            }
+        }
+
+        test("a new credit is emitted with the canonical lowercase role") {
+            val edits =
+                listOf(
+                    BulkEdit.AddContributors(
+                        listOf(BookContributorInput(id = null, name = "Kate Reading", role = " Narrator ", position = 0)),
+                    ),
+                )
+
+            val contributors =
+                edits
+                    .actionsFor(book())
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.SetContributors>()
+                    .contributors
+            withClue("the single-book path writes ContributorRole.apiValue; bulk must agree") {
+                contributors.single().role shouldBe "narrator"
+            }
+        }
+
+        test("a contributor named twice across instructions is credited once") {
+            val kate = BookContributorInput(id = null, name = "Kate Reading", role = "narrator", position = 0)
+            val edits =
+                listOf(
+                    BulkEdit.AddContributors(listOf(kate, kate)),
+                    BulkEdit.AddContributors(listOf(kate)),
+                )
+
+            val contributors =
+                edits
+                    .actionsFor(book())
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.SetContributors>()
+                    .contributors
+            contributors.map { it.name } shouldContainExactly listOf("Kate Reading")
+        }
+
         test("tags and moods become their own actions, one per slug") {
             val edits =
                 listOf(
@@ -235,5 +399,60 @@ class BulkEditActionsTest :
             val existing = listOf(Tag(id = "t1", name = "Found Family", slug = "found-family"))
 
             edits.actionsFor(book(tags = existing)).shouldBeEmpty()
+        }
+
+        test("a mood the book already carries produces no action") {
+            val edits = listOf(BulkEdit.AddMoods(listOf("bleak")))
+
+            val existing = listOf(Mood(id = "m1", name = "Bleak", slug = "bleak"))
+
+            edits.actionsFor(book(moods = existing)).shouldBeEmpty()
+        }
+
+        test("a slug named twice, within or across instructions, becomes one action") {
+            val edits =
+                listOf(
+                    BulkEdit.AddTags(listOf("grimdark", "grimdark")),
+                    BulkEdit.AddTags(listOf("grimdark")),
+                    BulkEdit.AddMoods(listOf("bleak", "bleak")),
+                    BulkEdit.AddMoods(listOf("bleak")),
+                )
+
+            val actions = edits.actionsFor(book())
+
+            actions.filterIsInstance<BulkAction.AddTag>().map { it.slug } shouldContainExactly listOf("grimdark")
+            actions.filterIsInstance<BulkAction.AddMood>().map { it.slug } shouldContainExactly listOf("bleak")
+        }
+
+        test("an Add instruction with nothing to add is rejected, and names the empty list") {
+            shouldThrow<IllegalArgumentException> { BulkEdit.AddTags(emptyList()) }
+                .message
+                .orEmpty() shouldContain "slugs"
+            shouldThrow<IllegalArgumentException> { BulkEdit.AddGenres(emptyList()) }
+                .message
+                .orEmpty() shouldContain "genres"
+            shouldThrow<IllegalArgumentException> { BulkEdit.AddContributors(emptyList()) }
+                .message
+                .orEmpty() shouldContain "contributors"
+        }
+
+        test("a year outside the supported range is rejected where it is written, not where it lands") {
+            shouldThrow<IllegalArgumentException> { BulkEdit.SetPublishYear(BookUpdate.MAX_YEAR + 1) }
+            shouldThrow<IllegalArgumentException> { BulkEdit.SetPublishYear(BookUpdate.MIN_YEAR - 1) }
+        }
+
+        test("a blank scalar is rejected — clearing a field has no expression in this pass") {
+            shouldThrow<IllegalArgumentException> { BulkEdit.SetPublisher("") }
+            shouldThrow<IllegalArgumentException> { BulkEdit.SetPublisher("   ") }
+            shouldThrow<IllegalArgumentException> { BulkEdit.SetLanguage("") }
+        }
+
+        test("an over-long scalar is rejected, so planning cannot throw mid-preview") {
+            shouldThrow<IllegalArgumentException> {
+                BulkEdit.SetPublisher("x".repeat(BookUpdate.MAX_PUBLISHER + 1))
+            }
+            shouldThrow<IllegalArgumentException> {
+                BulkEdit.SetLanguage("x".repeat(BookUpdate.MAX_LANGUAGE + 1))
+            }
         }
     })

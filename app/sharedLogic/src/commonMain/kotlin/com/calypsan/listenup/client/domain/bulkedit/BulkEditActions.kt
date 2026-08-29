@@ -31,18 +31,43 @@ internal fun List<BulkEdit>.actionsFor(book: BookDetail): List<BulkAction> =
     }
 
 /**
+ * The form a name is compared in, never the form it is stored in.
+ *
+ * Series names and contributor roles are free text on both sides of the comparison, and the server
+ * stores them verbatim. Comparing them raw means "Author" against a book already credited "author"
+ * survives the dedupe — and since the junction key is `(book, contributor, role)`, that persists a
+ * *second* credit for the same person rather than merely wasting a write.
+ */
+private fun String.dedupKey() = trim().lowercase()
+
+/** A credit's identity: who, in what capacity. Both halves matter — an author is not a narrator. */
+private fun BookContributorInput.key() = name.dedupKey() to role.dedupKey()
+
+/**
  * Publisher, year and language folded into one patch.
  *
  * Merged rather than emitted separately because all three land in the same [BookMutation.Update] —
  * three instructions would otherwise become three outbox rows for one logical edit. Each field is
  * included only when it actually differs, so restating a value the book already has cannot count as
- * a change.
+ * a change. Text is trimmed before both the comparison and the write, so surrounding space the user
+ * never sees cannot make a no-op look like an edit.
+ *
+ * `lastOrNull` is the tie-break: a second `Set*` for the same field is the user correcting the first.
  */
 private fun List<BulkEdit>.scalarUpdate(book: BookDetail): BookMutation.Update? {
     val publisher =
-        filterIsInstance<BulkEdit.SetPublisher>().lastOrNull()?.publisher?.takeIf { it != book.publisher }
+        filterIsInstance<BulkEdit.SetPublisher>()
+            .lastOrNull()
+            ?.publisher
+            ?.trim()
+            ?.takeIf { it != book.publisher }
     val year = filterIsInstance<BulkEdit.SetPublishYear>().lastOrNull()?.year?.takeIf { it != book.publishYear }
-    val language = filterIsInstance<BulkEdit.SetLanguage>().lastOrNull()?.language?.takeIf { it != book.language }
+    val language =
+        filterIsInstance<BulkEdit.SetLanguage>()
+            .lastOrNull()
+            ?.language
+            ?.trim()
+            ?.takeIf { it != book.language }
 
     if (publisher == null && year == null && language == null) return null
     return BookMutation.Update(
@@ -55,14 +80,24 @@ private fun List<BulkEdit>.scalarUpdate(book: BookDetail): BookMutation.Update? 
  *
  * `SetSeries` is a replace-set, so the union has to be built by hand: existing memberships are
  * converted back to inputs — keeping their positions — and only genuinely new names are appended.
- * Matching is by name because a series the user picked may not carry an id yet.
+ * Matching is by [dedupKey] because a series the user picked may not carry an id yet, and because a
+ * difference of case or stray space is the same series to a reader.
+ *
+ * New memberships are emitted with no position at all: sequence is per-book, and one number across
+ * forty books would make them all "Book 1". That normalisation is also what makes the first-wins
+ * `distinctBy` harmless — two instructions naming the same series can no longer differ in anything
+ * that survives.
  */
 private fun List<BulkEdit>.seriesMutation(book: BookDetail): BookMutation.SetSeries? {
     val additions = filterIsInstance<BulkEdit.AddToSeries>().map { it.series }
     if (additions.isEmpty()) return null
 
-    val existingNames = book.series.map { it.seriesName }.toSet()
-    val new = additions.filter { it.name !in existingNames }.distinctBy { it.name }
+    val existingNames = book.series.map { it.seriesName.dedupKey() }.toSet()
+    val new =
+        additions
+            .filter { it.name.dedupKey() !in existingNames }
+            .distinctBy { it.name.dedupKey() }
+            .map { it.copy(position = null) }
     if (new.isEmpty()) return null
 
     val existing =
@@ -79,13 +114,24 @@ private fun List<BulkEdit>.seriesMutation(book: BookDetail): BookMutation.SetSer
  * holds one row per contributor with a list of roles — so existing credits are flattened before the
  * new ones are appended. Positions are reassigned across the whole list because they must be
  * contiguous from zero for the server's ordering to be right.
+ *
+ * A genuinely-new credit is written with its role canonicalised to the lowercase token the
+ * single-book path emits, so the two never disagree about the junction key. Existing credits are
+ * re-emitted exactly as the book already holds them: this planner's job is to add, and rewriting a
+ * role the library already stores — including one no [com.calypsan.listenup.api.dto.ContributorRole]
+ * recognises — would be a removal wearing an addition's clothes.
  */
 private fun List<BulkEdit>.contributorMutation(book: BookDetail): BookMutation.SetContributors? {
     val additions = filterIsInstance<BulkEdit.AddContributors>().flatMap { it.contributors }
     if (additions.isEmpty()) return null
 
-    val existingPairs = book.allContributors.flatMap { c -> c.roles.map { role -> c.name to role } }.toSet()
-    val new = additions.filterNot { Pair(it.name, it.role) in existingPairs }.distinctBy { it.name to it.role }
+    val existingKeys =
+        book.allContributors.flatMap { c -> c.roles.map { role -> c.name.dedupKey() to role.dedupKey() } }.toSet()
+    val new =
+        additions
+            .filterNot { it.key() in existingKeys }
+            .distinctBy { it.key() }
+            .map { it.copy(role = it.role.dedupKey()) }
     if (new.isEmpty()) return null
 
     val existing =
