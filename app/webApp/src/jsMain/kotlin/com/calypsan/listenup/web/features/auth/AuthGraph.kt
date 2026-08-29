@@ -13,6 +13,8 @@ import com.calypsan.listenup.client.presentation.auth.RegisterUiState
 import com.calypsan.listenup.client.presentation.auth.RegisterViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
+import com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState
+import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
@@ -53,6 +55,8 @@ interface AuthGraph {
     ): PendingApprovalSession
 
     fun openForgotPassword(): ForgotPasswordSession
+
+    fun openClaimInvite(): ClaimInviteSession
 }
 
 /**
@@ -99,6 +103,20 @@ class ForgotPasswordSession(
     val completeReset: (code: String, newPassword: String) -> Unit,
     val checkStatus: () -> Unit,
     val retryRequest: () -> Unit,
+    val close: () -> Unit,
+)
+
+/**
+ * An open invite-claim screen and the teardown for it. See [LoginSession].
+ *
+ * Two actions, not three: the native clients also drive `start(serverUrl, code, remoteUrl)` for a
+ * tapped Universal Link, and web never can — see [ClaimInvitePanel] for why a browser already
+ * knows its server. Leaving it off the seam means a web screen cannot reach for it by accident.
+ */
+class ClaimInviteSession(
+    val state: StateFlow<ClaimInviteUiState>,
+    val lookUp: (code: String) -> Unit,
+    val claim: (password: String, firstName: String, lastName: String) -> Unit,
     val close: () -> Unit,
 )
 
@@ -183,6 +201,16 @@ fun graphAuth(koin: Koin): AuthGraph =
                 completeReset = viewModel::completeReset,
                 checkStatus = viewModel::checkStatus,
                 retryRequest = viewModel::retryRequest,
+                close = viewModel::close,
+            )
+        }
+
+        override fun openClaimInvite(): ClaimInviteSession {
+            val viewModel = koin.get<ClaimInviteViewModel>()
+            return ClaimInviteSession(
+                state = viewModel.state,
+                lookUp = viewModel::onCodeEntered,
+                claim = viewModel::onClaimSubmit,
                 close = viewModel::close,
             )
         }

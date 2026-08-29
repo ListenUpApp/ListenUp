@@ -50,7 +50,10 @@ import com.calypsan.listenup.client.presentation.auth.SetupUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.web.features.auth.AuthLayout
+import com.calypsan.listenup.web.features.auth.ClaimInvitePanel
 import com.calypsan.listenup.web.features.auth.ForgotPasswordPanel
+import com.calypsan.listenup.web.features.auth.invitePreview
+import com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState
 import com.calypsan.listenup.web.features.auth.LoginForm
 import com.calypsan.listenup.web.features.auth.PendingApprovalPanel
 import com.calypsan.listenup.web.features.auth.RegisterForm
@@ -577,6 +580,7 @@ class ClassContractTest :
                                 onSubmit = { _, _ -> },
                                 onRegister = {},
                                 onForgotPassword = {},
+                                onClaimInvite = {},
                             )
                         }
                         AuthLayout(title = "Create admin account") {
@@ -635,6 +639,23 @@ class ClassContractTest :
                                     onCompleteReset = { _, _ -> },
                                     onCheckStatus = {},
                                     onRetryRequest = {},
+                                    onBackToSignIn = {},
+                                )
+                            }
+                        }
+                        listOf(
+                            ClaimInviteUiState.Idle,
+                            ClaimInviteUiState.Preview(invitePreview()),
+                            ClaimInviteUiState.Preview(invitePreview(valid = false)),
+                            ClaimInviteUiState.Submitting,
+                            ClaimInviteUiState.Claimed,
+                            ClaimInviteUiState.Error("That code does not exist."),
+                        ).forEach { inviteState ->
+                            AuthLayout(title = "Join a library") {
+                                ClaimInvitePanel(
+                                    state = inviteState,
+                                    onCodeEntered = {},
+                                    onClaim = { _, _, _ -> },
                                     onBackToSignIn = {},
                                 )
                             }

@@ -747,6 +747,16 @@ body { margin: 0; }
   display: flex; align-items: center; justify-content: center; gap: 6px;
   margin-top: 6px; font-size: 14.5px; color: var(--ink-2);
 }
+/* The invite card: who invited you, where, and as whom. Sits inside `.auth-fields`, so it is a
+   panel rather than a page section — surface, hairline, and the same radius the fields use. */
+.inv-card {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 13px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+}
+.inv-lead { margin: 0; font-size: 14.5px; color: var(--ink); line-height: 1.5; text-wrap: pretty; }
+.inv-who { font-weight: 800; }
+.inv-mail { margin: 0; font-size: 13px; color: var(--ink-2); }
+
 /* A link that belongs to the field above it — right-aligned, and pulled up tight against it
    so it reads as part of that field rather than as another row of the form. */
 .auth-aside { display: flex; justify-content: flex-end; margin-top: -4px; }

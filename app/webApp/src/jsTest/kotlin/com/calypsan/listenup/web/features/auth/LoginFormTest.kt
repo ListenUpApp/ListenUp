@@ -9,6 +9,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
@@ -49,6 +50,7 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = { forgotClicks++ },
+                        onClaimInvite = {},
                     )
                 }
 
@@ -67,10 +69,32 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
             host.querySelector(".auth-aside .lnk") shouldNotBe null
+        }
+
+        test("an invite is offered even on a server that takes no new accounts") {
+            // That is exactly when it matters most: with open registration off, an invite is the
+            // ONLY way in, so hiding the link there strands an invited reader holding a code.
+            var claims = 0
+            val host =
+                mount {
+                    LoginForm(
+                        state = LoginUiState.Idle,
+                        openRegistration = false,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = {},
+                        onClaimInvite = { claims++ },
+                    )
+                }
+
+            host.linkNamed("Redeem it").click()
+
+            claims shouldBe 1
         }
 
         test("submitting forwards exactly what was typed") {
@@ -83,6 +107,7 @@ class LoginFormTest :
                         onSubmit = { email, password -> submitted = email to password },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
@@ -104,6 +129,7 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
@@ -119,6 +145,7 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
@@ -134,6 +161,7 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
@@ -151,6 +179,7 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
             val closed =
@@ -161,13 +190,15 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
-            // Scoped to the footer row: recovery lives in `.auth-aside` and is offered whatever
-            // the server says about new accounts, so a bare `.lnk` count would conflate the two.
-            open.querySelectorAll(".auth-alt .lnk").length shouldBe 1
-            closed.querySelectorAll(".auth-alt .lnk").length shouldBe 0
+            // Named rather than counted. The footer also carries the invite redeem link, and
+            // `.auth-aside` carries recovery — both offered whatever the server says about new
+            // accounts, so a link COUNT answers a different question than this test is asking.
+            open.textContent.orEmpty() shouldContain "Create account"
+            closed.textContent.orEmpty() shouldNotContain "Create account"
         }
 
         test("the create-account link reports the intent") {
@@ -180,11 +211,25 @@ class LoginFormTest :
                         onSubmit = { _, _ -> },
                         onRegister = { registerClicks++ },
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
-            (host.querySelector(".auth-alt .lnk") as HTMLElement).click()
+            host.linkNamed("Create account").click()
 
             registerClicks shouldBe 1
         }
     })
+
+/**
+ * The link with exactly this text. Sign-in carries three now, so a positional selector picks the
+ * wrong one silently.
+ */
+private fun HTMLElement.linkNamed(text: String): HTMLElement {
+    val links = querySelectorAll(".lnk")
+    for (i in 0 until links.length) {
+        val link = links.item(i) as? HTMLElement ?: continue
+        if (link.textContent?.trim() == text) return link
+    }
+    error("no link named \"$text\"")
+}

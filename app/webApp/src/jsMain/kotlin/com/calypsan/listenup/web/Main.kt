@@ -26,6 +26,7 @@ import com.calypsan.listenup.web.features.shelf.graphShelfDetail
 import com.calypsan.listenup.web.features.shelf.graphShelfEdit
 import com.calypsan.listenup.web.features.search.graphSearch
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
+import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -76,6 +77,15 @@ fun main() {
         koin.get<LocalPreferences>().initializeLocalPreferences()
         connectSyncWhenAuthenticated(koin, this)
 
+        // Read and strip BEFORE the router is built, so it never sees the code: the router
+        // reads `window.location` in its constructor, and an entry it captured with the code in
+        // it would be restored by the Back button after we had gone to the trouble of removing it.
+        val (inviteCode, withoutInvite) =
+            takeInviteCode(Route.parse(window.location.pathname + window.location.search))
+        if (inviteCode != null) {
+            window.history.replaceState(null, "", withoutInvite.toUrl())
+        }
+
         val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
         renderComposable(root = mount) {
             AuthGate(
@@ -97,6 +107,7 @@ fun main() {
                 openPlayback = graphPlayback(koin),
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
                 observeThemeMode = { koin.get<LocalPreferences>().themeMode },
+                initialInviteCode = inviteCode,
             )
         }
     }

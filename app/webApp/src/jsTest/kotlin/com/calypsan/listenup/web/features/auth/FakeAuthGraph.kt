@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.presentation.auth.LoginUiState
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.client.presentation.auth.RegisterUiState
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
+import com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -53,6 +54,11 @@ class FakeAuthGraph(
     /** The address the most recent reset request was opened for, or null. */
     var resetRequestedFor: String? = null
         private set
+
+    val inviteState = MutableStateFlow<ClaimInviteUiState>(ClaimInviteUiState.Idle)
+
+    /** Every invite code looked up, in order — so a spec can prove one lookup, not merely some. */
+    val invitesLookedUp = mutableListOf<String>()
 
     override suspend fun initialize() {
         initializeCalls++
@@ -113,5 +119,13 @@ class FakeAuthGraph(
             checkStatus = {},
             retryRequest = {},
             close = { closed += "forgot" },
+        )
+
+    override fun openClaimInvite() =
+        ClaimInviteSession(
+            state = inviteState,
+            lookUp = { code -> invitesLookedUp += code },
+            claim = { _, _, _ -> },
+            close = { closed += "invite" },
         )
 }
