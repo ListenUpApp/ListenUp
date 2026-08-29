@@ -165,6 +165,84 @@ body { margin: 0; }
 .dir-b .btn-ghost { border-radius: 9px; background: transparent; }
 .dir-b .btn-ghost:hover { background: var(--surface-2); }
 
+/* ============================================================
+   PRESS — what happens when you actually touch the thing
+   ============================================================
+   `web.css` had 58 `:hover` rules and exactly one `:active` rule. On a pointer that is a
+   shortfall; on a touchscreen there is no hover at all, so a tablet reader got no acknowledgement
+   from any card, row, tab, nav item or chip — the tap either did something or the app looked
+   broken. `PressContractTest` now fails the build if a hover treatment is added without one.
+
+   One idea — the thing settles under your finger — in three expressions, because one geometry
+   does not fit every shape:
+
+     · CONTROLS settle 1px, which is the vocabulary `.btn:active` already established.
+     · CARDS scale to .985, the same figure `lib-card-in` uses to arrive.
+     · ROWS deepen instead. A `<tr>` cannot be transformed reliably (the spec leaves transforms on
+       table rows largely undefined, and browsers disagree), so rows say it in colour.
+
+   No transition is declared here on purpose. Press feedback wants to be instantaneous in both
+   directions; an eased release is a nicety `.btn` happens to carry and the rest do not need.
+   That also keeps this out of `prefers-reduced-motion`'s way — an untransitioned 1px offset is a
+   position, not an animation. */
+
+/* Controls — buttons, icon buttons, chips, tabs, nav items. */
+.btn-ghost:active,
+.dir-b .btn-ghost:active,
+.btn-c:active,
+.btn-o:active,
+.btn-sq:active,
+.btn-d:active,
+.iconbtn:active,
+.f-eye:active,
+.pill:active,
+.facet:active,
+.tab:active,
+.nav-i:active,
+.tport-b:active,
+.tport-skip:active,
+.tport-speed:active,
+.tport-note-x:active,
+.bulk-b:active,
+.bulk-x:active,
+.toast .t-act:active,
+.toast .t-x:active,
+.rel-x:active,
+.rel-add-role:active,
+.rel-drop:active,
+.chmap i:active,
+.cover-pick:active,
+.tbl th.can:active,
+.luw .home-search:active,
+.luw .disc-chip:active,
+.luw .shelf-grip:active,
+.luw .shelf-book-x:active,
+.luw .shelf-notice-x:active { transform: translateY(1px); }
+
+/* Cards and tiles — big targets where 1px would be invisible. */
+.luw .home-card:active,
+.luw .disc-card:active,
+.luw .home-shelf:active,
+.luw .disc-shelf:active,
+.luw .disc-listener:active,
+.luw .shelf-book-open:active { transform: scale(0.985); }
+
+/* Rows — colour, not geometry. See the note about `<tr>` above; the others join them so a list
+   of rows presses the same way whether it happens to be a table or a stack of divs. */
+.tbl tbody tr:not(.sel):active,
+.menu-i:active,
+.rel-result:active,
+.contrib-row:active,
+.search-row:not(.is-static):active,
+.folder-row:active,
+.luw .disc-feed-row.is-open:active { background: var(--surface-3); }
+
+/* The library card is the one place a press has something to undo rather than add: the cover is
+   already lifted 3px by hover, so pressing sets it back down. Same rule as the hover treatment it
+   answers — transform only, never a property that participates in layout, because the grid is
+   virtualised on every card being exactly the same height. */
+.lib-card:active .lib-cover { transform: translateY(0); box-shadow: none; }
+
 /* ---- links ---- */
 .lnk {
   color: var(--coral); font-weight: 600; cursor: pointer; text-decoration: none;
