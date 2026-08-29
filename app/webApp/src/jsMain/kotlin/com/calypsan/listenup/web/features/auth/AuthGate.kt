@@ -19,7 +19,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.web.WebAppRoot
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.web.design.ToastHost
+import com.calypsan.listenup.web.design.ToastQueue
+import com.calypsan.listenup.web.design.ToastTone
 import com.calypsan.listenup.web.design.WebAppSurface
+import com.calypsan.listenup.web.design.toastText
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
@@ -72,6 +77,7 @@ fun AuthGate(
     observeIsAdmin: () -> Flow<Boolean>,
     observeThemeMode: () -> Flow<ThemeMode>,
     initialInviteCode: String? = null,
+    observeErrors: () -> Flow<AppError>,
 ) {
     val scope = rememberCoroutineScope()
     val authState by authGraph.authState.collectAsState()
@@ -80,6 +86,15 @@ fun AuthGate(
     // Above the auth branch, not inside the shell: someone who prefers dark should get it on the
     // sign-in screen too, and a theme that only arrives after login is a flash of the wrong one.
     ThemeEffect(observeThemeMode)
+
+    // Same reasoning, and the same level: a failed sign-in, a rate limit, a server that cannot be
+    // reached — those are all emitted by shared ViewModels the signed-out screens drive, so a
+    // toast layer that only existed inside the shell would drop exactly the errors a reader who
+    // cannot get in most needs to see.
+    val toasts = remember { ToastQueue() }
+    LaunchedEffect(Unit) {
+        observeErrors().collect { error -> toasts.show(error.toastText(), ToastTone.Failure) }
+    }
 
     LaunchedEffect(Unit) {
         // A failed probe must not take the page down with it. Same reasoning as the server-URL
@@ -155,6 +170,9 @@ fun AuthGate(
                 )
             }
         }
+
+        // Last inside the surface, so it paints over whichever branch is showing.
+        ToastHost(toasts)
     }
 }
 

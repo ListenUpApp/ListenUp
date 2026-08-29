@@ -660,6 +660,12 @@ class ClassContractTest :
                                 )
                             }
                         }
+                        ToastHost(
+                            ToastQueue().apply {
+                                show("Saved.", ToastTone.Notice)
+                                show("Could not reach the server.", ToastTone.Failure)
+                            },
+                        )
                         AccountMenu(onSignOut = {})
                         PlaybackNotice(message = "Couldn't start this book.", onDismiss = {})
                         TransportBar(
