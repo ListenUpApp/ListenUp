@@ -24,6 +24,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
@@ -54,6 +55,7 @@ private val routers = mutableListOf<Router>()
 private fun mountGate(
     graph: FakeAuthGraph,
     themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
+    inviteCode: String? = null,
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -78,6 +80,7 @@ private fun mountGate(
             openPlayback = fixedPlayback(),
             observeIsAdmin = { flowOf(false) },
             observeThemeMode = { themeMode },
+            initialInviteCode = inviteCode,
         )
     }
     return host
@@ -128,13 +131,14 @@ class AuthGateTest :
         }
 
         test("the create-account link follows the server's registration setting") {
-            // Scoped to the footer row: recovery lives in `.auth-aside` and is offered whatever
-            // the server says about new accounts, so a bare `.lnk` count would conflate the two.
+            // Named rather than counted. The sign-in footer also carries recovery and the
+            // invite redeem link, both offered whatever the server says about new accounts, so a
+            // link COUNT answers a different question than the one this test is asking.
             val closed = mountGate(FakeAuthGraph(AuthState.NeedsLogin(openRegistration = false)))
             val open = mountGate(FakeAuthGraph(AuthState.NeedsLogin(openRegistration = true)))
 
-            closed.querySelectorAll(".auth-alt .lnk").length shouldBe 0
-            open.querySelectorAll(".auth-alt .lnk").length shouldBe 1
+            closed.textContent.orEmpty() shouldNotContain "Create account"
+            open.textContent.orEmpty() shouldContain "Create account"
         }
 
         test("choosing create account swaps the form without touching the URL") {
@@ -143,7 +147,7 @@ class AuthGateTest :
             val before = window.location.pathname
             val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin(openRegistration = true)))
 
-            (host.querySelector(".auth-alt .lnk") as HTMLElement).click()
+            host.linkNamed("Create account").click()
             awaitFrame()
 
             (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Create"
@@ -181,12 +185,72 @@ class AuthGateTest :
             graph.resetRequestedFor shouldBe "ada@example.com"
         }
 
+        test("arriving with an invite code opens the claim pane and looks it up") {
+            // The whole point of the URL entry: someone who followed an invite link lands on
+            // "X invited you to Y", not on a field asking them to retype what they just clicked.
+            val graph = FakeAuthGraph(AuthState.NeedsLogin())
+            val host = mountGate(graph, inviteCode = "TREEHOUSE-42")
+            awaitFrame()
+
+            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
+            graph.invitesLookedUp shouldBe listOf("TREEHOUSE-42")
+        }
+
+        test("an arriving code is looked up once, not on every recomposition") {
+            // The lookup is a network call keyed on the code. Unkeyed it would re-fire on any
+            // recomposition of the branch and ask the server the same question repeatedly.
+            val graph = FakeAuthGraph(AuthState.NeedsLogin())
+            mountGate(graph, inviteCode = "TREEHOUSE-42")
+            awaitFrame()
+            awaitFrame()
+
+            graph.invitesLookedUp shouldBe listOf("TREEHOUSE-42")
+        }
+
+        test("with no code the gate opens on sign in, not on the claim pane") {
+            val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()))
+            awaitFrame()
+
+            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+        }
+
+        test("the redeem link opens the claim pane with nothing looked up") {
+            // The manual path: told a code rather than sent a link. Nothing to look up until it
+            // is typed, so a lookup here would be a call with no code behind it.
+            val graph = FakeAuthGraph(AuthState.NeedsLogin())
+            val host = mountGate(graph)
+
+            host.linkNamed("Redeem it").click()
+            awaitFrame()
+
+            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
+            graph.invitesLookedUp shouldBe emptyList()
+        }
+
+        test("leaving NeedsLogin clears the claim sub-state, and tears its ViewModel down") {
+            // The code is one-shot. This caught the real bug: held as a plain parameter, a code
+            // redeemed minutes ago re-opened the claim pane every single time the reader came
+            // back to sign-in — the branch remembers which pane it is on, but it re-derives the
+            // OPENING pane each time it remounts, and the parameter was still sitting there.
+            val graph = FakeAuthGraph(AuthState.NeedsLogin())
+            val host = mountGate(graph, inviteCode = "TREEHOUSE-42")
+            awaitFrame()
+
+            graph.state.value = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
+            awaitFrame()
+            graph.state.value = AuthState.NeedsLogin()
+            awaitFrame()
+
+            graph.closed shouldContain "invite"
+            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+        }
+
         test("leaving NeedsLogin clears the register sub-state") {
             // Otherwise signing out later would drop the user straight back onto a registration
             // form they abandoned minutes ago.
             val graph = FakeAuthGraph(AuthState.NeedsLogin(openRegistration = true))
             val host = mountGate(graph)
-            (host.querySelector(".auth-alt .lnk") as HTMLElement).click()
+            host.linkNamed("Create account").click()
             awaitFrame()
 
             graph.state.value = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
@@ -334,4 +398,19 @@ private suspend fun awaitFrame() {
     suspendCoroutine { continuation ->
         window.requestAnimationFrame { window.requestAnimationFrame { continuation.resume(Unit) } }
     }
+}
+
+/**
+ * The footer link with exactly this text.
+ *
+ * Sign-in's footer now carries three links, so a positional or count-based selector answers a
+ * different question than the caller is asking — and does it silently, by picking the wrong one.
+ */
+private fun HTMLElement.linkNamed(text: String): HTMLElement {
+    val links = querySelectorAll(".lnk")
+    for (i in 0 until links.length) {
+        val link = links.item(i) as? HTMLElement ?: continue
+        if (link.textContent?.trim() == text) return link
+    }
+    error("no link named \"$text\"")
 }

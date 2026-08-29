@@ -71,9 +71,11 @@ fun AuthGate(
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
     observeThemeMode: () -> Flow<ThemeMode>,
+    initialInviteCode: String? = null,
 ) {
     val scope = rememberCoroutineScope()
     val authState by authGraph.authState.collectAsState()
+    var pendingInviteCode by remember { mutableStateOf(initialInviteCode) }
 
     // Above the auth branch, not inside the shell: someone who prefers dark should get it on the
     // sign-in screen too, and a theme that only arrives after login is a flash of the wrong one.
@@ -110,7 +112,16 @@ fun AuthGate(
             }
 
             is AuthState.NeedsLogin -> {
-                LoginBranch(authGraph, state.openRegistration)
+                // One-shot, and held ABOVE the branch so it survives the branch but not its own
+                // use. Read straight from the parameter, a code redeemed minutes ago would
+                // re-open the claim pane every time the reader came back to sign-in — the branch
+                // remembers its pane, but it re-derives the opening one each time it remounts.
+                LoginBranch(
+                    authGraph = authGraph,
+                    openRegistration = state.openRegistration,
+                    initialInviteCode = pendingInviteCode,
+                    onInviteConsumed = { pendingInviteCode = null },
+                )
             }
 
             is AuthState.PendingApproval -> {
@@ -161,29 +172,39 @@ private fun SetupBranch(authGraph: AuthGraph) {
     }
 }
 
-/** Which of `NeedsLogin`'s three screens is showing. See [LoginBranch]. */
+/** Which of `NeedsLogin`'s four screens is showing. See [LoginBranch]. */
 private enum class LoginPane {
     SignIn,
     Register,
     Forgot,
+    Invite,
 }
 
 /**
- * Sign-in, plus the two screens that hang off it: registration, and password recovery.
+ * Sign-in, plus the three screens that hang off it: registration, password recovery, and
+ * redeeming an invite.
  *
  * [LoginPane] is keyed on the branch, so leaving `NeedsLogin` for any reason discards it —
  * signing out later must land on sign-in, not on a form abandoned minutes ago.
  *
- * All three are sub-states of one `AuthState` rather than routes of their own, for the reason
+ * All four are sub-states of one `AuthState` rather than routes of their own, for the reason
  * [AuthGate] gives: `AuthState` is the sole navigation driver, and a URL for "I forgot my
  * password" would be a second source of truth for a question it cannot answer.
+ *
+ * [initialInviteCode] is the one thing here that genuinely arrives from the URL, and it is passed
+ * as *data* rather than routed on. A code is a payload someone shows up holding, not a place — so
+ * it chooses the opening pane and is handed straight to the ViewModel, and the gate goes on
+ * deriving every screen from `AuthState` alone. `Main.kt` strips it from the address bar on the
+ * way in; see [com.calypsan.listenup.web.takeInviteCode].
  */
 @Composable
 private fun LoginBranch(
     authGraph: AuthGraph,
     openRegistration: Boolean,
+    initialInviteCode: String? = null,
+    onInviteConsumed: () -> Unit = {},
 ) {
-    var pane by remember { mutableStateOf(LoginPane.SignIn) }
+    var pane by remember { mutableStateOf(if (initialInviteCode != null) LoginPane.Invite else LoginPane.SignIn) }
 
     LaunchedEffect(Unit) {
         try {
@@ -228,6 +249,34 @@ private fun LoginBranch(
             }
         }
 
+        LoginPane.Invite -> {
+            val session = remember { authGraph.openClaimInvite() }
+            DisposableEffect(session) { onDispose { session.close() } }
+
+            // A code that arrived with the link is looked up immediately, so someone who followed
+            // an invite lands on "X invited you to Y" rather than on a field asking them to
+            // retype what they just clicked. Keyed on the code: re-running this on every
+            // recomposition would re-ask the server for the same answer.
+            LaunchedEffect(initialInviteCode) {
+                initialInviteCode?.let {
+                    session.lookUp(it)
+                    onInviteConsumed()
+                }
+            }
+
+            AuthLayout(
+                title = "Join a library",
+                subtitle = "Redeem the invite you were sent.",
+            ) {
+                ClaimInvitePanel(
+                    state = session.state.collectAsState().value,
+                    onCodeEntered = session.lookUp,
+                    onClaim = session.claim,
+                    onBackToSignIn = { pane = LoginPane.SignIn },
+                )
+            }
+        }
+
         LoginPane.SignIn -> {
             val session = remember { authGraph.openLogin() }
             DisposableEffect(session) { onDispose { session.close() } }
@@ -239,6 +288,7 @@ private fun LoginBranch(
                     onSubmit = session.submit,
                     onRegister = { pane = LoginPane.Register },
                     onForgotPassword = { pane = LoginPane.Forgot },
+                    onClaimInvite = { pane = LoginPane.Invite },
                 )
             }
         }

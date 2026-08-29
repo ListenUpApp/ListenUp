@@ -36,6 +36,7 @@ fun LoginForm(
     onSubmit: (email: String, password: String) -> Unit,
     onRegister: () -> Unit,
     onForgotPassword: () -> Unit,
+    onClaimInvite: () -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -128,6 +129,17 @@ fun LoginForm(
                     onClick { onRegister() }
                 }) { Text("Create account") }
             }
+        }
+
+        // Offered unconditionally, and it matters most when the line above is absent: on a server
+        // that takes no open registrations, an invite is the ONLY way in, so hiding it there
+        // would leave an invited reader with a code and no field to type it into.
+        Div(attrs = { classes("auth-alt") }) {
+            Span { Text("Have an invite code?") }
+            Span(attrs = {
+                classes("lnk")
+                onClick { onClaimInvite() }
+            }) { Text("Redeem it") }
         }
     }
 }

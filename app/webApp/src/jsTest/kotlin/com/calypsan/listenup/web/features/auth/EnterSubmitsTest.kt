@@ -79,6 +79,7 @@ class EnterSubmitsTest :
                         onSubmit = { email, password -> submitted = email to password },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
@@ -101,6 +102,7 @@ class EnterSubmitsTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
@@ -119,6 +121,7 @@ class EnterSubmitsTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
@@ -169,6 +172,7 @@ class EnterSubmitsTest :
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
+                        onClaimInvite = {},
                     )
                 }
 
