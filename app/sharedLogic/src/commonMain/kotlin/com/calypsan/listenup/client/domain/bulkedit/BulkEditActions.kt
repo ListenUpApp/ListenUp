@@ -83,8 +83,10 @@ private fun List<BulkEdit>.scalarUpdate(book: BookDetail): BookMutation.Update? 
  * Matching is by [dedupKey] because a series the user picked may not carry an id yet, and because a
  * difference of case or stray space is the same series to a reader.
  *
- * New memberships are emitted with no position at all: sequence is per-book, and one number across
- * forty books would make them all "Book 1". That normalisation is also what makes the first-wins
+ * New memberships are emitted trimmed and with no position at all: sequence is per-book, and one
+ * number across forty books would make them all "Book 1". The trim matters because [dedupKey] only
+ * trims for the *comparison* — writing the padding through would mint a second series that reads
+ * identically to the first and that no later dedupe can match. That normalisation is also what makes the first-wins
  * `distinctBy` harmless — two instructions naming the same series can no longer differ in anything
  * that survives.
  */
@@ -97,7 +99,7 @@ private fun List<BulkEdit>.seriesMutation(book: BookDetail): BookMutation.SetSer
         additions
             .filter { it.name.dedupKey() !in existingNames }
             .distinctBy { it.name.dedupKey() }
-            .map { it.copy(position = null) }
+            .map { it.copy(name = it.name.trim(), position = null) }
     if (new.isEmpty()) return null
 
     val existing =
@@ -115,8 +117,10 @@ private fun List<BulkEdit>.seriesMutation(book: BookDetail): BookMutation.SetSer
  * new ones are appended. Positions are reassigned across the whole list because they must be
  * contiguous from zero for the server's ordering to be right.
  *
- * A genuinely-new credit is written with its role canonicalised to the lowercase token the
- * single-book path emits, so the two never disagree about the junction key. Existing credits are
+ * A genuinely-new credit is written trimmed, with its role canonicalised to the lowercase token the
+ * single-book path emits, so the two never disagree about the junction key. The name is trimmed but
+ * never lowercased — it is a proper noun, and the junction key is the contributor's id rather than
+ * their name, so case carries no meaning the server needs. Existing credits are
  * re-emitted exactly as the book already holds them: this planner's job is to add, and rewriting a
  * role the library already stores — including one no [com.calypsan.listenup.api.dto.ContributorRole]
  * recognises — would be a removal wearing an addition's clothes.
@@ -131,7 +135,7 @@ private fun List<BulkEdit>.contributorMutation(book: BookDetail): BookMutation.S
         additions
             .filterNot { it.key() in existingKeys }
             .distinctBy { it.key() }
-            .map { it.copy(role = it.role.dedupKey()) }
+            .map { it.copy(name = it.name.trim(), role = it.role.dedupKey()) }
     if (new.isEmpty()) return null
 
     val existing =

@@ -455,4 +455,41 @@ class BulkEditActionsTest :
                 BulkEdit.SetLanguage("x".repeat(BookUpdate.MAX_LANGUAGE + 1))
             }
         }
+        test("a new name is written trimmed, not with the padding the picker handed over") {
+            // dedupKey() already trims for the comparison, so " Kate Reading " is correctly seen as
+            // absent. What follows is the write — and creating the contributor row with the padding
+            // intact would mint a second, visually identical person the next dedupe cannot match.
+            val edits =
+                listOf(
+                    BulkEdit.AddContributors(
+                        listOf(BookContributorInput(id = null, name = "  Kate Reading  ", role = "narrator", position = 0)),
+                    ),
+                )
+
+            val contributors =
+                edits
+                    .actionsFor(book())
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.SetContributors>()
+                    .contributors
+
+            contributors.map { it.name } shouldContainExactly listOf("Kate Reading")
+        }
+
+        test("a new series name is written trimmed too") {
+            val edits = listOf(BulkEdit.AddToSeries(BookSeriesInput(id = null, name = "  Stormlight  ")))
+
+            val series =
+                edits
+                    .actionsFor(book())
+                    .single()
+                    .shouldBeInstanceOf<BulkAction.Mutate>()
+                    .mutation
+                    .shouldBeInstanceOf<BookMutation.SetSeries>()
+                    .series
+
+            series.map { it.name } shouldContainExactly listOf("Stormlight")
+        }
     })
