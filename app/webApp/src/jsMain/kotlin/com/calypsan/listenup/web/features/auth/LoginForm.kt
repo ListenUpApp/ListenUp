@@ -35,6 +35,7 @@ fun LoginForm(
     openRegistration: Boolean,
     onSubmit: (email: String, password: String) -> Unit,
     onRegister: () -> Unit,
+    onForgotPassword: () -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -95,6 +96,16 @@ fun LoginForm(
             id = PASSWORD_ID,
             autocomplete = "current-password",
         )
+
+        // Beside the field it is about, not buried in the footer with the account-creation
+        // links: someone reaching for this has already failed to sign in, and the whole point is
+        // that they find it without reading the page again.
+        Div(attrs = { classes("auth-aside") }) {
+            Span(attrs = {
+                classes("lnk")
+                onClick { onForgotPassword() }
+            }) { Text("Forgot your password?") }
+        }
 
         error?.let { Div(attrs = { classes("auth-err") }) { Text(it.userMessage()) } }
 

@@ -21,13 +21,17 @@ import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
+import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.events.Event
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -124,11 +128,13 @@ class AuthGateTest :
         }
 
         test("the create-account link follows the server's registration setting") {
+            // Scoped to the footer row: recovery lives in `.auth-aside` and is offered whatever
+            // the server says about new accounts, so a bare `.lnk` count would conflate the two.
             val closed = mountGate(FakeAuthGraph(AuthState.NeedsLogin(openRegistration = false)))
             val open = mountGate(FakeAuthGraph(AuthState.NeedsLogin(openRegistration = true)))
 
-            closed.querySelectorAll(".lnk").length shouldBe 0
-            open.querySelectorAll(".lnk").length shouldBe 1
+            closed.querySelectorAll(".auth-alt .lnk").length shouldBe 0
+            open.querySelectorAll(".auth-alt .lnk").length shouldBe 1
         }
 
         test("choosing create account swaps the form without touching the URL") {
@@ -137,11 +143,42 @@ class AuthGateTest :
             val before = window.location.pathname
             val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin(openRegistration = true)))
 
-            (host.querySelector(".lnk") as HTMLElement).click()
+            (host.querySelector(".auth-alt .lnk") as HTMLElement).click()
             awaitFrame()
 
             (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Create"
             window.location.pathname shouldBe before
+        }
+
+        test("choosing forgot password swaps the form without touching the URL") {
+            // Same rule as register: a sub-state of NeedsLogin, not a route. "I forgot my
+            // password" is not a place, and a URL for it would be a second source of truth for a
+            // question only AuthState can answer.
+            val before = window.location.pathname
+            val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()))
+
+            (host.querySelector(".auth-aside .lnk") as HTMLElement).click()
+            awaitFrame()
+
+            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Reset"
+            window.location.pathname shouldBe before
+        }
+
+        test("the reset flow reaches the shared ViewModel with the address typed into it") {
+            // The wiring nothing else covers: the panel is proved to call its callback and the
+            // ViewModel is proved to open a request, but a session wired to the wrong function
+            // would leave both green and the screen inert.
+            val graph = FakeAuthGraph(AuthState.NeedsLogin())
+            val host = mountGate(graph)
+
+            (host.querySelector(".auth-aside .lnk") as HTMLElement).click()
+            awaitFrame()
+            val input = host.querySelector("#auth-reset-email") as HTMLInputElement
+            input.value = "ada@example.com"
+            input.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            (host.querySelector("button[type=submit]") as HTMLElement).click()
+
+            graph.resetRequestedFor shouldBe "ada@example.com"
         }
 
         test("leaving NeedsLogin clears the register sub-state") {
@@ -149,7 +186,7 @@ class AuthGateTest :
             // form they abandoned minutes ago.
             val graph = FakeAuthGraph(AuthState.NeedsLogin(openRegistration = true))
             val host = mountGate(graph)
-            (host.querySelector(".lnk") as HTMLElement).click()
+            (host.querySelector(".auth-alt .lnk") as HTMLElement).click()
             awaitFrame()
 
             graph.state.value = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
@@ -157,6 +194,24 @@ class AuthGateTest :
             graph.state.value = AuthState.NeedsLogin(openRegistration = true)
             awaitFrame()
 
+            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+        }
+
+        test("leaving NeedsLogin clears the reset sub-state, and tears its ViewModel down") {
+            // The reset ViewModel holds a status stream AND a poll loop that never stops on its
+            // own while awaiting approval. Abandoning it un-closed would leave both running for
+            // the life of the tab, on a ticket nobody is watching.
+            val graph = FakeAuthGraph(AuthState.NeedsLogin())
+            val host = mountGate(graph)
+            (host.querySelector(".auth-aside .lnk") as HTMLElement).click()
+            awaitFrame()
+
+            graph.state.value = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
+            awaitFrame()
+            graph.state.value = AuthState.NeedsLogin()
+            awaitFrame()
+
+            graph.closed shouldContain "forgot"
             (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 

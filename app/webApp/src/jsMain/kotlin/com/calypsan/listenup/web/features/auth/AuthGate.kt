@@ -161,18 +161,29 @@ private fun SetupBranch(authGraph: AuthGraph) {
     }
 }
 
+/** Which of `NeedsLogin`'s three screens is showing. See [LoginBranch]. */
+private enum class LoginPane {
+    SignIn,
+    Register,
+    Forgot,
+}
+
 /**
- * Sign-in, plus registration as a sub-state of it.
+ * Sign-in, plus the two screens that hang off it: registration, and password recovery.
  *
- * `showingRegister` is keyed on the branch, so leaving `NeedsLogin` for any reason discards it —
- * signing out later must land on sign-in, not on a registration form abandoned minutes ago.
+ * [LoginPane] is keyed on the branch, so leaving `NeedsLogin` for any reason discards it —
+ * signing out later must land on sign-in, not on a form abandoned minutes ago.
+ *
+ * All three are sub-states of one `AuthState` rather than routes of their own, for the reason
+ * [AuthGate] gives: `AuthState` is the sole navigation driver, and a URL for "I forgot my
+ * password" would be a second source of truth for a question it cannot answer.
  */
 @Composable
 private fun LoginBranch(
     authGraph: AuthGraph,
     openRegistration: Boolean,
 ) {
-    var showingRegister by remember { mutableStateOf(false) }
+    var pane by remember { mutableStateOf(LoginPane.SignIn) }
 
     LaunchedEffect(Unit) {
         try {
@@ -184,28 +195,52 @@ private fun LoginBranch(
         }
     }
 
-    if (showingRegister) {
-        val session = remember { authGraph.openRegister() }
-        DisposableEffect(session) { onDispose { session.close() } }
+    when (pane) {
+        LoginPane.Register -> {
+            val session = remember { authGraph.openRegister() }
+            DisposableEffect(session) { onDispose { session.close() } }
 
-        AuthLayout(title = "Create account", subtitle = "Ask this server's admin for access.") {
-            RegisterForm(
-                state = session.state.collectAsState().value,
-                onSubmit = session.submit,
-                onBack = { showingRegister = false },
-            )
+            AuthLayout(title = "Create account", subtitle = "Ask this server's admin for access.") {
+                RegisterForm(
+                    state = session.state.collectAsState().value,
+                    onSubmit = session.submit,
+                    onBack = { pane = LoginPane.SignIn },
+                )
+            }
         }
-    } else {
-        val session = remember { authGraph.openLogin() }
-        DisposableEffect(session) { onDispose { session.close() } }
 
-        AuthLayout(title = "Sign in", subtitle = "Pick up right where you left off in your audiobook library.") {
-            LoginForm(
-                state = session.state.collectAsState().value,
-                openRegistration = openRegistration,
-                onSubmit = session.submit,
-                onRegister = { showingRegister = true },
-            )
+        LoginPane.Forgot -> {
+            val session = remember { authGraph.openForgotPassword() }
+            DisposableEffect(session) { onDispose { session.close() } }
+
+            AuthLayout(
+                title = "Reset your password",
+                subtitle = "Your server's admin approves this — there is no email to go and check.",
+            ) {
+                ForgotPasswordPanel(
+                    state = session.state.collectAsState().value,
+                    onRequestReset = session.requestReset,
+                    onCompleteReset = session.completeReset,
+                    onCheckStatus = session.checkStatus,
+                    onRetryRequest = session.retryRequest,
+                    onBackToSignIn = { pane = LoginPane.SignIn },
+                )
+            }
+        }
+
+        LoginPane.SignIn -> {
+            val session = remember { authGraph.openLogin() }
+            DisposableEffect(session) { onDispose { session.close() } }
+
+            AuthLayout(title = "Sign in", subtitle = "Pick up right where you left off in your audiobook library.") {
+                LoginForm(
+                    state = session.state.collectAsState().value,
+                    openRegistration = openRegistration,
+                    onSubmit = session.submit,
+                    onRegister = { pane = LoginPane.Register },
+                    onForgotPassword = { pane = LoginPane.Forgot },
+                )
+            }
         }
     }
 }

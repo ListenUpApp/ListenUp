@@ -48,7 +48,9 @@ import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.client.presentation.auth.RegisterUiState
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.web.features.auth.AuthLayout
+import com.calypsan.listenup.web.features.auth.ForgotPasswordPanel
 import com.calypsan.listenup.web.features.auth.LoginForm
 import com.calypsan.listenup.web.features.auth.PendingApprovalPanel
 import com.calypsan.listenup.web.features.auth.RegisterForm
@@ -574,6 +576,7 @@ class ClassContractTest :
                                 openRegistration = true,
                                 onSubmit = { _, _ -> },
                                 onRegister = {},
+                                onForgotPassword = {},
                             )
                         }
                         AuthLayout(title = "Create admin account") {
@@ -614,6 +617,27 @@ class ClassContractTest :
                                 onCancel = {},
                                 onAcknowledge = {},
                             )
+                        }
+                        // Every step of the reset flow draws a different tree, so each belongs
+                        // in the contract for the same reason the pending states above do.
+                        listOf(
+                            ForgotPasswordUiState.EnterEmail,
+                            ForgotPasswordUiState.AwaitingApproval("t1"),
+                            ForgotPasswordUiState.EnterCode("t1", attemptsRemaining = 2, error = "That code is wrong."),
+                            ForgotPasswordUiState.Denied,
+                            ForgotPasswordUiState.Complete,
+                            ForgotPasswordUiState.Error("Your reset request expired. Please start again."),
+                        ).forEach { resetState ->
+                            AuthLayout(title = "Reset your password") {
+                                ForgotPasswordPanel(
+                                    state = resetState,
+                                    onRequestReset = {},
+                                    onCompleteReset = { _, _ -> },
+                                    onCheckStatus = {},
+                                    onRetryRequest = {},
+                                    onBackToSignIn = {},
+                                )
+                            }
                         }
                         AccountMenu(onSignOut = {})
                         PlaybackNotice(message = "Couldn't start this book.", onDismiss = {})

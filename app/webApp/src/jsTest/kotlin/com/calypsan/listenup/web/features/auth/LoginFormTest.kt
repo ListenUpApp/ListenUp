@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.auth.LoginUiState
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
@@ -35,6 +36,43 @@ private fun HTMLElement.typeInto(
 class LoginFormTest :
     FunSpec({
 
+        test("sign-in offers a way back in when the password is gone") {
+            // The one client you reach by URL, on a machine that may have no app installed, had no
+            // recovery path at all: web admins could approve reset requests nobody on web could
+            // raise. Never Stranded is not optional on the sign-in screen.
+            var forgotClicks = 0
+            val host =
+                mount {
+                    LoginForm(
+                        state = LoginUiState.Idle,
+                        openRegistration = false,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = { forgotClicks++ },
+                    )
+                }
+
+            (host.querySelector(".auth-aside .lnk") as HTMLElement).click()
+
+            forgotClicks shouldBe 1
+        }
+
+        test("recovery is offered even on a server that takes no new accounts") {
+            // The two are unrelated: a closed server still has existing users who forget.
+            val host =
+                mount {
+                    LoginForm(
+                        state = LoginUiState.Idle,
+                        openRegistration = false,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = {},
+                    )
+                }
+
+            host.querySelector(".auth-aside .lnk") shouldNotBe null
+        }
+
         test("submitting forwards exactly what was typed") {
             var submitted: Pair<String, String>? = null
             val host =
@@ -44,6 +82,7 @@ class LoginFormTest :
                         openRegistration = false,
                         onSubmit = { email, password -> submitted = email to password },
                         onRegister = {},
+                        onForgotPassword = {},
                     )
                 }
 
@@ -64,6 +103,7 @@ class LoginFormTest :
                         openRegistration = false,
                         onSubmit = { _, _ -> },
                         onRegister = {},
+                        onForgotPassword = {},
                     )
                 }
 
@@ -78,6 +118,7 @@ class LoginFormTest :
                         openRegistration = false,
                         onSubmit = { _, _ -> },
                         onRegister = {},
+                        onForgotPassword = {},
                     )
                 }
 
@@ -92,6 +133,7 @@ class LoginFormTest :
                         openRegistration = false,
                         onSubmit = { _, _ -> },
                         onRegister = {},
+                        onForgotPassword = {},
                     )
                 }
 
@@ -103,15 +145,29 @@ class LoginFormTest :
         test("the create-account link appears only when the server allows registration") {
             val open =
                 mount {
-                    LoginForm(state = LoginUiState.Idle, openRegistration = true, onSubmit = { _, _ -> }, onRegister = {})
+                    LoginForm(
+                        state = LoginUiState.Idle,
+                        openRegistration = true,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = {},
+                    )
                 }
             val closed =
                 mount {
-                    LoginForm(state = LoginUiState.Idle, openRegistration = false, onSubmit = { _, _ -> }, onRegister = {})
+                    LoginForm(
+                        state = LoginUiState.Idle,
+                        openRegistration = false,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = {},
+                    )
                 }
 
-            open.querySelectorAll(".lnk").length shouldBe 1
-            closed.querySelectorAll(".lnk").length shouldBe 0
+            // Scoped to the footer row: recovery lives in `.auth-aside` and is offered whatever
+            // the server says about new accounts, so a bare `.lnk` count would conflate the two.
+            open.querySelectorAll(".auth-alt .lnk").length shouldBe 1
+            closed.querySelectorAll(".auth-alt .lnk").length shouldBe 0
         }
 
         test("the create-account link reports the intent") {
@@ -123,10 +179,11 @@ class LoginFormTest :
                         openRegistration = true,
                         onSubmit = { _, _ -> },
                         onRegister = { registerClicks++ },
+                        onForgotPassword = {},
                     )
                 }
 
-            (host.querySelector(".lnk") as HTMLElement).click()
+            (host.querySelector(".auth-alt .lnk") as HTMLElement).click()
 
             registerClicks shouldBe 1
         }
