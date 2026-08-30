@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlin.time.ExperimentalTime::class)
 
 package com.calypsan.listenup.server.api
 
@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -39,6 +40,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -66,10 +68,19 @@ class SocialServiceTest :
 
         fun noPrincipal(): PrincipalProvider = PrincipalProvider { null }
 
+        /**
+         * The service over real repositories and the in-memory migrated database, with "now" pinned
+         * to [nowMs] so a test can place a fixture inside or outside the staleness windows.
+         *
+         * [nowMs] defaults to the epoch, which puts every window's floor below any fixture timestamp
+         * — a test that does not pin its own "now" is asserting something other than staleness, and
+         * its seeded timestamps keep meaning exactly what they say.
+         */
         fun makeService(
             sql: ListenUpDatabase,
             driver: SqlDriver,
             principal: PrincipalProvider,
+            nowMs: Long = 0L,
         ): SocialServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
@@ -99,6 +110,7 @@ class SocialServiceTest :
                 bookReads = BookReadsRepository(db = sql),
                 books = books,
                 principal = principal,
+                clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
             )
         }
 
@@ -697,6 +709,61 @@ class SocialServiceTest :
                     sql.seedInProgressPosition("ghost", "book-a", positionMs = 10L, lastPlayedAt = 500L)
 
                     makeService(sql, driver, principalFor("viewer")).currentlyListening().value().shouldBeEmpty()
+                }
+            }
+        }
+
+        // ── 8: liveness is a property of the row, not of when the sweep last ran ─────
+
+        test("a presence row older than the live window is not reported as live") {
+            // The cleanup sweep reclaims rows after 30 minutes, which is a garbage-collection
+            // threshold. Liveness has to come from the row's own updated_at, or "Listening now" is
+            // true only by luck of when the sweep last ran.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    // seedLiveSession stamps updated_at = startedAt. Six minutes old: past
+                    // LIVE_WINDOW, still well inside the 30-minute sweep, so the row exists.
+                    sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = nowMs - 6 * 60_000L)
+
+                    val result =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+
+                    result.none { it.isLive } shouldBe true
+                }
+            }
+        }
+
+        test("a presence row inside the live window is reported as live") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = nowMs - 60_000L)
+
+                    val result =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+
+                    result.single().isLive shouldBe true
                 }
             }
         }

@@ -77,12 +77,20 @@ class ActiveSessionRepository(
 
     /**
      * Live presence across all users except [excludeUserId] — the "currently listening"
-     * feed, with the requesting user filtered out so they don't see themselves.
+     * feed, with the requesting user filtered out so they don't see themselves — limited to
+     * rows refreshed at or after [liveSince].
+     *
+     * The caller owns the window: this repository stores presence, but what counts as "now" is a
+     * presentation decision, and [com.calypsan.listenup.server.api.SocialServiceImpl] is where it is
+     * stated.
      */
-    suspend fun listCurrentlyListening(excludeUserId: String): List<ActiveSessionRow> =
+    suspend fun listCurrentlyListening(
+        excludeUserId: String,
+        liveSince: Long,
+    ): List<ActiveSessionRow> =
         suspendTransaction(db) {
             db.activeSessionsQueries
-                .selectCurrentlyListeningExcluding(exclude_user_id = excludeUserId)
+                .selectCurrentlyListeningExcluding(exclude_user_id = excludeUserId, live_since = liveSince)
                 .executeAsList()
                 .map { ActiveSessionRow(userId = it.user_id, bookId = it.book_id, startedAt = it.started_at) }
         }

@@ -14,6 +14,8 @@ import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * [SocialService] implementation — the crown-jewel ACL surface.
@@ -49,6 +51,7 @@ internal class SocialServiceImpl(
     private val bookReads: BookReadsRepository,
     private val books: BookRepository,
     private val principal: PrincipalProvider,
+    private val clock: Clock = Clock.System,
 ) : SocialService {
     override suspend fun currentlyListening(): AppResult<List<CurrentlyListeningSession>> {
         val caller = resolveCaller() ?: return noPrincipal()
@@ -58,11 +61,15 @@ internal class SocialServiceImpl(
 
         fun visible(bookId: String): Boolean = accessible == null || bookId in accessible
 
+        val nowMs = clock.now().toEpochMilliseconds()
+
         // Live half — whoever has an open session right now, newest session per user.
         val live =
             activeSessions
-                .listCurrentlyListening(excludeUserId = caller.userId)
-                .filter { visible(it.bookId) }
+                .listCurrentlyListening(
+                    excludeUserId = caller.userId,
+                    liveSince = nowMs - LIVE_WINDOW.inWholeMilliseconds,
+                ).filter { visible(it.bookId) }
                 .groupBy { it.userId }
                 .values
                 .map { perUser -> perUser.maxBy { it.startedAt } }
@@ -151,6 +158,7 @@ internal class SocialServiceImpl(
             bookReads = bookReads,
             books = books,
             principal = principal,
+            clock = clock,
         )
 
     /** The resolved caller: their user id and contract role (the role [BookAccessPolicy] speaks). */
@@ -162,4 +170,16 @@ internal class SocialServiceImpl(
     private fun resolveCaller(): Caller? = principal.current()?.let { Caller(it.userId.value, it.role) }
 
     private fun noPrincipal(): AppResult.Failure = AppResult.Failure(SocialError.NotFound())
+
+    private companion object {
+        /**
+         * How recently a presence row must have been refreshed to count as "listening now".
+         *
+         * `PlaybackManagerImpl` persists position every 10 seconds of content and `recordPosition`
+         * refreshes the row, so five minutes absorbs ~30 missed reports plus sync-drain latency. It is
+         * deliberately far shorter than `ActiveSessionCleanupTask`'s 30-minute reclaim: that sweep
+         * exists to free rows, not to define truth.
+         */
+        val LIVE_WINDOW = 5.minutes
+    }
 }

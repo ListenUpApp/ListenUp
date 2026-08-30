@@ -93,7 +93,8 @@ class ActiveSessionPresenceTest :
                 sql.seedSession("s3", "u3", "book-3")
                 val repo = ActiveSessionRepository(db = sql, bus = ChangeBus())
                 runTest {
-                    val rows = repo.listCurrentlyListening(excludeUserId = "u2")
+                    // liveSince = 0: this test is about the exclusion, not the staleness window.
+                    val rows = repo.listCurrentlyListening(excludeUserId = "u2", liveSince = 0L)
                     rows.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u3")
                 }
             }
@@ -124,7 +125,10 @@ class ActiveSessionPresenceTest :
                     repo.deleteForUserBook("u1", "book-1")
 
                     sql.liveRowCount("u1", "book-1") shouldBe 0L
-                    val survivors = repo.listCurrentlyListening(excludeUserId = "none").map { it.userId to it.bookId }
+                    val survivors =
+                        repo
+                            .listCurrentlyListening(excludeUserId = "none", liveSince = 0L)
+                            .map { it.userId to it.bookId }
                     survivors shouldContainExactlyInAnyOrder listOf("u1" to "book-2", "u2" to "book-1")
                 }
             }
