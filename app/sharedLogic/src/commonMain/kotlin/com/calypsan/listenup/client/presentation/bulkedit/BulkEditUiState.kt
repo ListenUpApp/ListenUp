@@ -48,6 +48,40 @@ sealed interface BulkEditUiState {
     ) : BulkEditUiState {
         /** True when applying would change at least one book. */
         val canApply: Boolean get() = changedBookCount > 0
+
+        /**
+         * What the publisher field shows: the instruction's value, or empty when untouched.
+         *
+         * The form reads the instruction list rather than holding its own copy of the text, so the
+         * two cannot disagree — and "the field has content" and "an instruction exists" stay the
+         * same fact rather than two that have to be kept in step.
+         */
+        val publisherInput: String
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.SetPublisher>()
+                    .lastOrNull()
+                    ?.publisher
+                    .orEmpty()
+
+        /** What the year field shows, as [publisherInput]. Empty when untouched or not a number. */
+        val yearInput: String
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.SetPublishYear>()
+                    .lastOrNull()
+                    ?.year
+                    ?.toString()
+                    .orEmpty()
+
+        /** What the language field shows, as [publisherInput]. */
+        val languageInput: String
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.SetLanguage>()
+                    .lastOrNull()
+                    ?.language
+                    .orEmpty()
     }
 }
 
