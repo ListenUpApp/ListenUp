@@ -65,6 +65,8 @@ import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
+import com.calypsan.listenup.web.motion.fadePageIn
+import com.calypsan.listenup.web.motion.isPageChange
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
@@ -137,6 +139,17 @@ fun WebAppRoot(
     // A book — or the person behind it — lives in the library, so either deep link keeps
     // Library lit in the sidebar.
     val active = if (page == BOOK_KEY || page == CONTRIBUTOR_KEY) LIBRARY_KEY else page
+
+    // A page change fades; a route change within one does not. `lastPage` starts null so the first
+    // paint is not a fade — a library materialising out of nothing on load is motion nobody asked
+    // for, and it would sit between the reader and content that has already arrived.
+    var lastPage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(page) {
+        if (isPageChange(lastPage, page)) {
+            document.querySelector(SHELL_MAIN)?.let { fadePageIn(it) }
+        }
+        lastPage = page
+    }
 
     Shell(
         sections = listOf(PRIMARY_NAV),
@@ -883,6 +896,9 @@ private fun routeFor(facet: LibraryFacet): Route =
             )
         }
     }
+
+/** The shell's content region — the thing a page change fades. See [fadePageIn]. */
+private const val SHELL_MAIN = ".shell-main"
 
 private const val HOME_KEY = "home"
 

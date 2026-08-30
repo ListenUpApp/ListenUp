@@ -1168,19 +1168,18 @@ body { margin: 0; }
    navigation; without it the gap reads as a flash of white. */
 :root { background: var(--paper); }
 
-/* A card that is entering or leaving the grid. Matches `lib-card-in`'s vocabulary so a book that
-   arrives during a transition and one that arrives outside it move the same way. */
-::view-transition-old(.lib-card),
-::view-transition-new(.lib-card) { animation-duration: 240ms; }
+/* ⛔ The `::view-transition-*` rules that used to live here have been DELETED, and must not come
+   back. Nothing in this app ever calls `startViewTransition`, so they could never match — but the
+   deeper reason is that they cannot be made to. The browser's View Transition API needs the DOM
+   change to happen inside its update callback, and Compose HTML cannot render in there: rendering
+   is suppressed while the callback is outstanding and Compose's scheduler needs a frame. Measured,
+   the destination had still not rendered 361 ms in, so every transition photographed an identical
+   before and after — animating nothing while holding the old page frozen, which is what read as a
+   lurch on every navigation. See `WebAppRoot`'s note on the library grid, `HeroFlight`, and
+   `NoViewTransitionsRule`, which fails the build if the call name reappears.
 
-/* Motion here is decoration. `prefers-reduced-motion` is already honoured in Kotlin — the helper
-   skips the transition entirely — but a stylesheet rule costs nothing and covers any transition
-   started by a path that forgets to ask. */
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) { animation: none !important; }
-}
+   Motion that does work here drives the Web Animations API directly and does not care when any
+   framework renders: `HeroFlight` for the cover, `PageFade` for the page. */
 
 /* ============================================================
    HOME — the root route
