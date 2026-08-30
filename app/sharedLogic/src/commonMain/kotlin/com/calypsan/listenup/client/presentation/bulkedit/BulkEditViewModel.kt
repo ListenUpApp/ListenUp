@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.bulkedit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.bulkedit.BulkEditApplier
 import com.calypsan.listenup.client.domain.bulkedit.actionsFor
@@ -86,16 +87,30 @@ class BulkEditViewModel internal constructor(
         viewModelScope.launch { loadSelection() }
     }
 
-    /** Sets the publisher, or removes the instruction when [publisher] is blank. */
-    fun setPublisher(publisher: String) =
+    /**
+     * Sets the publisher, or removes the instruction when [publisher] is blank.
+     *
+     * A value past [BookUpdate.MAX_PUBLISHER] is **refused rather than recorded**, leaving the last
+     * good one in place. These setters are driven by a text field, so every intermediate string a
+     * user types arrives here, and [BulkEdit] validates eagerly — which is what keeps `actionsFor`
+     * total. Without this guard the 201st character would not be rejected, it would throw.
+     */
+    fun setPublisher(publisher: String) {
+        if (publisher.length > BookUpdate.MAX_PUBLISHER) return
         replace<BulkEdit.SetPublisher>(publisher.takeIf { it.isNotBlank() }?.let { BulkEdit.SetPublisher(it) })
+    }
 
     /** Sets the publication year, or removes the instruction when [year] is null. */
-    fun setYear(year: Int?) = replace<BulkEdit.SetPublishYear>(year?.let { BulkEdit.SetPublishYear(it) })
+    fun setYear(year: Int?) {
+        if (year != null && year !in BookUpdate.MIN_YEAR..BookUpdate.MAX_YEAR) return
+        replace<BulkEdit.SetPublishYear>(year?.let { BulkEdit.SetPublishYear(it) })
+    }
 
     /** Sets the language, or removes the instruction when [language] is blank. */
-    fun setLanguage(language: String) =
+    fun setLanguage(language: String) {
+        if (language.length > BookUpdate.MAX_LANGUAGE) return
         replace<BulkEdit.SetLanguage>(language.takeIf { it.isNotBlank() }?.let { BulkEdit.SetLanguage(it) })
+    }
 
     /**
      * Replaces the tag instruction. An empty list removes it.

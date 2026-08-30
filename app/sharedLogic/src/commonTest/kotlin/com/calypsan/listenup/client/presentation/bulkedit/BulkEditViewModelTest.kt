@@ -22,6 +22,8 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
+import com.calypsan.listenup.api.dto.BookUpdate
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -253,6 +255,39 @@ class BulkEditViewModelTest :
                     vm.apply()
                     advanceUntilIdle()
                     awaitItem().shouldBeInstanceOf<BulkEditEvent.Applied>().changedCount shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+        test("a keystroke past the limit is refused, not thrown") {
+            // The setters are driven by a text field, so every intermediate string reaches them.
+            // BulkEdit validates eagerly — which is what keeps actionsFor total — so an unguarded
+            // setter would turn the 201st character into a crash mid-typing. Refusing the change
+            // leaves the last good value in the field, which is what a length-capped field does.
+            val vm = rig(listOf(book("b1")))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    advanceUntilIdle()
+                    vm.setPublisher("Tor")
+                    advanceUntilIdle()
+
+                    vm.setPublisher("x".repeat(BookUpdate.MAX_PUBLISHER + 1))
+                    vm.setLanguage("x".repeat(BookUpdate.MAX_LANGUAGE + 1))
+                    vm.setYear(BookUpdate.MAX_YEAR + 1)
+                    advanceUntilIdle()
+
+                    val editing = vm.state.value.shouldBeInstanceOf<BulkEditUiState.Editing>()
+                    withClue("the over-long publisher must not have replaced the good one") {
+                        editing.edits
+                            .filterIsInstance<BulkEdit.SetPublisher>()
+                            .single()
+                            .publisher shouldBe "Tor"
+                    }
+                    withClue("and nothing invalid may have been recorded") {
+                        editing.edits.filterIsInstance<BulkEdit.SetLanguage>().shouldBeEmpty()
+                        editing.edits.filterIsInstance<BulkEdit.SetPublishYear>().shouldBeEmpty()
+                    }
                     cancelAndIgnoreRemainingEvents()
                 }
             }
