@@ -71,6 +71,9 @@ class BulkEditViewModel internal constructor(
                                 affectedCount = loaded.count { listOf(edit).actionsFor(it).isNotEmpty() },
                             )
                         },
+                    // The same planning function the preview and apply() use, so the number on
+                    // the button cannot disagree with what Apply then reports.
+                    changedBookCount = loaded.count { current.actionsFor(it).isNotEmpty() },
                     isApplying = isApplying,
                     sharedPublisher = loaded.sharedBy { it.publisher },
                     sharedPublishYear = loaded.sharedBy { it.publishYear },

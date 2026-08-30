@@ -229,4 +229,32 @@ class BulkEditViewModelTest :
                 }
             }
         }
+        test("the number on Apply is the number Apply reports changing") {
+            // The button must not say "Change 2 books" and then report "1 book updated". Both come
+            // from the same planning function over the same books, so the promise the user reads
+            // and the outcome they get cannot drift apart.
+            val vm = rig(listOf(book("b1", publisher = PUBLISHER), book("b2")))
+            runTest {
+                vm.events.test {
+                    vm.state.test {
+                        awaitItem()
+                        advanceUntilIdle()
+                        vm.setPublisher(PUBLISHER)
+                        advanceUntilIdle()
+
+                        val editing = vm.state.value.shouldBeInstanceOf<BulkEditUiState.Editing>()
+                        withClue("one of the two books already publishes with Tor") {
+                            editing.changedBookCount shouldBe 1
+                        }
+                        editing.bookCount shouldBe 2
+                        cancelAndIgnoreRemainingEvents()
+                    }
+
+                    vm.apply()
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<BulkEditEvent.Applied>().changedCount shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })

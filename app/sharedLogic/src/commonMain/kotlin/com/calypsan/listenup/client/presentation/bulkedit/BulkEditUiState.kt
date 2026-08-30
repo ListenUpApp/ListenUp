@@ -24,6 +24,11 @@ sealed interface BulkEditUiState {
      *   difference rather than quietly editing fewer books than were chosen.
      * @property edits the instructions built so far. Empty means nothing has been touched.
      * @property preview per-instruction counts of books that would actually change.
+     * @property changedBookCount how many books would change at least one field — the number on
+     *   the Apply button, and the number [BulkEditEvent.Applied] will report. Not the size of the
+     *   selection: promising to change 40 books and then reporting 12 updated is the same
+     *   overstatement the preview exists to prevent. Not the sum of [preview] counts either,
+     *   which would double-count a book two instructions both touch.
      * @property isApplying an apply is in flight.
      * @property sharedPublisher the publisher every selected book already agrees on, or null when
      *   they differ — shown as placeholder text, never as a value.
@@ -35,13 +40,14 @@ sealed interface BulkEditUiState {
         val requestedCount: Int = bookCount,
         val edits: List<BulkEdit> = emptyList(),
         val preview: List<BulkEditPreviewRow> = emptyList(),
+        val changedBookCount: Int = 0,
         val isApplying: Boolean = false,
         val sharedPublisher: String? = null,
         val sharedPublishYear: Int? = null,
         val sharedLanguage: String? = null,
     ) : BulkEditUiState {
-        /** True when there is at least one instruction that would change at least one book. */
-        val canApply: Boolean get() = preview.any { it.affectedCount > 0 }
+        /** True when applying would change at least one book. */
+        val canApply: Boolean get() = changedBookCount > 0
     }
 }
 
