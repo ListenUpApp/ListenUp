@@ -36,14 +36,38 @@ import org.koin.core.Koin
 class PlaybackSession(
     val state: StateFlow<TransportState?>,
     val error: StateFlow<String?>,
+    /**
+     * The book's chapter marks, or empty when it has none.
+     *
+     * A flow of its own rather than a field on [TransportState]: chapters change once per book,
+     * and [TransportState] is rebuilt on every position tick. Folding a list of several hundred
+     * into that combine would rebuild it a few times a second to say the same thing.
+     */
+    val chapters: StateFlow<List<TransportChapter>>,
+    /** Which chapter the playhead is in, or null with no book or no marks. */
+    val currentChapterIndex: StateFlow<Int?>,
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onPlayBook: (BookId) -> Unit,
     val onSkipBack: () -> Unit,
     val onSkipForward: () -> Unit,
     val onCycleSpeed: () -> Unit,
+    val onSeekToChapter: (Int) -> Unit,
     val onDismissError: () -> Unit,
     val close: () -> Unit,
+)
+
+/**
+ * One chapter mark, as the player needs it.
+ *
+ * Deliberately not `bookdetail`'s `WebChapter`, which carries a 1-based `number` and a duration
+ * because it backs an editing table with multi-select and an inspector. A listener jumping mid-book
+ * needs a name and somewhere to land, and nothing else — and borrowing the editor's type would tie
+ * the player to a surface it has no other reason to know about.
+ */
+class TransportChapter(
+    val title: String,
+    val startMs: Long,
 )
 
 /**
@@ -77,17 +101,22 @@ fun graphPlayback(koin: Koin): OpenPlayback =
 fun fixedPlayback(
     state: TransportState? = null,
     error: String? = null,
+    chapters: List<TransportChapter> = emptyList(),
+    currentChapterIndex: Int? = null,
 ): OpenPlayback =
     {
         PlaybackSession(
             state = MutableStateFlow(state),
             error = MutableStateFlow(error),
+            chapters = MutableStateFlow(chapters),
+            currentChapterIndex = MutableStateFlow(currentChapterIndex),
             onPlayPause = {},
             onSeek = {},
             onPlayBook = {},
             onSkipBack = {},
             onSkipForward = {},
             onCycleSpeed = {},
+            onSeekToChapter = {},
             onDismissError = {},
             close = {},
         )
@@ -191,6 +220,30 @@ internal class LivePlayback(
         combine(playbackManager.playbackSpeed, skipBackwardSec, skipForwardSec) { speed, back, forward ->
             Triple(speed, back, forward)
         }
+
+    /**
+     * The book's marks, mapped once per book rather than per tick.
+     *
+     * `PlaybackManager.chapters` already emits only when the book changes, so this rides that
+     * cadence instead of being folded into [state]'s combine.
+     */
+    val chapters: StateFlow<List<TransportChapter>> =
+        playbackManager.chapters
+            .map { marks -> marks.map { TransportChapter(title = it.title, startMs = it.startTime) } }
+            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * Which chapter the playhead is in.
+     *
+     * Read from `PlaybackManager.currentChapter` rather than derived here by scanning the marks
+     * against the position: that flow is what the native clients highlight from, and computing it
+     * a second way is how the browser and the phone come to disagree about which chapter is
+     * playing at a boundary.
+     */
+    val currentChapterIndex: StateFlow<Int?> =
+        playbackManager.currentChapter
+            .map { it?.index }
+            .stateIn(scope, SharingStarted.Eagerly, null)
 
     val state: StateFlow<TransportState?> =
         combine(
@@ -381,6 +434,23 @@ internal class LivePlayback(
     }
 
     /**
+     * Jumps the playhead to the start of chapter [index].
+     *
+     * Reuses [seek] rather than restating it: the pair of calls it makes — seek the controller,
+     * then tell [PlaybackManager] the new position — is what keeps the bar honest while paused,
+     * where no time update is coming to correct it. `NowPlayingViewModel.seekToChapter` makes the
+     * same two calls for the same reason.
+     *
+     * An index the list does not have is ignored rather than clamped. It can only arrive from a
+     * caller reading a stale list, and landing the listener at some *other* chapter would be a
+     * confident wrong answer where doing nothing is a visible one.
+     */
+    fun seekToChapter(index: Int) {
+        val start = chapterStartMs(chapters.value, index) ?: return
+        seek(start)
+    }
+
+    /**
      * End the listening session: stop the audio, then stop observing it.
      *
      * [HtmlAudioPlayer.releasePlayer] rather than [HtmlAudioPlayer.pause], because the only thing
@@ -406,16 +476,35 @@ internal class LivePlayback(
         PlaybackSession(
             state = state,
             error = error,
+            chapters = chapters,
+            currentChapterIndex = currentChapterIndex,
             onPlayPause = ::playPause,
             onSeek = ::seek,
             onPlayBook = ::playBook,
             onSkipBack = ::skipBack,
             onSkipForward = ::skipForward,
             onCycleSpeed = ::cycleSpeed,
+            onSeekToChapter = ::seekToChapter,
             onDismissError = ::dismissError,
             close = ::close,
         )
 }
+
+/**
+ * Where chapter [index] starts, or `null` when [chapters] has no such chapter.
+ *
+ * ⛔ Out of range resolves to **nothing**, never to the nearest chapter. A bad index can only reach
+ * here from a caller reading a list that has since changed — a book swapped underneath an open
+ * picker — and landing the listener at some *other* chapter would be a confident wrong answer
+ * where doing nothing is a visible one. They would have no way to tell they had been moved
+ * somewhere they did not choose.
+ *
+ * Pure, and separate from the seek it feeds, so that rule is provable without a player.
+ */
+internal fun chapterStartMs(
+    chapters: List<TransportChapter>,
+    index: Int,
+): Long? = chapters.getOrNull(index)?.startMs
 
 /**
  * What the listener is told when a book will not start.

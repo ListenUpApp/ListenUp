@@ -194,6 +194,9 @@ fun WebAppRoot(
             onSkipBack = playback.onSkipBack,
             onSkipForward = playback.onSkipForward,
             onCycleSpeed = playback.onCycleSpeed,
+            chapters = playback.chapters.collectAsState().value,
+            currentChapterIndex = playback.currentChapterIndex.collectAsState().value,
+            onSeekToChapter = playback.onSeekToChapter,
         )
 
         // Last of all: the palette overlays everything above it, including the transport bar.
