@@ -5101,6 +5101,246 @@
         }
       }
     },
+    "bulk_edit.applied_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book updated"
+          }
+        }
+      }
+    },
+    "bulk_edit.applied_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books updated"
+          }
+        }
+      }
+    },
+    "bulk_edit.apply_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change 1 book"
+          }
+        }
+      }
+    },
+    "bulk_edit.apply_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change %1$d books"
+          }
+        }
+      }
+    },
+    "bulk_edit.applying": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applying…"
+          }
+        }
+      }
+    },
+    "bulk_edit.contributors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add contributors"
+          }
+        }
+      }
+    },
+    "bulk_edit.failed_after_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopped after 1 book. The rest were not changed."
+          }
+        }
+      }
+    },
+    "bulk_edit.failed_after_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopped after %1$d books. The rest were not changed."
+          }
+        }
+      }
+    },
+    "bulk_edit.genres": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add genres"
+          }
+        }
+      }
+    },
+    "bulk_edit.language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
+    "bulk_edit.moods": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add moods"
+          }
+        }
+      }
+    },
+    "bulk_edit.multiple_values": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Multiple values"
+          }
+        }
+      }
+    },
+    "bulk_edit.nothing_to_do": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to change yet"
+          }
+        }
+      }
+    },
+    "bulk_edit.preview_affects_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books change"
+          }
+        }
+      }
+    },
+    "bulk_edit.preview_affects_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d books change"
+          }
+        }
+      }
+    },
+    "bulk_edit.preview_affects_single_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book changes"
+          }
+        }
+      }
+    },
+    "bulk_edit.publisher": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publisher"
+          }
+        }
+      }
+    },
+    "bulk_edit.series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to series"
+          }
+        }
+      }
+    },
+    "bulk_edit.some_not_loaded_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 of the %1$d books you selected couldn’t be loaded, so it will not be changed."
+          }
+        }
+      }
+    },
+    "bulk_edit.some_not_loaded_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of the %2$d books you selected couldn’t be loaded, so they will not be changed."
+          }
+        }
+      }
+    },
+    "bulk_edit.tags": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add tags"
+          }
+        }
+      }
+    },
+    "bulk_edit.title_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit 1 book"
+          }
+        }
+      }
+    },
+    "bulk_edit.title_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit %1$d books"
+          }
+        }
+      }
+    },
+    "bulk_edit.year": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publication year"
+          }
+        }
+      }
+    },
     "car.back_seconds": {
       "localizations": {
         "en": {
