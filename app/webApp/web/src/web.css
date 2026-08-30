@@ -126,7 +126,7 @@ body { margin: 0; }
   width: 34px; height: 34px; margin-right: -6px; border: none; background: none; cursor: pointer;
   border-radius: 9px; color: var(--ink-3); transition: color .15s, background .15s;
 }
-.f-eye:hover { color: var(--ink); background: var(--surface-3); }
+@media (hover: hover) { .f-eye:hover { color: var(--ink); background: var(--surface-3); } }
 
 /* dir-b "console" field — outlined on surface, sharper, mono caps label */
 .dir-b .f-label {
@@ -150,7 +150,7 @@ body { margin: 0; }
   box-shadow: 0 6px 18px rgba(240,81,47,0.28);
   transition: background .15s, transform .08s, box-shadow .15s;
 }
-.btn:hover { background: var(--coral-press); box-shadow: 0 8px 22px rgba(240,81,47,0.36); }
+@media (hover: hover) { .btn:hover { background: var(--coral-press); box-shadow: 0 8px 22px rgba(240,81,47,0.36); } }
 .btn:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(240,81,47,0.3); }
 .dir-b .btn { border-radius: 9px; font-weight: 600; }
 
@@ -161,9 +161,9 @@ body { margin: 0; }
   background: var(--surface-2); color: var(--ink); border: 1.5px solid var(--line); white-space: nowrap;
   transition: background .15s, border-color .15s;
 }
-.btn-ghost:hover { background: var(--surface-3); border-color: var(--hairline); }
+@media (hover: hover) { .btn-ghost:hover { background: var(--surface-3); border-color: var(--hairline); } }
 .dir-b .btn-ghost { border-radius: 9px; background: transparent; }
-.dir-b .btn-ghost:hover { background: var(--surface-2); }
+@media (hover: hover) { .dir-b .btn-ghost:hover { background: var(--surface-2); } }
 
 /* ============================================================
    PRESS — what happens when you actually touch the thing
@@ -249,7 +249,7 @@ body { margin: 0; }
   font-size: 14.5px; letter-spacing: -0.01em; white-space: nowrap;
   border-bottom: 1px solid transparent; transition: border-color .15s;
 }
-.lnk:hover { border-bottom-color: var(--coral); }
+@media (hover: hover) { .lnk:hover { border-bottom-color: var(--coral); } }
 .muted { color: var(--ink-2); }
 
 /* ---- checkbox ---- */
@@ -350,7 +350,7 @@ body { margin: 0; }
 /* scanning pulse */
 @keyframes scanPulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 var(--coral-ring); } 50% { opacity: .5; box-shadow: 0 0 0 5px transparent; } }
 @media (prefers-reduced-motion: no-preference) { .scan-pulse { animation: scanPulse 1.3s ease-in-out infinite; } }
-.folder-row:hover { background: var(--surface-2); }
+@media (hover: hover) { .folder-row:hover { background: var(--surface-2); } }
 
 /* utility */
 .fill { position: absolute; inset: 0; }
@@ -385,20 +385,20 @@ body { margin: 0; }
 .tbl th { height:36px; padding:0 12px; text-align:left; font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); background:var(--surface-2); border-bottom:1px solid var(--line); white-space:nowrap; user-select:none; }
 .tbl th.srt { color:var(--coral); cursor:pointer; }
 .tbl th.can { cursor:pointer; }
-.tbl th.can:hover { color:var(--ink); }
+@media (hover: hover) { .tbl th.can:hover { color:var(--ink); } }
 .tbl td { height:var(--row); padding:0 12px; border-bottom:1px solid var(--line-2); color:var(--ink); vertical-align:middle; }
 .tbl tbody tr:last-child td { border-bottom:none; }
 .tbl tbody tr { transition:background .12s; cursor:pointer; }
-.tbl tbody tr:hover { background:var(--surface-2); }
-.tbl tbody tr.sel, .tbl tbody tr.sel:hover { background:var(--coral-soft); }
+@media (hover: hover) { .tbl tbody tr:hover { background:var(--surface-2); } }
+@media (hover: hover) { .tbl tbody tr.sel, .tbl tbody tr.sel:hover { background:var(--coral-soft); } }
 .tbl tbody tr.on td { color:var(--coral); font-weight:700; }
 .tbl .num { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink-2); text-align:right; white-space:nowrap; font-size:calc(var(--fs) - 1px); }
 .tbl .tt { font-weight:700; letter-spacing:-.01em; }
 .tbl .sub { font-size:var(--fxs); color:var(--ink-3); font-weight:500; }
 .tbl .rowact { display:flex; gap:2px; justify-content:flex-end; opacity:0; transition:opacity .12s; }
-.tbl tbody tr:hover .rowact { opacity:1; }
+@media (hover: hover) { .tbl tbody tr:hover .rowact { opacity:1; } }
 .iconbtn { width:30px; height:30px; border:none; background:transparent; border-radius:8px; color:var(--ink-3); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-.iconbtn:hover { background:var(--surface-3); color:var(--ink); }
+@media (hover: hover) { .iconbtn:hover { background:var(--surface-3); color:var(--ink); } }
 
 /* ---- menu / popover ---- */
 /* What a popover hangs from. `inline-flex` keeps it the width of its trigger: the account menu
@@ -412,11 +412,11 @@ body { margin: 0; }
    Below .scrim's z-index:40 so a modal still covers it. */
 .menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
 .menu-i { display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; }
-.menu-i:hover { background:var(--surface-2); }
+@media (hover: hover) { .menu-i:hover { background:var(--surface-2); } }
 .menu-i.hi { background:var(--surface-2); }
 .menu-i .k { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3); }
 .menu-i.danger { color:#C0392B; }
-.menu-i.danger:hover { background:rgba(192,57,43,.10); }
+@media (hover: hover) { .menu-i.danger:hover { background:rgba(192,57,43,.10); } }
 [data-theme="dark"] .menu-i.danger { color:#F08D7C; }
 .menu-sep { height:1px; background:var(--line-2); margin:5px 8px; }
 .menu-lb { padding:9px 9px 5px; font-family:var(--mono); font-size:10px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
@@ -430,25 +430,25 @@ body { margin: 0; }
 .dlg-b { padding:9px 24px 20px; font-size:14px; color:var(--ink-2); line-height:1.55; }
 .dlg-f { display:flex; justify-content:flex-end; gap:10px; padding:14px 18px; background:var(--surface-2); border-top:1px solid var(--line-2); }
 .btn-c { height:40px; padding:0 18px; border-radius:11px; border:none; cursor:pointer; font-family:inherit; font-size:14px; font-weight:700; letter-spacing:-.01em; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
-.btn-c:hover { background:var(--coral-press); }
+@media (hover: hover) { .btn-c:hover { background:var(--coral-press); } }
 .btn-o { height:40px; padding:0 16px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:600; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
-.btn-o:hover { background:var(--surface-3); }
+@media (hover: hover) { .btn-o:hover { background:var(--surface-3); } }
 /* Square icon-only companion to `.btn` — same height and radius, outline weight, so a primary
    action and its icon sibling read as one row rather than two generations of button. */
 .btn-sq { height:52px; width:52px; flex-shrink:0; padding:0; border-radius:13px; cursor:pointer; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; justify-content:center; }
-.btn-sq:hover { background:var(--surface-3); }
+@media (hover: hover) { .btn-sq:hover { background:var(--surface-3); } }
 .btn-d { background:#C0392B; color:#fff; }
-.btn-d:hover { background:#A5301F; }
+@media (hover: hover) { .btn-d:hover { background:#A5301F; } }
 
 /* ---- toast ---- */
 .toast { display:flex; align-items:center; gap:12px; min-height:50px; padding:0 8px 0 15px; background:var(--ink); color:var(--paper); border-radius:13px; box-shadow:0 16px 44px rgba(20,12,6,.36); font-size:13.5px; font-weight:600; white-space:nowrap; }
 [data-theme="dark"] .toast { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .toast .t-dot { width:9px; height:9px; border-radius:99px; flex-shrink:0; }
 .toast .t-act { color:var(--amber); font-weight:700; cursor:pointer; padding:0 12px; height:34px; display:inline-flex; align-items:center; border-radius:8px; }
-.toast .t-act:hover { background:rgba(255,255,255,.10); }
+@media (hover: hover) { .toast .t-act:hover { background:rgba(255,255,255,.10); } }
 [data-theme="dark"] .toast .t-act { color:var(--coral); }
 .toast .t-x { width:32px; height:32px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; opacity:.6; cursor:pointer; }
-.toast .t-x:hover { opacity:1; background:rgba(255,255,255,.10); }
+@media (hover: hover) { .toast .t-x:hover { opacity:1; background:rgba(255,255,255,.10); } }
 
 /* The toast stack: bottom-centre, above everything including the transport bar (z 5/6) and the
    command palette's scrim (z 50). Fixed rather than sticky — a toast reports on the app, not on
@@ -495,7 +495,7 @@ body { margin: 0; }
 /* ---- tabs ---- */
 .tabs { display:flex; gap:2px; border-bottom:1px solid var(--line); }
 .tab { height:42px; padding:0 14px; display:inline-flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600; color:var(--ink-2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
-.tab:hover { color:var(--ink); }
+@media (hover: hover) { .tab:hover { color:var(--ink); } }
 .tab.on { color:var(--coral); border-bottom-color:var(--coral); font-weight:700; }
 .tab .ct { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
 .tab.on .ct { color:var(--coral); }
@@ -508,7 +508,7 @@ body { margin: 0; }
 /* ---- facet rail ---- */
 .facet-h { font-family:var(--mono); font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); margin:0 0 7px 3px; }
 .facet { display:flex; align-items:center; gap:9px; height:30px; padding:0 9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
-.facet:hover { background:var(--surface-2); color:var(--ink); }
+@media (hover: hover) { .facet:hover { background:var(--surface-2); color:var(--ink); } }
 .facet.on { background:var(--coral-soft); color:var(--coral); }
 .facet .n { margin-left:auto; font-family:var(--mono); font-size:11.5px; color:var(--ink-3); }
 .facet.on .n { color:var(--coral); }
@@ -518,11 +518,11 @@ body { margin: 0; }
 [data-theme="dark"] .bulk { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .bulk-b { height:36px; padding:0 13px; border-radius:9px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.09); color:inherit; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
 [data-theme="dark"] .bulk-b { border-color:var(--line); background:var(--surface-2); }
-.bulk-b:hover { background:rgba(255,255,255,.18); }
-[data-theme="dark"] .bulk-b:hover { background:var(--surface); }
+@media (hover: hover) { .bulk-b:hover { background:rgba(255,255,255,.18); } }
+@media (hover: hover) { [data-theme="dark"] .bulk-b:hover { background:var(--surface); } }
 .bulk-x { width:36px; height:36px; border-radius:9px; border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-.bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); }
-[data-theme="dark"] .bulk-x:hover { background:var(--surface-2); }
+@media (hover: hover) { .bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); } }
+@media (hover: hover) { [data-theme="dark"] .bulk-x:hover { background:var(--surface-2); } }
 
 /* ---- setting rows ---- */
 .srow { display:flex; align-items:center; gap:18px; padding:15px 0; border-bottom:1px solid var(--line-2); }
@@ -538,7 +538,7 @@ body { margin: 0; }
 /* ---- breadcrumb ---- */
 .crumb { display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--ink-3); white-space:nowrap; }
 .crumb a { color:var(--ink-2); text-decoration:none; cursor:pointer; }
-.crumb a:hover { color:var(--coral); }
+@media (hover: hover) { .crumb a:hover { color:var(--coral); } }
 .crumb .cur { color:var(--ink); }
 
 /* ---- meta list (mono technical facts) ---- */
@@ -550,7 +550,7 @@ body { margin: 0; }
 
 /* ---- pill / tag ---- */
 .pill { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); font-size:12.5px; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
-.pill:hover { background:var(--surface-3); color:var(--ink); }
+@media (hover: hover) { .pill:hover { background:var(--surface-3); color:var(--ink); } }
 .pill.on { background:var(--coral-soft); border-color:transparent; color:var(--coral); }
 .pill .x { opacity:.6; }
 
@@ -570,7 +570,7 @@ body { margin: 0; }
 .sb-group { display:block; margin:16px 0 6px 14px; font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
 .sb-nav { display:flex; flex-direction:column; gap:3px; }
 .nav-i { display:flex; align-items:center; gap:13px; height:44px; padding:0 13px; border-radius:12px; cursor:pointer; font-size:14.5px; font-weight:600; letter-spacing:-.01em; color:var(--ink-2); transition:background .14s, color .14s; white-space:nowrap; }
-.nav-i:hover { background:var(--surface-2); color:var(--ink); }
+@media (hover: hover) { .nav-i:hover { background:var(--surface-2); color:var(--ink); } }
 .nav-i.on { background:var(--coral-soft); color:var(--coral); font-weight:700; }
 .nav-i .lb { display:block; flex:1; overflow:hidden; text-overflow:ellipsis; }
 .sb-spacer { flex:1; }
@@ -601,7 +601,7 @@ body { margin: 0; }
    only when a book is loaded, which is why nothing here reserves space. */
 .tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:24px -28px -24px; padding:14px 22px; min-height:76px; background:var(--surface); border-top:1px solid var(--line); box-shadow:0 -10px 30px rgba(20,12,6,.06); }
 .tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
-.tport-b:hover { background:var(--coral-press); }
+@media (hover: hover) { .tport-b:hover { background:var(--coral-press); } }
 .tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:none; }
 .tport-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
 .tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
@@ -609,19 +609,19 @@ body { margin: 0; }
    bar read as three equal actions, when only one of them is the one you reach for. `position:
    relative` anchors the interval numeral over the arrow. */
 .tport-skip { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
-.tport-skip:hover { background:var(--surface-2); color:var(--ink); }
+@media (hover: hover) { .tport-skip:hover { background:var(--surface-2); color:var(--ink); } }
 /* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
    two-digit interval still has to fit. */
 .tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
 /* Text, not an icon: the current rate IS the label, and no glyph says "1.5x" as directly. */
 .tport-speed { flex:none; min-width:40px; height:30px; padding:0 8px; border:1px solid var(--line); border-radius:15px; background:transparent; color:var(--ink-2); font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; }
-.tport-speed:hover { background:var(--surface-2); color:var(--ink); }
+@media (hover: hover) { .tport-speed:hover { background:var(--surface-2); color:var(--ink); } }
 /* The playback failure notice. Sits directly above the bar and, more often, alone — the failures
    worth reporting are the ones that leave nothing playing. */
 .tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral); border-top:1px solid var(--line); font-size:13.5px; font-weight:600; }
 .tport-note-t { flex:1; min-width:0; }
 .tport-note-x { width:28px; height:28px; flex:none; border:none; border-radius:8px; background:transparent; color:inherit; opacity:.7; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-.tport-note-x:hover { opacity:1; background:var(--surface-2); }
+@media (hover: hover) { .tport-note-x:hover { opacity:1; background:var(--surface-2); } }
 @media (max-width: 759px) {
   .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
   .tport-t { display:none; }
@@ -663,7 +663,7 @@ body { margin: 0; }
 .bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
 /* A byline name is a control, not decoration — same activation contract as `.contrib-row`. */
 .bd-by-name { cursor:pointer; border-radius:4px; }
-.bd-by-name:hover { color:var(--coral); text-decoration:underline; }
+@media (hover: hover) { .bd-by-name:hover { color:var(--coral); text-decoration:underline; } }
 .bd-by-name:focus { outline:none; }
 .bd-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 /* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
@@ -687,14 +687,14 @@ body { margin: 0; }
   align-self:flex-start; padding:4px 0; border:none; background:none; cursor:pointer;
   font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-3);
 }
-.rel-drop:hover { color:var(--coral); }
+@media (hover: hover) { .rel-drop:hover { color:var(--coral); } }
 .rel-add-roles { display:flex; flex-wrap:wrap; gap:8px; }
 .rel-add-role {
   padding:6px 12px; border-radius:999px; cursor:pointer;
   border:1.5px dashed var(--line); background:none; color:var(--ink-2);
   font-family:inherit; font-size:13px; font-weight:600;
 }
-.rel-add-role:hover { border-style:solid; border-color:var(--coral); color:var(--coral); }
+@media (hover: hover) { .rel-add-role:hover { border-style:solid; border-color:var(--coral); color:var(--coral); } }
 /* Free text, not a number input: "1.5", "0" and "Prequel" are all real positions. */
 .rel-seq {
   width:52px; padding:2px 6px; border-radius:7px;
@@ -716,7 +716,7 @@ body { margin: 0; }
   background:var(--surface-3); color:var(--ink-2);
   font-family:inherit; font-size:14px; line-height:1; cursor:pointer;
 }
-.rel-x:hover { background:var(--coral); color:var(--on-coral); }
+@media (hover: hover) { .rel-x:hover { background:var(--coral); color:var(--on-coral); } }
 .rel-results {
   display:flex; flex-direction:column; margin-top:8px;
   border:1.5px solid var(--line); border-radius:12px; overflow:hidden;
@@ -726,7 +726,10 @@ body { margin: 0; }
   text-align:left; padding:10px 14px; border:none; background:none; cursor:pointer;
   font-family:inherit; font-size:14px; color:var(--ink);
 }
-.rel-result:hover, .rel-result:focus-visible { background:var(--surface-3); outline:none; }
+/* Split: keyboard focus is not a pointer state and must reach a reader on any device. Only the
+   hover half is gated below. */
+.rel-result:focus-visible { background:var(--surface-3); outline:none; }
+@media (hover: hover) { .rel-result:hover { background:var(--surface-3); outline:none; } }
 .rel-create { font-weight:700; color:var(--coral); }
 .rel-hint { padding:10px 14px; font-size:13.5px; color:var(--ink-3); }
 .edit-actions { display:flex; justify-content:flex-end; gap:10px; }
@@ -741,7 +744,10 @@ body { margin: 0; }
   padding:18px; cursor:pointer; font-family:inherit;
   border:1.5px dashed var(--hairline); border-radius:13px; background:var(--surface-2);
 }
-.cover-pick:hover, .cover-pick.cover-drag { border-color:var(--coral); background:var(--surface); }
+/* Split for the same reason: `.cover-drag` is a drag-over state, not a pointer-hover one, and a
+   file dragged onto this target must light it up wherever the drag came from. */
+.cover-pick.cover-drag { border-color:var(--coral); background:var(--surface); }
+@media (hover: hover) { .cover-pick:hover { border-color:var(--coral); background:var(--surface); } }
 .cover-pick[disabled] { opacity:.55; cursor:default; }
 .cover-pick-disc { width:44px; height:44px; border-radius:50%; background:var(--coral-soft); color:var(--coral); display:flex; align-items:center; justify-content:center; }
 .cover-pick-main { font-size:15px; font-weight:600; color:var(--ink); }
@@ -777,7 +783,7 @@ body { margin: 0; }
 /* the chapter map — the book as a strip; segment width is proportional to duration */
 .chmap { display:flex; gap:2px; height:34px; }
 .chmap i { flex:1 0 2px; min-width:2px; border-radius:3px; background:var(--surface-3); cursor:pointer; transition:background .12s; }
-.chmap i:hover { background:var(--hairline); }
+@media (hover: hover) { .chmap i:hover { background:var(--hairline); } }
 .chmap i.on { background:var(--coral); }
 
 /* 760–1023: the side rail folds under the main column. */
@@ -893,13 +899,20 @@ body { margin: 0; }
    virtualised on the assumption that every card is exactly the same height, so a treatment that
    grew the box would drift the row offsets under the reader's cursor. `transform` is safe because
    it does not participate in layout; padding, border-width and font-size are not. */
-.lib-card:hover .lib-cover,
+/* Split: the focus half is how a reader arriving by Tab sees where they are, and cannot be made
+   conditional on a pointer existing. Only the hover half is gated. */
 .lib-card:focus-visible .lib-cover {
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(0,0,0,0.18);
 }
+@media (hover: hover) {
+  .lib-card:hover .lib-cover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+  }
+}
 .lib-cover { transition: transform .16s ease, box-shadow .16s ease; }
-.lib-card:hover .lib-title { color: var(--coral); }
+@media (hover: hover) { .lib-card:hover .lib-title { color: var(--coral); } }
 /* `:focus-visible`, not `:focus` — a mouse click should not leave a ring behind, but a reader
    arriving by Tab must be able to see where they are. */
 .lib-card:focus { outline: none; }
@@ -1025,7 +1038,7 @@ body { margin: 0; }
 .contrib-letter-line { flex-grow: 1; height: 1.5px; border-radius: 99px; background: var(--line); }
 
 .contrib-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
-.contrib-row:hover { background: var(--surface-2); }
+@media (hover: hover) { .contrib-row:hover { background: var(--surface-2); } }
 .contrib-row:focus { outline: none; }
 .contrib-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .contrib-avatar {
@@ -1123,12 +1136,12 @@ body { margin: 0; }
 .search-group-count { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
 
 .search-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
-.search-row:hover { background: var(--surface-2); }
+@media (hover: hover) { .search-row:hover { background: var(--surface-2); } }
 .search-row:focus { outline: none; }
 .search-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 /* A hit type with no destination yet — no pointer cursor, no hover fill, nothing that promises a click leads anywhere. */
 .search-row.is-static { cursor: default; }
-.search-row.is-static:hover { background: none; }
+@media (hover: hover) { .search-row.is-static:hover { background: none; } }
 .search-badge {
   width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3);
@@ -1201,7 +1214,7 @@ body { margin: 0; }
   font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
   box-shadow: var(--field-shadow);
 }
-.luw .home-search:hover { border-color: var(--coral); color: var(--ink); }
+@media (hover: hover) { .luw .home-search:hover { border-color: var(--coral); color: var(--ink); } }
 .luw .home-search-label { white-space: nowrap; }
 
 .luw .home-skel-line { width: 8rem; height: 0.95rem; border-radius: 6px; }
@@ -1326,7 +1339,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: flex; align-items: center; gap: 0.9rem; flex: 1; min-width: 0;
   padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;
 }
-.luw .shelf-book-open:hover .shelf-book-t { color: var(--coral); }
+@media (hover: hover) { .luw .shelf-book-open:hover .shelf-book-t { color: var(--coral); } }
 .luw .shelf-book-t { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
 .luw .shelf-book-sub { font-size: 0.82rem; color: var(--ink-2); }
 /* The grip is a real focusable control, so it needs a real focus ring — it is the only way a
@@ -1336,13 +1349,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   background: transparent; color: var(--ink-3); cursor: grab;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.luw .shelf-grip:hover { background: var(--surface-2); color: var(--ink); }
+@media (hover: hover) { .luw .shelf-grip:hover { background: var(--surface-2); color: var(--ink); } }
 .luw .shelf-book-x {
   flex: none; width: 28px; height: 28px; padding: 0; border: none; border-radius: 8px;
   background: transparent; color: var(--ink-3); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.luw .shelf-book-x:hover { background: var(--surface-2); color: var(--coral); }
+@media (hover: hover) { .luw .shelf-book-x:hover { background: var(--surface-2); color: var(--coral); } }
 
 /* A refused mutation, said out loud. Sits above the shelf rather than over it: the shelf is still
    usable, and a message that blocks it would be a bigger interruption than the failure warrants. */
@@ -1358,7 +1371,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   background: transparent; color: inherit; cursor: pointer; opacity: 0.75;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.luw .shelf-notice-x:hover { opacity: 1; background: var(--surface-2); }
+@media (hover: hover) { .luw .shelf-notice-x:hover { opacity: 1; background: var(--surface-2); } }
 
 .luw .shelf-edit { display: flex; flex-direction: column; gap: 1.4rem; max-width: 34rem; }
 .luw .shelf-form { display: flex; flex-direction: column; gap: 1.1rem; }
@@ -1380,8 +1393,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding: 0.8rem 1.1rem; border-radius: 14px; cursor: pointer; text-align: left;
   background: var(--surface); border: 1px solid var(--line);
 }
-.luw .home-shelf:hover { border-color: var(--coral-ring); }
-.luw .home-shelf:hover .home-shelf-t { color: var(--coral); }
+@media (hover: hover) { .luw .home-shelf:hover { border-color: var(--coral-ring); } }
+@media (hover: hover) { .luw .home-shelf:hover .home-shelf-t { color: var(--coral); } }
 .luw .home-shelf-t { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
 .luw .home-shelf-sub { font-size: 0.8rem; color: var(--ink-3); }
 
@@ -1394,8 +1407,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding: 0.7rem 1rem; border-radius: 14px; cursor: pointer; text-align: left;
   background: var(--surface); border: 1px solid var(--line);
 }
-.luw .disc-shelf:hover { border-color: var(--coral-ring); }
-.luw .disc-shelf:hover .disc-shelf-t { color: var(--coral); }
+@media (hover: hover) { .luw .disc-shelf:hover { border-color: var(--coral-ring); } }
+@media (hover: hover) { .luw .disc-shelf:hover .disc-shelf-t { color: var(--coral); } }
 .luw .disc-shelf-t { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
 .luw .disc-shelf-sub { font-size: 0.78rem; color: var(--ink-3); }
 
@@ -1421,7 +1434,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start;
   padding: 0; border: none; background: transparent; cursor: pointer; text-align: left;
 }
-.luw .disc-card:hover .disc-card-t { color: var(--coral); }
+@media (hover: hover) { .luw .disc-card:hover .disc-card-t { color: var(--coral); } }
 .luw .disc-card-t {
   font-size: 0.9rem; font-weight: 700; color: var(--ink); line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -1436,7 +1449,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding: 0.6rem 0.9rem 0.6rem 0.6rem; border-radius: 14px; cursor: pointer; text-align: left;
   background: var(--surface); border: 1px solid var(--line);
 }
-.luw .disc-listener:hover { border-color: var(--coral-ring); }
+@media (hover: hover) { .luw .disc-listener:hover { border-color: var(--coral-ring); } }
 .luw .disc-listener-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .luw .disc-listener-who { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
 .luw .disc-listener-book {
@@ -1454,7 +1467,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   font-size: 0.82rem; font-weight: 600; color: var(--ink-2);
   background: transparent; border: 1px solid var(--line);
 }
-.luw .disc-chip:hover { color: var(--ink); background: var(--surface-2); }
+@media (hover: hover) { .luw .disc-chip:hover { color: var(--ink); background: var(--surface-2); } }
 .luw .disc-chip.is-on { color: var(--on-coral); background: var(--coral); border-color: var(--coral); }
 .luw .disc-lb {
   display: flex; flex-direction: column;
@@ -1489,7 +1502,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .disc-feed-row:last-child { border-bottom: none; }
 /* Only rows that lead somewhere say so. A streak or a join is plain text by construction. */
 .luw .disc-feed-row.is-open { cursor: pointer; }
-.luw .disc-feed-row.is-open:hover { background: var(--surface-2); }
+@media (hover: hover) { .luw .disc-feed-row.is-open:hover { background: var(--surface-2); } }
 .luw .disc-feed-line { font-size: 0.9rem; color: var(--ink-2); line-height: 1.45; min-width: 0; }
 .luw .disc-feed-who { font-weight: 700; color: var(--ink); }
 .luw .disc-feed-hi { font-weight: 700; color: var(--coral); }
@@ -1516,7 +1529,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    lands, which reads as the page flinching. */
 .luw .home-card-cover-skel { width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; }
 .luw .home-card:focus { outline: none; }
-.luw .home-card:hover .home-card-t { color: var(--coral); }
+@media (hover: hover) { .luw .home-card:hover .home-card-t { color: var(--coral); } }
 .luw .home-card-progress {
   height: 4px; border-radius: 99px; background: var(--surface-3); overflow: hidden;
 }
