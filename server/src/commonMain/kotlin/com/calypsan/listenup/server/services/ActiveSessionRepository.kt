@@ -96,8 +96,19 @@ class ActiveSessionRepository(
         }
 
     /**
-     * Live presence on [bookId] except [excludeUserId] — the "readers of this book"
-     * surface on BookDetail, with the requesting user filtered out.
+     * Every non-deleted presence row on [bookId] except [excludeUserId]'s.
+     *
+     * **Not a user-facing surface, despite the name.** BookDetail's readership comes from
+     * `SocialService.bookReadership`, which reads `PlaybackPositionRepository.listInProgressForBook`;
+     * this method has no production caller. It survives as the observation point roughly eighteen
+     * assertions use to ask "is there a presence row for this book" — `ActiveSessionCleanupTaskTest`,
+     * `RecordPositionPresenceTest` and `PlaybackPositionRepositoryTest` among them.
+     *
+     * That is why it takes **no `liveSince` window**, unlike [listCurrentlyListening]. Those specs
+     * deliberately seed stale rows and assert they are still present *before* the sweep removes them;
+     * a staleness filter here would hide exactly what they exist to observe. Raw row presence is the
+     * contract. If this ever gains a production caller, it needs a window — and then it needs its own
+     * name, because it would no longer be the same question.
      */
     suspend fun listReadersForBook(
         bookId: String,
