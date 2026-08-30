@@ -222,128 +222,6 @@ class SocialServiceTest :
             )
         }
 
-        /**
-         * Gates [bookId] into a private collection owned by [collectionOwner] so it is
-         * inaccessible to any non-admin user without an explicit share.
-         */
-        suspend fun makeBookInaccessible(
-            sql: ListenUpDatabase,
-            driver: SqlDriver,
-            bookId: String,
-            collectionId: String,
-            collectionOwner: String = "stranger",
-        ) {
-            val bus = ChangeBus()
-            val registry = SyncRegistry()
-            val collectionRepo =
-                CollectionRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val collectionBookRepo =
-                CollectionBookRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            collectionRepo.upsert(
-                CollectionSyncPayload(
-                    id = collectionId,
-                    libraryId = "test-library",
-                    ownerId = collectionOwner,
-                    name = collectionId,
-                    isInbox = false,
-                    revision = 0L,
-                    updatedAt = 0L,
-                ),
-            )
-            collectionBookRepo.upsert(
-                CollectionBookSyncPayload(
-                    id = "$collectionId:$bookId",
-                    collectionId = collectionId,
-                    bookId = bookId,
-                    createdAt = 0L,
-                    revision = 0L,
-                ),
-            )
-        }
-
-        /**
-         * Makes [bookId] visible to [viewer] the pure-union way: adds it to the per-library
-         * ALL_BOOKS system collection (owned by "system") and grants [viewer] a live Read share
-         * on that collection. [viewer] MUST already be seeded via [seedTestUser] — the grant's
-         * `principal_id` is a FK into `users(id)`. The ALL_BOOKS collection is created once and
-         * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
-         */
-        suspend fun makeBookAccessible(
-            sql: ListenUpDatabase,
-            driver: SqlDriver,
-            bookId: String,
-            viewer: String,
-            // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
-            // grant is unique, so repeated calls for the same viewer must reuse this row (upsert).
-            grantId: String = "grant-$viewer",
-            allBooksId: String = "all-books",
-        ) {
-            val bus = ChangeBus()
-            val registry = SyncRegistry()
-            val collectionRepo =
-                CollectionRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val collectionBookRepo =
-                CollectionBookRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val grantRepo =
-                CollectionGrantRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            collectionRepo.upsert(
-                CollectionSyncPayload(
-                    id = allBooksId,
-                    libraryId = "test-library",
-                    ownerId = "system",
-                    name = "All Books",
-                    isInbox = false,
-                    revision = 0L,
-                    updatedAt = 0L,
-                ),
-            )
-            collectionBookRepo.upsert(
-                CollectionBookSyncPayload(
-                    id = "$allBooksId:$bookId",
-                    collectionId = allBooksId,
-                    bookId = bookId,
-                    createdAt = 0L,
-                    revision = 0L,
-                ),
-            )
-            grantRepo.upsert(
-                CollectionShareSyncPayload(
-                    id = grantId,
-                    collectionId = allBooksId,
-                    sharedWithUserId = viewer,
-                    sharedByUserId = "system",
-                    permission = SharePermission.Read,
-                    revision = 0L,
-                    updatedAt = 0L,
-                ),
-            )
-        }
-
         // ── 1: currentlyListening excludes the caller; identity from public_profiles ──
 
         test("currentlyListening excludes the caller's own session and joins identity from public_profiles") {
@@ -767,4 +645,187 @@ class SocialServiceTest :
                 }
             }
         }
+
+        // ── 9: the recent fill only fills with something recent ─────────────────────
+
+        test("the recent fill drops a book nobody has touched in months") {
+            // The fill exists so a quiet server's section is not empty. A two-month-old row does not
+            // achieve that — it reads as broken rather than quiet, which is the very failure the fill
+            // was added to prevent. The section already renders nothing rather than invent a row.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    sql.seedInProgressPosition(
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 120_000L,
+                        lastPlayedAt = nowMs - 60L * 24 * 60 * 60 * 1000,
+                    )
+
+                    makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                        .currentlyListening()
+                        .value()
+                        .shouldBeEmpty()
+                }
+            }
+        }
+
+        test("the recent fill keeps a book played within the window") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    sql.seedInProgressPosition(
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 120_000L,
+                        lastPlayedAt = nowMs - 2L * 24 * 60 * 60 * 1000,
+                    )
+
+                    val result =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+
+                    result.single().isLive shouldBe false
+                }
+            }
+        }
     })
+
+/**
+ * Gates [bookId] into a private collection owned by [collectionOwner] so it is
+ * inaccessible to any non-admin user without an explicit share.
+ */
+private suspend fun makeBookInaccessible(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+    bookId: String,
+    collectionId: String,
+    collectionOwner: String = "stranger",
+) {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val collectionRepo =
+        CollectionRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    val collectionBookRepo =
+        CollectionBookRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    collectionRepo.upsert(
+        CollectionSyncPayload(
+            id = collectionId,
+            libraryId = "test-library",
+            ownerId = collectionOwner,
+            name = collectionId,
+            isInbox = false,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+    collectionBookRepo.upsert(
+        CollectionBookSyncPayload(
+            id = "$collectionId:$bookId",
+            collectionId = collectionId,
+            bookId = bookId,
+            createdAt = 0L,
+            revision = 0L,
+        ),
+    )
+}
+
+/**
+ * Makes [bookId] visible to [viewer] the pure-union way: adds it to the per-library
+ * ALL_BOOKS system collection (owned by "system") and grants [viewer] a live Read share
+ * on that collection. [viewer] MUST already be seeded via [seedTestUser] — the grant's
+ * `principal_id` is a FK into `users(id)`. The ALL_BOOKS collection is created once and
+ * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
+ */
+private suspend fun makeBookAccessible(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+    bookId: String,
+    viewer: String,
+    // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
+    // grant is unique, so repeated calls for the same viewer must reuse this row (upsert).
+    grantId: String = "grant-$viewer",
+    allBooksId: String = "all-books",
+) {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val collectionRepo =
+        CollectionRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    val collectionBookRepo =
+        CollectionBookRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    val grantRepo =
+        CollectionGrantRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    collectionRepo.upsert(
+        CollectionSyncPayload(
+            id = allBooksId,
+            libraryId = "test-library",
+            ownerId = "system",
+            name = "All Books",
+            isInbox = false,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+    collectionBookRepo.upsert(
+        CollectionBookSyncPayload(
+            id = "$allBooksId:$bookId",
+            collectionId = allBooksId,
+            bookId = bookId,
+            createdAt = 0L,
+            revision = 0L,
+        ),
+    )
+    grantRepo.upsert(
+        CollectionShareSyncPayload(
+            id = grantId,
+            collectionId = allBooksId,
+            sharedWithUserId = viewer,
+            sharedByUserId = "system",
+            permission = SharePermission.Read,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+}

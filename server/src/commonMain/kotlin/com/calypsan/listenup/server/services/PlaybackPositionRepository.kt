@@ -541,11 +541,20 @@ class PlaybackPositionRepository(
      * asking, so **the caller must ACL-filter the returned [RecentListen.bookId]s** exactly as it
      * filters live presence rows. [com.calypsan.listenup.server.api.SocialServiceImpl] is the only
      * caller and does precisely that.
+     *
+     * Limited to plays at or after [playedSince]. The floor is the caller's decision: this repository
+     * knows about positions, not about what counts as recent enough to show someone.
      */
-    suspend fun mostRecentUnfinishedPerUser(excludeUserId: String): List<RecentListen> =
+    suspend fun mostRecentUnfinishedPerUser(
+        excludeUserId: String,
+        playedSince: Long,
+    ): List<RecentListen> =
         suspendTransaction(db) {
             db.playbackPositionsQueries
-                .selectMostRecentUnfinishedPerUserExcluding(excludeUserId) { userId, bookId, lastPlayedAt ->
+                .selectMostRecentUnfinishedPerUserExcluding(
+                    excludeUserId,
+                    playedSince,
+                ) { userId, bookId, lastPlayedAt ->
                     // MAX() is typed nullable by SQLDelight (it is null over an empty set), but a
                     // GROUP BY only emits a row where at least one NOT NULL value exists — so the
                     // elvis is a type-system formality, not a real 0.

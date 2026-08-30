@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -80,8 +81,10 @@ internal class SocialServiceImpl(
         val liveUserIds = live.map { it.userId }.toSet()
         val recent =
             playbackPositions
-                .mostRecentUnfinishedPerUser(excludeUserId = caller.userId)
-                .filter { it.userId !in liveUserIds && visible(it.bookId) }
+                .mostRecentUnfinishedPerUser(
+                    excludeUserId = caller.userId,
+                    playedSince = nowMs - RECENT_FILL_MAX_AGE.inWholeMilliseconds,
+                ).filter { it.userId !in liveUserIds && visible(it.bookId) }
                 .sortedByDescending { it.lastPlayedAt }
 
         // A user with no live public identity is dropped — there is nobody to display.
@@ -181,5 +184,15 @@ internal class SocialServiceImpl(
          * exists to free rows, not to define truth.
          */
         val LIVE_WINDOW = 5.minutes
+
+        /**
+         * How recently someone must have played a book for it to fill the roster.
+         *
+         * The fill exists so a small server's section is not empty most of the time. A months-old row
+         * does not serve that: it reads as broken rather than quiet, which is the very failure the
+         * fill was added to prevent. Fourteen days keeps a slow server populated while still implying
+         * current activity.
+         */
+        val RECENT_FILL_MAX_AGE = 14.days
     }
 }

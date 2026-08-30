@@ -106,10 +106,15 @@ LIMIT :limit;
 -- column beside `MAX(last_played_at)`: SQLite guarantees bare columns in a single-min/max aggregate
 -- come from the row that produced the extreme, so this is the newest position's book, not an
 -- arbitrary one. Callers still ACL-filter every returned book_id — this query is viewer-agnostic.
+--
+-- Also floored on :playedSince: this feeds the "what others are listening to" fill, and a book
+-- abandoned months ago does not describe what anyone is up to. Filtering before the aggregate is
+-- deliberate — MAX() over only recent rows still yields that user's newest recent play.
 selectMostRecentUnfinishedPerUserExcluding:
 SELECT user_id, book_id, MAX(last_played_at) AS last_played_at
 FROM playback_positions
 WHERE user_id != :excludeUserId AND deleted_at IS NULL AND finished = 0 AND position_ms > 0
+  AND last_played_at >= :playedSince
 GROUP BY user_id
 ORDER BY last_played_at DESC;
 
