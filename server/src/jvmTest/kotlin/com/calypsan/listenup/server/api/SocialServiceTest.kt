@@ -706,6 +706,45 @@ class SocialServiceTest :
                 }
             }
         }
+
+        // ── 10: the two windows hand off to one another ─────────────────────────────
+
+        test("a stopped listener falls back to the recent fill rather than vanishing") {
+            // The two halves are one roster. Someone who stopped twenty minutes ago should still
+            // appear, just no longer as "listening now" — losing them entirely trades one wrong
+            // answer for another.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    val twentyMinutesAgo = nowMs - 20 * 60_000L
+                    // Presence row past LIVE_WINDOW but not yet swept, plus the position it came from.
+                    sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = twentyMinutesAgo)
+                    sql.seedInProgressPosition(
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 120_000L,
+                        lastPlayedAt = twentyMinutesAgo,
+                    )
+
+                    val session =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+                            .single()
+
+                    session.isLive shouldBe false
+                    session.bookId shouldBe "book-a"
+                }
+            }
+        }
     })
 
 /**
