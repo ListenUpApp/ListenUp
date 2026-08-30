@@ -20,7 +20,11 @@ import org.w3c.dom.Element
  * destination cover mounts, run it from there to where it now is. That is the FLIP technique, it
  * predates View Transitions, and it does not care when any framework renders.
  *
- * The page crossfade still uses View Transitions — that one needs no shared element and works.
+ * ⛔ Nor does anything else here. The page crossfade used to be a View Transition and was
+ * removed for the same reason (see `WebAppRoot`'s note on the library grid) — it is NOT waiting
+ * to be re-enabled, and this file used to claim otherwise. Page changes now fade through
+ * [PageFade], which drives the same Web Animations API this flight does and likewise never asks
+ * the browser to own the moment the DOM changes.
  */
 private var origin: Origin? = null
 
