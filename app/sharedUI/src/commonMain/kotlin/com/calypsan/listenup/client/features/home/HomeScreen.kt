@@ -61,6 +61,8 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onNavigateToLibrary Callback to navigate to the library
  * @param onShelfClick Callback when a shelf is clicked
  * @param onSeeAllShelves Callback when "See All" is clicked for shelves
+ * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection
+ *   (null = this host has no route to the editor, so the action is not offered)
  * @param modifier Modifier from parent
  * @param viewModel HomeViewModel injected via Koin
  */
@@ -72,6 +74,7 @@ fun HomeScreen(
     onNavigateToLibrary: () -> Unit,
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
+    onEditSelected: ((List<String>) -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
@@ -142,6 +145,7 @@ fun HomeScreen(
                     onNavigateToLibrary = onNavigateToLibrary,
                     onShelfClick = onShelfClick,
                     onSeeAllShelves = onSeeAllShelves,
+                    onEditSelected = onEditSelected,
                     contentPadding = contentPadding,
                 )
             }
@@ -162,6 +166,7 @@ private fun HomeContent(
     onNavigateToLibrary: () -> Unit,
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
+    onEditSelected: ((List<String>) -> Unit)?,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
 ) {
@@ -233,7 +238,7 @@ private fun HomeContent(
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect)
+        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
     }
 }
 

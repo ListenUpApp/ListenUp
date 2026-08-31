@@ -35,12 +35,20 @@ import kotlinx.coroutines.launch
  * success events ([BookMultiSelectEvent]). Place it as the last child of a fill-size container so
  * its top-anchored toolbar overlays the screen content; the picker sheets render as modals.
  *
+ * Bulk metadata editing is offered only when both conditions hold: the user is an admin (library
+ * metadata is admin-owned, the same ownership that gates collections) **and** the host passed a
+ * route to the editor. A host that has not wired [onEditSelected] shows no Edit button rather than
+ * a dead one — an action that silently does nothing reads as a broken app.
+ *
  * @param multiSelect The per-screen multi-select ViewModel that owns selection + bulk actions.
+ * @param onEditSelected Navigate to the bulk editor with the current selection (null = no route
+ *   from this host, so the action is hidden).
  * @param modifier Modifier applied to the overlay container.
  */
 @Composable
 fun BookSelectionScaffold(
     multiSelect: BookMultiSelectViewModel,
+    onEditSelected: ((List<String>) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
@@ -51,7 +59,8 @@ fun BookSelectionScaffold(
     val isAddingToCollection by multiSelect.isAddingToCollection.collectAsStateWithLifecycle()
 
     val isInSelectionMode = selectionMode is SelectionMode.Active
-    val selectedCount = (selectionMode as? SelectionMode.Active)?.selectedIds?.size ?: 0
+    val selectedIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
+    val selectedCount = selectedIds.size
 
     var showShelfPicker by rememberSaveable { mutableStateOf(false) }
     var showCollectionPicker by rememberSaveable { mutableStateOf(false) }
@@ -77,6 +86,12 @@ fun BookSelectionScaffold(
                 onAddToCollection =
                     if (isAdmin) {
                         { showCollectionPicker = true }
+                    } else {
+                        null
+                    },
+                onEdit =
+                    if (isAdmin && onEditSelected != null) {
+                        { onEditSelected(selectedIds.toList()) }
                     } else {
                         null
                     },

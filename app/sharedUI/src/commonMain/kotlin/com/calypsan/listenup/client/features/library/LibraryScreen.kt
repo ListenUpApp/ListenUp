@@ -65,6 +65,8 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onAuthorClick Callback when an author is clicked
  * @param onNarratorClick Callback when a narrator is clicked
  * @param appHeader The shell header slot, rendered above the filter chips
+ * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection
+ *   (null = this host has no route to the editor, so the action is not offered)
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
  * @param multiSelect The per-screen multi-select ViewModel (injected via Koin)
@@ -76,6 +78,7 @@ fun LibraryScreen(
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
+    onEditSelected: ((List<String>) -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
@@ -109,6 +112,7 @@ fun LibraryScreen(
                 onAuthorClick = onAuthorClick,
                 onNarratorClick = onNarratorClick,
                 appHeader = appHeader,
+                onEditSelected = onEditSelected,
                 onEvent = viewModel::onEvent,
                 modifier = modifier,
             )
@@ -170,6 +174,7 @@ private fun LibraryLoadedContent(
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
+    onEditSelected: ((List<String>) -> Unit)?,
     onEvent: (LibraryUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -282,6 +287,6 @@ private fun LibraryLoadedContent(
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect)
+        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
     }
 }

@@ -59,6 +59,7 @@ import com.calypsan.listenup.client.features.contributormetadata.ContributorMeta
 import com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
+import com.calypsan.listenup.client.features.bulkedit.BulkEditScreen
 import com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen
 import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
@@ -126,6 +127,10 @@ sealed interface DetailDestination {
 
     data class ChapterEditor(
         val bookId: String,
+    ) : DetailDestination
+
+    data class BulkEdit(
+        val bookIds: List<String>,
     ) : DetailDestination
 
     data class ContributorEdit(
@@ -301,6 +306,7 @@ private fun DesktopAuthenticatedNavigation() {
                                 onNavigateToLibrary = onNavigateToLibrary,
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                                 onSeeAllShelves = onNavigateToLibrary,
+                                onEditSelected = { navigateTo(DetailDestination.BulkEdit(it)) },
                                 modifier = Modifier.padding(padding),
                             )
                         },
@@ -311,6 +317,7 @@ private fun DesktopAuthenticatedNavigation() {
                                 onAuthorClick = { navigateTo(DetailDestination.Contributor(it)) },
                                 onNarratorClick = { navigateTo(DetailDestination.Contributor(it)) },
                                 appHeader = appHeader,
+                                onEditSelected = { navigateTo(DetailDestination.BulkEdit(it)) },
                                 modifier = Modifier.padding(padding),
                             )
                         },
@@ -320,6 +327,7 @@ private fun DesktopAuthenticatedNavigation() {
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
+                                onEditSelected = { navigateTo(DetailDestination.BulkEdit(it)) },
                                 modifier = Modifier.padding(padding),
                             )
                         },
@@ -381,6 +389,14 @@ private fun DetailScreen(
             ChapterEditorScreen(
                 bookId = destination.bookId,
                 onBack = navigateBack,
+            )
+        }
+
+        is DetailDestination.BulkEdit -> {
+            BulkEditScreen(
+                bookIds = destination.bookIds,
+                onBack = navigateBack,
+                onApplied = { navigateBack() },
             )
         }
 
