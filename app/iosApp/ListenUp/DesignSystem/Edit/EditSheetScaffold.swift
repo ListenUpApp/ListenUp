@@ -7,6 +7,9 @@ struct EditSheetScaffold<Content: View>: View {
     let title: String
     let canSave: Bool
     let isSaving: Bool
+    /// The confirm button's text. Defaults to "Done"; the bulk editor names the number of books it
+    /// will change instead, because "Done" over a destructive many-book write says too little.
+    var saveLabel: String = String(localized: "common.done")
     let onCancel: () -> Void
     let onSave: () -> Void
     @ViewBuilder var content: () -> Content
@@ -32,7 +35,7 @@ struct EditSheetScaffold<Content: View>: View {
                     if isSaving {
                         ProgressView()
                     } else {
-                        Button(String(localized: "common.done"), action: onSave)
+                        Button(saveLabel, action: onSave)
                             .fontWeight(.semibold)
                             .disabled(!canSave)
                     }
