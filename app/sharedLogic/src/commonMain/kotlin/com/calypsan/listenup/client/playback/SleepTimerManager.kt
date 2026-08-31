@@ -47,7 +47,16 @@ class SleepTimerManager(
     private var timerJob: Job? = null
     private var endOfChapterJob: Job? = null
 
-    // Current chapter index for end-of-chapter mode
+    /**
+     * The last chapter index the consumer reported, or -1 before it has reported any.
+     *
+     * ⛔ Deliberately NOT reset when a timer is cancelled or completed. It is not timer state — it
+     * is where the listener *is*, fed continuously from `currentChapter` whether or not a timer is
+     * running. Wiping it at [setTimer] (which cancels first) discards the baseline the very moment
+     * one is needed, so the next boundary is spent re-learning it and end-of-chapter fires a whole
+     * chapter late: the listener asks to stop at the end of chapter 5 and wakes up in chapter 7.
+     * That is the one failure this mode cannot have, because they are asleep when it happens.
+     */
     private var lastKnownChapterIndex: Int = -1
 
     companion object {
@@ -77,7 +86,6 @@ class SleepTimerManager(
         timerJob = null
         endOfChapterJob?.cancel()
         endOfChapterJob = null
-        lastKnownChapterIndex = -1
         state.value = SleepTimerState.Inactive
     }
 
@@ -128,7 +136,6 @@ class SleepTimerManager(
         state.value = SleepTimerState.Inactive
         timerJob = null
         endOfChapterJob = null
-        lastKnownChapterIndex = -1
         logger.info { "Sleep timer completed" }
     }
 
