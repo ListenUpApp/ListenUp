@@ -11,12 +11,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -27,6 +31,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.bulk_edit_clear_field
 import listenup.composeapp.generated.resources.bulk_edit_consequence_agreed_one
 import listenup.composeapp.generated.resources.bulk_edit_consequence_agreed_plural
 import listenup.composeapp.generated.resources.bulk_edit_consequence_differs_one
@@ -87,50 +92,44 @@ fun BulkEditForm(
     val enabled = !state.isApplying
 
     val publisher: @Composable (Modifier) -> Unit = { fieldModifier ->
-        FieldBlock(
+        PublishingField(
+            value = state.publisherInput,
+            onValueChange = onPublisherChange,
+            onClear = { onPublisherChange("") },
+            label = stringResource(Res.string.bulk_edit_publisher),
+            placeholder = state.sharedPublisher ?: mixed,
+            leadingIcon = Icons.Outlined.Business,
             consequence = state.consequenceOf<BulkEdit.SetPublisher>(state.sharedPublisher),
+            enabled = enabled,
             modifier = fieldModifier,
-        ) {
-            ListenUpTextField(
-                value = state.publisherInput,
-                onValueChange = onPublisherChange,
-                label = stringResource(Res.string.bulk_edit_publisher),
-                placeholder = state.sharedPublisher ?: mixed,
-                enabled = enabled,
-                leadingIcon = Icons.Outlined.Business,
-            )
-        }
+        )
     }
     val year: @Composable (Modifier) -> Unit = { fieldModifier ->
-        FieldBlock(
+        PublishingField(
+            value = state.yearInput,
+            onValueChange = { onYearChange(it.toIntOrNull()) },
+            onClear = { onYearChange(null) },
+            label = stringResource(Res.string.bulk_edit_year),
+            placeholder = state.sharedPublishYear?.toString() ?: mixed,
+            leadingIcon = Icons.Outlined.CalendarMonth,
             consequence = state.consequenceOf<BulkEdit.SetPublishYear>(state.sharedPublishYear?.toString()),
+            enabled = enabled,
             modifier = fieldModifier,
-        ) {
-            ListenUpTextField(
-                value = state.yearInput,
-                onValueChange = { onYearChange(it.toIntOrNull()) },
-                label = stringResource(Res.string.bulk_edit_year),
-                placeholder = state.sharedPublishYear?.toString() ?: mixed,
-                enabled = enabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                leadingIcon = Icons.Outlined.CalendarMonth,
-            )
-        }
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
     }
     val language: @Composable (Modifier) -> Unit = { fieldModifier ->
-        FieldBlock(
+        PublishingField(
+            value = state.languageInput,
+            onValueChange = onLanguageChange,
+            onClear = { onLanguageChange("") },
+            label = stringResource(Res.string.bulk_edit_language),
+            placeholder = state.sharedLanguage ?: mixed,
+            leadingIcon = Icons.Outlined.Language,
             consequence = state.consequenceOf<BulkEdit.SetLanguage>(state.sharedLanguage),
+            enabled = enabled,
             modifier = fieldModifier,
-        ) {
-            ListenUpTextField(
-                value = state.languageInput,
-                onValueChange = onLanguageChange,
-                label = stringResource(Res.string.bulk_edit_language),
-                placeholder = state.sharedLanguage ?: mixed,
-                enabled = enabled,
-                leadingIcon = Icons.Outlined.Language,
-            )
-        }
+        )
     }
 
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(FieldGap)) {
@@ -150,18 +149,78 @@ fun BulkEditForm(
     }
 }
 
-/** A field and the sentence that says what leaving it — or not — will do. */
+/**
+ * One field, the sentence that says what leaving it — or not — will do, and the way back.
+ *
+ * An untouched field and a touched one have to be unmistakable, because the whole safety of the
+ * screen rests on reading them apart: an untouched one shows what the books already say and writes
+ * nothing, a touched one is an instruction that will be written to as many books as the sentence
+ * beneath it names. So they differ on four signals at once — outline colour, label colour, leading
+ * icon tint, and the presence of a clear button — not one. One signal can be missed.
+ *
+ * The clear button is the way back, and it is not a nicety: on this screen a stray keystroke arms a
+ * forty-book write with no undo, and clearing the field is what disarms it. It reports the empty
+ * value through the same handler as typing, so removing an instruction and never making one stay
+ * the same code path.
+ */
 @Composable
-private fun FieldBlock(
+private fun PublishingField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClear: () -> Unit,
+    label: String,
+    placeholder: String,
+    leadingIcon: ImageVector,
     consequence: FieldConsequence,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
-    field: @Composable () -> Unit,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
+    val armed = value.isNotEmpty()
     Column(modifier) {
-        field()
+        ListenUpTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = label,
+            placeholder = placeholder,
+            enabled = enabled,
+            keyboardOptions = keyboardOptions,
+            leadingIcon = leadingIcon,
+            colors = if (armed) armedFieldColors() else null,
+            trailingContent =
+                if (!armed) {
+                    null
+                } else {
+                    {
+                        IconButton(onClick = onClear, enabled = enabled) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(Res.string.bulk_edit_clear_field, label),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                },
+        )
         ConsequenceLine(consequence)
     }
 }
+
+/**
+ * The accent an armed field wears while it is not focused.
+ *
+ * Material already shouts about the *focused* field; this screen has to shout about the field that
+ * holds an instruction, which is a different and longer-lived fact — you type a publisher, move on,
+ * and only look back at the form once, right before committing. Only the unfocused roles are
+ * overridden, so focus still reads as focus on top of it.
+ */
+@Composable
+private fun armedFieldColors(): TextFieldColors =
+    OutlinedTextFieldDefaults.colors(
+        unfocusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedLabelColor = MaterialTheme.colorScheme.primary,
+        unfocusedLeadingIconColor = MaterialTheme.colorScheme.primary,
+    )
 
 /**
  * What this field will do to the selection, in a whole sentence.

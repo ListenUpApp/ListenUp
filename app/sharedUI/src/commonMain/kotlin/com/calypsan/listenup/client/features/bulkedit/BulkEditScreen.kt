@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -62,6 +64,9 @@ private val WidePageMargin = 24.dp
 private val CardGap = 16.dp
 private val LoadingPadding = 48.dp
 private val NoticeIconSize = 22.dp
+
+/** The corner action floats; the docked bar does not need to. */
+private val CornerActionElevation = 8.dp
 
 /** The form column earns more of a wide window than the preview does — it holds the input. */
 private const val FORM_COLUMN_WEIGHT = 1.35f
@@ -167,7 +172,11 @@ internal fun BulkEditContent(
             }
         },
         floatingActionButton = {
-            if (editing != null && wide) ConfirmButton(editing, onApply, fillWidth = false)
+            // The docked bar gets its separation from a tonal-elevated surface; a corner action has
+            // no bar to sit on, so it casts its own shadow instead of floating flat over the cards.
+            if (editing != null && wide) {
+                ConfirmButton(editing, onApply, Modifier.shadow(CornerActionElevation, CircleShape), false)
+            }
         },
     ) { padding ->
         BulkEditBody(
