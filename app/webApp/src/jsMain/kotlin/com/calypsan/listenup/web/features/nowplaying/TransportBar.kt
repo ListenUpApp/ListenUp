@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -65,10 +67,15 @@ fun TransportBar(
     chapters: List<TransportChapter> = emptyList(),
     currentChapterIndex: Int? = null,
     onSeekToChapter: (Int) -> Unit = {},
+    sleepTimer: SleepTimerState = SleepTimerState.Inactive,
+    onSetSleepTimer: (SleepTimerMode) -> Unit = {},
+    onCancelSleepTimer: () -> Unit = {},
+    onExtendSleepTimer: (Int) -> Unit = {},
 ) {
     if (state == null) return
 
     var chaptersOpen by remember { mutableStateOf(false) }
+    var sleepOpen by remember { mutableStateOf(false) }
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: state.positionMs
 
@@ -82,6 +89,18 @@ fun TransportBar(
             chaptersOpen = false
         },
         onDismiss = { chaptersOpen = false },
+    )
+    SleepTimerPicker(
+        open = sleepOpen,
+        state = sleepTimer,
+        hasChapters = chapters.isNotEmpty(),
+        onSet = { mode ->
+            onSetSleepTimer(mode)
+            sleepOpen = false
+        },
+        onCancel = onCancelSleepTimer,
+        onExtend = onExtendSleepTimer,
+        onDismiss = { sleepOpen = false },
     )
 
     Div(attrs = { classes("tport") }) {
@@ -163,6 +182,23 @@ fun TransportBar(
             }) {
                 Icon(WebIcon.Hash, size = CHAPTER_ICON_SIZE)
             }
+        }
+
+        // Always offered, unlike chapters: a duration timer needs nothing from the book. The
+        // armed state is on the control itself, because a timer nobody can see is one the
+        // listener will not remember setting — and finding out it was armed by having the book
+        // stop is the one way this feature can feel broken rather than kind.
+        val armed = sleepTimer !is SleepTimerState.Inactive
+        val sleepLabel = if (armed) "Sleep timer, set" else "Sleep timer"
+        Button(attrs = {
+            classes("tport-sleep")
+            if (armed) classes("on")
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_ARIA_LABEL, sleepLabel)
+            attr(ATTR_TITLE, sleepLabel)
+            onClick { sleepOpen = true }
+        }) {
+            Icon(WebIcon.Clock, size = SLEEP_ICON_SIZE)
         }
     }
 }
@@ -296,6 +332,8 @@ private const val ATTR_ARIA_LABEL = "aria-label"
 private const val ATTR_TITLE = "title"
 
 private const val CHAPTER_ICON_SIZE = 18
+
+private const val SLEEP_ICON_SIZE = 17
 
 private const val VALUE_BUTTON = "button"
 

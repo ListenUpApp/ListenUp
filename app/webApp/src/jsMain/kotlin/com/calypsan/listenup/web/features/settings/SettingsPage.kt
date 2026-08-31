@@ -20,9 +20,11 @@ import org.jetbrains.compose.web.dom.Text
  *
  * Seven controls, not twelve. Dynamic colours are Android's wallpaper palette, Wi-Fi-only downloads
  * and volume boost need machinery web does not have, haptics need hardware, and the sleep-timer
- * default configures a feature web has not built. Each is omitted rather than shown disabled: a
- * control that cannot keep its promise is the same lie as a screen that reports success it did not
- * have, and this app has spent a lot of effort not telling that one.
+ * default is a stored preference that no client reads yet — web has the sleep timer itself (see
+ * [com.calypsan.listenup.web.features.nowplaying.SleepTimerPicker]), but nothing anywhere starts
+ * one from this number, so a control here would change nothing. Each is omitted rather than shown
+ * disabled: a control that cannot keep its promise is the same lie as a screen that reports success
+ * it did not have, and this app has spent a lot of effort not telling that one.
  *
  * The synced/local split is real and worth saying out loud — playback defaults follow the reader to
  * their phone, appearance and library display stay on this browser — so each section says which it

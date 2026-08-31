@@ -210,6 +210,10 @@ fun WebAppRoot(
             chapters = playback.chapters.collectAsState().value,
             currentChapterIndex = playback.currentChapterIndex.collectAsState().value,
             onSeekToChapter = playback.onSeekToChapter,
+            sleepTimer = playback.sleepTimer.collectAsState().value,
+            onSetSleepTimer = playback.onSetSleepTimer,
+            onCancelSleepTimer = playback.onCancelSleepTimer,
+            onExtendSleepTimer = playback.onExtendSleepTimer,
         )
 
         // Last of all: the palette overlays everything above it, including the transport bar.

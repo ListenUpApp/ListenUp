@@ -4,6 +4,10 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackState
+import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.playback.fadeOutAndPause
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
@@ -21,6 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -46,6 +52,8 @@ class PlaybackSession(
     val chapters: StateFlow<List<TransportChapter>>,
     /** Which chapter the playhead is in, or null with no book or no marks. */
     val currentChapterIndex: StateFlow<Int?>,
+    /** Whether a sleep timer is running, and how much of it is left. */
+    val sleepTimer: StateFlow<SleepTimerState>,
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onPlayBook: (BookId) -> Unit,
@@ -53,6 +61,9 @@ class PlaybackSession(
     val onSkipForward: () -> Unit,
     val onCycleSpeed: () -> Unit,
     val onSeekToChapter: (Int) -> Unit,
+    val onSetSleepTimer: (SleepTimerMode) -> Unit,
+    val onCancelSleepTimer: () -> Unit,
+    val onExtendSleepTimer: (Int) -> Unit,
     val onDismissError: () -> Unit,
     val close: () -> Unit,
 )
@@ -103,6 +114,7 @@ fun fixedPlayback(
     error: String? = null,
     chapters: List<TransportChapter> = emptyList(),
     currentChapterIndex: Int? = null,
+    sleepTimer: SleepTimerState = SleepTimerState.Inactive,
 ): OpenPlayback =
     {
         PlaybackSession(
@@ -110,6 +122,7 @@ fun fixedPlayback(
             error = MutableStateFlow(error),
             chapters = MutableStateFlow(chapters),
             currentChapterIndex = MutableStateFlow(currentChapterIndex),
+            sleepTimer = MutableStateFlow(sleepTimer),
             onPlayPause = {},
             onSeek = {},
             onPlayBook = {},
@@ -117,6 +130,9 @@ fun fixedPlayback(
             onSkipForward = {},
             onCycleSpeed = {},
             onSeekToChapter = {},
+            onSetSleepTimer = {},
+            onCancelSleepTimer = {},
+            onExtendSleepTimer = {},
             onDismissError = {},
             close = {},
         )
@@ -245,6 +261,55 @@ internal class LivePlayback(
             .map { it?.index }
             .stateIn(scope, SharingStarted.Eagerly, null)
 
+    /**
+     * The listener's sleep timer — the shared one, not a browser copy of it.
+     *
+     * [SleepTimerManager] is plain commonMain with no player, no platform and its own test suite:
+     * it counts down, it decides when a chapter boundary should end the session, and it announces
+     * that on [SleepTimerManager.sleepEvent]. None of that is anything a browser needs to do
+     * differently, so web uses the same object the phone does rather than writing a second timer
+     * that would have to be kept honest against it.
+     *
+     * Constructed here on [scope] rather than bound in the Koin graph, because a sleep timer's
+     * natural lifetime is the listening session. A graph-scoped singleton would outlive [close] —
+     * so a sign-out mid-countdown would leave a timer running that eventually fired a fade at a
+     * player that had already been released.
+     */
+    private val sleepTimerManager = SleepTimerManager(scope)
+
+    /** Whether a timer is running, and how much of it is left. */
+    val sleepTimer: StateFlow<SleepTimerState> get() = sleepTimerManager.state
+
+    init {
+        // End-of-chapter mode has no clock to watch; it waits to be told a chapter turned over.
+        // The same feed `NowPlayingViewModel` gives it, deduped in the flow rather than against a
+        // private var, so a position tick inside one chapter says nothing.
+        scope.launch {
+            currentChapterIndex
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collect { index -> sleepTimerManager.onChapterChanged(index) }
+        }
+
+        // The timer only announces that time is up; performing it belongs to whoever holds the
+        // player. `finally` rather than a call per branch: leaving the state stuck in FadingOut
+        // would show a countdown that never resolves and refuse every later timer, so the reset
+        // has to survive a throwing fade and a cancelled scope alike.
+        scope.launch {
+            sleepTimerManager.sleepEvent.collect {
+                try {
+                    fadeOutAndPause(playbackController)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    console.warn("Sleep fade failed; resetting the timer to Inactive: ${e.message}")
+                } finally {
+                    sleepTimerManager.onFadeCompleted()
+                }
+            }
+        }
+    }
+
     val state: StateFlow<TransportState?> =
         combine(
             playbackManager.currentBookId,
@@ -273,8 +338,11 @@ internal class LivePlayback(
      *
      * Mirrors `NowPlayingViewModel.playBook` — a repeat tap for the same book is swallowed, a tap
      * for a different one supersedes, and the pending-play window always closes in a `finally`.
-     * That VM is not reachable from a browser (its `SleepTimerManager` has no binding in the web
-     * graph), so its shape is followed here rather than borrowed.
+     * That VM is not reachable from a browser: `playbackPresentationModule`, which binds it, is
+     * offered only through `Koin.android.kt` and `Koin.jvm.kt` — `Koin.js.kt` has no equivalent,
+     * and giving it one would mean binding a download repository and a bottom-sheet expansion
+     * state to a client that has neither. So its shape is followed here rather than borrowed.
+     * (Its collaborators are another matter: [sleepTimerManager] is the very same class.)
      *
      * Everything before the `launch` runs in the click's own task, which is the whole point: the
      * [HtmlAudioPlayer.primeForPlayback] on the fifth line is the `play()` this lane was missing,
@@ -451,6 +519,26 @@ internal class LivePlayback(
     }
 
     /**
+     * Start a sleep timer, replacing any timer already running.
+     *
+     * Both modes are offered from the same call because [SleepTimerManager] already distinguishes
+     * them: a duration counts down, and end-of-chapter waits for the feed set up in `init`.
+     */
+    fun setSleepTimer(mode: SleepTimerMode) = sleepTimerManager.setTimer(mode)
+
+    /** Stop the running timer. Playback is untouched — this cancels the *ending*, not the book. */
+    fun cancelSleepTimer() = sleepTimerManager.cancelTimer()
+
+    /**
+     * Add [minutes] to a running duration timer.
+     *
+     * Ignored when nothing is running or when the timer is end-of-chapter, which has no clock to
+     * add to — [SleepTimerManager.extendTimer] makes that decision, so the browser cannot come to
+     * a different one than the phone.
+     */
+    fun extendSleepTimer(minutes: Int) = sleepTimerManager.extendTimer(minutes)
+
+    /**
      * End the listening session: stop the audio, then stop observing it.
      *
      * [HtmlAudioPlayer.releasePlayer] rather than [HtmlAudioPlayer.pause], because the only thing
@@ -478,6 +566,7 @@ internal class LivePlayback(
             error = error,
             chapters = chapters,
             currentChapterIndex = currentChapterIndex,
+            sleepTimer = sleepTimer,
             onPlayPause = ::playPause,
             onSeek = ::seek,
             onPlayBook = ::playBook,
@@ -485,6 +574,9 @@ internal class LivePlayback(
             onSkipForward = ::skipForward,
             onCycleSpeed = ::cycleSpeed,
             onSeekToChapter = ::seekToChapter,
+            onSetSleepTimer = ::setSleepTimer,
+            onCancelSleepTimer = ::cancelSleepTimer,
+            onExtendSleepTimer = ::extendSleepTimer,
             onDismissError = ::dismissError,
             close = ::close,
         )

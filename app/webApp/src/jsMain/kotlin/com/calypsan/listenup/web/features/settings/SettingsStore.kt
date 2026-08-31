@@ -13,8 +13,9 @@ import org.koin.core.Koin
  *
  * Seven of the twelve `SettingsViewModel` offers. The other five — dynamic colours, Wi-Fi-only
  * downloads, haptics, volume boost, the sleep-timer default — are omitted deliberately rather than
- * disabled: a browser cannot honour any of them, and a control that silently does nothing is worse
- * than one that was never offered. Each omission is named at its section in [SettingsPage].
+ * disabled, because a control that silently does nothing is worse than one that was never offered.
+ * Four a browser cannot honour at all; the fifth no client honours yet. Each omission is named at
+ * its section in [SettingsPage].
  */
 class SettingsSession(
     val state: StateFlow<SettingsUiState>,
