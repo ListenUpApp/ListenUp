@@ -13,9 +13,11 @@ import com.calypsan.listenup.core.BookId
 /**
  * Client-side write surface for book editing.
  *
- * [updateBook] is offline-first; the remaining methods dispatch via
- * [com.calypsan.listenup.api.BookService] over RPC, with authoritative state
- * arriving back via the sync engine (no optimistic Room writes).
+ * **Every** method here is offline-first, without exception: each writes its
+ * optimistic Room merge and enqueues one durable op on the `books` outbox
+ * channel in a single transaction, so the edit is visible immediately and
+ * replays on reconnect rather than failing offline. Authoritative state still
+ * arrives via the sync engine and reconciles the optimistic write.
  *
  * Wire-side DTOs ([BookUpdate], [BookContributorInput], [BookSeriesInput])
  * are passed through unchanged — the contract is the source of truth.
@@ -67,9 +69,12 @@ interface BookEditRepository {
 
     /**
      * Replaces the full chapter list for the book identified by [id] and marks
-     * provenance USER server-side. Dispatches via
-     * [com.calypsan.listenup.api.BookService.setBookChapters]; authoritative
-     * state returns through the sync engine (no optimistic Room write).
+     * provenance USER server-side.
+     *
+     * Offline-first via the `books` outbox, like every other book edit. The
+     * queued op dispatches to
+     * [com.calypsan.listenup.api.BookService.setBookChapters] on drain, and the
+     * authoritative state returns through the sync engine.
      */
     suspend fun setBookChapters(
         id: BookId,
@@ -100,9 +105,12 @@ interface BookEditRepository {
      * Replace-sets the collections the book identified by [id] belongs to (admin-only).
      *
      * Diffs the book's current live memberships against [collectionIds]: soft-deletes
-     * removed, upserts added. The server emits per-user `AccessChanged` to the affected
-     * users so their clients reconcile — there is no optimistic Room write here. Dispatches
-     * via [com.calypsan.listenup.api.CollectionService.setBookCollections].
+     * removed, upserts added. Offline-first via the `books` outbox, like every other book
+     * edit; the queued op dispatches to
+     * [com.calypsan.listenup.api.CollectionService.setBookCollections] on drain, and the
+     * server emits per-user `AccessChanged` to the affected users so their clients
+     * reconcile. Note this one's echo arrives through the `collection_books` domain, which
+     * the `books`-keyed anti-flicker shield does not cover.
      */
     suspend fun setBookCollections(
         id: BookId,

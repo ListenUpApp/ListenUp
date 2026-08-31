@@ -338,6 +338,9 @@ object SwiftExportSourcePatcher {
         mapOf(
             "com.calypsan.listenup.api.dto.organize.OrganizeRunEvent" to 4,
             "com.calypsan.listenup.client.data.repository.ShortcutAction" to 8,
+            "com.calypsan.listenup.client.domain.bulkedit.BulkEdit" to 8,
+            "com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent" to 2,
+            "com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState" to 2,
             "com.calypsan.listenup.client.domain.chapter.DriftResult" to 1,
             "com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent" to 3,
             "com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState" to 3,

@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Screen-level multi-select chrome — a "N selected" title item, a "Done" toolbar button, the bottom
-/// action bar (Add to Shelf / admin-only Add to Collection), and the two bulk picker sheets — hosted
-/// over a books-bearing screen. Keeps that wiring in one place instead of re-rolling it per screen.
+/// action bar (Add to Shelf / admin-only Add to Collection and Edit), and the sheets those actions
+/// open — hosted over a books-bearing screen. Keeps that wiring in one place instead of re-rolling
+/// it per screen.
 ///
 /// Entry into selection is a native **long-press a cover → context menu → "Select"**
 /// (`SelectableBookCard`); iOS arbitrates the long-press against the card's `NavigationLink` tap, so
@@ -22,24 +23,7 @@ struct BookSelectionScreenChrome: ViewModifier {
                 // Hide the floating tab bar while selecting so the bottom action bar owns the bottom
                 // strip instead of colliding with the tab pills (matches LibraryView).
                 .toolbar(selection.isSelecting ? .hidden : .automatic, for: .tabBar)
-                .sheet(isPresented: Binding(
-                    get: { selection.showShelfPicker },
-                    set: { selection.showShelfPicker = $0 }
-                )) {
-                    BulkShelfPickerSheet(
-                        observer: selection,
-                        count: selection.selectedBookIds.count
-                    ) { selection.showShelfPicker = false }
-                }
-                .sheet(isPresented: Binding(
-                    get: { selection.isAdmin && selection.showCollectionPicker },
-                    set: { selection.showCollectionPicker = $0 }
-                )) {
-                    BulkCollectionPickerSheet(
-                        observer: selection,
-                        count: selection.selectedBookIds.count
-                    ) { selection.showCollectionPicker = false }
-                }
+                .selectionSheets(selection)
         } else {
             content
         }
@@ -54,8 +38,8 @@ struct BookSelectionScreenChrome: ViewModifier {
 }
 
 /// The shared selection toolbar — a "N selected" title, a Done exit, and the bottom action bar
-/// (Add to Shelf; admin-only Add to Collection). Extracted so the Library grid and the Home/Discover
-/// chrome render the *same* toolbar instead of two copies that can silently drift apart.
+/// (Add to Shelf; admin-only Add to Collection and Edit). Extracted so the Library grid and the
+/// Home/Discover chrome render the *same* toolbar instead of two copies that can silently drift apart.
 ///
 /// The count lives in the `.principal` (title) slot rather than a `.bottomBar` `Text`: a bare `Text`
 /// in a bottom bar becomes a Liquid Glass capsule that truncated to "1 sel…" and read as a broken
@@ -82,8 +66,9 @@ struct BookSelectionToolbar: ToolbarContent {
             }
             .disabled(selection.selectedBookIds.isEmpty)
 
-            // The Spacer + Add-to-Collection are admin-only; a non-admin sees just Add-to-Shelf, so
-            // don't emit a trailing Spacer that would strand the lone button off to one side.
+            // The Spacer + Add-to-Collection + Edit are admin-only; a non-admin sees just
+            // Add-to-Shelf, so don't emit a trailing Spacer that would strand the lone button off to
+            // one side.
             if selection.isAdmin {
                 Spacer()
 
@@ -94,15 +79,79 @@ struct BookSelectionToolbar: ToolbarContent {
                           systemImage: "folder.badge.plus")
                 }
                 .disabled(selection.selectedBookIds.isEmpty)
+
+                Spacer()
+
+                Button {
+                    selection.showBulkEdit = true
+                } label: {
+                    Label(String(localized: "common.edit"), systemImage: "square.and.pencil")
+                }
+                .disabled(selection.selectedBookIds.isEmpty)
             }
         }
     }
 }
 
+/// Every sheet a selection can open — Add to Shelf, Add to Collection (admin), and the bulk metadata
+/// editor (admin).
+///
+/// One modifier rather than a copy per host. Home and Discover reach it through
+/// `BookSelectionScreenChrome`; Library hosts it directly because it owns its own toolbar. These
+/// used to be two literal copies, and a sheet added to only one of them meant the action was
+/// silently missing from the screen most likely to be used for it.
+struct BookSelectionSheets: ViewModifier {
+    let selection: BookSelectionObserver
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: Binding(
+                get: { selection.showShelfPicker },
+                set: { selection.showShelfPicker = $0 }
+            )) {
+                BulkShelfPickerSheet(
+                    observer: selection,
+                    count: selection.selectedBookIds.count
+                ) { selection.showShelfPicker = false }
+            }
+            .sheet(isPresented: Binding(
+                get: { selection.isAdmin && selection.showCollectionPicker },
+                set: { selection.showCollectionPicker = $0 }
+            )) {
+                BulkCollectionPickerSheet(
+                    observer: selection,
+                    count: selection.selectedBookIds.count
+                ) { selection.showCollectionPicker = false }
+            }
+            .sheet(isPresented: Binding(
+                get: { selection.isAdmin && selection.showBulkEdit },
+                set: { selection.showBulkEdit = $0 }
+            )) {
+                // Leaving the selection standing over books that already changed invites a second,
+                // accidental edit of the same forty — so a successful apply ends it.
+                BulkEditView(bookIds: selection.orderedSelectedBookIds) { _ in
+                    selection.showBulkEdit = false
+                    selection.exit()
+                }
+            }
+    }
+}
+
 extension View {
-    /// Hosts the screen-level multi-select chrome (Done toolbar, bottom action bar, and bulk picker
+    /// Hosts the screen-level multi-select chrome (Done toolbar, bottom action bar, and the selection
     /// sheets) bound to a screen-wide `BookSelectionObserver`. A no-op when `selection` is nil.
     func bookSelectionChrome(_ selection: BookSelectionObserver?) -> some View {
         modifier(BookSelectionScreenChrome(selection: selection))
+    }
+
+    /// Hosts just the selection sheets, for a screen that owns its own selection toolbar (Library).
+    /// A no-op when `selection` is nil.
+    @ViewBuilder
+    func selectionSheets(_ selection: BookSelectionObserver?) -> some View {
+        if let selection {
+            modifier(BookSelectionSheets(selection: selection))
+        } else {
+            self
+        }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_edit
 import listenup.composeapp.generated.resources.library_collection
 import listenup.composeapp.generated.resources.library_exit_selection_mode
 import listenup.composeapp.generated.resources.library_shelf
@@ -35,10 +37,16 @@ import listenup.composeapp.generated.resources.library_shelf
  * Actions:
  * - "Add to Shelf" - available to all users
  * - "Add to Collection" - available to admin users only
+ * - "Edit" - bulk metadata editing, admin users only, and only where the host can route to it
+ *
+ * A null action callback hides its button rather than disabling it. An action that is drawn but
+ * cannot act is worse than one that was never offered: the first reads as a broken app, the second
+ * as a feature this screen does not carry.
  *
  * @param selectedCount Number of currently selected books
  * @param onAddToShelf Called when "Add to Shelf" is tapped
  * @param onAddToCollection Called when "Add to Collection" is tapped (null = hide button)
+ * @param onEdit Called when "Edit" is tapped (null = hide button)
  * @param onClose Called when the close button is tapped
  * @param modifier Optional modifier
  */
@@ -47,6 +55,7 @@ fun SelectionToolbar(
     selectedCount: Int,
     onAddToShelf: () -> Unit,
     onAddToCollection: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -106,6 +115,16 @@ fun SelectionToolbar(
                     label = stringResource(Res.string.library_collection),
                     enabled = selectedCount > 0,
                     onClick = onAddToCollection,
+                )
+            }
+
+            // Bulk metadata edit (admin only, and only where the host can reach the editor)
+            if (onEdit != null) {
+                SelectionActionButton(
+                    icon = Icons.Default.Edit,
+                    label = stringResource(Res.string.common_edit),
+                    enabled = selectedCount > 0,
+                    onClick = onEdit,
                 )
             }
         }

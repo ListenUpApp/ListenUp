@@ -76,6 +76,20 @@ data class ChapterEditor(
 ) : Route
 
 /**
+ * Bulk metadata editor - apply one set of changes across a selection of books.
+ *
+ * Reached from the multi-select toolbar on any books-bearing screen. The selection travels in the
+ * route itself rather than in shared state, so the editor works on the books that were chosen and
+ * survives the selection being cleared behind it.
+ *
+ * @property bookIds The unique IDs of the books being edited together.
+ */
+@Serializable
+data class BulkEdit(
+    val bookIds: List<String>,
+) : Route
+
+/**
  * Match preview screen - preview Audible metadata before applying.
  *
  * Shows side-by-side comparison of current book metadata vs metadata

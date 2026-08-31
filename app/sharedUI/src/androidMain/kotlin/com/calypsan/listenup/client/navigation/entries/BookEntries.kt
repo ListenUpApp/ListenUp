@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.features.genredestination.GenreDestinationSc
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
+import com.calypsan.listenup.client.navigation.BulkEdit
 import com.calypsan.listenup.client.navigation.ChapterEditor
 import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.ContributorDetail
@@ -118,6 +119,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
         )
     }
     chapterEditorEntry(backStack)
+    bulkEditEntry(backStack)
     entry<MetadataSearch> { args ->
         com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
             bookId = args.bookId,
@@ -155,6 +157,27 @@ private fun EntryProviderScope<NavKey>.chapterEditorEntry(backStack: NavBackStac
         com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen(
             bookId = args.bookId,
             onBack = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+        )
+    }
+}
+
+/**
+ * The bulk metadata editor entry, split out to keep [bookEntries] within the method-length limit.
+ *
+ * Both exits pop: leaving without applying and leaving after a successful apply land back on the
+ * screen the selection was made from, where the books are already up to date — the repositories
+ * write Room-first, so the grid behind has changed by the time this pops.
+ */
+private fun EntryProviderScope<NavKey>.bulkEditEntry(backStack: NavBackStack<NavKey>) {
+    entry<BulkEdit> { args ->
+        com.calypsan.listenup.client.features.bulkedit.BulkEditScreen(
+            bookIds = args.bookIds,
+            onBack = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            onApplied = {
                 backStack.removeAt(backStack.lastIndex)
             },
         )

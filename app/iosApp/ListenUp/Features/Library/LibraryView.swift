@@ -38,7 +38,7 @@ struct LibraryView: View {
         .navigationBarTitleDisplayMode(isSelecting ? .inline : .large)
         .toolbar { libraryToolbar }
         .toolbar(isSelecting ? .hidden : .automatic, for: .tabBar)
-        .modifier(SelectionSheets(selection: selection))
+        .selectionSheets(selection)
         .onAppear {
             if observer == nil {
                 observer = LibraryObserver(viewModel: deps.libraryViewModel)
@@ -182,40 +182,6 @@ struct LibraryView: View {
         .ignoresSafeArea(edges: .bottom)
         .safeAreaInset(edge: .top) {
             LibraryChipRow(selectedTab: .constant(.books))
-        }
-    }
-}
-
-// MARK: - Selection sheets
-
-/// Hosts the two bulk picker sheets, bound to the shared `BookSelectionObserver`. Extracted into a
-/// modifier so the body's `Group`/toolbar stays readable; a no-op when `selection` is nil.
-private struct SelectionSheets: ViewModifier {
-    let selection: BookSelectionObserver?
-
-    func body(content: Content) -> some View {
-        if let selection {
-            content
-                .sheet(isPresented: Binding(
-                    get: { selection.showShelfPicker },
-                    set: { selection.showShelfPicker = $0 }
-                )) {
-                    BulkShelfPickerSheet(
-                        observer: selection,
-                        count: selection.selectedBookIds.count
-                    ) { selection.showShelfPicker = false }
-                }
-                .sheet(isPresented: Binding(
-                    get: { selection.isAdmin && selection.showCollectionPicker },
-                    set: { selection.showCollectionPicker = $0 }
-                )) {
-                    BulkCollectionPickerSheet(
-                        observer: selection,
-                        count: selection.selectedBookIds.count
-                    ) { selection.showCollectionPicker = false }
-                }
-        } else {
-            content
         }
     }
 }

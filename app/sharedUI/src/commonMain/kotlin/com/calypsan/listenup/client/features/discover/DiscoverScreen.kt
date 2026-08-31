@@ -86,6 +86,7 @@ fun DiscoverScreen(
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
+    onEditSelected: ((List<String>) -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
@@ -138,7 +139,7 @@ fun DiscoverScreen(
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect)
+        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
     }
 }
 

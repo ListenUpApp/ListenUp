@@ -377,6 +377,23 @@ internal val bookPresentationModule =
                 errorBus = get(),
             )
         }
+        factory {
+            com.calypsan.listenup.client.domain.bulkedit.BulkEditApplier(
+                bookEditRepository = get(),
+                tagRepository = get(),
+                moodRepository = get(),
+            )
+        }
+        // Scoped to one selection by parameter, for the same reason the chapter editor is scoped to
+        // one book: the editor is entered for a specific set of books and never switches.
+        factory { params ->
+            com.calypsan.listenup.client.presentation.bulkedit.BulkEditViewModel(
+                bookIds = params.get(),
+                bookRepository = get(),
+                applier = get(),
+                errorBus = get(),
+            )
+        }
     }
 
 /**

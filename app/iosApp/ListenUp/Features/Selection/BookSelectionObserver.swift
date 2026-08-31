@@ -20,8 +20,13 @@ struct SelectionCollectionRow: Identifiable, Equatable {
 ///
 /// Selection state lives in the Kotlin VM; this observer only flattens it for SwiftUI and
 /// forwards the user's actions. Successful bulk adds dismiss the matching picker and clear the
-/// selection inside the VM (which flips `selectionMode` back to `None`); failures surface on the
-/// global `ErrorBus` like everywhere else, never here.
+/// selection inside the VM (which flips `selectionMode` back to `None`).
+///
+/// **Add-to-shelf and add-to-collection failures are silent on iOS.** They are emitted to the shared
+/// `ErrorBus`, which Compose reads for its global snackbar and which **no Swift file consumes** — so
+/// nothing surfaces them here. That is a known gap, not a design: the bulk metadata editor, which
+/// came later, owns its errors instead (`BulkEditObserver.error` + an alert), and these two actions
+/// should follow. Do not read this comment as "handled elsewhere".
 @Observable
 @MainActor
 final class BookSelectionObserver {
@@ -39,6 +44,15 @@ final class BookSelectionObserver {
 
     var showShelfPicker = false
     var showCollectionPicker = false
+    var showBulkEdit = false
+
+    /// The selection as an ordered list, for handing to the bulk editor.
+    ///
+    /// `selectedBookIds` is a `Set`, so it has no order at all. Sorting here makes the sheet's
+    /// `.task(id:)` identity stable across re-renders — the same selection must not look like a new
+    /// one and rebuild the editor mid-edit. The books' *display* order is the shared ViewModel's
+    /// job (it sorts by title), so every client shows the same list whatever it passes in.
+    var orderedSelectedBookIds: [String] { selectedBookIds.sorted() }
 
     // MARK: - Dependencies
 

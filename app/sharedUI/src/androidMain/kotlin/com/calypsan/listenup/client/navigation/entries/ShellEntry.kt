@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BrowseFacet
+import com.calypsan.listenup.client.navigation.BulkEdit
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.Notifications
 import com.calypsan.listenup.client.navigation.SeriesDetail
@@ -127,6 +128,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onNavigateToLibrary = onNavigateToLibrary,
                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                         onSeeAllShelves = onNavigateToLibrary,
+                        onEditSelected = { bookIds -> backStack.add(BulkEdit(bookIds)) },
                         contentPadding = padding,
                     )
                 },
@@ -139,6 +141,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                             backStack.add(ContributorDetail(narratorId))
                         },
                         appHeader = appHeader,
+                        onEditSelected = { bookIds -> backStack.add(BulkEdit(bookIds)) },
                         modifier = Modifier.padding(padding),
                     )
                 },
@@ -148,6 +151,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                         onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
+                        onEditSelected = { bookIds -> backStack.add(BulkEdit(bookIds)) },
                         contentPadding = padding,
                     )
                 },
