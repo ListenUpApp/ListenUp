@@ -34,24 +34,6 @@ private fun mount(content: @Composable () -> Unit): HTMLElement {
     return host
 }
 
-/** Closes any modal this spec opened, so it does not hold focus over every spec that follows. */
-private fun HTMLElement.closeDialogs() {
-    val dialogs = querySelectorAll("dialog")
-    for (i in 0 until dialogs.length) {
-        (dialogs.item(i) as? HTMLDialogElement)?.takeIf { it.open }?.close()
-    }
-}
-
-/** The button whose visible text is exactly [text], or null. */
-private fun HTMLElement.buttonSaying(text: String): HTMLButtonElement? {
-    val buttons = querySelectorAll("button")
-    for (i in 0 until buttons.length) {
-        val button = buttons.item(i) as? HTMLButtonElement ?: continue
-        if (button.textContent?.trim() == text) return button
-    }
-    return null
-}
-
 /**
  * An open picker, with every parameter overridable.
  *
@@ -242,7 +224,7 @@ class SleepTimerPickerTest :
             val host = picker()
 
             val dialog = host.querySelector("dialog") as HTMLDialogElement
-            dialog.open shouldBe true
+            dialog.isModal() shouldBe true
 
             host.closeDialogs()
         }
@@ -272,7 +254,7 @@ class SleepTimerBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                         chapters = emptyList(),
                     )
                 }
@@ -291,7 +273,7 @@ class SleepTimerBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                         sleepTimer = running(),
                     )
                 }

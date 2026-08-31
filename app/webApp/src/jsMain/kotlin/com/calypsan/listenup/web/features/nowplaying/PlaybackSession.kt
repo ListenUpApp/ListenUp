@@ -18,7 +18,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import com.calypsan.listenup.client.presentation.nowplaying.nextPlaybackSpeed
 import com.calypsan.listenup.client.presentation.nowplaying.skipTargetMs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,12 +53,15 @@ class PlaybackSession(
     val currentChapterIndex: StateFlow<Int?>,
     /** Whether a sleep timer is running, and how much of it is left. */
     val sleepTimer: StateFlow<SleepTimerState>,
+    /** The listener's own default rate, from Settings — what a reset goes back to. */
+    val defaultSpeed: StateFlow<Float>,
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onPlayBook: (BookId) -> Unit,
     val onSkipBack: () -> Unit,
     val onSkipForward: () -> Unit,
-    val onCycleSpeed: () -> Unit,
+    val onSetSpeed: (Float) -> Unit,
+    val onResetSpeed: () -> Unit,
     val onSeekToChapter: (Int) -> Unit,
     val onSetSleepTimer: (SleepTimerMode) -> Unit,
     val onCancelSleepTimer: () -> Unit,
@@ -115,6 +117,7 @@ fun fixedPlayback(
     chapters: List<TransportChapter> = emptyList(),
     currentChapterIndex: Int? = null,
     sleepTimer: SleepTimerState = SleepTimerState.Inactive,
+    defaultSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
 ): OpenPlayback =
     {
         PlaybackSession(
@@ -123,12 +126,14 @@ fun fixedPlayback(
             chapters = MutableStateFlow(chapters),
             currentChapterIndex = MutableStateFlow(currentChapterIndex),
             sleepTimer = MutableStateFlow(sleepTimer),
+            defaultSpeed = MutableStateFlow(defaultSpeed),
             onPlayPause = {},
             onSeek = {},
             onPlayBook = {},
             onSkipBack = {},
             onSkipForward = {},
-            onCycleSpeed = {},
+            onSetSpeed = {},
+            onResetSpeed = {},
             onSeekToChapter = {},
             onSetSleepTimer = {},
             onCancelSleepTimer = {},
@@ -216,6 +221,21 @@ internal class LivePlayback(
         playbackPreferences
             .observeDefaultSkipBackwardSec()
             .stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC)
+
+    /**
+     * The listener's default rate, straight from their synced settings — what the picker's reset
+     * button *names*, and what decides whether it is offered at all.
+     *
+     * ⛔ Read for display only. [resetSpeed] deliberately does NOT use this value: `stateIn` seeds
+     * `DEFAULT_PLAYBACK_SPEED` and serves it until the first upstream emission arrives, so a reset
+     * that read `.value` would quietly send a listener whose default is 1.25 back to 1 — on the
+     * one control that promises not to overrule them. A label that is briefly stale corrects
+     * itself on the next emission; a reset that fired on a stale value cannot be taken back.
+     */
+    val defaultSpeed: StateFlow<Float> =
+        playbackPreferences
+            .observeDefaultPlaybackSpeed()
+            .stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_PLAYBACK_SPEED)
 
     private val skipForwardSec: StateFlow<Int> =
         playbackPreferences
@@ -489,16 +509,33 @@ internal class LivePlayback(
     }
 
     /**
-     * Step to the next speed on the shared ladder, wrapping at the top.
+     * Play at [speed] from now on, and remember that this book is read at that rate.
      *
      * Both halves matter: the controller is what the `<audio>` element actually obeys, and
      * [PlaybackManager.onSpeedChanged] is what records the choice against this book, so it survives
-     * the next time it is opened.
+     * the next time it is opened. `NowPlayingViewModel.setSpeed` makes the same pair of calls.
      */
-    fun cycleSpeed() {
-        val next = nextPlaybackSpeed(playbackManager.playbackSpeed.value)
-        playbackController.setPlaybackSpeed(next)
-        playbackManager.onSpeedChanged(next)
+    fun setSpeed(speed: Float) {
+        playbackController.setPlaybackSpeed(speed)
+        playbackManager.onSpeedChanged(speed)
+    }
+
+    /**
+     * Go back to the listener's own default rate, and stop treating this book as an exception.
+     *
+     * [PlaybackManager.onSpeedReset] rather than `onSpeedChanged` with the same number: the two
+     * differ in what they record. Setting 1× explicitly says "this book is read at 1×" and pins it
+     * there; resetting says "this book has no opinion", so a later change to the default in
+     * Settings reaches it. Mirrors `NowPlayingViewModel.resetSpeedToDefault`.
+     */
+    fun resetSpeed() {
+        scope.launch {
+            // The suspend read, not [defaultSpeed]`.value` — see the ⛔ on that flow.
+            // `NowPlayingViewModel.resetSpeedToDefault` reads it the same way, for the same reason.
+            val target = playbackPreferences.getDefaultPlaybackSpeed()
+            playbackController.setPlaybackSpeed(target)
+            playbackManager.onSpeedReset(target)
+        }
     }
 
     /**
@@ -567,12 +604,14 @@ internal class LivePlayback(
             chapters = chapters,
             currentChapterIndex = currentChapterIndex,
             sleepTimer = sleepTimer,
+            defaultSpeed = defaultSpeed,
             onPlayPause = ::playPause,
             onSeek = ::seek,
             onPlayBook = ::playBook,
             onSkipBack = ::skipBack,
             onSkipForward = ::skipForward,
-            onCycleSpeed = ::cycleSpeed,
+            onSetSpeed = ::setSpeed,
+            onResetSpeed = ::resetSpeed,
             onSeekToChapter = ::seekToChapter,
             onSetSleepTimer = ::setSleepTimer,
             onCancelSleepTimer = ::cancelSleepTimer,

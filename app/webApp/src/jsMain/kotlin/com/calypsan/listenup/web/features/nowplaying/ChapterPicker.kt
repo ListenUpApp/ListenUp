@@ -1,17 +1,11 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.web.design.Dialog
-import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
-import org.w3c.dom.events.Event
 
 /**
  * Jump to a chapter without leaving what you are listening to.
@@ -22,10 +16,8 @@ import org.w3c.dom.events.Event
  * player to a surface it otherwise has no reason to know about. A name and somewhere to land is the
  * whole requirement.
  *
- * Built on the real `<dialog>` with `showModal()`, matching
- * [com.calypsan.listenup.web.design.ConfirmDialog] rather than inventing a second modal shape: that
- * is what buys the focus trap, the inert page behind, and Escape-to-close without writing any of
- * them.
+ * The modal shell — focus trap, inert page, Escape-to-close — comes from [PlayerDialog], shared
+ * with every other player panel.
  */
 @Composable
 internal fun ChapterPicker(
@@ -35,26 +27,12 @@ internal fun ChapterPicker(
     onPick: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!open) return
-
-    Dialog(attrs = {
-        classes("dlg", "chap-dlg")
-        attr("aria-labelledby", CHAPTER_TITLE_ID)
-        ref { element ->
-            val dialog = element as HTMLDialogElement
-            if (!dialog.open) dialog.showModal()
-            // Escape and the backdrop fire `close` without touching any button here, so the caller
-            // has to hear about it or its `open` flag drifts out of step with the DOM.
-            val onClose: (Event) -> Unit = { onDismiss() }
-            dialog.addEventListener("close", onClose)
-            onDispose { dialog.removeEventListener("close", onClose) }
-        }
-    }) {
-        H2(attrs = {
-            classes("dlg-t")
-            attr("id", CHAPTER_TITLE_ID)
-        }) { Text("Chapters") }
-
+    PlayerDialog(
+        open = open,
+        title = "Chapters",
+        panelClass = "chap-dlg",
+        onDismiss = onDismiss,
+    ) {
         Div(attrs = { classes("chap-list") }) {
             chapters.forEachIndexed { index, chapter ->
                 val isCurrent = index == currentIndex
@@ -82,15 +60,6 @@ internal fun ChapterPicker(
                 }
             }
         }
-
-        Button(attrs = {
-            classes("btn-ghost")
-            attr("type", "button")
-            onClick { onDismiss() }
-        }) {
-            Icon(WebIcon.X, size = CLOSE_ICON_SIZE)
-            Text("Close")
-        }
     }
 }
 
@@ -108,7 +77,3 @@ private fun scrollToCentre(): dynamic {
     options.behavior = "auto"
     return options
 }
-
-private const val CHAPTER_TITLE_ID = "chapter-picker-title"
-
-private const val CLOSE_ICON_SIZE = 17
