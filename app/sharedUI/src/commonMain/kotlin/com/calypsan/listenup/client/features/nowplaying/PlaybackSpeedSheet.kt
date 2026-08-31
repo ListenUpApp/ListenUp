@@ -27,37 +27,40 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MAX
+import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MIN
+import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.nowplaying.snapPlaybackSpeed
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import kotlin.math.absoluteValue
-import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_playback_speed
 import listenup.composeapp.generated.resources.player_reset_to_default
 import listenup.composeapp.generated.resources.player_speed_value
 import org.jetbrains.compose.resources.stringResource
 
-/** Playback speed presets and formatting utilities. */
-object PlaybackSpeedPresets {
-    val presets = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
-
-    const val MIN_SPEED = 0.5f
-    const val MAX_SPEED = 3.0f
-    const val STEP = 0.05f
-    const val DEFAULT_SPEED = 1.0f
-
-    /** Format speed for display (e.g., "1.25x", "2.0x"). */
-    fun format(speed: Float): String =
-        if (speed == speed.toInt().toFloat()) {
-            "${speed.toInt()}.0x"
-        } else {
-            val formatted = "%.2f".format(speed).trimEnd('0').trimEnd('.')
-            "${formatted}x"
-        }
-
-    /** Snap a speed value to the nearest 0.05 increment. */
-    fun snap(speed: Float): Float = (speed / STEP).roundToInt() * STEP
-}
+/**
+ * A speed as this UI writes it: `1.0x`, `1.25x`, `2.0x`.
+ *
+ * Deliberately *not* shared with the browser's own `formatSpeed`, which renders the same rate as
+ * `1` and `1.25` with the `×` supplied separately. That is not drift — web's transport control is
+ * forty pixels wide, and `1.00x` spends a third of it saying nothing. The two differ because their
+ * space budgets differ; the ladder, bounds and increment they draw from do not, and those now live
+ * in one place ([PLAYBACK_SPEED_STEPS] and friends).
+ *
+ * The whole-number case is spelled out rather than trimmed: a lone `1x` beside `1.25x` reads as a
+ * different kind of value, and the column of pills is easier to scan when every label has a
+ * decimal point in it.
+ */
+fun formatPlaybackSpeed(speed: Float): String =
+    if (speed == speed.toInt().toFloat()) {
+        "${speed.toInt()}.0x"
+    } else {
+        val formatted = "%.2f".format(speed).trimEnd('0').trimEnd('.')
+        "${formatted}x"
+    }
 
 /**
  * Playback-speed panel: a large brand readout, a fine-control slider (0.5x-3.0x, 0.05 steps), a row
@@ -74,7 +77,7 @@ object PlaybackSpeedPresets {
 @Composable
 fun PlaybackSpeedSheet(
     currentSpeed: Float,
-    defaultSpeed: Float = PlaybackSpeedPresets.DEFAULT_SPEED,
+    defaultSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
     onSpeedChange: (Float) -> Unit,
     onResetToDefault: () -> Unit = {},
     onDismiss: () -> Unit,
@@ -91,7 +94,7 @@ fun PlaybackSpeedSheet(
         SpeedSlider(
             speed = sliderSpeed,
             onSpeedChange = { newSpeed ->
-                val snapped = PlaybackSpeedPresets.snap(newSpeed)
+                val snapped = snapPlaybackSpeed(newSpeed)
                 if ((snapped - sliderSpeed).absoluteValue >= 0.01f) sliderSpeed = snapped
             },
             onSpeedChangeFinished = { onSpeedChange(sliderSpeed) },
@@ -113,7 +116,7 @@ fun PlaybackSpeedSheet(
                         onResetToDefault()
                     },
                 ) {
-                    Text(stringResource(Res.string.player_reset_to_default, PlaybackSpeedPresets.format(defaultSpeed)))
+                    Text(stringResource(Res.string.player_reset_to_default, formatPlaybackSpeed(defaultSpeed)))
                 }
             }
         }
@@ -122,7 +125,7 @@ fun PlaybackSpeedSheet(
 
 @Composable
 private fun SpeedReadout(speed: Float) {
-    val formatted = PlaybackSpeedPresets.format(speed)
+    val formatted = formatPlaybackSpeed(speed)
     val text =
         buildAnnotatedString {
             val xIndex = formatted.lastIndexOf('x')
@@ -153,7 +156,7 @@ private fun SpeedSlider(
             value = speed,
             onValueChange = onSpeedChange,
             onValueChangeFinished = onSpeedChangeFinished,
-            valueRange = PlaybackSpeedPresets.MIN_SPEED..PlaybackSpeedPresets.MAX_SPEED,
+            valueRange = PLAYBACK_SPEED_MIN..PLAYBACK_SPEED_MAX,
             modifier = Modifier.fillMaxWidth(),
         )
         Row(
@@ -161,12 +164,12 @@ private fun SpeedSlider(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = stringResource(Res.string.player_speed_value, PlaybackSpeedPresets.MIN_SPEED.toString()),
+                text = stringResource(Res.string.player_speed_value, PLAYBACK_SPEED_MIN.toString()),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = stringResource(Res.string.player_speed_value, PlaybackSpeedPresets.MAX_SPEED.toString()),
+                text = stringResource(Res.string.player_speed_value, PLAYBACK_SPEED_MAX.toString()),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -185,9 +188,9 @@ private fun SpeedPresetRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        PlaybackSpeedPresets.presets.forEach { preset ->
+        PLAYBACK_SPEED_STEPS.forEach { preset ->
             PillChip(
-                label = PlaybackSpeedPresets.format(preset),
+                label = formatPlaybackSpeed(preset),
                 selected = (currentSpeed - preset).absoluteValue < 0.01f,
                 onClick = { onSpeedSelected(preset) },
             )
