@@ -5121,6 +5121,16 @@
         }
       }
     },
+    "bulk_edit.apply_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change"
+          }
+        }
+      }
+    },
     "bulk_edit.apply_one": {
       "localizations": {
         "en": {

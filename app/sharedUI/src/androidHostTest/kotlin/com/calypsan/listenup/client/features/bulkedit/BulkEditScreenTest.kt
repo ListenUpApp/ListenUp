@@ -135,7 +135,19 @@ class BulkEditScreenTest {
     fun `apply is unavailable while nothing would change`() {
         render(state = editing(bookCount = 40, changedBookCount = 0))
 
-        composeRule.onNodeWithText("Change 0 books").assertIsNotEnabled()
+        composeRule.onNodeWithText("Change").assertIsNotEnabled()
+    }
+
+    /**
+     * The resting state of the screen, before a single field is touched — so "Change 0 books"
+     * would be the first thing every user reads here. It is true, and it reads like a bug. The
+     * count appears once there is a count worth stating.
+     */
+    @Test
+    fun `an untouched selection is not promised as zero books`() {
+        render(state = editing(bookCount = 40, changedBookCount = 0))
+
+        composeRule.onNodeWithText("Change 0 books").assertDoesNotExist()
     }
 
     @Test

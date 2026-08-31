@@ -35,6 +35,7 @@ import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditViewModel
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.bulk_edit_apply_none
 import listenup.composeapp.generated.resources.bulk_edit_apply_one
 import listenup.composeapp.generated.resources.bulk_edit_apply_plural
 import listenup.composeapp.generated.resources.bulk_edit_applying
@@ -264,13 +265,18 @@ private fun titleFor(bookCount: Int): String =
  * Counted in books that will **change**, never in books that were selected. The button, the preview
  * and the "n books updated" that follows all come from the same number, so none of the three can
  * overstate the other two.
+ *
+ * Zero is named rather than counted. "Change 0 books" is true, but it is the resting state of an
+ * untouched screen — the first thing every user reads here — and a count of nothing reads as a bug
+ * rather than as an invitation. The button says what it does; the count arrives with something to
+ * count, and the body copy carries the explanation.
  */
 @Composable
 private fun applyLabelFor(changedBookCount: Int): String =
-    if (changedBookCount == 1) {
-        stringResource(Res.string.bulk_edit_apply_one)
-    } else {
-        stringResource(Res.string.bulk_edit_apply_plural, changedBookCount)
+    when (changedBookCount) {
+        0 -> stringResource(Res.string.bulk_edit_apply_none)
+        1 -> stringResource(Res.string.bulk_edit_apply_one)
+        else -> stringResource(Res.string.bulk_edit_apply_plural, changedBookCount)
     }
 
 /** Text fields stop being easier to read past this; the rest of the window stays margin. */

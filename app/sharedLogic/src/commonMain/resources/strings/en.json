@@ -1554,6 +1554,7 @@
   "bulk_edit": {
     "title_one": "Edit 1 book",
     "title_plural": "Edit %1$d books",
+    "apply_none": "Change",
     "apply_one": "Change 1 book",
     "apply_plural": "Change %1$d books",
     "applying": "Applying…",

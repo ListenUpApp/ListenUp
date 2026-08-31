@@ -513,6 +513,7 @@ One beautiful library.</string>
     <string name="browse_facet_unavailable_tag">Tag unavailable</string>
     <string name="bulk_edit_applied_one">1 book updated</string>
     <string name="bulk_edit_applied_plural">%1$d books updated</string>
+    <string name="bulk_edit_apply_none">Change</string>
     <string name="bulk_edit_apply_one">Change 1 book</string>
     <string name="bulk_edit_apply_plural">Change %1$d books</string>
     <string name="bulk_edit_applying">Applying…</string>
