@@ -5161,6 +5161,116 @@
         }
       }
     },
+    "bulk_edit.card_preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What will change"
+          }
+        }
+      }
+    },
+    "bulk_edit.card_publishing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publishing"
+          }
+        }
+      }
+    },
+    "bulk_edit.card_publishing_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A field you don’t touch is never written. The dimmed text is what these books already say — a placeholder, not a value."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_agreed_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book says %1$@. Leave it and no book is written to."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_agreed_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All %1$d books say %2$@. Leave it and no book is written to."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_differs_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book has no value here. Leave it and no book is written to."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_differs_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Differs across %1$d books. Leave it and no book is written to."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_written_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Written to no books — they already say this."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_written_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Written to 1 of %1$d books."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_written_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Written to %1$d of %2$d books."
+          }
+        }
+      }
+    },
+    "bulk_edit.consequence_written_single_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Written to this book."
+          }
+        }
+      }
+    },
     "bulk_edit.contributors": {
       "localizations": {
         "en": {
@@ -5197,6 +5307,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add genres"
+          }
+        }
+      }
+    },
+    "bulk_edit.hero_eyebrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library · %1$d selected"
+          }
+        }
+      }
+    },
+    "bulk_edit.hero_more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%1$d"
           }
         }
       }
@@ -5241,6 +5371,16 @@
         }
       }
     },
+    "bulk_edit.nothing_to_do_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type into a field above. Every book keeps the values you don’t touch."
+          }
+        }
+      }
+    },
     "bulk_edit.preview_affects_none": {
       "localizations": {
         "en": {
@@ -5267,6 +5407,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "This book changes"
+          }
+        }
+      }
+    },
+    "bulk_edit.preview_note_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 already says %1$@, so it is left alone."
+          }
+        }
+      }
+    },
+    "bulk_edit.preview_note_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d already say %2$@, so they are left alone."
           }
         }
       }
