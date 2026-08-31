@@ -97,6 +97,11 @@ BookWithContributorRole
 BrowseFacetUiState
 BrowseFacetViewModel
 BrowseFilesystemResponse
+BulkEdit
+BulkEditEvent
+BulkEditPreviewRow
+BulkEditUiState
+BulkEditViewModel
 CachedAudioTokenProvider
 CachedUserProfile
 Chapter
