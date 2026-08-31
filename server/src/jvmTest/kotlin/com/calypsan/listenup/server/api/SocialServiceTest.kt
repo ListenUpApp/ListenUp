@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlin.time.ExperimentalTime::class)
 
 package com.calypsan.listenup.server.api
 
@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -39,6 +40,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -66,10 +68,19 @@ class SocialServiceTest :
 
         fun noPrincipal(): PrincipalProvider = PrincipalProvider { null }
 
+        /**
+         * The service over real repositories and the in-memory migrated database, with "now" pinned
+         * to [nowMs] so a test can place a fixture inside or outside the staleness windows.
+         *
+         * [nowMs] defaults to the epoch, which puts every window's floor below any fixture timestamp
+         * — a test that does not pin its own "now" is asserting something other than staleness, and
+         * its seeded timestamps keep meaning exactly what they say.
+         */
         fun makeService(
             sql: ListenUpDatabase,
             driver: SqlDriver,
             principal: PrincipalProvider,
+            nowMs: Long = 0L,
         ): SocialServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
@@ -99,6 +110,7 @@ class SocialServiceTest :
                 bookReads = BookReadsRepository(db = sql),
                 books = books,
                 principal = principal,
+                clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
             )
         }
 
@@ -207,128 +219,6 @@ class SocialServiceTest :
                 updated_at = 1L,
                 deleted_at = null,
                 client_op_id = null,
-            )
-        }
-
-        /**
-         * Gates [bookId] into a private collection owned by [collectionOwner] so it is
-         * inaccessible to any non-admin user without an explicit share.
-         */
-        suspend fun makeBookInaccessible(
-            sql: ListenUpDatabase,
-            driver: SqlDriver,
-            bookId: String,
-            collectionId: String,
-            collectionOwner: String = "stranger",
-        ) {
-            val bus = ChangeBus()
-            val registry = SyncRegistry()
-            val collectionRepo =
-                CollectionRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val collectionBookRepo =
-                CollectionBookRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            collectionRepo.upsert(
-                CollectionSyncPayload(
-                    id = collectionId,
-                    libraryId = "test-library",
-                    ownerId = collectionOwner,
-                    name = collectionId,
-                    isInbox = false,
-                    revision = 0L,
-                    updatedAt = 0L,
-                ),
-            )
-            collectionBookRepo.upsert(
-                CollectionBookSyncPayload(
-                    id = "$collectionId:$bookId",
-                    collectionId = collectionId,
-                    bookId = bookId,
-                    createdAt = 0L,
-                    revision = 0L,
-                ),
-            )
-        }
-
-        /**
-         * Makes [bookId] visible to [viewer] the pure-union way: adds it to the per-library
-         * ALL_BOOKS system collection (owned by "system") and grants [viewer] a live Read share
-         * on that collection. [viewer] MUST already be seeded via [seedTestUser] — the grant's
-         * `principal_id` is a FK into `users(id)`. The ALL_BOOKS collection is created once and
-         * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
-         */
-        suspend fun makeBookAccessible(
-            sql: ListenUpDatabase,
-            driver: SqlDriver,
-            bookId: String,
-            viewer: String,
-            // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
-            // grant is unique, so repeated calls for the same viewer must reuse this row (upsert).
-            grantId: String = "grant-$viewer",
-            allBooksId: String = "all-books",
-        ) {
-            val bus = ChangeBus()
-            val registry = SyncRegistry()
-            val collectionRepo =
-                CollectionRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val collectionBookRepo =
-                CollectionBookRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val grantRepo =
-                CollectionGrantRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            collectionRepo.upsert(
-                CollectionSyncPayload(
-                    id = allBooksId,
-                    libraryId = "test-library",
-                    ownerId = "system",
-                    name = "All Books",
-                    isInbox = false,
-                    revision = 0L,
-                    updatedAt = 0L,
-                ),
-            )
-            collectionBookRepo.upsert(
-                CollectionBookSyncPayload(
-                    id = "$allBooksId:$bookId",
-                    collectionId = allBooksId,
-                    bookId = bookId,
-                    createdAt = 0L,
-                    revision = 0L,
-                ),
-            )
-            grantRepo.upsert(
-                CollectionShareSyncPayload(
-                    id = grantId,
-                    collectionId = allBooksId,
-                    sharedWithUserId = viewer,
-                    sharedByUserId = "system",
-                    permission = SharePermission.Read,
-                    revision = 0L,
-                    updatedAt = 0L,
-                ),
             )
         }
 
@@ -700,4 +590,281 @@ class SocialServiceTest :
                 }
             }
         }
+
+        // ── 8: liveness is a property of the row, not of when the sweep last ran ─────
+
+        test("a presence row older than the live window is not reported as live") {
+            // The cleanup sweep reclaims rows after 30 minutes, which is a garbage-collection
+            // threshold. Liveness has to come from the row's own updated_at, or "Listening now" is
+            // true only by luck of when the sweep last ran.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    // seedLiveSession stamps updated_at = startedAt. Six minutes old: past
+                    // LIVE_WINDOW, still well inside the 30-minute sweep, so the row exists.
+                    sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = nowMs - 6 * 60_000L)
+
+                    val result =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+
+                    result.none { it.isLive } shouldBe true
+                }
+            }
+        }
+
+        test("a presence row inside the live window is reported as live") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = nowMs - 60_000L)
+
+                    val result =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+
+                    result.single().isLive shouldBe true
+                }
+            }
+        }
+
+        // ── 9: the recent fill only fills with something recent ─────────────────────
+
+        test("the recent fill drops a book nobody has touched in months") {
+            // The fill exists so a quiet server's section is not empty. A two-month-old row does not
+            // achieve that — it reads as broken rather than quiet, which is the very failure the fill
+            // was added to prevent. The section already renders nothing rather than invent a row.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    sql.seedInProgressPosition(
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 120_000L,
+                        lastPlayedAt = nowMs - 60L * 24 * 60 * 60 * 1000,
+                    )
+
+                    makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                        .currentlyListening()
+                        .value()
+                        .shouldBeEmpty()
+                }
+            }
+        }
+
+        test("the recent fill keeps a book played within the window") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    sql.seedInProgressPosition(
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 120_000L,
+                        lastPlayedAt = nowMs - 2L * 24 * 60 * 60 * 1000,
+                    )
+
+                    val result =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+
+                    result.single().isLive shouldBe false
+                }
+            }
+        }
+
+        // ── 10: the two windows hand off to one another ─────────────────────────────
+
+        test("a stopped listener falls back to the recent fill rather than vanishing") {
+            // The two halves are one roster. Someone who stopped twenty minutes ago should still
+            // appear, just no longer as "listening now" — losing them entirely trades one wrong
+            // answer for another.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+
+                    val nowMs = 1_800_000_000_000L
+                    val twentyMinutesAgo = nowMs - 20 * 60_000L
+                    // Presence row past LIVE_WINDOW but not yet swept, plus the position it came from.
+                    sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = twentyMinutesAgo)
+                    sql.seedInProgressPosition(
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 120_000L,
+                        lastPlayedAt = twentyMinutesAgo,
+                    )
+
+                    val session =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+                            .single()
+
+                    session.isLive shouldBe false
+                    session.bookId shouldBe "book-a"
+                }
+            }
+        }
     })
+
+/**
+ * Gates [bookId] into a private collection owned by [collectionOwner] so it is
+ * inaccessible to any non-admin user without an explicit share.
+ */
+private suspend fun makeBookInaccessible(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+    bookId: String,
+    collectionId: String,
+    collectionOwner: String = "stranger",
+) {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val collectionRepo =
+        CollectionRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    val collectionBookRepo =
+        CollectionBookRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    collectionRepo.upsert(
+        CollectionSyncPayload(
+            id = collectionId,
+            libraryId = "test-library",
+            ownerId = collectionOwner,
+            name = collectionId,
+            isInbox = false,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+    collectionBookRepo.upsert(
+        CollectionBookSyncPayload(
+            id = "$collectionId:$bookId",
+            collectionId = collectionId,
+            bookId = bookId,
+            createdAt = 0L,
+            revision = 0L,
+        ),
+    )
+}
+
+/**
+ * Makes [bookId] visible to [viewer] the pure-union way: adds it to the per-library
+ * ALL_BOOKS system collection (owned by "system") and grants [viewer] a live Read share
+ * on that collection. [viewer] MUST already be seeded via [seedTestUser] — the grant's
+ * `principal_id` is a FK into `users(id)`. The ALL_BOOKS collection is created once and
+ * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
+ */
+private suspend fun makeBookAccessible(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+    bookId: String,
+    viewer: String,
+    // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
+    // grant is unique, so repeated calls for the same viewer must reuse this row (upsert).
+    grantId: String = "grant-$viewer",
+    allBooksId: String = "all-books",
+) {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val collectionRepo =
+        CollectionRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    val collectionBookRepo =
+        CollectionBookRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    val grantRepo =
+        CollectionGrantRepository(
+            db = sql,
+            bus = bus,
+            registry = registry,
+            driver = driver,
+        )
+    collectionRepo.upsert(
+        CollectionSyncPayload(
+            id = allBooksId,
+            libraryId = "test-library",
+            ownerId = "system",
+            name = "All Books",
+            isInbox = false,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+    collectionBookRepo.upsert(
+        CollectionBookSyncPayload(
+            id = "$allBooksId:$bookId",
+            collectionId = allBooksId,
+            bookId = bookId,
+            createdAt = 0L,
+            revision = 0L,
+        ),
+    )
+    grantRepo.upsert(
+        CollectionShareSyncPayload(
+            id = grantId,
+            collectionId = allBooksId,
+            sharedWithUserId = viewer,
+            sharedByUserId = "system",
+            permission = SharePermission.Read,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+}

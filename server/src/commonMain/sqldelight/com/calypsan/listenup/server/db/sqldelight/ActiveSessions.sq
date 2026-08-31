@@ -49,9 +49,12 @@ VALUES (
 );
 
 -- Live presence across all users except :exclude_user_id — the "currently listening" feed.
+-- Filtered on updated_at because liveness must be a property of the data, not of when
+-- ActiveSessionCleanupTask last ran: that sweep reclaims rows after 30 minutes, which is a
+-- garbage-collection threshold and far too generous to mean "listening right now".
 selectCurrentlyListeningExcluding:
 SELECT user_id, book_id, started_at FROM active_sessions
-WHERE user_id != :exclude_user_id AND deleted_at IS NULL;
+WHERE user_id != :exclude_user_id AND deleted_at IS NULL AND updated_at >= :live_since;
 
 -- Live presence on a book except :exclude_user_id — the "readers of this book" surface.
 selectReadersForBookExcluding:
