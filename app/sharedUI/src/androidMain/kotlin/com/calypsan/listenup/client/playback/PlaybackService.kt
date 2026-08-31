@@ -134,6 +134,19 @@ class PlaybackService :
     private var wasPlaying = false
 
     /**
+     * Whether an interruption by audio-focus loss is still in progress.
+     *
+     * [wasPlaying] is a level sampled at the instant of a loss, so it cannot tell "paused by a focus
+     * loss 35 seconds ago" from "never sounded". This is the history it loses. Moved only by
+     * [focusInterruptionAfter], and cleared in [handleIsPlayingChanged] the moment audio sounds
+     * again — the interruption is over when the book is talking again, not when a timer says so.
+     *
+     * Without it, Android Auto taking focus in two stages read as a refused background start and
+     * told a listener mid-book to open the app (2026-08-31, 10:43:11 transient, 10:43:46 permanent).
+     */
+    private var interruptedByFocusLoss = false
+
+    /**
      * The volume-boost gain stage, installed into the audio sink by [GainRenderersFactory] and
      * outliving individual books — it is a member of the player, not of a playback session.
      * [GainAudioProcessor.beginBook] is what scopes its loudness measurement to one book.
@@ -951,6 +964,9 @@ class PlaybackService :
             // Audio is sounding, so any refusal notice is stale — clear it rather than leave
             // the listener with a notification telling them to fix something already fixed.
             refusalNotifier.clearRefusal()
+            // Sounding audio is also the end of any focus interruption: the book is talking again,
+            // so the next refused start is genuinely cold and deserves to be reported as one.
+            interruptedByFocusLoss = false
             cancelIdleTimer()
             startPositionUpdates()
 
@@ -1060,13 +1076,18 @@ class PlaybackService :
             playWhenReady: Boolean,
             reason: Int,
         ) {
+            // Both readings are taken against the state as it stood BEFORE this change, so the
+            // rules stay in the two pure functions and this listener only records their verdict.
+            val refused = isPlaybackRefused(playWhenReady, playRequested, reason, wasPlaying, interruptedByFocusLoss)
+            interruptedByFocusLoss = focusInterruptionAfter(interruptedByFocusLoss, playWhenReady, reason, wasPlaying)
+
             if (playWhenReady) {
                 // The app asking to play is the edge that arms the refusal check. Without it, a
                 // focus loss replayed on process unfreeze reads exactly like a fresh refusal.
                 playRequested = true
                 return
             }
-            if (isPlaybackRefused(playWhenReady, playRequested, reason, wasPlaying)) {
+            if (refused) {
                 logger.warn {
                     "Playback refused: the platform denied audio focus for a play we just requested. " +
                         "Check `adb shell dumpsys audio` for the AudioHardening entry."
