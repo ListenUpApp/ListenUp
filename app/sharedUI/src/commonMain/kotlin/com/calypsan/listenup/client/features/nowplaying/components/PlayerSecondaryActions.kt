@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
-import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
+import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
 import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_boost_pill_zero_db
@@ -59,7 +59,7 @@ fun PlayerSecondaryActions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LabelPill(
-            label = PlaybackSpeedPresets.format(playbackSpeed),
+            label = formatPlaybackSpeed(playbackSpeed),
             onClick = onSpeedClick,
         )
 

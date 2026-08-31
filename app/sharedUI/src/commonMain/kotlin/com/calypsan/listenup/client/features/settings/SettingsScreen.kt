@@ -135,22 +135,9 @@ import listenup.composeapp.generated.resources.settings_wifi_only_downloads
 import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subtitle
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
+import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
 import org.koin.compose.viewmodel.koinViewModel
-
-/**
- * Preset playback speeds.
- */
-object PlaybackSpeedPresets {
-    val presets = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
-
-    fun format(speed: Float): String =
-        if (speed == speed.toInt().toFloat()) {
-            "${speed.toInt()}.0x"
-        } else {
-            val formatted = "%.2f".format(speed).trimEnd('0').trimEnd('.')
-            "${formatted}x"
-        }
-}
 
 /**
  * Preset durations for skip forward button (in seconds).
@@ -415,8 +402,8 @@ private fun PlaybackSection(
             title = stringResource(Res.string.settings_default_speed),
             subtitle = stringResource(Res.string.settings_speed_used_for_new_books),
             selectedValue = state.defaultPlaybackSpeed,
-            options = PlaybackSpeedPresets.presets,
-            formatValue = { PlaybackSpeedPresets.format(it) },
+            options = PLAYBACK_SPEED_STEPS,
+            formatValue = { formatPlaybackSpeed(it) },
             onValueSelected = viewModel::setDefaultPlaybackSpeed,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,

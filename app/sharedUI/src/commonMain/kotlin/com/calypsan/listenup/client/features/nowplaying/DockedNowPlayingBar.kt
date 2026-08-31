@@ -37,7 +37,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.LabelPill
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
-import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlin.time.Duration.Companion.milliseconds
@@ -237,7 +236,7 @@ private fun ActiveDockedContent(
 
         // Speed + expand.
         LabelPill(
-            label = PlaybackSpeedPresets.format(state.playbackSpeed),
+            label = formatPlaybackSpeed(state.playbackSpeed),
             onClick = onSpeedClick,
         )
         Ctrl(

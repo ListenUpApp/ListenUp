@@ -5,14 +5,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_INCREMENT
+import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MAX
+import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MIN
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.nowplaying.isSamePlaybackSpeed
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -29,8 +32,10 @@ import kotlin.math.roundToInt
  * `PlaybackSpeedSheet` offers exactly this pair; matching it means a listener who found their rate
  * on a phone is not told the browser has no such setting.
  *
- * The ladder is [PLAYBACK_SPEED_STEPS] — the same list `nextPlaybackSpeed` steps through, read
- * from commonMain rather than restated, so the chips can never drift from the rungs.
+ * The ladder, the bounds and the increment all come from commonMain — [PLAYBACK_SPEED_STEPS],
+ * [PLAYBACK_SPEED_MIN], [PLAYBACK_SPEED_MAX], [PLAYBACK_SPEED_INCREMENT] — rather than being
+ * restated here, so the browser cannot offer a different set of rates, a different range or a
+ * finer adjustment than the phone does.
  */
 @Composable
 internal fun SpeedPicker(
@@ -62,8 +67,8 @@ internal fun SpeedPicker(
 
         Input(type = InputType.Range) {
             classes("speed-slide")
-            attr("min", hundredths(SLOWEST).toString())
-            attr("max", hundredths(FASTEST).toString())
+            attr("min", hundredths(PLAYBACK_SPEED_MIN).toString())
+            attr("max", hundredths(PLAYBACK_SPEED_MAX).toString())
             // Hundredths, because a range's value is a number and 0.05 of a step would round to
             // nothing. Five of them is the same 0.05 increment the native slider snaps to.
             attr("step", STEP_HUNDREDTHS.toString())
@@ -78,7 +83,7 @@ internal fun SpeedPicker(
 
         Div(attrs = { classes("speed-opts") }) {
             PLAYBACK_SPEED_STEPS.forEach { preset ->
-                val isCurrent = sameSpeed(preset, speed)
+                val isCurrent = isSamePlaybackSpeed(preset, speed)
                 Button(attrs = {
                     classes("speed-opt")
                     if (isCurrent) classes("on")
@@ -99,7 +104,7 @@ internal fun SpeedPicker(
         // Only when there is something to go back to. A reset button while already at the default
         // is a control whose press changes nothing — and it is the listener's own default from
         // Settings, not a hardcoded 1×, so this offers to undo a choice rather than to overrule one.
-        if (!sameSpeed(speed, defaultSpeed)) {
+        if (!isSamePlaybackSpeed(speed, defaultSpeed)) {
             Button(attrs = {
                 classes("btn-ghost", "speed-reset")
                 attr("type", "button")
@@ -114,18 +119,6 @@ internal fun SpeedPicker(
     }
 }
 
-/**
- * Whether two speeds are the same rate as far as a listener is concerned.
- *
- * Floats arrive here from three places that round differently — a preset literal, a range
- * element's string, and the player's own reported rate — so `==` would leave a chip unmarked
- * while showing the very rate it names.
- */
-internal fun sameSpeed(
-    a: Float,
-    b: Float,
-): Boolean = abs(a - b) < SPEED_EPSILON
-
 private fun hundredths(speed: Float): Int = (speed * HUNDREDTHS_PER_UNIT).roundToInt()
 
 /** A range element's `value` as a speed, or null when it is not one. */
@@ -134,17 +127,14 @@ private fun parsedSpeed(raw: String): Float? =
         .toDoubleOrNull()
         ?.takeIf { it.isFinite() }
         ?.let { (it / HUNDREDTHS_PER_UNIT).toFloat() }
-        ?.takeIf { it >= SLOWEST && it <= FASTEST }
-
-/** The slowest and fastest the player is asked to go — `PlaybackSpeedPresets`' own bounds. */
-private const val SLOWEST = 0.5f
-
-private const val FASTEST = 3.0f
+        ?.takeIf { it >= PLAYBACK_SPEED_MIN && it <= PLAYBACK_SPEED_MAX }
 
 private const val HUNDREDTHS_PER_UNIT = 100
 
-/** 0.05× per step, the same increment the native slider snaps to. */
-private const val STEP_HUNDREDTHS = 5
-
-/** Half a slider step: close enough to be the same rate, far enough to tell two steps apart. */
-private const val SPEED_EPSILON = 0.025f
+/**
+ * The slider's own step, in the hundredths its `value` is carried in.
+ *
+ * Derived from [PLAYBACK_SPEED_INCREMENT] rather than written as `5`, so the browser cannot end up
+ * offering a finer or coarser adjustment than the phone does.
+ */
+private val STEP_HUNDREDTHS = (PLAYBACK_SPEED_INCREMENT * HUNDREDTHS_PER_UNIT).roundToInt()
