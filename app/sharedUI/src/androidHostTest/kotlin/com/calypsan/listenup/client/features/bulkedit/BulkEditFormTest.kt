@@ -122,22 +122,33 @@ class BulkEditFormTest {
     }
 
     /**
-     * The typed state counts books that would actually **change**, not books that were selected —
-     * the same promise the Apply button makes. The count comes from this field's own preview row,
-     * so a field whose value 28 books already hold says twelve, not forty.
+     * Each field counts its **own** books.
+     *
+     * Two instructions are deliberately in play, and the three numbers on screen are deliberately
+     * all different: the publisher moves twelve books, the language moves thirty, and thirty-five
+     * books are touched by one or the other. A field that reported the screen's total, or the size
+     * of the selection, would read as true and be a lie about that field — which is the failure the
+     * whole screen exists to not commit.
      */
     @Test
-    fun `a typed field promises the books it will actually be written to`() {
+    fun `each typed field promises its own books, not the screen's total`() {
         render(
             BulkEditUiState.Editing(
                 bookCount = 40,
-                edits = listOf(BulkEdit.SetPublisher("Recorded Books")),
-                preview = listOf(BulkEditPreviewRow(BulkEdit.SetPublisher("Recorded Books"), affectedCount = 12)),
-                changedBookCount = 12,
+                edits = listOf(BulkEdit.SetPublisher("Recorded Books"), BulkEdit.SetLanguage("English")),
+                preview =
+                    listOf(
+                        BulkEditPreviewRow(BulkEdit.SetPublisher("Recorded Books"), affectedCount = 12),
+                        BulkEditPreviewRow(BulkEdit.SetLanguage("English"), affectedCount = 30),
+                    ),
+                changedBookCount = 35,
             ),
         )
 
         composeRule.onNodeWithText("Written to 12 of 40 books.").assertIsDisplayed()
+        composeRule.onNodeWithText("Written to 30 of 40 books.").assertIsDisplayed()
+        // Neither the screen's total nor the selection's size belongs on a single field.
+        composeRule.onNodeWithText("Written to 35 of 40 books.").assertDoesNotExist()
         composeRule.onNodeWithText("Written to 40 of 40 books.").assertDoesNotExist()
     }
 
