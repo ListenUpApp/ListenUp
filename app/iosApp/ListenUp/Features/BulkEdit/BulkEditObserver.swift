@@ -53,7 +53,7 @@ final class BulkEditObserver {
 
     init(viewModel: BulkEditViewModel) {
         self.viewModel = viewModel
-        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.state) { [weak self] in self?.applyState($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
     }
 
@@ -86,7 +86,7 @@ final class BulkEditObserver {
 
     // MARK: - State mapping
 
-    private func apply(_ state: BulkEditUiState) {
+    private func applyState(_ state: BulkEditUiState) {
         switch onEnum(of: state) {
         case .loading:
             isLoading = true

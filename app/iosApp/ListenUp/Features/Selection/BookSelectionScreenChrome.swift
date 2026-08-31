@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Screen-level multi-select chrome — a "N selected" title item, a "Done" toolbar button, the bottom
-/// action bar (Add to Shelf / admin-only Add to Collection), and the two bulk picker sheets — hosted
-/// over a books-bearing screen. Keeps that wiring in one place instead of re-rolling it per screen.
+/// action bar (Add to Shelf / admin-only Add to Collection and Edit), and the sheets those actions
+/// open — hosted over a books-bearing screen. Keeps that wiring in one place instead of re-rolling
+/// it per screen.
 ///
 /// Entry into selection is a native **long-press a cover → context menu → "Select"**
 /// (`SelectableBookCard`); iOS arbitrates the long-press against the card's `NavigationLink` tap, so
@@ -37,8 +38,8 @@ struct BookSelectionScreenChrome: ViewModifier {
 }
 
 /// The shared selection toolbar — a "N selected" title, a Done exit, and the bottom action bar
-/// (Add to Shelf; admin-only Add to Collection). Extracted so the Library grid and the Home/Discover
-/// chrome render the *same* toolbar instead of two copies that can silently drift apart.
+/// (Add to Shelf; admin-only Add to Collection and Edit). Extracted so the Library grid and the
+/// Home/Discover chrome render the *same* toolbar instead of two copies that can silently drift apart.
 ///
 /// The count lives in the `.principal` (title) slot rather than a `.bottomBar` `Text`: a bare `Text`
 /// in a bottom bar becomes a Liquid Glass capsule that truncated to "1 sel…" and read as a broken
