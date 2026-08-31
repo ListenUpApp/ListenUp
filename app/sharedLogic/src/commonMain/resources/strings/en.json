@@ -1582,6 +1582,7 @@
     "card_publishing": "Publishing",
     "card_publishing_note": "A field you don’t touch is never written. The dimmed text is what these books already say — a placeholder, not a value.",
     "card_preview": "What will change",
+    "clear_field": "Clear %1$s",
     "nothing_to_do_hint": "Type into a field above. Every book keeps the values you don’t touch.",
     "consequence_written_single_book": "Written to this book.",
     "consequence_written_none": "Written to no books — they already say this.",

@@ -8,7 +8,9 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.requestFocus
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
@@ -86,6 +88,32 @@ class BulkEditFormTest {
         composeRule.onNodeWithText("Publisher").performTextInput("Tor")
 
         assertEquals("Tor", typed.last())
+    }
+
+    /**
+     * A stray keystroke here arms a forty-book write that has no undo, so taking it back has to be
+     * one tap and it has to be visible. The clear button reports the empty value through the same
+     * handler typing uses, which is what keeps "no instruction" and "an instruction I removed" the
+     * same state rather than two that can disagree.
+     */
+    @Test
+    fun `an armed field offers a way to disarm it`() {
+        val typed = mutableListOf<String>()
+        render(
+            BulkEditUiState.Editing(bookCount = 40, edits = listOf(BulkEdit.SetPublisher("Tor"))),
+            onPublisher = { typed += it },
+        )
+
+        composeRule.onNodeWithContentDescription("Clear Publisher").performClick()
+
+        assertEquals("", typed.last())
+    }
+
+    @Test
+    fun `an untouched field has nothing to take back`() {
+        render(BulkEditUiState.Editing(bookCount = 40, sharedPublisher = "Tor"))
+
+        composeRule.onNodeWithContentDescription("Clear Publisher").assertDoesNotExist()
     }
 
     // ── The consequence line ────────────────────────────────────────────────────────────────────

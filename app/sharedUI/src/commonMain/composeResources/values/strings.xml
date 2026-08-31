@@ -520,6 +520,7 @@ One beautiful library.</string>
     <string name="bulk_edit_card_preview">What will change</string>
     <string name="bulk_edit_card_publishing">Publishing</string>
     <string name="bulk_edit_card_publishing_note">A field you don’t touch is never written. The dimmed text is what these books already say — a placeholder, not a value.</string>
+    <string name="bulk_edit_clear_field">Clear %1$s</string>
     <string name="bulk_edit_consequence_agreed_one">This book says %1$s. Leave it and no book is written to.</string>
     <string name="bulk_edit_consequence_agreed_plural">All %1$d books say %2$s. Leave it and no book is written to.</string>
     <string name="bulk_edit_consequence_differs_one">This book has no value here. Leave it and no book is written to.</string>
