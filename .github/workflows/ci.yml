@@ -541,6 +541,13 @@ jobs:
         if: always()
         run: bash tools/scripts/check-no-appresult-await.sh
 
+      # The App Intents dependency slot is process-wide, so every test that installs one has to
+      # live in a single serialized suite or they race across suites — a rare, expensive-to-attribute
+      # flake. This keeps them in one file. See the script's header.
+      - name: App Intents tests stay in one suite (gate)
+        if: always()
+        run: bash tools/scripts/check-intent-tests-single-suite.sh
+
   # ── Build ────────────────────────────────────────────────────────────────────
   build-server-native:
     name: Build & Test (server linuxX64)
