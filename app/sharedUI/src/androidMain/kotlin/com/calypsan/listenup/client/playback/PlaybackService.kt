@@ -109,42 +109,19 @@ class PlaybackService :
     private var casting = false
 
     /**
-     * Whether a play request is outstanding — `playWhenReady` went true and has not yet resolved
-     * into either audio or a refusal.
+     * The transport state behind "was that play refused, or merely interrupted?".
      *
-     * This is the EDGE that arms [isPlaybackRefused]. Android freezes backgrounded processes and a
-     * frozen process receives no callbacks, so on thaw Media3 delivers whatever queued up while it
-     * slept. Without this flag a focus loss from 45 minutes earlier is indistinguishable from a
-     * refusal happening now — which is exactly what fired a spurious "playback blocked"
-     * notification 79ms after unfreeze on 2026-08-07.
+     * It used to be three loose fields on this class, which put the whole sequence — the part every
+     * one of those bugs actually lived in — behind a service that cannot be instantiated in a test.
+     * See [PlaybackRefusalTracker] for what it holds and why it is out on its own.
+     *
+     * Its [PlaybackRefusalTracker.isAudioSounding] is also what [handleIsPlayingChanged] hands
+     * [playbackTransitionFor] as `spanOpen`: "audio is sounding" and "a listening span is open" are
+     * the same fact, and one writer is what keeps the two readings from disagreeing. The events the
+     * transition ignores — either player reporting on a session the other one is driving — never
+     * reach the tracker at all, which is what keeps a hand-off to or from Cast one continuous span.
      */
-    private var playRequested = false
-
-    /**
-     * Whether audio was actually sounding when the last transport change arrived.
-     *
-     * Read by [isPlaybackRefused] to separate a refused start from an ordinary interruption —
-     * Media3 reports both with `PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS`.
-     *
-     * Also stands for "a listening span is open", which is the same fact: it only moves on a
-     * transition [handleIsPlayingChanged] acts on, and the events it ignores — either player
-     * reporting on a session the other one is driving — by definition leave recording as it was.
-     * That is what keeps a hand-off to or from Cast one continuous span.
-     */
-    private var wasPlaying = false
-
-    /**
-     * Whether an interruption by audio-focus loss is still in progress.
-     *
-     * [wasPlaying] is a level sampled at the instant of a loss, so it cannot tell "paused by a focus
-     * loss 35 seconds ago" from "never sounded". This is the history it loses. Moved only by
-     * [focusInterruptionAfter], and cleared in [handleIsPlayingChanged] the moment audio sounds
-     * again — the interruption is over when the book is talking again, not when a timer says so.
-     *
-     * Without it, Android Auto taking focus in two stages read as a refused background start and
-     * told a listener mid-book to open the app (2026-08-31, 10:43:11 transient, 10:43:46 permanent).
-     */
-    private var interruptedByFocusLoss = false
+    private val refusalTracker = PlaybackRefusalTracker()
 
     /**
      * The volume-boost gain stage, installed into the audio sink by [GainRenderersFactory] and
@@ -946,13 +923,16 @@ class PlaybackService :
     ) {
         logger.debug { "Is playing: $isPlaying (source=$source)" }
 
-        val transition = playbackTransitionFor(source, isPlaying, casting, spanOpen = wasPlaying)
+        val transition =
+            playbackTransitionFor(source, isPlaying, casting, spanOpen = refusalTracker.isAudioSounding)
         if (transition == PlaybackTransition.IGNORE) {
             logger.debug { "Ignoring is-playing=$isPlaying from $source (casting=$casting)" }
             return
         }
 
-        wasPlaying = isPlaying
+        // Two facts in one: whether audio is sounding, and — since the book talking again is the
+        // end of any focus interruption — that the next refused start is genuinely a cold one.
+        refusalTracker.onIsPlayingChanged(isPlaying)
 
         val bookId = currentBookId
         // Speed and position must come from whichever player is actually the transport — reading
@@ -964,9 +944,6 @@ class PlaybackService :
             // Audio is sounding, so any refusal notice is stale — clear it rather than leave
             // the listener with a notification telling them to fix something already fixed.
             refusalNotifier.clearRefusal()
-            // Sounding audio is also the end of any focus interruption: the book is talking again,
-            // so the next refused start is genuinely cold and deserves to be reported as one.
-            interruptedByFocusLoss = false
             cancelIdleTimer()
             startPositionUpdates()
 
@@ -1069,41 +1046,29 @@ class PlaybackService :
         }
 
         /**
-         * Detects a play request the platform refused outright, as opposed to one interrupted
-         * partway. See [isPlaybackRefused] for why the two need telling apart.
+         * Reports a play request the platform refused outright, as opposed to one interrupted
+         * partway. See [isPlaybackRefused] for why the two need telling apart, and
+         * [PlaybackRefusalTracker] for the state that separates them across a whole sequence.
          */
         override fun onPlayWhenReadyChanged(
             playWhenReady: Boolean,
             reason: Int,
         ) {
-            // Both readings are taken against the state as it stood BEFORE this change, so the
-            // rules stay in the two pure functions and this listener only records their verdict.
-            val refused = isPlaybackRefused(playWhenReady, playRequested, reason, wasPlaying, interruptedByFocusLoss)
-            interruptedByFocusLoss = focusInterruptionAfter(interruptedByFocusLoss, playWhenReady, reason, wasPlaying)
+            if (!refusalTracker.onPlayWhenReadyChanged(playWhenReady, reason)) return
 
-            if (playWhenReady) {
-                // The app asking to play is the edge that arms the refusal check. Without it, a
-                // focus loss replayed on process unfreeze reads exactly like a fresh refusal.
-                playRequested = true
-                return
+            logger.warn {
+                "Playback refused: the platform denied audio focus for a play we just requested. " +
+                    "Check `adb shell dumpsys audio` for the AudioHardening entry."
             }
-            if (refused) {
-                logger.warn {
-                    "Playback refused: the platform denied audio focus for a play we just requested. " +
-                        "Check `adb shell dumpsys audio` for the AudioHardening entry."
-                }
-                val refusal =
-                    PlaybackError.BlockedInBackground(
-                        debugInfo = "playWhenReady=false reason=AUDIO_FOCUS_LOSS before playback started",
-                    )
-                // The bus reaches the UI when the app is open; the notification is the path that
-                // reaches a listener staring at a lock-screen button that did nothing. Both are
-                // wanted — a refusal is now known to happen with the app plainly on screen.
-                errorBus.emit(refusal)
-                refusalNotifier.notifyRefused(refusal)
-            }
-            // Resolved either way: the next refusal needs its own play request to arm it.
-            playRequested = false
+            val refusal =
+                PlaybackError.BlockedInBackground(
+                    debugInfo = "playWhenReady=false reason=AUDIO_FOCUS_LOSS before playback started",
+                )
+            // The bus reaches the UI when the app is open; the notification is the path that
+            // reaches a listener staring at a lock-screen button that did nothing. Both are
+            // wanted — a refusal is now known to happen with the app plainly on screen.
+            errorBus.emit(refusal)
+            refusalNotifier.notifyRefused(refusal)
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(source, isPlaying)
