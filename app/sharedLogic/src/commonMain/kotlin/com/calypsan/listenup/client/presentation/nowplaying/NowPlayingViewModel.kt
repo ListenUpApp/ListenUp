@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SurfaceMetadata
+import com.calypsan.listenup.client.playback.fadeOutAndPause
 import com.calypsan.listenup.client.playback.mapToNowPlayingState
 import com.calypsan.listenup.client.playback.mapToPlaybackProgress
 import com.calypsan.listenup.core.error.ErrorBus
@@ -33,7 +34,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -94,7 +94,6 @@ class NowPlayingViewModel internal constructor(
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     private companion object {
-        const val FADE_DURATION_MS = 3000L
         const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
     }
 
@@ -290,20 +289,20 @@ class NowPlayingViewModel internal constructor(
         watchNowPlayingLiveness()
 
         // Side effect: handle sleep timer fade-out events.
-        // The try/catch ensures onFadeCompleted() (which resets state to Inactive) is
-        // always called — even when fadeOutAndPause() throws or when viewModelScope is
+        // The `finally` ensures onFadeCompleted() (which resets state to Inactive) is
+        // always called — even when the fade throws or when viewModelScope is
         // cancelled mid-fade. Without this, a thrown exception leaves the timer stuck
         // in FadingOut, which causes PlaybackService to apply the short sleep-idle
         // timeout to every subsequent pause.
         viewModelScope.launch {
             sleepTimerManager.sleepEvent.collect {
                 try {
-                    fadeOutAndPause()
+                    fadeOutAndPause(playbackController)
                 } catch (e: CancellationException) {
-                    sleepTimerManager.onFadeCompleted()
                     throw e
                 } catch (e: Exception) {
                     logger.warn(e) { "fadeOutAndPause failed — resetting sleep timer to Inactive" }
+                } finally {
                     sleepTimerManager.onFadeCompleted()
                 }
             }
@@ -361,36 +360,6 @@ class NowPlayingViewModel internal constructor(
             logger.warn(e) { "getBookListItem failed for ${bookId.value}" }
             null
         }
-    }
-
-    /**
-     * Gradually reduce volume to zero, then pause.
-     * Called when sleep timer fires.
-     */
-    private suspend fun fadeOutAndPause() {
-        logger.info { "Starting volume fade out" }
-
-        val steps = 30
-        val stepDelay = FADE_DURATION_MS / steps
-        val volumeStep = 1f / steps
-
-        var currentVolume = 1f
-
-        repeat(steps) {
-            currentVolume = (currentVolume - volumeStep).coerceAtLeast(0f)
-            playbackController.setVolume(currentVolume)
-            delay(stepDelay)
-        }
-
-        // Pause playback
-        playbackController.pause()
-
-        // Brief delay then restore volume for next play
-        delay(100)
-        playbackController.setVolume(1f)
-
-        logger.info { "Fade complete, playback paused" }
-        sleepTimerManager.onFadeCompleted()
     }
 
     // === UI ephemera setters ===

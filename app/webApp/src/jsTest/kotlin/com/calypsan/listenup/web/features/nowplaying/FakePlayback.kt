@@ -33,7 +33,7 @@ internal fun fakePlaybackManager(
     segment: AudioSegment,
     title: String,
     prepare: PrepareOutcome = PrepareOutcome.SUCCEEDS,
-): PlaybackManager = FakePlaybackManager(segment, title, prepare)
+): FakePlaybackManager = FakePlaybackManager(segment, title, prepare)
 
 /**
  * How a fake prepare ends. The two failing shapes are the ones a prime has to survive: a prepare
@@ -48,7 +48,12 @@ internal enum class PrepareOutcome {
     STALLS_AFTER_FIRST,
 }
 
-private class FakePlaybackManager(
+/**
+ * Concrete rather than hidden behind [PlaybackManager] so a spec can *drive* the flows the
+ * interface only exposes for reading — `currentChapter` in particular, which is how an
+ * end-of-chapter sleep timer is told a chapter turned over.
+ */
+internal class FakePlaybackManager(
     private val segment: AudioSegment,
     private val title: String,
     private val prepare: PrepareOutcome,

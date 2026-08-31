@@ -65,4 +65,51 @@ class SleepTimerManagerTest :
                 }
             }
         }
+
+        test("end of chapter fires at the end of THE chapter, not the one after it") {
+            runTest {
+                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+
+                manager.sleepEvent.test {
+                    // The listener has been in chapter 5 for a while — the consumer feeds this
+                    // continuously from `currentChapter`, so the manager already knows where they
+                    // are before they reach for the timer.
+                    manager.onChapterChanged(4)
+
+                    manager.setTimer(SleepTimerMode.EndOfChapter)
+
+                    // ⛔ Chapter 5 just ended. THIS is the boundary the listener asked to stop at.
+                    // Arming must not discard the baseline it already had, or the book plays on
+                    // through a whole extra chapter — the one failure this feature cannot have,
+                    // because the listener is asleep and cannot see it happen.
+                    manager.onChapterChanged(5)
+                    runCurrent()
+
+                    awaitItem()
+                    manager.state.value shouldBe SleepTimerState.FadingOut
+
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a cancelled end-of-chapter timer stays silent when the chapter turns over") {
+            runTest {
+                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+
+                manager.sleepEvent.test {
+                    manager.onChapterChanged(4)
+                    manager.setTimer(SleepTimerMode.EndOfChapter)
+                    manager.cancelTimer()
+
+                    manager.onChapterChanged(5)
+                    runCurrent()
+
+                    expectNoEvents()
+                    manager.state.value shouldBe SleepTimerState.Inactive
+
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })

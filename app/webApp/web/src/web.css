@@ -201,6 +201,7 @@ body { margin: 0; }
 .nav-i:active,
 .tport-b:active,
 .tport-skip:active,
+.tport-sleep:active,
 .tport-speed:active,
 .tport-note-x:active,
 .bulk-b:active,
@@ -495,6 +496,34 @@ body { margin: 0; }
 .chap-at { flex-shrink: 0; font-size: 12.5px; color: var(--ink-3); }
 .chap-row.on .chap-at { color: var(--coral); }
 
+/* ---- sleep timer ---- */
+.sleep-dlg { max-width: 420px; width: min(420px, calc(100vw - 32px)); }
+.sleep-opts { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.sleep-opt {
+  padding: 8px 15px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600;
+}
+@media (hover: hover) { .sleep-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
+.sleep-opt:active { transform: translateY(1px); }
+.sleep-eoc {
+  display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+  background: var(--surface-2); color: var(--ink); font: inherit;
+}
+@media (hover: hover) { .sleep-eoc:hover { border-color: var(--coral); } }
+.sleep-eoc:active { transform: scale(0.985); }
+.sleep-eoc-t { font-size: 14px; font-weight: 700; }
+.sleep-eoc-s { font-size: 12.5px; color: var(--ink-3); }
+/* The countdown. Tabular figures so the digits do not jitter sideways once a second — the number
+   is being watched by someone trying to fall asleep. */
+.sleep-left {
+  margin: 16px 0 4px; font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.sleep-fade { margin: 16px 0; font-size: 14px; color: var(--ink-3); }
+/* An armed timer, said on the control itself rather than only inside the dialog. */
+.tport-sleep.on { color: var(--coral); }
+
 /* ---- banners ---- */
 .banner { display:flex; align-items:center; gap:11px; padding:0 16px; min-height:44px; font-size:13.5px; font-weight:600; border-bottom:1px solid; }
 .banner.warn { background:#FBF1D8; color:#7A5A11; border-color:#EEDDB0; }
@@ -634,8 +663,8 @@ body { margin: 0; }
 /* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
    bar read as three equal actions, when only one of them is the one you reach for. `position:
    relative` anchors the interval numeral over the arrow. */
-.tport-skip { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .tport-skip:hover { background:var(--surface-2); color:var(--ink); } }
+.tport-skip, .tport-sleep { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-skip:hover, .tport-sleep:hover { background:var(--surface-2); color:var(--ink); } }
 /* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
    two-digit interval still has to fit. */
 .tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
@@ -651,6 +680,9 @@ body { margin: 0; }
 @media (max-width: 759px) {
   .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
   .tport-t { display:none; }
+  /* Skips go, the sleep timer stays. A narrow screen is a phone in the dark, which is
+     precisely where someone reaches for a sleep timer — hiding it there would drop the
+     control on the device that needs it most. */
   .tport-skip { display:none; }
   .tport-note { margin:16px -14px 0; padding:10px 12px; }
 }
