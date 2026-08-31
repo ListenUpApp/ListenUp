@@ -8,8 +8,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.Timestamp
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -62,6 +67,7 @@ class BulkEditScreenTest {
         preview: List<BulkEditPreviewRow> = emptyList(),
         changedBookCount: Int = 0,
         isApplying: Boolean = false,
+        selectionSample: List<BookListItem> = emptyList(),
     ) = BulkEditUiState.Editing(
         bookCount = bookCount,
         requestedCount = requestedCount,
@@ -69,6 +75,7 @@ class BulkEditScreenTest {
         preview = preview,
         changedBookCount = changedBookCount,
         isApplying = isApplying,
+        selectionSample = selectionSample,
     )
 
     @Test
@@ -239,4 +246,61 @@ class BulkEditScreenTest {
         composeRule.onNodeWithText("Publication year").assertIsDisplayed()
         composeRule.onNodeWithText("Language").assertIsDisplayed()
     }
+
+    // ── The hero ────────────────────────────────────────────────────────────────────────────────
+    //
+    // "Edit 37 books" is a number. The books are what is about to be changed, and this is the last
+    // screen on which noticing you picked the wrong ones is free. So the header shows them: the
+    // covers it was handed, and an honest count of the ones it had no room for.
+
+    @Test
+    fun `the hero shows the selection, and counts the covers it had no room for`() {
+        render(state = editing(bookCount = 40, selectionSample = sample(3)))
+
+        composeRule.onNodeWithText("Edit 40 books").assertIsDisplayed()
+        // Three covers shown, thirty-seven not — stated, never rounded away.
+        composeRule.onNodeWithText("+37").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a selection the hero can show whole says nothing about a remainder`() {
+        render(state = editing(bookCount = 3, selectionSample = sample(3)))
+
+        composeRule.onNodeWithText("+", substring = true).assertDoesNotExist()
+    }
+
+    /**
+     * The eyebrow counts what was *selected* while the title counts what *loaded*. When those two
+     * differ, the header is the first place the shortfall shows — before the notice, before the
+     * button, before anything is written.
+     */
+    @Test
+    fun `the hero counts the selection while the title counts what loaded`() {
+        render(state = editing(bookCount = 37, requestedCount = 40, selectionSample = sample(2)))
+
+        composeRule.onNodeWithText("LIBRARY · 40 SELECTED").assertIsDisplayed()
+        composeRule.onNodeWithText("Edit 37 books").assertIsDisplayed()
+    }
+
+    /**
+     * A local cover path keeps [com.calypsan.listenup.client.design.components.BookCoverImage] on
+     * its synchronous fast path; the async fallback reaches for the global Koin context, which this
+     * spec has no reason to stand up. The files need not exist — what is under test is the cluster,
+     * not image decoding.
+     */
+    private fun sample(count: Int): List<BookListItem> =
+        (1..count).map { index ->
+            BookListItem(
+                id = BookId("book-$index"),
+                libraryId = LibraryId("library"),
+                folderId = FolderId("folder"),
+                title = "Book $index",
+                authors = emptyList(),
+                narrators = emptyList(),
+                duration = 0L,
+                coverPath = "/tmp/bulk-edit-cover-$index.webp",
+                addedAt = Timestamp(0L),
+                updatedAt = Timestamp(0L),
+            )
+        }
 }
