@@ -497,56 +497,12 @@ enum BookEditFormatting {
 
 // MARK: - Section chrome
 
-/// Uppercased caption header + grouped card, the edit-form section shell.
-private struct EditSection<Content: View>: View {
-    let title: String
-    @ViewBuilder var content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.luLabel2)
-                .textCase(.uppercase)
-                .padding(.leading, 4)
-            VStack(alignment: .leading, spacing: 12) {
-                content()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .fieldCard()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
 private struct EmptyRelationHint: View {
     let text: String
     var body: some View {
         Text(text)
             .font(.subheadline)
             .foregroundStyle(Color.luLabel3)
-    }
-}
-
-/// A caption-labelled field card wrapping a non-text control (picker, date row) so it reads the
-/// same as an `AppTextField().fieldCard()`: caption above, control below, same insets and surface.
-private struct LabeledFieldRow<Content: View>: View {
-    let label: String
-    @ViewBuilder var content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(Color.luLabel2)
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .fieldCard()
     }
 }
 
