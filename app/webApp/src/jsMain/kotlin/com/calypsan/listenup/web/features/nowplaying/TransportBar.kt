@@ -63,7 +63,9 @@ fun TransportBar(
     onSeek: (Long) -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
-    onCycleSpeed: () -> Unit,
+    onSetSpeed: (Float) -> Unit,
+    onResetSpeed: () -> Unit = {},
+    defaultSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
     chapters: List<TransportChapter> = emptyList(),
     currentChapterIndex: Int? = null,
     onSeekToChapter: (Int) -> Unit = {},
@@ -76,6 +78,7 @@ fun TransportBar(
 
     var chaptersOpen by remember { mutableStateOf(false) }
     var sleepOpen by remember { mutableStateOf(false) }
+    var speedOpen by remember { mutableStateOf(false) }
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: state.positionMs
 
@@ -101,6 +104,14 @@ fun TransportBar(
         onCancel = onCancelSleepTimer,
         onExtend = onExtendSleepTimer,
         onDismiss = { sleepOpen = false },
+    )
+    SpeedPicker(
+        open = speedOpen,
+        speed = state.speed,
+        defaultSpeed = defaultSpeed,
+        onSet = onSetSpeed,
+        onReset = onResetSpeed,
+        onDismiss = { speedOpen = false },
     )
 
     Div(attrs = { classes("tport") }) {
@@ -157,15 +168,16 @@ fun TransportBar(
 
         Span(attrs = { classes("mono", "tport-time") }) { Text(formatElapsed(state.durationMs)) }
 
-        // A cycle rather than a menu: the ladder is nine rungs, and a listener adjusting speed is
-        // hunting a feel, not picking a value. `aria-label` carries the current rate because the
-        // visible text is the terse form — a screen reader saying "one point five ex" is not it.
+        // Opens the picker rather than cycling. Cycling made one move cheap and every other one
+        // expensive — nine rungs meant eight taps to go down one — and could not reach a rate
+        // between rungs at all. `aria-label` carries the current rate because the visible text is
+        // the terse form: a screen reader saying "one point five ex" is not it.
         Button(attrs = {
             classes("tport-speed")
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_ARIA_LABEL, "Playback speed ${formatSpeed(state.speed)}, change")
             attr(ATTR_TITLE, "Playback speed")
-            onClick { onCycleSpeed() }
+            onClick { speedOpen = true }
         }) {
             Text("${formatSpeed(state.speed)}\u00D7")
         }

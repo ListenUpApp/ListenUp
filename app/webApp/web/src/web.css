@@ -521,6 +521,28 @@ body { margin: 0; }
   font-variant-numeric: tabular-nums;
 }
 .sleep-fade { margin: 16px 0; font-size: 14px; color: var(--ink-3); }
+/* ---- playback speed ---- */
+.speed-dlg { max-width: 460px; width: min(460px, calc(100vw - 32px)); }
+/* The rate, big enough to read from arm's length while the slider is under a thumb. Tabular so
+   the digits do not jitter sideways as it moves. */
+.speed-read {
+  margin: 18px 0 10px; font-size: 42px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
+}
+.speed-slide { width: 100%; margin: 0 0 18px; accent-color: var(--coral); }
+.speed-opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.speed-opt {
+  min-width: 56px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) { .speed-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
+.speed-opt:active { transform: translateY(1px); }
+/* The rate playing now. Coral fill rather than a heavier weight: the chips sit in a tight row and
+   a weight change reflows every one of them as the selection moves. */
+.speed-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
+.speed-reset { margin-top: 14px; }
+
 /* An armed timer, said on the control itself rather than only inside the dialog. */
 .tport-sleep.on { color: var(--coral); }
 

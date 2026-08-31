@@ -680,7 +680,7 @@ class ClassContractTest :
                             onSeek = {},
                             onSkipBack = {},
                             onSkipForward = {},
-                            onCycleSpeed = {},
+                            onSetSpeed = {},
                         )
                     }
                 }

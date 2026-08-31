@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.nowplaying
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
 import com.calypsan.listenup.web.playback.WebPlaybackController
 import com.calypsan.listenup.web.playback.awaitState
@@ -17,6 +18,7 @@ import kotlinx.browser.document
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.web.renderComposable
+import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
@@ -101,7 +103,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
             val playing =
@@ -112,7 +114,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -130,7 +132,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -158,7 +160,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -183,7 +185,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = { back++ },
                         onSkipForward = { forward++ },
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -215,7 +217,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -224,8 +226,10 @@ class TransportBarTest :
             host.querySelector(".tport-speed")!!.getAttribute("aria-label") shouldContain FASTER_SPEED.toString()
         }
 
-        test("the speed control reports exactly one press") {
-            var cycles = 0
+        test("the speed control opens the picker rather than changing the rate under you") {
+            // It used to cycle. A press now offers the whole ladder plus the rates between rungs,
+            // and changes nothing until one is chosen.
+            var set = 0
             val host =
                 mount {
                     TransportBar(
@@ -234,13 +238,17 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = { cycles++ },
+                        onSetSpeed = { set++ },
                     )
                 }
 
             (host.querySelector(".tport-speed") as HTMLElement).click()
+            awaitFrame()
 
-            cycles shouldBe 1
+            (host.querySelector(".speed-dlg") as? HTMLDialogElement)?.isModal() shouldBe true
+            set shouldBe 0
+
+            host.closeDialogs()
         }
 
         test("a speed renders as short as it can without lying about itself") {
@@ -272,7 +280,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -297,7 +305,7 @@ class TransportBarTest :
                         },
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -366,7 +374,7 @@ class TransportBarTest :
                         onSeek = playback::seek,
                         onSkipBack = playback::skipBack,
                         onSkipForward = playback::skipForward,
-                        onCycleSpeed = playback::cycleSpeed,
+                        onSetSpeed = playback::setSpeed,
                     )
                 }
             host.querySelector(".tport-b")!!.getAttribute("aria-label") shouldBe "Pause"
@@ -395,7 +403,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
@@ -552,7 +560,7 @@ class TransportBarTest :
             playback.close()
         }
 
-        test("cycling the speed changes what is playing and what the bar says, together") {
+        test("setting the speed changes what is playing and what the bar says, together") {
             // Two separate calls under one gesture — the controller is what the element obeys, the
             // manager is what remembers the choice for this book. Dropping either leaves the bar
             // and the audio disagreeing about how fast the story is going.
@@ -564,7 +572,7 @@ class TransportBarTest :
             playback.playBook(BookId("book-1"))
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
 
-            playback.cycleSpeed()
+            playback.setSpeed(STEPPED_SPEED)
 
             val stepped = withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it?.speed != 1.0f } }
             stepped.shouldNotBeNull().speed shouldBe STEPPED_SPEED
@@ -607,7 +615,7 @@ class TransportBarTest :
                         onSeek = {},
                         onSkipBack = {},
                         onSkipForward = {},
-                        onCycleSpeed = {},
+                        onSetSpeed = {},
                     )
                 }
 
