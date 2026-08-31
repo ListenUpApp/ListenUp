@@ -25,6 +25,16 @@ import kotlinx.coroutines.launch
 private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 
 /**
+ * How many of the selection's covers the header gets to show.
+ *
+ * Five is as many as a cluster reads as before it becomes a smear; past that the header states the
+ * remainder as a number instead. The cap lives here rather than in the screen so the state a client
+ * renders is already the size it will draw — no client carries forty books' worth of projection
+ * through a flow that recomputes on every keystroke.
+ */
+private const val SELECTION_SAMPLE_SIZE = 5
+
+/**
  * Bulk metadata editing across a selection, shared by Android, iOS and web.
  *
  * State is a **projection** of the loaded books and the instructions built so far. The preview and
@@ -79,6 +89,9 @@ class BulkEditViewModel internal constructor(
                     sharedPublisher = loaded.sharedBy { it.publisher },
                     sharedPublishYear = loaded.sharedBy { it.publishYear },
                     sharedLanguage = loaded.sharedBy { it.language },
+                    // Covers for the header, capped: enough to make "Edit 37 books" concrete, not
+                    // so many that the projection grows with the selection.
+                    selectionSample = loaded.take(SELECTION_SAMPLE_SIZE).map { it.toListItem() },
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), BulkEditUiState.Loading)
