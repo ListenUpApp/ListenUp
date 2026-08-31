@@ -116,6 +116,11 @@ final class Dependencies {
         KoinHelper.shared.getSyncIndicatorViewModel()
     }
     func createBookEditViewModel() -> BookEditViewModel { KoinHelper.shared.getBookEditViewModel() }
+    /// A bulk metadata editor for exactly these books. Parametrized, so a fresh instance per
+    /// selection — the editor never switches the books it edits.
+    func createBulkEditViewModel(bookIds: [String]) -> BulkEditViewModel {
+        KoinHelper.shared.getBulkEditViewModel(bookIds: bookIds)
+    }
     func createMetadataViewModel() -> MetadataViewModel { KoinHelper.shared.getMetadataViewModel() }
     func createContributorMetadataViewModel() -> ContributorMetadataViewModel {
         KoinHelper.shared.getContributorMetadataViewModel()

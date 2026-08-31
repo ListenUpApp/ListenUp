@@ -62,6 +62,7 @@ import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewMode
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
@@ -331,6 +332,16 @@ object KoinHelper {
     fun getBookDetailViewModel(): BookDetailViewModel = resolve(BookDetailViewModel::class)
 
     fun getBookMultiSelectViewModel(): BookMultiSelectViewModel = resolve(BookMultiSelectViewModel::class)
+
+    /**
+     * The bulk metadata editor, scoped to one selection.
+     *
+     * [bookIds] is a constructor parameter rather than a `load(bookIds:)` call so the selection a
+     * given editor edits is fixed for its lifetime — the same construction path every other client
+     * uses, and one a caller cannot swap underneath a half-built form.
+     */
+    fun getBulkEditViewModel(bookIds: List<String>): BulkEditViewModel =
+        resolveWithParams(BulkEditViewModel::class, listOf(bookIds))
 
     fun getBookReadersViewModel(bookId: String): BookReadersViewModel =
         resolveWithParams(BookReadersViewModel::class, listOf(bookId))
