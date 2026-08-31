@@ -469,6 +469,32 @@ body { margin: 0; }
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
+/* The chapter picker: a modal list you jump from, not a table you edit. Capped in height so a
+   book with hundreds of marks scrolls inside the dialog rather than growing past the viewport. */
+.chap-dlg { max-width: 520px; width: min(520px, calc(100vw - 32px)); }
+.chap-list {
+  display: flex; flex-direction: column; gap: 2px; margin: 12px 0;
+  max-height: min(56vh, 460px); overflow-y: auto;
+  /* Scroll anchoring fights a programmatic scrollIntoView on open — the same reason the
+     virtualised grid disables it. */
+  overflow-anchor: none;
+}
+.chap-row {
+  display: flex; align-items: baseline; gap: 12px; width: 100%; text-align: left;
+  padding: 9px 12px; border: none; border-radius: 9px; cursor: pointer;
+  background: transparent; color: var(--ink); font: inherit; font-size: 14px;
+}
+@media (hover: hover) { .chap-row:hover { background: var(--surface-2); } }
+.chap-row:active { background: var(--surface-3); }
+/* The chapter being listened to. Coral rather than a bolder weight: the row is already dense, and
+   a weight change reflows the text under the reader's eye as the chapter turns over. */
+.chap-row.on { background: var(--coral-soft); color: var(--coral); }
+.chap-n { flex-shrink: 0; width: 2.2em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chap-row.on .chap-n { color: var(--coral); }
+.chap-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chap-at { flex-shrink: 0; font-size: 12.5px; color: var(--ink-3); }
+.chap-row.on .chap-at { color: var(--coral); }
+
 /* ---- banners ---- */
 .banner { display:flex; align-items:center; gap:11px; padding:0 16px; min-height:44px; font-size:13.5px; font-weight:600; border-bottom:1px solid; }
 .banner.warn { background:#FBF1D8; color:#7A5A11; border-color:#EEDDB0; }

@@ -62,13 +62,28 @@ fun TransportBar(
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
     onCycleSpeed: () -> Unit,
+    chapters: List<TransportChapter> = emptyList(),
+    currentChapterIndex: Int? = null,
+    onSeekToChapter: (Int) -> Unit = {},
 ) {
     if (state == null) return
 
+    var chaptersOpen by remember { mutableStateOf(false) }
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: state.positionMs
 
     val label = if (state.isPlaying) "Pause" else "Play"
+    ChapterPicker(
+        open = chaptersOpen,
+        chapters = chapters,
+        currentIndex = currentChapterIndex,
+        onPick = { index ->
+            onSeekToChapter(index)
+            chaptersOpen = false
+        },
+        onDismiss = { chaptersOpen = false },
+    )
+
     Div(attrs = { classes("tport") }) {
         SkipButton(
             icon = WebIcon.SkipBack,
@@ -134,6 +149,20 @@ fun TransportBar(
             onClick { onCycleSpeed() }
         }) {
             Text("${formatSpeed(state.speed)}\u00D7")
+        }
+
+        // Only when the book actually has marks. A control that opens an empty list is a promise
+        // the book cannot keep, and plenty of audiobooks ship without chapters at all.
+        if (chapters.isNotEmpty()) {
+            Button(attrs = {
+                classes("tport-skip")
+                attr("type", "button")
+                attr(ATTR_ARIA_LABEL, "Chapters")
+                attr(ATTR_TITLE, "Chapters")
+                onClick { chaptersOpen = true }
+            }) {
+                Icon(WebIcon.Hash, size = CHAPTER_ICON_SIZE)
+            }
         }
     }
 }
@@ -265,6 +294,8 @@ private const val ATTR_TYPE = "type"
 private const val ATTR_ARIA_LABEL = "aria-label"
 
 private const val ATTR_TITLE = "title"
+
+private const val CHAPTER_ICON_SIZE = 18
 
 private const val VALUE_BUTTON = "button"
 
