@@ -205,6 +205,7 @@ tasks.register("verifyLocal") {
         ":app:sharedLogic:testAndroidHostTest",
         ":server:jvmTest",
         ":app:sharedUI:testAndroidHostTest",
+        ":app:sharedUI:desktopTest",
         ":tools:rpc-guard-ksp:test",
     )
     // build-logic is an included build (settings.gradle.kts: includeBuild("tools/build-logic")) — a plain

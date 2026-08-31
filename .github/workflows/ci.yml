@@ -352,6 +352,10 @@ jobs:
       # :build-logic:convention:test runs the build-logic convention tests, including
       # ReturnValueGuardCanaryTest — the compiler-flag canary that fails if a Kotlin bump
       # silently disarms the AppResult must-use guard.
+      # :app:sharedUI:desktopTest is the OTHER sharedUI test source set. It ran nowhere gating
+      # until now: no CI step invoked it and none compiled it either, so its eight spec files
+      # (the desktop playback controller, the alphabet scrollbar, both haptics suites, typography,
+      # colour maths, volume-boost presets) could have been broken for months in silence.
       # :tools:rpc-guard-ksp:test and :build-logic:detekt-rules:test gate the guards themselves.
       # Both suites previously ran nowhere gating (rpc-guard-ksp only under the
       # continue-on-error Kover step; detekt-rules under nothing at all), so the
@@ -359,7 +363,7 @@ jobs:
       # the rules are the only thing enforcing CLAUDE.md security rule 6 (no stacktrace
       # crosses the wire) and the en.json localization contract.
       - name: Run JVM tests
-        run: ./gradlew :app:sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon
+        run: ./gradlew :app:sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :app:sharedUI:desktopTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon
 
       # Generated-and-committed artifacts must match what this build regenerates. Room's
       # schemaDirectory points at the tracked app/sharedLogic/schemas/, so every KSP run rewrites
