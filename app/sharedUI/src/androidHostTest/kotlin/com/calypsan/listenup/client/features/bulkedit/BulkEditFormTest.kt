@@ -11,6 +11,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.requestFocus
+import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -84,6 +86,78 @@ class BulkEditFormTest {
         composeRule.onNodeWithText("Publisher").performTextInput("Tor")
 
         assertEquals("Tor", typed.last())
+    }
+
+    // ── The consequence line ────────────────────────────────────────────────────────────────────
+    //
+    // The placeholder says what the books hold; the consequence line says what leaving the field
+    // alone — or not — will do to them. It is the sentence that makes a placeholder safe to read,
+    // and it has to be right in all three of its states, because it is the only place the screen
+    // says "and no book is written to" out loud.
+
+    @Test
+    fun `a field the whole selection agrees on says leaving it writes nothing`() {
+        render(BulkEditUiState.Editing(bookCount = 37, sharedLanguage = "English"))
+
+        composeRule
+            .onNodeWithText("All 37 books say English. Leave it and no book is written to.")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a field the selection disagrees on says so, and still writes nothing`() {
+        // The other two agree, so the one "Differs" sentence on screen can only be the publisher's.
+        render(
+            BulkEditUiState.Editing(
+                bookCount = 40,
+                sharedPublisher = null,
+                sharedPublishYear = 2012,
+                sharedLanguage = "English",
+            ),
+        )
+
+        composeRule
+            .onNodeWithText("Differs across 40 books. Leave it and no book is written to.")
+            .assertIsDisplayed()
+    }
+
+    /**
+     * The typed state counts books that would actually **change**, not books that were selected —
+     * the same promise the Apply button makes. The count comes from this field's own preview row,
+     * so a field whose value 28 books already hold says twelve, not forty.
+     */
+    @Test
+    fun `a typed field promises the books it will actually be written to`() {
+        render(
+            BulkEditUiState.Editing(
+                bookCount = 40,
+                edits = listOf(BulkEdit.SetPublisher("Recorded Books")),
+                preview = listOf(BulkEditPreviewRow(BulkEdit.SetPublisher("Recorded Books"), affectedCount = 12)),
+                changedBookCount = 12,
+            ),
+        )
+
+        composeRule.onNodeWithText("Written to 12 of 40 books.").assertIsDisplayed()
+        composeRule.onNodeWithText("Written to 40 of 40 books.").assertDoesNotExist()
+    }
+
+    /**
+     * A typed value every book already holds is the case a bare "12 of 40" cannot express: the
+     * field looks armed and changes nothing. Saying so here is what stops the user reading the
+     * coral outline as a promise.
+     */
+    @Test
+    fun `a typed field that changes nothing admits it rather than counting to zero`() {
+        render(
+            BulkEditUiState.Editing(
+                bookCount = 40,
+                edits = listOf(BulkEdit.SetLanguage("English")),
+                preview = listOf(BulkEditPreviewRow(BulkEdit.SetLanguage("English"), affectedCount = 0)),
+            ),
+        )
+
+        composeRule.onNodeWithText("Written to no books — they already say this.").assertIsDisplayed()
+        composeRule.onNodeWithText("Written to 0 of 40 books.").assertDoesNotExist()
     }
 }
 
