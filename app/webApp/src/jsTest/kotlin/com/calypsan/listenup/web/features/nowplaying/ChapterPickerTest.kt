@@ -20,14 +20,6 @@ private fun mount(content: @Composable () -> Unit): HTMLElement {
     return host
 }
 
-/** Closes any modal this spec opened, so it does not hold focus over every spec that follows. */
-private fun HTMLElement.closeDialogs() {
-    val dialogs = querySelectorAll("dialog")
-    for (i in 0 until dialogs.length) {
-        (dialogs.item(i) as? HTMLDialogElement)?.takeIf { it.open }?.close()
-    }
-}
-
 /** An index no book in this spec has, to prove the rule holds well past the boundary too. */
 private const val WAY_PAST_THE_END = 99
 
@@ -121,8 +113,7 @@ class ChapterPickerTest :
             val host = picker()
 
             val dialog = host.querySelector("dialog") as HTMLDialogElement
-            dialog shouldNotBe null
-            dialog.open shouldBe true
+            dialog.isModal() shouldBe true
 
             host.closeDialogs()
         }

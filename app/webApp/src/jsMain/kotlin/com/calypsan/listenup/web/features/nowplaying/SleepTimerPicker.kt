@@ -3,17 +3,11 @@ package com.calypsan.listenup.web.features.nowplaying
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
-import com.calypsan.listenup.web.design.Dialog
-import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLDialogElement
-import org.w3c.dom.events.Event
 
 /**
  * Stop listening at a time you choose, without having to be awake for it.
@@ -28,9 +22,8 @@ import org.w3c.dom.events.Event
  * in the browser this morning. `SleepTimerMode.Duration.label` renders them, so "120" reads as
  * "2 hours" here exactly as it does there.
  *
- * Built on the real `<dialog>` with `showModal()`, matching [ChapterPicker] rather than inventing a
- * second modal shape — that is what buys the focus trap, the inert page behind, and
- * Escape-to-close for free.
+ * The modal shell — focus trap, inert page, Escape-to-close — comes from [PlayerDialog], shared
+ * with every other player panel.
  */
 @Composable
 internal fun SleepTimerPicker(
@@ -42,39 +35,16 @@ internal fun SleepTimerPicker(
     onExtend: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!open) return
-
-    Dialog(attrs = {
-        classes("dlg", "sleep-dlg")
-        attr("aria-labelledby", SLEEP_TITLE_ID)
-        ref { element ->
-            val dialog = element as HTMLDialogElement
-            if (!dialog.open) dialog.showModal()
-            // Escape and the backdrop fire `close` without touching any button here, so the caller
-            // has to hear about it or its `open` flag drifts out of step with the DOM.
-            val onClose: (Event) -> Unit = { onDismiss() }
-            dialog.addEventListener("close", onClose)
-            onDispose { dialog.removeEventListener("close", onClose) }
-        }
-    }) {
-        H2(attrs = {
-            classes("dlg-t")
-            attr("id", SLEEP_TITLE_ID)
-        }) { Text("Sleep timer") }
-
+    PlayerDialog(
+        open = open,
+        title = "Sleep timer",
+        panelClass = "sleep-dlg",
+        onDismiss = onDismiss,
+    ) {
         when (state) {
             is SleepTimerState.Inactive -> IdleOptions(hasChapters = hasChapters, onSet = onSet)
             is SleepTimerState.Active -> RunningTimer(state = state, onExtend = onExtend, onCancel = onCancel)
             is SleepTimerState.FadingOut -> P(attrs = { classes("sleep-fade") }) { Text("Fading out…") }
-        }
-
-        Button(attrs = {
-            classes("btn-ghost")
-            attr("type", VALUE_BUTTON)
-            onClick { onDismiss() }
-        }) {
-            Icon(WebIcon.X, size = CLOSE_ICON_SIZE)
-            Text("Close")
         }
     }
 }
@@ -165,9 +135,5 @@ private val DURATION_OPTIONS = listOf(15, 30, 45, 60, 120)
 /** The extend ladder, likewise. */
 private val EXTEND_OPTIONS = listOf(5, 10, 15)
 
-/** Named once: four buttons in this file set the same attribute. */
+/** Named once: three buttons in this file set the same attribute. */
 private const val VALUE_BUTTON = "button"
-
-private const val SLEEP_TITLE_ID = "sleep-timer-title"
-
-private const val CLOSE_ICON_SIZE = 17
