@@ -17,7 +17,7 @@ import org.jetbrains.compose.resources.getString
  *
  * @param changedCount how many books the server actually changed.
  */
-internal suspend fun bulkEditAppliedMessage(changedCount: Int): String =
+suspend fun bulkEditAppliedMessage(changedCount: Int): String =
     if (changedCount == 1) {
         getString(Res.string.bulk_edit_applied_one)
     } else {

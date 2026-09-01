@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
 import com.calypsan.listenup.client.design.transitions.HeroEntry
 import com.calypsan.listenup.client.design.transitions.heroEntryTransitions
+import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
@@ -41,6 +42,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
     backStack: NavBackStack<NavKey>,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
+    pendingSelectionExit: PendingSelectionExit,
 ) {
     entry<BookDetail>(metadata = heroEntryTransitions) { args ->
         HeroEntry {
@@ -133,7 +135,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
         )
     }
     chapterEditorEntry(backStack)
-    bulkEditEntry(backStack, scope, snackbarHostState)
+    bulkEditEntry(backStack, scope, snackbarHostState, pendingSelectionExit)
     entry<MetadataSearch> { args ->
         com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
             bookId = args.bookId,
@@ -184,6 +186,9 @@ private fun EntryProviderScope<NavKey>.chapterEditorEntry(backStack: NavBackStac
  * screen the selection was made from, where the books are already up to date — the repositories
  * write Room-first, so the grid behind has changed by the time this pops.
  *
+ * A successful apply also ends the selection it was opened over — the books have already
+ * changed, and leaving them standing and armed invites a second, accidental edit of the same forty.
+ *
  * A successful apply also says so. The grid it returns to shows covers and titles, so a publisher
  * written to forty books changes nothing the eye can catch — and a write nobody can see is a write
  * nobody can trust. The snackbar rides the shell's [scope] because this entry is gone by then.
@@ -192,6 +197,7 @@ private fun EntryProviderScope<NavKey>.bulkEditEntry(
     backStack: NavBackStack<NavKey>,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
+    pendingSelectionExit: PendingSelectionExit,
 ) {
     entry<BulkEdit> { args ->
         com.calypsan.listenup.client.features.bulkedit.BulkEditScreen(
@@ -200,6 +206,7 @@ private fun EntryProviderScope<NavKey>.bulkEditEntry(
                 backStack.removeAt(backStack.lastIndex)
             },
             onApplied = { changedCount ->
+                pendingSelectionExit.fireAndDisarm()
                 backStack.removeAt(backStack.lastIndex)
                 if (changedCount > 0) {
                     scope.launch {
