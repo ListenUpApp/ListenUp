@@ -215,7 +215,7 @@ private fun PublishingField(
  * overridden, so focus still reads as focus on top of it.
  */
 @Composable
-private fun armedFieldColors(): TextFieldColors =
+internal fun armedFieldColors(): TextFieldColors =
     OutlinedTextFieldDefaults.colors(
         unfocusedBorderColor = MaterialTheme.colorScheme.primary,
         unfocusedLabelColor = MaterialTheme.colorScheme.primary,
@@ -230,7 +230,7 @@ private fun armedFieldColors(): TextFieldColors =
  * about to deny, and two parts of one screen disagreeing is worse than either being silent.
  */
 @Composable
-private fun ConsequenceLine(consequence: FieldConsequence) {
+internal fun ConsequenceLine(consequence: FieldConsequence) {
     val colors = MaterialTheme.colorScheme
     val loud = consequence.writes
     val tint = if (loud) colors.primary else colors.onSurfaceVariant
@@ -262,7 +262,7 @@ private fun ConsequenceLine(consequence: FieldConsequence) {
  * @property writes true only when at least one book would actually be written to — the single
  *   condition that earns the accent colour.
  */
-private data class FieldConsequence(
+internal data class FieldConsequence(
     val text: String,
     val icon: ImageVector,
     val writes: Boolean,
@@ -283,7 +283,18 @@ private data class FieldConsequence(
 @Composable
 private inline fun <reified T : BulkEdit> BulkEditUiState.Editing.consequenceOf(
     sharedValue: String?,
-): FieldConsequence {
+): FieldConsequence = armedConsequenceOf<T>() ?: untouchedConsequence(sharedValue)
+
+/**
+ * What an **armed** field of type [T] promises, or null when nothing has been typed or picked into
+ * it.
+ *
+ * Shared with the relation fields, which arm and disarm exactly as the text fields do but have no
+ * "the books already agree" state to fall back to — a genre is not a value a selection can share,
+ * it is a thing each book either carries or does not.
+ */
+@Composable
+internal inline fun <reified T : BulkEdit> BulkEditUiState.Editing.armedConsequenceOf(): FieldConsequence? {
     val typed = edits.filterIsInstance<T>().lastOrNull() != null
     if (typed) {
         val affected = preview.firstOrNull { it.edit is T }?.affectedCount ?: 0
@@ -322,6 +333,12 @@ private inline fun <reified T : BulkEdit> BulkEditUiState.Editing.consequenceOf(
             }
         }
     }
+    return null
+}
+
+/** What an untouched publishing field says: the value the books agree on, or that they do not. */
+@Composable
+private fun BulkEditUiState.Editing.untouchedConsequence(sharedValue: String?): FieldConsequence {
     val text =
         when {
             sharedValue != null && bookCount == 1 -> {

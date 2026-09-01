@@ -52,9 +52,6 @@ class BulkEditScreenTest {
                     state = state,
                     onBack = onBack,
                     onApply = onApply,
-                    onPublisherChange = {},
-                    onYearChange = {},
-                    onLanguageChange = {},
                 )
             }
         }

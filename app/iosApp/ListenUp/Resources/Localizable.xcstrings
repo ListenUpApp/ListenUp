@@ -5161,6 +5161,46 @@
         }
       }
     },
+    "bulk_edit.card_classification": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Classification"
+          }
+        }
+      }
+    },
+    "bulk_edit.card_classification_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding never removes — every book keeps the genres, tags and moods it already has."
+          }
+        }
+      }
+    },
+    "bulk_edit.card_credits": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Credits"
+          }
+        }
+      }
+    },
+    "bulk_edit.card_credits_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding never removes — every book keeps the series and the people it already has."
+          }
+        }
+      }
+    },
     "bulk_edit.card_preview": {
       "localizations": {
         "en": {
@@ -5447,6 +5487,96 @@
           "stringUnit": {
             "state": "translated",
             "value": "Publisher"
+          }
+        }
+      }
+    },
+    "bulk_edit.relation_untouched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is added unless you pick something."
+          }
+        }
+      }
+    },
+    "bulk_edit.remove_from_edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@ from this edit"
+          }
+        }
+      }
+    },
+    "bulk_edit.role": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Role"
+          }
+        }
+      }
+    },
+    "bulk_edit.search_contributors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search people"
+          }
+        }
+      }
+    },
+    "bulk_edit.search_genres": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search genres"
+          }
+        }
+      }
+    },
+    "bulk_edit.search_moods": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search moods"
+          }
+        }
+      }
+    },
+    "bulk_edit.search_no_matches": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing in your library matches that."
+          }
+        }
+      }
+    },
+    "bulk_edit.search_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search series"
+          }
+        }
+      }
+    },
+    "bulk_edit.search_tags": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search tags"
           }
         }
       }
