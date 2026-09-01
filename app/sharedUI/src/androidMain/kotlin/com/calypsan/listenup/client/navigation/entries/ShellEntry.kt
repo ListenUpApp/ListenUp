@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
+import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.design.LocalDeviceContext
@@ -40,6 +41,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
     readiness: () -> LibraryReadiness,
     onSignOut: () -> Unit,
     onContinueToPartialLibrary: () -> Unit,
+    pendingSelectionExit: PendingSelectionExit,
 ) {
     entry<Shell> {
         // Read the hoisted state INSIDE the entry content (not as a captured parameter) so the
@@ -128,7 +130,10 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onNavigateToLibrary = onNavigateToLibrary,
                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                         onSeeAllShelves = onNavigateToLibrary,
-                        onEditSelected = { bookIds -> backStack.add(BulkEdit(bookIds)) },
+                        onEditSelected = { bookIds, endSelection ->
+                            pendingSelectionExit.arm(endSelection)
+                            backStack.add(BulkEdit(bookIds))
+                        },
                         contentPadding = padding,
                     )
                 },
@@ -141,7 +146,10 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                             backStack.add(ContributorDetail(narratorId))
                         },
                         appHeader = appHeader,
-                        onEditSelected = { bookIds -> backStack.add(BulkEdit(bookIds)) },
+                        onEditSelected = { bookIds, endSelection ->
+                            pendingSelectionExit.arm(endSelection)
+                            backStack.add(BulkEdit(bookIds))
+                        },
                         modifier = Modifier.padding(padding),
                     )
                 },
@@ -151,7 +159,10 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                         onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
-                        onEditSelected = { bookIds -> backStack.add(BulkEdit(bookIds)) },
+                        onEditSelected = { bookIds, endSelection ->
+                            pendingSelectionExit.arm(endSelection)
+                            backStack.add(BulkEdit(bookIds))
+                        },
                         contentPadding = padding,
                     )
                 },

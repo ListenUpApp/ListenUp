@@ -60,6 +60,8 @@ import com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
 import com.calypsan.listenup.client.features.bulkedit.BulkEditScreen
+import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
+import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen
 import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
@@ -250,12 +252,26 @@ private fun DesktopAuthenticatedNavigation() {
     val playerState = playerScreenState.state
     val playerProgressState = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
 
+    // Outlives every destination, deliberately: the screen that owns the selection and the editor
+    // that consumes it are never on screen at the same time.
+    val pendingSelectionExit = remember { PendingSelectionExit() }
+
     var currentDestination by remember { mutableStateOf<ShellDestination>(ShellDestination.Home) }
     val backStack: SnapshotStateList<DetailDestination> =
         remember { emptyList<DetailDestination>().toMutableStateList() }
 
     val navigateTo: (DetailDestination) -> Unit = { backStack.add(it) }
     val navigateBack: () -> Unit = { backStack.removeLastOrNull() }
+
+    // A landed bulk edit ends the selection it was opened over and says how many books it changed;
+    // the grid it returns to shows covers and titles, so an unannounced write is an invisible one.
+    val onBulkEditApplied: (Int) -> Unit = { changedCount ->
+        pendingSelectionExit.fireAndDisarm()
+        navigateBack()
+        if (changedCount > 0) {
+            scope.launch { snackbarHostState.showSnackbar(bulkEditAppliedMessage(changedCount)) }
+        }
+    }
 
     val isShowingNowPlaying = backStack.lastOrNull() is DetailDestination.NowPlaying
 
@@ -272,6 +288,7 @@ private fun DesktopAuthenticatedNavigation() {
                         navigateTo = navigateTo,
                         navigateBack = navigateBack,
                         nowPlayingViewModel = nowPlayingViewModel,
+                        onBulkEditApplied = onBulkEditApplied,
                     )
                 } else {
                     AppShell(
@@ -306,7 +323,10 @@ private fun DesktopAuthenticatedNavigation() {
                                 onNavigateToLibrary = onNavigateToLibrary,
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                                 onSeeAllShelves = onNavigateToLibrary,
-                                onEditSelected = { navigateTo(DetailDestination.BulkEdit(it)) },
+                                onEditSelected = { bookIds, endSelection ->
+                                    pendingSelectionExit.arm(endSelection)
+                                    navigateTo(DetailDestination.BulkEdit(bookIds))
+                                },
                                 modifier = Modifier.padding(padding),
                             )
                         },
@@ -317,7 +337,10 @@ private fun DesktopAuthenticatedNavigation() {
                                 onAuthorClick = { navigateTo(DetailDestination.Contributor(it)) },
                                 onNarratorClick = { navigateTo(DetailDestination.Contributor(it)) },
                                 appHeader = appHeader,
-                                onEditSelected = { navigateTo(DetailDestination.BulkEdit(it)) },
+                                onEditSelected = { bookIds, endSelection ->
+                                    pendingSelectionExit.arm(endSelection)
+                                    navigateTo(DetailDestination.BulkEdit(bookIds))
+                                },
                                 modifier = Modifier.padding(padding),
                             )
                         },
@@ -327,7 +350,10 @@ private fun DesktopAuthenticatedNavigation() {
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
-                                onEditSelected = { navigateTo(DetailDestination.BulkEdit(it)) },
+                                onEditSelected = { bookIds, endSelection ->
+                                    pendingSelectionExit.arm(endSelection)
+                                    navigateTo(DetailDestination.BulkEdit(bookIds))
+                                },
                                 modifier = Modifier.padding(padding),
                             )
                         },
@@ -359,6 +385,7 @@ private fun DetailScreen(
     navigateTo: (DetailDestination) -> Unit,
     navigateBack: () -> Unit,
     nowPlayingViewModel: NowPlayingViewModel,
+    onBulkEditApplied: (changedCount: Int) -> Unit,
 ) {
     when (destination) {
         is DetailDestination.Book -> {
@@ -396,7 +423,7 @@ private fun DetailScreen(
             BulkEditScreen(
                 bookIds = destination.bookIds,
                 onBack = navigateBack,
-                onApplied = { navigateBack() },
+                onApplied = onBulkEditApplied,
             )
         }
 

@@ -65,7 +65,8 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onAuthorClick Callback when an author is clicked
  * @param onNarratorClick Callback when a narrator is clicked
  * @param appHeader The shell header slot, rendered above the filter chips
- * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection
+ * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
+ *   with a callback that ends the selection once an apply has landed
  *   (null = this host has no route to the editor, so the action is not offered)
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
@@ -78,7 +79,7 @@ fun LibraryScreen(
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
-    onEditSelected: ((List<String>) -> Unit)? = null,
+    onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
@@ -174,7 +175,7 @@ private fun LibraryLoadedContent(
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
-    onEditSelected: ((List<String>) -> Unit)?,
+    onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
     onEvent: (LibraryUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {

@@ -42,13 +42,17 @@ import kotlinx.coroutines.launch
  *
  * @param multiSelect The per-screen multi-select ViewModel that owns selection + bulk actions.
  * @param onEditSelected Navigate to the bulk editor with the current selection (null = no route
- *   from this host, so the action is hidden).
+ *   from this host, so the action is hidden). The second argument ends this selection: the editor
+ *   calls it once an apply has landed, because leaving the same forty books standing and armed
+ *   invites a second, accidental edit of books that have already changed. It is handed over rather
+ *   than called here — a user who backs out of the editor without applying still has their
+ *   selection.
  * @param modifier Modifier applied to the overlay container.
  */
 @Composable
 fun BookSelectionScaffold(
     multiSelect: BookMultiSelectViewModel,
-    onEditSelected: ((List<String>) -> Unit)? = null,
+    onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
@@ -91,7 +95,7 @@ fun BookSelectionScaffold(
                     },
                 onEdit =
                     if (isAdmin && onEditSelected != null) {
-                        { onEditSelected(selectedIds.toList()) }
+                        { onEditSelected(selectedIds.toList(), multiSelect::exitSelectionMode) }
                     } else {
                         null
                     },

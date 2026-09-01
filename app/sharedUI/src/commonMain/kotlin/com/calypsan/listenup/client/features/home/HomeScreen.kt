@@ -61,7 +61,8 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onNavigateToLibrary Callback to navigate to the library
  * @param onShelfClick Callback when a shelf is clicked
  * @param onSeeAllShelves Callback when "See All" is clicked for shelves
- * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection
+ * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
+ *   with a callback that ends the selection once an apply has landed
  *   (null = this host has no route to the editor, so the action is not offered)
  * @param modifier Modifier from parent
  * @param viewModel HomeViewModel injected via Koin
@@ -74,7 +75,7 @@ fun HomeScreen(
     onNavigateToLibrary: () -> Unit,
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
-    onEditSelected: ((List<String>) -> Unit)? = null,
+    onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
@@ -166,7 +167,7 @@ private fun HomeContent(
     onNavigateToLibrary: () -> Unit,
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
-    onEditSelected: ((List<String>) -> Unit)?,
+    onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
 ) {

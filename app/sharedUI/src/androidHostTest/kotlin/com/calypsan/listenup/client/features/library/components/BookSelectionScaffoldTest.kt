@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
@@ -87,8 +88,8 @@ class BookSelectionScaffoldTest {
     private fun render(
         isAdmin: Boolean,
         selection: List<String> = listOf("book-1", "book-2"),
-        onEditSelected: ((List<String>) -> Unit)? = {},
-    ) {
+        onEditSelected: ((List<String>, () -> Unit) -> Unit)? = { _, _ -> },
+    ): BookMultiSelectViewModel {
         val viewModel = multiSelect(isAdmin)
         viewModel.enterSelectionMode(selection.first())
         selection.drop(1).forEach(viewModel::toggleSelection)
@@ -103,6 +104,7 @@ class BookSelectionScaffoldTest {
                 }
             }
         }
+        return viewModel
     }
 
     /** Waits for a label to appear, so a negative assertion never passes on an unsettled stream. */
@@ -147,7 +149,7 @@ class BookSelectionScaffoldTest {
         render(
             isAdmin = true,
             selection = listOf("book-1", "book-2", "book-3"),
-            onEditSelected = { edited = it },
+            onEditSelected = { ids, _ -> edited = ids },
         )
 
         awaitLabel("Edit")
@@ -155,5 +157,23 @@ class BookSelectionScaffoldTest {
 
         edited?.size shouldBe 3
         edited?.toSet() shouldBe setOf("book-1", "book-2", "book-3")
+    }
+
+    @Test
+    fun `the editor is handed a way to end the selection it was opened over`() {
+        var endSelection: (() -> Unit)? = null
+        val viewModel =
+            render(
+                isAdmin = true,
+                onEditSelected = { _, end -> endSelection = end },
+            )
+
+        awaitLabel("Edit")
+        composeRule.onNodeWithText("Edit").performClick()
+        viewModel.selectionMode.value shouldBe SelectionMode.Active(setOf("book-1", "book-2"))
+
+        endSelection!!.invoke()
+
+        viewModel.selectionMode.value shouldBe SelectionMode.None
     }
 }
