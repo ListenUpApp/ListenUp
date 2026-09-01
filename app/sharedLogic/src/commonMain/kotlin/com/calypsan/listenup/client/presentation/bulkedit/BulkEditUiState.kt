@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.bulkedit
 
+import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
+import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -89,6 +92,50 @@ sealed interface BulkEditUiState {
                     .filterIsInstance<BulkEdit.SetLanguage>()
                     .lastOrNull()
                     ?.language
+                    .orEmpty()
+
+        /** The series chosen, or null when untouched. Read from the instructions, as [publisherInput]. */
+        val seriesInput: BookSeriesInput?
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddToSeries>()
+                    .lastOrNull()
+                    ?.series
+
+        /** The contributors chosen, empty when untouched. */
+        val contributorInput: List<BookContributorInput>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddContributors>()
+                    .lastOrNull()
+                    ?.contributors
+                    .orEmpty()
+
+        /** The genres chosen, empty when untouched. */
+        val genreInput: List<BookGenreInput>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddGenres>()
+                    .lastOrNull()
+                    ?.genres
+                    .orEmpty()
+
+        /** The tag names chosen, empty when untouched. Display names, not slugs. */
+        val tagInput: List<String>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddTags>()
+                    .lastOrNull()
+                    ?.names
+                    .orEmpty()
+
+        /** The mood names chosen, empty when untouched. Display names, as [tagInput]. */
+        val moodInput: List<String>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddMoods>()
+                    .lastOrNull()
+                    ?.names
                     .orEmpty()
     }
 }
