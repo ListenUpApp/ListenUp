@@ -47,6 +47,10 @@ import listenup.composeapp.generated.resources.bulk_edit_apply_none
 import listenup.composeapp.generated.resources.bulk_edit_apply_one
 import listenup.composeapp.generated.resources.bulk_edit_apply_plural
 import listenup.composeapp.generated.resources.bulk_edit_applying
+import listenup.composeapp.generated.resources.bulk_edit_card_classification
+import listenup.composeapp.generated.resources.bulk_edit_card_classification_note
+import listenup.composeapp.generated.resources.bulk_edit_card_credits
+import listenup.composeapp.generated.resources.bulk_edit_card_credits_note
 import listenup.composeapp.generated.resources.bulk_edit_card_preview
 import listenup.composeapp.generated.resources.bulk_edit_card_publishing
 import listenup.composeapp.generated.resources.bulk_edit_card_publishing_note
@@ -110,13 +114,37 @@ fun BulkEditScreen(
         }
     }
 
+    val genres by viewModel.genres.collectAsStateWithLifecycle()
+    val tags by viewModel.tags.collectAsStateWithLifecycle()
+    val moods by viewModel.moods.collectAsStateWithLifecycle()
+    val seriesMatches by viewModel.seriesMatches.collectAsStateWithLifecycle()
+    val contributorMatches by viewModel.contributorMatches.collectAsStateWithLifecycle()
+
     BulkEditContent(
         state = state,
+        offers =
+            BulkEditOffers(
+                genres = genres,
+                tags = tags,
+                moods = moods,
+                seriesMatches = seriesMatches,
+                contributorMatches = contributorMatches,
+            ),
+        actions =
+            BulkEditFormActions(
+                onPublisherChange = viewModel::setPublisher,
+                onYearChange = viewModel::setYear,
+                onLanguageChange = viewModel::setLanguage,
+                onSeriesQueryChange = viewModel::setSeriesQuery,
+                onSeriesChange = viewModel::setSeries,
+                onContributorQueryChange = viewModel::setContributorQuery,
+                onContributorsChange = viewModel::setContributors,
+                onGenresChange = viewModel::setGenres,
+                onTagsChange = viewModel::setTags,
+                onMoodsChange = viewModel::setMoods,
+            ),
         onBack = onBack,
         onApply = viewModel::apply,
-        onPublisherChange = viewModel::setPublisher,
-        onYearChange = viewModel::setYear,
-        onLanguageChange = viewModel::setLanguage,
     )
 }
 
@@ -136,11 +164,11 @@ fun BulkEditScreen(
  * it becomes a corner action instead, and the two cards unfold side by side.
  *
  * @param state what to show.
+ * @param offers what the relation pickers can offer — the library's own genres, tags, moods and
+ *   search matches.
+ * @param actions what to call when a field changes.
  * @param onBack leave the screen.
  * @param onApply commit every instruction to every loaded book.
- * @param onPublisherChange the publisher field changed.
- * @param onYearChange the year field changed; null clears the instruction.
- * @param onLanguageChange the language field changed.
  * @param modifier Modifier for the screen.
  */
 @Composable
@@ -148,9 +176,8 @@ internal fun BulkEditContent(
     state: BulkEditUiState,
     onBack: () -> Unit,
     onApply: () -> Unit,
-    onPublisherChange: (String) -> Unit,
-    onYearChange: (Int?) -> Unit,
-    onLanguageChange: (String) -> Unit,
+    offers: BulkEditOffers = BulkEditOffers(),
+    actions: BulkEditFormActions = BulkEditFormActions(),
     modifier: Modifier = Modifier,
 ) {
     val editing = state as? BulkEditUiState.Editing
@@ -184,9 +211,8 @@ internal fun BulkEditContent(
             padding = padding,
             wide = wide,
             onBack = onBack,
-            onPublisherChange = onPublisherChange,
-            onYearChange = onYearChange,
-            onLanguageChange = onLanguageChange,
+            offers = offers,
+            actions = actions,
         )
     }
 }
@@ -204,9 +230,8 @@ private fun BulkEditBody(
     padding: PaddingValues,
     wide: Boolean,
     onBack: () -> Unit,
-    onPublisherChange: (String) -> Unit,
-    onYearChange: (Int?) -> Unit,
-    onLanguageChange: (String) -> Unit,
+    offers: BulkEditOffers,
+    actions: BulkEditFormActions,
 ) {
     val editing = state as? BulkEditUiState.Editing
     Column(
@@ -236,9 +261,8 @@ private fun BulkEditBody(
             BulkEditCards(
                 state = editing,
                 wide = wide,
-                onPublisherChange = onPublisherChange,
-                onYearChange = onYearChange,
-                onLanguageChange = onLanguageChange,
+                offers = offers,
+                actions = actions,
             )
         }
     }
@@ -254,25 +278,36 @@ private fun BulkEditBody(
 private fun BulkEditCards(
     state: BulkEditUiState.Editing,
     wide: Boolean,
-    onPublisherChange: (String) -> Unit,
-    onYearChange: (Int?) -> Unit,
-    onLanguageChange: (String) -> Unit,
+    offers: BulkEditOffers,
+    actions: BulkEditFormActions,
 ) {
     val publishing: @Composable () -> Unit = {
         StudioCard(title = stringResource(Res.string.bulk_edit_card_publishing)) {
             Column(verticalArrangement = Arrangement.spacedBy(CardGap)) {
-                Text(
-                    stringResource(Res.string.bulk_edit_card_publishing_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                CardNote(stringResource(Res.string.bulk_edit_card_publishing_note))
                 BulkEditForm(
                     state = state,
-                    onPublisherChange = onPublisherChange,
-                    onYearChange = onYearChange,
-                    onLanguageChange = onLanguageChange,
+                    onPublisherChange = actions.onPublisherChange,
+                    onYearChange = actions.onYearChange,
+                    onLanguageChange = actions.onLanguageChange,
                     stacked = !wide,
                 )
+            }
+        }
+    }
+    val credits: @Composable () -> Unit = {
+        StudioCard(title = stringResource(Res.string.bulk_edit_card_credits)) {
+            Column(verticalArrangement = Arrangement.spacedBy(CardGap)) {
+                CardNote(stringResource(Res.string.bulk_edit_card_credits_note))
+                BulkEditCredits(state = state, offers = offers, actions = actions)
+            }
+        }
+    }
+    val classification: @Composable () -> Unit = {
+        StudioCard(title = stringResource(Res.string.bulk_edit_card_classification)) {
+            Column(verticalArrangement = Arrangement.spacedBy(CardGap)) {
+                CardNote(stringResource(Res.string.bulk_edit_card_classification_note))
+                BulkEditClassification(state = state, offers = offers, actions = actions)
             }
         }
     }
@@ -288,15 +323,36 @@ private fun BulkEditCards(
     ) {
         SomeNotLoadedNotice(bookCount = state.bookCount, requestedCount = state.requestedCount)
         if (wide) {
+            // The preview is the column that has to stay in view while the fields are worked
+            // through, so it keeps its own side and the three field cards stack beside it.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(WidePageMargin)) {
-                Box(Modifier.weight(FORM_COLUMN_WEIGHT)) { publishing() }
+                Column(
+                    Modifier.weight(FORM_COLUMN_WEIGHT),
+                    verticalArrangement = Arrangement.spacedBy(CardGap),
+                ) {
+                    publishing()
+                    credits()
+                    classification()
+                }
                 Box(Modifier.weight(PREVIEW_COLUMN_WEIGHT)) { preview() }
             }
         } else {
             publishing()
+            credits()
+            classification()
             preview()
         }
     }
+}
+
+/** A card's opening sentence: what this group of fields does, before any of them is touched. */
+@Composable
+private fun CardNote(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /**

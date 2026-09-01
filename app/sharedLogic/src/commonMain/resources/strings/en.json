@@ -1593,6 +1593,19 @@
     "consequence_differs_one": "This book has no value here. Leave it and no book is written to.",
     "consequence_differs_plural": "Differs across %1$d books. Leave it and no book is written to.",
     "preview_note_one": "1 already says %1$s, so it is left alone.",
-    "preview_note_plural": "%1$d already say %2$s, so they are left alone."
+    "preview_note_plural": "%1$d already say %2$s, so they are left alone.",
+    "card_credits": "Credits",
+    "card_credits_note": "Adding never removes — every book keeps the series and the people it already has.",
+    "card_classification": "Classification",
+    "card_classification_note": "Adding never removes — every book keeps the genres, tags and moods it already has.",
+    "relation_untouched": "Nothing is added unless you pick something.",
+    "search_series": "Search series",
+    "search_contributors": "Search people",
+    "search_no_matches": "Nothing in your library matches that.",
+    "role": "Role",
+    "remove_from_edit": "Remove %1$s from this edit",
+    "search_genres": "Search genres",
+    "search_tags": "Search tags",
+    "search_moods": "Search moods"
   }
 }
