@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.navigation.entries
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -7,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
 import com.calypsan.listenup.client.design.transitions.HeroEntry
 import com.calypsan.listenup.client.design.transitions.heroEntryTransitions
+import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
 import com.calypsan.listenup.client.navigation.BookDetail
@@ -24,10 +26,22 @@ import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
-/** Book navigation entries. */
-internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavKey>) {
+/**
+ * Book navigation entries.
+ *
+ * [scope] and [snackbarHostState] belong to the shell, not to any entry: the bulk editor
+ * announces its result *after* popping itself, so the coroutine that raises the snackbar has to
+ * outlive the screen that asked for it.
+ */
+internal fun EntryProviderScope<NavKey>.bookEntries(
+    backStack: NavBackStack<NavKey>,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+) {
     entry<BookDetail>(metadata = heroEntryTransitions) { args ->
         HeroEntry {
             com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
@@ -119,7 +133,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
         )
     }
     chapterEditorEntry(backStack)
-    bulkEditEntry(backStack)
+    bulkEditEntry(backStack, scope, snackbarHostState)
     entry<MetadataSearch> { args ->
         com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
             bookId = args.bookId,
@@ -169,16 +183,29 @@ private fun EntryProviderScope<NavKey>.chapterEditorEntry(backStack: NavBackStac
  * Both exits pop: leaving without applying and leaving after a successful apply land back on the
  * screen the selection was made from, where the books are already up to date — the repositories
  * write Room-first, so the grid behind has changed by the time this pops.
+ *
+ * A successful apply also says so. The grid it returns to shows covers and titles, so a publisher
+ * written to forty books changes nothing the eye can catch — and a write nobody can see is a write
+ * nobody can trust. The snackbar rides the shell's [scope] because this entry is gone by then.
  */
-private fun EntryProviderScope<NavKey>.bulkEditEntry(backStack: NavBackStack<NavKey>) {
+private fun EntryProviderScope<NavKey>.bulkEditEntry(
+    backStack: NavBackStack<NavKey>,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+) {
     entry<BulkEdit> { args ->
         com.calypsan.listenup.client.features.bulkedit.BulkEditScreen(
             bookIds = args.bookIds,
             onBack = {
                 backStack.removeAt(backStack.lastIndex)
             },
-            onApplied = {
+            onApplied = { changedCount ->
                 backStack.removeAt(backStack.lastIndex)
+                if (changedCount > 0) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(bulkEditAppliedMessage(changedCount))
+                    }
+                }
             },
         )
     }

@@ -774,6 +774,7 @@ private fun AuthenticatedNavigation(
                                     profileRefreshKey = profileRefreshKey,
                                     onProfileRefreshed = { profileRefreshKey++ },
                                     homeRepository = homeRepository,
+                                    snackbarHostState = snackbarHostState,
                                 ),
                         )
                     }
@@ -839,6 +840,7 @@ private fun authenticatedNavEntries(
     profileRefreshKey: Int,
     onProfileRefreshed: () -> Unit,
     homeRepository: HomeRepository,
+    snackbarHostState: SnackbarHostState,
 ) = entryProvider {
     shellEntry(
         backStack = backStack,
@@ -850,7 +852,7 @@ private fun authenticatedNavEntries(
         onContinueToPartialLibrary = startupViewModel::onContinueToPartialLibrary,
     )
     librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
-    bookEntries(backStack)
+    bookEntries(backStack, scope, snackbarHostState)
     seriesEntries(backStack)
     contributorEntries(backStack)
     adminEntries(backStack)
