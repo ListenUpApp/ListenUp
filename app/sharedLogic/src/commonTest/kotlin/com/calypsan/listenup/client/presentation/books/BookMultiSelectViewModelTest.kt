@@ -227,7 +227,7 @@ class BookMultiSelectViewModelTest :
                 val fixture = createFixture()
                 val viewModel = fixture.build()
                 viewModel.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(1)
                 advanceUntilIdle()
 
                 viewModel.events.test {
@@ -238,6 +238,24 @@ class BookMultiSelectViewModelTest :
 
                 viewModel.selectionMode.value shouldBe SelectionMode.None
                 verifySuspend { fixture.addBooksToShelfUseCase(ShelfId("shelf-1"), any()) }
+            }
+        }
+
+        test("the shelf confirmation counts what the shelf gained, not what was selected") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                viewModel.enterSelectionMode("book-1")
+                viewModel.toggleSelection("book-2")
+                // Both books were selected; only one of them was missing from the shelf.
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(1)
+                advanceUntilIdle()
+
+                viewModel.events.test {
+                    viewModel.addSelectedToShelf("shelf-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe BookMultiSelectEvent.BooksAddedToShelf(1)
+                }
             }
         }
 
@@ -285,7 +303,7 @@ class BookMultiSelectViewModelTest :
                 val fixture = createFixture()
                 val viewModel = fixture.build()
                 viewModel.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(1)
                 advanceUntilIdle()
 
                 viewModel.events.test {
@@ -303,7 +321,7 @@ class BookMultiSelectViewModelTest :
                 val fixture = createFixture()
                 val viewModel = fixture.build()
                 viewModel.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(1)
                 advanceUntilIdle()
 
                 viewModel.addSelectedToCollection("collection-1")
@@ -311,6 +329,24 @@ class BookMultiSelectViewModelTest :
 
                 verifySuspend { fixture.addBooksToCollectionUseCase("collection-1", listOf("book-1")) }
                 viewModel.selectionMode.value shouldBe SelectionMode.None
+            }
+        }
+
+        test("the collection confirmation counts what the collection gained, not what was selected") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                viewModel.enterSelectionMode("book-1")
+                viewModel.toggleSelection("book-2")
+                // Both books were selected; the collection already held one of them.
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(1)
+                advanceUntilIdle()
+
+                viewModel.events.test {
+                    viewModel.addSelectedToCollection("collection-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe BookMultiSelectEvent.BooksAddedToCollection(1)
+                }
             }
         }
 
@@ -361,7 +397,7 @@ class BookMultiSelectViewModelTest :
                 viewModel.enterSelectionMode("book-1")
                 val newShelf = createShelf(id = "new-shelf", name = "My New Shelf")
                 everySuspend { fixture.createShelfUseCase(any(), any()) } returns AppResult.Success(newShelf)
-                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(1)
                 advanceUntilIdle()
 
                 viewModel.events.test {
@@ -464,7 +500,7 @@ class BookMultiSelectViewModelTest :
                 viewModel.enterSelectionMode("book-1")
                 val newCollection = createCollection(id = "new-collection", name = "My New Collection")
                 everySuspend { fixture.createCollectionUseCase(any()) } returns AppResult.Success(newCollection)
-                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(1)
                 advanceUntilIdle()
 
                 viewModel.events.test {

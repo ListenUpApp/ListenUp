@@ -141,7 +141,7 @@ class BookDetailViewModelCollectionTest :
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
                 everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
                 everySuspend { fixture.collectionRepository.addBook("col-1", "book-1") } returns
-                    AppResult.Success(Unit)
+                    AppResult.Success(true)
                 val viewModel = fixture.build()
 
                 turbineScope {

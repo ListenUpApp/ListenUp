@@ -215,8 +215,8 @@ class BookMultiSelectViewModel(
 
             when (val result = addBooksToCollectionUseCase(collectionId, bookIds)) {
                 is AppResult.Success -> {
-                    logger.info { "Added ${bookIds.size} books to collection $collectionId" }
-                    eventsChannel.send(BookMultiSelectEvent.BooksAddedToCollection(bookIds.size))
+                    logger.info { "Added ${result.data} books to collection $collectionId" }
+                    eventsChannel.send(BookMultiSelectEvent.BooksAddedToCollection(result.data))
                     clearSelection()
                 }
 
@@ -252,9 +252,12 @@ class BookMultiSelectViewModel(
 
                     when (val addResult = addBooksToCollectionUseCase(newCollection.id, bookIds)) {
                         is AppResult.Success -> {
-                            logger.info { "Added ${bookIds.size} books to new collection ${newCollection.id}" }
+                            logger.info { "Added ${addResult.data} books to new collection ${newCollection.id}" }
                             eventsChannel.send(
-                                BookMultiSelectEvent.CollectionCreatedAndBooksAdded(newCollection.name, bookIds.size),
+                                BookMultiSelectEvent.CollectionCreatedAndBooksAdded(
+                                    newCollection.name,
+                                    addResult.data,
+                                ),
                             )
                             clearSelection()
                         }
@@ -297,8 +300,8 @@ class BookMultiSelectViewModel(
 
             when (val result = addBooksToShelfUseCase(ShelfId(shelfId), bookIds.map { BookId(it) })) {
                 is AppResult.Success -> {
-                    logger.info { "Added ${bookIds.size} books to shelf $shelfId" }
-                    eventsChannel.send(BookMultiSelectEvent.BooksAddedToShelf(bookIds.size))
+                    logger.info { "Added ${result.data} books to shelf $shelfId" }
+                    eventsChannel.send(BookMultiSelectEvent.BooksAddedToShelf(result.data))
                     clearSelection()
                 }
 
@@ -334,9 +337,9 @@ class BookMultiSelectViewModel(
 
                     when (val addResult = addBooksToShelfUseCase(newShelf.id, bookIds.map { BookId(it) })) {
                         is AppResult.Success -> {
-                            logger.info { "Added ${bookIds.size} books to new shelf ${newShelf.id}" }
+                            logger.info { "Added ${addResult.data} books to new shelf ${newShelf.id}" }
                             eventsChannel.send(
-                                BookMultiSelectEvent.ShelfCreatedAndBooksAdded(newShelf.name, bookIds.size),
+                                BookMultiSelectEvent.ShelfCreatedAndBooksAdded(newShelf.name, addResult.data),
                             )
                             clearSelection()
                         }
@@ -392,12 +395,12 @@ sealed interface SelectionMode {
  * clear selection, show a confirmation). Failures are surfaced on the global [ErrorBus], not here.
  */
 sealed interface BookMultiSelectEvent {
-    /** Books were successfully added to a collection. */
+    /** Books were successfully added to a collection. [count] is what the collection gained. */
     data class BooksAddedToCollection(
         val count: Int,
     ) : BookMultiSelectEvent
 
-    /** Books were successfully added to a shelf. */
+    /** Books were successfully added to a shelf. [count] is what the shelf gained. */
     data class BooksAddedToShelf(
         val count: Int,
     ) : BookMultiSelectEvent
