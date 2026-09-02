@@ -1606,6 +1606,7 @@
     "remove_from_edit": "Remove %1$s from this edit",
     "search_genres": "Search genres",
     "search_tags": "Search tags",
-    "search_moods": "Search moods"
+    "search_moods": "Search moods",
+    "add_trimmed": "Add \u201c%1$s\u201d"
   }
 }
