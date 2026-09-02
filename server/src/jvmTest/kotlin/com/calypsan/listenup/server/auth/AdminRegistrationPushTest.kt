@@ -138,6 +138,48 @@ class AdminRegistrationPushTest :
             }
         }
 
+        // ⛔ The production path, which every test above skipped. No registration is ever served
+        // by the singleton these tests construct: the public RPC mount rebinds it per call —
+        // `authService.withRemoteHost(remoteHost)` — so the instance that actually handles a
+        // signup is a copy. The copy is hand-written, and it silently dropped `notifications`,
+        // a nullable-with-default parameter. Every test above passed while production notified
+        // no admin at all, because they all called the original. This one registers through the
+        // same rebinding the mount does, so a dropped collaborator fails here instead of in
+        // someone's live server.
+        test("an admin is still notified when registration is served through a rebound copy") {
+            withSqlDatabase {
+                val notifier = RecordingPushNotifier()
+                val svc = authService(sql, RegistrationPolicy.APPROVAL_QUEUE, clock, pepper, emitter(notifier))
+
+                runTest {
+                    val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                    notifier.sent.clear()
+
+                    // Exactly what RpcRoutes does before serving the public mount, plus the REST
+                    // path's User-Agent binding and the authed mount's principal binding — a
+                    // collaborator must survive all three.
+                    val served =
+                        svc
+                            .withRemoteHost("203.0.113.7")
+                            .withUserAgent("ListenUp/1.0")
+                            .copyWith(PrincipalProvider.None)
+
+                    val pending =
+                        served
+                            .register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                            .shouldSucceed()
+                            .shouldBeInstanceOf<RegisterResult.PendingApproval>()
+
+                    notifier.sent.map { it.first } shouldContainExactlyInAnyOrder listOf(root.user.id.value)
+                    notifier.sent.forEach { (_, payload) ->
+                        payload.shouldBeInstanceOf<PushPayload.RegistrationApproval>().userId shouldBe
+                            pending.userId.value
+                    }
+                    sql.notificationsQueries.countLiveForUser(root.user.id.value).executeAsOne() shouldBe 1L
+                }
+            }
+        }
+
         test("no notifier bound at all is simply quiet, not broken") {
             withSqlDatabase {
                 // Forks without a relay assemble the auth module with no push module at all.

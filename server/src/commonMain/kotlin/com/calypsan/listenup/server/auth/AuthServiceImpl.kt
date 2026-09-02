@@ -576,64 +576,34 @@ class AuthServiceImpl(
      * flows into authenticated methods without [AuthServiceImpl] coupling
      * to Ktor types.
      */
-    fun copyWith(provider: PrincipalProvider): AuthServiceImpl =
-        AuthServiceImpl(
-            db = db,
-            sessions = sessions,
-            hasher = hasher,
-            jwt = jwt,
-            sessionIssuer = sessionIssuer,
-            clock = clock,
-            settings = settings,
-            principalProvider = provider,
-            requestUserAgent = requestUserAgent,
-            remoteHost = remoteHost,
-            loginRateLimiter = loginRateLimiter,
-            socketTicketStore = socketTicketStore,
-            shelfRepository = shelfRepository,
-            publicProfileMaintainer = publicProfileMaintainer,
-            activityRecorder = activityRecorder,
-            defaultGrantIssuer = defaultGrantIssuer,
-            adminUserRosterMaintainer = adminUserRosterMaintainer,
-            registrationBroadcaster = registrationBroadcaster,
-            registrationPolicyBroadcaster = registrationPolicyBroadcaster,
-            pushWatchTokens = pushWatchTokens,
-            passwordResetService = passwordResetService,
-            rootPasswordResetService = rootPasswordResetService,
-        )
+    fun copyWith(provider: PrincipalProvider): AuthServiceImpl = rebound(principalProvider = provider)
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
-    fun withUserAgent(userAgent: String?): AuthServiceImpl =
-        AuthServiceImpl(
-            db = db,
-            sessions = sessions,
-            hasher = hasher,
-            jwt = jwt,
-            sessionIssuer = sessionIssuer,
-            clock = clock,
-            settings = settings,
-            principalProvider = principalProvider,
-            requestUserAgent = userAgent,
-            remoteHost = remoteHost,
-            loginRateLimiter = loginRateLimiter,
-            socketTicketStore = socketTicketStore,
-            shelfRepository = shelfRepository,
-            publicProfileMaintainer = publicProfileMaintainer,
-            activityRecorder = activityRecorder,
-            defaultGrantIssuer = defaultGrantIssuer,
-            adminUserRosterMaintainer = adminUserRosterMaintainer,
-            registrationBroadcaster = registrationBroadcaster,
-            registrationPolicyBroadcaster = registrationPolicyBroadcaster,
-            pushWatchTokens = pushWatchTokens,
-            passwordResetService = passwordResetService,
-            rootPasswordResetService = rootPasswordResetService,
-        )
+    fun withUserAgent(userAgent: String?): AuthServiceImpl = rebound(requestUserAgent = userAgent)
 
     /**
      * Bind the caller's [remoteHost] so the RPC public mount's per-IP throttle ([loginRateLimiter])
      * keys on it. The REST path never calls this — its throttle is the Ktor `RateLimit` plugin.
      */
-    fun withRemoteHost(remoteHost: String): AuthServiceImpl =
+    fun withRemoteHost(remoteHost: String): AuthServiceImpl = rebound(remoteHost = remoteHost)
+
+    /**
+     * The ONE place a per-request copy is built. [copyWith], [withUserAgent] and [withRemoteHost]
+     * each used to carry their own hand-written constructor call, and every one of them silently
+     * dropped [notifications] — a nullable-with-default collaborator, so the omission compiled.
+     * No registration is served by the singleton: the public mount rebinds it per call, so the
+     * dropped emitter meant admins were never told anyone was waiting, in production only, while
+     * every direct-construction test passed. Three lists could disagree; one cannot.
+     *
+     * Only the per-request bindings are parameters. Everything else is carried through verbatim,
+     * and `AdminRegistrationPushTest` registers through a rebound copy so a future addition that
+     * forgets this list fails there rather than in someone's live server.
+     */
+    private fun rebound(
+        principalProvider: PrincipalProvider = this.principalProvider,
+        requestUserAgent: String? = this.requestUserAgent,
+        remoteHost: String? = this.remoteHost,
+    ): AuthServiceImpl =
         AuthServiceImpl(
             db = db,
             sessions = sessions,
@@ -655,6 +625,7 @@ class AuthServiceImpl(
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
             pushWatchTokens = pushWatchTokens,
+            notifications = notifications,
             passwordResetService = passwordResetService,
             rootPasswordResetService = rootPasswordResetService,
         )

@@ -334,11 +334,15 @@ class PlaybackPositionRepository(
      *     [PERSIST_CHUNK_SIZE]; each chunk is ONE [suspendTransaction] whose synchronous body calls
      *     [upsertInOpenTransaction] per row — O(chunks) write transactions, not O(rows). [suppressed]
      *     is read ONCE in the suspend context and threaded in, exactly as the batched book path does.
-     *  3. **HOOKS (post-commit, sequential).** After the rows commit, fire the SAME per-row
+     *  3. **HOOKS (post-commit, sequential).** After the rows commit, fire the per-row
      *     completion/start cascade [recordPosition] fires after its single upsert — `BookCompleted`
      *     on a false→true finish, `BookRestarted` (fresh start / re-read) with `startedBookOccurredAt`
      *     — in prepared order, unreordered within a row. During an import these run under
      *     [StatsCascadeDeferred], so they are cheap; the authoritative per-user recompute follows.
+     *     The ONE deliberate difference from [recordPosition]: an unfinished row does not touch
+     *     presence. A finish still clears any open session (that stays true), but an import is a
+     *     record of listening that already happened, and claiming it as live is a lie the section
+     *     that reads presence has no way to see through.
      *
      * Idempotent by inheritance: the `lastPlayedAt`-wins guard drops a re-applied (older-or-equal)
      * row before it writes or fires a hook, so re-running an import converges without duplicating a
@@ -425,7 +429,12 @@ class PlaybackPositionRepository(
                     ),
                 )
             } else if (!finished) {
-                activeSessionRepo?.startOrRefresh(row.userId, bookId)
+                // NO presence write here, unlike recordPosition's cascade. Presence means "listening
+                // right now" and is stamped with the wall clock, but an import's plays are historical
+                // — so refreshing it announced every imported reader as live on a book they last
+                // opened months ago, one row per imported book, and "What Others Are Listening To"
+                // showed whichever of those the import wrote last. Someone actually playing the book
+                // re-establishes presence within ten seconds; nothing here has to guess.
                 if (!row.existedBefore) {
                     statsRecorder?.record(
                         StatsEvent.BookRestarted(
