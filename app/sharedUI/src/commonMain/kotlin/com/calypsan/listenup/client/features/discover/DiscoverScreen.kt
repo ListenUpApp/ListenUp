@@ -86,7 +86,7 @@ fun DiscoverScreen(
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
-    onEditSelected: ((List<String>) -> Unit)? = null,
+    onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),

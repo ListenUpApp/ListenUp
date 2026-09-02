@@ -188,12 +188,19 @@ internal class ShelfRepositoryImpl(
      * — since a server round-trip hasn't happened yet; [ShelfBookMirrorApply.upsert] reconciles it
      * with the server's own id when the Created echo arrives (see its KDoc). Adds a book mints no
      * server id (the book already exists). Fails fast on the first enqueue failure.
+     *
+     * A book already on the shelf is skipped, not re-appended: re-upserting it would move it to the
+     * end of the order and enqueue an op with nothing to say. The returned count is what the shelf
+     * actually gained, so a caller can confirm the write honestly rather than echoing the selection.
      */
     override suspend fun addBooksToShelf(
         shelfId: ShelfId,
         bookIds: List<BookId>,
-    ): AppResult<Unit> {
+    ): AppResult<Int> {
+        var added = 0
         bookIds.forEach { bookId ->
+            val existing = shelfBookDao.findByShelfAndBook(shelfId.value, bookId.value)
+            if (existing != null && existing.deletedAt == null) return@forEach
             val outboxKey = "${shelfId.value}:${bookId.value}"
             val result =
                 offlineEditor.edit(
@@ -218,8 +225,9 @@ internal class ShelfRepositoryImpl(
                     )
                 }
             if (result is AppResult.Failure) return result
+            added++
         }
-        return AppResult.Success(Unit)
+        return AppResult.Success(added)
     }
 
     /**

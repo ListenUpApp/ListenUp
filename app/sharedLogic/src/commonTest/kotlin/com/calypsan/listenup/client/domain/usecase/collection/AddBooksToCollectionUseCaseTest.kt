@@ -17,20 +17,34 @@ import kotlinx.coroutines.test.runTest
 
 class AddBooksToCollectionUseCaseTest :
     FunSpec({
-        test("adds all books to collection in order and returns success") {
+        test("adds all books to collection in order and returns how many it added") {
             runTest {
                 val repo: CollectionRepository = mock()
-                everySuspend { repo.addBook(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { repo.addBook(any(), any()) } returns AppResult.Success(true)
                 val useCase = AddBooksToCollectionUseCase(repo)
 
                 val result = useCase("col-1", listOf("book1", "book2", "book3"))
 
-                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                result shouldBe AppResult.Success(3)
                 verifySuspend(mode = VerifyMode.exhaustiveOrder) {
                     repo.addBook("col-1", "book1")
                     repo.addBook("col-1", "book2")
                     repo.addBook("col-1", "book3")
                 }
+            }
+        }
+
+        test("counts only the books the collection did not already hold") {
+            runTest {
+                val repo: CollectionRepository = mock()
+                everySuspend { repo.addBook("col-1", "book1") } returns AppResult.Success(true)
+                everySuspend { repo.addBook("col-1", "book2") } returns AppResult.Success(false)
+                everySuspend { repo.addBook("col-1", "book3") } returns AppResult.Success(true)
+                val useCase = AddBooksToCollectionUseCase(repo)
+
+                val result = useCase("col-1", listOf("book1", "book2", "book3"))
+
+                result shouldBe AppResult.Success(2)
             }
         }
 
@@ -52,7 +66,7 @@ class AddBooksToCollectionUseCaseTest :
             runTest {
                 val repo: CollectionRepository = mock()
                 val bookTwoFailure = AppResult.Failure(ValidationError(message = "Server error"))
-                everySuspend { repo.addBook("col-1", "book1") } returns AppResult.Success(Unit)
+                everySuspend { repo.addBook("col-1", "book1") } returns AppResult.Success(true)
                 everySuspend { repo.addBook("col-1", "book2") } returns bookTwoFailure
                 val useCase = AddBooksToCollectionUseCase(repo)
 

@@ -42,13 +42,17 @@ import kotlinx.coroutines.launch
  *
  * @param multiSelect The per-screen multi-select ViewModel that owns selection + bulk actions.
  * @param onEditSelected Navigate to the bulk editor with the current selection (null = no route
- *   from this host, so the action is hidden).
+ *   from this host, so the action is hidden). The second argument ends this selection: the editor
+ *   calls it once an apply has landed, because leaving the same forty books standing and armed
+ *   invites a second, accidental edit of books that have already changed. It is handed over rather
+ *   than called here — a user who backs out of the editor without applying still has their
+ *   selection.
  * @param modifier Modifier applied to the overlay container.
  */
 @Composable
 fun BookSelectionScaffold(
     multiSelect: BookMultiSelectViewModel,
-    onEditSelected: ((List<String>) -> Unit)? = null,
+    onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
@@ -91,7 +95,7 @@ fun BookSelectionScaffold(
                     },
                 onEdit =
                     if (isAdmin && onEditSelected != null) {
-                        { onEditSelected(selectedIds.toList()) }
+                        { onEditSelected(selectedIds.toList(), multiSelect::exitSelectionMode) }
                     } else {
                         null
                     },
@@ -155,20 +159,14 @@ private fun BookSelectionFeedback(
             when (event) {
                 is BookMultiSelectEvent.BooksAddedToCollection -> {
                     onCollectionActionHandled()
-                    val message =
-                        if (event.count == 1) {
-                            "1 book added to collection"
-                        } else {
-                            "${event.count} books added to collection"
-                        }
-                    scope.launch { snackbarHostState.showSnackbar(message) }
+                    scope.launch {
+                        snackbarHostState.showSnackbar(booksAddedToCollectionMessage(event.count))
+                    }
                 }
 
                 is BookMultiSelectEvent.BooksAddedToShelf -> {
                     onShelfActionHandled()
-                    val message =
-                        if (event.count == 1) "1 book added to shelf" else "${event.count} books added to shelf"
-                    scope.launch { snackbarHostState.showSnackbar(message) }
+                    scope.launch { snackbarHostState.showSnackbar(booksAddedToShelfMessage(event.count)) }
                 }
 
                 is BookMultiSelectEvent.ShelfCreatedAndBooksAdded -> {
@@ -190,3 +188,25 @@ private fun BookSelectionFeedback(
         }
     }
 }
+
+/**
+ * How an add to a collection is announced.
+ *
+ * The count is what the collection actually gained, so zero is a real outcome and gets its own
+ * sentence: books already in the collection are not added again, and "2 books added to collection"
+ * when nothing moved is precisely the lie this wording exists to avoid.
+ */
+internal fun booksAddedToCollectionMessage(count: Int): String =
+    when (count) {
+        0 -> "Already in that collection"
+        1 -> "1 book added to collection"
+        else -> "$count books added to collection"
+    }
+
+/** How an add to a shelf is announced. Zero means every selected book was already on it. */
+internal fun booksAddedToShelfMessage(count: Int): String =
+    when (count) {
+        0 -> "Already on that shelf"
+        1 -> "1 book added to shelf"
+        else -> "$count books added to shelf"
+    }

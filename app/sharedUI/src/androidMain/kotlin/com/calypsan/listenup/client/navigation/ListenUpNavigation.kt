@@ -68,6 +68,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.design.components.latchFootprint
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -675,6 +676,10 @@ private fun AuthenticatedNavigation(
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Outlives every entry, deliberately: the screen that owns the selection and the editor that
+    // consumes it are never composed at the same time.
+    val pendingSelectionExit = remember { PendingSelectionExit() }
+
     // Hoisted sign-out action shared by shell and settings entries. Delegates to LogoutUseCase —
     // the single sign-out choke point (engine stop, RPC invalidation, library-data + pending-op
     // clear, token clear, user clear) — so this nav-level action can't drift from what Settings'
@@ -774,6 +779,8 @@ private fun AuthenticatedNavigation(
                                     profileRefreshKey = profileRefreshKey,
                                     onProfileRefreshed = { profileRefreshKey++ },
                                     homeRepository = homeRepository,
+                                    snackbarHostState = snackbarHostState,
+                                    pendingSelectionExit = pendingSelectionExit,
                                 ),
                         )
                     }
@@ -839,6 +846,8 @@ private fun authenticatedNavEntries(
     profileRefreshKey: Int,
     onProfileRefreshed: () -> Unit,
     homeRepository: HomeRepository,
+    snackbarHostState: SnackbarHostState,
+    pendingSelectionExit: PendingSelectionExit,
 ) = entryProvider {
     shellEntry(
         backStack = backStack,
@@ -848,9 +857,10 @@ private fun authenticatedNavEntries(
         readiness = readiness,
         onSignOut = onSignOut,
         onContinueToPartialLibrary = startupViewModel::onContinueToPartialLibrary,
+        pendingSelectionExit = pendingSelectionExit,
     )
     librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
-    bookEntries(backStack)
+    bookEntries(backStack, scope, snackbarHostState, pendingSelectionExit)
     seriesEntries(backStack)
     contributorEntries(backStack)
     adminEntries(backStack)

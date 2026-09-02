@@ -242,15 +242,15 @@ class ShelfUseCasesTest :
             }
         }
 
-        test("add books forwards to the repository") {
+        test("add books forwards to the repository and passes its count back") {
             runTest {
                 val shelfRepository: ShelfRepository = mock()
-                everySuspend { shelfRepository.addBooksToShelf(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { shelfRepository.addBooksToShelf(any(), any()) } returns AppResult.Success(1)
                 val useCase = AddBooksToShelfUseCase(shelfRepository)
 
                 val result = useCase(shelfId = ShelfId("shelf-1"), bookIds = listOf(BookId("b1"), BookId("b2")))
 
-                checkIs<AppResult.Success<Unit>>(result)
+                result shouldBe AppResult.Success(1)
                 verifySuspend { shelfRepository.addBooksToShelf(ShelfId("shelf-1"), listOf(BookId("b1"), BookId("b2"))) }
             }
         }

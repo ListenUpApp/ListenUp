@@ -392,6 +392,11 @@ internal val bookPresentationModule =
                 bookRepository = get(),
                 applier = get(),
                 errorBus = get(),
+                seriesRepository = get(),
+                contributorRepository = get(),
+                genreRepository = get(),
+                tagRepository = get(),
+                moodRepository = get(),
             )
         }
     }

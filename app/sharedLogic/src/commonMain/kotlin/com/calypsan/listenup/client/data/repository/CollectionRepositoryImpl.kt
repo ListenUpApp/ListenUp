@@ -122,28 +122,37 @@ internal class CollectionRepositoryImpl(
      * Offline-first: upsert the junction optimistically (revision-0 stub, clearing any tombstone) and
      * enqueue a durable op on the `collection_books` channel keyed by the `"$collectionId:$bookId"`
      * envelope id. Idempotent server-side; the book already exists so no server id is minted.
+     *
+     * A book that is already a live member is left untouched — re-upserting it would mint a new
+     * syncId and reset the revision of a row the server already knows, and enqueue an op with
+     * nothing to say. Returning `false` for that case is also what lets the caller confirm the
+     * write honestly: five books selected, two of them new, is "2 books added", not five.
      */
     override suspend fun addBook(
         collectionId: String,
         bookId: String,
-    ): AppResult<Unit> =
-        offlineEditor.edit(
-            OutboxChannels.CollectionBooks,
-            "$collectionId:$bookId",
-            CollectionBookMutation.Add(collectionId = collectionId, bookId = bookId),
-            op = OpKind.Create,
-        ) {
-            collectionBookDao.upsert(
-                CollectionBookEntity(
-                    collectionId = collectionId,
-                    bookId = bookId,
-                    syncId = Uuid.random().toString(),
-                    createdAt = currentEpochMilliseconds(),
-                    revision = 0,
-                    deletedAt = null,
-                ),
-            )
-        }
+    ): AppResult<Boolean> {
+        val existing = collectionBookDao.findByKey(collectionId, bookId)
+        if (existing != null && existing.deletedAt == null) return AppResult.Success(false)
+        return offlineEditor
+            .edit(
+                OutboxChannels.CollectionBooks,
+                "$collectionId:$bookId",
+                CollectionBookMutation.Add(collectionId = collectionId, bookId = bookId),
+                op = OpKind.Create,
+            ) {
+                collectionBookDao.upsert(
+                    CollectionBookEntity(
+                        collectionId = collectionId,
+                        bookId = bookId,
+                        syncId = Uuid.random().toString(),
+                        createdAt = currentEpochMilliseconds(),
+                        revision = 0,
+                        deletedAt = null,
+                    ),
+                )
+            }.map { true }
+    }
 
     /**
      * Offline-first: tombstone the junction optimistically and enqueue a durable op on the

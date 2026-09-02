@@ -1,7 +1,11 @@
 package com.calypsan.listenup.client.presentation.bulkedit
 
+import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
+import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
+import com.calypsan.listenup.client.domain.model.BookListItem
 
 /**
  * What the bulk edit screen shows.
@@ -34,6 +38,12 @@ sealed interface BulkEditUiState {
      *   they differ — shown as placeholder text, never as a value.
      * @property sharedPublishYear as [sharedPublisher], for the publication year.
      * @property sharedLanguage as [sharedPublisher], for the language.
+     * @property selectionSample the first few loaded books, in the same title order as the rest of
+     *   the screen, so the header can show the covers of what is about to be edited. A *sample*,
+     *   deliberately: "Edit 37 books" means nothing without the books, and forty covers projected
+     *   on every keystroke would mean carrying the whole selection through a state that recomputes
+     *   as fast as someone can type. The header names the remainder from [bookCount] instead.
+     *   Empty when nothing loaded.
      */
     data class Editing(
         val bookCount: Int,
@@ -45,6 +55,7 @@ sealed interface BulkEditUiState {
         val sharedPublisher: String? = null,
         val sharedPublishYear: Int? = null,
         val sharedLanguage: String? = null,
+        val selectionSample: List<BookListItem> = emptyList(),
     ) : BulkEditUiState {
         /** True when applying would change at least one book. */
         val canApply: Boolean get() = changedBookCount > 0
@@ -81,6 +92,50 @@ sealed interface BulkEditUiState {
                     .filterIsInstance<BulkEdit.SetLanguage>()
                     .lastOrNull()
                     ?.language
+                    .orEmpty()
+
+        /** The series chosen, or null when untouched. Read from the instructions, as [publisherInput]. */
+        val seriesInput: BookSeriesInput?
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddToSeries>()
+                    .lastOrNull()
+                    ?.series
+
+        /** The contributors chosen, empty when untouched. */
+        val contributorInput: List<BookContributorInput>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddContributors>()
+                    .lastOrNull()
+                    ?.contributors
+                    .orEmpty()
+
+        /** The genres chosen, empty when untouched. */
+        val genreInput: List<BookGenreInput>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddGenres>()
+                    .lastOrNull()
+                    ?.genres
+                    .orEmpty()
+
+        /** The tag names chosen, empty when untouched. Display names, not slugs. */
+        val tagInput: List<String>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddTags>()
+                    .lastOrNull()
+                    ?.names
+                    .orEmpty()
+
+        /** The mood names chosen, empty when untouched. Display names, as [tagInput]. */
+        val moodInput: List<String>
+            get() =
+                edits
+                    .filterIsInstance<BulkEdit.AddMoods>()
+                    .lastOrNull()
+                    ?.names
                     .orEmpty()
     }
 }

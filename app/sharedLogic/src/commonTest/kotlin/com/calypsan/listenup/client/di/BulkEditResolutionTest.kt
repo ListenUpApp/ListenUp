@@ -2,15 +2,21 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditViewModel
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
+import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -47,8 +53,19 @@ class BulkEditResolutionTest :
                         module {
                             single<BookRepository> { mock(MockMode.autoUnit) }
                             single<BookEditRepository> { mock(MockMode.autoUnit) }
-                            single<TagRepository> { mock(MockMode.autoUnit) }
-                            single<MoodRepository> { mock(MockMode.autoUnit) }
+                            // The pickers read their catalogues at construction, so these have to
+                            // answer rather than merely exist.
+                            single<TagRepository> {
+                                mock(MockMode.autoUnit) { every { observeAllTags() } returns flowOf(emptyList()) }
+                            }
+                            single<MoodRepository> {
+                                mock(MockMode.autoUnit) { every { observeAllMoods() } returns flowOf(emptyList()) }
+                            }
+                            single<GenreRepository> {
+                                mock(MockMode.autoUnit) { every { observeAll() } returns flowOf(emptyList()) }
+                            }
+                            single<SeriesRepository> { mock(MockMode.autoUnit) }
+                            single<ContributorRepository> { mock(MockMode.autoUnit) }
                             single { ErrorBus() }
                         },
                     )

@@ -6,10 +6,22 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.bulkedit.BulkEditApplier
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
+import com.calypsan.listenup.api.dto.BookGenreInput
+import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
+import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
+import com.calypsan.listenup.client.domain.model.SeriesSearchResult
+import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
@@ -17,6 +29,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -28,6 +41,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -77,6 +91,10 @@ class BulkEditViewModelTest :
             books: List<BookDetail>,
             failOn: BookId? = null,
             requestedIds: List<String>? = null,
+            libraryGenres: List<Genre> = emptyList(),
+            libraryTags: List<Tag> = emptyList(),
+            libraryMoods: List<Mood> = emptyList(),
+            seriesMatches: List<SeriesSearchResult> = emptyList(),
         ): BulkEditViewModel {
             val byId = books.associateBy { it.id.value }
             val repo = mock<BookRepository>(MockMode.autoUnit)
@@ -91,14 +109,42 @@ class BulkEditViewModelTest :
             everySuspend { edits.setBookSeries(any(), any()) } returns AppResult.Success(Unit)
             everySuspend { edits.setBookContributors(any(), any()) } returns AppResult.Success(Unit)
 
-            val tags = mock<TagRepository>(MockMode.autoUnit)
-            val moods = mock<MoodRepository>(MockMode.autoUnit)
+            val tags =
+                mock<TagRepository>(MockMode.autoUnit) {
+                    every { observeAllTags() } returns flowOf(libraryTags)
+                }
+            val moods =
+                mock<MoodRepository>(MockMode.autoUnit) {
+                    every { observeAllMoods() } returns flowOf(libraryMoods)
+                }
+            val genres =
+                mock<GenreRepository>(MockMode.autoUnit) {
+                    every { observeAll() } returns flowOf(libraryGenres)
+                }
+            val series =
+                mock<SeriesRepository>(MockMode.autoUnit) {
+                    every { observeAll() } returns flowOf(emptyList())
+                }
+            everySuspend { series.searchSeries(any(), any()) } returns
+                SeriesSearchResponse(series = seriesMatches, isOfflineResult = true, tookMs = 0L)
+
+            val contributors =
+                mock<ContributorRepository>(MockMode.autoUnit) {
+                    every { observeAll() } returns flowOf(emptyList())
+                }
+            everySuspend { contributors.searchContributors(any(), any()) } returns
+                ContributorSearchResponse(contributors = emptyList(), isOfflineResult = true, tookMs = 0L)
 
             return BulkEditViewModel(
                 bookIds = requestedIds ?: books.map { it.id.value },
                 bookRepository = repo,
                 applier = BulkEditApplier(edits, tags, moods),
                 errorBus = ErrorBus(),
+                seriesRepository = series,
+                contributorRepository = contributors,
+                genreRepository = genres,
+                tagRepository = tags,
+                moodRepository = moods,
             )
         }
 
@@ -287,6 +333,118 @@ class BulkEditViewModelTest :
                     withClue("and nothing invalid may have been recorded") {
                         editing.edits.filterIsInstance<BulkEdit.SetLanguage>().shouldBeEmpty()
                         editing.edits.filterIsInstance<BulkEdit.SetPublishYear>().shouldBeEmpty()
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a genre the books already carry is not counted as a change") {
+            // Add* unions, so an instruction naming what a book already has is a no-op for that book.
+            // Counting it would overstate an operation with no undo — the same property the publisher
+            // preview has, on the path where the union lives rather than a replacement.
+            val fantasy = Genre(id = "g1", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+            val vm =
+                rig(
+                    listOf(
+                        book("b1").copy(genres = listOf(fantasy)),
+                        book("b2"),
+                    ),
+                )
+            runTest {
+                vm.state.test {
+                    advanceUntilIdle()
+                    vm.setGenres(listOf(BookGenreInput(genreId = GenreId(fantasy.id))))
+                    advanceUntilIdle()
+
+                    val editing = vm.state.value.shouldBeInstanceOf<BulkEditUiState.Editing>()
+                    withClue("only the book without the genre changes") {
+                        editing.preview.single().affectedCount shouldBe 1
+                        editing.changedBookCount shouldBe 1
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the pickers offer what the library already holds") {
+            // A bulk edit adds existing things; the picker is where that constraint is felt.
+            val vm =
+                rig(
+                    listOf(book("b1")),
+                    libraryGenres = listOf(Genre(id = "g1", name = "Fantasy", slug = "fantasy", path = "/fantasy")),
+                    libraryTags = listOf(Tag(id = "t1", name = "Found Family", slug = "found-family")),
+                    libraryMoods = listOf(Mood(id = "m1", name = "Feel-Good", slug = "feel-good")),
+                )
+            runTest {
+                // The catalogue starts empty and fills when the stream is collected, so the
+                // assertion is on where it settles, not on its first frame.
+                vm.genres.test {
+                    advanceUntilIdle()
+                    expectMostRecentItem().map { it.name } shouldBe listOf("Fantasy")
+                    cancelAndIgnoreRemainingEvents()
+                }
+                vm.tags.test {
+                    advanceUntilIdle()
+                    expectMostRecentItem().map { it.name } shouldBe listOf("Found Family")
+                    cancelAndIgnoreRemainingEvents()
+                }
+                vm.moods.test {
+                    advanceUntilIdle()
+                    expectMostRecentItem().map { it.name } shouldBe listOf("Feel-Good")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a series query too short to be a shortlist offers nothing") {
+            val match = SeriesSearchResult(id = "s1", name = "The Stormlight Archive", bookCount = 5)
+            val vm = rig(listOf(book("b1")), seriesMatches = listOf(match))
+            runTest {
+                vm.seriesMatches.test {
+                    advanceUntilIdle()
+                    awaitItem().shouldBeEmpty()
+
+                    vm.setSeriesQuery("S")
+                    advanceUntilIdle()
+                    withClue("one letter matches most of a library, so it is not a shortlist") {
+                        expectNoEvents()
+                    }
+
+                    vm.setSeriesQuery("Storm")
+                    advanceUntilIdle()
+                    awaitItem().map { it.name } shouldBe listOf("The Stormlight Archive")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the form reads its chosen relations back out of the instructions") {
+            // The form holds no second copy of what was picked, so the chips and the instruction
+            // list cannot drift apart.
+            val vm = rig(listOf(book("b1")))
+            runTest {
+                vm.state.test {
+                    advanceUntilIdle()
+                    vm.setSeries(BookSeriesInput(name = "The Stormlight Archive"))
+                    vm.setGenres(listOf(BookGenreInput(genreId = GenreId("g1"))))
+                    vm.setTags(listOf("Found Family"))
+                    vm.setMoods(listOf("Feel-Good"))
+                    advanceUntilIdle()
+
+                    val editing = vm.state.value.shouldBeInstanceOf<BulkEditUiState.Editing>()
+                    editing.seriesInput?.name shouldBe "The Stormlight Archive"
+                    editing.genreInput.map { it.genreId.value } shouldBe listOf("g1")
+                    editing.tagInput shouldBe listOf("Found Family")
+                    editing.moodInput shouldBe listOf("Feel-Good")
+
+                    withClue("and clearing a picker removes its instruction rather than writing a blank") {
+                        vm.setTags(emptyList())
+                        advanceUntilIdle()
+                        vm.state.value
+                            .shouldBeInstanceOf<BulkEditUiState.Editing>()
+                            .tagInput
+                            .shouldBeEmpty()
                     }
                     cancelAndIgnoreRemainingEvents()
                 }
