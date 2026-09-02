@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
+import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
 import com.calypsan.listenup.domain.VolumeBoostLimits
-import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_boost_db
@@ -34,13 +34,14 @@ import org.jetbrains.compose.resources.stringResource
 
 /** Volume-boost presets and formatting utilities. */
 object VolumeBoostPresets {
-    private const val STEP_DB = 3f
-
-    /** Discrete boost presets spanning the full [VolumeBoostLimits] range, 3 dB apart. */
-    val presets: List<Float> =
-        generateSequence(VolumeBoostLimits.MIN_DB) { it + STEP_DB }
-            .takeWhile { it <= VolumeBoostLimits.MAX_DB }
-            .toList()
+    /**
+     * Discrete boost presets spanning the full [VolumeBoostLimits] range, 3 dB apart.
+     *
+     * Read from the contract rather than generated here: the same ladder is rendered by web's
+     * `BoostPicker` and iOS's `BoostPickerSheet`, and three independent derivations of it is three
+     * places for the browser to start offering a rung the phone does not.
+     */
+    val presets: List<Float> get() = VolumeBoostLimits.PRESETS_DB
 
     /**
      * Format a boost value from pre-resolved localized strings: [offLabel] when [db] is at the
@@ -93,7 +94,7 @@ fun VolumeBoostSheet(
                 onBoostChange(preset)
             },
         )
-        if ((selectedBoostDb - defaultBoostDb).absoluteValue > 0.01f) {
+        if (!isSameVolumeBoost(selectedBoostDb, defaultBoostDb)) {
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 val defaultBoostLabel =
@@ -160,7 +161,7 @@ private fun BoostPresetRow(
                 )
             PillChip(
                 label = label,
-                selected = (currentBoostDb - preset).absoluteValue < 0.01f,
+                selected = isSameVolumeBoost(currentBoostDb, preset),
                 onClick = { onBoostSelected(preset) },
             )
         }

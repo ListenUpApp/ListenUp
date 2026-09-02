@@ -202,6 +202,7 @@ body { margin: 0; }
 .tport-b:active,
 .tport-skip:active,
 .tport-sleep:active,
+.tport-boost:active,
 .tport-speed:active,
 .tport-note-x:active,
 .bulk-b:active,
@@ -543,8 +544,33 @@ body { margin: 0; }
 .speed-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
 .speed-reset { margin-top: 14px; }
 
+/* ---- volume boost ---- */
+/* Narrower than the speed panel: five chips and no slider. */
+.boost-dlg { max-width: 380px; width: min(380px, calc(100vw - 32px)); }
+.boost-read {
+  margin: 18px 0 10px; font-size: 42px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
+}
+/* Said only when a boost was asked for and refused, so it reads as an answer rather than a
+   standing caveat. */
+.boost-warn { margin: 0 0 14px; font-size: 13px; line-height: 1.45; color: var(--ink-3); text-align: center; }
+.boost-opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.boost-opt {
+  min-width: 56px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) { .boost-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
+.boost-opt:active { transform: translateY(1px); }
+.boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
+.boost-reset { margin-top: 14px; }
+
 /* An armed timer, said on the control itself rather than only inside the dialog. */
 .tport-sleep.on { color: var(--coral); }
+
+/* A boost in force, same idea: it changes how the book sounds, so it has to be visible without
+   opening a panel to ask. */
+.tport-boost.on { color: var(--coral); }
 
 /* ---- banners ---- */
 .banner { display:flex; align-items:center; gap:11px; padding:0 16px; min-height:44px; font-size:13.5px; font-weight:600; border-bottom:1px solid; }
@@ -685,8 +711,8 @@ body { margin: 0; }
 /* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
    bar read as three equal actions, when only one of them is the one you reach for. `position:
    relative` anchors the interval numeral over the arrow. */
-.tport-skip, .tport-sleep { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .tport-skip:hover, .tport-sleep:hover { background:var(--surface-2); color:var(--ink); } }
+.tport-skip, .tport-sleep, .tport-boost { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-skip:hover, .tport-sleep:hover, .tport-boost:hover { background:var(--surface-2); color:var(--ink); } }
 /* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
    two-digit interval still has to fit. */
 .tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
@@ -702,9 +728,11 @@ body { margin: 0; }
 @media (max-width: 759px) {
   .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
   .tport-t { display:none; }
-  /* Skips go, the sleep timer stays. A narrow screen is a phone in the dark, which is
-     precisely where someone reaches for a sleep timer — hiding it there would drop the
-     control on the device that needs it most. */
+  /* Skips go; the sleep timer and the boost stay. A narrow screen is a phone in the dark, which
+     is precisely where someone reaches for a sleep timer — and a phone speaker is where a quiet
+     book most needs turning up. Hiding either would drop the control on the device that needs it
+     most. Note this rule names .tport-skip ONLY: give a new control that class and it vanishes
+     under 760px. */
   .tport-skip { display:none; }
   .tport-note { margin:16px -14px 0; padding:10px 12px; }
 }

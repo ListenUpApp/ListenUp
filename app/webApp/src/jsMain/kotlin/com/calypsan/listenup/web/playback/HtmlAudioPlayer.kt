@@ -114,6 +114,15 @@ internal class HtmlAudioPlayer : AudioPlayer {
     private var speed: Float = 1.0f
 
     /**
+     * Every volume multiplier this player applies, loudness gain and sleep fade alike.
+     *
+     * One owner rather than two, because the two would otherwise fight over the same
+     * `element.volume`: a fade that wrote it directly would wipe out the boost, and a boost that
+     * wrote it directly would cancel a fade mid-descent. See [WebGainStage].
+     */
+    private val gainStage = WebGainStage(element)
+
+    /**
      * Where inside the current segment playback is meant to be, re-asserted once the element has
      * metadata. [seekWithinSegment] is the only thing that sets it to a position; only
      * [applyPendingOffset] clears it, once it has been applied.
@@ -266,22 +275,64 @@ internal class HtmlAudioPlayer : AudioPlayer {
     }
 
     /**
-     * Sets the underlying `<audio>` element's output volume (0.0 silent – 1.0 normal).
+     * Turn the book down to [volume] — the sleep timer's fade, 0.0 silent to 1.0 untouched.
      *
      * Not part of [AudioPlayer] — Desktop's `FfmpegAudioPlayer` exposes no volume control at all,
-     * so adding it there would be a no-op forced onto every other platform. `HTMLMediaElement`
-     * carries a real `volume` property, so [WebPlaybackController] reaches this narrow method
-     * directly instead of pretending the shared interface can do the job.
+     * so adding it there would be a no-op forced onto every other platform. A browser can really
+     * do this, so [WebPlaybackController] reaches this narrow method directly instead of
+     * pretending the shared interface can do the job.
      *
-     * Coerced into range: the element's `volume` setter throws `IndexSizeError` outside [0, 1],
-     * and a sleep-timer fade-out computing a value a hair past either end must not crash playback
-     * over a rounding error.
+     * Routed through [WebGainStage] rather than written to `element.volume` here, because a boost
+     * may already be applying its own multiplier — and the two writing the same property in turn
+     * is how a fade cancels a boost, or a boost cancels a fade halfway down. The stage also owns
+     * the coercion: the element's `volume` setter throws `IndexSizeError` outside [0, 1], and a
+     * fade computing a value a hair past either end must not crash playback over a rounding error.
      */
     internal fun setVolume(volume: Float) {
-        element.volume = volume.coerceIn(0f, 1f).toDouble()
+        gainStage.applyFade(volume)
     }
 
-    /** Reads back what [setVolume] wrote — the read half of that seam, for tests to observe. */
+    /**
+     * Apply [db] of loudness gain — the book's normalization plus the listener's boost, already
+     * combined by `VolumeGain.effectiveGainDb` upstream.
+     *
+     * Not part of [AudioPlayer] for the same reason [setVolume] is not: Desktop's
+     * `FfmpegAudioPlayer` has no gain stage, so the shared interface would carry a method one
+     * implementation could only ignore. Android reaches the same number through Media3's
+     * `GainAudioProcessor` and iOS through its audio engine; this is web's equivalent.
+     *
+     * Suspends because amplification may have to attach a Web Audio graph, and attaching it
+     * safely means awaiting the context — see [WebGainStage].
+     */
+    internal suspend fun setGainDb(db: Float) {
+        gainStage.applyGainDb(db)
+    }
+
+    /** Whether a boost was asked for and this browser would not give it. See [WebGainStage]. */
+    internal val boostUnavailable: StateFlow<Boolean>
+        get() = gainStage.unavailable
+
+    /**
+     * The multiplier this player is applying, gain and fade combined. 1.0 is untouched.
+     *
+     * The read that proves a boost travelled the whole way from a gesture to the audio path.
+     * Reading `PlaybackManager.effectiveGainDb` instead would only prove the manager recomputed
+     * a number — which it does whether or not anything is listening.
+     */
+    internal val appliedGain: Float
+        get() = gainStage.appliedGain
+
+    /** Whether the Web Audio graph is in the path. See [WebGainStage] for when it is not. */
+    internal val boostAttached: Boolean
+        get() = gainStage.isAttached
+
+    /**
+     * Reads back the element's own volume — the read half of the [setVolume] seam, for tests.
+     *
+     * ⛔ Not the multiplier in force. Once [WebGainStage] has attached, every multiplier moves to
+     * the gain node and this reads a constant 1.0; `WebGainStage.appliedGain` is the value that
+     * answers "how loud is this".
+     */
     internal val volume: Double
         get() = element.volume
 
@@ -354,6 +405,9 @@ internal class HtmlAudioPlayer : AudioPlayer {
         currentIndex = 0
         speed = 1.0f
         element.playbackRate = 1.0
+        // Same reason the rate goes back to 1: a new book must not inherit the last one's boost in
+        // the window before its own `effectiveGainDb` arrives.
+        gainStage.reset()
         positionMs.value = 0L
         durationMs.value = 0L
     }

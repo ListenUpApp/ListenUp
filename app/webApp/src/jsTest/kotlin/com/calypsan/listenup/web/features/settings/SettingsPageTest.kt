@@ -22,12 +22,17 @@ private const val QUARTER_SPEED = 1.25f
 /** A skip interval that is neither of the two defaults (10 back, 30 forward). */
 private const val CHOSEN_SKIP_SEC = 15
 
-/** Index of each `<select>` in render order: theme, speed, skip back, skip forward. */
+/** A boost off the floor, so a control that ignores its input cannot pass. */
+private const val CHOSEN_BOOST_DB = 6f
+
+/** Index of each `<select>` in render order: theme, speed, boost, skip back, skip forward. */
 private const val THEME_SELECT = 0
 
 private const val SPEED_SELECT = 1
 
-private const val SKIP_BACK_SELECT = 2
+private const val BOOST_SELECT = 2
+
+private const val SKIP_BACK_SELECT = 3
 
 private val mountedHosts = mutableListOf<HTMLElement>()
 
@@ -44,6 +49,7 @@ private fun page(
     state: SettingsUiState = SettingsUiState(isLoading = false),
     onThemeMode: (ThemeMode) -> Unit = {},
     onDefaultSpeed: (Float) -> Unit = {},
+    onDefaultBoost: (Float) -> Unit = {},
     onSkipForward: (Int) -> Unit = {},
     onSkipBackward: (Int) -> Unit = {},
     onAutoRewind: (Boolean) -> Unit = {},
@@ -55,6 +61,7 @@ private fun page(
         state = state,
         onThemeMode = onThemeMode,
         onDefaultSpeed = onDefaultSpeed,
+        onDefaultBoost = onDefaultBoost,
         onSkipForward = onSkipForward,
         onSkipBackward = onSkipBackward,
         onAutoRewind = onAutoRewind,
@@ -115,7 +122,6 @@ class SettingsPageTest :
             text shouldNotContain "Dynamic"
             text shouldNotContain "Wi-Fi"
             text shouldNotContain "Haptic"
-            text shouldNotContain "boost"
             text shouldNotContain "Sleep"
         }
 
@@ -153,6 +159,18 @@ class SettingsPageTest :
             select(host, index = SPEED_SELECT, value = speedKey(CHOSEN_SPEED))
 
             speed shouldBe CHOSEN_SPEED
+        }
+
+        test("the boost picker round-trips through the value it renders") {
+            // Boost joined this page only once `WebGainStage` could act on the number. Same
+            // round-trip risk as the speed control: the option's value is parsed straight back to
+            // a Float, and a disagreement makes the control silently stop reporting.
+            var boost: Float? = null
+            val host = mount { page(onDefaultBoost = { boost = it }) }
+
+            select(host, index = BOOST_SELECT, value = boostKey(CHOSEN_BOOST_DB))
+
+            boost shouldBe CHOSEN_BOOST_DB
         }
 
         test("skip intervals report seconds, not labels") {

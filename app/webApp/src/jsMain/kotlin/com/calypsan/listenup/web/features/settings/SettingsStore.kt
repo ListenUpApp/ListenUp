@@ -9,18 +9,23 @@ import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
 /**
- * An open Settings session: the state, the seven things web can actually change, and the teardown.
+ * An open Settings session: the state, the eight things web can actually change, and the teardown.
  *
- * Seven of the twelve `SettingsViewModel` offers. The other five — dynamic colours, Wi-Fi-only
- * downloads, haptics, volume boost, the sleep-timer default — are omitted deliberately rather than
- * disabled, because a control that silently does nothing is worse than one that was never offered.
- * Four a browser cannot honour at all; the fifth no client honours yet. Each omission is named at
- * its section in [SettingsPage].
+ * Eight of the twelve `SettingsViewModel` offers. The other four — dynamic colours, Wi-Fi-only
+ * downloads, haptics, the sleep-timer default — are omitted deliberately rather than disabled,
+ * because a control that silently does nothing is worse than one that was never offered. Three a
+ * browser cannot honour at all; the fourth no client honours yet. Each omission is named at its
+ * section in [SettingsPage].
+ *
+ * Default boost joined the list once the browser could act on it — see
+ * [com.calypsan.listenup.web.playback.WebGainStage]. It was omitted while web had no gain stage,
+ * which was the right call then and stopped being true.
  */
 class SettingsSession(
     val state: StateFlow<SettingsUiState>,
     val onThemeMode: (ThemeMode) -> Unit,
     val onDefaultSpeed: (Float) -> Unit,
+    val onDefaultBoost: (Float) -> Unit,
     val onSkipForward: (Int) -> Unit,
     val onSkipBackward: (Int) -> Unit,
     val onAutoRewind: (Boolean) -> Unit,
@@ -41,6 +46,7 @@ fun graphSettings(koin: Koin): OpenSettings =
             state = viewModel.state,
             onThemeMode = viewModel::setThemeMode,
             onDefaultSpeed = viewModel::setDefaultPlaybackSpeed,
+            onDefaultBoost = viewModel::setDefaultVolumeBoostDb,
             onSkipForward = viewModel::setDefaultSkipForwardSec,
             onSkipBackward = viewModel::setDefaultSkipBackwardSec,
             onAutoRewind = viewModel::setAutoRewindEnabled,
@@ -55,6 +61,7 @@ fun fixedSettings(
     state: SettingsUiState = SettingsUiState(),
     onThemeMode: (ThemeMode) -> Unit = {},
     onDefaultSpeed: (Float) -> Unit = {},
+    onDefaultBoost: (Float) -> Unit = {},
     onSkipForward: (Int) -> Unit = {},
     onSkipBackward: (Int) -> Unit = {},
     onAutoRewind: (Boolean) -> Unit = {},
@@ -66,6 +73,7 @@ fun fixedSettings(
             state = MutableStateFlow(state),
             onThemeMode = onThemeMode,
             onDefaultSpeed = onDefaultSpeed,
+            onDefaultBoost = onDefaultBoost,
             onSkipForward = onSkipForward,
             onSkipBackward = onSkipBackward,
             onAutoRewind = onAutoRewind,
