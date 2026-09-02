@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.model.Genre
@@ -17,6 +18,7 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.core.GenreId
+import io.kotest.assertions.withClue
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
@@ -51,6 +53,18 @@ class BulkEditRelationsTest {
             preview = edits.map { BulkEditPreviewRow(edit = it, affectedCount = 12) },
             changedBookCount = if (edits.isEmpty()) 0 else 12,
         )
+
+    private fun renderCredits(
+        state: BulkEditUiState.Editing,
+        actions: BulkEditFormActions = BulkEditFormActions(),
+    ) {
+        composeRule.setContent {
+            MaterialTheme {
+                BulkEditCredits(state = state, offers = BulkEditOffers(), actions = actions)
+            }
+        }
+        composeRule.waitForIdle()
+    }
 
     private fun render(
         state: BulkEditUiState.Editing,
@@ -114,6 +128,37 @@ class BulkEditRelationsTest {
         composeRule.onNodeWithText("Found Family").performClick()
 
         chosen shouldBe listOf("Found Family")
+    }
+
+    @Test
+    fun `a narrator the library has never seen can still be credited`() {
+        // The contract carries a contributor by name with a null id and the server resolves-or-
+        // creates it — the same path the single-book editor takes. Refusing here would send someone
+        // to edit a box set one book at a time.
+        var credited: List<BookContributorInput>? = null
+        renderCredits(editing(), BulkEditFormActions(onContributorsChange = { credited = it }))
+
+        composeRule.onNodeWithText("Search people").performTextInput("Wil Wheaton")
+        composeRule.onNodeWithText("Add \u201cWil Wheaton\u201d", useUnmergedTree = true).performClick()
+
+        credited?.single()?.name shouldBe "Wil Wheaton"
+        withClue("no id, because the library has no such person yet") {
+            credited?.single()?.id shouldBe null
+        }
+        withClue("credited in the role the picker was set to") {
+            credited?.single()?.role shouldBe "author"
+        }
+    }
+
+    @Test
+    fun `a genre the library does not hold cannot be invented`() {
+        // Genres, tags and moods stay existing-only: minting one across forty books is how a library
+        // ends up with three spellings of the same thing.
+        render(editing())
+
+        composeRule.onNodeWithText("Search genres").performTextInput("Steampunk")
+
+        composeRule.onNodeWithText("Add \u201cSteampunk\u201d", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

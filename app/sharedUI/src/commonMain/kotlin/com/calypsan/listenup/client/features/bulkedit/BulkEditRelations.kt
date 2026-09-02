@@ -11,13 +11,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -61,6 +64,7 @@ import listenup.composeapp.generated.resources.book_role_introduction
 import listenup.composeapp.generated.resources.book_role_narrator
 import listenup.composeapp.generated.resources.book_role_producer
 import listenup.composeapp.generated.resources.book_role_translator
+import listenup.composeapp.generated.resources.bulk_edit_add_trimmed
 import listenup.composeapp.generated.resources.bulk_edit_contributors
 import listenup.composeapp.generated.resources.bulk_edit_genres
 import listenup.composeapp.generated.resources.bulk_edit_moods
@@ -89,6 +93,9 @@ private val FieldBlockGap = 20.dp
 /** The glyph beside a match in the dropdown, sized as the shared component's own default is. */
 private val MatchIconSize = 24.dp
 
+/** Below this a typed name is more likely a half-finished word than someone the library is missing. */
+private const val MIN_CREATE_QUERY_LENGTH = 2
+
 /**
  * One thing a relation field has collected, ready to draw and to take back off.
  *
@@ -110,11 +117,16 @@ internal data class RelationChip(
  * is, is the same promise the text fields make — a field nobody touches writes to nothing — and the
  * same consequence line saying so.
  *
- * Only things already in the library can be picked. A bulk edit that could mint a genre forty books
- * at a time is how a library ends up with `found-family`, `Found Family` and `found family` as three
- * different things; and for tags and moods a brand-new one needs the server, so offering it here
- * would be a field that works only while online on a screen whose whole point is that it does not
- * lie about what it will do.
+ * Most of these offer only what the library already holds. A bulk edit that could mint a genre forty
+ * books at a time is how a library ends up with `found-family`, `Found Family` and `found family` as
+ * three different things; and for tags and moods a brand-new one needs the server, so offering it
+ * here would be a field that works only while online on a screen whose whole point is that it does
+ * not lie about what it will do.
+ *
+ * Series and people are the exception, and [onCreate] is where it lives: the contract carries them
+ * by name with a null id, and the server resolves-or-creates each one — the same path the scanner
+ * and the single-book editor take. A narrator the library has never seen is a normal thing to credit
+ * across a box set, and refusing it would send someone to edit forty books one at a time.
  *
  * @param label what this field collects, e.g. "Add genres".
  * @param placeholder what the search box says while it is empty, e.g. "Search genres" — a different
@@ -129,6 +141,8 @@ internal data class RelationChip(
  * @param onPick a match was chosen.
  * @param chosen what has been collected so far.
  * @param onRemove a chip was taken back off.
+ * @param onCreate the typed name is not in the library and should be added anyway; null for the
+ *   fields that may only offer what already exists.
  * @param consequence what this field will do to the selection, in a sentence.
  * @param enabled false while an apply is in flight.
  * @param modifier Modifier for the field.
@@ -151,7 +165,14 @@ internal fun <T> BulkRelationField(
     consequence: FieldConsequence,
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    onCreate: ((String) -> Unit)? = null,
 ) {
+    val trimmed = query.trim()
+    val creatable =
+        onCreate != null &&
+            trimmed.length >= MIN_CREATE_QUERY_LENGTH &&
+            matches.none { matchLabel(it).equals(trimmed, ignoreCase = true) } &&
+            chosen.none { it.label.equals(trimmed, ignoreCase = true) }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(RelationGap)) {
         Text(
             text = label,
@@ -197,7 +218,9 @@ internal fun <T> BulkRelationField(
             onResultSelected = onPick,
             // Enter does not create: there is nothing to create here, and a field that swallowed a
             // typed name silently would be the one lie this screen cannot tell.
-            onSubmit = {},
+            // Enter creates when creating is on offer; otherwise it does nothing, because there
+            // would be nothing for it to do but swallow the name silently.
+            onSubmit = { if (creatable) onCreate?.invoke(trimmed) },
             resultContent = { match ->
                 AutocompleteResultItem(
                     name = matchLabel(match),
@@ -223,6 +246,20 @@ internal fun <T> BulkRelationField(
                 )
             },
         )
+        if (creatable) {
+            AssistChip(
+                onClick = { onCreate?.invoke(trimmed) },
+                label = { Text(stringResource(Res.string.bulk_edit_add_trimmed, trimmed)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(ChipIconSize),
+                    )
+                },
+                enabled = enabled,
+            )
+        }
         ConsequenceLine(consequence)
     }
 }
@@ -309,6 +346,13 @@ internal fun BulkEditCredits(
             },
             chosen = state.seriesInput?.let { listOf(RelationChip(key = it.name, label = it.name)) }.orEmpty(),
             onRemove = { actions.onSeriesChange(null) },
+            onCreate = { name ->
+                // No id: the server resolves-or-creates by name, exactly as the single-book editor's
+                // "Add" does. A series the library has never held is a normal thing to start.
+                actions.onSeriesChange(BookSeriesInput(name = name))
+                seriesQuery = ""
+                actions.onSeriesQueryChange("")
+            },
             consequence =
                 state.armedConsequenceOf<BulkEdit.AddToSeries>() ?: untouchedRelationConsequence(),
             enabled = enabled,
@@ -350,6 +394,14 @@ internal fun BulkEditCredits(
                 consequence =
                     state.armedConsequenceOf<BulkEdit.AddContributors>() ?: untouchedRelationConsequence(),
                 enabled = enabled,
+                onCreate = { name ->
+                    val addition = BookContributorInput(name = name, role = role.apiValue, position = 0)
+                    if (credited.none { it.name.equals(name, ignoreCase = true) && it.role == role.apiValue }) {
+                        actions.onContributorsChange(credited + addition)
+                    }
+                    contributorQuery = ""
+                    actions.onContributorQueryChange("")
+                },
             )
         }
     }
