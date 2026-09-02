@@ -105,13 +105,17 @@ interface ShelfRepository {
     /**
      * Add books to a shelf.
      *
+     * Returns how many of [bookIds] the shelf actually gained — books already on it are left
+     * where they are, and are not counted, so a caller confirming the write can say what changed
+     * rather than what was asked for.
+     *
      * @param shelfId The shelf to add to
      * @param bookIds The books to add
      */
     suspend fun addBooksToShelf(
         shelfId: ShelfId,
         bookIds: List<BookId>,
-    ): AppResult<Unit>
+    ): AppResult<Int>
 
     /**
      * Reorder the books in a shelf.

@@ -126,7 +126,7 @@ class CollectionRepositoryOfflineTest :
 
                 val result = repo.addBook("c1", "b1")
 
-                result shouldBe AppResult.Success(Unit)
+                result shouldBe AppResult.Success(true)
                 val row = db.collectionBookDao().findByKey("c1", "b1").shouldNotBeNull()
                 row.deletedAt.shouldBeNull()
                 row.revision shouldBe 0
@@ -139,6 +139,48 @@ class CollectionRepositoryOfflineTest :
                 op.domainName shouldBe "collection_books"
                 op.entityId shouldBe "c1:b1"
                 op.opType shouldBe "create"
+                db.close()
+            }
+        }
+
+        test("addBook reports no change and leaves the membership alone when the book is already in") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.collectionBookDao().upsert(junction("c1", "b1"))
+                val repo = repo(db)
+
+                val result = repo.addBook("c1", "b1")
+
+                result shouldBe AppResult.Success(false)
+                // Untouched: the server's own syncId survives, and the revision is not reset to 0.
+                val row = db.collectionBookDao().findByKey("c1", "b1").shouldNotBeNull()
+                row.syncId shouldBe "c1:b1"
+                row.revision shouldBe 1
+                db.pendingOperationV2Dao().nextDispatchable().shouldBeEmpty()
+                db.close()
+            }
+        }
+
+        test("addBook revives a membership that was tombstoned, and says it changed something") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.collectionBookDao().upsert(junction("c1", "b1").copy(deletedAt = 200L))
+                val repo = repo(db)
+
+                val result = repo.addBook("c1", "b1")
+
+                result shouldBe AppResult.Success(true)
+                db
+                    .collectionBookDao()
+                    .findByKey("c1", "b1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                db
+                    .pendingOperationV2Dao()
+                    .nextDispatchable()
+                    .single()
+                    .opType shouldBe "create"
                 db.close()
             }
         }

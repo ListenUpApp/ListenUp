@@ -348,7 +348,7 @@ class AdminCollectionDetailViewModelSearchTest :
                         limit = 20,
                     )
                 } returns searchResult(searchHit("b-new", "Dune Messiah"))
-                everySuspend { f.repo.addBook("c1", "b-new") } returns AppResult.Success(Unit)
+                everySuspend { f.repo.addBook("c1", "b-new") } returns AppResult.Success(true)
 
                 val vm = f.build()
                 advanceUntilIdle()

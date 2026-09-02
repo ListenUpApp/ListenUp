@@ -148,7 +148,7 @@ class ShelfRepositoryOfflineTest :
 
                 val result = repo.addBooksToShelf(ShelfId("s1"), listOf(BookId("b2"), BookId("b3")))
 
-                result shouldBe AppResult.Success(Unit)
+                result shouldBe AppResult.Success(2)
                 // SERVER-SYNC-04: the optimistic row's id is a freshly-minted opaque value, not the
                 // "$shelfId:$bookId" composite — look it up by the natural pair.
                 val row2 = db.shelfBookDao().findByShelfAndBook("s1", "b2").shouldNotBeNull()
@@ -163,6 +163,24 @@ class ShelfRepositoryOfflineTest :
                     it.domainName shouldBe "shelf_books"
                     it.opType shouldBe "create"
                 }
+                db.close()
+            }
+        }
+
+        test("addBooksToShelf counts the books it actually added, and skips the ones already there") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.shelfBookDao().upsert(junction("s1", "b1", 0))
+                val repo = repo(db)
+
+                val result = repo.addBooksToShelf(ShelfId("s1"), listOf(BookId("b1"), BookId("b2")))
+
+                result shouldBe AppResult.Success(1)
+                // b1 keeps its original row — no duplicate, no re-sort.
+                val kept = db.shelfBookDao().findByShelfAndBook("s1", "b1").shouldNotBeNull()
+                kept.id shouldBe "s1:b1"
+                kept.sortOrder shouldBe 0
+                db.pendingOperationV2Dao().nextDispatchable().map { it.entityId } shouldBe listOf("s1:b2")
                 db.close()
             }
         }

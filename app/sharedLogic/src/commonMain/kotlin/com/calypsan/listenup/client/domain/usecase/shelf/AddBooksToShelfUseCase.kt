@@ -31,12 +31,12 @@ open class AddBooksToShelfUseCase(
      *
      * @param shelfId The shelf to add to
      * @param bookIds The books to add (must not be empty)
-     * @return Result indicating success or failure
+     * @return how many books the shelf gained — books already on it are not counted — or a failure
      */
     open suspend operator fun invoke(
         shelfId: ShelfId,
         bookIds: List<BookId>,
-    ): AppResult<Unit> {
+    ): AppResult<Int> {
         if (bookIds.isEmpty()) {
             return validationError("At least one book must be selected")
         }

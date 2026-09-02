@@ -47,11 +47,17 @@ interface CollectionRepository {
     /** Delete the collection identified by [id]. */
     suspend fun delete(id: String): AppResult<Unit>
 
-    /** Add [bookId] to the collection identified by [collectionId]. */
+    /**
+     * Add [bookId] to the collection identified by [collectionId].
+     *
+     * Returns `true` when the book was not already a member, `false` when it was — so a caller
+     * confirming the write can say how many books the collection actually gained rather than how
+     * many were asked for. A book that is already in is left exactly as it is.
+     */
     suspend fun addBook(
         collectionId: String,
         bookId: String,
-    ): AppResult<Unit>
+    ): AppResult<Boolean>
 
     /** Remove [bookId] from the collection identified by [collectionId]. */
     suspend fun removeBook(

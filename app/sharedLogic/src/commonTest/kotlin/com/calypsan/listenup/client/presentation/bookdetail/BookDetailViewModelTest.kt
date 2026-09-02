@@ -1154,7 +1154,7 @@ class BookDetailViewModelTest :
                 everySuspend { fixture.collectionRepository.create("test-library", "New Collection") } returns
                     AppResult.Success(newCollection)
                 everySuspend { fixture.collectionRepository.addBook("col-1", "book-1") } returns
-                    AppResult.Success(Unit)
+                    AppResult.Success(true)
                 val viewModel = fixture.build()
 
                 turbineScope {
