@@ -16,6 +16,14 @@ kotlin {
     android {
         namespace = "com.calypsan.listenup.contract"
 
+        // AGP 9.4.0 derives the Kotlin module-metadata name from the Gradle project path and does
+        // not sanitize it, so `:contract` yields `listenup:contract.kotlin_module` — a colon, which
+        // the AAB packager rejects outright ("Entry name contains invalid characters"). It fails
+        // only in `bundleRelease`, which no PR gate builds. Naming the module explicitly sidesteps it.
+        compilerOptions {
+            moduleName.set("listenup_contract")
+        }
+
         lint {
             checkDependencies = false
             disable += setOf("InvalidPackage", "ObsoleteLintCustomCheck")
