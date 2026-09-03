@@ -216,6 +216,11 @@ fun WebAppRoot(
             onSetSleepTimer = playback.onSetSleepTimer,
             onCancelSleepTimer = playback.onCancelSleepTimer,
             onExtendSleepTimer = playback.onExtendSleepTimer,
+            volumeBoostDb = playback.volumeBoostDb.collectAsState().value,
+            defaultBoostDb = playback.defaultBoostDb.collectAsState().value,
+            boostUnavailable = playback.boostUnavailable.collectAsState().value,
+            onSetBoost = playback.onSetBoost,
+            onResetBoost = playback.onResetBoost,
         )
 
         // Last of all: the palette overlays everything above it, including the transport bar.
@@ -1109,6 +1114,7 @@ private fun SettingsRoute(
         state = session.state.collectAsState().value,
         onThemeMode = session.onThemeMode,
         onDefaultSpeed = session.onDefaultSpeed,
+        onDefaultBoost = session.onDefaultBoost,
         onSkipForward = session.onSkipForward,
         onSkipBackward = session.onSkipBackward,
         onAutoRewind = session.onAutoRewind,

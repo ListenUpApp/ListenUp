@@ -83,6 +83,10 @@ enum class WebIcon(
         "M10 8.5m-3.5 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0 M3 20c0-3.4 3.1-5.5 7-5.5s7 2.1 7 5.5 " +
             "M18.5 8v6 M15.5 11h6",
     ),
+
+    // Not mirrored from the design project either — it carries no speaker glyph. The cone plus
+    // two arcs is the standard shape for the category; reconcile if the design project grows one.
+    Volume("M4 9.5h3.5L12 5.5v13l-4.5-4H4z M16 9.5a4 4 0 0 1 0 5 M18.5 7a7.5 7.5 0 0 1 0 10"),
     X("M6 6l12 12 M18 6L6 18"),
     ;
 

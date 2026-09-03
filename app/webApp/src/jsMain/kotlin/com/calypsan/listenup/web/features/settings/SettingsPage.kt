@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
+import com.calypsan.listenup.domain.VolumeBoostLimits
+import com.calypsan.listenup.web.features.nowplaying.formatBoost
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
@@ -18,13 +20,16 @@ import org.jetbrains.compose.web.dom.Text
 /**
  * Settings — the preferences a browser can actually keep.
  *
- * Seven controls, not twelve. Dynamic colours are Android's wallpaper palette, Wi-Fi-only downloads
- * and volume boost need machinery web does not have, haptics need hardware, and the sleep-timer
- * default is a stored preference that no client reads yet — web has the sleep timer itself (see
+ * Eight controls, not twelve. Dynamic colours are Android's wallpaper palette, Wi-Fi-only downloads
+ * need machinery web does not have, haptics need hardware, and the sleep-timer default is a stored
+ * preference that no client reads yet — web has the sleep timer itself (see
  * [com.calypsan.listenup.web.features.nowplaying.SleepTimerPicker]), but nothing anywhere starts
  * one from this number, so a control here would change nothing. Each is omitted rather than shown
  * disabled: a control that cannot keep its promise is the same lie as a screen that reports success
  * it did not have, and this app has spent a lot of effort not telling that one.
+ *
+ * Volume boost is no longer among them: `WebGainStage` amplifies through a Web Audio gain node, so
+ * the number set here reaches this browser's own speakers rather than only the listener's phone.
  *
  * The synced/local split is real and worth saying out loud — playback defaults follow the reader to
  * their phone, appearance and library display stay on this browser — so each section says which it
@@ -35,6 +40,7 @@ fun SettingsPage(
     state: SettingsUiState,
     onThemeMode: (ThemeMode) -> Unit,
     onDefaultSpeed: (Float) -> Unit,
+    onDefaultBoost: (Float) -> Unit,
     onSkipForward: (Int) -> Unit,
     onSkipBackward: (Int) -> Unit,
     onAutoRewind: (Boolean) -> Unit,
@@ -65,6 +71,15 @@ fun SettingsPage(
                 value = speedKey(state.defaultPlaybackSpeed),
                 options = SPEED_OPTIONS,
                 onSelect = { raw -> raw?.toFloatOrNull()?.let(onDefaultSpeed) },
+            )
+            // Offered because the browser can now act on it: `WebGainStage` amplifies through a
+            // Web Audio gain node, so this number reaches the speakers rather than being stored
+            // for other devices to honour.
+            SelectField(
+                label = "Default volume boost",
+                value = boostKey(state.defaultVolumeBoostDb),
+                options = BOOST_OPTIONS,
+                onSelect = { raw -> raw?.toFloatOrNull()?.let(onDefaultBoost) },
             )
             SelectField(
                 label = "Skip back",
@@ -159,6 +174,13 @@ private val SPEED_OPTIONS =
     PLAYBACK_SPEED_STEPS.map { speed -> SelectOption(speedKey(speed), "${formatSpeedLabel(speed)}×") }
 
 private val SKIP_OPTIONS = listOf(5, 10, 15, 30, 45, 60).map { SelectOption(it.toString(), "$it seconds") }
+
+/** The same ladder the player's boost picker offers, from the contract both of them read. */
+private val BOOST_OPTIONS =
+    VolumeBoostLimits.PRESETS_DB.map { boost -> SelectOption(boostKey(boost), formatBoost(boost)) }
+
+/** A boost as its own `<option>` value — round-tripped through `toFloat`, so it must parse back. */
+internal fun boostKey(boostDb: Float): String = boostDb.toString()
 
 /** A speed as its own `<option>` value — round-tripped through `toFloat`, so it must parse back. */
 internal fun speedKey(speed: Float): String = speed.toString()

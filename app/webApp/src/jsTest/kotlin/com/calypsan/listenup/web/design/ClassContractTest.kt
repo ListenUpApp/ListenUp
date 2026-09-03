@@ -544,13 +544,14 @@ class ClassContractTest :
                         devicesShapes().forEach { it() }
                         adminShapes().forEach { it() }
                         // Loading and loaded: the skeleton's class lives only in the former.
-                        SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {})
+                        SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {}, {})
                         SettingsPage(
                             SettingsUiState(
                                 isLoading = false,
                                 serverUrl = "https://listenup.example",
                                 serverVersion = "0.9.1",
                             ),
+                            {},
                             {},
                             {},
                             {},
@@ -681,6 +682,7 @@ class ClassContractTest :
                             onSkipBack = {},
                             onSkipForward = {},
                             onSetSpeed = {},
+                            volumeBoostDb = 6f,
                         )
                     }
                 }

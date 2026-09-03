@@ -6,9 +6,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.domain.VolumeBoostLimits
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
@@ -73,12 +75,18 @@ fun TransportBar(
     onSetSleepTimer: (SleepTimerMode) -> Unit = {},
     onCancelSleepTimer: () -> Unit = {},
     onExtendSleepTimer: (Int) -> Unit = {},
+    volumeBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
+    defaultBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
+    boostUnavailable: Boolean = false,
+    onSetBoost: (Float) -> Unit = {},
+    onResetBoost: () -> Unit = {},
 ) {
     if (state == null) return
 
     var chaptersOpen by remember { mutableStateOf(false) }
     var sleepOpen by remember { mutableStateOf(false) }
     var speedOpen by remember { mutableStateOf(false) }
+    var boostOpen by remember { mutableStateOf(false) }
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: state.positionMs
 
@@ -112,6 +120,15 @@ fun TransportBar(
         onSet = onSetSpeed,
         onReset = onResetSpeed,
         onDismiss = { speedOpen = false },
+    )
+    BoostPicker(
+        open = boostOpen,
+        boostDb = volumeBoostDb,
+        defaultBoostDb = defaultBoostDb,
+        unavailable = boostUnavailable,
+        onSet = onSetBoost,
+        onReset = onResetBoost,
+        onDismiss = { boostOpen = false },
     )
 
     Div(attrs = { classes("tport") }) {
@@ -168,50 +185,97 @@ fun TransportBar(
 
         Span(attrs = { classes("mono", "tport-time") }) { Text(formatElapsed(state.durationMs)) }
 
-        // Opens the picker rather than cycling. Cycling made one move cheap and every other one
-        // expensive — nine rungs meant eight taps to go down one — and could not reach a rate
-        // between rungs at all. `aria-label` carries the current rate because the visible text is
-        // the terse form: a screen reader saying "one point five ex" is not it.
-        Button(attrs = {
-            classes("tport-speed")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Playback speed ${formatSpeed(state.speed)}, change")
-            attr(ATTR_TITLE, "Playback speed")
-            onClick { speedOpen = true }
-        }) {
-            Text("${formatSpeed(state.speed)}\u00D7")
-        }
+        SessionControls(
+            speed = state.speed,
+            hasChapters = chapters.isNotEmpty(),
+            volumeBoostDb = volumeBoostDb,
+            sleepArmed = sleepTimer !is SleepTimerState.Inactive,
+            onOpenSpeed = { speedOpen = true },
+            onOpenChapters = { chaptersOpen = true },
+            onOpenBoost = { boostOpen = true },
+            onOpenSleep = { sleepOpen = true },
+        )
+    }
+}
 
-        // Only when the book actually has marks. A control that opens an empty list is a promise
-        // the book cannot keep, and plenty of audiobooks ship without chapters at all.
-        if (chapters.isNotEmpty()) {
-            Button(attrs = {
-                classes("tport-skip")
-                attr("type", "button")
-                attr(ATTR_ARIA_LABEL, "Chapters")
-                attr(ATTR_TITLE, "Chapters")
-                onClick { chaptersOpen = true }
-            }) {
-                Icon(WebIcon.Hash, size = CHAPTER_ICON_SIZE)
-            }
-        }
+/**
+ * The four controls that change how the session behaves rather than where it is: rate, chapter,
+ * boost, sleep.
+ *
+ * Split out from [TransportBar] because they are one idea — every one of them opens a panel and
+ * none of them touches the playhead — and because keeping them inline pushed the bar past the
+ * length where you can still see its shape in one screen.
+ */
+@Composable
+private fun SessionControls(
+    speed: Float,
+    hasChapters: Boolean,
+    volumeBoostDb: Float,
+    sleepArmed: Boolean,
+    onOpenSpeed: () -> Unit,
+    onOpenChapters: () -> Unit,
+    onOpenBoost: () -> Unit,
+    onOpenSleep: () -> Unit,
+) {
+    // Opens the picker rather than cycling. Cycling made one move cheap and every other one
+    // expensive — nine rungs meant eight taps to go down one — and could not reach a rate
+    // between rungs at all. `aria-label` carries the current rate because the visible text is
+    // the terse form: a screen reader saying "one point five ex" is not it.
+    Button(attrs = {
+        classes("tport-speed")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, "Playback speed ${formatSpeed(speed)}, change")
+        attr(ATTR_TITLE, "Playback speed")
+        onClick { onOpenSpeed() }
+    }) {
+        Text("${formatSpeed(speed)}\u00D7")
+    }
 
-        // Always offered, unlike chapters: a duration timer needs nothing from the book. The
-        // armed state is on the control itself, because a timer nobody can see is one the
-        // listener will not remember setting — and finding out it was armed by having the book
-        // stop is the one way this feature can feel broken rather than kind.
-        val armed = sleepTimer !is SleepTimerState.Inactive
-        val sleepLabel = if (armed) "Sleep timer, set" else "Sleep timer"
+    // Only when the book actually has marks. A control that opens an empty list is a promise
+    // the book cannot keep, and plenty of audiobooks ship without chapters at all.
+    if (hasChapters) {
         Button(attrs = {
-            classes("tport-sleep")
-            if (armed) classes("on")
+            classes("tport-skip")
             attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, sleepLabel)
-            attr(ATTR_TITLE, sleepLabel)
-            onClick { sleepOpen = true }
+            attr(ATTR_ARIA_LABEL, "Chapters")
+            attr(ATTR_TITLE, "Chapters")
+            onClick { onOpenChapters() }
         }) {
-            Icon(WebIcon.Clock, size = SLEEP_ICON_SIZE)
+            Icon(WebIcon.Hash, size = CHAPTER_ICON_SIZE)
         }
+    }
+
+    // Beside the sleep timer rather than with the skips, and kept on a narrow screen for a
+    // related reason: a quiet book on a phone speaker is exactly where someone reaches for
+    // this. The boost in force is on the control because it is not otherwise visible —
+    // "why is this book so loud" has to have an answer you can see.
+    val boosted = !isSameVolumeBoost(volumeBoostDb, VolumeBoostLimits.MIN_DB)
+    val boostLabel = if (boosted) "Volume boost, ${formatBoost(volumeBoostDb)}" else "Volume boost"
+    Button(attrs = {
+        classes("tport-boost")
+        if (boosted) classes("on")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, boostLabel)
+        attr(ATTR_TITLE, boostLabel)
+        onClick { onOpenBoost() }
+    }) {
+        Icon(WebIcon.Volume, size = BOOST_ICON_SIZE)
+    }
+
+    // Always offered, unlike chapters: a duration timer needs nothing from the book. The
+    // armed state is on the control itself, because a timer nobody can see is one the
+    // listener will not remember setting — and finding out it was armed by having the book
+    // stop is the one way this feature can feel broken rather than kind.
+    val sleepLabel = if (sleepArmed) "Sleep timer, set" else "Sleep timer"
+    Button(attrs = {
+        classes("tport-sleep")
+        if (sleepArmed) classes("on")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, sleepLabel)
+        attr(ATTR_TITLE, sleepLabel)
+        onClick { onOpenSleep() }
+    }) {
+        Icon(WebIcon.Clock, size = SLEEP_ICON_SIZE)
     }
 }
 
@@ -346,6 +410,8 @@ private const val ATTR_TITLE = "title"
 private const val CHAPTER_ICON_SIZE = 18
 
 private const val SLEEP_ICON_SIZE = 17
+
+private const val BOOST_ICON_SIZE = 17
 
 private const val VALUE_BUTTON = "button"
 

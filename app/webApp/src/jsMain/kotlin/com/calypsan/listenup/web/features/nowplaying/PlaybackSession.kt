@@ -55,6 +55,12 @@ class PlaybackSession(
     val sleepTimer: StateFlow<SleepTimerState>,
     /** The listener's own default rate, from Settings — what a reset goes back to. */
     val defaultSpeed: StateFlow<Float>,
+    /** This book's volume boost, in dB. 0 is no boost. */
+    val volumeBoostDb: StateFlow<Float>,
+    /** The listener's own default boost, from Settings — what a boost reset goes back to. */
+    val defaultBoostDb: StateFlow<Float>,
+    /** Whether a boost was asked for and this browser would not give it. */
+    val boostUnavailable: StateFlow<Boolean>,
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onPlayBook: (BookId) -> Unit,
@@ -62,6 +68,8 @@ class PlaybackSession(
     val onSkipForward: () -> Unit,
     val onSetSpeed: (Float) -> Unit,
     val onResetSpeed: () -> Unit,
+    val onSetBoost: (Float) -> Unit,
+    val onResetBoost: () -> Unit,
     val onSeekToChapter: (Int) -> Unit,
     val onSetSleepTimer: (SleepTimerMode) -> Unit,
     val onCancelSleepTimer: () -> Unit,
@@ -118,6 +126,9 @@ fun fixedPlayback(
     currentChapterIndex: Int? = null,
     sleepTimer: SleepTimerState = SleepTimerState.Inactive,
     defaultSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+    volumeBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
+    defaultBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
+    boostUnavailable: Boolean = false,
 ): OpenPlayback =
     {
         PlaybackSession(
@@ -127,6 +138,9 @@ fun fixedPlayback(
             currentChapterIndex = MutableStateFlow(currentChapterIndex),
             sleepTimer = MutableStateFlow(sleepTimer),
             defaultSpeed = MutableStateFlow(defaultSpeed),
+            volumeBoostDb = MutableStateFlow(volumeBoostDb),
+            defaultBoostDb = MutableStateFlow(defaultBoostDb),
+            boostUnavailable = MutableStateFlow(boostUnavailable),
             onPlayPause = {},
             onSeek = {},
             onPlayBook = {},
@@ -134,6 +148,8 @@ fun fixedPlayback(
             onSkipForward = {},
             onSetSpeed = {},
             onResetSpeed = {},
+            onSetBoost = {},
+            onResetBoost = {},
             onSeekToChapter = {},
             onSetSleepTimer = {},
             onCancelSleepTimer = {},
@@ -242,6 +258,29 @@ internal class LivePlayback(
             .observeDefaultSkipForwardSec()
             .stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC)
 
+    /** This book's volume boost, straight from the manager that owns it. */
+    val volumeBoostDb: StateFlow<Float> get() = playbackManager.volumeBoostDb
+
+    /**
+     * The listener's default boost, from their synced settings — what a boost reset *names*.
+     *
+     * ⛔ Read for display only, exactly like [defaultSpeed]: `stateIn` serves its seed until the
+     * first upstream emission, so [resetBoost] takes the suspend read instead.
+     */
+    val defaultBoostDb: StateFlow<Float> =
+        playbackPreferences
+            .observeDefaultVolumeBoostDb()
+            .stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
+
+    /**
+     * Whether a boost was asked for and this browser would not give it.
+     *
+     * Surfaced rather than swallowed because the failure is invisible otherwise — the book plays
+     * on, at the volume the listener just tried to change. See
+     * [com.calypsan.listenup.web.playback.WebGainStage].
+     */
+    val boostUnavailable: StateFlow<Boolean> get() = audioPlayer.boostUnavailable
+
     /**
      * Position and duration as one value, because [combine] is only typed to five flows and the
      * bar needs seven. Paired rather than any other two: they change on the same tick.
@@ -301,6 +340,22 @@ internal class LivePlayback(
     val sleepTimer: StateFlow<SleepTimerState> get() = sleepTimerManager.state
 
     init {
+        // Loudness gain — the book's normalization plus the listener's boost, already combined by
+        // `VolumeGain.effectiveGainDb`. The same flow Android's `PlaybackService` collects into its
+        // `GainAudioProcessor`, so a browser and a phone amplify a book by the same number rather
+        // than by two independently-derived ones.
+        //
+        // Combined with the player's own state, and NOT because the state is wanted: the two
+        // arrive out of order. `PlaybackManagerImpl` publishes `effectiveGainDb` inside
+        // `prepareForPlayback`, which is *before* the `startPlayback` that gives the element a
+        // source — and `WebGainStage` cannot route an element with nothing loaded. The state
+        // change that follows the load is what re-applies the gain to a book that now has audio.
+        // Re-applying is idempotent: an attached stage just rewrites its node.
+        scope.launch {
+            combine(playbackManager.effectiveGainDb, playbackManager.playbackState) { db, _ -> db }
+                .collect { db -> audioPlayer.setGainDb(db) }
+        }
+
         // End-of-chapter mode has no clock to watch; it waits to be told a chapter turned over.
         // The same feed `NowPlayingViewModel` gives it, deduped in the flow rather than against a
         // private var, so a position tick inside one chapter says nothing.
@@ -539,6 +594,31 @@ internal class LivePlayback(
     }
 
     /**
+     * Play this book [boostDb] louder from now on, and remember that it is read that way.
+     *
+     * One call, unlike [setSpeed]'s pair: [PlaybackManager.onVolumeBoostChanged] both records the
+     * per-book choice and recomputes `effectiveGainDb`, which the collector in `init` turns into
+     * a real gain. `NowPlayingViewModel.setBoost` is the same single call for the same reason.
+     */
+    fun setBoost(boostDb: Float) {
+        playbackManager.onVolumeBoostChanged(boostDb)
+    }
+
+    /**
+     * Go back to the listener's own default boost, and stop treating this book as an exception.
+     *
+     * [PlaybackManager.onBoostReset] rather than `onVolumeBoostChanged` with the same number, for
+     * the reason [resetSpeed] documents: one pins the book, the other says it has no opinion.
+     * Mirrors `NowPlayingViewModel.resetBoostToDefault`, including the suspend read.
+     */
+    fun resetBoost() {
+        scope.launch {
+            // The suspend read, not [defaultBoostDb]`.value` — see the ⛔ on that flow.
+            playbackManager.onBoostReset(playbackPreferences.getDefaultVolumeBoostDb())
+        }
+    }
+
+    /**
      * Jumps the playhead to the start of chapter [index].
      *
      * Reuses [seek] rather than restating it: the pair of calls it makes — seek the controller,
@@ -605,6 +685,9 @@ internal class LivePlayback(
             currentChapterIndex = currentChapterIndex,
             sleepTimer = sleepTimer,
             defaultSpeed = defaultSpeed,
+            volumeBoostDb = volumeBoostDb,
+            defaultBoostDb = defaultBoostDb,
+            boostUnavailable = boostUnavailable,
             onPlayPause = ::playPause,
             onSeek = ::seek,
             onPlayBook = ::playBook,
@@ -612,6 +695,8 @@ internal class LivePlayback(
             onSkipForward = ::skipForward,
             onSetSpeed = ::setSpeed,
             onResetSpeed = ::resetSpeed,
+            onSetBoost = ::setBoost,
+            onResetBoost = ::resetBoost,
             onSeekToChapter = ::seekToChapter,
             onSetSleepTimer = ::setSleepTimer,
             onCancelSleepTimer = ::cancelSleepTimer,

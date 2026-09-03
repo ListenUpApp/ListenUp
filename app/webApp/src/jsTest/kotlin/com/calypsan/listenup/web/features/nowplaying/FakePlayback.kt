@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioSegment
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackState
+import com.calypsan.listenup.client.playback.loudness.VolumeGain
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,8 @@ internal fun fakePlaybackManager(
     segment: AudioSegment,
     title: String,
     prepare: PrepareOutcome = PrepareOutcome.SUCCEEDS,
-): FakePlaybackManager = FakePlaybackManager(segment, title, prepare)
+    resumeBoostDb: Float = 0f,
+): FakePlaybackManager = FakePlaybackManager(segment, title, prepare, resumeBoostDb)
 
 /**
  * How a fake prepare ends. The two failing shapes are the ones a prime has to survive: a prepare
@@ -57,6 +59,8 @@ internal class FakePlaybackManager(
     private val segment: AudioSegment,
     private val title: String,
     private val prepare: PrepareOutcome,
+    /** The book's stored boost, published at prepare time the way `PlaybackManagerImpl` does. */
+    private val resumeBoostDb: Float = 0f,
 ) : PlaybackManager {
     private var prepareCount = 0
 
@@ -169,6 +173,11 @@ internal class FakePlaybackManager(
             )
         currentTimeline.value = timeline
         totalDurationMs.value = segment.durationMs
+        // Where the real manager publishes it: inside prepare, BEFORE `startPlayback` gives the
+        // player a source. That ordering is load-bearing — a stage that could only attach to an
+        // element with audio already loaded would never see a cold start's boost.
+        volumeBoostDb.value = resumeBoostDb
+        effectiveGainDb.value = VolumeGain.effectiveGainDb(null, null, resumeBoostDb)
         return PlaybackManager.PrepareResult(
             timeline = timeline,
             bookTitle = title,
@@ -178,7 +187,7 @@ internal class FakePlaybackManager(
             totalChapters = 1,
             resumePositionMs = 0L,
             resumeSpeed = 1.0f,
-            resumeBoostDb = 0f,
+            resumeBoostDb = resumeBoostDb,
             measuredGainDb = null,
             normalizationGainDb = null,
         )
@@ -211,12 +220,17 @@ internal class FakePlaybackManager(
 
     override fun onSpeedReset(defaultSpeed: Float) = updateSpeed(defaultSpeed)
 
+    // Both of these recompute `effectiveGainDb`, exactly as `PlaybackManagerImpl` does. Without
+    // that the flow the session collects would never move, and a spec proving a boost reaches the
+    // player would be green against a player that never heard about it.
     override fun onVolumeBoostChanged(boostDb: Float) {
         volumeBoostDb.value = boostDb
+        effectiveGainDb.value = VolumeGain.effectiveGainDb(null, null, boostDb)
     }
 
     override fun onBoostReset(defaultBoostDb: Float) {
         volumeBoostDb.value = defaultBoostDb
+        effectiveGainDb.value = VolumeGain.effectiveGainDb(null, null, defaultBoostDb)
     }
 
     override fun clearError() {
@@ -235,14 +249,15 @@ internal class FakePlaybackPreferences(
     private val skipForwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
     private val skipBackwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
     private val speed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+    private val boostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
 ) : PlaybackPreferences {
     override fun observeDefaultPlaybackSpeed(): Flow<Float> = flowOf(speed)
 
     override suspend fun getDefaultPlaybackSpeed(): Float = speed
 
-    override fun observeDefaultVolumeBoostDb(): Flow<Float> = flowOf(PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
+    override fun observeDefaultVolumeBoostDb(): Flow<Float> = flowOf(boostDb)
 
-    override suspend fun getDefaultVolumeBoostDb(): Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB
+    override suspend fun getDefaultVolumeBoostDb(): Float = boostDb
 
     override fun observeDefaultSkipForwardSec(): Flow<Int> = flowOf(skipForwardSec)
 
