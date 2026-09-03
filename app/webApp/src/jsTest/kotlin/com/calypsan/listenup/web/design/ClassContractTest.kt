@@ -72,6 +72,9 @@ import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
 import com.calypsan.listenup.web.features.notifications.pref
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
 import com.calypsan.listenup.web.features.setup.setupState
+import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.ProfilePage
+import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
@@ -407,6 +410,7 @@ class ClassContractTest :
                         notificationShapes().forEach { it() }
                         notificationPrefShapes().forEach { it() }
                         librarySetupShapes().forEach { it() }
+                        profileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
                         // zero-hit Results and a populated one. The page joins this contract by
                         // hand, same as ContributorsPage above — a state nobody adds here is a
@@ -821,6 +825,25 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
                 onDismissError = {},
             )
         },
+    )
+
+/**
+ * A listener's page: a full profile, an empty one (whose "nothing yet" copy is the only thing that
+ * renders), and the two states with no profile at all.
+ */
+private fun profileShapes(): List<@Composable () -> Unit> =
+    listOf(
+        { ProfilePage(readyProfile(), onOpenBook = {}, onOpenShelf = {}, onRetry = {}) },
+        {
+            ProfilePage(
+                state = readyProfile(recentBooks = emptyList(), publicShelves = emptyList()),
+                onOpenBook = {},
+                onOpenShelf = {},
+                onRetry = {},
+            )
+        },
+        { ProfilePage(UserProfileUiState.Error("No such listener."), {}, {}, {}) },
+        { ProfilePage(UserProfileUiState.Loading, {}, {}, {}) },
     )
 
 /**

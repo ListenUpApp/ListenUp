@@ -70,6 +70,9 @@ import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
 import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
+import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.OpenProfile
+import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.shell.AccountMenu
@@ -122,6 +125,7 @@ fun WebAppRoot(
     openSeriesDetail: OpenSeriesDetail,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
+    openProfile: OpenProfile,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -135,12 +139,16 @@ fun WebAppRoot(
     openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
+    observeCurrentUserId: () -> Flow<String?>,
     onSignOut: () -> Unit = {},
 ) {
     var collapsed by remember { mutableStateOf(false) }
     // Starts false so a member never sees the entry flash; an admin's entry appears the moment
     // the repository's flow answers — the same read Book Edit gates its Collections field on.
     val isAdmin by remember { observeIsAdmin() }.collectAsState(initial = false)
+    // Starts null so the account menu never flashes a "Your profile" entry whose destination is
+    // not yet known — the same reason `isAdmin` starts false.
+    val currentUserId by remember { observeCurrentUserId() }.collectAsState(initial = null)
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
@@ -181,7 +189,13 @@ fun WebAppRoot(
             router.navigate(Route(segments))
         },
     ) {
-        AccountMenu(onSignOut = onSignOut)
+        AccountMenu(
+            onSignOut = onSignOut,
+            onOpenProfile =
+                currentUserId?.let { id ->
+                    { router.navigate(Route(listOf(PROFILE_KEY, id))) }
+                },
+        )
         // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
         // book meant coming back rebuilt the ViewModel and re-queried all 1,204 rows — measured at
         // **478 ms** of "Loading…" every single time, for a list the reader had just been looking
@@ -199,6 +213,7 @@ fun WebAppRoot(
             openSeriesDetail = openSeriesDetail,
             openNotifications = openNotifications,
             openNotificationPrefs = openNotificationPrefs,
+            openProfile = openProfile,
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
@@ -273,6 +288,7 @@ private fun RouteContent(
     openSeriesDetail: OpenSeriesDetail,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
+    openProfile: OpenProfile,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -301,6 +317,9 @@ private fun RouteContent(
     // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
     // series is something you arrive at and link to, not a filter over the library grid.
     val seriesId = if (page == SERIES_KEY) route.segments.getOrNull(1) else null
+    // `/profile/{id}` — a listener's own page, reached from a notification, the account menu,
+    // or a link someone sent. A route of its own for the same reason a contributor's is.
+    val profileId = if (page == PROFILE_KEY) route.segments.getOrNull(1) else null
 
     if (bookId != null) {
         BookRouteContent(
@@ -329,6 +348,8 @@ private fun RouteContent(
             onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
             onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
         )
+    } else if (profileId != null) {
+        ProfileRoute(router = router, openProfile = openProfile, userId = profileId)
     } else if (page == NOTIFICATIONS_KEY) {
         NotificationsRoute(router = router, openNotifications = openNotifications)
     } else if (seriesId != null) {
@@ -934,6 +955,8 @@ private fun NotificationsRoute(
                 // Web's Admin page IS the pending-approvals surface, so this one lands.
                 is ShortcutAction.NavigateToPendingApprovals -> router.navigate(Route(listOf(ADMIN_KEY)))
 
+                is ShortcutAction.NavigateToUserProfile -> router.navigate(Route(listOf(PROFILE_KEY, action.userId)))
+
                 else -> Unit
             }
         },
@@ -960,6 +983,30 @@ private fun NotificationPrefsRoute(
         onSetPreference = session.onSetPreference,
         onRetry = session.onRetry,
         onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+    )
+}
+
+/**
+ * `/profile/{userId}` — a listener's page.
+ *
+ * Keyed on [userId], for the reason `UserProfileViewModel.loadProfile` makes necessary: it returns
+ * early for a repeat of the id it already holds, so a session reused across two different people
+ * would keep showing the first one.
+ */
+@Composable
+private fun ProfileRoute(
+    router: Router,
+    openProfile: OpenProfile,
+    userId: String,
+) {
+    val session = remember(userId) { openProfile(userId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    ProfilePage(
+        state = session.state.collectAsState().value,
+        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+        onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
+        onRetry = session.onRetry,
     )
 }
 
@@ -1146,6 +1193,9 @@ private const val ADMIN_KEY = "admin"
 private const val SETTINGS_KEY = "settings"
 
 private const val DEVICES_KEY = "devices"
+
+/** The path segment that opens a listener's own page — `/profile/{userId}`. */
+private const val PROFILE_KEY = "profile"
 
 /** The path segment that opens the notification inbox — `/notifications`. */
 private const val NOTIFICATIONS_KEY = "notifications"

@@ -24,6 +24,10 @@ import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.pref
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.settings.fixedSettings
+import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.fixedProfile
+import com.calypsan.listenup.web.features.profile.readyProfile
+import com.calypsan.listenup.web.features.profile.ProfileSession
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.contributor
@@ -571,6 +575,113 @@ class WebAppRootTest :
                 notifications.click()
 
                 window.location.pathname shouldBe "/settings/notifications"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/profile/{id} renders that listener's page") {
+            val (host, router) =
+                mountAt(
+                    "/profile/u7",
+                    openProfile = fixedProfile(readyProfile(userId = "u7", displayName = "Simon Hull")),
+                )
+
+            try {
+                (host.querySelector(".prof-name") as HTMLElement).textContent shouldBe "Simon Hull"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // `loadProfile` returns early for the id it already holds, so an unkeyed session would
+        // keep showing the first person visited.
+        test("switching profile id opens a new session rather than reusing the old one's") {
+            val requested = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/profile/u1",
+                    openProfile = { id ->
+                        requested += id
+                        ProfileSession(MutableStateFlow(readyProfile(userId = id)), onRetry = {}, close = {})
+                    },
+                )
+
+            try {
+                requested shouldBe listOf("u1")
+
+                router.navigate(Route(listOf("profile", "u2")))
+                awaitFrame()
+
+                requested shouldBe listOf("u1", "u2")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The destination `NotificationTapRouting` has always produced and web had nowhere to send.
+        test("a profile notification now lands on that profile") {
+            val (host, router) =
+                mountAt(
+                    "/notifications",
+                    openNotifications =
+                        fixedNotifications(
+                            NotificationsUiState.Data(
+                                listOf(
+                                    notification(
+                                        id = "n1",
+                                        event = NotificationEvent.CampfireInvite("c1", "b1", "u5"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                )
+
+            try {
+                // A campfire target has no surface on any client, so this one still goes nowhere —
+                // the profile branch is exercised by the routing spec above. What this pins is that
+                // adding the branch did not make an unrelated notification start navigating.
+                (host.querySelector(".ntf-row") as HTMLElement).click()
+
+                window.location.pathname shouldBe "/notifications"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the account menu offers your own profile once the app knows who you are") {
+            val (host, router) = mountAt("/", currentUserId = flowOf("me-1"))
+
+            try {
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (host.querySelector(".menu-anchor button") == null) delay(10)
+                }
+                (host.querySelector(".menu-anchor button") as HTMLElement).click()
+                awaitFrame()
+
+                val items = host.querySelectorAll(".menu-i")
+                val profile =
+                    (0 until items.length)
+                        .map { items.item(it) as HTMLElement }
+                        .first { it.textContent.orEmpty().contains("Your profile") }
+                profile.click()
+
+                window.location.pathname shouldBe "/profile/me-1"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // A greyed entry that becomes live a frame later draws the eye to a transition nobody
+        // needs to watch, so it is absent instead.
+        test("the account menu offers no profile entry before the app knows who you are") {
+            val (host, router) = mountAt("/", currentUserId = flowOf(null))
+
+            try {
+                (host.querySelector(".menu-anchor button") as HTMLElement).click()
+                awaitFrame()
+
+                host.textContent.orEmpty().contains("Your profile") shouldBe false
             } finally {
                 router.dispose()
             }

@@ -64,6 +64,9 @@ import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
+import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.OpenProfile
+import com.calypsan.listenup.web.features.profile.fixedProfile
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -87,6 +90,8 @@ internal fun mountAt(
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
     openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+    openProfile: OpenProfile = fixedProfile(UserProfileUiState.Loading),
+    currentUserId: Flow<String?> = flowOf(null),
     openNotificationBell: OpenNotificationBell = fixedNotificationBell(),
     openContributors: OpenContributors = fixedContributors(emptyList()),
     openHome: OpenHome = fixedHome(HomeUiState.Loading),
@@ -108,6 +113,7 @@ internal fun mountAt(
                 openSeriesDetail,
                 openNotifications,
                 openNotificationPrefs,
+                openProfile,
                 openContributors,
                 openHome,
                 fixedDiscover(),
@@ -121,6 +127,7 @@ internal fun mountAt(
                 openNotificationBell,
                 fixedPlayback(),
                 observeIsAdmin = { isAdmin },
+                observeCurrentUserId = { currentUserId },
             )
         }
     return Triple(host, router, composition)

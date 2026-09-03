@@ -19,7 +19,16 @@ import org.jetbrains.compose.web.dom.Text
  * clearing `localStorage` by hand.
  */
 @Composable
-fun AccountMenu(onSignOut: () -> Unit) {
+fun AccountMenu(
+    onSignOut: () -> Unit,
+    /**
+     * Opens the signed-in listener's own profile, or null while the app does not yet know who that
+     * is. Null renders no entry at all rather than a disabled one: the gap lasts a frame or two on
+     * a cold start, and a control that appears greyed and then becomes live draws the eye to a
+     * transition nobody needs to watch.
+     */
+    onOpenProfile: (() -> Unit)? = null,
+) {
     var open by remember { mutableStateOf(false) }
 
     // .menu-anchor, not .f-wrap: the latter is the form-field wrapper and is width:100%, which
@@ -36,6 +45,18 @@ fun AccountMenu(onSignOut: () -> Unit) {
 
         if (open) {
             Div(attrs = { classes("menu") }) {
+                onOpenProfile?.let { openProfile ->
+                    Div(attrs = {
+                        classes("menu-i")
+                        onClick {
+                            open = false
+                            openProfile()
+                        }
+                    }) {
+                        Icon(WebIcon.Person, size = ICON_SIZE)
+                        Text("Your profile")
+                    }
+                }
                 Div(attrs = {
                     classes("menu-i")
                     onClick {
