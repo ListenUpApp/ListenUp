@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -26,6 +28,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -51,6 +55,14 @@ class PlaybackSession(
     val chapters: StateFlow<List<TransportChapter>>,
     /** Which chapter the playhead is in, or null with no book or no marks. */
     val currentChapterIndex: StateFlow<Int?>,
+    /**
+     * Who wrote the playing book, what series it is in, and which cover to draw — or null when
+     * nothing is playing, or when the book is not in this browser's mirror yet.
+     *
+     * Separate from [state] for the same reason [chapters] is: this changes once per book, and
+     * [state] is rebuilt on every position tick.
+     */
+    val nowPlaying: StateFlow<NowPlayingBook?>,
     /** Whether a sleep timer is running, and how much of it is left. */
     val sleepTimer: StateFlow<SleepTimerState>,
     /** The listener's own default rate, from Settings — what a reset goes back to. */
@@ -76,6 +88,41 @@ class PlaybackSession(
     val onExtendSleepTimer: (Int) -> Unit,
     val onDismissError: () -> Unit,
     val close: () -> Unit,
+)
+
+/**
+ * The playing book's identity, as the expanded player needs it.
+ *
+ * Read from Room via `BookRepository.observeBookDetail`, not from the prepare that started the
+ * book. `PlaybackManager.PrepareResult` carries a title, an author name and a series NAME — but no
+ * ids, and no cover hash. Without ids the panel could print "Brandon Sanderson" and not take you
+ * to him, and without the hash its cover would be served from a year-long `immutable` cache that
+ * no re-cover could bust (see `coverUrl`). Room already holds all of it, is the client's single
+ * source of truth, and keeps answering when the network does not.
+ */
+class NowPlayingBook(
+    val bookId: String,
+    val coverHash: String?,
+    /** Every author, with the id each one links to. Empty when the book names none. */
+    val authors: List<PlayerLink>,
+    /** Narrator names, joined as the book lists them. Empty when unknown. */
+    val narrators: String,
+    /** The book's series memberships, each with the position this book holds in it. */
+    val series: List<PlayerSeriesLink>,
+)
+
+/** A name and the id it navigates to. */
+class PlayerLink(
+    val id: String,
+    val name: String,
+)
+
+/** A series membership: where it goes, what it is called, and this book's place in it. */
+class PlayerSeriesLink(
+    val id: String,
+    val name: String,
+    /** `"1"`, `"1.5"`, or null when the series does not number this book. */
+    val sequenceLabel: String?,
 )
 
 /**
@@ -106,6 +153,7 @@ fun graphPlayback(koin: Koin): OpenPlayback =
             playbackController = koin.get(),
             audioPlayer = koin.get(),
             playbackPreferences = koin.get(),
+            bookRepository = koin.get(),
         ).asSession()
     }
 
@@ -124,6 +172,7 @@ fun fixedPlayback(
     error: String? = null,
     chapters: List<TransportChapter> = emptyList(),
     currentChapterIndex: Int? = null,
+    nowPlaying: NowPlayingBook? = null,
     sleepTimer: SleepTimerState = SleepTimerState.Inactive,
     defaultSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
     volumeBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
@@ -136,6 +185,7 @@ fun fixedPlayback(
             error = MutableStateFlow(error),
             chapters = MutableStateFlow(chapters),
             currentChapterIndex = MutableStateFlow(currentChapterIndex),
+            nowPlaying = MutableStateFlow(nowPlaying),
             sleepTimer = MutableStateFlow(sleepTimer),
             defaultSpeed = MutableStateFlow(defaultSpeed),
             volumeBoostDb = MutableStateFlow(volumeBoostDb),
@@ -185,6 +235,7 @@ internal class LivePlayback(
     private val playbackController: PlaybackController,
     private val audioPlayer: HtmlAudioPlayer,
     private val playbackPreferences: PlaybackPreferences,
+    private val bookRepository: BookRepository,
     // appCoroutineExceptionHandler, not a bare scope: [playBook] deliberately lets a failed
     // prepare propagate rather than swallowing it, so without a handler the only report of "your
     // book did not start" would be an unhandled rejection in the console.
@@ -318,6 +369,24 @@ internal class LivePlayback(
     val currentChapterIndex: StateFlow<Int?> =
         playbackManager.currentChapter
             .map { it?.index }
+            .stateIn(scope, SharingStarted.Eagerly, null)
+
+    /**
+     * The playing book, as Room holds it.
+     *
+     * `flatMapLatest` rather than a `combine`: this must follow whichever book is playing, and the
+     * upstream is a different query per book. Emits null the moment nothing is playing, so the
+     * panel cannot go on showing the last book's cover under the next book's title.
+     *
+     * A book the mirror has not seen yet resolves to null rather than to a half-filled shell — the
+     * panel then shows what [state] knows (title, position) and simply offers no links, which is
+     * true, instead of offering ones that go nowhere.
+     */
+    val nowPlaying: StateFlow<NowPlayingBook?> =
+        playbackManager.currentBookId
+            .flatMapLatest { bookId ->
+                if (bookId == null) flowOf(null) else bookRepository.observeBookDetail(bookId.value)
+            }.map { detail -> detail?.toNowPlaying() }
             .stateIn(scope, SharingStarted.Eagerly, null)
 
     /**
@@ -683,6 +752,7 @@ internal class LivePlayback(
             error = error,
             chapters = chapters,
             currentChapterIndex = currentChapterIndex,
+            nowPlaying = nowPlaying,
             sleepTimer = sleepTimer,
             defaultSpeed = defaultSpeed,
             volumeBoostDb = volumeBoostDb,
@@ -731,3 +801,23 @@ internal fun chapterStartMs(
  * than reported.
  */
 private const val PREPARE_FAILED = "Couldn't start this book. Check your connection and try again."
+
+/**
+ * Room's book, reduced to what the player panel draws.
+ *
+ * Narrators join into one string because the panel prints them as a sentence and web has no
+ * narrator destination to link each one to — Contributor Detail is reached by id, and a narrator
+ * credit carries one, but a list of separately-clickable narrators is a control this panel has no
+ * room for. Authors DO link, because that is the single most likely thing to want from a player.
+ */
+private fun BookDetail.toNowPlaying(): NowPlayingBook =
+    NowPlayingBook(
+        bookId = id.value,
+        coverHash = coverHash,
+        authors = authors.map { PlayerLink(id = it.id, name = it.name) },
+        narrators = narrators.joinToString(", ") { it.name },
+        series =
+            series.map {
+                PlayerSeriesLink(id = it.seriesId, name = it.seriesName, sequenceLabel = it.sequenceLabel)
+            },
+    )

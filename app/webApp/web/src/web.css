@@ -205,6 +205,14 @@ body { margin: 0; }
 .tport-boost:active,
 .tport-speed:active,
 .tport-note-x:active,
+.tport-expand:active,
+.np-play:active,
+.np-b:active,
+.np-chstep:active,
+.np-chip:active,
+.np-goto:active,
+.np-by-name:active,
+.np-series-chip:active,
 .bulk-b:active,
 .bulk-x:active,
 .toast .t-act:active,
@@ -550,6 +558,78 @@ body { margin: 0; }
 /* ---- volume boost ---- */
 /* Narrower than the speed panel: five chips and no slider. */
 .boost-dlg { max-width: 380px; width: min(380px, calc(100vw - 32px)); }
+
+/* ---- the expanded player. Wider than the pickers because it is the only panel that has to hold
+   a cover, a byline and a transport at once; every other one is a list of choices. */
+.np-dlg { width: 560px; max-width: min(560px, calc(100vw - 32px)); }
+.np-body { display:flex; gap:20px; align-items:flex-start; padding:4px 0 16px; }
+.np-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
+.np-t { font-size:20px; font-weight:800; letter-spacing:-.02em; color:var(--ink); line-height:1.2; }
+.np-by { font-size:14px; font-weight:600; color:var(--ink-2); }
+.np-sep { color:var(--ink-3); }
+/* A byline name is a control, not decoration — same contract as `.bd-by-name`. */
+.np-by-name { font:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer; border-radius:4px; }
+@media (hover: hover) { .np-by-name:hover { color:var(--coral); text-decoration:underline; } }
+.np-by-name:focus { outline:none; }
+.np-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-series { display:flex; flex-wrap:wrap; gap:8px; }
+.np-series-chip {
+  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+  background:var(--surface-2); border:1px solid var(--line);
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+}
+@media (hover: hover) { .np-series-chip:hover { border-color:var(--coral); color:var(--coral); } }
+.np-series-chip:focus { outline:none; }
+.np-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-series-seq { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.np-ch { display:flex; flex-direction:column; gap:2px; margin-top:2px; }
+.np-ch-n { font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); }
+.np-ch-t { font-size:13.5px; color:var(--ink-2); font-weight:600; }
+
+/* The transport. Centred as one group so the play button sits on the panel's axis — the row is
+   read as a unit, not as controls distributed across the width. */
+.np-transport { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 12px; }
+.np-play { width:56px; height:56px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .np-play:hover { background:var(--coral-press); } }
+.np-b, .np-chstep {
+  width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer;
+  background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center;
+}
+@media (hover: hover) { .np-b:hover, .np-chstep:not(:disabled):hover { background:var(--surface-2); color:var(--ink); } }
+/* A chapter step at either end of the book is genuinely unavailable, and says so. The hover above
+   is scoped to :not(:disabled) rather than overridden back here, so there is exactly one rule
+   describing when a step responds at all. */
+.np-chstep:disabled { opacity:.3; cursor:default; }
+
+.np-scrub-row { display:flex; align-items:center; gap:12px; padding-bottom:16px; }
+.np-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+.np-scrub { flex:1; min-width:60px; height:5px; margin:0; accent-color:var(--coral); cursor:pointer; }
+
+.np-actions { display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding-bottom:6px; }
+.np-chip {
+  padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:transparent;
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+  font-variant-numeric:tabular-nums;
+}
+@media (hover: hover) { .np-chip:hover { background:var(--surface-2); color:var(--ink); } }
+.np-chip.on { border-color:var(--coral); color:var(--coral); }
+.np-chip:focus { outline:none; }
+.np-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* The one control that leaves the player, so it sits apart from the four that do not. */
+.np-goto {
+  margin-left:auto; display:inline-flex; align-items:center; gap:4px;
+  padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:transparent;
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+}
+@media (hover: hover) { .np-goto:hover { border-color:var(--coral); color:var(--coral); } }
+.np-goto:focus { outline:none; }
+.np-goto:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+
+@media (max-width: 620px) {
+  /* The cover is the first thing to go: it is the largest element and the only one that carries
+     no information the rest of the panel does not already state in words. */
+  .np-body { flex-direction:column; align-items:stretch; gap:14px; }
+}
 .boost-read {
   margin: 18px 0 10px; font-size: 42px; font-weight: 800; letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
@@ -714,8 +794,8 @@ body { margin: 0; }
 /* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
    bar read as three equal actions, when only one of them is the one you reach for. `position:
    relative` anchors the interval numeral over the arrow. */
-.tport-skip, .tport-sleep, .tport-boost { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .tport-skip:hover, .tport-sleep:hover, .tport-boost:hover { background:var(--surface-2); color:var(--ink); } }
+.tport-skip, .tport-sleep, .tport-boost, .tport-expand { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-skip:hover, .tport-sleep:hover, .tport-boost:hover, .tport-expand:hover { background:var(--surface-2); color:var(--ink); } }
 /* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
    two-digit interval still has to fit. */
 .tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }

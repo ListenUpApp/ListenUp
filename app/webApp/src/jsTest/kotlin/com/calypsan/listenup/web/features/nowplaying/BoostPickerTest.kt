@@ -248,7 +248,7 @@ class BoostSessionTest :
             val player = HtmlAudioPlayer()
             val manager = fakePlaybackManager(silentSegment(SEGMENT_MS), title = "Dune")
             val playback =
-                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences(), FakeBookRepository())
 
             playback.setBoost(BOOSTED)
 
@@ -269,7 +269,7 @@ class BoostSessionTest :
             val player = HtmlAudioPlayer()
             val manager = fakePlaybackManager(segment, title = "Dune", resumeBoostDb = BOOSTED)
             val playback =
-                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences(), FakeBookRepository())
 
             playback.playBook(BookId("book-1"))
             player.awaitState(PlaybackState.Playing)
@@ -296,6 +296,7 @@ class BoostSessionTest :
                     WebPlaybackController(player, manager),
                     player,
                     FakePlaybackPreferences(boostDb = CUSTOM_DEFAULT_BOOST),
+                    FakeBookRepository(),
                 )
 
             playback.setBoost(BOOSTED)

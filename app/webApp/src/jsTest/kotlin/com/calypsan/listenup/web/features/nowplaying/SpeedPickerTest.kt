@@ -232,6 +232,7 @@ class SpeedSessionTest :
                     WebPlaybackController(player, manager),
                     player,
                     FakePlaybackPreferences(speed = CUSTOM_DEFAULT),
+                    FakeBookRepository(),
                 )
 
             playback.setSpeed(FASTER)

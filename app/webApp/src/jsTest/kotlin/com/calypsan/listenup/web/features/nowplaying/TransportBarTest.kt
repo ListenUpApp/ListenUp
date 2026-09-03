@@ -352,6 +352,7 @@ class TransportBarTest :
                     playbackController = WebPlaybackController(player, manager),
                     audioPlayer = player,
                     playbackPreferences = FakePlaybackPreferences(),
+                    bookRepository = FakeBookRepository(),
                 )
 
             // Exactly what Book Detail's Play button does.
@@ -424,7 +425,17 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val doomed = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(doomed, title = "Dune", prepare = PrepareOutcome.THROWS)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.playBook(BookId("book-1"))
             // The window closing is the `finally` having run — deterministic, unlike a delay.
@@ -447,7 +458,17 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val pending = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(pending, title = "Dune", prepare = PrepareOutcome.NEVER_RETURNS)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.playBook(BookId("book-1"))
             playback.close()
@@ -474,7 +495,17 @@ class TransportBarTest :
             // its title already null, and the assertion below would hold whether or not `playBook`
             // ever cleared anything — proof of nothing.
             val manager = fakePlaybackManager(segment, title = "Dune", prepare = PrepareOutcome.STALLS_AFTER_FIRST)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.playBook(BookId("book-1"))
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
@@ -497,7 +528,17 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val segment = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(segment, title = "Dune")
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.playBook(BookId("book-1"))
             player.awaitState(PlaybackState.Playing)
@@ -517,7 +558,17 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val segment = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(segment, title = "Dune")
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.playBook(BookId("book-1"))
             // Wait on the manager's flow, not the player's: `playPause` branches on exactly this
@@ -549,6 +600,7 @@ class TransportBarTest :
                     WebPlaybackController(player, manager),
                     player,
                     FakePlaybackPreferences(skipForwardSec = CUSTOM_SKIP_FORWARD_SEC, skipBackwardSec = 15),
+                    FakeBookRepository(),
                 )
 
             playback.playBook(BookId("book-1"))
@@ -567,7 +619,16 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val manager = fakePlaybackManager(silentSegment(AUDIO_SEGMENT_MS), title = "Dune")
             val playback =
-                LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.playBook(BookId("book-1"))
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
@@ -585,7 +646,17 @@ class TransportBarTest :
             val player = HtmlAudioPlayer()
             val segment = silentSegment(AUDIO_SEGMENT_MS)
             val manager = fakePlaybackManager(segment, title = "Dune", prepare = PrepareOutcome.THROWS)
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.playBook(BookId("book-1"))
 
