@@ -4,6 +4,8 @@ import com.calypsan.listenup.domain.VolumeBoostLimits
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.inspectors.forAll
 import io.kotest.matchers.doubles.shouldBeGreaterThan
+import io.kotest.matchers.doubles.shouldBeLessThan
+import io.kotest.matchers.floats.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.floats.shouldBeGreaterThan
 import io.kotest.matchers.floats.shouldBeLessThan
@@ -89,6 +91,45 @@ class VolumeGainTest :
             }
             // And it is a real increase, not a rounding artefact: +12 dB is audibly louder than off.
             (levels.last() / levels.first()) shouldBeGreaterThan 2.0
+        }
+
+        test("the curve never decreases, at any drive") {
+            // The property that actually matters and that the curve really has: raising a sample
+            // never lowers its output. Strict increase is impossible near the ceiling — see the
+            // plateau note on VolumeGain.applySample.
+            for (db in listOf(0f, 6f, 12f, 24f)) {
+                val gain = VolumeGain.dbToLinear(db)
+                var previous = -1f
+                for (step in 0..1000) {
+                    val out = VolumeGain.applySample(step / 1000f, gain)
+                    out shouldBeGreaterThanOrEqual previous
+                    previous = out
+                }
+            }
+        }
+
+        test("saturation flattens far less of the waveform than the old hard clamp did") {
+            // The user-facing claim, measured rather than asserted. Both approaches eventually
+            // plateau; what changed is how much of the signal reaches that plateau. Hard clipping
+            // flattened everything past 1/gain, which at +12 dB is three quarters of the range.
+            val gain = VolumeGain.dbToLinear(12f)
+            val steps = 10_000
+
+            fun flattenedFraction(transform: (Float) -> Float): Double {
+                val outputs = (0..steps).map { transform(it / steps.toFloat()) }
+                val ceiling = outputs.max()
+                return outputs.count { it >= ceiling }.toDouble() / outputs.size
+            }
+
+            val hardClamped = flattenedFraction { (it * gain).coerceIn(-1f, 1f) }
+            val saturated = flattenedFraction { VolumeGain.applySample(it, gain) }
+
+            // The old behaviour flattened most of the range outright.
+            hardClamped shouldBeGreaterThan 0.7
+            // The new one leaves the great majority of it intact...
+            saturated shouldBeLessThan 0.35
+            // ...and is a large improvement, not a rounding difference.
+            (hardClamped / saturated) shouldBeGreaterThan 2.0
         }
 
         test("boost range constants") {

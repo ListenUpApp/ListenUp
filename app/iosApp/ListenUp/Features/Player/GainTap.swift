@@ -251,8 +251,15 @@ enum GainTap {
 ///
 /// Below `knee` this is exactly a multiply, so audio that was never going to clip is untouched.
 /// Above it the excess goes through `tanh`, which meets the linear slope exactly at the knee
-/// (`tanh'(0) = 1`, so no corner to hear as a click), stays monotonic (louder in is always louder
-/// out — the boost keeps boosting), and asymptotes to `ceiling` without reaching it.
+/// (`tanh'(0) = 1`, so no corner to hear as a click), is **non-decreasing**, and asymptotes to
+/// `ceiling` without reaching it.
+///
+/// It is *not* strictly increasing at the top, and cannot be: approaching the ceiling, consecutive
+/// results eventually differ by less than one `Float` ULP and compare equal. That plateau is a
+/// property of finite output precision rather than of this curve — every asymptotic saturator has
+/// one. What changed is where it begins: the old clamp plateaued the moment a sample passed
+/// `1 / gain`, and this begins several times further out. See the Kotlin `VolumeGain.applySample`
+/// KDoc, which is the specification.
 ///
 /// This replaced `min(1, max(-1, …))`. A brick wall flattens the tops off a waveform, which
 /// manufactures high-order harmonics — heard as a buzz, and heard worst on a phone speaker, which

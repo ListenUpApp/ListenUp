@@ -60,11 +60,19 @@ object VolumeGain {
      * Above [KNEE_LINEAR] the excess is passed through `tanh`, which
      *  - matches the linear slope exactly at the knee (`tanh'(0) = 1`), so there is no corner and
      *    no discontinuity to hear as a click,
-     *  - is monotonic, so louder input is always louder output — the boost keeps boosting, and
+     *  - is **non-decreasing**, so raising the boost never makes anything quieter, and
      *  - asymptotes to [CEILING_LINEAR] without ever reaching it, so no clamp is needed at all.
      *
      * It is still distortion when driven hard. The difference is that it is low-order and rolls
      * off, which reads as compression rather than as a fault.
+     *
+     * **It is not strictly increasing at the top, and it cannot be.** `tanh` asymptotes, so as the
+     * output approaches [CEILING_LINEAR] consecutive results eventually differ by less than one
+     * `Float` ULP and compare equal — a plateau. That is a property of finite output precision, not
+     * of this curve: any asymptotic saturator has one. What matters is *where* it starts. The old
+     * hard clamp plateaued the instant a sample passed `1 / gain`, flattening whatever fraction of
+     * the waveform sat above that; this one plateaus several times further out, so far less of the
+     * signal is affected. `VolumeGainTest` pins that distance so it cannot quietly regress.
      */
     fun applySample(
         sample: Float,

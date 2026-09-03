@@ -191,16 +191,42 @@ struct GainCurveTests {
         }
     }
 
-    /// Monotonic: louder in is always louder out. This is what keeps volume boost working — a
-    /// curve that flattened would make the top of the boost range do nothing.
-    @Test func theCurveIsMonotonicSoBoostAlwaysBoosts() {
-        let gain = VolumeGain.shared.dbToLinear(db: 12)
-        var previous = Float(0)
-        for step in 1...200 {
-            let out = GainCurve.apply(Float(step) / 200, gain)
-            #expect(out > previous)
-            previous = out
+    /// Non-decreasing at any drive: raising a sample never lowers its output. Strict increase is
+    /// impossible near the ceiling — consecutive results there differ by less than a `Float` ULP —
+    /// so this asserts what the curve actually guarantees. The user-facing property (boost really
+    /// makes things louder) is covered by the flattening comparison below and by Kotlin's
+    /// `VOLUME BOOST STILL WORKS` aggregate-loudness test.
+    @Test func theCurveNeverDecreasesAtAnyDrive() {
+        for db in [Float(0), 6, 12, 24] {
+            let gain = VolumeGain.shared.dbToLinear(db: db)
+            var previous = Float(-1)
+            for step in 0...1000 {
+                let out = GainCurve.apply(Float(step) / 1000, gain)
+                #expect(out >= previous)
+                previous = out
+            }
         }
+    }
+
+    /// The claim that matters, measured: both the old clamp and this curve eventually plateau, but
+    /// hard clipping flattened everything past `1 / gain` — three quarters of the range at +12 dB.
+    /// Mirrors Kotlin's `saturation flattens far less of the waveform` test.
+    @Test func saturationFlattensFarLessOfTheWaveformThanAHardClamp() {
+        let gain = VolumeGain.shared.dbToLinear(db: 12)
+        let steps = 10_000
+
+        func flattenedFraction(_ transform: (Float) -> Float) -> Double {
+            let outputs = (0...steps).map { transform(Float($0) / Float(steps)) }
+            let ceiling = outputs.max() ?? 1
+            return Double(outputs.filter { $0 >= ceiling }.count) / Double(outputs.count)
+        }
+
+        let hardClamped = flattenedFraction { min(1, max(-1, $0 * gain)) }
+        let saturated = flattenedFraction { GainCurve.apply($0, gain) }
+
+        #expect(hardClamped > 0.7)
+        #expect(saturated < 0.35)
+        #expect(hardClamped / saturated > 2.0)
     }
 
     /// Agreement with the Kotlin across the whole domain, not just at the constants — the point of
