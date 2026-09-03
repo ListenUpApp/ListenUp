@@ -50,6 +50,9 @@ final class Dependencies {
     // MARK: - Settings
 
     var authSession: any AuthSession { resolve { KoinHelper.shared.getAuthSession() } }
+    /// The shared error bus. Memoized — it is a Koin `single`, and a fresh instance per read would
+    /// be a bus with no emitters on it.
+    var errorBus: ErrorBus { resolve { KoinHelper.shared.getErrorBus() } }
     var serverConfig: ServerConfig { resolve { KoinHelper.shared.getServerConfig() } }
     var deepLinkManager: DeepLinkManager { resolve { KoinHelper.shared.getDeepLinkManager() } }
 

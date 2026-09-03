@@ -157,6 +157,17 @@ enum BulkEditFormatting {
         shared ?? String(localized: "bulk_edit.multiple_values")
     }
 
+    /// What the app says once a bulk edit has landed.
+    ///
+    /// The sheet dismisses the moment it succeeds and the grid it returns to shows covers and
+    /// titles — not publishers — so without this a write to forty books looks exactly like a write
+    /// to none. Counts books that **changed**, matching the Apply button that promised it.
+    static func applied(changedCount: Int) -> String {
+        changedCount == 1
+            ? String(localized: "bulk_edit.applied_one")
+            : String(format: String(localized: "bulk_edit.applied_plural"), changedCount)
+    }
+
     /// What the failure alert says: why it stopped, plus how much stands.
     ///
     /// The committed books are not rolled back, so naming them is the difference between "nothing

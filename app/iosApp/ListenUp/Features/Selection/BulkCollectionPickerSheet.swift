@@ -3,7 +3,7 @@ import SwiftUI
 /// Binds `BookSelectionObserver`'s collections into `NamedEntityPickerSheet` for the bulk-selection
 /// "file every selected book into a collection" flow: a count header, frost, an always-present
 /// create affordance, and a hint-row empty state (an admin with zero collections still needs to make
-/// the first one). Failures surface on the global `ErrorBus`; on success the VM clears the selection
+/// the first one). Failures surface on the global `ErrorBus`, which `GlobalErrorObserver` consumes; on success the VM clears the selection
 /// and the observer dismisses this sheet.
 struct BulkCollectionPickerSheet: View {
     let observer: BookSelectionObserver

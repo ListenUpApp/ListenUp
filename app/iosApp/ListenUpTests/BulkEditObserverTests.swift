@@ -20,6 +20,18 @@ struct BulkEditObserverTests {
         #expect(BulkEditFormatting.title(bookCount: 40) == expected)
     }
 
+    // MARK: - Applied confirmation
+
+    @Test func appliedNamesASingleBook() {
+        #expect(BulkEditFormatting.applied(changedCount: 1) == String(localized: "bulk_edit.applied_one"))
+    }
+
+    /// Reports what changed, not what was selected — the same promise the Apply button made.
+    @Test func appliedCountsTheBooksThatChanged() {
+        let expected = String(format: String(localized: "bulk_edit.applied_plural"), 8)
+        #expect(BulkEditFormatting.applied(changedCount: 8) == expected)
+    }
+
     // MARK: - Apply label
 
     /// The resting state of an untouched form. "Change 0 books" is true and reads as a bug, so the

@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorBo
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
+import com.calypsan.listenup.core.error.ErrorBus
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.core.parameter.parametersOf
@@ -206,6 +207,15 @@ object KoinHelper {
     fun getAppStartupViewModel(): AppStartupViewModel = resolve(AppStartupViewModel::class)
 
     fun getAuthSession(): AuthSession = resolve(AuthSession::class)
+
+    /**
+     * The app-wide error bus.
+     *
+     * Bound as a `single`, so every emitter and the one Swift consumer share an instance. Compose
+     * has consumed this since day one via `GlobalErrorSnackbar`; iOS consumed it nowhere, which is
+     * why ~106 `errorBus.emit` sites produced nothing at all on this platform.
+     */
+    fun getErrorBus(): ErrorBus = resolve(ErrorBus::class)
 
     fun getConnectionHealthViewModel(): ConnectionHealthViewModel = resolve(ConnectionHealthViewModel::class)
 

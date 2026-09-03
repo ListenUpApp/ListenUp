@@ -3,7 +3,7 @@ import SwiftUI
 /// Binds `BookSelectionObserver`'s shelves into `NamedEntityPickerSheet` for the bulk-selection "add
 /// every selected book to a shelf" flow: a count header, frost, an always-present create affordance,
 /// and a silent empty state (shelves are always creatable, so no zero-state hint). No per-row
-/// checkmark — many books, no single membership. Failures surface on the global `ErrorBus`.
+/// checkmark — many books, no single membership. Failures surface on the global `ErrorBus`, which `GlobalErrorObserver` consumes.
 struct BulkShelfPickerSheet: View {
     let observer: BookSelectionObserver
     /// Number of books currently selected — shown in the count line.

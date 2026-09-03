@@ -22,11 +22,9 @@ struct SelectionCollectionRow: Identifiable, Equatable {
 /// forwards the user's actions. Successful bulk adds dismiss the matching picker and clear the
 /// selection inside the VM (which flips `selectionMode` back to `None`).
 ///
-/// **Add-to-shelf and add-to-collection failures are silent on iOS.** They are emitted to the shared
-/// `ErrorBus`, which Compose reads for its global snackbar and which **no Swift file consumes** — so
-/// nothing surfaces them here. That is a known gap, not a design: the bulk metadata editor, which
-/// came later, owns its errors instead (`BulkEditObserver.error` + an alert), and these two actions
-/// should follow. Do not read this comment as "handled elsewhere".
+/// Failures are emitted to the shared `ErrorBus` and surfaced by `GlobalErrorObserver` on the
+/// app-wide message host; successes come back on `events` and become `confirmation`, which the
+/// screen chrome posts. Both halves of a bulk add are therefore visible to the user.
 @Observable
 @MainActor
 final class BookSelectionObserver {
@@ -39,6 +37,9 @@ final class BookSelectionObserver {
     private(set) var allCollections: [SelectionCollectionRow] = []
     private(set) var isAddingToShelf = false
     private(set) var isAddingToCollection = false
+
+    /// The last success sentence, for the screen chrome to post. Nil until something lands.
+    private(set) var confirmation: String?
 
     // MARK: - Sheet visibility (View-owned, reset on a success event)
 
@@ -80,16 +81,45 @@ final class BookSelectionObserver {
             self?.isAddingToCollection = value
         }
         // One-shot success events: dismiss whichever picker is open (the VM already cleared the
-        // selection, which flips `selectionMode` to `None`). Failures never reach here.
-        bridge.bind(viewModel.events) { [weak self] _ in
+        // selection, which flips `selectionMode` to `None`) and say what landed. Failures do not
+        // arrive here — they go to the shared ErrorBus, which `GlobalErrorObserver` now consumes.
+        bridge.bind(viewModel.events) { [weak self] event in
             self?.showShelfPicker = false
             self?.showCollectionPicker = false
+            self?.confirmation = Self.message(for: event)
         }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - State mapping
+
+    /// The sentence one success event becomes, or nil for an event this build does not know.
+    ///
+    /// Swift cannot switch a Kotlin sealed interface exhaustively, so the `.unknown` branch is real
+    /// rather than unreachable: a new event type is logged and says nothing, which is what this
+    /// screen did for every event until now.
+    private static func message(for event: BookMultiSelectEvent) -> String? {
+        switch onEnum(of: event) {
+        case .booksAddedToShelf(let added):
+            return SelectionFormatting.addedToShelf(count: Int(added.count))
+        case .booksAddedToCollection(let added):
+            return SelectionFormatting.addedToCollection(count: Int(added.count))
+        case .shelfCreatedAndBooksAdded(let created):
+            return SelectionFormatting.createdWithBooks(
+                name: created.shelfName,
+                count: Int(created.bookCount)
+            )
+        case .collectionCreatedAndBooksAdded(let created):
+            return SelectionFormatting.createdWithBooks(
+                name: created.collectionName,
+                count: Int(created.bookCount)
+            )
+        case .unknown:
+            Log.error("Unexpected BookMultiSelectEvent case")
+            return nil
+        }
+    }
 
     /// Flatten the sealed `SelectionMode` into `isSelecting` + the native `Set<String>`.
     private func applySelectionMode(_ mode: SelectionMode) {

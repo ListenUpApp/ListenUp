@@ -102,6 +102,7 @@ struct BookSelectionToolbar: ToolbarContent {
 /// silently missing from the screen most likely to be used for it.
 struct BookSelectionSheets: ViewModifier {
     let selection: BookSelectionObserver
+    @Environment(AppMessageCenter.self) private var messages
 
     func body(content: Content) -> some View {
         content
@@ -129,10 +130,15 @@ struct BookSelectionSheets: ViewModifier {
             )) {
                 // Leaving the selection standing over books that already changed invites a second,
                 // accidental edit of the same forty — so a successful apply ends it.
-                BulkEditView(bookIds: selection.orderedSelectedBookIds) { _ in
+                BulkEditView(bookIds: selection.orderedSelectedBookIds) { changedCount in
                     selection.showBulkEdit = false
                     selection.exit()
+                    messages.post(.info(BulkEditFormatting.applied(changedCount: changedCount)))
                 }
+            }
+            .onChange(of: selection.confirmation) { _, message in
+                guard let message else { return }
+                messages.post(.info(message))
             }
     }
 }

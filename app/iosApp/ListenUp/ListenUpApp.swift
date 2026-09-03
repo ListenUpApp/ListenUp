@@ -56,6 +56,12 @@ private struct RootView: View {
     /// Resolved lazily on first authentication (see `.authenticated`) — never at launch, so the
     /// shared ConnectionHealthViewModel graph doesn't touch the keychain before the session exists.
     @State private var connectionHealth: ConnectionHealthObserver?
+    /// The app-wide transient message surface. Created eagerly — a plain value holder with no
+    /// dependencies, and any screen may post to it.
+    @State private var messages = AppMessageCenter()
+    /// Resolved lazily on first authentication, mirroring `connectionHealth`: the shared graph must
+    /// not be touched before a session exists.
+    @State private var globalErrors: GlobalErrorObserver?
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
@@ -74,6 +80,7 @@ private struct RootView: View {
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
             .environment(pushTapRouter)
+            .environment(messages)
             // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
             // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
             // does not fire for universal links under the SwiftUI lifecycle — kept only as a
@@ -107,6 +114,12 @@ private struct RootView: View {
                 if newState == .authenticated {
                     PushCoordinator.shared.tapRouter = pushTapRouter
                     PushCoordinator.shared.activate()
+                    // The error surface belongs to the authenticated shell, so it is built here
+                    // rather than at launch — resolving the bus pre-auth would touch the shared
+                    // graph before a session exists.
+                    if globalErrors == nil {
+                        globalErrors = GlobalErrorObserver(center: messages)
+                    }
                 }
                 activateSyncIfAuthenticated()
             }
@@ -248,8 +261,15 @@ private struct RootView: View {
         }
     }
 
-    @ViewBuilder
+    /// Both the `.authenticated` and `.sessionLapsed` branches render this, so the message host is
+    /// attached here rather than at either call site — neither can be the one that forgets.
     private var authenticatedContent: some View {
+        authenticatedPhase
+            .appMessageHost(messages)
+    }
+
+    @ViewBuilder
+    private var authenticatedPhase: some View {
         switch readiness.phase {
         case .checking:
             LaunchScreen()

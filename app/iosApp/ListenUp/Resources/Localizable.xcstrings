@@ -13701,6 +13701,86 @@
         }
       }
     },
+    "selection.added_to_collection_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already in that collection"
+          }
+        }
+      }
+    },
+    "selection.added_to_collection_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book added to collection"
+          }
+        }
+      }
+    },
+    "selection.added_to_collection_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books added to collection"
+          }
+        }
+      }
+    },
+    "selection.added_to_shelf_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already on that shelf"
+          }
+        }
+      }
+    },
+    "selection.added_to_shelf_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book added to shelf"
+          }
+        }
+      }
+    },
+    "selection.added_to_shelf_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books added to shelf"
+          }
+        }
+      }
+    },
+    "selection.created_with_books_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Created \"%1$@\" with 1 book"
+          }
+        }
+      }
+    },
+    "selection.created_with_books_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Created \"%1$@\" with %2$d books"
+          }
+        }
+      }
+    },
     "selection.n_selected": {
       "localizations": {
         "en": {

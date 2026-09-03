@@ -657,7 +657,15 @@
   "selection": {
     "add_n_to_collection": "Add %1$d to a collection",
     "add_n_to_shelf": "Add %1$d to a shelf",
-    "n_selected": "%1$d selected"
+    "n_selected": "%1$d selected",
+    "added_to_shelf_none": "Already on that shelf",
+    "added_to_shelf_one": "1 book added to shelf",
+    "added_to_shelf_plural": "%1$d books added to shelf",
+    "added_to_collection_none": "Already in that collection",
+    "added_to_collection_one": "1 book added to collection",
+    "added_to_collection_plural": "%1$d books added to collection",
+    "created_with_books_one": "Created \"%1$s\" with 1 book",
+    "created_with_books_plural": "Created \"%1$s\" with %2$d books"
   },
   "discover": {
     "activity": "Activity",
