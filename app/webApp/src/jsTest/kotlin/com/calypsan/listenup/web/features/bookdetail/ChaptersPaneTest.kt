@@ -25,6 +25,8 @@ import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
@@ -60,6 +62,7 @@ class ChaptersPaneTest :
                     fixedBookDetail(readyBook()),
                     fixedBookEdit(BookEditUiState()),
                     fixedContributorDetail(ContributorDetailUiState.Loading),
+                    fixedSeriesDetail(SeriesDetailUiState.Loading),
                     fixedContributors(emptyList()),
                     fixedHome(HomeUiState.Loading),
                     fixedDiscover(),

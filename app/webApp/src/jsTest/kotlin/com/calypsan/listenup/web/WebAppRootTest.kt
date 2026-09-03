@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -10,6 +11,9 @@ import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSes
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
+import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
+import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.web.features.seriesdetail.readySeries
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.contributor
@@ -77,6 +81,17 @@ class WebAppRootTest :
         fun navLabels(host: HTMLElement): List<String> {
             val items = host.querySelectorAll(".nav-i")
             return (0 until items.length).map { (items.item(it) as HTMLElement).textContent.orEmpty() }
+        }
+
+        /** The sidebar entry labeled [label] — the one that carries `on` when its page is showing. */
+        fun navItem(
+            host: HTMLElement,
+            label: String,
+        ): HTMLElement {
+            val items = host.querySelectorAll(".nav-i")
+            return (0 until items.length)
+                .map { items.item(it) as HTMLElement }
+                .first { it.textContent == label }
         }
 
         /** The rendered facet chip labeled [label], wherever it sits in the current page. */
@@ -300,6 +315,84 @@ class WebAppRootTest :
                 awaitFrame()
 
                 recorder.requestedIds shouldBe listOf("c1", "c2")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/series/{id} renders the detail page for that id") {
+            val recorder = RecordingSeriesDetail()
+            val (host, router) = mountAt("/series/s-cosmere", openSeriesDetail = recorder.open)
+
+            try {
+                recorder.requestedIds shouldBe listOf("s-cosmere")
+                (host.querySelector(".sd-t") as HTMLElement).textContent shouldBe "Series s-cosmere"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // A series is reached FROM the library and belongs to it. Leaving no sidebar entry lit
+        // reads as having navigated out of the app entirely.
+        test("a series page keeps Library lit in the sidebar") {
+            val (host, router) = mountAt("/series/s-cosmere", openSeriesDetail = fixedSeriesDetail(readySeries()))
+
+            try {
+                navItem(host, "Library").classList.contains("on") shouldBe true
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("switching series id opens a new session rather than reusing the old one's") {
+            val recorder = RecordingSeriesDetail()
+            val (host, router) = mountAt("/series/s1", openSeriesDetail = recorder.open)
+
+            try {
+                recorder.requestedIds shouldBe listOf("s1")
+
+                router.navigate(Route(listOf("series", "s2")))
+                awaitFrame()
+
+                recorder.requestedIds shouldBe listOf("s1", "s2")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a series chip on a book opens that series") {
+            val (host, router) =
+                mountAt(
+                    "/book/42",
+                    openBookDetail =
+                        fixedBookDetail(
+                            readyBook(
+                                series = listOf(BookSeries(seriesId = "s-cosmere", seriesName = "The Cosmere", sequence = 7.0)),
+                            ),
+                        ),
+                )
+
+            try {
+                (host.querySelector(".bd-series-chip") as HTMLElement).click()
+
+                window.location.pathname shouldBe "/series/s-cosmere"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a series card on a contributor's page opens that series") {
+            val (host, router) =
+                mountAt(
+                    "/contributor/c-king",
+                    openContributorDetail =
+                        fixedContributorDetail(readyContributor(series = listOf(seriesWithBooks(id = "s-dt")))),
+                )
+
+            try {
+                (host.querySelector(".cd-series-card") as HTMLElement).click()
+
+                window.location.pathname shouldBe "/series/s-dt"
             } finally {
                 router.dispose()
             }

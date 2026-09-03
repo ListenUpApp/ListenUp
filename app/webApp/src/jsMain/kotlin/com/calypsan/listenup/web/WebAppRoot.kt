@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
@@ -59,6 +60,8 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
+import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.shell.AccountMenu
@@ -108,6 +111,7 @@ fun WebAppRoot(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
+    openSeriesDetail: OpenSeriesDetail,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -136,9 +140,9 @@ fun WebAppRoot(
     val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
-    // A book — or the person behind it — lives in the library, so either deep link keeps
-    // Library lit in the sidebar.
-    val active = if (page == BOOK_KEY || page == CONTRIBUTOR_KEY) LIBRARY_KEY else page
+    // A book, the person behind it, or the series it belongs to all live in the library, so
+    // every one of those deep links keeps Library lit in the sidebar.
+    val active = if (page in LIBRARY_DEEP_LINKS) LIBRARY_KEY else page
 
     // A page change fades; a route change within one does not. `lastPage` starts null so the first
     // paint is not a fade — a library materialising out of nothing on load is motion nobody asked
@@ -177,6 +181,7 @@ fun WebAppRoot(
             openBookDetail = openBookDetail,
             openBookEdit = openBookEdit,
             openContributorDetail = openContributorDetail,
+            openSeriesDetail = openSeriesDetail,
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
@@ -237,6 +242,7 @@ private fun RouteContent(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
+    openSeriesDetail: OpenSeriesDetail,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -262,46 +268,19 @@ private fun RouteContent(
     // `/contributor/{id}` — the person behind the books, a route of its own (unlike the list, one
     // book's worth of detail is not a facet of anything else).
     val contributorId = if (page == CONTRIBUTOR_KEY) route.segments.getOrNull(1) else null
+    // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
+    // series is something you arrive at and link to, not a filter over the library grid.
+    val seriesId = if (page == SERIES_KEY) route.segments.getOrNull(1) else null
 
-    if (editingBookId != null) {
-        val editSession =
-            bookEditState(
-                bookId = editingBookId,
-                openBookEdit = openBookEdit,
-                onLeave = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
-            )
-        BookEditPage(
-            state = editSession.state.collectAsState().value,
-            onEvent = editSession.onEvent,
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
-        )
-    } else if (bookId != null) {
-        BookDetailPage(
-            state = bookDetailState(bookId, openBookDetail),
-            tab = route.query["tab"] ?: "overview",
-            // replace, not navigate: panes and selection are page state, and Back should
-            // leave the page rather than unwind every pane and toggle.
-            onSelectTab = { tab ->
-                // Animated: switching a pane is a page-level change. The selection change
-                // below deliberately is not — see Router.replace.
-                router.replace(Route(route.segments, route.query + ("tab" to tab)))
-            },
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+    if (bookId != null) {
+        BookRouteContent(
             bookId = bookId,
-            selection = parseSelection(route.query["sel"]),
-            onSelectionChange = { selection ->
-                val query =
-                    if (selection.isEmpty()) {
-                        route.query - "sel"
-                    } else {
-                        route.query + ("sel" to selection.sorted().joinToString(","))
-                    }
-                router.replace(Route(route.segments, query))
-            },
-            onPlay = { playback.onPlayBook(BookId(bookId)) },
-            onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
-            onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+            editingBookId = editingBookId,
+            router = router,
+            route = route,
+            openBookDetail = openBookDetail,
+            openBookEdit = openBookEdit,
+            playback = playback,
         )
     } else if (isContributors) {
         val role = parseContributorRole(route.query[ROLE_QUERY_KEY])
@@ -318,6 +297,14 @@ private fun RouteContent(
             onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
             onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
             onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+            onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+        )
+    } else if (seriesId != null) {
+        SeriesDetailPage(
+            state = seriesDetailState(seriesId, openSeriesDetail),
+            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+            onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+            onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
         )
     } else if (active == LIBRARY_KEY) {
         LibraryPage(
@@ -819,6 +806,85 @@ private fun contributorDetailState(
 }
 
 /**
+ * `/book/{id}` and `/book/{id}/edit` — one book, and the form that changes it.
+ *
+ * Extracted for the same reason [ShelfRouteContent] and [AccountRouteContent] were: a family of
+ * routes that share an id belongs in one place, and [RouteContent]'s chain is a cognitive-
+ * complexity budget that every new route spends from. The edit form is checked first because it
+ * is the more specific URL — `/book/42/edit` is also a `/book/42`.
+ */
+@Composable
+private fun BookRouteContent(
+    bookId: String,
+    editingBookId: String?,
+    router: Router,
+    route: Route,
+    openBookDetail: OpenBookDetail,
+    openBookEdit: OpenBookEdit,
+    playback: PlaybackSession,
+) {
+    if (editingBookId != null) {
+        val editSession =
+            bookEditState(
+                bookId = editingBookId,
+                openBookEdit = openBookEdit,
+                onLeave = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+            )
+        BookEditPage(
+            state = editSession.state.collectAsState().value,
+            onEvent = editSession.onEvent,
+            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+        )
+        return
+    }
+
+    BookDetailPage(
+        state = bookDetailState(bookId, openBookDetail),
+        tab = route.query["tab"] ?: "overview",
+        // replace, not navigate: panes and selection are page state, and Back should
+        // leave the page rather than unwind every pane and toggle.
+        onSelectTab = { tab ->
+            // Animated: switching a pane is a page-level change. The selection change
+            // below deliberately is not — see Router.replace.
+            router.replace(Route(route.segments, route.query + ("tab" to tab)))
+        },
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        bookId = bookId,
+        selection = parseSelection(route.query["sel"]),
+        onSelectionChange = { selection ->
+            val query =
+                if (selection.isEmpty()) {
+                    route.query - "sel"
+                } else {
+                    route.query + ("sel" to selection.sorted().joinToString(","))
+                }
+            router.replace(Route(route.segments, query))
+        },
+        onPlay = { playback.onPlayBook(BookId(bookId)) },
+        onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
+        onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+        onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+    )
+}
+
+/**
+ * Opens a Series Detail session for [seriesId] and collects it, closing the previous one whenever
+ * the series changes or the page goes away. Keyed on [seriesId] for the same reason
+ * [contributorDetailState] keys on `contributorId` — a bare `remember { }` would keep showing the
+ * first series forever after navigating to a second one.
+ */
+@Composable
+private fun seriesDetailState(
+    seriesId: String,
+    openSeriesDetail: OpenSeriesDetail,
+): SeriesDetailUiState {
+    val session = remember(seriesId) { openSeriesDetail(seriesId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session.state.collectAsState().value
+}
+
+/**
  * Opens a Library session while the page is showing and closes it when it stops, so the ViewModel's
  * flows do not outlive the route.
  */
@@ -929,6 +995,16 @@ private const val CONTRIBUTORS_KEY = "contributors"
 
 /** The path segment that opens a contributor's own page — `/contributor/{id}`. */
 private const val CONTRIBUTOR_KEY = "contributor"
+
+/** The path segment that opens a series in reading order — `/series/{id}`. */
+private const val SERIES_KEY = "series"
+
+/**
+ * The routes reached FROM the library that still belong to it, though none of them is a `/library`
+ * URL. Each keeps Library lit in the sidebar; leaving no entry highlighted reads as having
+ * navigated out of the app.
+ */
+private val LIBRARY_DEEP_LINKS = setOf(BOOK_KEY, CONTRIBUTOR_KEY, SERIES_KEY)
 
 private const val ROLE_QUERY_KEY = "role"
 

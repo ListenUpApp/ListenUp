@@ -15,6 +15,7 @@ private fun contributorDetailPage(
     onOpenLibrary: () -> Unit = {},
     onOpenContributors: () -> Unit = {},
     onOpenBook: (String) -> Unit = {},
+    onOpenSeries: (String) -> Unit = {},
 ): HTMLElement {
     val root = document.createElement("div") as HTMLElement
     document.body?.appendChild(root)
@@ -24,6 +25,7 @@ private fun contributorDetailPage(
             onOpenLibrary = onOpenLibrary,
             onOpenContributors = onOpenContributors,
             onOpenBook = onOpenBook,
+            onOpenSeries = onOpenSeries,
         )
     }
     return root
@@ -224,6 +226,23 @@ class ContributorDetailPageTest :
             val cards = root.querySelectorAll(".cd-series-card")
             cards.length shouldBe 1
             (root.querySelector(".cd-series-name") as HTMLElement).textContent shouldBe "The Dark Tower"
+        }
+
+        // The card was informational until the series route existed. Now it goes somewhere, so
+        // it has to BE a control — reachable by keyboard, and announcing itself as one.
+        test("a series card is a real button that opens that series") {
+            val opened = mutableListOf<String>()
+            val root =
+                contributorDetailPage(
+                    readyContributor(series = listOf(seriesWithBooks(id = "s-dt", name = "The Dark Tower"))),
+                    onOpenSeries = { opened += it },
+                )
+
+            val card = root.querySelector(".cd-series-card") as HTMLElement
+            card.tagName shouldBe "BUTTON"
+            card.click()
+
+            opened shouldBe listOf("s-dt")
         }
 
         test("the series panel is absent when there is no series") {

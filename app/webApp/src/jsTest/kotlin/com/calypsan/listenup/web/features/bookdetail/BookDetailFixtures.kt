@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.bookdetail
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
@@ -23,6 +24,7 @@ internal fun readyBook(
     audioFiles: List<AudioFile> = sampleAudioFiles(),
     authors: List<BookContributor> = listOf(BookContributor(id = "c1", name = "Stephen King")),
     narrators: List<BookContributor> = listOf(BookContributor(id = "c2", name = "Santino Fontana")),
+    series: List<BookSeries> = emptyList(),
 ): BookDetailUiState.Ready =
     BookDetailUiState.Ready(
         book =
@@ -42,6 +44,7 @@ internal fun readyBook(
                 publisher = "Scribner",
                 genres = listOf(Genre(id = "g1", name = "Horror", slug = "horror", path = "/horror")),
                 audioFiles = audioFiles,
+                series = series,
             ),
         descriptionText = "He wakes up at The Institute, in a room that looks just like his own.",
         narrators = narrators.joinToString(", ") { it.name },
