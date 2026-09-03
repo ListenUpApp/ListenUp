@@ -70,6 +70,8 @@ import com.calypsan.listenup.web.features.notifications.notification
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
 import com.calypsan.listenup.web.features.notifications.pref
+import com.calypsan.listenup.web.features.setup.LibrarySetupPage
+import com.calypsan.listenup.web.features.setup.setupState
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
@@ -404,6 +406,7 @@ class ClassContractTest :
                         )
                         notificationShapes().forEach { it() }
                         notificationPrefShapes().forEach { it() }
+                        librarySetupShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
                         // zero-hit Results and a populated one. The page joins this contract by
                         // hand, same as ContributorsPage above — a state nobody adds here is a
@@ -778,6 +781,44 @@ private fun notificationPrefShapes(): List<@Composable () -> Unit> =
                 onSetPreference = { _, _ -> },
                 onRetry = {},
                 onOpenSettings = {},
+            )
+        },
+    )
+
+/**
+ * The folder picker in every state: a browsable list with one folder chosen, an error, an empty
+ * folder, and the two loading states.
+ */
+private fun librarySetupShapes(): List<@Composable () -> Unit> =
+    listOf(
+        {
+            LibrarySetupPage(
+                state = setupState(selectedPaths = setOf("/srv/Audiobooks"), error = "That folder could not be read."),
+                onOpenFolder = {},
+                onNavigateUp = {},
+                onToggleFolder = {},
+                onComplete = {},
+                onDismissError = {},
+            )
+        },
+        {
+            LibrarySetupPage(
+                state = setupState(directories = emptyList()),
+                onOpenFolder = {},
+                onNavigateUp = {},
+                onToggleFolder = {},
+                onComplete = {},
+                onDismissError = {},
+            )
+        },
+        {
+            LibrarySetupPage(
+                state = setupState(isLoadingDirectories = true, directories = emptyList()),
+                onOpenFolder = {},
+                onNavigateUp = {},
+                onToggleFolder = {},
+                onComplete = {},
+                onDismissError = {},
             )
         },
     )

@@ -31,6 +31,8 @@ import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetai
 import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
+import com.calypsan.listenup.web.features.setup.LibrarySetupPage
+import com.calypsan.listenup.web.features.setup.OpenLibrarySetup
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.OpenLibrary
@@ -70,6 +72,7 @@ fun AuthGate(
     openSeriesDetail: OpenSeriesDetail,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
+    openLibrarySetup: OpenLibrarySetup,
     openNotificationBell: OpenNotificationBell,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
@@ -157,29 +160,31 @@ fun AuthGate(
             is AuthState.Authenticated,
             is AuthState.SessionLapsed,
             -> {
-                WebAppRoot(
-                    router = router,
-                    openBookDetail = openBookDetail,
-                    openBookEdit = openBookEdit,
-                    openContributorDetail = openContributorDetail,
-                    openSeriesDetail = openSeriesDetail,
-                    openNotifications = openNotifications,
-                    openNotificationPrefs = openNotificationPrefs,
-                    openNotificationBell = openNotificationBell,
-                    openContributors = openContributors,
-                    openLibrary = openLibrary,
-                    openHome = openHome,
-                    openDiscover = openDiscover,
-                    openSettings = openSettings,
-                    openDevices = openDevices,
-                    openAdmin = openAdmin,
-                    openShelfDetail = openShelfDetail,
-                    openShelfEdit = openShelfEdit,
-                    openSearch = openSearch,
-                    onSignOut = { scope.launch { authGraph.signOut() } },
-                    openPlayback = openPlayback,
-                    observeIsAdmin = observeIsAdmin,
-                )
+                LibrarySetupGate(openLibrarySetup) {
+                    WebAppRoot(
+                        router = router,
+                        openBookDetail = openBookDetail,
+                        openBookEdit = openBookEdit,
+                        openContributorDetail = openContributorDetail,
+                        openSeriesDetail = openSeriesDetail,
+                        openNotifications = openNotifications,
+                        openNotificationPrefs = openNotificationPrefs,
+                        openNotificationBell = openNotificationBell,
+                        openContributors = openContributors,
+                        openLibrary = openLibrary,
+                        openHome = openHome,
+                        openDiscover = openDiscover,
+                        openSettings = openSettings,
+                        openDevices = openDevices,
+                        openAdmin = openAdmin,
+                        openShelfDetail = openShelfDetail,
+                        openShelfEdit = openShelfEdit,
+                        openSearch = openSearch,
+                        onSignOut = { scope.launch { authGraph.signOut() } },
+                        openPlayback = openPlayback,
+                        observeIsAdmin = observeIsAdmin,
+                    )
+                }
             }
         }
 
@@ -199,6 +204,59 @@ private fun SetupBranch(authGraph: AuthGraph) {
         badge = "Server administrator",
     ) {
         SetupForm(state = session.state.collectAsState().value, onSubmit = session.submit)
+    }
+}
+
+/**
+ * Holds back the app while the server has no audiobook folders.
+ *
+ * A signed-in admin whose server was never pointed at anything reaches a shell with an empty
+ * library and no control anywhere in it that would help — so the wizard comes first, exactly as it
+ * does on Android and iOS. Everyone else (and every non-admin, whose `getSetupStatus` reports no
+ * setup needed) falls straight through to [content] having rendered nothing.
+ *
+ * ⛔ **The gate closes on the `Finished` event, not on the state.** `LibrarySetupViewModel` does
+ * not flip `needsSetup` back to false when `completeSetup` succeeds — its last act is to start the
+ * scan and emit the one-shot. A gate that re-read `needsSetup` would therefore show the wizard
+ * again, over a library that was just configured, forever.
+ *
+ * While the status probe is in flight neither branch renders: showing the app for the half-second
+ * before the answer arrives would flash an empty library at precisely the person who is about to
+ * be told why it is empty.
+ */
+@Composable
+private fun LibrarySetupGate(
+    openLibrarySetup: OpenLibrarySetup,
+    content: @Composable () -> Unit,
+) {
+    val session = remember { openLibrarySetup() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val state by session.state.collectAsState()
+
+    var finished by remember { mutableStateOf(false) }
+    LaunchedEffect(session) {
+        session.navActions.collect { finished = true }
+    }
+
+    when {
+        finished || (!state.needsSetup && !state.isCheckingStatus) -> {
+            content()
+        }
+
+        state.isCheckingStatus -> {
+            AuthBoot()
+        }
+
+        else -> {
+            LibrarySetupPage(
+                state = state,
+                onOpenFolder = session.onOpenFolder,
+                onNavigateUp = session.onNavigateUp,
+                onToggleFolder = session.onToggleFolder,
+                onComplete = session.onComplete,
+                onDismissError = session.onDismissError,
+            )
+        }
     }
 }
 

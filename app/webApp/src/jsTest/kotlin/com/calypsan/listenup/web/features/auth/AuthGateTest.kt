@@ -13,7 +13,6 @@ import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.api.dto.auth.SessionId
-import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
@@ -29,7 +28,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
@@ -48,12 +46,25 @@ import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.web.RECOMPOSE_TIMEOUT_MS
+import com.calypsan.listenup.web.features.setup.OpenLibrarySetup
+import com.calypsan.listenup.web.features.setup.fixedLibrarySetup
+import com.calypsan.listenup.web.features.setup.setupState
+import io.kotest.matchers.nulls.shouldNotBeNull
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.withTimeout
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 import com.calypsan.listenup.web.features.search.fixedSearch
+
+/** A signed-in session. The ids are arbitrary — the gate only ever branches on the state's type. */
+private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
 
 /**
  * Routers created by [mountGate], disposed together after the spec.
@@ -69,6 +80,7 @@ private fun mountGate(
     themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
     inviteCode: String? = null,
     errors: Flow<AppError> = emptyFlow(),
+    openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -77,6 +89,7 @@ private fun mountGate(
         AuthGate(
             authGraph = graph,
             router = router,
+            openLibrarySetup = openLibrarySetup,
             openBookDetail = fixedBookDetail(readyBook()),
             openBookEdit = fixedBookEdit(BookEditUiState()),
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
@@ -110,6 +123,62 @@ class AuthGateTest :
         afterSpec {
             routers.forEach { it.dispose() }
             routers.clear()
+        }
+
+        // A signed-in admin whose server was never pointed at anything reaches a shell with an
+        // empty library and no control in it that would help.
+        test("a server with no folders shows the wizard instead of the app") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = true)),
+                )
+
+            host.querySelector(".lsetup").shouldNotBeNull()
+            host.querySelector(".shell") shouldBe null
+        }
+
+        test("a server that is already set up goes straight to the app") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                )
+
+            host.querySelector(".shell").shouldNotBeNull()
+            host.querySelector(".lsetup") shouldBe null
+        }
+
+        // Flashing an empty library at precisely the person about to be told why it is empty.
+        test("neither branch renders while the status probe is in flight") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibrarySetup = fixedLibrarySetup(setupState(isCheckingStatus = true, needsSetup = false)),
+                )
+
+            host.querySelector(".lsetup") shouldBe null
+            host.querySelector(".shell") shouldBe null
+            host.querySelectorAll(".auth-boot").length shouldBe 1
+        }
+
+        // ⛔ The ViewModel does NOT flip `needsSetup` back to false on success — its last act is to
+        // start the scan and emit the one-shot. A gate re-reading the state would show the wizard
+        // again, over a library that was just configured, forever.
+        test("finishing setup opens the app even though the state still says setup is needed") {
+            val finished = MutableSharedFlow<LibrarySetupNavAction>(replay = 1)
+            finished.tryEmit(LibrarySetupNavAction.Finished)
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibrarySetup =
+                        fixedLibrarySetup(setupState(needsSetup = true), navActions = finished),
+                )
+
+            withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                while (host.querySelector(".shell") == null) delay(10)
+            }
+            host.querySelector(".lsetup") shouldBe null
         }
 
         test("initializing shows the boot surface, never a login form") {
