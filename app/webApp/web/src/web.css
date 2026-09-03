@@ -228,6 +228,9 @@ body { margin: 0; }
 .luw .shelf-grip:active,
 .luw .shelf-book-x:active,
 .luw .shelf-notice-x:active,
+.luw .lsetup-err-x:active,
+.luw .lsetup-up:active,
+.luw .lsetup-check:active,
 .bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
@@ -249,6 +252,7 @@ body { margin: 0; }
 .folder-row:active,
 .luw .disc-feed-row.is-open:active,
 .luw .ntf-row:active,
+.luw .lsetup-open:active,
 .sd-book:active { background: var(--surface-3); }
 
 /* The library card is the one place a press has something to undo rather than add: the cover is
@@ -1580,6 +1584,50 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* A fixed gap rather than space-between inside: the two switches must sit in the same column all
    the way down the list, or a disabled Push reads as a missing control rather than a dimmed one. */
 .luw .nprefs-switches { display: flex; gap: 1.4rem; flex: none; }
+
+/* ---- library setup — the first thing a new admin does. Centred and narrow: it is a wizard, not
+   a page of the app, and it renders before the shell exists to hold it. */
+.luw .lsetup { width: 100%; max-width: 640px; margin: 0 auto; padding: 40px 24px; display: flex; flex-direction: column; gap: 16px; }
+.luw .lsetup-head { display: flex; flex-direction: column; gap: 6px; }
+.luw .lsetup-t { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.035em; color: var(--ink); }
+/* Load-bearing, not decoration: this browses the SERVER's disk, which for a self-hosted install is
+   usually not the machine the reader is sitting at. */
+.luw .lsetup-sub { margin: 0; font-size: 0.95rem; color: var(--ink-2); line-height: 1.5; }
+.luw .lsetup-skel { height: 16rem; border-radius: 16px; }
+.luw .lsetup-empty { padding: 2rem 1rem; text-align: center; color: var(--ink-2); font-size: 0.9rem; }
+
+.luw .lsetup-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .lsetup-err-t { flex: 1; min-width: 0; }
+.luw .lsetup-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+
+.luw .lsetup-crumb { display: flex; align-items: center; gap: 10px; }
+.luw .lsetup-up { flex: none; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .lsetup-up:not(:disabled):hover { border-color: var(--coral); color: var(--coral); } }
+/* At the root there is nowhere up to go, and the control says so rather than sitting inert. */
+.luw .lsetup-up:disabled { opacity: 0.35; cursor: default; }
+.luw .lsetup-path { flex: 1; min-width: 0; font-size: 0.82rem; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+
+.luw .lsetup-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.luw .lsetup-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.luw .lsetup-row.on { border-color: var(--coral); background: var(--coral-soft); }
+/* The two halves of the row are separate controls on purpose — drilling down must not select. */
+.luw .lsetup-check { flex: none; width: 24px; height: 24px; padding: 0; border-radius: 7px; border: 2px solid var(--line-2); background: transparent; color: var(--on-coral); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.luw .lsetup-row.on .lsetup-check { background: var(--coral); border-color: var(--coral); }
+.luw .lsetup-check:focus { outline: none; }
+.luw .lsetup-check:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .lsetup-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 4px 0; border: none; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+/* A leaf directory can still be chosen; only the navigation half is unavailable. */
+.luw .lsetup-open:disabled { cursor: default; }
+.luw .lsetup-open:focus { outline: none; }
+.luw .lsetup-open:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .lsetup-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.luw .lsetup-row-n { font-size: 0.92rem; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .lsetup-row-c { font-size: 0.76rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* Always present, even at zero, so ticking the first folder does not shove the list upward. */
+.luw .lsetup-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 14px; border-top: 1px solid var(--line); }
+.luw .lsetup-count { font-size: 0.85rem; font-weight: 600; color: var(--ink-2); }
+.luw .lsetup-go:disabled { opacity: 0.4; cursor: default; }
 
 /* ---- notifications — what happened while you were away. Narrower than the entity pages: every
    row is one sentence, and a 1160px line of 14px text is a paragraph nobody tracks across. */

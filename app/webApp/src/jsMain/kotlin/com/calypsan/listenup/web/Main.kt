@@ -29,6 +29,7 @@ import com.calypsan.listenup.web.features.search.graphSearch
 import com.calypsan.listenup.web.features.notifications.graphNotificationBell
 import com.calypsan.listenup.web.features.notifications.graphNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.graphNotifications
+import com.calypsan.listenup.web.features.setup.graphLibrarySetup
 import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Route
@@ -102,6 +103,7 @@ fun main() {
                 openSeriesDetail = graphSeriesDetail(koin),
                 openNotifications = graphNotifications(koin),
                 openNotificationPrefs = graphNotificationPrefs(koin),
+                openLibrarySetup = graphLibrarySetup(koin),
                 openNotificationBell = graphNotificationBell(koin),
                 openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
