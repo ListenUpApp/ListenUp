@@ -19,6 +19,11 @@ import com.calypsan.listenup.client.presentation.notifications.NotificationsUiSt
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.web.features.notifications.notification
+import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
+import com.calypsan.listenup.web.features.notifications.pref
+import com.calypsan.listenup.client.presentation.settings.SettingsUiState
+import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.contributor
@@ -519,6 +524,53 @@ class WebAppRootTest :
 
                 marked shouldBe listOf("n3")
                 window.location.pathname shouldBe "/notifications"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/settings/notifications renders the preference rows") {
+            val (host, router) =
+                mountAt(
+                    "/settings/notifications",
+                    openNotificationPrefs =
+                        fixedNotificationPrefs(
+                            NotificationPrefsUiState.Data(listOf(pref(type = "campfire_invite"))),
+                        ),
+                )
+
+            try {
+                (host.querySelector(".nprefs-name") as HTMLElement).textContent shouldBe "Campfire invites"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // A `/settings/anything-else` URL must not silently show Settings.
+        test("an unknown settings sub-path is still not-found, not Settings") {
+            val (host, router) = mountAt("/settings/nonsense")
+
+            try {
+                host.querySelector(".nprefs") shouldBe null
+                host.querySelector(".set-title") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Settings offers a way to the notification preferences") {
+            val (host, router) =
+                mountAt("/settings", openSettings = fixedSettings(SettingsUiState(isLoading = false)))
+
+            try {
+                val links = host.querySelectorAll(".btn-o")
+                val notifications =
+                    (0 until links.length)
+                        .map { links.item(it) as HTMLElement }
+                        .first { it.textContent.orEmpty().contains("notifications reach you") }
+                notifications.click()
+
+                window.location.pathname shouldBe "/settings/notifications"
             } finally {
                 router.dispose()
             }

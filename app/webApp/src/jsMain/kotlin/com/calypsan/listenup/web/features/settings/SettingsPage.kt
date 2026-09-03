@@ -47,6 +47,7 @@ fun SettingsPage(
     onIgnoreTitleArticles: (Boolean) -> Unit,
     onHideSingleBookSeries: (Boolean) -> Unit,
     onOpenDevices: () -> Unit,
+    onOpenNotifications: () -> Unit,
 ) {
     Div(attrs = { classes("set") }) {
         H1(attrs = { classes("set-title") }) { Text("Settings") }
@@ -119,6 +120,11 @@ fun SettingsPage(
                 attr("type", "button")
                 onClick { onOpenDevices() }
             }) { Text("Devices you are signed in on") }
+            Button(attrs = {
+                classes("btn-o")
+                attr("type", "button")
+                onClick { onOpenNotifications() }
+            }) { Text("Which notifications reach you") }
         }
 
         Section("About", null) {

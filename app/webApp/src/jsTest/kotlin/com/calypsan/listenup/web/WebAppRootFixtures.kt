@@ -2,6 +2,7 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.web.features.devices.fixedDevices
+import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
@@ -60,6 +61,9 @@ import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
+import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
+import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -82,10 +86,12 @@ internal fun mountAt(
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
+    openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
     openNotificationBell: OpenNotificationBell = fixedNotificationBell(),
     openContributors: OpenContributors = fixedContributors(emptyList()),
     openHome: OpenHome = fixedHome(HomeUiState.Loading),
     openLibrary: OpenLibrary = fakeLibrary(),
+    openSettings: OpenSettings = fixedSettings(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -101,10 +107,11 @@ internal fun mountAt(
                 openContributorDetail,
                 openSeriesDetail,
                 openNotifications,
+                openNotificationPrefs,
                 openContributors,
                 openHome,
                 fixedDiscover(),
-                fixedSettings(),
+                openSettings,
                 fixedDevices(),
                 fixedAdmin(),
                 fixedShelfDetail(),

@@ -67,6 +67,9 @@ import com.calypsan.listenup.web.features.seriesdetail.readySeries
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.web.features.notifications.NotificationsPage
 import com.calypsan.listenup.web.features.notifications.notification
+import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
+import com.calypsan.listenup.web.features.notifications.pref
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
@@ -400,6 +403,7 @@ class ClassContractTest :
                             onOpenBook = {},
                         )
                         notificationShapes().forEach { it() }
+                        notificationPrefShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
                         // zero-hit Results and a populated one. The page joins this contract by
                         // hand, same as ContributorsPage above — a state nobody adds here is a
@@ -594,13 +598,14 @@ class ClassContractTest :
                         devicesShapes().forEach { it() }
                         adminShapes().forEach { it() }
                         // Loading and loaded: the skeleton's class lives only in the former.
-                        SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {}, {})
+                        SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
                         SettingsPage(
                             SettingsUiState(
                                 isLoading = false,
                                 serverUrl = "https://listenup.example",
                                 serverVersion = "0.9.1",
                             ),
+                            {},
                             {},
                             {},
                             {},
@@ -729,6 +734,53 @@ class ClassContractTest :
     })
 
 private val CLASS_SELECTOR = Regex("\\.([A-Za-z][A-Za-z0-9_-]*)")
+
+/**
+ * The preference rows in every state, including the two only a particular server produces: a
+ * push-ineligible type (whose switch is disabled) and an all-unknown list (whose empty copy is the
+ * only thing that renders).
+ */
+private fun notificationPrefShapes(): List<@Composable () -> Unit> =
+    listOf(
+        {
+            NotificationPrefsPage(
+                state =
+                    NotificationPrefsUiState.Data(
+                        listOf(
+                            pref(type = "campfire_invite"),
+                            pref(type = "registration_decision", pushEligible = false),
+                        ),
+                    ),
+                onSetPreference = { _, _ -> },
+                onRetry = {},
+                onOpenSettings = {},
+            )
+        },
+        {
+            NotificationPrefsPage(
+                state = NotificationPrefsUiState.Data(listOf(pref(type = "some_future_type"))),
+                onSetPreference = { _, _ -> },
+                onRetry = {},
+                onOpenSettings = {},
+            )
+        },
+        {
+            NotificationPrefsPage(
+                state = NotificationPrefsUiState.Error(InternalError()),
+                onSetPreference = { _, _ -> },
+                onRetry = {},
+                onOpenSettings = {},
+            )
+        },
+        {
+            NotificationPrefsPage(
+                state = NotificationPrefsUiState.Loading,
+                onSetPreference = { _, _ -> },
+                onRetry = {},
+                onOpenSettings = {},
+            )
+        },
+    )
 
 /**
  * The notification inbox in every state it has, plus the sidebar wearing a badge.
