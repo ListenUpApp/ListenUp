@@ -25,6 +25,9 @@ import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
+import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
@@ -63,6 +66,7 @@ class ChaptersPaneTest :
                     fixedBookEdit(BookEditUiState()),
                     fixedContributorDetail(ContributorDetailUiState.Loading),
                     fixedSeriesDetail(SeriesDetailUiState.Loading),
+                    fixedNotifications(NotificationsUiState.Empty),
                     fixedContributors(emptyList()),
                     fixedHome(HomeUiState.Loading),
                     fixedDiscover(),
@@ -73,6 +77,7 @@ class ChaptersPaneTest :
                     fixedShelfEdit(),
                     fakeLibrary(),
                     fixedSearch(SearchUiState.Idle()),
+                    fixedNotificationBell(),
                     fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },
                 )

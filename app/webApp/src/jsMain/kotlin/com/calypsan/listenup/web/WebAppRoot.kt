@@ -62,6 +62,12 @@ import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
+import com.calypsan.listenup.client.data.repository.ShortcutAction
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
+import com.calypsan.listenup.web.features.notifications.NotificationsPage
+import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
+import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.shell.AccountMenu
@@ -112,6 +118,7 @@ fun WebAppRoot(
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
     openSeriesDetail: OpenSeriesDetail,
+    openNotifications: OpenNotifications,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -122,6 +129,7 @@ fun WebAppRoot(
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
     openSearch: OpenSearch,
+    openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
     onSignOut: () -> Unit = {},
@@ -137,6 +145,10 @@ fun WebAppRoot(
     // back lands at the same offset and the tile is usually still on screen. When it is not — the
     // grid is virtualised — there is simply nothing to fly to and the pages crossfade instead.
     var heroBookId by remember { mutableStateOf<String?>(null) }
+    // Opened once for the shell's lifetime, not per route: the badge is on the sidebar, which
+    // outlives every page. Closing it with a route would blank the count the moment you navigated
+    // away from the one page that proves it was right.
+    val unreadCount = notificationBadge(openNotificationBell)
     val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
@@ -159,7 +171,7 @@ fun WebAppRoot(
         sections = listOf(PRIMARY_NAV),
         active = active,
         collapsed = collapsed,
-        footer = if (isAdmin) FOOTER_NAV else FOOTER_NAV.filterNot { it.key == ADMIN_KEY },
+        footer = footerNav(isAdmin = isAdmin, unreadCount = unreadCount),
         onToggleCollapse = { collapsed = !collapsed },
         onNavigate = { key ->
             val segments = if (key == HOME_KEY) emptyList() else listOf(key)
@@ -182,6 +194,7 @@ fun WebAppRoot(
             openBookEdit = openBookEdit,
             openContributorDetail = openContributorDetail,
             openSeriesDetail = openSeriesDetail,
+            openNotifications = openNotifications,
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
@@ -254,6 +267,7 @@ private fun RouteContent(
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
     openSeriesDetail: OpenSeriesDetail,
+    openNotifications: OpenNotifications,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -310,6 +324,8 @@ private fun RouteContent(
             onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
             onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
         )
+    } else if (page == NOTIFICATIONS_KEY) {
+        NotificationsRoute(router = router, openNotifications = openNotifications)
     } else if (seriesId != null) {
         SeriesDetailPage(
             state = seriesDetailState(seriesId, openSeriesDetail),
@@ -880,6 +896,59 @@ private fun BookRouteContent(
 }
 
 /**
+ * The `/notifications` branch — the inbox, and where a tap on one of its rows lands.
+ *
+ * `nowMs` is read once per visit rather than ticking, as on Discover and Admin: every timestamp
+ * here is at least a minute old, so a live clock would repaint the list to say the same thing.
+ *
+ * ⛔ **Marking read happens on every press, navigation only sometimes.** The destination comes from
+ * `toShortcutAction()` — THE shared tap mapping, so the browser cannot disagree with the phone
+ * about where a notification goes — and two of its outcomes have no web surface: a user profile
+ * (web has no profile page) and a campfire (no client has one). Those rows still mark themselves
+ * read, because the listener did read them; they simply do not move. A row that refused to
+ * acknowledge a press because its destination is unbuilt would look broken rather than incomplete.
+ */
+@Composable
+private fun NotificationsRoute(
+    router: Router,
+    openNotifications: OpenNotifications,
+) {
+    val session = remember { openNotifications() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val nowMs = remember { currentEpochMilliseconds() }
+
+    NotificationsPage(
+        state = session.state.collectAsState().value,
+        nowMs = nowMs,
+        onOpen = { notification ->
+            session.onMarkRead(notification.id)
+            when (val action = notification.toShortcutAction()) {
+                is ShortcutAction.NavigateToBook -> router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+
+                // Web's Admin page IS the pending-approvals surface, so this one lands.
+                is ShortcutAction.NavigateToPendingApprovals -> router.navigate(Route(listOf(ADMIN_KEY)))
+
+                else -> Unit
+            }
+        },
+    )
+}
+
+/**
+ * The shell's unread count, open for as long as the app is.
+ *
+ * A `remember { }` with no key on purpose — unlike every per-entity session in this file, this one
+ * is not keyed to anything that changes. Re-opening it on a route change would tear down and
+ * rebuild the Room subscription behind the badge on every navigation.
+ */
+@Composable
+private fun notificationBadge(openNotificationBell: OpenNotificationBell): Int {
+    val session = remember { openNotificationBell() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session.unreadCount.collectAsState().value
+}
+
+/**
  * Opens a Series Detail session for [seriesId] and collects it, closing the previous one whenever
  * the series changes or the page goes away. Keyed on [seriesId] for the same reason
  * [contributorDetailState] keys on `contributorId` — a bare `remember { }` would keep showing the
@@ -1049,11 +1118,29 @@ private const val SETTINGS_KEY = "settings"
 
 private const val DEVICES_KEY = "devices"
 
+/** The path segment that opens the notification inbox — `/notifications`. */
+private const val NOTIFICATIONS_KEY = "notifications"
+
 private val FOOTER_NAV =
     listOf(
+        NavEntry(NOTIFICATIONS_KEY, "Notifications", WebIcon.Bell),
         NavEntry(ADMIN_KEY, "Admin", WebIcon.Shield),
         NavEntry(SETTINGS_KEY, "Settings", WebIcon.Cog),
     )
+
+/**
+ * The footer entries this account actually has, with the live unread count on the bell.
+ *
+ * Built per render rather than held as a constant because the badge moves: a `val` list could only
+ * ever show the count the app started with.
+ */
+private fun footerNav(
+    isAdmin: Boolean,
+    unreadCount: Int,
+): List<NavEntry> =
+    FOOTER_NAV
+        .filterNot { it.key == ADMIN_KEY && !isAdmin }
+        .map { if (it.key == NOTIFICATIONS_KEY) NavEntry(it.key, it.label, it.icon, badge = unreadCount) else it }
 
 /**
  * The `/shelf/{id}` branch — one shelf, its books, and the owner's controls.

@@ -25,6 +25,7 @@ enum class WebIcon(
     ArrowDown("M12 4v15 M6 13l6 6 6-6"),
     ArrowUp("M12 20V5 M6 11l6-6 6 6"),
     Book("M5 4a1 1 0 0 1 1-1h13v16H6a2 2 0 0 0-2 2V5 M9 3v15"),
+    Bell("M12 3a6 6 0 0 0-6 6c0 4-1.5 5.5-1.5 5.5h15S18 13 18 9a6 6 0 0 0-6-6 M10 18a2 2 0 0 0 4 0"),
     Bookmark("M6 3h12v18l-6-4-6 4z"),
     Check("M4.5 12.5l5 5 10-10"),
     ChevronDown("M6 9l6 6 6-6"),

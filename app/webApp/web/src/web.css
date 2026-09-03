@@ -248,6 +248,7 @@ body { margin: 0; }
 .search-row:not(.is-static):active,
 .folder-row:active,
 .luw .disc-feed-row.is-open:active,
+.luw .ntf-row:active,
 .sd-book:active { background: var(--surface-3); }
 
 /* The library card is the one place a press has something to undo rather than add: the cover is
@@ -759,6 +760,14 @@ body { margin: 0; }
 @media (hover: hover) { .nav-i:hover { background:var(--surface-2); color:var(--ink); } }
 .nav-i.on { background:var(--coral-soft); color:var(--coral); font-weight:700; }
 .nav-i .lb { display:block; flex:1; overflow:hidden; text-overflow:ellipsis; }
+/* The unread badge. `min-width` with a pill radius rather than a fixed circle, so "99+" widens
+   instead of clipping — the count is the point, and a truncated number is worse than a wide one. */
+.nav-badge {
+  flex:none; min-width:20px; height:20px; padding:0 6px; border-radius:999px;
+  background:var(--coral); color:var(--on-coral);
+  font-size:11px; font-weight:800; font-variant-numeric:tabular-nums;
+  display:inline-flex; align-items:center; justify-content:center;
+}
 .sb-spacer { flex:1; }
 .sb-expand { margin:0 auto 10px; }
 /* Every page's content lands here, so this is the one place that owes it breathing room —
@@ -826,7 +835,10 @@ body { margin: 0; }
 .sidebar.clpsd .sb-brand { display:none; }
 .sidebar.clpsd .sb-group { display:none; }
 .sidebar.clpsd .nav-i .lb { display:none; }
-.sidebar.clpsd .nav-i { width:44px; justify-content:center; padding:0; }
+.sidebar.clpsd .nav-i { width:44px; justify-content:center; padding:0; position:relative; }
+/* In the rail there is no label to sit beside, so the badge rides the icon's corner — the whole
+   reason the count lives on the NavEntry rather than next to the label it would vanish with. */
+.sidebar.clpsd .nav-badge { position:absolute; top:2px; right:-2px; min-width:17px; height:17px; padding:0 4px; font-size:10px; }
 @media (max-width: 1279px) {
   .sidebar { width:76px; padding:16px 14px; align-items:center; }
   .sidebar .sb-brand { display:none; }
@@ -1526,6 +1538,33 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .adm { display: flex; flex-direction: column; gap: 1.8rem; max-width: 42rem; }
 .luw .adm-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .adm-skel { height: 14rem; border-radius: 16px; }
+
+/* ---- notifications — what happened while you were away. Narrower than the entity pages: every
+   row is one sentence, and a 1160px line of 14px text is a paragraph nobody tracks across. */
+.luw .ntf { width: 100%; padding: 24px 28px 40px; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.luw .ntf-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .ntf-skel { height: 12rem; border-radius: 16px; }
+.luw .ntf-list { display: flex; flex-direction: column; gap: 8px; }
+.luw .ntf-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 14px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .luw .ntf-row:hover { border-color: var(--coral); } }
+.luw .ntf-row:focus { outline: none; }
+.luw .ntf-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+/* Read rows keep the dot's space so the two states line up in a column; only the fill goes.
+   A list that reflows as you read it is a list that loses your place. */
+.luw .ntf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: transparent; }
+.luw .ntf-row.unread .ntf-dot { background: var(--coral); }
+.luw .ntf-text { flex: 1; min-width: 0; }
+.luw .ntf-t { font-size: 0.95rem; font-weight: 600; color: var(--ink); }
+/* Unread is weight AND the dot, never colour alone — one coral dot is a distinction that
+   disappears for a reader who cannot separate it from the surface behind it. */
+.luw .ntf-row.unread .ntf-t { font-weight: 800; }
+.luw .ntf-b { font-size: 0.85rem; color: var(--ink-2); margin-top: 2px; }
+.luw .ntf-when { flex: none; font-size: 0.78rem; color: var(--ink-3); white-space: nowrap; }
 .luw .adm-section { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .adm-section-h { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
 .luw .adm-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
