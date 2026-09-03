@@ -65,6 +65,12 @@ import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiStat
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
+import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
+import com.calypsan.listenup.web.features.nowplaying.NowPlayingPanel
+import com.calypsan.listenup.web.features.nowplaying.PlayerLink
+import com.calypsan.listenup.web.features.nowplaying.PlayerSeriesLink
+import com.calypsan.listenup.web.features.nowplaying.TransportChapter
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
@@ -723,6 +729,74 @@ class ClassContractTest :
                             onSkipForward = {},
                             onSetSpeed = {},
                             volumeBoostDb = 6f,
+                        )
+                        // The expanded player, rendered open. It cannot ride the bar above into
+                        // this contract — it appears only after a click, and this harness renders
+                        // without gesturing — so a class invented in there would go unchecked.
+                        // Both the fully-known book and the one Room has not seen: the second
+                        // draws a different subset (no byline, no series, no Go to book).
+                        NowPlayingPanel(
+                            open = true,
+                            state =
+                                TransportState(
+                                    title = "The Way of Kings",
+                                    isPlaying = true,
+                                    positionMs = 61_000,
+                                    durationMs = 3_600_000,
+                                ),
+                            book =
+                                NowPlayingBook(
+                                    bookId = "b1",
+                                    coverHash = "abc",
+                                    authors = listOf(PlayerLink("c1", "Brandon Sanderson")),
+                                    narrators = "Michael Kramer",
+                                    series = listOf(PlayerSeriesLink("s1", "The Stormlight Archive", "1")),
+                                ),
+                            chapters = listOf(TransportChapter("The Shattered Plains", 0L)),
+                            currentChapterIndex = 0,
+                            sleepTimer = SleepTimerState.Inactive,
+                            volumeBoostDb = 6f,
+                            onPlayPause = {},
+                            onSeek = {},
+                            onSkipBack = {},
+                            onSkipForward = {},
+                            onSeekToChapter = {},
+                            onOpenSpeed = {},
+                            onOpenChapters = {},
+                            onOpenBoost = {},
+                            onOpenSleep = {},
+                            onOpenBook = {},
+                            onOpenSeries = {},
+                            onOpenContributor = {},
+                            onDismiss = {},
+                        )
+                        NowPlayingPanel(
+                            open = true,
+                            state =
+                                TransportState(
+                                    title = "A book the mirror has not seen",
+                                    isPlaying = false,
+                                    positionMs = 0,
+                                    durationMs = 3_600_000,
+                                ),
+                            book = null,
+                            chapters = emptyList(),
+                            currentChapterIndex = null,
+                            sleepTimer = SleepTimerState.Inactive,
+                            volumeBoostDb = 0f,
+                            onPlayPause = {},
+                            onSeek = {},
+                            onSkipBack = {},
+                            onSkipForward = {},
+                            onSeekToChapter = {},
+                            onOpenSpeed = {},
+                            onOpenChapters = {},
+                            onOpenBoost = {},
+                            onOpenSleep = {},
+                            onOpenBook = {},
+                            onOpenSeries = {},
+                            onOpenContributor = {},
+                            onDismiss = {},
                         )
                     }
                 }

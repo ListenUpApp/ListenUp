@@ -80,6 +80,10 @@ fun TransportBar(
     boostUnavailable: Boolean = false,
     onSetBoost: (Float) -> Unit = {},
     onResetBoost: () -> Unit = {},
+    nowPlaying: NowPlayingBook? = null,
+    onOpenBook: (String) -> Unit = {},
+    onOpenSeries: (String) -> Unit = {},
+    onOpenContributor: (String) -> Unit = {},
 ) {
     if (state == null) return
 
@@ -87,9 +91,7 @@ fun TransportBar(
     var sleepOpen by remember { mutableStateOf(false) }
     var speedOpen by remember { mutableStateOf(false) }
     var boostOpen by remember { mutableStateOf(false) }
-    var dragPositionMs by remember { mutableStateOf<Long?>(null) }
-    val shownPositionMs = dragPositionMs ?: state.positionMs
-
+    var expandedOpen by remember { mutableStateOf(false) }
     val label = if (state.isPlaying) "Pause" else "Play"
     ChapterPicker(
         open = chaptersOpen,
@@ -131,7 +133,38 @@ fun TransportBar(
         onDismiss = { boostOpen = false },
     )
 
+    NowPlayingPanel(
+        open = expandedOpen,
+        state = state,
+        book = nowPlaying,
+        chapters = chapters,
+        currentChapterIndex = currentChapterIndex,
+        sleepTimer = sleepTimer,
+        volumeBoostDb = volumeBoostDb,
+        onPlayPause = onPlayPause,
+        onSeek = onSeek,
+        onSkipBack = onSkipBack,
+        onSkipForward = onSkipForward,
+        onSeekToChapter = onSeekToChapter,
+        onOpenSpeed = { speedOpen = true },
+        onOpenChapters = { chaptersOpen = true },
+        onOpenBoost = { boostOpen = true },
+        onOpenSleep = { sleepOpen = true },
+        onOpenBook = onOpenBook,
+        onOpenSeries = onOpenSeries,
+        onOpenContributor = onOpenContributor,
+        onDismiss = { expandedOpen = false },
+    )
+
     Div(attrs = { classes("tport") }) {
+        Button(attrs = {
+            classes("tport-expand")
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_ARIA_LABEL, "Open the player")
+            attr(ATTR_TITLE, "Open the player")
+            onClick { expandedOpen = true }
+        }) { Icon(WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
+
         SkipButton(
             icon = WebIcon.SkipBack,
             seconds = state.skipBackSec,
@@ -158,32 +191,13 @@ fun TransportBar(
 
         Span(attrs = { classes("tport-t") }) { Text(state.title) }
 
-        Span(attrs = { classes("mono", "tport-time") }) { Text(formatElapsed(shownPositionMs)) }
-
-        // The scrubber spans the whole book, not the current file: a listener drags to a place in
-        // a story, and which of the book's files that lands in is the player's problem.
-        Input(type = InputType.Range) {
-            classes("tport-scrub")
-            attr("min", "0")
-            // A zero-length range collapses the thumb onto the track and reports every drag as 0.
-            attr("max", state.durationMs.coerceAtLeast(1L).toString())
-            // Without this the range keeps its default step of 1 — one MILLISECOND per arrow key,
-            // so a keyboard listener would need thirty thousand presses to skip half a minute.
-            attr("step", STEP_MS.toString())
-            attr(ATTR_ARIA_LABEL, "Seek")
-            // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
-            // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.
-            attr("aria-valuetext", formatElapsed(shownPositionMs))
-            value(shownPositionMs.toString())
-            onInput { event -> dragPositionMs = scrubbedMs(event.target.value) }
-            onChange { event ->
-                val target = scrubbedMs(event.target.value) ?: state.positionMs
-                dragPositionMs = null
-                onSeek(target)
-            }
-        }
-
-        Span(attrs = { classes("mono", "tport-time") }) { Text(formatElapsed(state.durationMs)) }
+        Playhead(
+            positionMs = state.positionMs,
+            durationMs = state.durationMs,
+            timeClass = "tport-time",
+            scrubClass = "tport-scrub",
+            onSeek = onSeek,
+        )
 
         SessionControls(
             speed = state.speed,
@@ -387,6 +401,57 @@ private fun scrubbedMs(raw: String): Long? = raw.toDoubleOrNull()?.takeIf { it.i
 
 private fun twoDigits(value: Long): String = value.toString().padStart(2, '0')
 
+/**
+ * Elapsed time, the seek range, and total time — the three things that always move together.
+ *
+ * One implementation, used by the docked bar and the expanded panel. The drag position lives HERE
+ * rather than in either caller, because it is the reason this is a component at all: a fully
+ * controlled range re-renders from the *player's* position on every tick, so mid-drag the thumb
+ * snaps back under the finger. Two copies of that fix would be two chances to get it wrong, and
+ * the elapsed label has to read the same held value the thumb does or they disagree while dragging.
+ *
+ * [timeClass] and [scrubClass] are the caller's, because the bar and the panel size these very
+ * differently and the geometry is the only thing that differs between them.
+ */
+@Composable
+internal fun Playhead(
+    positionMs: Long,
+    durationMs: Long,
+    timeClass: String,
+    scrubClass: String,
+    onSeek: (Long) -> Unit,
+) {
+    var dragPositionMs by remember { mutableStateOf<Long?>(null) }
+    val shownPositionMs = dragPositionMs ?: positionMs
+
+    Span(attrs = { classes("mono", timeClass) }) { Text(formatElapsed(shownPositionMs)) }
+
+    // The scrubber spans the whole book, not the current file: a listener drags to a place in
+    // a story, and which of the book's files that lands in is the player's problem.
+    Input(type = InputType.Range) {
+        classes(scrubClass)
+        attr("min", "0")
+        // A zero-length range collapses the thumb onto the track and reports every drag as 0.
+        attr("max", durationMs.coerceAtLeast(1L).toString())
+        // Without this the range keeps its default step of 1 — one MILLISECOND per arrow key,
+        // so a keyboard listener would need thirty thousand presses to skip half a minute.
+        attr("step", STEP_MS.toString())
+        attr(ATTR_ARIA_LABEL, "Seek")
+        // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
+        // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.
+        attr("aria-valuetext", formatElapsed(shownPositionMs))
+        value(shownPositionMs.toString())
+        onInput { event -> dragPositionMs = scrubbedMs(event.target.value) }
+        onChange { event ->
+            val target = scrubbedMs(event.target.value) ?: positionMs
+            dragPositionMs = null
+            onSeek(target)
+        }
+    }
+
+    Span(attrs = { classes("mono", timeClass) }) { Text(formatElapsed(durationMs)) }
+}
+
 private const val MILLIS_PER_SECOND = 1_000L
 
 private const val SECONDS_PER_MINUTE = 60L
@@ -397,6 +462,8 @@ private const val SECONDS_PER_HOUR = 3_600L
 private const val STEP_MS = 1_000L
 
 private const val TRANSPORT_ICON_SIZE = 18
+
+private const val EXPAND_ICON_SIZE = 18
 
 private const val NOTICE_ICON_SIZE = 15
 

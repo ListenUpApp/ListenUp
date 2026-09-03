@@ -289,7 +289,17 @@ class SleepTimerSessionTest :
         test("setting a timer arms it, and cancelling disarms it") {
             val player = HtmlAudioPlayer()
             val manager = fakePlaybackManager(silentSegment(SEGMENT_MS), title = "Dune")
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.setSleepTimer(SleepTimerMode.Duration(TIMER_MINUTES))
             playback.sleepTimer.value.shouldBeInstanceOf<SleepTimerState.Active>()
@@ -304,7 +314,17 @@ class SleepTimerSessionTest :
         test("extending a running timer adds to what is left") {
             val player = HtmlAudioPlayer()
             val manager = fakePlaybackManager(silentSegment(SEGMENT_MS), title = "Dune")
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             playback.setSleepTimer(SleepTimerMode.Duration(TIMER_MINUTES))
             val before = (playback.sleepTimer.value as SleepTimerState.Active).remainingMs
@@ -325,7 +345,17 @@ class SleepTimerSessionTest :
             val segment = silentSegment(SEGMENT_MS)
             val manager = fakePlaybackManager(segment, title = "Dune")
             val player = HtmlAudioPlayer()
-            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player, FakePlaybackPreferences())
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(
+                        player,
+                        manager,
+                    ),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
 
             manager.currentChapter.value = chapterInfo(index = 0)
             playback.playBook(BookId("book-1"))

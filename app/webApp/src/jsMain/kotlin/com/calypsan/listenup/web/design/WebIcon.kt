@@ -28,6 +28,8 @@ enum class WebIcon(
     Bookmark("M6 3h12v18l-6-4-6 4z"),
     Check("M4.5 12.5l5 5 10-10"),
     ChevronDown("M6 9l6 6 6-6"),
+    ChevronUp("M6 15l6-6 6 6"),
+    ChevronLeft("M15 5l-7 7 7 7"),
     ChevronRight("M9 5l7 7-7 7"),
     Clock("M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M12 7v5.5l3.5 2"),
     Cog(

@@ -226,6 +226,12 @@ fun WebAppRoot(
             boostUnavailable = playback.boostUnavailable.collectAsState().value,
             onSetBoost = playback.onSetBoost,
             onResetBoost = playback.onResetBoost,
+            nowPlaying = playback.nowPlaying.collectAsState().value,
+            // The expanded player's three destinations. `navigate`, not `replace`: leaving the
+            // player for a book is a page change, and Back should return to where you were.
+            onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+            onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+            onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
         )
 
         // Last of all: the palette overlays everything above it, including the transport bar.
