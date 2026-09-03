@@ -278,6 +278,32 @@ body { margin: 0; }
 .chk.on .box svg { opacity: 1; }
 .chk span { font-size: 14.5px; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
 
+/* ---- switch. A real <input type=checkbox role=switch> with its own chrome hidden and the track
+   drawn beside it, so the thing that is focusable, tabbable and announced IS the thing you see
+   move. `opacity:0` rather than `display:none`: a hidden input is removed from the tab order and
+   from the accessibility tree, which would leave a switch no keyboard could reach. */
+.sw { display: inline-flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; position: relative; }
+.sw-lb { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.sw-in { position: absolute; inset: auto 0 0 0; width: 100%; height: 22px; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.sw-track {
+  width: 40px; height: 22px; border-radius: 999px; flex: none;
+  background: var(--surface-3); border: 1px solid var(--line);
+  display: inline-flex; align-items: center; padding: 2px;
+  transition: background .15s, border-color .15s;
+}
+.sw-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--surface);
+  box-shadow: 0 1px 3px rgba(20,12,6,.3); transition: transform .15s;
+}
+.sw-in:checked ~ .sw-track { background: var(--coral); border-color: var(--coral); }
+.sw-in:checked ~ .sw-track .sw-thumb { transform: translateX(18px); }
+/* The focus ring lands on the track, because the input it belongs to is invisible by design. */
+.sw-in:focus-visible ~ .sw-track { outline: 2px solid var(--coral); outline-offset: 2px; }
+/* A channel the server declared ineligible. Dimmed AND `disabled` on the input — the look alone
+   would leave it reachable by keyboard and silent to a screen reader. */
+.sw.off { cursor: default; opacity: .45; }
+.sw.off .sw-in { cursor: default; }
+
 /* ---- server connection chip (self-hosted indicator) ---- */
 .srv-chip {
   display: inline-flex; align-items: center; gap: 9px; height: 34px;
@@ -1538,6 +1564,22 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .adm { display: flex; flex-direction: column; gap: 1.8rem; max-width: 42rem; }
 .luw .adm-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .luw .adm-skel { height: 14rem; border-radius: 16px; }
+
+.luw .nprefs { width: 100%; padding: 24px 28px 40px; max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.luw .nprefs-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .nprefs-skel { height: 12rem; border-radius: 16px; }
+/* Says out loud that Push is an account setting this tab cannot demonstrate. */
+.luw .nprefs-note { margin: 0; font-size: 0.85rem; color: var(--ink-2); line-height: 1.55; }
+.luw .nprefs-list { display: flex; flex-direction: column; gap: 8px; }
+.luw .nprefs-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1.2rem;
+  padding: 14px 16px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.luw .nprefs-name { font-size: 0.95rem; font-weight: 700; color: var(--ink); min-width: 0; }
+/* A fixed gap rather than space-between inside: the two switches must sit in the same column all
+   the way down the list, or a disabled Push reads as a missing control rather than a dimmed one. */
+.luw .nprefs-switches { display: flex; gap: 1.4rem; flex: none; }
 
 /* ---- notifications — what happened while you were away. Narrower than the entity pages: every
    row is one sentence, and a 1160px line of 14px text is a paragraph nobody tracks across. */

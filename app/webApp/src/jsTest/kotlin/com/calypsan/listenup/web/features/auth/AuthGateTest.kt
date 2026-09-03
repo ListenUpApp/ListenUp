@@ -46,6 +46,8 @@ import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
+import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
@@ -80,6 +82,7 @@ private fun mountGate(
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
             openNotifications = fixedNotifications(NotificationsUiState.Empty),
+            openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
             openNotificationBell = fixedNotificationBell(),
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),

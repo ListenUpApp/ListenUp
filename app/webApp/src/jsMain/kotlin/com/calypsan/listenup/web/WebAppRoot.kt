@@ -67,6 +67,8 @@ import com.calypsan.listenup.client.presentation.notifications.NotificationsUiSt
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
 import com.calypsan.listenup.web.features.notifications.NotificationsPage
 import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
+import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
+import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -119,6 +121,7 @@ fun WebAppRoot(
     openContributorDetail: OpenContributorDetail,
     openSeriesDetail: OpenSeriesDetail,
     openNotifications: OpenNotifications,
+    openNotificationPrefs: OpenNotificationPrefs,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -195,6 +198,7 @@ fun WebAppRoot(
             openContributorDetail = openContributorDetail,
             openSeriesDetail = openSeriesDetail,
             openNotifications = openNotifications,
+            openNotificationPrefs = openNotificationPrefs,
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
@@ -268,6 +272,7 @@ private fun RouteContent(
     openContributorDetail: OpenContributorDetail,
     openSeriesDetail: OpenSeriesDetail,
     openNotifications: OpenNotifications,
+    openNotificationPrefs: OpenNotificationPrefs,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -364,6 +369,7 @@ private fun RouteContent(
             openSettings = openSettings,
             openDevices = openDevices,
             openAdmin = openAdmin,
+            openNotificationPrefs = openNotificationPrefs,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -935,6 +941,29 @@ private fun NotificationsRoute(
 }
 
 /**
+ * `/settings/notifications` — which notifications reach you, and how.
+ *
+ * A sub-route of Settings rather than a section inside it, the same call [DevicesRoute] makes: the
+ * rows are a server round trip with their own loading and failure states, and folding those in
+ * would give a page of instant local preferences a spinner it does not need.
+ */
+@Composable
+private fun NotificationPrefsRoute(
+    router: Router,
+    openNotificationPrefs: OpenNotificationPrefs,
+) {
+    val session = remember { openNotificationPrefs() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    NotificationPrefsPage(
+        state = session.state.collectAsState().value,
+        onSetPreference = session.onSetPreference,
+        onRetry = session.onRetry,
+        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+    )
+}
+
+/**
  * The shell's unread count, open for as long as the app is.
  *
  * A `remember { }` with no key on purpose — unlike every per-entity session in this file, this one
@@ -1290,6 +1319,7 @@ private fun SettingsRoute(
         onIgnoreTitleArticles = session.onIgnoreTitleArticles,
         onHideSingleBookSeries = session.onHideSingleBookSeries,
         onOpenDevices = { router.navigate(Route(listOf(SETTINGS_KEY, DEVICES_KEY))) },
+        onOpenNotifications = { router.navigate(Route(listOf(SETTINGS_KEY, NOTIFICATIONS_KEY))) },
     )
 }
 
@@ -1365,17 +1395,25 @@ private fun AccountRouteContent(
     openSettings: OpenSettings,
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
+    openNotificationPrefs: OpenNotificationPrefs,
 ) {
     when {
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
             DevicesRoute(openDevices = openDevices)
         }
 
+        segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == NOTIFICATIONS_KEY -> {
+            NotificationPrefsRoute(router = router, openNotificationPrefs = openNotificationPrefs)
+        }
+
         active == ADMIN_KEY -> {
             AdminRoute(openAdmin = openAdmin)
         }
 
-        active == SETTINGS_KEY -> {
+        // `size <= 1` is load-bearing, not defensive. `active` is SETTINGS_KEY for every
+        // `/settings/*` URL, so without it this branch swallows `/settings/nonsense` and renders
+        // Settings — which is exactly what the comment below has always said it does not do.
+        active == SETTINGS_KEY && segments.size <= 1 -> {
             SettingsRoute(router = router, openSettings = openSettings)
         }
 

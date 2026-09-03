@@ -56,6 +56,7 @@ private fun page(
     onIgnoreTitleArticles: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
     onOpenDevices: () -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
 ) {
     SettingsPage(
         state = state,
@@ -68,6 +69,7 @@ private fun page(
         onIgnoreTitleArticles = onIgnoreTitleArticles,
         onHideSingleBookSeries = onHideSingleBookSeries,
         onOpenDevices = onOpenDevices,
+        onOpenNotifications = onOpenNotifications,
     )
 }
 

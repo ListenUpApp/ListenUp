@@ -62,3 +62,24 @@ fun notificationCopy(event: NotificationEvent?): NotificationCopy =
             )
         }
     }
+
+/**
+ * The Settings row name for a registry [type] key, or null for a key this build does not know.
+ *
+ * Null means **no row**: a newer server's type has nothing this client can describe, and a toggle
+ * labelled by its wire key ("registration_approval") asks someone to make a decision about
+ * something they cannot read. The inbox takes the opposite line for the same reason — there, a row
+ * it cannot describe is still evidence something happened, so it renders generically rather than
+ * vanishing. Here there is nothing to preserve by guessing.
+ *
+ * The same duplication note as [notificationCopy] applies: `:app:sharedUI`'s
+ * `notificationTypeNameRes` resolves these keys to Compose resources web cannot load, and
+ * `NotificationCopyTest` asserts these strings verbatim so a divergence is a failing spec.
+ */
+fun notificationTypeName(type: String): String? =
+    when (type) {
+        "campfire_invite" -> "Campfire invites"
+        "registration_decision" -> "Registration decisions"
+        "registration_approval" -> "Pending registrations"
+        else -> null
+    }

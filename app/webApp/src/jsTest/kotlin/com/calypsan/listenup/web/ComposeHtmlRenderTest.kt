@@ -14,6 +14,8 @@ import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -66,6 +68,7 @@ class ComposeHtmlRenderTest :
                         fixedContributorDetail(ContributorDetailUiState.Loading),
                         fixedSeriesDetail(SeriesDetailUiState.Loading),
                         fixedNotifications(NotificationsUiState.Empty),
+                        fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),
@@ -101,6 +104,7 @@ class ComposeHtmlRenderTest :
                         fixedContributorDetail(ContributorDetailUiState.Loading),
                         fixedSeriesDetail(SeriesDetailUiState.Loading),
                         fixedNotifications(NotificationsUiState.Empty),
+                        fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),
