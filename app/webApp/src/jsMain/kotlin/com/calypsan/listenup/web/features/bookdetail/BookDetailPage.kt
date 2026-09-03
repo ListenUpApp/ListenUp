@@ -60,6 +60,7 @@ fun BookDetailPage(
     onPlay: () -> Unit,
     onEdit: () -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
+    onOpenSeries: (String) -> Unit = {},
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
@@ -75,6 +76,7 @@ fun BookDetailPage(
             onPlay = onPlay,
             onEdit = onEdit,
             onOpenContributor = onOpenContributor,
+            onOpenSeries = onOpenSeries,
         )
 
         when (state) {
@@ -164,6 +166,7 @@ private fun SharedHeader(
     onPlay: () -> Unit,
     onEdit: () -> Unit,
     onOpenContributor: (String) -> Unit,
+    onOpenSeries: (String) -> Unit,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -190,6 +193,7 @@ private fun SharedHeader(
             } else {
                 H1(attrs = { classes("bd-t") }) { Text(ready.book.title) }
                 Byline(ready, onOpenContributor)
+                SeriesChips(ready, onOpenSeries)
                 ready.progress?.let { fraction ->
                     ProgressLine(
                         percent = (fraction * PERCENT).toInt(),
@@ -320,6 +324,42 @@ private fun details(state: BookDetailUiState.Ready): List<MetaEntry> =
         state.book.language?.let { add(MetaEntry("Language", it)) }
         if (state.book.narratorNames.isNotBlank()) add(MetaEntry("Narrator", state.book.narratorNames))
     }
+
+/**
+ * The series this book belongs to, each one a way into that series' reading order.
+ *
+ * A book can be in several — a Cosmere novel is in both its own series and the Cosmere — so this
+ * is a row of chips rather than the single formatted string
+ * [BookDetailUiState.Ready.series] carries for iOS. Each chip reads
+ * [com.calypsan.listenup.client.domain.model.BookSeries.sequenceLabel] rather than the raw
+ * `Double`, which is what that property exists for — an interpolated `1.0` renders "Book 1.0" on
+ * the JVM and on Native. ⛔ It does NOT here: Kotlin/JS hands `toString()` to a JS number, which
+ * drops the trailing `.0`, so no browser spec can catch this call site regressing to `sequence`
+ * (verified by sabotage). Reading `sequenceLabel` is a uniformity rule on web, not a guarded one.
+ *
+ * Renders nothing at all, not an empty row, when the book is in no series.
+ */
+@Composable
+private fun SeriesChips(
+    state: BookDetailUiState.Ready,
+    onOpenSeries: (String) -> Unit,
+) {
+    if (state.book.series.isEmpty()) return
+    Div(attrs = { classes("bd-series") }) {
+        state.book.series.forEach { membership ->
+            Button(attrs = {
+                classes("bd-series-chip")
+                attr("type", BUTTON_VALUE)
+                onClick { onOpenSeries(membership.seriesId) }
+            }) {
+                Text(membership.seriesName)
+                membership.sequenceLabel?.let { position ->
+                    Span(attrs = { classes("bd-series-seq") }) { Text("#$position") }
+                }
+            }
+        }
+    }
+}
 
 /**
  * "Author · read by Narrator", dropping either half when the book doesn't name it — same sentence

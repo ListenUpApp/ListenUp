@@ -219,7 +219,8 @@ body { margin: 0; }
 .luw .disc-chip:active,
 .luw .shelf-grip:active,
 .luw .shelf-book-x:active,
-.luw .shelf-notice-x:active { transform: translateY(1px); }
+.luw .shelf-notice-x:active,
+.bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
 .luw .home-card:active,
@@ -227,7 +228,8 @@ body { margin: 0; }
 .luw .home-shelf:active,
 .luw .disc-shelf:active,
 .luw .disc-listener:active,
-.luw .shelf-book-open:active { transform: scale(0.985); }
+.luw .shelf-book-open:active,
+.cd-series-card:active { transform: scale(0.985); }
 
 /* Rows — colour, not geometry. See the note about `<tr>` above; the others join them so a list
    of rows presses the same way whether it happens to be a table or a stack of divs. */
@@ -237,7 +239,8 @@ body { margin: 0; }
 .contrib-row:active,
 .search-row:not(.is-static):active,
 .folder-row:active,
-.luw .disc-feed-row.is-open:active { background: var(--surface-3); }
+.luw .disc-feed-row.is-open:active,
+.sd-book:active { background: var(--surface-3); }
 
 /* The library card is the one place a press has something to undo rather than add: the cover is
    already lifted 3px by hover, so pressing sets it back down. Same rule as the hover treatment it
@@ -1223,7 +1226,14 @@ body { margin: 0; }
 .cd-series-card {
   flex:1; min-width:260px; display:flex; align-items:center; gap:16px; padding:14px; border-radius:16px;
   background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-card);
+  /* The card became a <button> when the series route arrived. A button does not inherit the
+     page's font, centres its text and draws its own chrome, so each of those is cancelled here —
+     the card must look exactly as it did as a div, and only behave differently. */
+  font:inherit; color:inherit; text-align:left; cursor:pointer;
 }
+@media (hover: hover) { .cd-series-card:hover { border-color:var(--coral); } }
+.cd-series-card:focus { outline:none; }
+.cd-series-card:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
 .cd-series-fan { position:relative; height:82px; flex-shrink:0; }
 .cd-fan-tile { position:absolute; border-radius:10px; outline:2px solid var(--surface); }
 .cd-fan-tile.is-front { box-shadow:var(--shadow-pop); display:flex; align-items:flex-end; padding:8px; box-sizing:border-box; }
@@ -1231,6 +1241,80 @@ body { margin: 0; }
 .cd-series-info { flex:1; min-width:0; }
 .cd-series-name { font-size:15px; font-weight:800; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cd-series-count { font-size:12.5px; color:var(--ink-2); font-weight:500; }
+
+/* ---- series detail — one series in reading order.
+   Geometry deliberately matches `.bd` and `.cd`: the three entity pages (a book, a person, a
+   series) are the same kind of destination, and a reader arriving from a cover click should not
+   feel the page width change under them. */
+.sd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.sd-head { display:flex; gap:26px; align-items:flex-end; }
+.sd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
+.sd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.sd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
+.sd-stats { display:flex; gap:10px; flex-wrap:wrap; }
+.sd-stat {
+  display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:12px;
+  background:var(--surface-2); border:1px solid var(--line); color:var(--ink-3);
+}
+.sd-stat-label { font-size:13.5px; font-weight:700; color:var(--ink); }
+.sd-actions { display:flex; gap:10px; margin-top:4px; }
+.sd-desc { font-size:14.5px; line-height:1.6; color:var(--ink-2); }
+.sd-desc p { margin:0; }
+.sd-count-badge {
+  font-family:var(--mono); font-size:11px; color:var(--ink-3); padding:2px 8px;
+  border-radius:999px; background:var(--surface-2); border:1px solid var(--line);
+}
+
+/* One row per book, never a grid: the order IS the series, and a grid that wraps makes "the
+   third book" mean different things at different widths. Same reasoning as `.shelf-books`. */
+.sd-books { display:flex; flex-direction:column; gap:8px; }
+.sd-book {
+  display:flex; align-items:center; gap:14px; width:100%;
+  padding:10px 12px; border-radius:14px;
+  background:var(--surface); border:1px solid var(--line);
+  font:inherit; color:inherit; text-align:left; cursor:pointer;
+}
+@media (hover: hover) { .sd-book:hover { border-color:var(--coral); } }
+@media (hover: hover) { .sd-book:hover .sd-book-t { color:var(--coral); } }
+.sd-book:focus { outline:none; }
+.sd-book:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
+/* Monospaced and fixed-width so the numbers form a column rather than a ragged edge — #1 and
+   #10 must line up, and a 1.5 interquel must not shift its neighbours. */
+.sd-seq {
+  flex:none; min-width:38px; font-family:var(--mono); font-size:12px; font-weight:600;
+  color:var(--ink-3);
+}
+.sd-book-frame {
+  position:relative; flex:none; width:56px; height:56px; border-radius:10px; overflow:hidden;
+  background:var(--surface-2);
+}
+.sd-book-cover { width:100%; height:100%; object-fit:cover; display:block; }
+.sd-book-fallback {
+  width:100%; height:100%; padding:6px; box-sizing:border-box; display:flex; align-items:flex-end;
+  font-size:10px; font-weight:800; line-height:1.1; color:var(--ink-2);
+}
+.sd-book-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
+.sd-book-text { flex:1; min-width:0; }
+.sd-book-t { font-size:15px; font-weight:700; letter-spacing:-0.01em; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sd-book-sub { font-size:12.5px; color:var(--ink-2); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sd-done {
+  flex:none; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px;
+  font-size:11.5px; font-weight:700; color:var(--ink-3); background:var(--surface-2);
+  border:1px solid var(--line);
+}
+
+/* A book's series memberships, on Book Detail. Sits under the byline, above the actions. */
+.bd-series { display:flex; flex-wrap:wrap; gap:8px; }
+.bd-series-chip {
+  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+  background:var(--surface-2); border:1px solid var(--line);
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+}
+@media (hover: hover) { .bd-series-chip:hover { border-color:var(--coral); color:var(--coral); } }
+.bd-series-chip:focus { outline:none; }
+.bd-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.bd-series-seq { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
 /* Search — federated results across books, contributors, series and tags. */
 .search-page { width: 100%; padding: 24px 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .search-header h3 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }

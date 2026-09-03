@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
@@ -49,6 +50,11 @@ import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
+import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailSession
+import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.web.features.seriesdetail.readySeries
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -67,7 +73,9 @@ import com.calypsan.listenup.web.features.contributordetail.readyContributor
 internal fun mountAt(
     path: String,
     isAdmin: Flow<Boolean> = flowOf(false),
+    openBookDetail: OpenBookDetail = fixedBookDetail(readyBook()),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+    openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openContributors: OpenContributors = fixedContributors(emptyList()),
     openHome: OpenHome = fixedHome(HomeUiState.Loading),
     openLibrary: OpenLibrary = fakeLibrary(),
@@ -81,9 +89,10 @@ internal fun mountAt(
         renderComposable(root = host) {
             WebAppRoot(
                 router,
-                fixedBookDetail(readyBook()),
+                openBookDetail,
                 fixedBookEdit(BookEditUiState()),
                 openContributorDetail,
+                openSeriesDetail,
                 openContributors,
                 openHome,
                 fixedDiscover(),
@@ -192,6 +201,18 @@ internal class RecordingContributors {
     val open: OpenContributors = { role ->
         requestedRoles += role
         ContributorsSession(state = MutableStateFlow(emptyList()), close = {})
+    }
+}
+
+/** An [OpenSeriesDetail] that records every id it was asked to open, in the order asked. */
+internal class RecordingSeriesDetail {
+    val requestedIds = mutableListOf<String>()
+    val open: OpenSeriesDetail = { id ->
+        requestedIds += id
+        SeriesDetailSession(
+            state = MutableStateFlow(readySeries(seriesId = id, seriesName = "Series $id")),
+            close = {},
+        )
     }
 }
 

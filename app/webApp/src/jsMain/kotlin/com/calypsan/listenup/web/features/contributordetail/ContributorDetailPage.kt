@@ -50,6 +50,7 @@ fun ContributorDetailPage(
     onOpenLibrary: () -> Unit,
     onOpenContributors: () -> Unit,
     onOpenBook: (String) -> Unit,
+    onOpenSeries: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page
@@ -61,7 +62,7 @@ fun ContributorDetailPage(
 
         when (state) {
             is ContributorDetailUiState.Ready -> {
-                ReadyContent(state, onOpenBook)
+                ReadyContent(state, onOpenBook, onOpenSeries)
             }
 
             is ContributorDetailUiState.Error -> {
@@ -119,6 +120,7 @@ private fun WayBack(
 private fun ReadyContent(
     state: ContributorDetailUiState.Ready,
     onOpenBook: (String) -> Unit,
+    onOpenSeries: (String) -> Unit,
 ) {
     Hero(state)
 
@@ -142,7 +144,12 @@ private fun ReadyContent(
         Div(attrs = { classes("cd-series-section") }) {
             Panel(title = "Series", trailing = { CountBadge(state.series.size) }) {
                 Div(attrs = { classes("cd-series-grid") }) {
-                    state.series.forEach { seriesWithBooks -> SeriesCard(seriesWithBooks) }
+                    state.series.forEach { seriesWithBooks ->
+                        SeriesCard(
+                            seriesWithBooks = seriesWithBooks,
+                            onOpen = { onOpenSeries(seriesWithBooks.series.id.value) },
+                        )
+                    }
                 }
             }
         }
@@ -263,12 +270,23 @@ private fun RoleTile(
  * books (`calculateProgressMap`'s `excludeComplete`), so there is no way to tell "finished" from
  * "never started" from what this page has. `SeriesDetailViewModel` has its own `FINISHED_THRESHOLD`
  * concept, but it isn't surfaced here — inventing a second one for this card would be a product
- * rule this page made up, not one the codebase already agreed on. The card is not a link either:
- * there is no series route yet, so it stays informational rather than a click that goes nowhere.
+ * rule this page made up, not one the codebase already agreed on. The page this card now opens
+ * does show that progress, because the ViewModel behind THAT page computes it.
+ *
+ * The card is a `<button>`, not a div with a click handler: it goes somewhere, so it has to be
+ * reachable by keyboard and announce itself as a control — the same contract `.shelf-book-open`
+ * and `.bd-by-name` already carry.
  */
 @Composable
-private fun SeriesCard(seriesWithBooks: SeriesWithBooks) {
-    Div(attrs = { classes("cd-series-card") }) {
+private fun SeriesCard(
+    seriesWithBooks: SeriesWithBooks,
+    onOpen: () -> Unit,
+) {
+    Button(attrs = {
+        classes("cd-series-card")
+        attr("type", "button")
+        onClick { onOpen() }
+    }) {
         SeriesFan(seriesWithBooks.booksSortedBySequence())
         Div(attrs = { classes("cd-series-info") }) {
             Div(attrs = { classes("cd-series-name") }) { Text(seriesWithBooks.series.name) }

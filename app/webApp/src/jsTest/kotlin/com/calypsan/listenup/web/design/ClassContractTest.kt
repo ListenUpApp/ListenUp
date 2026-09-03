@@ -60,6 +60,11 @@ import com.calypsan.listenup.web.features.auth.RegisterForm
 import com.calypsan.listenup.web.features.auth.SetupForm
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
+import com.calypsan.listenup.web.features.seriesdetail.readySeries
+import com.calypsan.listenup.web.features.seriesdetail.seriesBook
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
@@ -232,7 +237,13 @@ class ClassContractTest :
                             onToggleCollapse = {},
                         ) {}
                         BookDetailPage(
-                            state = readyBook(),
+                            state =
+                                readyBook(
+                                    series =
+                                        listOf(
+                                            BookSeries(seriesId = "s1", seriesName = "The Stormlight Archive", sequence = 1.0),
+                                        ),
+                                ),
                             tab = "overview",
                             onSelectTab = {},
                             onOpenLibrary = {},
@@ -348,6 +359,35 @@ class ClassContractTest :
                             state = ContributorDetailUiState.NotFound,
                             onOpenLibrary = {},
                             onOpenContributors = {},
+                            onOpenBook = {},
+                        )
+                        // Series Detail: a fully loaded page — hero stats, the reading order with a
+                        // progress bar and a finished mark, and the About panel — plus the two
+                        // states with no series, which draw classes of their own.
+                        SeriesDetailPage(
+                            state =
+                                readySeries(
+                                    seriesDescription = "Ten orders of Knights Radiant.",
+                                    books =
+                                        listOf(
+                                            seriesBook("b1", "The Way of Kings", 1.0),
+                                            seriesBook("b2", "Words of Radiance", 2.0),
+                                        ),
+                                    bookProgress = mapOf(BookId("b2") to 0.4f),
+                                    finishedBookIds = setOf(BookId("b1")),
+                                    resumeTarget = BookId("b2"),
+                                ),
+                            onOpenLibrary = {},
+                            onOpenBook = {},
+                        )
+                        SeriesDetailPage(
+                            state = SeriesDetailUiState.Error("Series not found"),
+                            onOpenLibrary = {},
+                            onOpenBook = {},
+                        )
+                        SeriesDetailPage(
+                            state = SeriesDetailUiState.Loading,
+                            onOpenLibrary = {},
                             onOpenBook = {},
                         )
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a

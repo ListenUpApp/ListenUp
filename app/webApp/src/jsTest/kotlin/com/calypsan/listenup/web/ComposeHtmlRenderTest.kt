@@ -13,6 +13,8 @@ import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import androidx.compose.runtime.Composable
@@ -59,6 +61,7 @@ class ComposeHtmlRenderTest :
                         fixedBookDetail(readyBook()),
                         fixedBookEdit(BookEditUiState()),
                         fixedContributorDetail(ContributorDetailUiState.Loading),
+                        fixedSeriesDetail(SeriesDetailUiState.Loading),
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),
@@ -91,6 +94,7 @@ class ComposeHtmlRenderTest :
                         fixedBookDetail(readyBook()),
                         fixedBookEdit(BookEditUiState()),
                         fixedContributorDetail(ContributorDetailUiState.Loading),
+                        fixedSeriesDetail(SeriesDetailUiState.Loading),
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),
