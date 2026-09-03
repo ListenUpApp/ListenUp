@@ -83,6 +83,21 @@ struct BulkEditView: View {
                     notLoadedNotice(notice)
                 }
                 fields(observer)
+
+                card(
+                    title: String(localized: "bulk_edit.card_credits"),
+                    note: String(localized: "bulk_edit.card_credits_note")
+                ) {
+                    BulkEditCredits(observer: observer)
+                }
+
+                card(
+                    title: String(localized: "bulk_edit.card_classification"),
+                    note: String(localized: "bulk_edit.card_classification_note")
+                ) {
+                    BulkEditClassification(observer: observer)
+                }
+
                 previewPanel(observer)
             }
             .padding(.horizontal)
@@ -98,6 +113,28 @@ struct BulkEditView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
             .fieldCard()
+    }
+
+    /// One titled group of relation fields, in the same card the rest of the form uses.
+    ///
+    /// The note under each heading is the promise the whole screen rests on: these fields *add* to
+    /// what each book already carries, and a field nobody touches writes to nothing.
+    @ViewBuilder
+    private func card(
+        title: String,
+        note: String,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(title).font(.headline)
+            Text(note)
+                .font(.caption)
+                .foregroundStyle(Color.luLabel2)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .fieldCard()
     }
 
     /// The three text fields.

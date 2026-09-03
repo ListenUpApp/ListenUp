@@ -89,6 +89,49 @@ enum BulkEditMapping {
         )
     }
 
+    /// Narrow a locally-held catalogue to what a typed query offers.
+    ///
+    /// Genres, tags and moods are filtered **here**, not by a query to the server, for the same
+    /// reason search is: the lists are already in Room, so the picker works with the network off.
+    /// An empty query offers the whole catalogue — the *caller* gates on whether anything has been
+    /// typed, because the Compose editor learned on a device that returning everything for a blank
+    /// query leaves the dropdown permanently open over the rest of the form.
+    static func narrow(
+        _ catalogue: [RelationSearchResult],
+        query: String,
+        excluding chosenIds: Set<String>
+    ) -> [RelationSearchResult] {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        return catalogue
+            .filter { !chosenIds.contains($0.id) }
+            .filter { trimmed.isEmpty || $0.name.localizedCaseInsensitiveContains(trimmed) }
+    }
+
+    /// The chip for a credited contributor.
+    ///
+    /// Keyed on name **and** role, so the same person credited twice — author and narrator of their
+    /// own memoir — is two chips rather than one that cannot be told apart.
+    static func contributorChip(name: String, roleApiValue: String) -> EditableRelation {
+        EditableRelation(
+            id: "\(name)/\(roleApiValue)",
+            label: "\(name) · \(BookEditObserver.roleTitle(roleApiValue: roleApiValue))"
+        )
+    }
+
+    /// The chip for a chosen genre. Falls back to the id when the catalogue cannot name it, which
+    /// happens only if the genre was deleted from another device mid-edit — an id is ugly and
+    /// findable; a blank chip is neither.
+    static func genreChip(id: String, catalogue: [RelationSearchResult]) -> EditableRelation {
+        EditableRelation(id: id, label: catalogue.first { $0.id == id }?.name ?? id)
+    }
+
+    /// The chip for a tag or mood. These travel by **display name**, not slug — the server's
+    /// find-or-create keys on the normalised name, so passing a slug mints a tag literally called
+    /// `found-family`.
+    static func nameChip(_ name: String) -> EditableRelation {
+        EditableRelation(id: name, label: name)
+    }
+
     /// The whole preview panel, in the order the shared ViewModel produced it.
     static func previewLines(_ rows: [BulkEditPreviewRow], bookCount: Int) -> [BulkEditPreviewLine] {
         rows.compactMap { row in

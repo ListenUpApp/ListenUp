@@ -423,7 +423,25 @@ final class BookEditObserver {
     /// Reconstructs a Swift `ContributorRole` from its `apiValue` string. A Swift-constructed enum
     /// value passes safely into the Kotlin accessors/events (the bridge-safe function-argument
     /// direction), unlike an enum value read out of a bridged `List<ContributorRole>`, which traps.
-    static func roleFromApiValue(_ apiValue: String) -> ContributorRole? {
+    /// Every contributor role, in the contract's declaration order.
+    ///
+    /// String `apiValue`s rather than `ContributorRole` values: reading an enum out of a bridged
+    /// `List<ContributorRole>` traps, and a Swift-constructed value is only safe in the
+    /// function-argument direction. Mirrors `ContributorRole` in the contract — a role added there
+    /// must be added here, which `BookEditObserverTests` pins.
+    nonisolated static let allRoleApiValues = [
+        "author", "narrator", "editor", "translator", "foreword",
+        "introduction", "afterword", "producer", "adapter", "illustrator"
+    ]
+
+    /// The role's display name from its `apiValue`. Falls back to the raw value for a role this
+    /// build does not know — visible and searchable, rather than blank.
+    nonisolated static func roleTitle(roleApiValue: String) -> String {
+        guard let role = roleFromApiValue(roleApiValue) else { return roleApiValue }
+        return roleTitle(role)
+    }
+
+    nonisolated static func roleFromApiValue(_ apiValue: String) -> ContributorRole? {
         switch apiValue {
         case "author": return .author
         case "narrator": return .narrator
@@ -441,7 +459,7 @@ final class BookEditObserver {
 
     /// Localized display name for a contributor role. Kept in Swift (not the Kotlin `displayName`
     /// extension, which doesn't reliably cross Swift Export) so the strings resolve from the catalog.
-    static func roleTitle(_ role: ContributorRole) -> String {
+    nonisolated static func roleTitle(_ role: ContributorRole) -> String {
         switch role {
         case .author: return String(localized: "book.role_author")
         case .narrator: return String(localized: "book.role_narrator")

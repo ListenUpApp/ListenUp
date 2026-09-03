@@ -32,6 +32,64 @@ struct BulkEditObserverTests {
         #expect(BulkEditFormatting.applied(changedCount: 8) == expected)
     }
 
+    // MARK: - Relation projections
+
+    private static let catalogue = [
+        RelationSearchResult(id: "g1", name: "Science Fiction", subtitle: "Fiction"),
+        RelationSearchResult(id: "g2", name: "Historical Fiction", subtitle: "Fiction"),
+        RelationSearchResult(id: "g3", name: "Memoir", subtitle: nil)
+    ]
+
+    @Test func narrowingMatchesAnywhereInTheNameAndIgnoresCase() {
+        let hits = BulkEditMapping.narrow(Self.catalogue, query: "fiction", excluding: [])
+        #expect(hits.map(\.id) == ["g1", "g2"])
+    }
+
+    /// Something already chosen is not offered again — picking it twice is not a thing to allow.
+    @Test func narrowingHidesWhatIsAlreadyChosen() {
+        let hits = BulkEditMapping.narrow(Self.catalogue, query: "fiction", excluding: ["g1"])
+        #expect(hits.map(\.id) == ["g2"])
+    }
+
+    @Test func anEmptyQueryOffersTheWholeCatalogue() {
+        #expect(BulkEditMapping.narrow(Self.catalogue, query: "  ", excluding: []).count == 3)
+    }
+
+    /// The bug this prevents: one chip for a person credited in two roles, with no way to remove
+    /// just one of them.
+    @Test func aPersonInTwoRolesIsTwoDistinctChips() {
+        let author = BulkEditMapping.contributorChip(name: "Ursula K. Le Guin", roleApiValue: "author")
+        let narrator = BulkEditMapping.contributorChip(name: "Ursula K. Le Guin", roleApiValue: "narrator")
+        #expect(author.id != narrator.id)
+        #expect(author.label != narrator.label)
+    }
+
+    @Test func aGenreChipReadsAsItsNameNotItsId() {
+        #expect(BulkEditMapping.genreChip(id: "g3", catalogue: Self.catalogue).label == "Memoir")
+    }
+
+    /// A genre deleted from another device mid-edit. An id is ugly and findable; a blank chip is
+    /// neither.
+    @Test func aGenreTheCatalogueCannotNameFallsBackToItsId() {
+        #expect(BulkEditMapping.genreChip(id: "gone", catalogue: Self.catalogue).label == "gone")
+    }
+
+    /// Tags and moods travel as display names. A slug here is how a library ends up with a tag
+    /// literally called `found-family`.
+    @Test func aTagChipCarriesTheDisplayName() {
+        #expect(BulkEditMapping.nameChip("Found Family").label == "Found Family")
+    }
+
+    /// The role picker reads this list, and `roleFromApiValue` must recognise every entry — a value
+    /// it cannot map falls back to showing the raw string in the menu.
+    @Test func everyAdvertisedRoleResolvesToARealRole() {
+        #expect(BookEditObserver.allRoleApiValues.count == 10)
+        for apiValue in BookEditObserver.allRoleApiValues {
+            #expect(BookEditObserver.roleFromApiValue(apiValue) != nil)
+            #expect(BookEditObserver.roleTitle(roleApiValue: apiValue) != apiValue)
+        }
+    }
+
     // MARK: - Apply label
 
     /// The resting state of an untouched form. "Change 0 books" is true and reads as a bug, so the
