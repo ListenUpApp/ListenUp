@@ -1371,6 +1371,14 @@ One beautiful library.</string>
     <string name="search_unavailable">Search Unavailable</string>
     <string name="selection_add_n_to_collection">Add %1$d to a collection</string>
     <string name="selection_add_n_to_shelf">Add %1$d to a shelf</string>
+    <string name="selection_added_to_collection_none">Already in that collection</string>
+    <string name="selection_added_to_collection_one">1 book added to collection</string>
+    <string name="selection_added_to_collection_plural">%1$d books added to collection</string>
+    <string name="selection_added_to_shelf_none">Already on that shelf</string>
+    <string name="selection_added_to_shelf_one">1 book added to shelf</string>
+    <string name="selection_added_to_shelf_plural">%1$d books added to shelf</string>
+    <string name="selection_created_with_books_one">Created "%1$s" with 1 book</string>
+    <string name="selection_created_with_books_plural">Created "%1$s" with %2$d books</string>
     <string name="selection_n_selected">%1$d selected</string>
     <string name="series_book_finished">Finished</string>
     <string name="series_book_number">Book %1$s</string>
