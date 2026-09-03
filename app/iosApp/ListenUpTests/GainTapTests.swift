@@ -157,3 +157,63 @@ struct GainTapTests {
         )
     }
 }
+
+/// The gain curve, and its agreement with the shared Kotlin specification.
+///
+/// `GainCurve` is a hand transcription of Kotlin `VolumeGain.applySample` — the audio thread cannot
+/// call into the Kotlin runtime, so the math is duplicated on purpose. A duplicated constant that
+/// can drift silently is how a fixed bug comes back, so the first test here pins the Swift copy to
+/// the Kotlin original across the bridge.
+@Suite("GainCurve")
+struct GainCurveTests {
+    @Test func saturationConstantsMatchTheSharedSpecification() {
+        #expect(GainCurve.knee == VolumeGain.shared.KNEE_LINEAR)
+        #expect(GainCurve.ceiling == VolumeGain.shared.CEILING_LINEAR)
+    }
+
+    /// Below the knee, the curve must be *exactly* a multiply — audio that was never going to clip
+    /// is not to be touched by the saturator.
+    @Test func belowTheKneeItIsExactlyAMultiply() {
+        let gain = VolumeGain.shared.dbToLinear(db: 6)
+        #expect(GainCurve.apply(0.1, gain) == 0.1 * gain)
+        #expect(GainCurve.apply(-0.1, gain) == -0.1 * gain)
+    }
+
+    /// Driven hard, it approaches the ceiling and never reaches the rail. The old
+    /// `min(1, max(-1, …))` returned exactly 1.0 here, flattening the waveform's tops.
+    @Test func hardDrivingApproachesTheCeilingWithoutReachingFullScale() {
+        let absurd = VolumeGain.shared.dbToLinear(db: 60)
+        for sample in [Float(0.05), 0.3, 0.708, 1.0] {
+            let out = GainCurve.apply(sample, absurd)
+            #expect(out < 1)
+            #expect(out <= GainCurve.ceiling)
+            #expect(GainCurve.apply(-sample, absurd) == -out)
+        }
+    }
+
+    /// Monotonic: louder in is always louder out. This is what keeps volume boost working — a
+    /// curve that flattened would make the top of the boost range do nothing.
+    @Test func theCurveIsMonotonicSoBoostAlwaysBoosts() {
+        let gain = VolumeGain.shared.dbToLinear(db: 12)
+        var previous = Float(0)
+        for step in 1...200 {
+            let out = GainCurve.apply(Float(step) / 200, gain)
+            #expect(out > previous)
+            previous = out
+        }
+    }
+
+    /// Agreement with the Kotlin across the whole domain, not just at the constants — the point of
+    /// the transcription is that it computes the same thing.
+    @Test func theTranscriptionAgreesWithTheKotlinAcrossTheRange() {
+        for gainDb in [Float(0), 3, 6, 12] {
+            let gain = VolumeGain.shared.dbToLinear(db: gainDb)
+            for step in 0...100 {
+                let sample = Float(step) / 100
+                let swift = GainCurve.apply(sample, gain)
+                let kotlin = VolumeGain.shared.applySample(sample: sample, linearGain: gain)
+                #expect(abs(swift - kotlin) < 1e-6)
+            }
+        }
+    }
+}

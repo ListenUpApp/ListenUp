@@ -140,10 +140,13 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
     }
 
     /**
-     * Quantize a clamped ±1.0 sample back to 16-bit. Scaling by 32767 rather than 32768 keeps the
-     * rails symmetric with [VolumeGain.applySample]'s own ±1.0 clamp, so a hard-clipped negative
-     * peak lands on -32767 and not the two's-complement floor — a 0.0003 dB asymmetry against the
-     * decoder's -32768, in exchange for one clamp definition shared by both platforms.
+     * Quantize a saturated sample back to 16-bit.
+     *
+     * [VolumeGain.applySample] asymptotes to [VolumeGain.CEILING_LINEAR], just under full scale, so
+     * the input here is always strictly inside ±1.0 and no rail can be reached by arithmetic.
+     * Scaling by 32767 rather than 32768 keeps the two rails symmetric — a 0.0003 dB asymmetry
+     * against the decoder's -32768, in exchange for one saturation definition shared by every
+     * platform.
      */
     private fun Float.toPcm16(): Short = (this * PCM_16_PEAK).toInt().toShort()
 
