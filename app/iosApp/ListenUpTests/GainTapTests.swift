@@ -157,3 +157,89 @@ struct GainTapTests {
         )
     }
 }
+
+/// The gain curve, and its agreement with the shared Kotlin specification.
+///
+/// `GainCurve` is a hand transcription of Kotlin `VolumeGain.applySample` — the audio thread cannot
+/// call into the Kotlin runtime, so the math is duplicated on purpose. A duplicated constant that
+/// can drift silently is how a fixed bug comes back, so the first test here pins the Swift copy to
+/// the Kotlin original across the bridge.
+@Suite("GainCurve")
+struct GainCurveTests {
+    @Test func saturationConstantsMatchTheSharedSpecification() {
+        #expect(GainCurve.knee == VolumeGain.shared.KNEE_LINEAR)
+        #expect(GainCurve.ceiling == VolumeGain.shared.CEILING_LINEAR)
+    }
+
+    /// Below the knee, the curve must be *exactly* a multiply — audio that was never going to clip
+    /// is not to be touched by the saturator.
+    @Test func belowTheKneeItIsExactlyAMultiply() {
+        let gain = VolumeGain.shared.dbToLinear(db: 6)
+        #expect(GainCurve.apply(0.1, gain) == 0.1 * gain)
+        #expect(GainCurve.apply(-0.1, gain) == -0.1 * gain)
+    }
+
+    /// Driven hard, it approaches the ceiling and never reaches the rail. The old
+    /// `min(1, max(-1, …))` returned exactly 1.0 here, flattening the waveform's tops.
+    @Test func hardDrivingApproachesTheCeilingWithoutReachingFullScale() {
+        let absurd = VolumeGain.shared.dbToLinear(db: 60)
+        for sample in [Float(0.05), 0.3, 0.708, 1.0] {
+            let out = GainCurve.apply(sample, absurd)
+            #expect(out < 1)
+            #expect(out <= GainCurve.ceiling)
+            #expect(GainCurve.apply(-sample, absurd) == -out)
+        }
+    }
+
+    /// Non-decreasing at any drive: raising a sample never lowers its output. Strict increase is
+    /// impossible near the ceiling — consecutive results there differ by less than a `Float` ULP —
+    /// so this asserts what the curve actually guarantees. The user-facing property (boost really
+    /// makes things louder) is covered by the flattening comparison below and by Kotlin's
+    /// `VOLUME BOOST STILL WORKS` aggregate-loudness test.
+    @Test func theCurveNeverDecreasesAtAnyDrive() {
+        for db in [Float(0), 6, 12, 24] {
+            let gain = VolumeGain.shared.dbToLinear(db: db)
+            var previous = Float(-1)
+            for step in 0...1000 {
+                let out = GainCurve.apply(Float(step) / 1000, gain)
+                #expect(out >= previous)
+                previous = out
+            }
+        }
+    }
+
+    /// The claim that matters, measured: both the old clamp and this curve eventually plateau, but
+    /// hard clipping flattened everything past `1 / gain` — three quarters of the range at +12 dB.
+    /// Mirrors Kotlin's `saturation flattens far less of the waveform` test.
+    @Test func saturationFlattensFarLessOfTheWaveformThanAHardClamp() {
+        let gain = VolumeGain.shared.dbToLinear(db: 12)
+        let steps = 10_000
+
+        func flattenedFraction(_ transform: (Float) -> Float) -> Double {
+            let outputs = (0...steps).map { transform(Float($0) / Float(steps)) }
+            let ceiling = outputs.max() ?? 1
+            return Double(outputs.filter { $0 >= ceiling }.count) / Double(outputs.count)
+        }
+
+        let hardClamped = flattenedFraction { min(1, max(-1, $0 * gain)) }
+        let saturated = flattenedFraction { GainCurve.apply($0, gain) }
+
+        #expect(hardClamped > 0.7)
+        #expect(saturated < 0.35)
+        #expect(hardClamped / saturated > 2.0)
+    }
+
+    /// Agreement with the Kotlin across the whole domain, not just at the constants — the point of
+    /// the transcription is that it computes the same thing.
+    @Test func theTranscriptionAgreesWithTheKotlinAcrossTheRange() {
+        for gainDb in [Float(0), 3, 6, 12] {
+            let gain = VolumeGain.shared.dbToLinear(db: gainDb)
+            for step in 0...100 {
+                let sample = Float(step) / 100
+                let swift = GainCurve.apply(sample, gain)
+                let kotlin = VolumeGain.shared.applySample(sample: sample, linearGain: gain)
+                #expect(abs(swift - kotlin) < 1e-6)
+            }
+        }
+    }
+}

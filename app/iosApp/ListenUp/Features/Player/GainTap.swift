@@ -242,6 +242,45 @@ enum GainTap {
     }
 }
 
+/// The audio-thread transcription of Kotlin `VolumeGain.applySample`.
+///
+/// **The Kotlin is the specification; this is its real-time-safe copy.** The audio thread must not
+/// call into the Kotlin runtime, which can allocate and take locks — the same reason `GainCell`
+/// duplicates the dB→linear conversion. `tanhf` is a pure libm call: no allocation, no locks, safe
+/// here.
+///
+/// Below `knee` this is exactly a multiply, so audio that was never going to clip is untouched.
+/// Above it the excess goes through `tanh`, which meets the linear slope exactly at the knee
+/// (`tanh'(0) = 1`, so no corner to hear as a click), is **non-decreasing**, and asymptotes to
+/// `ceiling` without reaching it.
+///
+/// It is *not* strictly increasing at the top, and cannot be: approaching the ceiling, consecutive
+/// results eventually differ by less than one `Float` ULP and compare equal. That plateau is a
+/// property of finite output precision rather than of this curve — every asymptotic saturator has
+/// one. What changed is where it begins: the old clamp plateaued the moment a sample passed
+/// `1 / gain`, and this begins several times further out. See the Kotlin `VolumeGain.applySample`
+/// KDoc, which is the specification.
+///
+/// This replaced `min(1, max(-1, …))`. A brick wall flattens the tops off a waveform, which
+/// manufactures high-order harmonics — heard as a buzz, and heard worst on a phone speaker, which
+/// reproduces the harmonics but not the fundamental that would otherwise mask them.
+enum GainCurve {
+    /// Must equal Kotlin `VolumeGain.KNEE_LINEAR`.
+    static let knee: Float = 0.708
+    /// Must equal Kotlin `VolumeGain.CEILING_LINEAR`.
+    static let ceiling: Float = 0.999
+
+    @inline(__always)
+    static func apply(_ sample: Float, _ linearGain: Float) -> Float {
+        let scaled = sample * linearGain
+        let magnitude = abs(scaled)
+        if magnitude <= knee { return scaled }
+        let headroom = ceiling - knee
+        let saturated = knee + headroom * tanhf((magnitude - knee) / headroom)
+        return scaled < 0 ? -saturated : saturated
+    }
+}
+
 // MARK: - Tap callbacks
 //
 // `@convention(c)` function pointers: these capture nothing, and reach the context only through
@@ -310,8 +349,9 @@ private func gainTapProcess(
         let samples = data.assumingMemoryBound(to: Float.self)
         let count = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
         for index in 0..<count {
-            // Mirrors `VolumeGain.applySample` — see the note on `GainCell`.
-            samples[index] = min(1, max(-1, samples[index] * linearGain))
+            // Mirrors `VolumeGain.applySample` — see the note on `GainCell`. Pinned against the
+            // Kotlin original by `GainTapTests.saturationConstantsMatchTheSharedSpecification`.
+            samples[index] = GainCurve.apply(samples[index], linearGain)
         }
     }
 }

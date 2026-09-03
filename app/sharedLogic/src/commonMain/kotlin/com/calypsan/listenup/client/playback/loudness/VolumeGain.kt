@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.playback.loudness
 
+import kotlin.math.abs
 import kotlin.math.pow
+import kotlin.math.tanh
 
 /**
  * The single source of truth for how the three gain inputs combine into one linear multiplier,
@@ -28,9 +30,59 @@ object VolumeGain {
         userBoostDb: Float,
     ): Float = (measuredGainDb ?: bookNormalizationGainDb ?: 0f) + userBoostDb
 
-    /** Scale one sample by a precomputed linear gain and hard-clamp to the format ceiling. */
+    /**
+     * Where the soft knee begins, in linear amplitude (-3 dBFS).
+     *
+     * Below this, [applySample] is exactly a multiply — audio that was never going to clip is
+     * bit-identical to what it was before saturation existed. Only the top 3 dB is shaped.
+     */
+    const val KNEE_LINEAR: Float = 0.708f
+
+    /**
+     * The asymptote the saturator approaches, just under full scale (-0.009 dB).
+     *
+     * Not 1.0, for two reasons. `tanh` returns exactly `1.0f` once its argument passes roughly 9,
+     * so a 1.0 asymptote would let hard-driven samples land exactly on full scale — and "never
+     * reaches the rail" is a guarantee worth being able to assert. It also leaves the 16-bit
+     * quantizer a hair of room, so a negative peak cannot round onto the two's-complement floor.
+     * The level difference is four orders of magnitude below audibility.
+     */
+    const val CEILING_LINEAR: Float = 0.999f
+
+    /**
+     * Scale one sample by a precomputed linear gain, saturating smoothly into the ceiling.
+     *
+     * The old behaviour was `coerceIn(-1f, 1f)` — a brick wall. Squaring off a waveform
+     * manufactures high-order harmonics, which is heard as a buzz, and it is heard most on a phone
+     * speaker: a speaker that reproduces nothing below a few hundred Hz gives you the harmonics
+     * without the fundamental that would otherwise mask them.
+     *
+     * Above [KNEE_LINEAR] the excess is passed through `tanh`, which
+     *  - matches the linear slope exactly at the knee (`tanh'(0) = 1`), so there is no corner and
+     *    no discontinuity to hear as a click,
+     *  - is **non-decreasing**, so raising the boost never makes anything quieter, and
+     *  - asymptotes to [CEILING_LINEAR] without ever reaching it, so no clamp is needed at all.
+     *
+     * It is still distortion when driven hard. The difference is that it is low-order and rolls
+     * off, which reads as compression rather than as a fault.
+     *
+     * **It is not strictly increasing at the top, and it cannot be.** `tanh` asymptotes, so as the
+     * output approaches [CEILING_LINEAR] consecutive results eventually differ by less than one
+     * `Float` ULP and compare equal — a plateau. That is a property of finite output precision, not
+     * of this curve: any asymptotic saturator has one. What matters is *where* it starts. The old
+     * hard clamp plateaued the instant a sample passed `1 / gain`, flattening whatever fraction of
+     * the waveform sat above that; this one plateaus several times further out, so far less of the
+     * signal is affected. `VolumeGainTest` pins that distance so it cannot quietly regress.
+     */
     fun applySample(
         sample: Float,
         linearGain: Float,
-    ): Float = (sample * linearGain).coerceIn(-1f, 1f)
+    ): Float {
+        val scaled = sample * linearGain
+        val magnitude = abs(scaled)
+        if (magnitude <= KNEE_LINEAR) return scaled
+        val headroom = CEILING_LINEAR - KNEE_LINEAR
+        val saturated = KNEE_LINEAR + headroom * tanh((magnitude - KNEE_LINEAR) / headroom)
+        return if (scaled < 0f) -saturated else saturated
+    }
 }

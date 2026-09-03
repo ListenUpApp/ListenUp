@@ -9,6 +9,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.floats.shouldBeGreaterThan as floatShouldBeGreaterThan
+import io.kotest.matchers.floats.shouldBeLessThan as floatShouldBeLessThan
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -110,33 +114,43 @@ class GainAudioProcessorTest :
                 output.toList() shouldBe samples.toList()
             }
 
-            test("+6 dB scales 16-bit samples and clamps both rails") {
+            test("+6 dB scales 16-bit samples and saturates symmetrically near both rails") {
                 val processor = GainAudioProcessor()
                 processor.configureAndFlush(AudioFormat(SAMPLE_RATE, 1, C.ENCODING_PCM_16BIT))
                 processor.setGainDb(6f)
 
                 val output = processor.process(pcm16BufferOf(shortArrayOf(8000, 30_000, -30_000))).readShorts()
 
-                withClue("8000 * 10^(6/20) ≈ 15962, allowing one LSB of quantization") {
+                withClue("8000 * 10^(6/20) ≈ 15962 sits below the knee, so it is an exact multiply") {
                     output[0].toFloat() shouldBe (15_962f plusOrMinus 1f)
                 }
-                output[1] shouldBe Short.MAX_VALUE
-                // -32767, not Short.MIN_VALUE: VolumeGain.applySample clamps symmetrically to
-                // ±1.0 and the write-back scales by 32767, so the negative rail lands one LSB
-                // shy of the two's-complement floor. That symmetry is deliberate — see the
-                // implementation's PCM_16_PEAK note.
-                output[2].toInt() shouldBe -32_767
+                // 30000/32768 * 2.0 ≈ 1.83 — well past full scale. The old hard clamp put this on
+                // Short.MAX_VALUE, flattening the waveform's top; VolumeGain.applySample now runs
+                // the excess through tanh toward CEILING_LINEAR, so the peak lands just inside the
+                // rail instead of on it. Reaching the rail at all is what generated the buzz.
+                withClue("saturated toward the ceiling, never onto the rail") {
+                    output[1].toInt() shouldBeLessThan Short.MAX_VALUE.toInt()
+                    output[1].toInt() shouldBeGreaterThan 32_600
+                }
+                // Still symmetric: the curve is odd, and the write-back scales by 32767, so the
+                // negative peak mirrors the positive one rather than reaching the two's-complement
+                // floor. See the implementation's PCM_16_PEAK note.
+                output[2].toInt() shouldBe -output[1].toInt()
             }
 
-            test("+6 dB scales float samples and clamps at unity") {
+            test("+6 dB scales float samples and saturates instead of squaring off") {
                 val processor = GainAudioProcessor()
                 processor.configureAndFlush(AudioFormat(SAMPLE_RATE, 1, C.ENCODING_PCM_FLOAT))
                 processor.setGainDb(6f)
 
                 val output = processor.process(pcmFloatBufferOf(floatArrayOf(0.25f, 0.9f))).readFloats()
 
+                // Below the knee: an exact multiply, untouched by the saturator.
                 output[0] shouldBe (0.499f plusOrMinus 0.001f)
-                output[1] shouldBe 1.0f
+                // 0.9 * 2.0 = 1.8, past full scale. Previously clamped to exactly 1.0 — a flat top,
+                // which is what manufactures the high-order harmonics heard as a buzz.
+                output[1] floatShouldBeLessThan 1f
+                output[1] floatShouldBeGreaterThan 0.99f
             }
         }
 
