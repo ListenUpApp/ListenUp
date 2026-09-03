@@ -8,11 +8,11 @@ import Shared
 /// Swift-Export-bridged Kotlin object re-bridges every property read on every SwiftUI diff (rule 8).
 /// The mapping happens once, here, in `apply`.
 ///
-/// **Errors are owned by this screen.** `BookSelectionObserver` claims bulk-action failures "surface
-/// on the global `ErrorBus`" — no Swift file consumes that bus, so today's bulk shelf/collection
-/// failures are silent on iOS. This observer does not repeat that: a `Failed` event becomes `error`,
-/// and `BulkEditView` renders it as an alert. The shared ViewModel emits to both the bus and the
-/// event channel precisely so a client that reads no bus is still told.
+/// **Errors are owned by this screen, deliberately.** A `Failed` event becomes `error` and
+/// `BulkEditView` renders it as an alert rather than as a passing message on the app-wide host: a
+/// bulk edit that stopped part-way is a thing to read and acknowledge, not to glance at. The shared
+/// ViewModel emits to both the bus and the event channel, so the two are not in competition — the
+/// global surface still catches anything this screen does not.
 @Observable
 @MainActor
 final class BulkEditObserver {
