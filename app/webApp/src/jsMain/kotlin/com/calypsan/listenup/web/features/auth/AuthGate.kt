@@ -33,6 +33,7 @@ import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
 import com.calypsan.listenup.web.features.setup.OpenLibrarySetup
+import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.OpenLibrary
@@ -73,6 +74,7 @@ fun AuthGate(
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openLibrarySetup: OpenLibrarySetup,
+    openProfile: OpenProfile,
     openNotificationBell: OpenNotificationBell,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
@@ -86,6 +88,7 @@ fun AuthGate(
     openSearch: OpenSearch,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
+    observeCurrentUserId: () -> Flow<String?>,
     observeThemeMode: () -> Flow<ThemeMode>,
     initialInviteCode: String? = null,
     observeErrors: () -> Flow<AppError>,
@@ -169,6 +172,7 @@ fun AuthGate(
                         openSeriesDetail = openSeriesDetail,
                         openNotifications = openNotifications,
                         openNotificationPrefs = openNotificationPrefs,
+                        openProfile = openProfile,
                         openNotificationBell = openNotificationBell,
                         openContributors = openContributors,
                         openLibrary = openLibrary,
@@ -183,6 +187,7 @@ fun AuthGate(
                         onSignOut = { scope.launch { authGraph.signOut() } },
                         openPlayback = openPlayback,
                         observeIsAdmin = observeIsAdmin,
+                        observeCurrentUserId = observeCurrentUserId,
                     )
                 }
             }

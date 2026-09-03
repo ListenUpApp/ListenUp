@@ -34,6 +34,20 @@ internal fun avatarTintFor(name: String): String =
         secondLightness = AVATAR_SECOND_LIGHTNESS,
     )
 
+/**
+ * A user's own avatar image, authenticated by the cookie the browser already holds.
+ *
+ * Relative for the same reason [coverUrl] is: the server serves this bundle in the normal
+ * deployment, and a cookie cannot cross origins — an absolute URL at another host would produce an
+ * unauthenticated request rather than a working image.
+ *
+ * ⛔ **404 is the common case, not an error.** The endpoint serves bytes only for a user who has
+ * uploaded a picture; everyone else has a colour and their initials, which is a complete avatar and
+ * not a placeholder for a missing one. Any call site must therefore treat a failed load as
+ * "monogram", never as "broken" — see [UserAvatar], which is the only sanctioned way to do it.
+ */
+internal fun avatarUrl(userId: String): String = "/api/v1/avatars/$userId"
+
 private val AVATAR_WHITESPACE = Regex("\\s+")
 
 private const val AVATAR_GRADIENT_ANGLE = 150

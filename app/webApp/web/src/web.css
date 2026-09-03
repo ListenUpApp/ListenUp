@@ -240,6 +240,7 @@ body { margin: 0; }
 .luw .disc-shelf:active,
 .luw .disc-listener:active,
 .luw .shelf-book-open:active,
+.luw .prof-book:active,
 .cd-series-card:active { transform: scale(0.985); }
 
 /* Rows — colour, not geometry. See the note about `<tr>` above; the others join them so a list
@@ -253,6 +254,7 @@ body { margin: 0; }
 .luw .disc-feed-row.is-open:active,
 .luw .ntf-row:active,
 .luw .lsetup-open:active,
+.luw .prof-shelf:active,
 .sd-book:active { background: var(--surface-3); }
 
 /* The library card is the one place a press has something to undo rather than add: the cover is
@@ -1628,6 +1630,48 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .lsetup-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 14px; border-top: 1px solid var(--line); }
 .luw .lsetup-count { font-size: 0.85rem; font-weight: 600; color: var(--ink-2); }
 .luw .lsetup-go:disabled { opacity: 0.4; cursor: default; }
+
+/* ---- a person's own page. The avatar circle is shared with anywhere else a user is shown. */
+.uav { flex: none; border-radius: 50%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2); }
+.uav-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.uav-mono { color: #FFFFFF; font-weight: 800; letter-spacing: -0.02em; }
+
+.luw .prof { width: 100%; padding: 24px 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.luw .prof-skel { height: 14rem; border-radius: 16px; }
+.luw .prof-hero { display: flex; align-items: center; gap: 22px; }
+.luw .prof-idblock { flex: 1; min-width: 0; }
+.luw .prof-name { margin: 0; font-size: 2.1rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; color: var(--ink); }
+.luw .prof-tagline { margin: 6px 0 0; font-size: 0.95rem; color: var(--ink-2); line-height: 1.5; max-width: 60ch; }
+.luw .prof-stats { display: flex; flex-wrap: wrap; gap: 1.6rem; margin-top: 14px; }
+/* Number over label rather than beside it: the four stats read as a row of facts, and a
+   value-then-noun pair on one line makes the eye parse punctuation instead of quantities. */
+.luw .prof-stat { display: flex; flex-direction: column; }
+.luw .prof-stat-v { font-size: 1.15rem; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.luw .prof-stat-l { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+
+.luw .prof-books { display: flex; flex-wrap: wrap; gap: 1.1rem; }
+.luw .prof-book {
+  display: flex; flex-direction: column; gap: 0.5rem; width: 104px;
+  padding: 0; border: none; background: transparent; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .luw .prof-book:hover .prof-book-t { color: var(--coral); } }
+.luw .prof-book:focus { outline: none; }
+.luw .prof-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .prof-book-t { font-size: 0.8rem; font-weight: 600; color: var(--ink-2); line-height: 1.25; }
+
+.luw .prof-shelves { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .prof-shelf {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; width: 100%;
+  padding: 11px 14px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .luw .prof-shelf:hover { border-color: var(--coral); } }
+.luw .prof-shelf:focus { outline: none; }
+.luw .prof-shelf:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .prof-shelf-n { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.luw .prof-shelf-c { flex: none; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 /* ---- notifications — what happened while you were away. Narrower than the entity pages: every
    row is one sentence, and a 1160px line of 14px text is a paragraph nobody tracks across. */

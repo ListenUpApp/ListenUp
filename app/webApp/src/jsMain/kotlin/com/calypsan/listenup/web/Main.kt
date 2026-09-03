@@ -30,6 +30,7 @@ import com.calypsan.listenup.web.features.notifications.graphNotificationBell
 import com.calypsan.listenup.web.features.notifications.graphNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.graphNotifications
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
+import com.calypsan.listenup.web.features.profile.graphProfile
 import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Route
@@ -104,6 +105,7 @@ fun main() {
                 openNotifications = graphNotifications(koin),
                 openNotificationPrefs = graphNotificationPrefs(koin),
                 openLibrarySetup = graphLibrarySetup(koin),
+                openProfile = graphProfile(koin),
                 openNotificationBell = graphNotificationBell(koin),
                 openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
@@ -117,6 +119,7 @@ fun main() {
                 openSearch = graphSearch(koin),
                 openPlayback = graphPlayback(koin),
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
+                observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },
                 observeThemeMode = { koin.get<LocalPreferences>().themeMode },
                 initialInviteCode = inviteCode,
                 observeErrors = { koin.get<ErrorBus>().errors },

@@ -28,6 +28,8 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
+import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -70,6 +72,7 @@ class ChaptersPaneTest :
                     fixedSeriesDetail(SeriesDetailUiState.Loading),
                     fixedNotifications(NotificationsUiState.Empty),
                     fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+                    fixedProfile(UserProfileUiState.Loading),
                     fixedContributors(emptyList()),
                     fixedHome(HomeUiState.Loading),
                     fixedDiscover(),
@@ -83,6 +86,7 @@ class ChaptersPaneTest :
                     fixedNotificationBell(),
                     fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },
+                    observeCurrentUserId = { flowOf(null) },
                 )
             }
             return host to router

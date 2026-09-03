@@ -56,6 +56,8 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withTimeout
+import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
@@ -96,6 +98,7 @@ private fun mountGate(
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
             openNotifications = fixedNotifications(NotificationsUiState.Empty),
             openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+            openProfile = fixedProfile(UserProfileUiState.Loading),
             openNotificationBell = fixedNotificationBell(),
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
@@ -109,6 +112,7 @@ private fun mountGate(
             openSearch = fixedSearch(SearchUiState.Idle()),
             openPlayback = fixedPlayback(),
             observeIsAdmin = { flowOf(false) },
+            observeCurrentUserId = { flowOf(null) },
             observeThemeMode = { themeMode },
             initialInviteCode = inviteCode,
             observeErrors = { errors },
