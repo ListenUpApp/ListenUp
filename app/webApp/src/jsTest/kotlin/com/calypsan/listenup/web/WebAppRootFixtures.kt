@@ -55,6 +55,11 @@ import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailSession
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
+import com.calypsan.listenup.web.features.notifications.OpenNotifications
+import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
+import com.calypsan.listenup.web.features.notifications.fixedNotifications
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -76,6 +81,8 @@ internal fun mountAt(
     openBookDetail: OpenBookDetail = fixedBookDetail(readyBook()),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+    openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
+    openNotificationBell: OpenNotificationBell = fixedNotificationBell(),
     openContributors: OpenContributors = fixedContributors(emptyList()),
     openHome: OpenHome = fixedHome(HomeUiState.Loading),
     openLibrary: OpenLibrary = fakeLibrary(),
@@ -93,6 +100,7 @@ internal fun mountAt(
                 fixedBookEdit(BookEditUiState()),
                 openContributorDetail,
                 openSeriesDetail,
+                openNotifications,
                 openContributors,
                 openHome,
                 fixedDiscover(),
@@ -103,6 +111,7 @@ internal fun mountAt(
                 fixedShelfEdit(),
                 openLibrary,
                 openSearch,
+                openNotificationBell,
                 fixedPlayback(),
                 observeIsAdmin = { isAdmin },
             )

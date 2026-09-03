@@ -43,6 +43,9 @@ import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
+import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
@@ -76,6 +79,8 @@ private fun mountGate(
             openBookEdit = fixedBookEdit(BookEditUiState()),
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+            openNotifications = fixedNotifications(NotificationsUiState.Empty),
+            openNotificationBell = fixedNotificationBell(),
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
             openDiscover = fixedDiscover(),

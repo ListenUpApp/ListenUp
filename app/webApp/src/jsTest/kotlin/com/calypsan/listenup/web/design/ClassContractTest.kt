@@ -64,6 +64,9 @@ import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.web.features.notifications.NotificationsPage
+import com.calypsan.listenup.web.features.notifications.notification
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.web.features.nowplaying.NowPlayingBook
@@ -396,6 +399,7 @@ class ClassContractTest :
                             onOpenLibrary = {},
                             onOpenBook = {},
                         )
+                        notificationShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
                         // zero-hit Results and a populated one. The page joins this contract by
                         // hand, same as ContributorsPage above — a state nobody adds here is a
@@ -715,89 +719,7 @@ class ClassContractTest :
                         )
                         AccountMenu(onSignOut = {})
                         PlaybackNotice(message = "Couldn't start this book.", onDismiss = {})
-                        TransportBar(
-                            state =
-                                TransportState(
-                                    title = "The Institute",
-                                    isPlaying = true,
-                                    positionMs = 61_000,
-                                    durationMs = 3_600_000,
-                                ),
-                            onPlayPause = {},
-                            onSeek = {},
-                            onSkipBack = {},
-                            onSkipForward = {},
-                            onSetSpeed = {},
-                            volumeBoostDb = 6f,
-                        )
-                        // The expanded player, rendered open. It cannot ride the bar above into
-                        // this contract — it appears only after a click, and this harness renders
-                        // without gesturing — so a class invented in there would go unchecked.
-                        // Both the fully-known book and the one Room has not seen: the second
-                        // draws a different subset (no byline, no series, no Go to book).
-                        NowPlayingPanel(
-                            open = true,
-                            state =
-                                TransportState(
-                                    title = "The Way of Kings",
-                                    isPlaying = true,
-                                    positionMs = 61_000,
-                                    durationMs = 3_600_000,
-                                ),
-                            book =
-                                NowPlayingBook(
-                                    bookId = "b1",
-                                    coverHash = "abc",
-                                    authors = listOf(PlayerLink("c1", "Brandon Sanderson")),
-                                    narrators = "Michael Kramer",
-                                    series = listOf(PlayerSeriesLink("s1", "The Stormlight Archive", "1")),
-                                ),
-                            chapters = listOf(TransportChapter("The Shattered Plains", 0L)),
-                            currentChapterIndex = 0,
-                            sleepTimer = SleepTimerState.Inactive,
-                            volumeBoostDb = 6f,
-                            onPlayPause = {},
-                            onSeek = {},
-                            onSkipBack = {},
-                            onSkipForward = {},
-                            onSeekToChapter = {},
-                            onOpenSpeed = {},
-                            onOpenChapters = {},
-                            onOpenBoost = {},
-                            onOpenSleep = {},
-                            onOpenBook = {},
-                            onOpenSeries = {},
-                            onOpenContributor = {},
-                            onDismiss = {},
-                        )
-                        NowPlayingPanel(
-                            open = true,
-                            state =
-                                TransportState(
-                                    title = "A book the mirror has not seen",
-                                    isPlaying = false,
-                                    positionMs = 0,
-                                    durationMs = 3_600_000,
-                                ),
-                            book = null,
-                            chapters = emptyList(),
-                            currentChapterIndex = null,
-                            sleepTimer = SleepTimerState.Inactive,
-                            volumeBoostDb = 0f,
-                            onPlayPause = {},
-                            onSeek = {},
-                            onSkipBack = {},
-                            onSkipForward = {},
-                            onSeekToChapter = {},
-                            onOpenSpeed = {},
-                            onOpenChapters = {},
-                            onOpenBoost = {},
-                            onOpenSleep = {},
-                            onOpenBook = {},
-                            onOpenSeries = {},
-                            onOpenContributor = {},
-                            onDismiss = {},
-                        )
+                        playerShapes().forEach { it() }
                     }
                 }
 
@@ -807,6 +729,137 @@ class ClassContractTest :
     })
 
 private val CLASS_SELECTOR = Regex("\\.([A-Za-z][A-Za-z0-9_-]*)")
+
+/**
+ * The notification inbox in every state it has, plus the sidebar wearing a badge.
+ *
+ * Lifted out of the test body for the same reason [discoverShapes] was: this one contract renders
+ * every page in the app, and the class had grown past the size the build allows. Grouping by
+ * surface keeps each block readable and the class inside its budget.
+ */
+private fun notificationShapes(): List<@Composable () -> Unit> =
+    listOf(
+        {
+            // The inbox in all three states, plus a read row — the dot's "read"
+            // form is a class of its own and would otherwise never be rendered here.
+            NotificationsPage(
+                state =
+                    NotificationsUiState.Data(
+                        listOf(
+                            notification(id = "n1"),
+                            notification(id = "n2", readAt = 1L),
+                        ),
+                    ),
+                nowMs = 1_800_000_000_000L,
+                onOpen = {},
+            )
+            NotificationsPage(state = NotificationsUiState.Empty, nowMs = 0L, onOpen = {})
+            NotificationsPage(state = NotificationsUiState.Loading, nowMs = 0L, onOpen = {})
+            // The sidebar with a badge on it. `Shell` above renders without one, so
+            // `.nav-badge` joins the contract from here.
+            Shell(
+                sections = listOf(NavSection(listOf(NavEntry("home", "Home", WebIcon.Home)))),
+                active = "home",
+                footer = listOf(NavEntry("notifications", "Notifications", WebIcon.Bell, badge = 3)),
+                onToggleCollapse = {},
+            ) {}
+        },
+    )
+
+/**
+ * The docked transport bar and the expanded player.
+ *
+ * The panel appears only after a gesture this harness does not make, so it is rendered open here
+ * by hand — a class invented inside it would otherwise go unchecked.
+ */
+private fun playerShapes(): List<@Composable () -> Unit> =
+    listOf(
+        {
+            TransportBar(
+                state =
+                    TransportState(
+                        title = "The Institute",
+                        isPlaying = true,
+                        positionMs = 61_000,
+                        durationMs = 3_600_000,
+                    ),
+                onPlayPause = {},
+                onSeek = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onSetSpeed = {},
+                volumeBoostDb = 6f,
+            )
+            // The expanded player, rendered open. It cannot ride the bar above into
+            // this contract — it appears only after a click, and this harness renders
+            // without gesturing — so a class invented in there would go unchecked.
+            // Both the fully-known book and the one Room has not seen: the second
+            // draws a different subset (no byline, no series, no Go to book).
+            NowPlayingPanel(
+                open = true,
+                state =
+                    TransportState(
+                        title = "The Way of Kings",
+                        isPlaying = true,
+                        positionMs = 61_000,
+                        durationMs = 3_600_000,
+                    ),
+                book =
+                    NowPlayingBook(
+                        bookId = "b1",
+                        coverHash = "abc",
+                        authors = listOf(PlayerLink("c1", "Brandon Sanderson")),
+                        narrators = "Michael Kramer",
+                        series = listOf(PlayerSeriesLink("s1", "The Stormlight Archive", "1")),
+                    ),
+                chapters = listOf(TransportChapter("The Shattered Plains", 0L)),
+                currentChapterIndex = 0,
+                sleepTimer = SleepTimerState.Inactive,
+                volumeBoostDb = 6f,
+                onPlayPause = {},
+                onSeek = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onSeekToChapter = {},
+                onOpenSpeed = {},
+                onOpenChapters = {},
+                onOpenBoost = {},
+                onOpenSleep = {},
+                onOpenBook = {},
+                onOpenSeries = {},
+                onOpenContributor = {},
+                onDismiss = {},
+            )
+            NowPlayingPanel(
+                open = true,
+                state =
+                    TransportState(
+                        title = "A book the mirror has not seen",
+                        isPlaying = false,
+                        positionMs = 0,
+                        durationMs = 3_600_000,
+                    ),
+                book = null,
+                chapters = emptyList(),
+                currentChapterIndex = null,
+                sleepTimer = SleepTimerState.Inactive,
+                volumeBoostDb = 0f,
+                onPlayPause = {},
+                onSeek = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onSeekToChapter = {},
+                onOpenSpeed = {},
+                onOpenChapters = {},
+                onOpenBoost = {},
+                onOpenSleep = {},
+                onOpenBook = {},
+                onOpenSeries = {},
+                onOpenContributor = {},
+                onDismiss = {},
+            )
+        },
+    )
 
 /**
  * Every shape Discover can be in, as callable render blocks.

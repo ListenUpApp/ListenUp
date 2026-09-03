@@ -13,6 +13,9 @@ import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
+import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.WebAppRoot
@@ -66,6 +69,7 @@ class BookDetailPanesTest :
                     fixedBookEdit(BookEditUiState()),
                     fixedContributorDetail(ContributorDetailUiState.Loading),
                     fixedSeriesDetail(SeriesDetailUiState.Loading),
+                    fixedNotifications(NotificationsUiState.Empty),
                     fixedContributors(emptyList()),
                     fixedHome(HomeUiState.Loading),
                     fixedDiscover(),
@@ -76,6 +80,7 @@ class BookDetailPanesTest :
                     fixedShelfEdit(),
                     fakeLibrary(),
                     fixedSearch(SearchUiState.Idle()),
+                    fixedNotificationBell(),
                     fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },
                 )

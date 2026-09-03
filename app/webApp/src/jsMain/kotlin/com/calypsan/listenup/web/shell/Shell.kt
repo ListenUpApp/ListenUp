@@ -22,6 +22,15 @@ class NavEntry(
     val key: String,
     val label: String,
     val icon: WebIcon,
+    /**
+     * How many things are waiting behind this entry. Zero draws nothing.
+     *
+     * On the entry rather than in a component of its own because the count has to survive the
+     * collapsed rail, where the label is gone and the icon is all that is left — a badge parked
+     * beside the label would disappear exactly when it is the only thing still saying there is
+     * something to look at.
+     */
+    val badge: Int = 0,
 )
 
 /**
@@ -140,6 +149,16 @@ private fun NavItem(
     }) {
         Icon(entry.icon, size = NAV_ICON_SIZE)
         Span(attrs = { classes("lb") }) { Text(entry.label) }
+        if (entry.badge > 0) {
+            // The number is inside the control's accessible name already (the `title` above names
+            // the destination), so this is decoration for a fact stated once — but a count nobody
+            // reads out is a count a screen-reader user does not have. `aria-label` on the badge
+            // itself says the quantity in words.
+            Span(attrs = {
+                classes("nav-badge")
+                attr("aria-label", badgeLabel(entry.badge))
+            }) { Text(badgeText(entry.badge)) }
+        }
     }
 }
 
@@ -150,6 +169,21 @@ private fun NavItem(
  * Android and iOS brand assets use, so the rail cannot drift from the other clients' logo.
  */
 private const val BRAND_MARK_SRC = "/listenup-mark.svg"
+
+/** "9" through "99", then "99+" — a three-digit badge stops being a number and becomes a smear. */
+private fun badgeText(count: Int): String = if (count > BADGE_MAX) "$BADGE_MAX+" else count.toString()
+
+/** What a screen reader says instead of reading "99+" as characters. */
+private fun badgeLabel(count: Int): String =
+    if (count == 1) {
+        "1 unread"
+    } else if (count > BADGE_MAX) {
+        "more than $BADGE_MAX unread"
+    } else {
+        "$count unread"
+    }
+
+private const val BADGE_MAX = 99
 
 private const val NAV_ICON_SIZE = 21
 

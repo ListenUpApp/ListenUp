@@ -14,6 +14,11 @@ import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
+import com.calypsan.listenup.api.notifications.NotificationEvent
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
+import com.calypsan.listenup.web.features.notifications.fixedNotifications
+import com.calypsan.listenup.web.features.notifications.notification
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.contributor
@@ -393,6 +398,127 @@ class WebAppRootTest :
                 (host.querySelector(".cd-series-card") as HTMLElement).click()
 
                 window.location.pathname shouldBe "/series/s-dt"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/notifications renders the inbox") {
+            val (host, router) =
+                mountAt(
+                    "/notifications",
+                    openNotifications = fixedNotifications(NotificationsUiState.Data(listOf(notification()))),
+                )
+
+            try {
+                (host.querySelector(".ntf-t") as HTMLElement).textContent shouldBe "Registration waiting"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The badge is the only thing on the shell that says there is anything to look at.
+        test("the sidebar bell carries the unread count") {
+            val (host, router) = mountAt("/", openNotificationBell = fixedNotificationBell(unreadCount = 3))
+
+            try {
+                (host.querySelector(".nav-badge") as HTMLElement).textContent shouldBe "3"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // A zero badge is a red dot claiming something is waiting when nothing is.
+        test("a read inbox shows no badge at all") {
+            val (host, router) = mountAt("/", openNotificationBell = fixedNotificationBell(unreadCount = 0))
+
+            try {
+                host.querySelector(".nav-badge") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a three-digit count stops being a number and says so") {
+            val (host, router) = mountAt("/", openNotificationBell = fixedNotificationBell(unreadCount = 128))
+
+            try {
+                (host.querySelector(".nav-badge") as HTMLElement).textContent shouldBe "99+"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("opening a notification marks it read") {
+            val marked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/notifications",
+                    openNotifications =
+                        fixedNotifications(
+                            NotificationsUiState.Data(listOf(notification(id = "n9"))),
+                            onMarkRead = { marked += it },
+                        ),
+                )
+
+            try {
+                (host.querySelector(".ntf-row") as HTMLElement).click()
+
+                marked shouldBe listOf("n9")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The destination comes from the shared tap mapping, so the browser cannot disagree with
+        // the phone about where a notification goes. Web's Admin page IS the approvals surface.
+        test("a pending-registration notification lands on Admin") {
+            val (host, router) =
+                mountAt(
+                    "/notifications",
+                    isAdmin = flowOf(true),
+                    openNotifications =
+                        fixedNotifications(
+                            NotificationsUiState.Data(
+                                listOf(notification(event = NotificationEvent.RegistrationApproval(userId = "u1"))),
+                            ),
+                        ),
+                )
+
+            try {
+                (host.querySelector(".ntf-row") as HTMLElement).click()
+
+                window.location.pathname shouldBe "/admin"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // A notification whose destination has no web surface still acknowledges the press.
+        test("a notification with nowhere to go marks read and stays put") {
+            val marked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/notifications",
+                    openNotifications =
+                        fixedNotifications(
+                            NotificationsUiState.Data(
+                                listOf(
+                                    notification(
+                                        id = "n3",
+                                        event = NotificationEvent.RegistrationDecision(userId = "u1", approved = true),
+                                    ),
+                                ),
+                            ),
+                            onMarkRead = { marked += it },
+                        ),
+                )
+
+            try {
+                (host.querySelector(".ntf-row") as HTMLElement).click()
+
+                marked shouldBe listOf("n3")
+                window.location.pathname shouldBe "/notifications"
             } finally {
                 router.dispose()
             }
