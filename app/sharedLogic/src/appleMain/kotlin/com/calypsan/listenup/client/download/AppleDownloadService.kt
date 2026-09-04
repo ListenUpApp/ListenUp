@@ -614,7 +614,11 @@ private class DownloadSessionDelegate(
         // Bytes are moving again after a connectivity hold — undo the QUEUED the wait reported.
         if (lock.withLock { waitingForConnectivity.remove(taskId) }) {
             scope.launch {
-                downloadDao.updateState(audioFileId, DownloadState.DOWNLOADING, Clock.System.now().toEpochMilliseconds())
+                downloadDao.updateState(
+                    audioFileId,
+                    DownloadState.DOWNLOADING,
+                    Clock.System.now().toEpochMilliseconds(),
+                )
             }
         }
 

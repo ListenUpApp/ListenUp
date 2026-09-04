@@ -21,8 +21,7 @@ import platform.Foundation.NSURL
 class DownloadNetworkPolicyTest :
     FunSpec({
 
-        fun request(): NSMutableURLRequest =
-            NSMutableURLRequest.requestWithURL(NSURL.URLWithString("https://example.test/a.m4b")!!)
+        fun request(): NSMutableURLRequest = NSMutableURLRequest.requestWithURL(NSURL.URLWithString("https://example.test/a.m4b")!!)
 
         test("wifi-only downloads refuse an expensive network") {
             val request = request()
@@ -30,6 +29,8 @@ class DownloadNetworkPolicyTest :
             request.allowsExpensiveNetworkAccess shouldBe false
         }
 
+        // NOTE: `true` is the platform default, so this one cannot fail against a no-op
+        // implementation — it is here to catch an INVERTED boolean, which is the likelier slip.
         test("with the preference off, an expensive network is allowed") {
             val request = request()
             request.applyDownloadNetworkPolicy(wifiOnlyDownloads = false)
@@ -41,10 +42,13 @@ class DownloadNetworkPolicyTest :
             // built once in a property initialiser — so a session-level flag would freeze the
             // preference at construction and never track the toggle. Applying it per request is
             // what makes the setting live.
+            //
+            // Deliberately off-then-ON: the reverse order would land on `true`, the platform
+            // default, and pass against an implementation that does nothing at all.
             val request = request()
-            request.applyDownloadNetworkPolicy(wifiOnlyDownloads = true)
             request.applyDownloadNetworkPolicy(wifiOnlyDownloads = false)
-            request.allowsExpensiveNetworkAccess shouldBe true
+            request.applyDownloadNetworkPolicy(wifiOnlyDownloads = true)
+            request.allowsExpensiveNetworkAccess shouldBe false
         }
 
         test("a blocked download waits for a satisfactory network instead of failing") {
