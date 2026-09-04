@@ -86,6 +86,7 @@ internal val iosPlaybackModule: Module =
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 playbackBandwidthCoordinator = get(),
                 errorBus = get(),
+                localPreferences = get(),
             )
         }
 
