@@ -40,6 +40,56 @@ final class BulkEditObserver {
     private(set) var isApplying = false
     private(set) var preview: [BulkEditPreviewLine] = []
 
+    // MARK: - Relation state
+
+    /// What has been chosen so far, projected from the instruction list — never held separately, so
+    /// "the chip is on screen" and "an instruction exists" stay one fact rather than two that have
+    /// to be kept in step.
+    private(set) var seriesChips: [EditableRelation] = []
+    private(set) var contributorChips: [EditableRelation] = []
+    private(set) var genreChips: [EditableRelation] = []
+    private(set) var tagChips: [EditableRelation] = []
+    private(set) var moodChips: [EditableRelation] = []
+
+    /// The two searched pickers' queries. Written through the setters below rather than a `didSet`
+    /// observer: `@Observable` rewrites stored properties, and a property observer that also has to
+    /// reach the ViewModel is a side effect hidden inside an assignment.
+    private(set) var seriesQuery = ""
+    private(set) var contributorQuery = ""
+
+    /// The three locally-filtered queries. Plain state — nothing outside this class reads them.
+    var genreQuery = ""
+    var tagQuery = ""
+    var moodQuery = ""
+
+    /// The role the *next* contributor is credited in. Held as an `apiValue` string: reading an enum
+    /// out of a bridged `List<ContributorRole>` traps, which is why `roleFromApiValue` exists.
+    var pendingRoleApiValue = "author"
+
+    private(set) var seriesResults: [RelationSearchResult] = []
+    private(set) var contributorResults: [RelationSearchResult] = []
+    private var genreCatalogue: [RelationSearchResult] = []
+    private var tagCatalogue: [RelationSearchResult] = []
+    private var moodCatalogue: [RelationSearchResult] = []
+
+    /// The raw instruction values, so a removal can rebuild the list the ViewModel expects.
+    private var chosenSeries: BookSeriesInput?
+    private var chosenContributors: [BookContributorInput] = []
+    private var chosenGenres: [BookGenreInput] = []
+    private var chosenTags: [String] = []
+    private var chosenMoods: [String] = []
+
+    /// What each locally-filtered picker offers, narrowed against what is already chosen.
+    var genreOffers: [RelationSearchResult] {
+        BulkEditMapping.narrow(genreCatalogue, query: genreQuery, excluding: Set(chosenGenres.map(\.genreId.value)))
+    }
+    var tagOffers: [RelationSearchResult] {
+        BulkEditMapping.narrow(tagCatalogue, query: tagQuery, excluding: Set(chosenTags))
+    }
+    var moodOffers: [RelationSearchResult] {
+        BulkEditMapping.narrow(moodCatalogue, query: moodQuery, excluding: Set(chosenMoods))
+    }
+
     private(set) var error: String?
     /// Flips once the apply finishes, which dismisses the sheet.
     private(set) var didFinish = false
@@ -55,6 +105,27 @@ final class BulkEditObserver {
         self.viewModel = viewModel
         bridge.bind(viewModel.state) { [weak self] in self?.applyState($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
+        // Series and contributors are *searched*: the ViewModel debounces at 300ms with a
+        // two-character floor, so the query goes to it rather than being filtered here.
+        bridge.bind(viewModel.seriesMatches) { [weak self] matches in
+            self?.seriesResults = matches.map { RelationSearchResult(id: $0.id, name: $0.name, subtitle: nil) }
+        }
+        bridge.bind(viewModel.contributorMatches) { [weak self] matches in
+            self?.contributorResults = matches.map { RelationSearchResult(id: $0.id, name: $0.name, subtitle: nil) }
+        }
+        // Genres, tags and moods arrive whole and are narrowed locally, so these pickers work with
+        // the network off.
+        bridge.bind(viewModel.genres) { [weak self] genres in
+            self?.genreCatalogue = genres.map {
+                RelationSearchResult(id: $0.id, name: $0.name, subtitle: $0.parentPath)
+            }
+        }
+        bridge.bind(viewModel.tags) { [weak self] tags in
+            self?.tagCatalogue = tags.map { RelationSearchResult(id: $0.name, name: $0.name, subtitle: nil) }
+        }
+        bridge.bind(viewModel.moods) { [weak self] moods in
+            self?.moodCatalogue = moods.map { RelationSearchResult(id: $0.name, name: $0.name, subtitle: nil) }
+        }
     }
 
     // Isolated deinit (SE-0371): there is no ViewModelStore on iOS to call `onCleared`, so this
@@ -81,6 +152,125 @@ final class BulkEditObserver {
     /// The language field changed. Blank removes the instruction.
     func setLanguage(_ value: String) { viewModel.setLanguage(language: value) }
 
+    // MARK: - Relation intents
+
+    /// Push the series query into the ViewModel's debounced search.
+    func setSeriesQuery(_ value: String) {
+        seriesQuery = value
+        viewModel.setSeriesQuery(query: value)
+    }
+
+    /// As `setSeriesQuery`, for people.
+    func setContributorQuery(_ value: String) {
+        contributorQuery = value
+        viewModel.setContributorQuery(query: value)
+    }
+
+    /// One series. `AddToSeries` carries a single sequence number and the planner drops it — a
+    /// shared number across forty books would make every one of them Book 1 — so this field offers
+    /// no sequence and does not pretend to.
+    func pickSeries(_ result: RelationSearchResult) {
+        viewModel.setSeries(
+            series: BookSeriesInput(
+                id: SeriesId(value: result.id),
+                name: result.name,
+                // Swift Export does not carry Kotlin default arguments, so every parameter is
+                // passed explicitly. No sequence: `AddToSeries` carries one number for the whole
+                // selection, which would make every book in it Book 1.
+                position: nil,
+                isPrimary: false
+            )
+        )
+        setSeriesQuery("")
+    }
+
+    /// A series the library has never held. No id: the server resolves-or-creates by name, the same
+    /// path the scanner and the single-book editor take.
+    func createSeries(named name: String) {
+        viewModel.setSeries(
+            series: BookSeriesInput(id: nil, name: name, position: nil, isPrimary: false)
+        )
+        setSeriesQuery("")
+    }
+
+    func removeSeries() { viewModel.setSeries(series: nil) }
+
+    func pickContributor(_ result: RelationSearchResult) {
+        addContributor(
+            BookContributorInput(
+                id: ContributorId(value: result.id),
+                name: result.name,
+                role: pendingRoleApiValue,
+                // No alternate credit line for a bulk add: one string across forty books would be
+                // wrong for most of them.
+                creditedAs: nil,
+                // A per-book ordinal the planner renumbers, so any value here is arbitrary; zero
+                // says "let the planner decide" without pretending otherwise.
+                position: 0
+            )
+        )
+    }
+
+    /// A narrator the library has never seen is a normal thing to credit across a box set, and
+    /// refusing it would send someone to edit forty books one at a time.
+    func createContributor(named name: String) {
+        addContributor(
+            BookContributorInput(
+                id: nil,
+                name: name,
+                role: pendingRoleApiValue,
+                creditedAs: nil,
+                position: 0
+            )
+        )
+    }
+
+    func removeContributor(_ chip: EditableRelation) {
+        let remaining = chosenContributors.filter {
+            BulkEditMapping.contributorChip(name: $0.name, roleApiValue: $0.role).id != chip.id
+        }
+        viewModel.setContributors(contributors: remaining)
+    }
+
+    func pickGenre(_ result: RelationSearchResult) {
+        viewModel.setGenres(genres: chosenGenres + [BookGenreInput(genreId: GenreId(value: result.id))])
+        genreQuery = ""
+    }
+
+    func removeGenre(_ chip: EditableRelation) {
+        viewModel.setGenres(genres: chosenGenres.filter { $0.genreId.value != chip.id })
+    }
+
+    func pickTag(_ result: RelationSearchResult) {
+        viewModel.setTags(names: chosenTags + [result.name])
+        tagQuery = ""
+    }
+
+    func removeTag(_ chip: EditableRelation) {
+        viewModel.setTags(names: chosenTags.filter { $0 != chip.id })
+    }
+
+    func pickMood(_ result: RelationSearchResult) {
+        viewModel.setMoods(names: chosenMoods + [result.name])
+        moodQuery = ""
+    }
+
+    func removeMood(_ chip: EditableRelation) {
+        viewModel.setMoods(names: chosenMoods.filter { $0 != chip.id })
+    }
+
+    /// Dedupe on name **and** role: the same person in two roles is two credits, the same person
+    /// twice in one role is one.
+    private func addContributor(_ addition: BookContributorInput) {
+        let alreadyCredited = chosenContributors.contains {
+            $0.name.caseInsensitiveCompare(addition.name) == .orderedSame && $0.role == addition.role
+        }
+        if !alreadyCredited {
+            viewModel.setContributors(contributors: chosenContributors + [addition])
+        }
+        setContributorQuery("")
+    }
+
     /// Apply every instruction to every loaded book.
     func apply() { viewModel.apply() }
 
@@ -106,6 +296,22 @@ final class BulkEditObserver {
             canApply = editing.canApply
             isApplying = editing.isApplying
             preview = BulkEditMapping.previewLines(Array(editing.preview), bookCount: Int(editing.bookCount))
+
+            chosenSeries = editing.seriesInput
+            chosenContributors = Array(editing.contributorInput)
+            chosenGenres = Array(editing.genreInput)
+            chosenTags = Array(editing.tagInput)
+            chosenMoods = Array(editing.moodInput)
+
+            seriesChips = chosenSeries.map { [EditableRelation(id: $0.name, label: $0.name)] } ?? []
+            contributorChips = chosenContributors.map {
+                BulkEditMapping.contributorChip(name: $0.name, roleApiValue: $0.role)
+            }
+            genreChips = chosenGenres.map {
+                BulkEditMapping.genreChip(id: $0.genreId.value, catalogue: genreCatalogue)
+            }
+            tagChips = chosenTags.map(BulkEditMapping.nameChip)
+            moodChips = chosenMoods.map(BulkEditMapping.nameChip)
         case .unknown:
             // Swift cannot switch a Kotlin sealed interface exhaustively, so this branch is real
             // rather than unreachable: a state this build does not know about leaves the form as it
