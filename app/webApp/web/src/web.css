@@ -231,6 +231,10 @@ body { margin: 0; }
 .luw .lsetup-err-x:active,
 .luw .lsetup-up:active,
 .luw .lsetup-check:active,
+.luw .lset-err-x:active,
+.luw .lset-x:active,
+.luw .lset-up:active,
+.luw .lset-brow-add:active,
 .bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
@@ -255,6 +259,7 @@ body { margin: 0; }
 .luw .ntf-row:active,
 .luw .lsetup-open:active,
 .luw .prof-shelf:active,
+.luw .lset-brow-open:active,
 .sd-book:active { background: var(--surface-3); }
 
 /* The library card is the one place a press has something to undo rather than add: the cover is
@@ -1672,6 +1677,42 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .prof-shelf:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .luw .prof-shelf-n { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
 .luw .prof-shelf-c { flex: none; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* ---- library folders (admin). The other half of library management: the setup wizard picks
+   folders once, before the app exists; this is where they change afterwards. */
+.luw .lset { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .lset-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .lset-skel, .luw .lset-browse-skel { height: 12rem; border-radius: 16px; }
+.luw .lset-empty { padding: 1.4rem 0.4rem; color: var(--ink-2); font-size: 0.9rem; }
+.luw .lset-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .lset-err-t { flex: 1; min-width: 0; }
+.luw .lset-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.luw .lset-note { padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 0.86rem; font-weight: 600; }
+
+.luw .lset-list { display: flex; flex-direction: column; gap: 6px; }
+.luw .lset-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+/* `direction: rtl` so a long absolute path truncates at the FRONT — the leaf is what tells you
+   which folder this is, and "/mnt/storage/media/aud…" tells you nothing. */
+.luw .lset-path { flex: 1; min-width: 0; font-size: 0.82rem; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.luw .lset-x { flex: none; width: 30px; height: 30px; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .lset-x:not(:disabled):hover { background: var(--coral-soft); color: var(--coral); } }
+.luw .lset-x:disabled { opacity: 0.4; cursor: default; }
+.luw .lset-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.luw .lset-crumb { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; }
+.luw .lset-up { flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .lset-up:not(:disabled):hover { border-color: var(--coral); color: var(--coral); } }
+.luw .lset-up:disabled { opacity: 0.35; cursor: default; }
+.luw .lset-crumb-p { flex: 1; min-width: 0; font-size: 0.8rem; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.luw .lset-browse { display: flex; flex-direction: column; gap: 5px; max-height: 40vh; overflow-y: auto; }
+.luw .lset-brow { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.luw .lset-brow-open { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border: none; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.luw .lset-brow-n { min-width: 0; font-size: 0.88rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Adding is one folder at a time here, so this is a button that commits rather than a checkbox
+   that accumulates — the opposite of the setup wizard, where several are ticked before Continue. */
+.luw .lset-brow-add { flex: none; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font: inherit; font-size: 0.76rem; font-weight: 700; color: var(--ink-2); cursor: pointer; }
+@media (hover: hover) { .luw .lset-brow-add:hover { border-color: var(--coral); color: var(--coral); } }
+.luw .adm-link { align-self: flex-start; }
 
 /* ---- notifications — what happened while you were away. Narrower than the entity pages: every
    row is one sentence, and a 1160px line of 14px text is a paragraph nobody tracks across. */

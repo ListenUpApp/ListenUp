@@ -73,6 +73,9 @@ import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.profile.ProfilePage
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
+import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
+import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.shell.AccountMenu
@@ -132,6 +135,7 @@ fun WebAppRoot(
     openSettings: OpenSettings,
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
+    openLibrarySettings: OpenLibrarySettings,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -220,6 +224,7 @@ fun WebAppRoot(
             openSettings = openSettings,
             openDevices = openDevices,
             openAdmin = openAdmin,
+            openLibrarySettings = openLibrarySettings,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -295,6 +300,7 @@ private fun RouteContent(
     openSettings: OpenSettings,
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
+    openLibrarySettings: OpenLibrarySettings,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -391,6 +397,7 @@ private fun RouteContent(
             openDevices = openDevices,
             openAdmin = openAdmin,
             openNotificationPrefs = openNotificationPrefs,
+            openLibrarySettings = openLibrarySettings,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -1011,6 +1018,46 @@ private fun ProfileRoute(
 }
 
 /**
+ * `/admin/library` — which folders the library watches, after onboarding is over.
+ *
+ * `scanStarted` is held here rather than in the page because it is a one-shot: the ViewModel emits
+ * `FolderSavedScanStarted` once, and a page re-reading it from state would either never show the
+ * notice or never stop showing it. It clears when the browser is reopened, which is the next thing
+ * anyone does after adding a folder.
+ */
+@Composable
+private fun LibrarySettingsRoute(
+    router: Router,
+    openLibrarySettings: OpenLibrarySettings,
+) {
+    val session = remember { openLibrarySettings() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    var scanStarted by remember { mutableStateOf(false) }
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            if (event is LibrarySettingsEvent.FolderSavedScanStarted) scanStarted = true
+        }
+    }
+
+    LibrarySettingsPage(
+        state = session.state.collectAsState().value,
+        scanStarted = scanStarted,
+        onRemoveFolder = session.onRemoveFolder,
+        onAddPath = session.onAddPath,
+        onScan = session.onScan,
+        onShowBrowser = { show ->
+            if (show) scanStarted = false
+            session.onShowBrowser(show)
+        },
+        onOpenBrowserPath = session.onOpenBrowserPath,
+        onBrowserUp = session.onBrowserUp,
+        onClearError = session.onClearError,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
  * The shell's unread count, open for as long as the app is.
  *
  * A `remember { }` with no key on purpose — unlike every per-entity session in this file, this one
@@ -1404,7 +1451,10 @@ private fun DevicesRoute(openDevices: OpenDevices) {
  * server-side, which is what actually stops a typed URL.
  */
 @Composable
-private fun AdminRoute(openAdmin: OpenAdmin) {
+private fun AdminRoute(
+    openAdmin: OpenAdmin,
+    onOpenLibrarySettings: () -> Unit,
+) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
     val nowMs = remember { currentEpochMilliseconds() }
@@ -1421,6 +1471,7 @@ private fun AdminRoute(openAdmin: OpenAdmin) {
         onSetRegistrationPolicy = session.onSetRegistrationPolicy,
         onClearError = session.onClearError,
         onRetry = session.onRetry,
+        onOpenLibrarySettings = onOpenLibrarySettings,
     )
 }
 
@@ -1446,8 +1497,13 @@ private fun AccountRouteContent(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openNotificationPrefs: OpenNotificationPrefs,
+    openLibrarySettings: OpenLibrarySettings,
 ) {
     when {
+        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == LIBRARY_KEY -> {
+            LibrarySettingsRoute(router = router, openLibrarySettings = openLibrarySettings)
+        }
+
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
             DevicesRoute(openDevices = openDevices)
         }
@@ -1456,8 +1512,13 @@ private fun AccountRouteContent(
             NotificationPrefsRoute(router = router, openNotificationPrefs = openNotificationPrefs)
         }
 
-        active == ADMIN_KEY -> {
-            AdminRoute(openAdmin = openAdmin)
+        // `size <= 1` for the reason the Settings branch needs it: `active` is ADMIN_KEY for
+        // every `/admin/*` URL, so without it this swallows `/admin/nonsense` and shows Admin.
+        active == ADMIN_KEY && segments.size <= 1 -> {
+            AdminRoute(
+                openAdmin = openAdmin,
+                onOpenLibrarySettings = { router.navigate(Route(listOf(ADMIN_KEY, LIBRARY_KEY))) },
+            )
         }
 
         // `size <= 1` is load-bearing, not defensive. `active` is SETTINGS_KEY for every
