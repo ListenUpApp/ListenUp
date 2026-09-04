@@ -17,7 +17,8 @@ private val downloadServiceLogger = KotlinLogging.logger {}
  * the full download implementation remains platform-specific.
  *
  * Android: Implemented by DownloadManager (WorkManager-based)
- * iOS: AppleDownloadService (NSURLSession background downloads)
+ * iOS: AppleDownloadService — an NSURLSession *default* session, not a background one. It does not
+ *   survive app termination; the "background" it used to claim here was never built.
  * Desktop and browser: NoDownloadsService (no-op)
  */
 interface DownloadService {

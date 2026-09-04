@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.data.repository.aggregateBookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.playback.AudioFileResponse
@@ -40,7 +41,6 @@ import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
-import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDownloadDelegateProtocol
 import platform.Foundation.NSURLSessionDownloadTask
 import platform.Foundation.NSURLSessionTask
@@ -51,12 +51,6 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
-
-/** Per-request timeout for download tasks, in seconds. */
-private const val REQUEST_TIMEOUT_SECONDS = 60.0
-
-/** Whole-resource timeout for a single download, in seconds (1 hour for large files). */
-private const val RESOURCE_TIMEOUT_SECONDS = 3600.0
 
 /** Storage headroom multiplier — require 10% more free space than the download needs. */
 private const val STORAGE_HEADROOM_FACTOR = 1.1
@@ -100,6 +94,7 @@ class AppleDownloadService internal constructor(
     private val scope: CoroutineScope,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
     private val errorBus: ErrorBus,
+    private val localPreferences: LocalPreferences,
 ) : DownloadService {
     override val supportsDownloads: Boolean = true
 
@@ -118,16 +113,11 @@ class AppleDownloadService internal constructor(
     }
 
     private val urlSession: NSURLSession =
-        run {
-            val config = NSURLSessionConfiguration.defaultSessionConfiguration
-            config.timeoutIntervalForRequest = REQUEST_TIMEOUT_SECONDS
-            config.timeoutIntervalForResource = RESOURCE_TIMEOUT_SECONDS
-            NSURLSession.sessionWithConfiguration(
-                configuration = config,
-                delegate = sessionDelegate,
-                delegateQueue = null,
-            )
-        }
+        NSURLSession.sessionWithConfiguration(
+            configuration = downloadSessionConfiguration(),
+            delegate = sessionDelegate,
+            delegateQueue = null,
+        )
 
     override suspend fun getLocalPath(audioFileId: String): String? {
         val path = downloadDao.getLocalPath(audioFileId) ?: return null
@@ -273,6 +263,9 @@ class AppleDownloadService internal constructor(
 
         val request = NSMutableURLRequest.requestWithURL(nsUrl)
         request.setValue("Bearer $token", forHTTPHeaderField = "Authorization")
+        // Read live, per request: the session is built once and its configuration is copied at
+        // creation, so this is the only place the preference can still be changing under us.
+        request.applyDownloadNetworkPolicy(localPreferences.wifiOnlyDownloads.value)
 
         logger.info { "Downloading: $filename (${audioFile.size / BYTES_PER_MEGABYTE}MB)" }
 
@@ -448,6 +441,28 @@ private class DownloadSessionDelegate(
     private val taskById = mutableMapOf<ULong, NSURLSessionDownloadTask>()
 
     /**
+     * Tasks the OS is holding because no *satisfactory* network is available — with
+     * `waitsForConnectivity` on and the wifi-only preference set, that means "on cellular, waiting
+     * for Wi-Fi". Tracked so the first bytes to arrive can flip the row back out of QUEUED.
+     */
+    private val waitingForConnectivity = mutableSetOf<ULong>()
+
+    /**
+     * The task is parked waiting for a network it is allowed to use. Report it as QUEUED rather
+     * than DOWNLOADING: the shared `isWaitingForWifi` reads `downloadingFiles == 0`, and a row that
+     * claims to be downloading while nothing transfers is the UI lying about what is happening.
+     */
+    override fun URLSession(
+        session: NSURLSession,
+        taskIsWaitingForConnectivity: NSURLSessionTask,
+    ) {
+        val audioFileId = taskIsWaitingForConnectivity.taskDescription?.split("|")?.getOrNull(1) ?: return
+        lock.withLock { waitingForConnectivity += taskIsWaitingForConnectivity.taskIdentifier }
+        logger.info { "Download waiting for an allowed network: $audioFileId" }
+        scope.launch { downloadDao.updateState(audioFileId, DownloadState.QUEUED) }
+    }
+
+    /**
      * Register and START the task atomically w.r.t. [setYielding]. Under the lock we decide to
      * `resume()` (start) only if not currently yielding — otherwise the task stays in its initial
      * suspended state and [setYielding]`(false)` starts it later. Doing the start inside the lock
@@ -520,6 +535,7 @@ private class DownloadSessionDelegate(
     private fun removePending(taskId: ULong): PendingDownload? =
         lock.withLock {
             lastLoggedPct.remove(taskId)
+            waitingForConnectivity.remove(taskId)
             taskToBookId.remove(taskId)
             taskById.remove(taskId)
             pendingDownloads.remove(taskId)
@@ -594,6 +610,17 @@ private class DownloadSessionDelegate(
         val audioFileId = parts.getOrNull(1) ?: return
         val filename = parts.getOrNull(2) ?: "unknown"
         val taskId = downloadTask.taskIdentifier
+
+        // Bytes are moving again after a connectivity hold — undo the QUEUED the wait reported.
+        if (lock.withLock { waitingForConnectivity.remove(taskId) }) {
+            scope.launch {
+                downloadDao.updateState(
+                    audioFileId,
+                    DownloadState.DOWNLOADING,
+                    Clock.System.now().toEpochMilliseconds(),
+                )
+            }
+        }
 
         // Throttle DB writes — every 1%
         if (totalBytesExpectedToWrite > 0) {

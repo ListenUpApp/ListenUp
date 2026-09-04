@@ -4,7 +4,7 @@ import ListenupContract
 
 /// Download state for the UI, mapped from Kotlin's `BookDownloadState`.
 enum DownloadUIState {
-    case notDownloaded, queued, downloading, completed, partial, failed
+    case notDownloaded, queued, downloading, waitingForWifi, completed, partial, failed
 }
 
 /// A user shelf flattened for the shelf-picker sheet, with this book's membership.
@@ -86,6 +86,14 @@ final class BookDetailObserver {
     // MARK: - Download state
 
     private(set) var downloadState: DownloadUIState = .notDownloaded
+
+    /// "Download on Wi-Fi Only" is on, the network is metered, and the download is parked.
+    /// Derived by the shared ViewModel; iOS renders it rather than showing a spinner that lies.
+    private(set) var isWaitingForWifi = false
+
+    /// The last status seen, kept so `isWaitingForWifi` arriving second can re-derive the state —
+    /// the two come from independent streams and either order is normal.
+    private var latestDownloadStatus: BookDownloadStatus?
     private(set) var downloadProgress: Float = 0
     private(set) var isDownloaded: Bool = false
     private(set) var downloadError: String?
@@ -331,6 +339,10 @@ final class BookDetailObserver {
             canPlay = r.canPlay
             canDownload = r.canDownload
             showServerWarning = r.showServerWarning
+            if isWaitingForWifi != r.isWaitingForWifi {
+                isWaitingForWifi = r.isWaitingForWifi
+                latestDownloadStatus.map { applyDownloadStatus($0) }
+            }
         case .error(let e):
             isLoading = false
             error = e.error.message
@@ -414,13 +426,15 @@ final class BookDetailObserver {
 
     /// Flatten the sealed `BookDownloadStatus` into the UI-facing download props.
     private func applyDownloadStatus(_ status: BookDownloadStatus) {
+        latestDownloadStatus = status
         switch onEnum(of: status) {
         case .notDownloaded:
             downloadState = .notDownloaded
             downloadProgress = 0
             isDownloaded = false
         case .inProgress(let s):
-            downloadState = .downloading
+            // A parked download is still "in progress" to the shared model, but nothing is moving.
+            downloadState = isWaitingForWifi ? .waitingForWifi : .downloading
             downloadProgress = s.progress
             isDownloaded = false
         case .completed:

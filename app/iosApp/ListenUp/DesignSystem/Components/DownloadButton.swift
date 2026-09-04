@@ -5,6 +5,8 @@ import SwiftUI
 /// States:
 /// - Not downloaded: Download icon
 /// - Queued: Spinner
+/// - Waiting for Wi-Fi: Wi-Fi-off icon — the download is parked because "Download on Wi-Fi Only"
+///   is on and the network is metered. A spinner here would claim progress that is not happening.
 /// - Downloading: Circular progress with percentage
 /// - Completed: Checkmark, tap to delete
 /// - Failed/Partial: Retry icon
@@ -51,7 +53,7 @@ struct DownloadButton: View {
 
     private var action: () -> Void {
         switch state {
-        case .queued, .downloading:
+        case .queued, .downloading, .waitingForWifi:
             return onCancel
         case .completed:
             return onDelete
@@ -71,6 +73,12 @@ struct DownloadButton: View {
         case .queued:
             ProgressView()
                 .scaleEffect(0.8)
+
+        case .waitingForWifi:
+            Image(systemName: "wifi.slash")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(String(localized: "book.detail_waiting_for_wifi"))
 
         case .downloading:
             ZStack {
@@ -135,7 +143,7 @@ struct DownloadButtonExpanded: View {
 
     private var action: () -> Void {
         switch state {
-        case .queued, .downloading: return onCancel
+        case .queued, .downloading, .waitingForWifi: return onCancel
         case .completed: return onDelete
         case .notDownloaded, .partial, .failed: return onDownload
         }
@@ -150,6 +158,9 @@ struct DownloadButtonExpanded: View {
         case .queued:
             ProgressView()
                 .scaleEffect(0.7)
+        case .waitingForWifi:
+            Image(systemName: "wifi.slash")
+                .foregroundStyle(.secondary)
         case .downloading:
             ZStack {
                 Circle()
@@ -175,6 +186,9 @@ struct DownloadButtonExpanded: View {
                 .foregroundStyle(.primary)
         case .queued:
             Text(String(localized: "book.detail_queued"))
+                .foregroundStyle(.secondary)
+        case .waitingForWifi:
+            Text(String(localized: "book.detail_waiting_for_wifi"))
                 .foregroundStyle(.secondary)
         case .downloading:
             Text("\(Int(progress * 100))%")
