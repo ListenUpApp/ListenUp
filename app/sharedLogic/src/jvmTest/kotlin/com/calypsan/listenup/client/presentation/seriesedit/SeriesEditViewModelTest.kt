@@ -111,7 +111,7 @@ class SeriesEditViewModelTest :
                 val fixture = createFixture()
                 val viewModel = fixture.build()
 
-                (viewModel.state.value.isLoading) shouldBe true
+                viewModel.state.value.isLoading shouldBe true
             }
         }
 
@@ -127,7 +127,7 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("series-1")
                 advanceUntilIdle()
 
-                (viewModel.state.value.isLoading) shouldBe false
+                viewModel.state.value.isLoading shouldBe false
                 viewModel.state.value.name shouldBe "Test Series"
                 viewModel.state.value.description shouldBe "A test series"
                 viewModel.state.value.bookCount shouldBe 1
@@ -143,7 +143,7 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("missing")
                 advanceUntilIdle()
 
-                (viewModel.state.value.isLoading) shouldBe false
+                viewModel.state.value.isLoading shouldBe false
                 viewModel.state.value.error shouldBe "Series not found"
             }
         }
@@ -160,12 +160,12 @@ class SeriesEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")
                 advanceUntilIdle()
-                (viewModel.state.value.hasChanges) shouldBe false
+                viewModel.state.value.hasChanges shouldBe false
 
                 viewModel.onEvent(SeriesEditUiEvent.NameChanged("New Name"))
 
                 viewModel.state.value.name shouldBe "New Name"
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -183,7 +183,7 @@ class SeriesEditViewModelTest :
                 viewModel.onEvent(SeriesEditUiEvent.DescriptionChanged("New description"))
 
                 viewModel.state.value.description shouldBe "New description"
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 

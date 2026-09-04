@@ -65,39 +65,47 @@ private fun KoFileDeclaration.multiFrameCallBlocks(): List<String> {
     while (true) {
         val dotCall = source.indexOf(".call", i)
         if (dotCall < 0) break
-        val afterToken = dotCall + ".call".length
-        // Reject `.callback`, `.calledBack`, etc. — `.call` must be a whole token.
-        if (source.getOrNull(afterToken)?.let { it.isLetterOrDigit() || it == '_' } == true) {
-            i = afterToken
-            continue
-        }
-        var j = source.skipWhitespace(afterToken)
-        // Optional argument group, e.g. `.call(timeout = MERGE_TIMEOUT) { ... }`.
-        if (source.getOrNull(j) == '(') {
-            j = source.matchDelimited(j, '(', ')')
-            if (j < 0) {
-                i = afterToken
-                continue
-            }
-            j = source.skipWhitespace(j)
-        }
-        if (source.getOrNull(j) != '{') {
-            i = afterToken
-            continue
-        }
-        val blockEnd = source.matchDelimited(j, '{', '}')
-        if (blockEnd < 0) {
-            i = afterToken
-            continue
-        }
-        val block = source.substring(j + 1, blockEnd - 1)
-        val frames = block.countServiceFrames()
-        if (frames > MAX_FRAMES_PER_CALL_BLOCK) {
-            offenders += "a call { } block issuing $frames RPC frames"
-        }
-        i = blockEnd
+        val scan = source.scanCallBlockAt(dotCall)
+        scan.offender?.let { offenders += it }
+        i = scan.resumeAt
     }
     return offenders
+}
+
+/** One resolved `.call` occurrence: where scanning resumes, and the offence found there, if any. */
+private data class CallBlockScan(
+    val resumeAt: Int,
+    val offender: String?,
+)
+
+/**
+ * Resolve the `.call` token at [dotCall] — skipping it when it is not really a `call { }` block, and
+ * otherwise reporting whether its lambda issues more than [MAX_FRAMES_PER_CALL_BLOCK] frames.
+ *
+ * Handing back a resume index instead of jumping is what keeps the caller's loop to a single exit.
+ */
+private fun String.scanCallBlockAt(dotCall: Int): CallBlockScan {
+    val afterToken = dotCall + ".call".length
+    val skip = CallBlockScan(afterToken, null)
+    // Reject `.callback`, `.calledBack`, etc. — `.call` must be a whole token.
+    if (getOrNull(afterToken)?.let { it.isLetterOrDigit() || it == '_' } == true) return skip
+
+    var j = skipWhitespace(afterToken)
+    // Optional argument group, e.g. `.call(timeout = MERGE_TIMEOUT) { ... }`.
+    if (getOrNull(j) == '(') {
+        j = matchDelimited(j, '(', ')')
+        if (j < 0) return skip
+        j = skipWhitespace(j)
+    }
+    if (getOrNull(j) != '{') return skip
+
+    val blockEnd = matchDelimited(j, '{', '}')
+    if (blockEnd < 0) return skip
+
+    val frames = substring(j + 1, blockEnd - 1).countServiceFrames()
+    val offender =
+        if (frames > MAX_FRAMES_PER_CALL_BLOCK) "a call { } block issuing $frames RPC frames" else null
+    return CallBlockScan(blockEnd, offender)
 }
 
 private val NAMED_RECEIVER = Regex("""^\s*([A-Za-z_][A-Za-z0-9_]*)\s*->""")
@@ -114,7 +122,7 @@ private val NAMED_RECEIVER = Regex("""^\s*([A-Za-z_][A-Za-z0-9_]*)\s*->""")
  * Comments and string literals are stripped first, so a comment that happens to contain the word
  * "it" (or the receiver's name) never inflates the frame count.
  */
-private fun String.countServiceFrames(): Int {
+internal fun String.countServiceFrames(): Int {
     val code = stripCommentsAndStringLiterals()
     val named = NAMED_RECEIVER.find(code)?.groupValues?.get(1)
     return if (named != null) {
@@ -133,50 +141,64 @@ private fun String.stripCommentsAndStringLiterals(): String {
     val out = StringBuilder(length)
     var k = 0
     while (k < length) {
-        val c = this[k]
-        val next = if (k + 1 < length) this[k + 1] else ' '
-        when {
-            c == '/' && next == '/' -> {
-                while (k < length && this[k] != '\n') k++
-            }
-
-            c == '/' && next == '*' -> {
-                k += 2
-                while (k + 1 < length && !(this[k] == '*' && this[k + 1] == '/')) k++
-                k += 2
-            }
-
-            c == '"' && next == '"' && k + 2 < length && this[k + 2] == '"' -> {
-                k += 3
-                while (k + 2 < length && !(this[k] == '"' && this[k + 1] == '"' && this[k + 2] == '"')) k++
-                k += 3
-            }
-
-            c == '"' -> {
-                k++
-                while (k < length && this[k] != '"') {
-                    if (this[k] == '\\') k++
-                    k++
-                }
-                k++
-            }
-
-            c == '\'' -> {
-                k++
-                while (k < length && this[k] != '\'') {
-                    if (this[k] == '\\') k++
-                    k++
-                }
-                k++
-            }
-
-            else -> {
-                out.append(c)
-                k++
-            }
+        val skipTo = skipNonCodeAt(k)
+        if (skipTo > k) {
+            k = skipTo
+        } else {
+            out.append(this[k])
+            k++
         }
     }
     return out.toString()
+}
+
+/**
+ * If a comment or literal opens at [start], the index just past its close; otherwise [start] itself,
+ * meaning "this is real code, keep it". Every branch advances by at least one, so the caller's loop
+ * cannot stall.
+ */
+private fun String.skipNonCodeAt(start: Int): Int {
+    val c = this[start]
+    val next = if (start + 1 < length) this[start + 1] else ' '
+    return when {
+        c == '/' && next == '/' -> skipLineComment(start)
+        c == '/' && next == '*' -> skipBlockComment(start)
+        c == '"' && next == '"' && start + 2 < length && this[start + 2] == '"' -> skipRawString(start)
+        c == '"' -> skipQuotedLiteral(start, '"')
+        c == '\'' -> skipQuotedLiteral(start, '\'')
+        else -> start
+    }
+}
+
+private fun String.skipLineComment(start: Int): Int {
+    var k = start
+    while (k < length && this[k] != '\n') k++
+    return k
+}
+
+private fun String.skipBlockComment(start: Int): Int {
+    var k = start + 2
+    while (k + 1 < length && !(this[k] == '*' && this[k + 1] == '/')) k++
+    return k + 2
+}
+
+private fun String.skipRawString(start: Int): Int {
+    var k = start + 3
+    while (k + 2 < length && !(this[k] == '"' && this[k + 1] == '"' && this[k + 2] == '"')) k++
+    return k + 3
+}
+
+/** Skip a `"..."` or `'x'` literal from its opening [quote], honouring backslash escapes. */
+private fun String.skipQuotedLiteral(
+    start: Int,
+    quote: Char,
+): Int {
+    var k = start + 1
+    while (k < length && this[k] != quote) {
+        if (this[k] == '\\') k++
+        k++
+    }
+    return k + 1
 }
 
 /** Count `\btoken\b` occurrences that sit at brace-depth 0 within [this] (nested lambdas excluded). */

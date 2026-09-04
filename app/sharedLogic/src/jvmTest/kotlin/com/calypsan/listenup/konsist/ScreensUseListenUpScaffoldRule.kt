@@ -38,5 +38,7 @@ private val SCAFFOLD_RULE_ALLOWLIST: Set<String> =
     setOf(
         "DocumentViewerScreen.kt", // immersive PDF/ebook reader — no bar overlay
         "NowPlayingScreen.kt", // the expanded player itself
-        "HomeScreen.kt", // Shell tab — AppShell already reserves player space via its bottomBar; HomeScreen's inner Scaffold consumes the shell's contentPadding and must not re-add insets
+        // Shell tab — AppShell already reserves player space via its bottomBar; HomeScreen's
+        // inner Scaffold consumes the shell's contentPadding and must not re-add insets.
+        "HomeScreen.kt",
     )

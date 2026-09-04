@@ -269,7 +269,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
     // every temp-file fixture dies with `mkdir failed: No such file or directory`. Pointing TMPDIR
     // under build/ makes commonTest specs behave identically on both lanes and keeps the artefacts
     // inside `clean`'s reach. Same treatment as `:server`'s native lane.
-    val nativeTestTmpDir = layout.buildDirectory.dir("native-test-tmp/$name").get().asFile
+    val nativeTestTmpDir =
+        layout.buildDirectory
+            .dir("native-test-tmp/$name")
+            .get()
+            .asFile
     environment("TMPDIR", nativeTestTmpDir.absolutePath)
     doFirst {
         nativeTestTmpDir.deleteRecursively()
@@ -278,7 +282,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
     // Catches COLLAPSE, not attrition — see the jvmTest floor above for the reasoning. This lane
     // needs one more than most: a native lane missing its Kotest entry point reports green over
     // zero discovered specs, which is indistinguishable from a healthy run.
-    failBelowDiscoveredTestCount(1, ":app:sharedLogic:$name")
+    failBelowDiscoveredTestCount(2200, ":app:sharedLogic:$name")
 }
 
 tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
