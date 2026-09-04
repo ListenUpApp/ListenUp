@@ -70,7 +70,9 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
     }
 
     override suspend fun update(op: PendingOperationV2Entity) {
-        inserted.replaceAll { if (it.clientOpId == op.clientOpId) op else it }
+        for (i in inserted.indices) {
+            if (inserted[i].clientOpId == op.clientOpId) inserted[i] = op
+        }
     }
 
     override suspend fun nextDispatchable(
@@ -115,7 +117,11 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
     ): Flow<List<PendingOperationV2Entity>> = flowOf(emptyList())
 
     override suspend fun resetFailureCount(clientOpId: String) {
-        inserted.replaceAll { if (it.clientOpId == clientOpId) it.copy(failureCount = 0, lastError = null) else it }
+        for (i in inserted.indices) {
+            if (inserted[i].clientOpId == clientOpId) {
+                inserted[i] = inserted[i].copy(failureCount = 0, lastError = null)
+            }
+        }
     }
 
     override fun observeQueueDepth(

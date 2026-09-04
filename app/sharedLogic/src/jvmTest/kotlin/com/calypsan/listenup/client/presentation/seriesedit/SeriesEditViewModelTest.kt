@@ -558,6 +558,10 @@ class SeriesEditViewModelTest :
         }
     })
 
+// JVM-only, which is why this spec lives in jvmTest rather than commonTest: `ViewModel.onCleared`
+// is protected and `ViewModel.clear` is internal, so reaching it portably would mean routing the
+// fixture through a `ViewModelStore` + `ViewModelProvider`. Worth doing if this spec ever needs to
+// run on the Apple lane; today it is the only presentation spec that cannot.
 private fun androidx.lifecycle.ViewModel.invokeOnCleared() {
     this.javaClass.superclass
         .getDeclaredMethod("onCleared")

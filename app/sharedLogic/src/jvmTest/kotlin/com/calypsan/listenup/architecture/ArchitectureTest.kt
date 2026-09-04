@@ -39,7 +39,7 @@ class ArchitectureTest :
         // hangs `:app:sharedLogic:jvmTest` for hours. Listing the real modules keeps every rule sound
         // (all modules are still scanned) while ignoring `.worktrees/`. Built once and shared
         // across rules — also avoids re-parsing the tree per test.
-        // NOTE: the canonical module list lives in EXPECTED_MODULE_DIRS (commonTest, konsist
+        // NOTE: the canonical module list lives in EXPECTED_MODULE_DIRS (jvmTest, konsist
         // package). KonsistScopeTest asserts filesystem discovery matches it exactly, so a new
         // or moved Gradle module fails there by name rather than silently escaping these checks.
         val moduleDirs = EXPECTED_MODULE_DIRS

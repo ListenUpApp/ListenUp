@@ -8,6 +8,12 @@ plugins {
     alias(libs.plugins.androidx.room)
     alias(libs.plugins.mokkery)
     alias(libs.plugins.kover)
+    // Must come AFTER ksp: Kotest 6 generates the Kotlin/Native test entry point through KSP, and
+    // the processor is only registered if KSP is already applied. Without this plugin the Apple
+    // lane compiles every commonTest spec and then runs none of them — `:server:linuxX64Test`
+    // reported a green 28 tests while 54 Kotest specs sat unexecuted on its classpath, which is
+    // exactly the shape of failure the discovered-test-count floor below exists to catch.
+    alias(libs.plugins.kotest)
 }
 
 kotlin {
@@ -244,20 +250,43 @@ tasks.named<Test>("jvmTest") {
     }
 }
 
-// androidHostTest compiles commonTest sources (which include Konsist rules) but is not part
-// of the jvmTest source set tree, so konsist isn't on its classpath by default. Add it
-// directly to the generated configuration. The JUnit 5 runner mirrors jvmTest so that
-// Kotest FunSpec specs execute identically on both host-test surfaces.
+// androidHostTest compiles commonTest sources but is not part of the jvmTest source set tree, so
+// it needs the JUnit 5 runner declared directly on the generated configuration — that mirrors
+// jvmTest so Kotest FunSpec specs execute identically on both host-test surfaces. Konsist is NOT
+// here: the architectural rules live in jvmTest now (they read the filesystem through JVM APIs and
+// cannot compile for a native target), so they run once rather than on both host surfaces.
 dependencies {
-    "androidHostTestImplementation"(libs.konsist)
     "androidHostTestImplementation"(libs.kotest.runner.junit5)
+}
+
+// The Apple lane: `iosSimulatorArm64Test` runs this module's commonTest specs on a simulator, so
+// shared presentation/data logic and the `appleTest` specs for `appleMain` are covered by the same
+// run. Kotlin/Native, not JVM — hence a `KotlinNativeTest` rather than a `Test` task.
+tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest>().configureEach {
+    // The native mirror of jvmTest's `java.io.tmpdir` redirect. The Kotlin/Native runner inherits
+    // the ambient environment, and kotlinx.io resolves `SystemTemporaryDirectory` as
+    // `getenv("TMPDIR") ?: getenv("TMP") ?: ""` — with neither set it hands back the EMPTY path and
+    // every temp-file fixture dies with `mkdir failed: No such file or directory`. Pointing TMPDIR
+    // under build/ makes commonTest specs behave identically on both lanes and keeps the artefacts
+    // inside `clean`'s reach. Same treatment as `:server`'s native lane.
+    val nativeTestTmpDir = layout.buildDirectory.dir("native-test-tmp/$name").get().asFile
+    environment("TMPDIR", nativeTestTmpDir.absolutePath)
+    doFirst {
+        nativeTestTmpDir.deleteRecursively()
+        nativeTestTmpDir.mkdirs()
+    }
+    // Catches COLLAPSE, not attrition — see the jvmTest floor above for the reasoning. This lane
+    // needs one more than most: a native lane missing its Kotest entry point reports green over
+    // zero discovered specs, which is indistinguishable from a healthy run.
+    failBelowDiscoveredTestCount(1, ":app:sharedLogic:$name")
 }
 
 tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
     if (this is Test) {
         useJUnitPlatform()
-        // Mirror jvmTest's heap: this surface runs the same Konsist rules, which hold a single
-        // shared PSI scope of the whole production tree. The 512m default OOMs on it.
+        // The 512m default OOMs on this surface's in-process Room + Ktor fixtures. It no longer
+        // carries the Konsist PSI scope (those rules moved to jvmTest), but the fixtures alone
+        // still need the headroom.
         maxHeapSize = "4g"
         forwardKotestFilterProperties()
         // Same posture as jvmTest above: 2,471 ran green on 2026-07-25; the bar catches collapse only.

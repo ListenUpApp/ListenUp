@@ -201,7 +201,7 @@ Day-to-day rules:
 - **`isRetryable = true` only when retry middleware can blindly re-fire the same call** (transient network, rate-limit-after-wait, idempotent 5xx). `false` for everything that needs user action (re-auth, fix input, contact admin).
 - **No closures in error types.** `@Serializable` errors cross the wire — recovery actions live at the consumer based on the typed subtype.
 - **Translate once at the boundary.** `ErrorMapper` runs at the Ktor edge; downstream consumers fold the typed value. Never substring-match on `error.message` — it's a constant, so the match is either redundant or wrong.
-- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI, and ~50 more under `sharedLogic/src/commonTest/.../konsist/` (this list is the notable ones, not the set). Adding a public commonMain class/interface/top-level object without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build — note `StablePropertyOrderRule` is satisfied by ONE `@SerialName` per class, so it does not yet pin the order of the remaining untagged properties.
+- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI, and ~50 more under `sharedLogic/src/jvmTest/.../konsist/` (this list is the notable ones, not the set). Adding a public commonMain class/interface/top-level object without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build — note `StablePropertyOrderRule` is satisfied by ONE `@SerialName` per class, so it does not yet pin the order of the remaining untagged properties.
 
 ### Export Surface
 
@@ -247,7 +247,7 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
 | `Lint` (Swift) | Linux | `swiftlint lint` — run from `app/iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.63.3`; match that version locally if results differ). †iOS |
 | `Test (JVM)` | Linux | `./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:sharedLogic:compileCommonMainKotlinMetadata :app:desktopApp:compileKotlin :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :app:sharedUI:desktopTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — verbatim the six commands of CI's `test-jvm` job (localization + license drift gates, the desktop compile canary, the web seam check, and the full JVM test set, including the guards' own suites) folded into one invocation. |
-| `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `app/iosApp/`. †iOS |
+| `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `app/iosApp/`, then `./gradlew :app:sharedLogic:iosSimulatorArm64Test --no-daemon` from the repo root. The first covers the SwiftUI shell (Swift Testing); the second covers the Kotlin half — `:app:sharedLogic`'s commonTest specs plus `appleTest`, which is the only lane that compiles `appleMain`. †iOS |
 | `Build & Test (server linuxX64)` | Linux | `./gradlew :server:compileKotlinLinuxX64 :server:linuxX64Test --no-daemon` — needs native link headers (CI: `apt-get install libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch: `argon2`, `sqlite`, `curl`). |
 | `Build (Android)` | Linux | `./gradlew :app:androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
 | `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `app/iosApp/`. †iOS |
@@ -343,7 +343,7 @@ Module IDs follow the directories: `:app:sharedLogic`, `:app:sharedUI`,
 `:tools:rpc-guard-ksp`. `iosApp` is an Xcode project, not a Gradle module.
 
 Adding or moving a module is a deliberate act: `EXPECTED_MODULE_DIRS`
-(`app/sharedLogic/src/commonTest/.../konsist/ExpectedModules.kt`) is the canonical
+(`app/sharedLogic/src/jvmTest/.../konsist/ExpectedModules.kt`) is the canonical
 module list, and `KonsistScopeTest` asserts filesystem discovery matches it exactly.
 A module that appears, disappears, or relocates fails that test by name — because an
 architectural gate running green over less code than you think is worse than one that
