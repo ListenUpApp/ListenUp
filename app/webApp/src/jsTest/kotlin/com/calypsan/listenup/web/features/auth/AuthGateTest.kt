@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.fixedAdmin
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
@@ -106,6 +108,7 @@ private fun mountGate(
             openSettings = fixedSettings(),
             openDevices = fixedDevices(),
             openAdmin = fixedAdmin(),
+            openLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
             openShelfDetail = fixedShelfDetail(),
             openShelfEdit = fixedShelfEdit(),
             openLibrary = fakeLibrary(),

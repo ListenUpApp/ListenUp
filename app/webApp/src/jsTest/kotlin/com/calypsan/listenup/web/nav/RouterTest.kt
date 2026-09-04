@@ -63,15 +63,19 @@ class RouterTest :
             Route.parse(route.toUrl()).query shouldBe mapOf("q" to "war & peace = 100%")
         }
 
-        test("navigate pushes a history entry and updates the current route") {
+        // ⛔ Do not assert that history.length GREW here. Chrome caps a tab's history at 50
+        // entries and the browser suite shares one tab, so by the time this spec runs the stack
+        // is full: a push still pushes, it just drops the oldest entry instead of growing the
+        // number, and the assertion fails forever. Push semantics are covered by the back-button
+        // tests below instead — verified by sabotage: a `navigate` that replaceStates does not
+        // survive this suite.
+        test("navigate updates the URL and the current route") {
             val router = Router()
-            val before = window.history.length
 
             try {
                 router.navigate(Route(listOf("library")))
 
                 window.location.pathname shouldBe "/library"
-                window.history.length shouldBe before + 1
                 router.current.segments shouldBe listOf("library")
             } finally {
                 router.dispose()

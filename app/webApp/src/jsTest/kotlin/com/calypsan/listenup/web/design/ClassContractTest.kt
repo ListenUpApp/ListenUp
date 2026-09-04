@@ -70,6 +70,9 @@ import com.calypsan.listenup.web.features.notifications.notification
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
 import com.calypsan.listenup.web.features.notifications.pref
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
+import com.calypsan.listenup.web.features.admin.readyLibrary
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
 import com.calypsan.listenup.web.features.setup.setupState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
@@ -410,6 +413,7 @@ class ClassContractTest :
                         notificationShapes().forEach { it() }
                         notificationPrefShapes().forEach { it() }
                         librarySetupShapes().forEach { it() }
+                        librarySettingsShapes().forEach { it() }
                         profileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
                         // zero-hit Results and a populated one. The page joins this contract by
@@ -826,6 +830,36 @@ private fun librarySetupShapes(): List<@Composable () -> Unit> =
             )
         },
     )
+
+/**
+ * Library folders in every shape: the list carrying a transient error and the post-add notice, a
+ * library watching nothing, the browser populated / loading / empty, and the page's own two
+ * non-Ready states.
+ */
+private fun librarySettingsShapes(): List<@Composable () -> Unit> {
+    fun page(
+        state: LibrarySettingsUiState,
+        scanStarted: Boolean = false,
+    ): @Composable () -> Unit =
+        {
+            LibrarySettingsPage(state, scanStarted, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    return listOf(
+        // A folder list wearing both the dismissible error and the "scanning it now" notice.
+        page(
+            readyLibrary(error = InternalError(debugInfo = "boom")),
+            scanStarted = true,
+        ),
+        // Every folder removed. Reachable, and the only place .lset-empty renders in list mode.
+        page(readyLibrary(folders = emptyList())),
+        page(readyLibrary(showFolderBrowser = true)),
+        page(readyLibrary(showFolderBrowser = true, isBrowserLoading = true)),
+        page(readyLibrary(showFolderBrowser = true, browserEntries = emptyList())),
+        page(LibrarySettingsUiState.Error(InternalError(debugInfo = "boom"))),
+        page(LibrarySettingsUiState.Loading),
+    )
+}
 
 /**
  * A listener's page: a full profile, an empty one (whose "nothing yet" copy is the only thing that

@@ -46,9 +46,19 @@ fun AdminPage(
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
+    onOpenLibrarySettings: () -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
+
+        // The one other admin surface web has. A link rather than a section: library folders are
+        // their own screen with their own loading and failure states, and this page's own KDoc
+        // already says why it is deliberately only the people.
+        Button(attrs = {
+            classes("btn-o", "adm-link")
+            attr("type", "button")
+            onClick { onOpenLibrarySettings() }
+        }) { Text("Library folders") }
 
         when (state) {
             is AdminUiState.Loading -> {
