@@ -526,6 +526,16 @@ jobs:
           path: ${{ runner.temp }}/ios-test.xcresult
           retention-days: 7
 
+      # The Kotlin half of the iOS client. The xcodebuild step above covers the SwiftUI shell
+      # (Swift Testing); this covers `:app:sharedLogic` — its shared commonTest specs plus the
+      # `appleTest` specs for `appleMain`, the source set where iOS-only defects live and which no
+      # lane exercised at all before. `if: always()` so a Swift failure above doesn't hide a Kotlin
+      # one here. The lane carries a discovered-test-count floor: a native lane missing its Kotest
+      # entry point reports green over zero specs, which looks exactly like a healthy run.
+      - name: Run shared Kotlin tests on the iOS simulator
+        if: always()
+        run: ./gradlew :app:sharedLogic:iosSimulatorArm64Test --no-daemon
+
       # Gates the iOS Swift Export surface — the flat-typealias layer the patcher
       # appends onto the generated `Shared.swift` (the caller-facing `import Shared`
       # surface), NOT the ObjC `Shared.h`. The xcodebuild step above already
