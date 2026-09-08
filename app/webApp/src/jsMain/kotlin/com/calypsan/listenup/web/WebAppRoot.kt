@@ -78,6 +78,8 @@ import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
+import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.web.features.admin.OpenAdminInbox
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -140,6 +142,7 @@ fun WebAppRoot(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -231,6 +234,7 @@ fun WebAppRoot(
             openDevices = openDevices,
             openAdmin = openAdmin,
             openLibrarySettings = openLibrarySettings,
+            openAdminInbox = openAdminInbox,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -309,6 +313,7 @@ private fun RouteContent(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -419,6 +424,7 @@ private fun RouteContent(
             openAdmin = openAdmin,
             openNotificationPrefs = openNotificationPrefs,
             openLibrarySettings = openLibrarySettings,
+            openAdminInbox = openAdminInbox,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -1137,6 +1143,35 @@ private fun EditProfileRoute(
 }
 
 /**
+ * `/admin/inbox` — what the scanner brought in, and what it could not.
+ *
+ * Unkeyed and opened once for the route's life: the ViewModel loads both halves and subscribes to
+ * the admin event stream from its own `init`, so a book that finishes scanning while the page is
+ * open arrives on its own. Closing the session is what ends that subscription.
+ */
+@Composable
+private fun AdminInboxRoute(
+    router: Router,
+    openAdminInbox: OpenAdminInbox,
+) {
+    val session = remember { openAdminInbox() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    AdminInboxPage(
+        state = session.state.collectAsState().value,
+        onToggleBook = session.onToggleBook,
+        onSelectAll = session.onSelectAll,
+        onClearSelection = session.onClearSelection,
+        onRelease = session.onRelease,
+        onDismissIssue = session.onDismissIssue,
+        onClearError = session.onClearError,
+        onClearReleaseResult = session.onClearReleaseResult,
+        onRetry = session.onRetry,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
  * `/admin/library` — which folders the library watches, after onboarding is over.
  *
  * `scanStarted` is held here rather than in the page because it is a one-shot: the ViewModel emits
@@ -1356,6 +1391,9 @@ private val PRIMARY_NAV =
 
 private const val ADMIN_KEY = "admin"
 
+/** The path segment that opens the scanner's triage queue — `/admin/inbox`. */
+private const val INBOX_KEY = "inbox"
+
 private const val SETTINGS_KEY = "settings"
 
 private const val DEVICES_KEY = "devices"
@@ -1573,6 +1611,7 @@ private fun DevicesRoute(openDevices: OpenDevices) {
 private fun AdminRoute(
     openAdmin: OpenAdmin,
     onOpenLibrarySettings: () -> Unit,
+    onOpenInbox: () -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1591,6 +1630,7 @@ private fun AdminRoute(
         onClearError = session.onClearError,
         onRetry = session.onRetry,
         onOpenLibrarySettings = onOpenLibrarySettings,
+        onOpenInbox = onOpenInbox,
     )
 }
 
@@ -1617,10 +1657,15 @@ private fun AccountRouteContent(
     openAdmin: OpenAdmin,
     openNotificationPrefs: OpenNotificationPrefs,
     openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
 ) {
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == LIBRARY_KEY -> {
             LibrarySettingsRoute(router = router, openLibrarySettings = openLibrarySettings)
+        }
+
+        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == INBOX_KEY -> {
+            AdminInboxRoute(router = router, openAdminInbox = openAdminInbox)
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
@@ -1637,6 +1682,7 @@ private fun AccountRouteContent(
             AdminRoute(
                 openAdmin = openAdmin,
                 onOpenLibrarySettings = { router.navigate(Route(listOf(ADMIN_KEY, LIBRARY_KEY))) },
+                onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
             )
         }
 

@@ -7,7 +7,10 @@ import com.calypsan.listenup.client.presentation.notifications.NotificationsUiSt
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
+import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
+import com.calypsan.listenup.web.features.admin.readyInbox
+import com.calypsan.listenup.web.features.admin.scanIssue
 import com.calypsan.listenup.web.features.admin.readyLibrary
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
@@ -21,6 +24,7 @@ import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.nav.Route
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.window
@@ -30,6 +34,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.asList
 
 /**
  * The account family of routes: settings and its sub-paths, admin and its sub-paths, a listener's
@@ -133,6 +138,52 @@ class AccountRoutesTest :
                 }
             } finally {
                 composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/admin/inbox renders the inbox") {
+            val (host, router) =
+                mountAt(
+                    "/admin/inbox",
+                    openAdminInbox = fixedAdminInbox(readyInbox(scanIssues = listOf(scanIssue()))),
+                )
+
+            try {
+                host.querySelector(".inbox").shouldNotBeNull()
+                host.textContent.orEmpty() shouldContain "Waiting for review"
+                host.textContent.orEmpty() shouldContain "Needs attention"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Admin offers a way to the inbox") {
+            val (host, router) = mountAt("/admin")
+
+            try {
+                val inbox =
+                    host
+                        .querySelectorAll(".adm-link")
+                        .asList()
+                        .filterIsInstance<HTMLElement>()
+                        .first { it.textContent?.trim() == "Inbox" }
+                inbox.click()
+
+                window.location.pathname shouldBe "/admin/inbox"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The inbox route sits beside the library-folders one, so it inherits the same hazard:
+        // `active` is ADMIN_KEY for every `/admin/*` URL.
+        test("an unknown admin sub-path does not fall through to the inbox") {
+            val (host, router) = mountAt("/admin/nonsense")
+
+            try {
+                host.querySelector(".inbox") shouldBe null
+            } finally {
                 router.dispose()
             }
         }

@@ -47,18 +47,26 @@ fun AdminPage(
     onClearError: () -> Unit,
     onRetry: () -> Unit,
     onOpenLibrarySettings: () -> Unit = {},
+    onOpenInbox: () -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
 
-        // The one other admin surface web has. A link rather than a section: library folders are
-        // their own screen with their own loading and failure states, and this page's own KDoc
-        // already says why it is deliberately only the people.
-        Button(attrs = {
-            classes("btn-o", "adm-link")
-            attr("type", "button")
-            onClick { onOpenLibrarySettings() }
-        }) { Text("Library folders") }
+        // The other admin surfaces web has. Links rather than sections: each is its own screen
+        // with its own loading and failure states, and this page's own KDoc already says why it
+        // is deliberately only the people.
+        Div(attrs = { classes("adm-links") }) {
+            Button(attrs = {
+                classes("btn-o", "adm-link")
+                attr("type", "button")
+                onClick { onOpenLibrarySettings() }
+            }) { Text("Library folders") }
+            Button(attrs = {
+                classes("btn-o", "adm-link")
+                attr("type", "button")
+                onClick { onOpenInbox() }
+            }) { Text("Inbox") }
+        }
 
         when (state) {
             is AdminUiState.Loading -> {

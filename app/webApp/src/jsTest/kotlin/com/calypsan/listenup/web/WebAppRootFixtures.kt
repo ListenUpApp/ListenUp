@@ -3,6 +3,8 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
+import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.settings.OpenSettings
@@ -105,6 +107,7 @@ internal fun mountAt(
     openLibrary: OpenLibrary = fakeLibrary(),
     openSettings: OpenSettings = fixedSettings(),
     openLibrarySettings: OpenLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+    openAdminInbox: OpenAdminInbox = fixedAdminInbox(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -130,6 +133,7 @@ internal fun mountAt(
                 fixedDevices(),
                 fixedAdmin(),
                 openLibrarySettings,
+                openAdminInbox,
                 fixedShelfDetail(),
                 fixedShelfEdit(),
                 openLibrary,

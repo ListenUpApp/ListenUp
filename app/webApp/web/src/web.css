@@ -235,6 +235,9 @@ body { margin: 0; }
 .luw .lset-x:active,
 .luw .lset-up:active,
 .luw .lset-brow-add:active,
+.luw .inbox-selall:active,
+.luw .inbox-issue-x:active,
+.luw .inbox-notice-x:active,
 .bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
@@ -260,6 +263,7 @@ body { margin: 0; }
 .luw .lsetup-open:active,
 .luw .prof-shelf:active,
 .luw .lset-brow-open:active,
+.luw .inbox-book:active,
 .sd-book:active { background: var(--surface-3); }
 
 /* The library card is the one place a press has something to undo rather than add: the cover is
@@ -1729,6 +1733,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    that accumulates — the opposite of the setup wizard, where several are ticked before Continue. */
 .luw .lset-brow-add { flex: none; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font: inherit; font-size: 0.76rem; font-weight: 700; color: var(--ink-2); cursor: pointer; }
 @media (hover: hover) { .luw .lset-brow-add:hover { border-color: var(--coral); color: var(--coral); } }
+.luw .adm-links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .luw .adm-link { align-self: flex-start; }
 
 /* ---- notifications — what happened while you were away. Narrower than the entity pages: every
@@ -2106,3 +2111,49 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   width: 2.4rem; text-align: right; font-size: 0.78rem; font-weight: 700; color: var(--ink-2);
   font-family: var(--mono);
 }
+
+/* ---- admin inbox. Two independent halves: what the scan brought in and is holding for review,
+   and what it walked past because it could not make a book from it. */
+.luw .inbox { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .inbox-back { align-self: flex-start; }
+.luw .inbox-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .inbox-sub { margin: -6px 0 4px; font-size: 0.92rem; color: var(--ink-2); }
+.luw .inbox-skel { height: 16rem; border-radius: 16px; }
+.luw .inbox-hint { margin: 0 0 12px; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .inbox-selall { padding: 4px 10px; font-size: 0.78rem; }
+
+/* Rows, not cards: the reader is scanning a queue for the one that looks wrong, and a grid of
+   covers makes that a hunt. */
+.luw .inbox-books { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .inbox-book {
+  display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left;
+  padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface-2); cursor: pointer; transition: border-color .15s, background .15s;
+}
+@media (hover: hover) { .luw .inbox-book:hover { border-color: var(--coral); } }
+.luw .inbox-book:focus { outline: none; }
+.luw .inbox-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .inbox-book.is-sel { border-color: var(--coral); background: var(--coral-soft); }
+.luw .inbox-book-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.luw .inbox-book-title { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .inbox-book-by { font-size: 0.82rem; color: var(--ink-2); }
+.luw .inbox-book-dur { flex: none; font-size: 0.8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* Always present, so selecting a row never changes its height and the queue never reflows. */
+.luw .inbox-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--coral); }
+.luw .inbox-book.is-sel .inbox-tick { background: var(--coral); color: var(--on-coral, #fff); }
+
+.luw .inbox-issues { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .inbox-issue { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .inbox-issue-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.luw .inbox-issue-what { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.luw .inbox-issue-path { font-size: 0.82rem; color: var(--ink-2); font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); word-break: break-all; }
+.luw .inbox-issue-fix { font-size: 0.82rem; color: var(--ink-3); line-height: 1.45; }
+.luw .inbox-issue-detail { font-size: 0.78rem; color: var(--ink-3); font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); word-break: break-all; }
+.luw .inbox-issue-x { flex: none; padding: 4px 10px; font-size: 0.78rem; }
+
+.luw .inbox-err, .luw .inbox-note { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; font-size: 0.88rem; font-weight: 600; }
+.luw .inbox-err { background: var(--coral-soft); color: var(--coral); }
+.luw .inbox-note { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
+.luw .inbox-notice-t { flex: 1; min-width: 0; }
+.luw .inbox-notice-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .inbox-notice-x:hover { background: var(--surface-3); } }

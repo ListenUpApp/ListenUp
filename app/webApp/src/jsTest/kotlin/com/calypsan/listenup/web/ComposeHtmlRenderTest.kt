@@ -2,6 +2,7 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.settings.fixedSettings
@@ -84,6 +85,7 @@ class ComposeHtmlRenderTest :
                         fixedDevices(),
                         fixedAdmin(),
                         fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                        fixedAdminInbox(),
                         fixedShelfDetail(),
                         fixedShelfEdit(),
                         fakeLibrary(),
@@ -124,6 +126,7 @@ class ComposeHtmlRenderTest :
                         fixedDevices(),
                         fixedAdmin(),
                         fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                        fixedAdminInbox(),
                         fixedShelfDetail(),
                         fixedShelfEdit(),
                         fakeLibrary(),
