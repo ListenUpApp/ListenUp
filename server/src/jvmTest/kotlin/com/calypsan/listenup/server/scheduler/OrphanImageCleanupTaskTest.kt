@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.ContributorId
@@ -11,14 +12,27 @@ import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.io.writeBytes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.assertions.nondeterministic.continually
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -231,6 +245,73 @@ class OrphanImageCleanupTaskTest :
                     SystemFileSystem.createDirectories(Path(home, "series"))
                     // must not throw
                     sweep.runOnce()
+                }
+            }
+        }
+
+        // The default interval is 7 days; a server restarted nightly used to never sweep once. The
+        // interval here is a year, so the only sweep that can land inside this test is the boot
+        // sweep. runBlocking rather than runTest: the sweep crosses the real SQL dispatcher, which
+        // virtual time cannot follow.
+        test("start runs a sweep immediately rather than waiting a full interval") {
+            withSqlDatabase {
+                val home = Files.createTempDirectory("orphan-boot-").toString()
+                val settings = ServerSettingsRepository(sql, RegistrationPolicy.OPEN)
+                val orphan = writeContentAddressed(Path(home, "contributors"), "boot-orphan".encodeToByteArray())
+                val sweep =
+                    OrphanImageCleanupTask(
+                        makeContributorRepo(sql),
+                        makeSeriesRepo(sql),
+                        Path(home),
+                        interval = 365.days,
+                        clock = pastGrace,
+                        settings = settings,
+                        startJitter = Duration.ZERO,
+                    )
+
+                runBlocking {
+                    val job = sweep.start(CoroutineScope(Dispatchers.Default + SupervisorJob()))
+                    try {
+                        eventually(5.seconds) {
+                            SystemFileSystem.exists(orphan) shouldBe false
+                            settings.getValue(OrphanImageCleanupTask.LAST_RUN_KEY) shouldBe
+                                pastGrace.now().toEpochMilliseconds().toString()
+                        }
+                    } finally {
+                        job.cancelAndJoin()
+                    }
+                }
+            }
+        }
+
+        test("a boot within the interval of the last recorded run does not re-sweep") {
+            withSqlDatabase {
+                val home = Files.createTempDirectory("orphan-recent-run-").toString()
+                val settings = ServerSettingsRepository(sql, RegistrationPolicy.OPEN)
+                val orphan = writeContentAddressed(Path(home, "contributors"), "spared-for-now".encodeToByteArray())
+                val lastRun = (pastGrace.now() - 1.hours).toEpochMilliseconds().toString()
+                val sweep =
+                    OrphanImageCleanupTask(
+                        makeContributorRepo(sql),
+                        makeSeriesRepo(sql),
+                        Path(home),
+                        interval = 7.days,
+                        clock = pastGrace,
+                        settings = settings,
+                        startJitter = Duration.ZERO,
+                    )
+
+                runBlocking {
+                    settings.setValue(OrphanImageCleanupTask.LAST_RUN_KEY, lastRun)
+                    val job = sweep.start(CoroutineScope(Dispatchers.Default + SupervisorJob()))
+                    try {
+                        continually(500.milliseconds) {
+                            SystemFileSystem.exists(orphan) shouldBe true
+                            settings.getValue(OrphanImageCleanupTask.LAST_RUN_KEY) shouldBe lastRun
+                        }
+                    } finally {
+                        job.cancelAndJoin()
+                    }
                 }
             }
         }

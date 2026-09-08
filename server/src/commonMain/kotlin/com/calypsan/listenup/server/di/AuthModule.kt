@@ -215,7 +215,14 @@ fun authModule(
             )
         }
 
-        single { ExpiredSessionCleanupTask(sessionService = get(), clock = get(), pushWatchTokens = getOrNull()) }
+        single {
+            ExpiredSessionCleanupTask(
+                sessionService = get(),
+                clock = get(),
+                pushWatchTokens = getOrNull(),
+                settings = get(),
+            )
+        }
 
         single { RegistrationBroadcaster() }
 

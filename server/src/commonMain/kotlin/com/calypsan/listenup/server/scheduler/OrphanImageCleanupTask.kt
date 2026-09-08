@@ -3,12 +3,16 @@ package com.calypsan.listenup.server.scheduler
 import com.calypsan.listenup.server.io.statFile
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.random.Random
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,8 +42,9 @@ private val log = loggerFor<OrphanImageCleanupTask>()
  *  2. A contributor or series row was soft-deleted (tombstoned) without unlinking
  *     its image — the row is gone, but the file lingers.
  *
- * Runs every [interval] (default 7 days). The first sweep runs after [interval]
- * — startup-time scans on a large filesystem can stall boot.
+ * Runs every [interval] (default 7 days), and once at boot unless the persisted last run says a
+ * sweep happened within [interval] — a server restarted nightly would otherwise never reach a
+ * 7-day timer, and never sweep at all.
  *
  * Runs on the supplied [CoroutineScope]; the caller cancels the returned [Job]
  * when the application stops. The loop re-raises [CancellationException] so
@@ -53,16 +58,29 @@ internal class OrphanImageCleanupTask(
     private val imageHome: Path,
     private val interval: Duration = 7.days,
     private val clock: Clock = Clock.System,
+    /** Nullable — without it the last run is not persisted and every boot sweeps at once. */
+    private val settings: ServerSettingsRepository? = null,
+    /** Upper bound on the random delay before the first sweep; zero in tests. */
+    private val startJitter: Duration = START_JITTER,
 ) {
     /**
      * Start the sweep loop on [scope]. Returns the [Job] — cancel it to stop.
+     *
+     * Sweeps at boot — after a short random delay up to [startJitter], so tasks restarted together
+     * do not hit the DB in the same instant — unless the persisted last run says one happened
+     * within [interval], in which case it waits out the remainder. A nightly-restarted server thus
+     * sweeps once per [interval], never once per restart and never never.
      */
     fun start(scope: CoroutineScope): Job =
         scope.launch {
+            delay(Random.nextLong(startJitter.inWholeMilliseconds + 1))
+            delay(untilNextSweep())
             while (isActive) {
+                runCatchingCancellable {
+                    runOnce()
+                    recordSweep()
+                }.onFailure { log.warn(it) { "OrphanImageCleanupTask sweep failed; will retry next interval" } }
                 delay(interval)
-                runCatchingCancellable { runOnce() }
-                    .onFailure { log.warn(it) { "OrphanImageCleanupTask sweep failed; will retry next interval" } }
             }
         }
 
@@ -95,6 +113,21 @@ internal class OrphanImageCleanupTask(
         }
     }
 
+    /** What is left of [interval] since the last recorded sweep; zero when unknown or unreadable. */
+    private suspend fun untilNextSweep(): Duration =
+        runCatchingCancellable {
+            val lastRunMs =
+                settings?.getValue(LAST_RUN_KEY)?.toLongOrNull() ?: return@runCatchingCancellable Duration.ZERO
+            val elapsed = (clock.now().toEpochMilliseconds() - lastRunMs).milliseconds
+            (interval - elapsed).coerceIn(Duration.ZERO, interval)
+        }.onFailure { log.warn(it) { "OrphanImageCleanupTask could not read its last run; sweeping now" } }
+            .getOrDefault(Duration.ZERO)
+
+    /** Recorded only after a sweep succeeded — a failed sweep must not push the next one out. */
+    private suspend fun recordSweep() {
+        settings?.setValue(LAST_RUN_KEY, clock.now().toEpochMilliseconds().toString())
+    }
+
     internal companion object {
         /**
          * How recently written a file must be to be spared even though no row references it yet.
@@ -105,6 +138,12 @@ internal class OrphanImageCleanupTask(
          * costs nothing — a real orphan is simply swept next time.
          */
         val ORPHAN_GRACE: Duration = 15.minutes
+
+        /** `server_settings` key holding the epoch-millis of the last successful sweep. */
+        const val LAST_RUN_KEY = "scheduler.orphanImageCleanup.lastRunAtMs"
+
+        /** Enough to spread the boot sweeps of the cleanup tasks apart; small enough to be invisible. */
+        private val START_JITTER = 10.seconds
     }
 }
 

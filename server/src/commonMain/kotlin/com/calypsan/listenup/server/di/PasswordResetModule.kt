@@ -45,7 +45,7 @@ fun passwordResetModule(config: ApplicationConfig): Module {
             )
         }
 
-        single { ExpiredPasswordResetCleanupTask(db = get<ListenUpDatabase>(), clock = get()) }
+        single { ExpiredPasswordResetCleanupTask(db = get<ListenUpDatabase>(), clock = get(), settings = get()) }
 
         // ⛔ MUST be `single`, never `factory`. A factory would mint a fresh token per injection,
         // so the value printed at startup — the first resolution, forced eagerly at boot by
