@@ -15,8 +15,12 @@ internal data class ServerConfigDefault(
 
 /**
  * The canonical server configuration defaults. Adding or changing a knob here is the *only* place a
- * default lives; `application.conf` must mirror it (pinned by the contract test) and the native config
- * is built straight from it.
+ * default lives; `application.conf` must mirror it and the native config is built straight from it.
+ *
+ * The contract test pins both directions: every default here must match `application.conf`, and every
+ * `${?LISTENUP_*}` override `application.conf` documents must be declared here (or carry a reasoned
+ * exemption in the test) — otherwise the knob is silently dead on the native binary, which never
+ * reads the HOCON file.
  */
 internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
     listOf(
