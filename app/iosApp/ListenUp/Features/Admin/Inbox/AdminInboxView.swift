@@ -105,7 +105,7 @@ struct AdminInboxView: View {
         // showing "Inbox Empty" over a list of problems would be the screen contradicting itself.
         // Mirrors AdminInboxScreen.kt.
         if ready.isEmpty {
-            emptyState
+            AdminInboxEmptyState()
         } else {
             ScrollView {
                 if isRegularWidth {
@@ -128,7 +128,7 @@ struct AdminInboxView: View {
     @ViewBuilder
     private func phoneLayout(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
         VStack(spacing: 0) {
-            scanIssueSection(observer: observer, ready: ready)
+            ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
                 .padding(.horizontal, 20)
             if ready.hasBooks {
                 subtitleRow(ready: ready)
@@ -161,7 +161,7 @@ struct AdminInboxView: View {
             padHeader(observer: observer, ready: ready)
                 .padding(.horizontal, 36)
                 .padding(.bottom, 16)
-            scanIssueSection(observer: observer, ready: ready)
+            ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
                 .padding(.horizontal, 36)
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 320), spacing: 16)],
@@ -222,42 +222,47 @@ struct AdminInboxView: View {
                 }
             }
             Spacer()
-            // Selection and release act on held books. With only scan issues there is nothing to
-            // select, so the controls stay out of the way rather than sitting there inert.
             if ready.hasBooks {
-                HStack(spacing: 10) {
-                    Button {
-                        if ready.allSelected { observer.clearSelection() } else { observer.selectAll() }
-                    } label: {
-                        Text(ready.allSelected
-                             ? String(localized: "admin.inbox_deselect_all")
-                             : String(localized: "admin.inbox_select_all"))
+                padHeaderActions(observer: observer, ready: ready)
+            }
+        }
+    }
+
+    /// Selection and release act on held books, so they are absent when the inbox holds only
+    /// scan issues — there is nothing there to select.
+    @ViewBuilder
+    private func padHeaderActions(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                if ready.allSelected { observer.clearSelection() } else { observer.selectAll() }
+            } label: {
+                Text(ready.allSelected
+                     ? String(localized: "admin.inbox_deselect_all")
+                     : String(localized: "admin.inbox_select_all"))
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 11)
+                    .background(Color.luFill, in: Capsule())
+                    .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            if ready.hasSelection {
+                Button {
+                    showingReleaseConfirm = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark")
+                            .font(.subheadline.weight(.bold))
+                        Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
                             .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 11)
-                            .background(Color.luFill, in: Capsule())
-                            .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
                     }
-                    .buttonStyle(.plain)
-                    if ready.hasSelection {
-                        Button {
-                            showingReleaseConfirm = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark")
-                                    .font(.subheadline.weight(.bold))
-                                Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            .foregroundStyle(Color.luOnTint)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 11)
-                            .background(Color.luTint, in: Capsule())
-                            .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    .foregroundStyle(Color.luOnTint)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 11)
+                    .background(Color.luTint, in: Capsule())
+                    .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -296,104 +301,6 @@ struct AdminInboxView: View {
             .padding(.bottom, 8)
             .background(Color.luSurface)
         }
-    }
-
-    // MARK: - Scan issues
-
-    /// Folders the scanner walked but could not turn into a book.
-    ///
-    /// These are not books awaiting a decision, so they share none of the selection/release
-    /// machinery — they are statements that something went wrong, each paired with the thing the
-    /// user would actually do about it. Dismiss is the only action: someone who can see *why* a
-    /// folder failed fixes it on disk, and rename/move tools in the app would be a second, worse
-    /// file manager. Mirrors `ScanIssueSection.kt`.
-    @ViewBuilder
-    private func scanIssueSection(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
-        if ready.hasIssues {
-            VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(localized: "admin.inbox_needs_attention"))
-                        .font(.title3.weight(.bold))
-                    Text(String(localized: "admin.inbox_needs_attention_subtitle"))
-                        .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                ForEach(ready.scanIssues) { issue in
-                    scanIssueCard(issue: issue) { observer.dismissScanIssue(issueId: issue.id) }
-                }
-            }
-            .padding(.bottom, 16)
-        }
-    }
-
-    private func scanIssueCard(issue: ScanIssueRowModel, onDismiss: @escaping () -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.orange)
-                Text(issue.headline)
-                    .font(.headline)
-            }
-            // The folder is the thing the user goes and looks at, so it reads loudest after the
-            // headline — and it is library-relative, matching what they see on disk.
-            Text(issue.rootRelPath)
-                .font(.body)
-                .foregroundStyle(.primary)
-            Text(issue.fix)
-                .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
-            // What the scanner literally reported. Last and quiet: useful when the fix above is
-            // not enough, noise when it is.
-            if let detail = issue.detail, !detail.isEmpty {
-                Text(detail)
-                    .font(.footnote)
-                    .foregroundStyle(Color.luLabel3)
-            }
-            Button(String(localized: "admin.inbox_issue_dismiss"), action: onDismiss)
-                .font(.subheadline.weight(.semibold))
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.luTint)
-                .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.luSeparator, lineWidth: 0.5)
-        )
-    }
-
-    // MARK: - Empty state
-
-    private var emptyState: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.luFill)
-                    .frame(width: 96, height: 96)
-                Image(systemName: "tray")
-                    .font(.system(size: 46, weight: .light))
-                    .foregroundStyle(Color.luLabel3)
-            }
-            VStack(spacing: 6) {
-                Text(String(localized: "admin.inbox_empty"))
-                    .font(.title2.weight(.bold))
-                Text(String(localized: "admin.inbox_setting_subtitle"))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 280)
-                    .lineSpacing(2)
-            }
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 30)
     }
 
     // MARK: - Error body

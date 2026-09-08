@@ -183,4 +183,3 @@ struct ScanIssueRowModel: Identifiable, Equatable {
         }
     }
 }
-

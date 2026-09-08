@@ -214,7 +214,8 @@ struct AdminInboxScanIssueTests {
     }
 
     @Test func rowModelCarriesFolderAndDetail() {
-        let model = ScanIssueRowModel(from: scanIssue(id: "i9", rootRelPath: "Sanderson/Mistborn", detail: "no readable tracks"))
+        let issue = scanIssue(id: "i9", rootRelPath: "Sanderson/Mistborn", detail: "no readable tracks")
+        let model = ScanIssueRowModel(from: issue)
 
         #expect(model.id == "i9")
         #expect(model.rootRelPath == "Sanderson/Mistborn")
@@ -241,4 +242,3 @@ private func scanIssue(
         lastSeenAt: 0
     )
 }
-
