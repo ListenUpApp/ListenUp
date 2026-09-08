@@ -49,6 +49,7 @@ fun AdminPage(
     onOpenLibrarySettings: () -> Unit = {},
     onOpenInbox: () -> Unit = {},
     onOpenServerSettings: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
@@ -60,6 +61,7 @@ fun AdminPage(
             AdminLink("Library folders", onOpenLibrarySettings)
             AdminLink("Inbox", onOpenInbox)
             AdminLink("Server settings", onOpenServerSettings)
+            AdminLink("Categories", onOpenCategories)
         }
 
         when (state) {

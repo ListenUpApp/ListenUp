@@ -239,6 +239,9 @@ body { margin: 0; }
 .luw .inbox-issue-x:active,
 .luw .inbox-notice-x:active,
 .luw .srv-err-x:active,
+.luw .cat-err-x:active,
+.luw .cat-twist:active,
+.luw .cat-bar-b:active,
 .bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
@@ -2175,3 +2178,31 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .srv-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .srv-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .srv-err-x:hover { background: var(--surface-3); } }
+
+/* ---- admin categories. A genre tree: one flat list of rows indented by depth, so keyboard order
+   equals reading order and a parent's buttons are not inside every descendant's tab stop. */
+.luw .cat { width: 100%; max-width: 820px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .cat-back { align-self: flex-start; }
+.luw .cat-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .cat-skel { height: 18rem; border-radius: 16px; }
+.luw .cat-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.luw .cat-count { flex: 1; min-width: 8rem; font-size: 0.82rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .cat-bar-b { padding: 5px 12px; font-size: 0.8rem; }
+.luw .cat-tree { display: flex; flex-direction: column; gap: 2px; }
+.luw .cat-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 10px; }
+.luw .cat-twist { width: 24px; height: 24px; flex: none; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .cat-twist:hover { color: var(--coral); } }
+/* Same width as the twisty, so a leaf's name lines up with its siblings' instead of shifting
+   left by exactly one control. */
+.luw .cat-twist-gap { width: 24px; height: 24px; flex: none; }
+.luw .cat-name { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .cat-books { flex: none; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* Always visible, never revealed on hover. A reveal would hide five controls per row from every
+   touch reader, since a finger has no hover to reveal them with — and the press contract exists to
+   catch exactly that. Restraint comes from the icons being small and `--ink-3` instead. */
+.luw .cat-acts { flex: none; display: flex; gap: 1px; }
+.luw .cat-act { width: 26px; height: 26px; }
+.luw .cat-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .cat-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .cat-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .cat-err-x:hover { background: var(--surface-3); } }

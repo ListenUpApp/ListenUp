@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.OpenCategories
 import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.features.devices.OpenDevices
@@ -91,6 +92,7 @@ fun AuthGate(
     openLibrarySettings: OpenLibrarySettings,
     openAdminInbox: OpenAdminInbox,
     openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -193,6 +195,7 @@ fun AuthGate(
                         openLibrarySettings = openLibrarySettings,
                         openAdminInbox = openAdminInbox,
                         openServerSettings = openServerSettings,
+                        openCategories = openCategories,
                         openShelfDetail = openShelfDetail,
                         openShelfEdit = openShelfEdit,
                         openSearch = openSearch,
