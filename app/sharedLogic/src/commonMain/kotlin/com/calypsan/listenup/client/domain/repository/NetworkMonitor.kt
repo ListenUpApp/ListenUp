@@ -10,15 +10,19 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * Also used by DownloadManager to enforce WiFi-only download constraint.
  *
+ * "Online" means the device's active network offers a usable route — NOT that the public
+ * internet was reached. ListenUp servers are self-hosted and are routinely LAN-only. Whether the
+ * server responds is decided by `ConnectionHealthStore`, not here.
+ *
  * Platform-specific implementations:
  * - Android: ConnectivityManager with NetworkCallback
- * - iOS: NWPathMonitor (future implementation)
+ * - iOS: `NWPathMonitor`
  */
 interface NetworkMonitor {
     /**
      * Current online status.
      *
-     * Returns true if the device has internet connectivity.
+     * Returns true if the device's active network offers a usable route.
      * This is a snapshot—use [isOnlineFlow] for reactive updates.
      */
     fun isOnline(): Boolean
@@ -26,7 +30,7 @@ interface NetworkMonitor {
     /**
      * Observable network state.
      *
-     * Emits true when network becomes available, false when lost.
+     * Emits true when a usable route is available on the active network, false when it is lost.
      * Use this for reactive UI updates (e.g., showing offline indicator).
      */
     val isOnlineFlow: StateFlow<Boolean>
