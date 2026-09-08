@@ -45,5 +45,8 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
         ServerConfigDefault("server.dataDirLock", "true", "LISTENUP_DATA_DIR_LOCK"),
         ServerConfigDefault("scan.rescanOnStartup", "true", "LISTENUP_SCAN_RESCAN_ON_STARTUP"),
         ServerConfigDefault("transcode.probeOnStartup", "true", "LISTENUP_TRANSCODE_PROBE_ON_STARTUP"),
+        ServerConfigDefault("transcode.cacheCapBytes", "10737418240", "LISTENUP_TRANSCODE_CACHE_BYTES"),
+        ServerConfigDefault("transcode.maxConcurrentSessions", "2", "LISTENUP_TRANSCODE_MAX_SESSIONS"),
+        ServerConfigDefault("transcode.bitrateKbps", "64", "LISTENUP_TRANSCODE_BITRATE_KBPS"),
         ServerConfigDefault("scan.periodicRescanInterval", "6h", "LISTENUP_SCAN_PERIODIC_RESCAN_INTERVAL"),
     )

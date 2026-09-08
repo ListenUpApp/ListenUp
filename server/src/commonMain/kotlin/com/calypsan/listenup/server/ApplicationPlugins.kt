@@ -99,7 +99,7 @@ internal fun Application.installDependencies(
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(homeDir)
-        modules += playbackModule(homeDir, applicationScope)
+        modules += playbackModule(homeDir, applicationScope, environment.config.transcodeSettings())
         modules += libraryModule()
         modules += libraryWriteModule(homeDir)
         modules += sidecarModule(applicationScope)

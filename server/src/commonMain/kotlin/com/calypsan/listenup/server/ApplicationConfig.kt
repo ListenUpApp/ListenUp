@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
+import com.calypsan.listenup.server.transcode.TranscodeSettings
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.config.ApplicationConfig
@@ -202,6 +203,26 @@ internal fun ApplicationConfig.rescanOnStartup(): Boolean =
  */
 internal fun ApplicationConfig.transcodeProbeOnStartup(): Boolean =
     propertyOrNull("transcode.probeOnStartup")?.getString()?.toBoolean() ?: true
+
+/**
+ * The operator's transcoding limits — `transcode.cacheCapBytes`, `transcode.maxConcurrentSessions`,
+ * `transcode.bitrateKbps` — each falling back to its [TranscodeSettings] default when unset.
+ *
+ * Lenient parsing (`toLongOrNull` / `toIntOrNull`) is deliberate: a typo in an env var degrades to the
+ * default rather than taking the server down at boot.
+ */
+internal fun ApplicationConfig.transcodeSettings(): TranscodeSettings =
+    TranscodeSettings(
+        cacheCapBytes =
+            propertyOrNull("transcode.cacheCapBytes")?.getString()?.toLongOrNull()
+                ?: TranscodeSettings.DEFAULT_CACHE_CAP_BYTES,
+        maxConcurrentSessions =
+            propertyOrNull("transcode.maxConcurrentSessions")?.getString()?.toIntOrNull()
+                ?: TranscodeSettings.DEFAULT_MAX_CONCURRENT,
+        bitrateKbps =
+            propertyOrNull("transcode.bitrateKbps")?.getString()?.toIntOrNull()
+                ?: TranscodeSettings.DEFAULT_BITRATE_KBPS,
+    )
 
 /**
  * Reads `scanner.watchEnabled` — gates whether [ScanOrchestrator.onLibraryAdded]
