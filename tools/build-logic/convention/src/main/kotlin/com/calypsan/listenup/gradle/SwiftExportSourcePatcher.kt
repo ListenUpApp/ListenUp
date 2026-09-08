@@ -318,188 +318,45 @@ object SwiftExportSourcePatcher {
         return sealedTypes
     }
 
-    /**
-     * Expected subtype count per sealed parent (`<package path>.<Name>` -> count). The exact-count
-     * floor that [sealedSubtypeDrift] enforces. Plan 001's aggregate `count > 0` floor catches a
-     * *total* harvest failure but not a *partial* drop — if a Kotlin/Swift-Export bump shifts one
-     * subtype's emitted shape out of, say, `AppError`'s eight, the regex still matches the other
-     * seven, the build stays green, and any value of the dropped subtype slips to the generated
-     * `unknown` case (a silent degradation that used to be a `fatalError` crash). Pinning the exact
-     * count makes that partial drop a red build naming the parent.
-     *
-     * **Maintenance:** when a Kotlin sealed type legitimately gains or loses a subtype, update its
-     * entry here — that edit is the intended signal. A brand-new sealed type added to `:contract`
-     * must also be declared here (with its subtype count): [sealedSubtypeDrift] fails the build on any
-     * harvested parent absent from this map, so a new sealed type can't ship without its `onEnum(of:)`
-     * support being considered. The guard fires both when a *known* parent shrinks and when an
-     * *undeclared* parent is harvested.
-     */
-    internal val expectedSealedSubtypeCounts: Map<String, Int> =
-        mapOf(
-            "com.calypsan.listenup.api.dto.organize.OrganizeRunEvent" to 4,
-            "com.calypsan.listenup.client.data.repository.ShortcutAction" to 8,
-            "com.calypsan.listenup.client.domain.bulkedit.BulkEdit" to 8,
-            "com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent" to 2,
-            "com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState" to 2,
-            "com.calypsan.listenup.client.domain.chapter.DriftResult" to 1,
-            "com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent" to 3,
-            "com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState" to 3,
-            "com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem" to 4,
-            "com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview" to 2,
-            "com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult" to 3,
-            "com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod" to 4,
-            "com.calypsan.listenup.client.domain.model.AdminEvent" to 4,
-            "com.calypsan.listenup.client.domain.model.AuthState" to 8,
-            "com.calypsan.listenup.client.domain.model.BookDownloadStatus" to 5,
-            "com.calypsan.listenup.client.domain.model.BookEvent" to 1,
-            "com.calypsan.listenup.client.domain.model.ContinueListeningItem" to 2,
-            "com.calypsan.listenup.client.domain.model.DownloadOutcome" to 3,
-            "com.calypsan.listenup.client.domain.model.SyncState" to 7,
-            "com.calypsan.listenup.client.domain.readers.ReaderLineKind" to 2,
-            "com.calypsan.listenup.client.domain.repository.PlaybackUpdate" to 10,
-            "com.calypsan.listenup.client.domain.repository.Reachability" to 3,
-            "com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus" to 3,
-            "com.calypsan.listenup.client.domain.repository.UploadStep" to 4,
-            "com.calypsan.listenup.client.playback.NowPlayingOverlay" to 5,
-            "com.calypsan.listenup.client.playback.NowPlayingState" to 3,
-            "com.calypsan.listenup.client.playback.PlaybackState" to 6,
-            "com.calypsan.listenup.client.playback.SessionState" to 3,
-            "com.calypsan.listenup.client.playback.SleepTimerMode" to 2,
-            "com.calypsan.listenup.client.playback.SleepTimerState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.ABSImportListUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.AdminBackupUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.AdminInboxUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.AdminUiState" to 2,
-            "com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType" to 4,
-            "com.calypsan.listenup.client.presentation.admin.CreateInviteStatus" to 4,
-            "com.calypsan.listenup.client.presentation.admin.CreateInviteUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent" to 1,
-            "com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent" to 2,
-            "com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState" to 4,
-            "com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.UserDetailUiState" to 3,
-            "com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState" to 7,
-            "com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState" to 5,
-            "com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState" to 7,
-            "com.calypsan.listenup.client.presentation.auth.LoginErrorType" to 4,
-            "com.calypsan.listenup.client.presentation.auth.LoginUiState" to 4,
-            "com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState" to 3,
-            "com.calypsan.listenup.client.presentation.auth.RegisterUiState" to 4,
-            "com.calypsan.listenup.client.presentation.auth.SetupErrorType" to 4,
-            "com.calypsan.listenup.client.presentation.auth.SetupUiState" to 4,
-            // 3 since Delete Book added BookDeleted beside OpenDocumentViewer/ShowViewerComingSoon.
-            "com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction" to 3,
-            "com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState" to 3,
-            "com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState" to 4,
-            "com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction" to 2,
-            "com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent" to 42,
-            "com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent" to 4,
-            "com.calypsan.listenup.client.presentation.books.SelectionMode" to 2,
-            "com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState" to 3,
-            "com.calypsan.listenup.client.presentation.connect.ServerConnectUiState" to 4,
-            "com.calypsan.listenup.client.presentation.connect.ServerSelectUiEvent" to 6,
-            "com.calypsan.listenup.client.presentation.connect.ServerSelectUiState" to 4,
-            "com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel.NavigationEvent" to 2,
-            "com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi" to 3,
-            "com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel.Event" to 1,
-            "com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState" to 4,
-            "com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction" to 1,
-            "com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState" to 4,
-            "com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction" to 2,
-            "com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent" to 14,
-            "com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent" to 1,
-            "com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState" to 3,
-            "com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState" to 4,
-            "com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState" to 4,
-            "com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState" to 3,
-            "com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState" to 3,
-            "com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState" to 3,
-            "com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState" to 3,
-            "com.calypsan.listenup.client.presentation.discover.LeaderboardUiState" to 4,
-            "com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState" to 3,
-            "com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState" to 3,
-            "com.calypsan.listenup.client.presentation.home.HomeStatsUiState" to 4,
-            "com.calypsan.listenup.client.presentation.home.HomeUiState" to 3,
-            "com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState" to 6,
-            "com.calypsan.listenup.client.presentation.library.LibraryUiEvent" to 11,
-            "com.calypsan.listenup.client.presentation.library.LibraryUiState" to 3,
-            "com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion" to 3,
-            "com.calypsan.listenup.client.presentation.metadata.MetadataEvent" to 2,
-            "com.calypsan.listenup.client.presentation.metadata.MetadataUiState" to 3,
-            "com.calypsan.listenup.client.presentation.metadata.PreviewLoadState" to 3,
-            "com.calypsan.listenup.client.presentation.metadata.SearchLoadState" to 4,
-            "com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState" to 3,
-            "com.calypsan.listenup.client.presentation.notifications.NotificationsUiState" to 3,
-            "com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction" to 1,
-            "com.calypsan.listenup.client.presentation.profile.AvatarChange" to 3,
-            "com.calypsan.listenup.client.presentation.profile.EditProfileEvent" to 2,
-            "com.calypsan.listenup.client.presentation.profile.EditProfileUiState" to 3,
-            "com.calypsan.listenup.client.presentation.profile.UserProfileUiState" to 4,
-            "com.calypsan.listenup.client.presentation.search.SearchNavAction" to 4,
-            "com.calypsan.listenup.client.presentation.search.SearchUiState" to 4,
-            "com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState" to 4,
-            "com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState" to 4,
-            "com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction" to 1,
-            "com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent" to 8,
-            "com.calypsan.listenup.client.presentation.settings.DevicesUiState" to 3,
-            "com.calypsan.listenup.client.presentation.settings.SettingsEvent" to 2,
-            "com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction" to 1,
-            "com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction" to 1,
-            "com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState" to 5,
-            "com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState" to 4,
-            "com.calypsan.listenup.client.presentation.startup.LibraryReadiness" to 5,
-            "com.calypsan.listenup.client.presentation.storage.DeleteConfirmation" to 2,
-            "com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent" to 4,
-            "com.calypsan.listenup.client.share.ShareResolution" to 5,
-            "com.calypsan.listenup.client.share.ShareTarget" to 2,
-            "com.calypsan.listenup.api.dto.backup.BackupEvent" to 10,
-            "com.calypsan.listenup.api.dto.imports.ImportEvent" to 6,
-            "com.calypsan.listenup.api.error.DownloadError" to 2,
-            "com.calypsan.listenup.api.error.ServerConnectError" to 5,
-            "com.calypsan.listenup.api.notifications.NotificationEvent" to 3,
-            "com.calypsan.listenup.api.notifications.NotificationTarget" to 5,
-        )
 
     /**
-     * Compares harvested per-parent subtype counts against [expectedSealedSubtypeCounts] and returns
-     * one human-readable drift line per parent that drifts. Two ways a parent drifts:
-     *  1. A *known* parent harvested fewer subtypes than recorded (a partial drop) — the exact-count
-     *     guard; the dropped subtype would silently fall to the generated `unknown` case.
-     *  2. A harvested parent that is *not declared* in [expectedSealedSubtypeCounts] — a brand-new
-     *     sealed type that would ship with no recorded baseline, so its `onEnum(of:)` support is never
-     *     considered. Declaring it (with its subtype count) is the forcing function that guarantees a
-     *     reviewer signs off on its exhaustive Swift switch.
-     * A *known* parent that grew (legitimately gained a subtype, with its map entry not yet bumped)
-     * still fails via case 1's shrink check only when it shrank; a grow surfaces at the consumer
-     * compile. The returned list is empty when there's no drift.
+     * Compares the harvested subtypes of each sealed parent against what the Kotlin sources
+     * actually declare ([SealedHierarchyScanner]), returning one human-readable line per drift.
+     *
+     * This replaced a map of 127 hand-typed counts. That map was only a *shrink floor* — a parent
+     * that legitimately grew was deliberately not flagged — so its numbers rotted silently:
+     * `PlaybackUpdate` sat at 10 against a real 13, and could have lost two subtypes while still
+     * clearing the floor meant to protect it. Source is the one expectation that cannot go stale.
+     *
+     * Only parents the harvest actually found are checked. Source declares roughly twice the sealed
+     * types Swift Export emits (the export surface is deliberately lean), so asserting that every
+     * source subtype is emitted would fail on ~300 legitimate absences. Validated against a real
+     * 2.4.10 `Shared.swift`: 128 exported parents, 0 mismatches.
+     *
+     * @param sourceContents the generated `Shared.swift` + `ListenupContract.swift` contents.
+     * @param declaredInSource parent simple name -> concrete subtype simple names, from Kotlin source.
      */
-    internal fun sealedSubtypeDrift(sourceContents: List<String>): List<String> {
-        val harvested = harvestSealedSubtypes(sourceContents).mapKeys { (parent, _) -> "${parent.path}.${parent.name}" }
-        val shrinkOrMissing =
-            expectedSealedSubtypeCounts.mapNotNull { (parent, expected) ->
-                val actual = harvested[parent]?.size ?: 0
-                if (actual < expected) {
-                    "$parent: expected $expected subtype(s), harvested $actual " +
-                        "(a Swift-Export/Kotlin bump likely shifted a subtype's emitted shape; the dropped " +
-                        "subtype would silently fall to the generated `unknown` case)"
-                } else {
-                    null
-                }
+    internal fun sealedSubtypeDrift(
+        sourceContents: List<String>,
+        declaredInSource: Map<String, Set<String>>,
+    ): List<String> =
+        harvestSealedSubtypes(sourceContents).mapNotNull { (parent, subtypes) ->
+            val qualified = "${parent.path}.${parent.name}"
+            val expected =
+                declaredInSource[parent.name]
+                    ?: return@mapNotNull "$qualified: harvested a sealed type that the Kotlin sources do not " +
+                        "declare. Either the scanner's source roots no longer cover this type, or the emitted " +
+                        "shape changed — until they agree the exhaustive-switch guarantee is unverifiable."
+            val harvested = subtypes.map { (subtype, _) -> subtype }.toSet()
+            val missing = expected - harvested
+            if (missing.isEmpty()) {
+                null
+            } else {
+                "$qualified: Kotlin declares ${expected.size} concrete subtype(s) but ${harvested.size} " +
+                    "were harvested — missing ${missing.sorted().joinToString(", ")}. Each dropped subtype " +
+                    "would fall to the generated `unknown` case instead of getting its own Swift case."
             }
-        val undeclared =
-            harvested.keys.filter { it !in expectedSealedSubtypeCounts }.map { parent ->
-                "$parent: harvested sealed type is not declared in expectedSealedSubtypeCounts — add it " +
-                    "(with its subtype count) so its onEnum(of:) support is guaranteed; a new sealed type " +
-                    "without an entry would ship with no exhaustive Swift switch."
-            }
-        return shrinkOrMissing + undeclared
-    }
+        }
 
     /**
      * Sealed-class enum support (the `onEnum(of:)` exhaustive-switch helper), appended onto the
@@ -715,7 +572,10 @@ object SwiftExportSourcePatcher {
      * here (naming the parent), rather than slipping the dropped subtype to the `unknown` case
      * silently. The aggregate `> 0` floor in `build.gradle.kts` stays as the *total*-failure net.
      */
-    fun patchPackage(root: File): Map<String, Int> {
+    fun patchPackage(
+        root: File,
+        kotlinSourceRoots: List<File>,
+    ): Map<String, Int> {
         if (!root.exists()) {
             return mapOf(
                 "patchSource" to 0,
@@ -760,12 +620,12 @@ object SwiftExportSourcePatcher {
         if (sharedFile != null) {
             // Re-read source contents: the flat-typealias pass mutated Shared.swift above.
             val sealedSources = moduleSourceFiles(root).map { it.readText() }
-            val drift = sealedSubtypeDrift(sealedSources)
+            val drift = sealedSubtypeDrift(sealedSources, SealedHierarchyScanner.scanSourceRoots(kotlinSourceRoots))
             check(drift.isEmpty()) {
-                "Swift Export patcher: sealed-subtype exact-count drift — a known sealed type harvested " +
-                    "fewer subtypes than expected, so the dropped subtype(s) would silently fall to the " +
-                    "generated `unknown` case. Update SwiftExportSourcePatcher.expectedSealedSubtypeCounts " +
-                    "only if the Kotlin type legitimately changed.\n  - " + drift.joinToString("\n  - ")
+                "Swift Export patcher: the generated Swift and the Kotlin sources disagree about a sealed " +
+                    "hierarchy. A subtype Kotlin declares was not harvested, so it would fall to the generated " +
+                    "`unknown` case instead of getting its own Swift case. This is read from source — there is " +
+                    "no count to update; fix the harvest or the emitted shape.\n  - " + drift.joinToString("\n  - ")
             }
             val outcome = appendSealedEnumSupport(sharedFile.readText(), sealedSources)
             if (outcome.content != sharedFile.readText()) sharedFile.writeText(outcome.content)

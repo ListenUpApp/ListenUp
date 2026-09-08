@@ -352,10 +352,22 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
             ?: error("Unexpected GenerateSPMPackage task name '$name' — cannot derive its SPM config dir.")
     val targetName = packageStem.removeSuffix(configName) // e.g. "iosArm64"
     val spmPackageDir = project.layout.buildDirectory.dir("SPMPackage/$targetName/$configName")
+    // Kotlin source truth for the sealed-hierarchy guard. Resolved at CONFIGURATION time: reading
+    // `rootProject` inside `doLast` is a configuration-cache violation. These are the two commonMain
+    // sets whose sealed types reach the Swift export surface.
+    val kotlinSourceRoots =
+        listOf(
+            rootProject.layout.projectDirectory
+                .dir("contract/src/commonMain")
+                .asFile,
+            rootProject.layout.projectDirectory
+                .dir("app/sharedLogic/src/commonMain")
+                .asFile,
+        )
     doLast {
         val counts =
             com.calypsan.listenup.gradle.SwiftExportSourcePatcher
-                .patchPackage(spmPackageDir.get().asFile)
+                .patchPackage(spmPackageDir.get().asFile, kotlinSourceRoots)
         // Fail-fast on a silent codegen-shape drift. A Kotlin/Swift-Export bump that breaks the
         // sealed-enum or flat-typealias regexes would otherwise ship a bridge with no `onEnum`
         // support / no flat aliases on a green Linux PR. `patchSource` / `camelCase` can legitimately
