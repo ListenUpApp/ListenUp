@@ -1,6 +1,11 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.web.features.admin.AdminPage
+import com.calypsan.listenup.web.features.admin.inboxBook
+import com.calypsan.listenup.web.features.admin.readyInbox
+import com.calypsan.listenup.web.features.admin.scanIssue
+import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -418,6 +423,7 @@ class ClassContractTest :
                         notificationPrefShapes().forEach { it() }
                         librarySetupShapes().forEach { it() }
                         librarySettingsShapes().forEach { it() }
+                        inboxShapes().forEach { it() }
                         profileShapes().forEach { it() }
                         editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
@@ -870,6 +876,35 @@ private fun librarySettingsShapes(): List<@Composable () -> Unit> {
  * A listener's page: a full profile, an empty one (whose "nothing yet" copy is the only thing that
  * renders), and the two states with no profile at all.
  */
+private fun inboxShapes(): List<@Composable () -> Unit> {
+    fun page(state: AdminInboxUiState): @Composable () -> Unit =
+        {
+            AdminInboxPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    return listOf(
+        // Both halves populated, a row selected (so the bulk bar and the tick render), and both
+        // notices up. Selection is what draws `.is-sel` and `.bulk` — a contract that only listed
+        // the resting state would leave every one of those unchecked.
+        page(
+            readyInbox(
+                books = listOf(inboxBook(id = "b1"), inboxBook(id = "b2", author = null)),
+                selectedBookIds = setOf("b1"),
+                lastReleasedCount = 2,
+                error = "No library available",
+                scanIssues = listOf(scanIssue(), scanIssue(id = "i2", detail = "ffprobe: EBML")),
+            ),
+        ),
+        // Issues with no books, and books with no issues — each half renders alone.
+        page(readyInbox(books = emptyList(), scanIssues = listOf(scanIssue()))),
+        page(readyInbox()),
+        // Both empty, which is the only shape that draws the empty block.
+        page(readyInbox(books = emptyList(), scanIssues = emptyList())),
+        page(AdminInboxUiState.Error("Server said no.")),
+        page(AdminInboxUiState.Loading),
+    )
+}
+
 private fun profileShapes(): List<@Composable () -> Unit> =
     listOf(
         { ProfilePage(readyProfile(), onOpenBook = {}, onOpenShelf = {}, onRetry = {}, onEditProfile = {}) },
