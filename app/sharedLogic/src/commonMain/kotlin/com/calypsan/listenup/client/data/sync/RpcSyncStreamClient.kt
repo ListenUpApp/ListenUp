@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
@@ -114,7 +115,7 @@ internal class RpcSyncStreamClient(
      * the orchestration site rather than hidden inside the stream client.
      */
     override suspend fun reseed(newLastEventId: Long?) {
-        disconnect()
+        disconnectAndJoin()
         lastEventId = newLastEventId
     }
 
@@ -128,6 +129,14 @@ internal class RpcSyncStreamClient(
     override fun disconnect() {
         connectionJob?.cancel()
         connectionJob = null
+        state.setConnection(ConnectionState.Disconnected("closed"))
+    }
+
+    /** Close the firehose subscription and wait for its loop to finish, so a following [connect] can never overlap it. */
+    override suspend fun disconnectAndJoin() {
+        val job = connectionJob
+        connectionJob = null
+        job?.cancelAndJoin()
         state.setConnection(ConnectionState.Disconnected("closed"))
     }
 

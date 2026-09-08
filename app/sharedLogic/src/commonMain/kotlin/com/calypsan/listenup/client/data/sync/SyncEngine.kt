@@ -385,7 +385,10 @@ internal class SyncEngine(
      * [SyncEngineState] and drives the reachability indicator.
      */
     suspend fun reconnect() {
-        syncStreamClient.disconnect()
+        // Join, don't just cancel: connect()'s guard reads Job.isActive, which is already false for a
+        // cancelled-but-unfinished loop — so a fire-and-forget disconnect lets two subscription loops
+        // run at once, sharing one resume cursor and one frame bus.
+        syncStreamClient.disconnectAndJoin()
         syncStreamClient.connect()
     }
 
@@ -668,7 +671,7 @@ internal class SyncEngine(
 
     private suspend fun runCursorStaleRecovery() {
         logger.info { "CursorStale recovery — disconnect → catchUp → reseed → reconnect" }
-        syncStreamClient.disconnect()
+        syncStreamClient.disconnectAndJoin()
         when (val result = catchUpMutex.withLock { catchUp.catchUpAll(registry) }) {
             is AppResult.Success -> {}
 
@@ -844,7 +847,7 @@ internal class SyncEngine(
             reconnectRefresh?.cancelAndJoin()
             authGate?.cancelAndJoin()
             healDrain?.cancelAndJoin()
-            syncStreamClient.disconnect()
+            syncStreamClient.disconnectAndJoin()
         }
     }
 
@@ -1040,7 +1043,7 @@ internal class SyncEngine(
                         when {
                             current is AuthState.SessionLapsed -> {
                                 logger.info { "Session lapsed — parking the sync firehose" }
-                                syncStreamClient.disconnect()
+                                syncStreamClient.disconnectAndJoin()
                             }
 
                             current is AuthState.Authenticated && before is AuthState.SessionLapsed -> {
