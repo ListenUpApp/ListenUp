@@ -165,6 +165,7 @@ class PlaybackPreparerBatchedLocalPathsTest :
                 everySuspend { prepareRepository.getPosition(any()) } returns AppResult.Success(null)
 
                 val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
                 everySuspend { downloadService.getLocalPath(any()) } returns null
                 everySuspend { downloadService.getLocalPaths(any()) } returns
                     mapOf(audioFile1 to "/local/af-batched-1.mp3", audioFile2 to "/local/af-batched-2.mp3")
