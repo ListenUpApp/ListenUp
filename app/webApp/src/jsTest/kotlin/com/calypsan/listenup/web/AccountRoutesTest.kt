@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
@@ -13,18 +14,22 @@ import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.web.features.notifications.notification
 import com.calypsan.listenup.web.features.notifications.pref
 import com.calypsan.listenup.web.features.profile.ProfileSession
+import com.calypsan.listenup.web.features.profile.editing
+import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.nav.Route
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
 
 /**
  * The account family of routes: settings and its sub-paths, admin and its sub-paths, a listener's
@@ -259,6 +264,126 @@ class AccountRoutesTest :
                 awaitFrame()
 
                 host.textContent.orEmpty().contains("Your profile") shouldBe false
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/profile/{you}/edit opens your form") {
+            val (host, router) =
+                mountAt(
+                    "/profile/u7/edit",
+                    currentUserId = flowOf("u7"),
+                    openEditProfile = fixedEditProfile(editing(firstName = "Ada")),
+                )
+
+            try {
+                awaitPresent(host, "#pedit-first-name")
+
+                (host.querySelector("#pedit-first-name") as HTMLInputElement).value shouldBe "Ada"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ The id in the URL is not what gets edited — `EditProfileViewModel` reads
+        // `observeCurrentUser()`. Without this guard, `/profile/someone-else/edit` would render
+        // YOUR name, tagline and password fields under THEIR URL.
+        test("/profile/{someone else}/edit sends you to their page instead of opening your form") {
+            val (host, router) =
+                mountAt(
+                    "/profile/u7/edit",
+                    currentUserId = flowOf("me-1"),
+                    openProfile = fixedProfile(readyProfile(userId = "u7", displayName = "Simon Hull")),
+                    openEditProfile = fixedEditProfile(editing(firstName = "Ada")),
+                )
+
+            try {
+                // The redirect is decided in a LaunchedEffect, so their page lands a composition
+                // after the route flips — wait for the page, not for a frame count.
+                awaitPresent(host, ".prof-name").textContent shouldBe "Simon Hull"
+
+                window.location.pathname shouldBe "/profile/u7"
+                host.querySelector(".pedit") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // Null is "not known yet", not "not you" — the flow answers a moment after mount, and
+        // redirecting on it would bounce every reader off their own form on arrival.
+        test("the form is not redirected away before the app knows who you are") {
+            val (host, router) =
+                mountAt(
+                    "/profile/u7/edit",
+                    currentUserId = flowOf(null),
+                    openEditProfile = fixedEditProfile(editing(firstName = "Ada")),
+                )
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/profile/u7/edit"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the pencil on your own profile opens the form") {
+            val (host, router) =
+                mountAt(
+                    "/profile/u7",
+                    currentUserId = flowOf("u7"),
+                    openProfile = fixedProfile(readyProfile(userId = "u7", isOwnProfile = true)),
+                    openEditProfile = fixedEditProfile(editing()),
+                )
+
+            try {
+                (host.querySelector(".prof-edit") as HTMLElement).click()
+                awaitPresent(host, ".pedit")
+
+                window.location.pathname shouldBe "/profile/u7/edit"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The refreshed profile is the confirmation, exactly as on Android. A notice instead would
+        // be shown on a page the reader has already left.
+        test("a save that succeeds returns to the profile") {
+            val (host, router) =
+                mountAt(
+                    "/profile/u7/edit",
+                    currentUserId = flowOf("u7"),
+                    openProfile = fixedProfile(readyProfile(userId = "u7", isOwnProfile = true)),
+                    openEditProfile =
+                        fixedEditProfile(editing(), events = flowOf(EditProfileEvent.SaveSucceeded)),
+                )
+
+            try {
+                awaitPresent(host, ".prof")
+
+                window.location.pathname shouldBe "/profile/u7"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // `SaveFailed` is a one-shot event, so the route has to hold it for the form to render it.
+        test("a save that fails is reported on the form rather than lost") {
+            val (host, router) =
+                mountAt(
+                    "/profile/u7/edit",
+                    currentUserId = flowOf("u7"),
+                    openEditProfile =
+                        fixedEditProfile(
+                            editing(),
+                            events = flowOf(EditProfileEvent.SaveFailed("Passwords do not match.")),
+                        ),
+                )
+
+            try {
+                awaitPresent(host, ".edit-error").textContent.orEmpty() shouldContain "Passwords do not match."
             } finally {
                 router.dispose()
             }

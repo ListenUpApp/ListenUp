@@ -1677,6 +1677,23 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .prof-shelf:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .luw .prof-shelf-n { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
 .luw .prof-shelf-c { flex: none; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* The pencil. `.iconbtn` carries its look, hover and press; this only keeps it out of the
+   hero's vertical centring, so it sits level with the name rather than with the stats. */
+.luw .prof-edit { flex: none; align-self: flex-start; margin-top: 6px; }
+
+/* ---- edit profile. Your picture, name, tagline and password — one form, one Save. Shares the
+   .edit-* rhythm with Book Edit, because a form is a form; only the photo row is its own. */
+.luw .pedit { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .pedit-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .pedit-skel { height: 20rem; border-radius: 16px; }
+.luw .pedit-hint { margin: 0; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .pedit-photo { display: flex; align-items: center; gap: 20px; }
+/* Fixed to the avatar's own size so a tall picture cannot stretch the row while it is staged. */
+.luw .pedit-preview { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; display: block; }
+.luw .pedit-photo-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.luw .pedit-photo-hint { font-size: 0.78rem; color: var(--ink-3); font-weight: 600; }
+/* Right-aligned under the field it counts, where a counter is read only when it is nearly full. */
+.luw .pedit-count { align-self: flex-end; font-size: 0.75rem; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-top: -12px; }
 
 /* ---- library folders (admin). The other half of library management: the setup wizard picks
    folders once, before the app exists; this is where they change afterwards. */

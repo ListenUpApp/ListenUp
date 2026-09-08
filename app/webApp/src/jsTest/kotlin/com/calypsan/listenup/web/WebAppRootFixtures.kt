@@ -67,8 +67,11 @@ import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.web.features.profile.OpenProfile
+import com.calypsan.listenup.web.features.profile.OpenEditProfile
+import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 
 /**
@@ -94,6 +97,7 @@ internal fun mountAt(
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
     openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
     openProfile: OpenProfile = fixedProfile(UserProfileUiState.Loading),
+    openEditProfile: OpenEditProfile = fixedEditProfile(EditProfileUiState.Loading),
     currentUserId: Flow<String?> = flowOf(null),
     openNotificationBell: OpenNotificationBell = fixedNotificationBell(),
     openContributors: OpenContributors = fixedContributors(emptyList()),
@@ -118,6 +122,7 @@ internal fun mountAt(
                 openNotifications,
                 openNotificationPrefs,
                 openProfile,
+                openEditProfile,
                 openContributors,
                 openHome,
                 fixedDiscover(),
@@ -219,6 +224,24 @@ internal suspend fun awaitGone(
     withTimeout(RECOMPOSE_TIMEOUT_MS) {
         while (host.querySelector(selector) != null) delay(FRAME_POLL_MS)
     }
+}
+
+/**
+ * Waits until [selector] matches something under [host].
+ *
+ * The mirror of [awaitGone], and wanted for the same reason: a redirect decided in a
+ * `LaunchedEffect` lands a composition AFTER the route flips, so a spec that waits one frame and
+ * then queries for the destination page is querying one frame early — green here, red on a
+ * two-core runner.
+ */
+internal suspend fun awaitPresent(
+    host: HTMLElement,
+    selector: String,
+): HTMLElement {
+    withTimeout(RECOMPOSE_TIMEOUT_MS) {
+        while (host.querySelector(selector) == null) delay(FRAME_POLL_MS)
+    }
+    return host.querySelector(selector) as HTMLElement
 }
 
 private const val FRAME_POLL_MS = 10L

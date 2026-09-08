@@ -70,7 +70,10 @@ import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
 import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
+import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.EditProfilePage
+import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
@@ -129,6 +132,7 @@ fun WebAppRoot(
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -218,6 +222,8 @@ fun WebAppRoot(
             openNotifications = openNotifications,
             openNotificationPrefs = openNotificationPrefs,
             openProfile = openProfile,
+            openEditProfile = openEditProfile,
+            currentUserId = currentUserId,
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
@@ -294,6 +300,8 @@ private fun RouteContent(
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
+    currentUserId: String?,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -326,6 +334,12 @@ private fun RouteContent(
     // `/profile/{id}` — a listener's own page, reached from a notification, the account menu,
     // or a link someone sent. A route of its own for the same reason a contributor's is.
     val profileId = if (page == PROFILE_KEY) route.segments.getOrNull(1) else null
+    // `/profile/{id}/edit` — a route of its own rather than a mode of the profile, for the same
+    // reason `/book/{id}/edit` is one: the form is linkable, Back leaves it, and a half-finished
+    // edit cannot be mistaken for the profile it will become.
+    // Read only inside the profile branch below, so it does not re-test `profileId != null` —
+    // `/book/{id}/edit` sets this too, and never reaches anything that looks at it.
+    val editingProfile = route.segments.getOrNull(2) == EDIT_KEY
 
     if (bookId != null) {
         BookRouteContent(
@@ -355,7 +369,14 @@ private fun RouteContent(
             onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
         )
     } else if (profileId != null) {
-        ProfileRoute(router = router, openProfile = openProfile, userId = profileId)
+        ProfileRouteContent(
+            userId = profileId,
+            editing = editingProfile,
+            currentUserId = currentUserId,
+            router = router,
+            openProfile = openProfile,
+            openEditProfile = openEditProfile,
+        )
     } else if (page == NOTIFICATIONS_KEY) {
         NotificationsRoute(router = router, openNotifications = openNotifications)
     } else if (seriesId != null) {
@@ -994,6 +1015,39 @@ private fun NotificationPrefsRoute(
 }
 
 /**
+ * The profile family: a listener's page, and — if it is your own — the form over it.
+ *
+ * Pulled out of [RouteContent] for the same reason `BookRouteContent` was: a page and the editor
+ * for that page are one family, and folding both into the routing chain pushed it past the
+ * branching the build allows.
+ */
+@Composable
+private fun ProfileRouteContent(
+    userId: String,
+    editing: Boolean,
+    currentUserId: String?,
+    router: Router,
+    openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
+) {
+    if (editing) {
+        EditProfileRoute(
+            router = router,
+            openEditProfile = openEditProfile,
+            userId = userId,
+            currentUserId = currentUserId,
+        )
+    } else {
+        ProfileRoute(
+            router = router,
+            openProfile = openProfile,
+            userId = userId,
+            onEditProfile = { router.navigate(Route(listOf(PROFILE_KEY, userId, EDIT_KEY))) },
+        )
+    }
+}
+
+/**
  * `/profile/{userId}` — a listener's page.
  *
  * Keyed on [userId], for the reason `UserProfileViewModel.loadProfile` makes necessary: it returns
@@ -1005,6 +1059,7 @@ private fun ProfileRoute(
     router: Router,
     openProfile: OpenProfile,
     userId: String,
+    onEditProfile: () -> Unit,
 ) {
     val session = remember(userId) { openProfile(userId) }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1014,6 +1069,70 @@ private fun ProfileRoute(
         onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
         onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
         onRetry = session.onRetry,
+        onEditProfile = onEditProfile,
+    )
+}
+
+/**
+ * `/profile/{userId}/edit` — your own profile, in a form.
+ *
+ * ⛔ **The id in the URL is not what gets edited.** [com.calypsan.listenup.client.presentation.profile.EditProfileViewModel]
+ * reads `observeCurrentUser()`, so it always edits whoever holds the session — which means an
+ * unguarded route would put YOUR name, tagline and password fields under SOMEONE ELSE'S URL, and a
+ * save from that page would look like it had edited them. So a [userId] that is not [currentUserId]
+ * is sent to that person's read-only page instead, which is the thing the URL actually named.
+ *
+ * A null [currentUserId] is "not known yet", not "not you": the flow behind it answers a moment
+ * after mount, and redirecting on it would bounce every reader off their own form on arrival.
+ *
+ * `saveError` is held here rather than in the page because it arrives as a one-shot event. It is
+ * cleared on the next Save rather than on the next keystroke — the reader needs it still on screen
+ * while they fix the field it is about.
+ */
+@Composable
+private fun EditProfileRoute(
+    router: Router,
+    openEditProfile: OpenEditProfile,
+    userId: String,
+    currentUserId: String?,
+) {
+    if (currentUserId != null && currentUserId != userId) {
+        LaunchedEffect(userId) { router.replace(Route(listOf(PROFILE_KEY, userId))) }
+        return
+    }
+
+    val session = remember { openEditProfile() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    var saveError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                is EditProfileEvent.SaveFailed -> saveError = event.message
+
+                // The refreshed profile is the confirmation, exactly as on Android — a notice here
+                // would be read on a page the reader has already left.
+                EditProfileEvent.SaveSucceeded -> router.navigate(Route(listOf(PROFILE_KEY, userId)))
+            }
+        }
+    }
+
+    EditProfilePage(
+        state = session.state.collectAsState().value,
+        onFirstName = session.onFirstName,
+        onLastName = session.onLastName,
+        onTagline = session.onTagline,
+        onCurrentPassword = session.onCurrentPassword,
+        onNewPassword = session.onNewPassword,
+        onConfirmPassword = session.onConfirmPassword,
+        onPickAvatar = session.onPickAvatar,
+        onRemoveAvatar = session.onRemoveAvatar,
+        onSave = {
+            saveError = null
+            session.onSave()
+        },
+        onCancel = { router.navigate(Route(listOf(PROFILE_KEY, userId))) },
+        saveError = saveError,
     )
 }
 

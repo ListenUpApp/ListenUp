@@ -31,6 +31,7 @@ import com.calypsan.listenup.web.features.notifications.graphNotificationBell
 import com.calypsan.listenup.web.features.notifications.graphNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.graphNotifications
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
+import com.calypsan.listenup.web.features.profile.graphEditProfile
 import com.calypsan.listenup.web.features.profile.graphProfile
 import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
@@ -107,6 +108,7 @@ fun main() {
                 openNotificationPrefs = graphNotificationPrefs(koin),
                 openLibrarySetup = graphLibrarySetup(koin),
                 openProfile = graphProfile(koin),
+                openEditProfile = graphEditProfile(koin),
                 openNotificationBell = graphNotificationBell(koin),
                 openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
