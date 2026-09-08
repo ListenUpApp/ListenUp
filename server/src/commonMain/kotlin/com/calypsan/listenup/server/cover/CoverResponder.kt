@@ -98,19 +98,21 @@ class CoverResponder internal constructor(
         info: CoverInfo,
     ) {
         val etag = info.hash?.let { "\"$it\"" }
-        if (etag != null) {
-            if (call.request.headers[HttpHeaders.IfNoneMatch] == etag) {
-                call.respond(HttpStatusCode.NotModified)
-                return
-            }
-            call.response.headers.append(HttpHeaders.ETag, etag)
-            call.response.headers.append(HttpHeaders.CacheControl, CACHE_CONTROL_IMMUTABLE)
+        if (etag != null && call.request.headers[HttpHeaders.IfNoneMatch] == etag) {
+            call.respond(HttpStatusCode.NotModified)
+            return
         }
         val resolved = content.content(id, info)
         if (resolved == null) {
-            // The DB still records a cover, but the file vanished since the scan — a 404, not a 500.
+            // The DB still records a cover, but the bytes cannot be produced — a 404, not a 500. It
+            // carries no cache headers: they are written only below, once there is an image to cache,
+            // so a client that sees this miss asks again when the cover becomes servable.
             call.respond(HttpStatusCode.NotFound)
             return
+        }
+        if (etag != null) {
+            call.response.headers.append(HttpHeaders.ETag, etag)
+            call.response.headers.append(HttpHeaders.CacheControl, CACHE_CONTROL_IMMUTABLE)
         }
         call.respondBytes(resolved.bytes, resolved.contentType)
     }
