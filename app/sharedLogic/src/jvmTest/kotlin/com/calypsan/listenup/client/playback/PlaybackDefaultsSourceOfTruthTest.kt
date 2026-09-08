@@ -133,6 +133,7 @@ class PlaybackDefaultsSourceOfTruthTest :
             val downloadService: DownloadService = mock()
             every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(audioFileId) } returns "/local/$audioFileId.mp3"
+            everySuspend { downloadService.getLocalPaths(any()) } returns mapOf(audioFileId to "/local/$audioFileId.mp3")
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
                 AppResult.Success(DownloadOutcome.AlreadyDownloaded)
