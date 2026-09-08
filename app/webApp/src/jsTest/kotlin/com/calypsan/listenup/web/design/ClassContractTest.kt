@@ -1,11 +1,14 @@
 package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.web.features.admin.ServerSettingsPage
+import com.calypsan.listenup.web.features.admin.readyServerSettings
 import com.calypsan.listenup.web.features.admin.AdminPage
 import com.calypsan.listenup.web.features.admin.inboxBook
 import com.calypsan.listenup.web.features.admin.readyInbox
 import com.calypsan.listenup.web.features.admin.scanIssue
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
+import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -424,6 +427,7 @@ class ClassContractTest :
                         librarySetupShapes().forEach { it() }
                         librarySettingsShapes().forEach { it() }
                         inboxShapes().forEach { it() }
+                        serverSettingsShapes().forEach { it() }
                         profileShapes().forEach { it() }
                         editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
@@ -902,6 +906,21 @@ private fun inboxShapes(): List<@Composable () -> Unit> {
         page(readyInbox(books = emptyList(), scanIssues = emptyList())),
         page(AdminInboxUiState.Error("Server said no.")),
         page(AdminInboxUiState.Loading),
+    )
+}
+
+private fun serverSettingsShapes(): List<@Composable () -> Unit> {
+    fun page(state: AdminSettingsUiState): @Composable () -> Unit =
+        {
+            ServerSettingsPage(state, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    return listOf(
+        // Dirty and wearing a failed write — `.srv-err` renders nowhere else.
+        page(readyServerSettings(isDirty = true, error = InternalError(debugInfo = "boom"))),
+        page(readyServerSettings(isSaving = true, isDirty = true)),
+        page(AdminSettingsUiState.Error(InternalError(debugInfo = "boom"))),
+        page(AdminSettingsUiState.Loading),
     )
 }
 

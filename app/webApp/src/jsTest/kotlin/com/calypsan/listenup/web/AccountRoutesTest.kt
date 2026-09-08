@@ -8,8 +8,10 @@ import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
+import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.admin.readyInbox
+import com.calypsan.listenup.web.features.admin.readyServerSettings
 import com.calypsan.listenup.web.features.admin.scanIssue
 import com.calypsan.listenup.web.features.admin.readyLibrary
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
@@ -171,6 +173,50 @@ class AccountRoutesTest :
                 inbox.click()
 
                 window.location.pathname shouldBe "/admin/inbox"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/settings renders server settings") {
+            val (host, router) =
+                mountAt(
+                    "/admin/settings",
+                    openServerSettings = fixedServerSettings(readyServerSettings(serverName = "Kit")),
+                )
+
+            try {
+                (host.querySelector("#srv-name") as HTMLInputElement).value shouldBe "Kit"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ `/admin/settings` and a listener's own `/settings` share a path segment and share
+        // nothing else. If the admin branch ever stopped testing its FIRST segment, one would
+        // start serving the other.
+        test("a listener's own settings is not the server's") {
+            val (host, router) = mountAt("/settings")
+
+            try {
+                host.querySelector(".srv") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Admin offers a way to the server settings") {
+            val (host, router) = mountAt("/admin")
+
+            try {
+                host
+                    .querySelectorAll(".adm-link")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Server settings" }
+                    .click()
+
+                window.location.pathname shouldBe "/admin/settings"
             } finally {
                 router.dispose()
             }
