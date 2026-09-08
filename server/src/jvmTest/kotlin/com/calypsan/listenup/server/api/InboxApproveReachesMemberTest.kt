@@ -92,6 +92,7 @@ class InboxApproveReachesMemberTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
+                bookAccessPolicy = BookAccessPolicy(sql, driver),
                 permissionPolicy = UserPermissionPolicy(sql),
                 bus = bus,
                 sql = sql,

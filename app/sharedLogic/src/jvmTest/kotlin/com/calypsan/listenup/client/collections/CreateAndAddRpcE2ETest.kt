@@ -113,6 +113,7 @@ class CreateAndAddRpcE2ETest :
                     grantRepo = grantRepo,
                     bus = bus,
                     sql = serverSqlDb,
+                    driver = serverDriver,
                     bookRevisionTouch = noopRevisionTouch,
                 )
 

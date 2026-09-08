@@ -139,6 +139,7 @@ class RpcReconnectE2ETest :
                     grantRepo = CollectionGrantRepository(db, bus, registry, driver = driver),
                     bus = bus,
                     sql = db,
+                    driver = driver,
                     bookRevisionTouch = noopTouch,
                 )
             return Triple(db, driver, service)

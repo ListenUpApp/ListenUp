@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -203,6 +204,7 @@ private fun fixture(dbs: SqlTestDatabases): InboxFixture {
             collectionBookRepo = collectionBookRepo,
             grantRepo = grantRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
+            bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             permissionPolicy = UserPermissionPolicy(dbs.sql),
             bus = bus,
             sql = dbs.sql,

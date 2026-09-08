@@ -115,6 +115,7 @@ class CollectionCreateNativeRpcTest :
                     grantRepo = grantRepo,
                     bus = bus,
                     sql = db,
+                    driver = driver,
                     bookRevisionTouch = noopRevisionTouch,
                 )
 

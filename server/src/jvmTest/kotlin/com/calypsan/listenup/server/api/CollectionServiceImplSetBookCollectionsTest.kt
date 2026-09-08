@@ -97,6 +97,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     collectionBookRepo = collectionBookRepo,
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
+                    bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
                     bus = bus,
                     sql = db.sql,
                     clock = fixedClock,
