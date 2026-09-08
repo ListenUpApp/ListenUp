@@ -74,6 +74,7 @@ internal class MetadataLookupServiceImpl(
     private val imageDeps: MetadataImageDeps,
     private val enrichmentDeps: MetadataEnrichmentDeps,
     private val permissionPolicy: UserPermissionPolicy,
+    private val bookAccessPolicy: BookAccessPolicy,
     private val sqlDb: ListenUpDatabase,
     private val genreRepository: GenreRepository,
     private val probeDimensions: suspend (String) -> Pair<Int, Int>? = { _ -> null },
@@ -91,6 +92,7 @@ internal class MetadataLookupServiceImpl(
             imageDeps = imageDeps,
             enrichmentDeps = enrichmentDeps,
             permissionPolicy = permissionPolicy,
+            bookAccessPolicy = bookAccessPolicy,
             sqlDb = sqlDb,
             genreRepository = genreRepository,
             probeDimensions = probeDimensions,
@@ -106,6 +108,19 @@ internal class MetadataLookupServiceImpl(
     private suspend fun requireCanEdit(): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
         return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
+    /**
+     * `canEdit` plus visibility — the same gate [BookServiceImpl] runs. A denial is reported as
+     * [MetadataError.NotFound], matching the absent-book answer, so the two cannot be told apart.
+     */
+    private suspend fun requireEditableBook(bookId: BookId): AppError? {
+        requireCanEdit()?.let { return it }
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        if (!bookAccessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
+            return MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}")
+        }
+        return null
     }
 
     override suspend fun searchBooks(
@@ -214,7 +229,7 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale,
         selection: MetadataApplySelection,
     ): AppResult<Mutated<Unit>> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
         val genreAutoCreator = GenreAutoCreator(genreRepository)
         // Echo-in-response: withCapturedFrames collects EVERY frame the match emits — the book plus any
         // newly-created contributors/series/moods/tags/genres and the cover — so the originating device
@@ -246,7 +261,7 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale,
         ordinals: Set<Int>,
     ): AppResult<Mutated<Unit>> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
         // Echo-in-response: withCapturedFrames collects the book's own upsert frame so the chapter-name
         // change applies read-your-writes on the originating device, not only via the later firehose.
         return withCapturedFrames {
@@ -287,7 +302,7 @@ internal class MetadataLookupServiceImpl(
         bookId: BookId,
         url: String,
     ): AppResult<Mutated<Unit>> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
         // Validate the book exists before fetching/storing, so an unknown id can't leave an
         // orphaned cover file on disk (the store keys on bookId, but setManagedCover would fail).
         bookRepository.findById(bookId)
