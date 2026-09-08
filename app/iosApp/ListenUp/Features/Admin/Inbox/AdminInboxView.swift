@@ -101,8 +101,11 @@ struct AdminInboxView: View {
 
     @ViewBuilder
     private func readyBody(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
-        if !ready.hasBooks {
-            emptyState
+        // Empty means BOTH halves are empty. An inbox holding only scan issues is populated, and
+        // showing "Inbox Empty" over a list of problems would be the screen contradicting itself.
+        // Mirrors AdminInboxScreen.kt.
+        if ready.isEmpty {
+            AdminInboxEmptyState()
         } else {
             ScrollView {
                 if isRegularWidth {
@@ -125,20 +128,24 @@ struct AdminInboxView: View {
     @ViewBuilder
     private func phoneLayout(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
         VStack(spacing: 0) {
-            subtitleRow(ready: ready)
+            ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 8)
-            FieldGroup(ready.books, separatorInset: ready.hasSelection ? 99 : 73) { book in
-                InboxBookRow(
-                    book: book,
-                    isSelected: ready.selectedBookIds.contains(book.id),
-                    isSelecting: ready.hasSelection,
-                    onTap: { observer.toggleBookSelection(bookId: book.id) },
-                    onEdit: { editingBook = InboxEditTarget(id: book.id) },
-                    onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
-                )
+            if ready.hasBooks {
+                subtitleRow(ready: ready)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                FieldGroup(ready.books, separatorInset: ready.hasSelection ? 99 : 73) { book in
+                    InboxBookRow(
+                        book: book,
+                        isSelected: ready.selectedBookIds.contains(book.id),
+                        isSelecting: ready.hasSelection,
+                        onTap: { observer.toggleBookSelection(bookId: book.id) },
+                        onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                        onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                    )
+                }
+                .padding(.horizontal, 20)
             }
-            .padding(.horizontal, 20)
             if ready.hasSelection {
                 Color.clear.frame(height: 100)
             }
@@ -154,6 +161,8 @@ struct AdminInboxView: View {
             padHeader(observer: observer, ready: ready)
                 .padding(.horizontal, 36)
                 .padding(.bottom, 16)
+            ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
+                .padding(.horizontal, 36)
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 320), spacing: 16)],
                 spacing: 16
@@ -207,42 +216,53 @@ struct AdminInboxView: View {
                     .foregroundStyle(Color.luTint)
                 Text(String(localized: "common.inbox"))
                     .font(.system(size: 40, weight: .bold))
-                subtitleRow(ready: ready)
-                    .font(.subheadline)
+                if ready.hasBooks {
+                    subtitleRow(ready: ready)
+                        .font(.subheadline)
+                }
             }
             Spacer()
-            HStack(spacing: 10) {
+            if ready.hasBooks {
+                padHeaderActions(observer: observer, ready: ready)
+            }
+        }
+    }
+
+    /// Selection and release act on held books, so they are absent when the inbox holds only
+    /// scan issues — there is nothing there to select.
+    @ViewBuilder
+    private func padHeaderActions(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                if ready.allSelected { observer.clearSelection() } else { observer.selectAll() }
+            } label: {
+                Text(ready.allSelected
+                     ? String(localized: "admin.inbox_deselect_all")
+                     : String(localized: "admin.inbox_select_all"))
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 11)
+                    .background(Color.luFill, in: Capsule())
+                    .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            if ready.hasSelection {
                 Button {
-                    if ready.allSelected { observer.clearSelection() } else { observer.selectAll() }
+                    showingReleaseConfirm = true
                 } label: {
-                    Text(ready.allSelected
-                         ? String(localized: "admin.inbox_deselect_all")
-                         : String(localized: "admin.inbox_select_all"))
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(Color.luFill, in: Capsule())
-                        .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark")
+                            .font(.subheadline.weight(.bold))
+                        Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundStyle(Color.luOnTint)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 11)
+                    .background(Color.luTint, in: Capsule())
+                    .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
                 }
                 .buttonStyle(.plain)
-                if ready.hasSelection {
-                    Button {
-                        showingReleaseConfirm = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark")
-                                .font(.subheadline.weight(.bold))
-                            Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
-                                .font(.subheadline.weight(.semibold))
-                        }
-                        .foregroundStyle(Color.luOnTint)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 11)
-                        .background(Color.luTint, in: Capsule())
-                        .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
-                    }
-                    .buttonStyle(.plain)
-                }
             }
         }
     }
@@ -281,35 +301,6 @@ struct AdminInboxView: View {
             .padding(.bottom, 8)
             .background(Color.luSurface)
         }
-    }
-
-    // MARK: - Empty state
-
-    private var emptyState: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.luFill)
-                    .frame(width: 96, height: 96)
-                Image(systemName: "tray")
-                    .font(.system(size: 46, weight: .light))
-                    .foregroundStyle(Color.luLabel3)
-            }
-            VStack(spacing: 6) {
-                Text(String(localized: "admin.inbox_empty"))
-                    .font(.title2.weight(.bold))
-                Text(String(localized: "admin.inbox_setting_subtitle"))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 280)
-                    .lineSpacing(2)
-            }
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 30)
     }
 
     // MARK: - Error body
