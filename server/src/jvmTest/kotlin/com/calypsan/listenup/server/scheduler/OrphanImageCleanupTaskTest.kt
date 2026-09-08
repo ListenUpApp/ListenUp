@@ -75,7 +75,7 @@ class OrphanImageCleanupTaskTest :
             extension: String = "jpg",
         ): Path {
             SystemFileSystem.createDirectories(dir)
-            return Path(dir, "${hashBytesSha256(bytes)}.$extension").also { it.writeBytes(bytes) }
+            return Path(dir, "${hashBytesSha256(bytes)}.$extension").apply { writeBytes(bytes) }
         }
 
         /** A contributor row whose `imagePath` points at [imagePath] (relative to the image home). */
