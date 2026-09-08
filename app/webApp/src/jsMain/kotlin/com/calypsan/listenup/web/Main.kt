@@ -22,6 +22,7 @@ import com.calypsan.listenup.web.features.discover.graphDiscover
 import com.calypsan.listenup.web.features.home.graphHome
 import com.calypsan.listenup.web.features.admin.graphAdmin
 import com.calypsan.listenup.web.features.admin.graphAdminInbox
+import com.calypsan.listenup.web.features.admin.graphCategories
 import com.calypsan.listenup.web.features.admin.graphServerSettings
 import com.calypsan.listenup.web.features.admin.graphLibrarySettings
 import com.calypsan.listenup.web.features.devices.graphDevices
@@ -122,6 +123,7 @@ fun main() {
                 openLibrarySettings = graphLibrarySettings(koin),
                 openAdminInbox = graphAdminInbox(koin),
                 openServerSettings = graphServerSettings(koin),
+                openCategories = graphCategories(koin),
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),
                 openSearch = graphSearch(koin),

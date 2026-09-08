@@ -8,8 +8,12 @@ import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
+import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
+import com.calypsan.listenup.web.features.admin.genre
+import com.calypsan.listenup.web.features.admin.node
+import com.calypsan.listenup.web.features.admin.readyCategories
 import com.calypsan.listenup.web.features.admin.readyInbox
 import com.calypsan.listenup.web.features.admin.readyServerSettings
 import com.calypsan.listenup.web.features.admin.scanIssue
@@ -200,6 +204,38 @@ class AccountRoutesTest :
 
             try {
                 host.querySelector(".srv") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/categories renders the genre tree") {
+            val (host, router) =
+                mountAt(
+                    "/admin/categories",
+                    openCategories =
+                        fixedCategories(readyCategories(tree = listOf(node(genre(name = "Fiction"))))),
+                )
+
+            try {
+                (host.querySelector(".cat-name") as HTMLElement).textContent shouldBe "Fiction"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Admin offers a way to the categories") {
+            val (host, router) = mountAt("/admin")
+
+            try {
+                host
+                    .querySelectorAll(".adm-link")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Categories" }
+                    .click()
+
+                window.location.pathname shouldBe "/admin/categories"
             } finally {
                 router.dispose()
             }

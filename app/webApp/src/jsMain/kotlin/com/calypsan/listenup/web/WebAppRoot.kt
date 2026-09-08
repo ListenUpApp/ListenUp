@@ -79,7 +79,9 @@ import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.web.features.admin.CategoriesPage
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.OpenCategories
 import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
@@ -146,6 +148,7 @@ fun WebAppRoot(
     openLibrarySettings: OpenLibrarySettings,
     openAdminInbox: OpenAdminInbox,
     openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -239,6 +242,7 @@ fun WebAppRoot(
             openLibrarySettings = openLibrarySettings,
             openAdminInbox = openAdminInbox,
             openServerSettings = openServerSettings,
+            openCategories = openCategories,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -319,6 +323,7 @@ private fun RouteContent(
     openLibrarySettings: OpenLibrarySettings,
     openAdminInbox: OpenAdminInbox,
     openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -431,6 +436,7 @@ private fun RouteContent(
             openLibrarySettings = openLibrarySettings,
             openAdminInbox = openAdminInbox,
             openServerSettings = openServerSettings,
+            openCategories = openCategories,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -1149,6 +1155,35 @@ private fun EditProfileRoute(
 }
 
 /**
+ * `/admin/categories` — the genre tree, and the five things an admin does to it.
+ *
+ * Unkeyed and opened once for the route's life: the ViewModel observes the genre repository, so the
+ * tree refreshes itself after every mutation rather than being re-fetched here.
+ */
+@Composable
+private fun CategoriesRoute(
+    router: Router,
+    openCategories: OpenCategories,
+) {
+    val session = remember { openCategories() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    CategoriesPage(
+        state = session.state.collectAsState().value,
+        onToggleExpanded = session.onToggleExpanded,
+        onExpandAll = session.onExpandAll,
+        onCollapseAll = session.onCollapseAll,
+        onCreate = session.onCreate,
+        onRename = session.onRename,
+        onDelete = session.onDelete,
+        onMove = session.onMove,
+        onMerge = session.onMerge,
+        onClearError = session.onClearError,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
  * `/admin/settings` — what the server calls itself, and the two switches every listener feels.
  *
  * `SETTINGS_KEY` is reused as the second segment rather than given a name of its own: the URL reads
@@ -1425,6 +1460,9 @@ private val PRIMARY_NAV =
 
 private const val ADMIN_KEY = "admin"
 
+/** The path segment that opens the genre tree — `/admin/categories`. */
+private const val CATEGORIES_KEY = "categories"
+
 /** The path segment that opens the scanner's triage queue — `/admin/inbox`. */
 private const val INBOX_KEY = "inbox"
 
@@ -1647,6 +1685,7 @@ private fun AdminRoute(
     onOpenLibrarySettings: () -> Unit,
     onOpenInbox: () -> Unit,
     onOpenServerSettings: () -> Unit,
+    onOpenCategories: () -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1667,6 +1706,7 @@ private fun AdminRoute(
         onOpenLibrarySettings = onOpenLibrarySettings,
         onOpenInbox = onOpenInbox,
         onOpenServerSettings = onOpenServerSettings,
+        onOpenCategories = onOpenCategories,
     )
 }
 
@@ -1695,6 +1735,7 @@ private fun AccountRouteContent(
     openLibrarySettings: OpenLibrarySettings,
     openAdminInbox: OpenAdminInbox,
     openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
 ) {
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == LIBRARY_KEY -> {
@@ -1707,6 +1748,10 @@ private fun AccountRouteContent(
 
         segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == SETTINGS_KEY -> {
             ServerSettingsRoute(router = router, openServerSettings = openServerSettings)
+        }
+
+        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == CATEGORIES_KEY -> {
+            CategoriesRoute(router = router, openCategories = openCategories)
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
@@ -1725,6 +1770,7 @@ private fun AccountRouteContent(
                 onOpenLibrarySettings = { router.navigate(Route(listOf(ADMIN_KEY, LIBRARY_KEY))) },
                 onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
                 onOpenServerSettings = { router.navigate(Route(listOf(ADMIN_KEY, SETTINGS_KEY))) },
+                onOpenCategories = { router.navigate(Route(listOf(ADMIN_KEY, CATEGORIES_KEY))) },
             )
         }
 

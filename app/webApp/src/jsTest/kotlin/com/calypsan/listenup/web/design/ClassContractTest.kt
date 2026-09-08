@@ -1,12 +1,17 @@
 package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.web.features.admin.CategoriesPage
+import com.calypsan.listenup.web.features.admin.genre
+import com.calypsan.listenup.web.features.admin.node
+import com.calypsan.listenup.web.features.admin.readyCategories
 import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.readyServerSettings
 import com.calypsan.listenup.web.features.admin.AdminPage
 import com.calypsan.listenup.web.features.admin.inboxBook
 import com.calypsan.listenup.web.features.admin.readyInbox
 import com.calypsan.listenup.web.features.admin.scanIssue
+import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
@@ -428,6 +433,7 @@ class ClassContractTest :
                         librarySettingsShapes().forEach { it() }
                         inboxShapes().forEach { it() }
                         serverSettingsShapes().forEach { it() }
+                        categoryShapes().forEach { it() }
                         profileShapes().forEach { it() }
                         editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
@@ -921,6 +927,28 @@ private fun serverSettingsShapes(): List<@Composable () -> Unit> {
         page(readyServerSettings(isSaving = true, isDirty = true)),
         page(AdminSettingsUiState.Error(InternalError(debugInfo = "boom"))),
         page(AdminSettingsUiState.Loading),
+    )
+}
+
+private fun categoryShapes(): List<@Composable () -> Unit> {
+    fun page(state: AdminCategoriesUiState): @Composable () -> Unit =
+        {
+            CategoriesPage(state, {}, {}, {}, { _, _ -> }, { _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {})
+        }
+
+    val child = genre(id = "g2", name = "Fantasy", path = "/fiction/fantasy", bookCount = 3)
+    val parent = genre(id = "g1", name = "Fiction", path = "/fiction", bookCount = 10)
+    // Expanded, so both a parent row (with a twisty) and a leaf row (with the gap that stands in
+    // for one) render — they draw different classes and only an expanded tree has both.
+    val tree = listOf(node(parent, children = listOf(node(child, depth = 1))))
+
+    return listOf(
+        page(readyCategories(tree = tree, expandedIds = setOf("g1"), totalBookCount = 13)),
+        page(readyCategories(tree = tree, error = InternalError(debugInfo = "boom"))),
+        // The only shape that draws the empty block.
+        page(readyCategories(tree = emptyList(), genres = emptyList())),
+        page(AdminCategoriesUiState.Error(InternalError(debugInfo = "boom"))),
+        page(AdminCategoriesUiState.Loading),
     )
 }
 

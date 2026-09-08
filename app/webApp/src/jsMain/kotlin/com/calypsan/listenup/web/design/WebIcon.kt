@@ -23,6 +23,7 @@ enum class WebIcon(
     internal val solid: Boolean = false,
 ) {
     ArrowDown("M12 4v15 M6 13l6 6 6-6"),
+    ArrowRight("M4 12h15 M13 6l6 6-6 6"),
     ArrowUp("M12 20V5 M6 11l6-6 6 6"),
     Book("M5 4a1 1 0 0 1 1-1h13v16H6a2 2 0 0 0-2 2V5 M9 3v15"),
     Bell("M12 3a6 6 0 0 0-6 6c0 4-1.5 5.5-1.5 5.5h15S18 13 18 9a6 6 0 0 0-6-6 M10 18a2 2 0 0 0 4 0"),
@@ -67,6 +68,7 @@ enum class WebIcon(
     Person(
         "M10 8.5m-3.5 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0 M3 20c0-3.4 3.1-5.5 7-5.5s7 2.1 7 5.5",
     ),
+    Plus("M12 5v14 M5 12h14"),
     Play("M8 5l11 7-11 7z", solid = true),
     Search("M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M20 20l-3.6-3.6"),
 
