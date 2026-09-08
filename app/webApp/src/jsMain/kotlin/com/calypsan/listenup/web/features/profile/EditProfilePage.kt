@@ -11,13 +11,13 @@ import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.readByteArray
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.web.attributes.AttrsScope
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
@@ -31,7 +31,6 @@ import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.khronos.webgl.Int8Array
-import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.url.URL
 import org.w3c.files.Blob
@@ -337,14 +336,6 @@ private fun EditActions(
             disabledWhen(state.isSaving || !state.isDirty)
         }) { Text(if (state.isSaving) "Saving…" else "Save changes") }
     }
-}
-
-/**
- * `disabled` is a boolean attribute: what makes a control disabled is the attribute being present,
- * not its value — so every site writes the same empty string, and this says it once.
- */
-private fun AttrsScope<HTMLButtonElement>.disabledWhen(condition: Boolean) {
-    if (condition) attr("disabled", "")
 }
 
 private const val AVATAR_SIZE = 96

@@ -80,6 +80,10 @@ import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.web.features.admin.CategoriesPage
+import com.calypsan.listenup.web.features.admin.CollectionDetailPage
+import com.calypsan.listenup.web.features.admin.CollectionsPage
+import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
+import com.calypsan.listenup.web.features.admin.OpenCollections
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
 import com.calypsan.listenup.web.features.admin.OpenCategories
 import com.calypsan.listenup.web.features.admin.OpenServerSettings
@@ -149,6 +153,8 @@ fun WebAppRoot(
     openAdminInbox: OpenAdminInbox,
     openServerSettings: OpenServerSettings,
     openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -243,6 +249,8 @@ fun WebAppRoot(
             openAdminInbox = openAdminInbox,
             openServerSettings = openServerSettings,
             openCategories = openCategories,
+            openCollections = openCollections,
+            openCollectionDetail = openCollectionDetail,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -324,6 +332,8 @@ private fun RouteContent(
     openAdminInbox: OpenAdminInbox,
     openServerSettings: OpenServerSettings,
     openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -437,6 +447,8 @@ private fun RouteContent(
             openAdminInbox = openAdminInbox,
             openServerSettings = openServerSettings,
             openCategories = openCategories,
+            openCollections = openCollections,
+            openCollectionDetail = openCollectionDetail,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -1155,6 +1167,61 @@ private fun EditProfileRoute(
 }
 
 /**
+ * `/admin/collections` — the groups an admin curates.
+ */
+@Composable
+private fun CollectionsRoute(
+    router: Router,
+    openCollections: OpenCollections,
+) {
+    val session = remember { openCollections() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    CollectionsPage(
+        state = session.state.collectAsState().value,
+        onCreate = session.onCreate,
+        onDelete = session.onDelete,
+        onClearError = session.onClearError,
+        onOpenCollection = { id -> router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))) },
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
+ * `/admin/collections/{id}` — one collection's books and the people who can see it.
+ *
+ * ⛔ Keyed on [collectionId], and it has to be: `AdminCollectionDetailViewModel` takes the id as a
+ * CONSTRUCTOR parameter and builds its observe pipeline around it in `init`, so a session cannot be
+ * repointed. An unkeyed `remember` would keep showing the first collection visited.
+ */
+@Composable
+private fun CollectionDetailRoute(
+    router: Router,
+    openCollectionDetail: OpenCollectionDetail,
+    collectionId: String,
+) {
+    val session = remember(collectionId) { openCollectionDetail(collectionId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    CollectionDetailPage(
+        state = session.state.collectAsState().value,
+        onNameChange = session.onNameChange,
+        onSaveName = session.onSaveName,
+        onRemoveBook = session.onRemoveBook,
+        onOpenAddBooks = session.onOpenAddBooks,
+        onCloseAddBooks = session.onCloseAddBooks,
+        onBookQuery = session.onBookQuery,
+        onAddBook = session.onAddBook,
+        onShowAddMember = session.onShowAddMember,
+        onHideAddMember = session.onHideAddMember,
+        onShare = session.onShare,
+        onRevokeShare = session.onRevokeShare,
+        onClearError = session.onClearError,
+        onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
+    )
+}
+
+/**
  * `/admin/categories` — the genre tree, and the five things an admin does to it.
  *
  * Unkeyed and opened once for the route's life: the ViewModel observes the genre repository, so the
@@ -1460,6 +1527,9 @@ private val PRIMARY_NAV =
 
 private const val ADMIN_KEY = "admin"
 
+/** The path segment that opens the curated groups — `/admin/collections`. */
+private const val COLLECTIONS_KEY = "collections"
+
 /** The path segment that opens the genre tree — `/admin/categories`. */
 private const val CATEGORIES_KEY = "categories"
 
@@ -1686,6 +1756,7 @@ private fun AdminRoute(
     onOpenInbox: () -> Unit,
     onOpenServerSettings: () -> Unit,
     onOpenCategories: () -> Unit,
+    onOpenCollections: () -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1707,6 +1778,7 @@ private fun AdminRoute(
         onOpenInbox = onOpenInbox,
         onOpenServerSettings = onOpenServerSettings,
         onOpenCategories = onOpenCategories,
+        onOpenCollections = onOpenCollections,
     )
 }
 
@@ -1736,6 +1808,8 @@ private fun AccountRouteContent(
     openAdminInbox: OpenAdminInbox,
     openServerSettings: OpenServerSettings,
     openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
 ) {
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == LIBRARY_KEY -> {
@@ -1752,6 +1826,21 @@ private fun AccountRouteContent(
 
         segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == CATEGORIES_KEY -> {
             CategoriesRoute(router = router, openCategories = openCategories)
+        }
+
+        // `/admin/collections/{id}` before the bare list, so the id branch is not swallowed.
+        segments.firstOrNull() == ADMIN_KEY &&
+            segments.getOrNull(1) == COLLECTIONS_KEY &&
+            segments.getOrNull(2) != null -> {
+            CollectionDetailRoute(
+                router = router,
+                openCollectionDetail = openCollectionDetail,
+                collectionId = segments[2],
+            )
+        }
+
+        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == COLLECTIONS_KEY -> {
+            CollectionsRoute(router = router, openCollections = openCollections)
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
@@ -1771,6 +1860,7 @@ private fun AccountRouteContent(
                 onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
                 onOpenServerSettings = { router.navigate(Route(listOf(ADMIN_KEY, SETTINGS_KEY))) },
                 onOpenCategories = { router.navigate(Route(listOf(ADMIN_KEY, CATEGORIES_KEY))) },
+                onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
             )
         }
 

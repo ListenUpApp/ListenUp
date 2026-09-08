@@ -4,6 +4,8 @@ import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
+import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedCollections
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
@@ -90,6 +92,8 @@ class ComposeHtmlRenderTest :
                         openAdminInbox = fixedAdminInbox(),
                         openServerSettings = fixedServerSettings(),
                         openCategories = fixedCategories(),
+                        openCollections = fixedCollections(),
+                        openCollectionDetail = fixedCollectionDetail(),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),
                         openLibrary = fakeLibrary(),
@@ -133,6 +137,8 @@ class ComposeHtmlRenderTest :
                         openAdminInbox = fixedAdminInbox(),
                         openServerSettings = fixedServerSettings(),
                         openCategories = fixedCategories(),
+                        openCollections = fixedCollections(),
+                        openCollectionDetail = fixedCollectionDetail(),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),
                         openLibrary = fakeLibrary(),

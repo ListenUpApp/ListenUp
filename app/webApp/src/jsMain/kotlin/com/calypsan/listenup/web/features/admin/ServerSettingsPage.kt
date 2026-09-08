@@ -5,9 +5,9 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.attributes.AttrsScope
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -17,7 +17,6 @@ import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLButtonElement
 
 /**
  * Server settings — what this server calls itself, how it is reached from outside, and the two
@@ -202,14 +201,6 @@ private fun SwitchRow(
 @Composable
 private fun Hint(text: String) {
     P(attrs = { classes("srv-hint") }) { Text(text) }
-}
-
-/**
- * `disabled` is a boolean attribute: what makes a control disabled is the attribute being present,
- * not its value — so every site writes the same empty string, and this says it once.
- */
-private fun AttrsScope<HTMLButtonElement>.disabledWhen(condition: Boolean) {
-    if (condition) attr("disabled", "")
 }
 
 /** Every button here is an action, never a form submit. */
