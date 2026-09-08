@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.transcode
 
+import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -8,6 +10,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.TimeSource
+
+private val log = loggerFor<TranscodeSessionEngine>()
 
 /** One file being transcoded for one listener. */
 data class TranscodeSession(
@@ -121,14 +125,60 @@ class TranscodeSessionEngine(
         }
     }
 
-    /** Runs [sweepIdle] on a timer for as long as [scope] lives. Started by DI wiring, not by tests. */
+    /**
+     * Brings the cache back under [TranscodeSettings.cacheCapBytes], evicting whole files least
+     * recently written first until it fits. Two things are never evicted: a file whose session is in
+     * [running] — its listener is on it now and FFmpeg is still writing into it — and an empty
+     * directory, which frees nothing and is most likely one an encoder was just handed.
+     *
+     * The admission [mutex] is held only to read [running], never across the disk work: eviction can
+     * take seconds on a full cache, and holding the lock would stall every [ensureRunning] behind it.
+     * The check is repeated per candidate so a session admitted mid-sweep is still honoured.
+     */
+    internal suspend fun sweepCache() {
+        val cap = settings.cacheCapBytes
+        if (cap <= 0) return
+        val cached = cache.listCachedFiles()
+        var total = cached.sumOf { it.bytes }
+        if (total <= cap) return
+        for (candidate in cached.sortedBy { it.lastTouchedMs }) {
+            if (total <= cap) break
+            if (candidate.bytes == 0L || isRunning(candidate)) continue
+            cache.evict(candidate.bookId, candidate.fileId)
+            total -= candidate.bytes
+            log.info {
+                "transcode cache over cap: evicted ${candidate.bookId}/${candidate.fileId} (${candidate.bytes} bytes)"
+            }
+        }
+    }
+
+    private suspend fun isRunning(file: CachedFile): Boolean =
+        mutex.withLock { key(file.bookId, file.fileId) in running }
+
+    /**
+     * Runs [sweepIdle] every [IDLE_SWEEP_MILLIS] and [sweepCache] every [CACHE_SWEEP_MILLIS] — plus
+     * once at start, so a server that filled its cache and restarted reclaims the space at once —
+     * for as long as [scope] lives. Started by DI wiring, not by tests.
+     */
     fun startWatchdog(scope: CoroutineScope): Job =
         scope.launch {
+            sweepCacheSafely()
+            var lastCacheSweep = elapsedMillis()
             while (isActive) {
                 delay(IDLE_SWEEP_MILLIS)
                 sweepIdle()
+                if (elapsedMillis() - lastCacheSweep >= CACHE_SWEEP_MILLIS) {
+                    sweepCacheSafely()
+                    lastCacheSweep = elapsedMillis()
+                }
             }
         }
+
+    /** A failed cache sweep is logged and retried next time; it must not take the idle sweep down with it. */
+    private suspend fun sweepCacheSafely() {
+        runCatchingCancellable { sweepCache() }
+            .onFailure { log.warn(it) { "transcode cache sweep failed; will retry next interval" } }
+    }
 
     /** Stops every running encoder — server shutdown, or transcoding being switched off. */
     suspend fun stopAll() {
@@ -183,6 +233,13 @@ class TranscodeSessionEngine(
 
         /** How often [startWatchdog] looks for idle sessions. */
         const val IDLE_SWEEP_MILLIS = 10_000L
+
+        /**
+         * How often [startWatchdog] walks the cache for eviction. A full recursive size walk is far
+         * heavier than the idle check, and the cap is a working-set budget rather than a hard limit
+         * — a few minutes over it is fine, a stat storm every ten seconds is not.
+         */
+        const val CACHE_SWEEP_MILLIS = 5 * 60_000L
 
         fun key(
             bookId: String,
