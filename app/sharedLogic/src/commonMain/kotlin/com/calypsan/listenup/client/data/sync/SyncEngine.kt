@@ -598,8 +598,19 @@ internal class SyncEngine(
                 // Snapshot the waiters registered BEFORE this pass starts. They are satisfied the
                 // moment this pass ends — it began after their request, so it covers it.
                 val satisfiedByThisPass = cursorStaleMutex.withLock { drainWaiters() }
-                runCursorStaleRecovery()
-                satisfiedByThisPass.forEach { it.complete(Unit) }
+                var passSucceeded = false
+                try {
+                    runCursorStaleRecovery()
+                    passSucceeded = true
+                } finally {
+                    // The snapshot is already OUT of cursorStaleWaiters, so the outer finally can
+                    // never see it — resolving it here is the only thing standing between a failed
+                    // pass and a coalesced caller suspended for the life of the process. Complete on
+                    // a served request; cancel when the pass threw or was cancelled, matching the
+                    // outer cleanup's "cancelled, not completed" contract (join() returns normally
+                    // either way, so the caller is released without observing an exception).
+                    releaseWaiters(satisfiedByThisPass, served = passSucceeded)
+                }
                 more =
                     cursorStaleMutex.withLock {
                         if (cursorStalePending) {
@@ -639,6 +650,20 @@ internal class SyncEngine(
         val snapshot = cursorStaleWaiters.toList()
         cursorStaleWaiters.clear()
         return snapshot
+    }
+
+    /**
+     * Release [waiters] without suspending: complete them when the pass that covered them [served]
+     * the request, cancel them when it threw or was cancelled. Neither call can throw, so a caller's
+     * `finally` can rely on every waiter being resolved.
+     */
+    private fun releaseWaiters(
+        waiters: List<CompletableDeferred<Unit>>,
+        served: Boolean,
+    ) {
+        for (waiter in waiters) {
+            if (served) waiter.complete(Unit) else waiter.cancel()
+        }
     }
 
     private suspend fun runCursorStaleRecovery() {
