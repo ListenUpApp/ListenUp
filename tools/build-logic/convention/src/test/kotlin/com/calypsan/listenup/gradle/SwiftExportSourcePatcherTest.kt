@@ -101,53 +101,62 @@ class SwiftExportSourcePatcherTest {
         assertEquals(1, syncResult.value.size, "only one subtype harvested from the partial fixture")
     }
 
+    private val connectErrorBase = "ExportedKotlinPackages.com.calypsan.listenup.api.error"
+
+    private fun connectErrorSubtype(name: String) =
+        "public final class _ExportedKotlinPackages_com_calypsan_listenup_api_error_ServerConnectError_$name: " +
+            "KotlinRuntime.KotlinBase, $connectErrorBase.ServerConnectError, " +
+            "$connectErrorBase._ServerConnectError {\n}\n"
+
+    private val connectErrorSubtypes =
+        setOf("InvalidUrl", "NotListenUpServer", "ServerNotReachable", "VerificationFailed", "LocalNetworkPermissionDenied")
+
     @Test
-    fun `sealed exact-count drift reports a shrunk known parent and is empty when intact`() {
-        // ServerConnectError is in the production expected map at 5 subtypes. Harvest only 4 -> drift.
-        val base = "ExportedKotlinPackages.com.calypsan.listenup.api.error"
+    fun `a subtype Kotlin declares but the Swift does not emit is drift`() {
+        // The partial-drop case: Kotlin says five, the generated Swift carries four. The fifth would
+        // fall to the generated `unknown` case, so it must fail the build naming the missing subtype.
+        val four = (connectErrorSubtypes - "LocalNetworkPermissionDenied").joinToString("", transform = ::connectErrorSubtype)
 
-        fun subtype(name: String) =
-            "public final class _ExportedKotlinPackages_com_calypsan_listenup_api_error_ServerConnectError_$name: " +
-                "KotlinRuntime.KotlinBase, $base.ServerConnectError, $base._ServerConnectError {\n}\n"
-        val four = listOf("InvalidUrl", "NotListenUpServer", "ServerNotReachable", "VerificationFailed").joinToString("") { subtype(it) }
-        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(four))
-        assertTrue(drift.any { it.contains("ServerConnectError") }, "a shrunk known parent drifts")
+        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(four), mapOf("ServerConnectError" to connectErrorSubtypes))
 
-        val five = four + subtype("LocalNetworkPermissionDenied")
-        val noDrift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(five))
-        assertFalse(noDrift.any { it.contains("ServerConnectError") }, "intact count -> no drift for that parent")
+        assertTrue(drift.any { it.contains("ServerConnectError") && it.contains("LocalNetworkPermissionDenied") })
     }
 
     @Test
-    fun `undeclared sealed parent drifts (forces a baseline entry before it can ship)`() {
-        // A harvested sealed type absent from the expected map must fail the build, so a brand-new
-        // sealed type can't ship with no recorded onEnum baseline.
+    fun `a parent whose harvest matches source is not drift`() {
+        val five = connectErrorSubtypes.joinToString("", transform = ::connectErrorSubtype)
+
+        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(five), mapOf("ServerConnectError" to connectErrorSubtypes))
+
+        assertEquals(emptyList(), drift, "source and harvest agree")
+    }
+
+    @Test
+    fun `a harvested parent absent from the Kotlin scan is drift`() {
+        // The scanner's roots no longer cover this type, or the emitted shape moved. Either way the
+        // exhaustive-switch guarantee is unverifiable, so it cannot pass silently.
         val novel =
             "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_BrandNewType_One: " +
                 "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.BrandNewType, " +
                 "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model._BrandNewType {\n}\n"
-        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(novel))
-        assertTrue(drift.any { it.contains("BrandNewType") && it.contains("not declared") }, "undeclared parent reported")
+
+        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(novel), emptyMap())
+
+        assertTrue(drift.any { it.contains("BrandNewType") && it.contains("do not declare") })
     }
 
     @Test
-    fun `a fully-declared harvested parent is not flagged as undeclared`() {
-        // ServerConnectError is in the production map at 5 subtypes — harvest exactly 5 and assert the
-        // new undeclared check stays silent on it (the other declared parents harvest 0 here and shrink-
-        // drift, which is expected; we assert only that the harvested parent isn't called *undeclared*).
-        val base = "ExportedKotlinPackages.com.calypsan.listenup.api.error"
+    fun `a sealed type Kotlin declares but Swift never exports is not drift`() {
+        // Source carries roughly twice the sealed types the export surface emits. Only harvested
+        // parents are checked, so an unexported hierarchy must stay silent — otherwise the guard
+        // would fail on ~300 legitimate absences and get switched off.
+        val drift =
+            SwiftExportSourcePatcher.sealedSubtypeDrift(
+                listOf(connectErrorSubtypes.joinToString("", transform = ::connectErrorSubtype)),
+                mapOf("ServerConnectError" to connectErrorSubtypes, "NeverExported" to setOf("A", "B")),
+            )
 
-        fun subtype(name: String) =
-            "public final class _ExportedKotlinPackages_com_calypsan_listenup_api_error_ServerConnectError_$name: " +
-                "KotlinRuntime.KotlinBase, $base.ServerConnectError, $base._ServerConnectError {\n}\n"
-        val five =
-            listOf("InvalidUrl", "NotListenUpServer", "ServerNotReachable", "VerificationFailed", "LocalNetworkPermissionDenied")
-                .joinToString("") { subtype(it) }
-        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(five))
-        assertFalse(
-            drift.any { it.contains("ServerConnectError") && it.contains("not declared") },
-            "a declared, fully-harvested parent must not be flagged undeclared",
-        )
+        assertEquals(emptyList(), drift, "an unexported sealed hierarchy is not drift")
     }
 
     // ---- AppResult accessor pass ---------------------------------------------------------------
