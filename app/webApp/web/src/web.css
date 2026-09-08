@@ -240,6 +240,10 @@ body { margin: 0; }
 .luw .inbox-notice-x:active,
 .luw .srv-err-x:active,
 .luw .cat-err-x:active,
+.luw .coll-err-x:active,
+.luw .coll-new:active,
+.luw .cdet-add:active,
+.luw .cdet-share:active,
 .luw .cat-twist:active,
 .luw .cat-bar-b:active,
 .bd-series-chip:active { transform: translateY(1px); }
@@ -267,6 +271,9 @@ body { margin: 0; }
 .luw .lsetup-open:active,
 .luw .prof-shelf:active,
 .luw .lset-brow-open:active,
+.luw .coll-open:active,
+.luw .cdet-result:active,
+.luw .cdet-person:active,
 .luw .inbox-book:active,
 .sd-book:active { background: var(--surface-3); }
 
@@ -321,6 +328,8 @@ body { margin: 0; }
 /* A channel the server declared ineligible. Dimmed AND `disabled` on the input — the look alone
    would leave it reachable by keyboard and silent to a screen reader. */
 .sw.off { cursor: default; opacity: .45; }
+.f-box.off { opacity: .55; }
+.f-box.off .f-input { cursor: default; }
 .sw.off .sw-in { cursor: default; }
 
 /* ---- server connection chip (self-hosted indicator) ---- */
@@ -2206,3 +2215,49 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cat-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .cat-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .cat-err-x:hover { background: var(--surface-3); } }
+
+/* ---- admin collections. The list, then one collection's books and the people who can see it. */
+.luw .coll { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .coll-back, .luw .cdet-back { align-self: flex-start; }
+.luw .coll-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .coll-skel, .luw .cdet-skel { height: 16rem; border-radius: 16px; }
+.luw .coll-bar { display: flex; align-items: center; gap: 0.6rem; }
+.luw .coll-count { flex: 1; min-width: 6rem; font-size: 0.82rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .coll-new { padding: 5px 12px; font-size: 0.8rem; }
+.luw .coll-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .coll-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.15rem 0.6rem 0.15rem 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .coll-open { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 0.7rem; padding: 0.6rem 0.8rem; border: none; background: none; text-align: left; cursor: pointer; border-radius: 12px; }
+@media (hover: hover) { .luw .coll-open:hover .coll-name { color: var(--coral); } }
+.luw .coll-open:focus { outline: none; }
+.luw .coll-open:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .coll-name { font-size: 0.95rem; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .coll-books { flex: none; font-size: 0.8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* A padlock, not a missing button: a row simply lacking its Delete reads as a rendering fault. */
+.luw .coll-lock { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--surface-3); color: var(--ink-3); }
+.luw .coll-lock-t { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.luw .coll-del { flex: none; }
+.luw .coll-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .coll-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .coll-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .coll-err-x:hover { background: var(--surface-3); } }
+
+.luw .cdet { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .cdet-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .cdet-hint { margin: 0; font-size: 0.84rem; color: var(--ink-3); line-height: 1.5; }
+.luw .cdet-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .cdet-sec-act { display: flex; justify-content: flex-end; }
+.luw .cdet-add, .luw .cdet-share { padding: 4px 11px; font-size: 0.78rem; }
+.luw .cdet-books, .luw .cdet-shares { display: flex; flex-direction: column; gap: 0.4rem; }
+.luw .cdet-book { display: flex; align-items: center; gap: 0.7rem; }
+.luw .cdet-book-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.luw .cdet-book-title { font-size: 0.9rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .cdet-book-by { font-size: 0.79rem; color: var(--ink-2); }
+.luw .cdet-share-row { display: flex; align-items: center; gap: 0.7rem; }
+.luw .cdet-share-n { flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.luw .cdet-share-p { flex: none; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3); }
+.luw .cdet-x { flex: none; }
+/* Capped and scrollable: a library search can return far more rows than a dialog can hold. */
+.luw .cdet-results, .luw .cdet-people { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
+.luw .cdet-result, .luw .cdet-person { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .cdet-result:hover, .luw .cdet-person:hover { background: var(--surface-3); } }
+.luw .cdet-result-t, .luw .cdet-person-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -11,9 +11,9 @@ import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.attributes.AttrsScope
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -21,7 +21,6 @@ import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLButtonElement
 
 /**
  * Which folders the library watches — the half of library management that outlives onboarding.
@@ -290,14 +289,6 @@ private fun BrowserRow(
             onClick { onAddPath(entry.path) }
         }) { Text("Watch this") }
     }
-}
-
-/**
- * `disabled` is a boolean attribute: what makes a control disabled is the attribute being
- * present, not its value — so every site writes the same empty string, and this says it once.
- */
-private fun AttrsScope<HTMLButtonElement>.disabledWhen(condition: Boolean) {
-    if (condition) attr("disabled", "")
 }
 
 private const val ATTR_ARIA_LABEL = "aria-label"

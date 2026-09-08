@@ -2,6 +2,13 @@ package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.web.features.admin.CategoriesPage
+import com.calypsan.listenup.web.features.admin.CollectionDetailPage
+import com.calypsan.listenup.web.features.admin.CollectionsPage
+import com.calypsan.listenup.web.features.admin.collection
+import com.calypsan.listenup.web.features.admin.personFixture
+import com.calypsan.listenup.web.features.admin.shareFixture
+import com.calypsan.listenup.web.features.admin.readyCollections
+import com.calypsan.listenup.web.features.admin.readyDetail
 import com.calypsan.listenup.web.features.admin.genre
 import com.calypsan.listenup.web.features.admin.node
 import com.calypsan.listenup.web.features.admin.readyCategories
@@ -12,6 +19,8 @@ import com.calypsan.listenup.web.features.admin.inboxBook
 import com.calypsan.listenup.web.features.admin.readyInbox
 import com.calypsan.listenup.web.features.admin.scanIssue
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
+import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
+import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
@@ -434,6 +443,7 @@ class ClassContractTest :
                         inboxShapes().forEach { it() }
                         serverSettingsShapes().forEach { it() }
                         categoryShapes().forEach { it() }
+                        collectionShapes().forEach { it() }
                         profileShapes().forEach { it() }
                         editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
@@ -949,6 +959,44 @@ private fun categoryShapes(): List<@Composable () -> Unit> {
         page(readyCategories(tree = emptyList(), genres = emptyList())),
         page(AdminCategoriesUiState.Error(InternalError(debugInfo = "boom"))),
         page(AdminCategoriesUiState.Loading),
+    )
+}
+
+private fun bookHit() =
+    com.calypsan.listenup.client.domain.model.SearchHit(
+        id = "b9",
+        type = com.calypsan.listenup.client.domain.model.SearchHitType.BOOK,
+        name = "The Way of Kings",
+    )
+
+private fun collectionShapes(): List<@Composable () -> Unit> {
+    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}) }
+
+    fun detail(state: AdminCollectionDetailUiState): @Composable () -> Unit =
+        {
+            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    return listOf(
+        // An ordinary collection and a managed one side by side — the padlock renders only on the
+        // second, and Delete only on the first.
+        list(
+            readyCollections(
+                collections = listOf(collection(), collection(id = "c2", name = "All books", isSystem = true)),
+                error = "No library available",
+            ),
+        ),
+        list(readyCollections(collections = emptyList())),
+        list(AdminCollectionsUiState.Error("nope")),
+        list(AdminCollectionsUiState.Loading),
+        // Dirty, so the Save row renders; erroring, so the notice does.
+        detail(readyDetail(editedName = "Changed", error = "nope", shares = listOf(shareFixture()))),
+        // Both panels open — each draws classes that render nowhere else.
+        detail(readyDetail(showAddBooks = true, bookQuery = "kings", bookResults = listOf(bookHit()))),
+        detail(readyDetail(showAddMemberSheet = true, availableUsers = listOf(personFixture()))),
+        detail(readyDetail(isSystem = true, books = emptyList())),
+        detail(AdminCollectionDetailUiState.Error("nope")),
+        detail(AdminCollectionDetailUiState.Loading),
     )
 }
 

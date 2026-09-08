@@ -22,6 +22,10 @@ import org.jetbrains.compose.web.dom.Text
  *
  * [error] is a class rather than an inline style because the sheet owns colour: `.f-box.err` has
  * to cooperate with `:focus-within` and with dark mode, and an inline style would beat both.
+ *
+ * [enabled] false is for a value the server will not let change — a system collection's name, say.
+ * Rendering the field editable and refusing the save afterwards teaches the reader that the app
+ * lies about what it will accept.
  */
 @Composable
 fun Field(
@@ -34,6 +38,7 @@ fun Field(
     error: Boolean = false,
     id: String? = null,
     autocomplete: String? = null,
+    enabled: Boolean = true,
 ) {
     val fieldId = rememberFieldId(id)
     Div(attrs = { classes("f-wrap") }) {
@@ -44,6 +49,7 @@ fun Field(
         Div(attrs = {
             classes("f-box")
             if (error) classes("err")
+            if (!enabled) classes("off")
         }) {
             leading?.let { Icon(it, size = FIELD_ICON_SIZE, attrs = { classes("f-ico") }) }
             Input(type = type) {
@@ -52,7 +58,11 @@ fun Field(
                 if (placeholder.isNotEmpty()) attr("placeholder", placeholder)
                 attr("id", fieldId)
                 autocomplete?.let { attr("autocomplete", it) }
-                onInput { event -> onInput(event.value) }
+                // A genuinely `disabled` input, not one that merely looks inert: a value the
+                // server will refuse to change must be unreachable by keyboard too, and must say
+                // so when read aloud. Same rule [SwitchField] follows for an ineligible channel.
+                if (!enabled) attr("disabled", "")
+                onInput { event -> if (enabled) onInput(event.value) }
             }
         }
     }

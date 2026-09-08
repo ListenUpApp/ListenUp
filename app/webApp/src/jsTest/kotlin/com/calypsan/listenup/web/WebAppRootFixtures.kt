@@ -5,9 +5,13 @@ import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
 import com.calypsan.listenup.web.features.admin.OpenCategories
+import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
+import com.calypsan.listenup.web.features.admin.OpenCollections
 import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
+import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedCollections
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
@@ -114,6 +118,8 @@ internal fun mountAt(
     openAdminInbox: OpenAdminInbox = fixedAdminInbox(),
     openServerSettings: OpenServerSettings = fixedServerSettings(),
     openCategories: OpenCategories = fixedCategories(),
+    openCollections: OpenCollections = fixedCollections(),
+    openCollectionDetail: OpenCollectionDetail = fixedCollectionDetail(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -142,6 +148,8 @@ internal fun mountAt(
                 openAdminInbox = openAdminInbox,
                 openServerSettings = openServerSettings,
                 openCategories = openCategories,
+                openCollections = openCollections,
+                openCollectionDetail = openCollectionDetail,
                 openShelfDetail = fixedShelfDetail(),
                 openShelfEdit = fixedShelfEdit(),
                 openLibrary = openLibrary,

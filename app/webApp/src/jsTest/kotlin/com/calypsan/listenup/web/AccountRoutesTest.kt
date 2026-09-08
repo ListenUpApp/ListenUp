@@ -9,11 +9,16 @@ import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
+import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedCollections
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.admin.genre
 import com.calypsan.listenup.web.features.admin.node
+import com.calypsan.listenup.web.features.admin.collection
 import com.calypsan.listenup.web.features.admin.readyCategories
+import com.calypsan.listenup.web.features.admin.readyCollections
+import com.calypsan.listenup.web.features.admin.readyDetail
 import com.calypsan.listenup.web.features.admin.readyInbox
 import com.calypsan.listenup.web.features.admin.readyServerSettings
 import com.calypsan.listenup.web.features.admin.scanIssue
@@ -30,6 +35,7 @@ import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.nav.Route
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -219,6 +225,96 @@ class AccountRoutesTest :
 
             try {
                 (host.querySelector(".cat-name") as HTMLElement).textContent shouldBe "Fiction"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/collections renders the list") {
+            val (host, router) =
+                mountAt(
+                    "/admin/collections",
+                    openCollections = fixedCollections(readyCollections(listOf(collection(name = "Bedtime")))),
+                )
+
+            try {
+                (host.querySelector(".coll-name") as HTMLElement).textContent shouldBe "Bedtime"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ The id branch has to be tested BEFORE the bare list, or `/admin/collections/c1` shows
+        // the list and the detail page is unreachable by URL.
+        test("/admin/collections/{id} renders that collection, not the list") {
+            val (host, router) =
+                mountAt(
+                    "/admin/collections/c7",
+                    openCollectionDetail = { fixedCollectionDetail(readyDetail(name = "Bedtime"))(it) },
+                )
+
+            try {
+                (host.querySelector(".cdet-title") as HTMLElement).textContent shouldBe "Bedtime"
+                host.querySelector(".coll-list") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // `AdminCollectionDetailViewModel` takes the id as a CONSTRUCTOR parameter, so a session
+        // cannot be repointed — an unkeyed remember would keep showing the first one opened.
+        test("switching collection id opens a new session rather than reusing the old one's") {
+            val requested = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/admin/collections/c1",
+                    openCollectionDetail = { id ->
+                        requested += id
+                        fixedCollectionDetail(readyDetail(name = "Collection $id"))(id)
+                    },
+                )
+
+            try {
+                requested shouldContainExactly listOf("c1")
+
+                router.navigate(Route(listOf("admin", "collections", "c2")))
+                awaitFrame()
+
+                requested shouldContainExactly listOf("c1", "c2")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("opening a collection from the list reaches its page") {
+            val (host, router) =
+                mountAt(
+                    "/admin/collections",
+                    openCollections = fixedCollections(readyCollections(listOf(collection(id = "c7")))),
+                )
+
+            try {
+                (host.querySelector(".coll-open") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/admin/collections/c7"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Admin offers a way to the collections") {
+            val (host, router) = mountAt("/admin")
+
+            try {
+                host
+                    .querySelectorAll(".adm-link")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Collections" }
+                    .click()
+
+                window.location.pathname shouldBe "/admin/collections"
             } finally {
                 router.dispose()
             }

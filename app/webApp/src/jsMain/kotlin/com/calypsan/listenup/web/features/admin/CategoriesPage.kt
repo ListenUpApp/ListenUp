@@ -10,8 +10,8 @@ import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.GenreTreeNode
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.attributes.AttrsScope
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -19,7 +19,6 @@ import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLButtonElement
 
 /**
  * Categories — the genre tree, and the five things an admin does to it.
@@ -137,7 +136,7 @@ private fun ReadyContent(
         Button(attrs = {
             classes("btn-c", "cat-bar-b")
             attr("type", VALUE_BUTTON)
-            disabledWhenSaving(state.isSaving)
+            disabledWhen(state.isSaving)
             onClick { dialog = CategoryDialog.Create(parent = null) }
         }) { Text("New genre") }
     }
@@ -343,7 +342,7 @@ private fun RowAction(
         attr("type", VALUE_BUTTON)
         attr("aria-label", label)
         attr("title", label)
-        disabledWhenSaving(isSaving)
+        disabledWhen(isSaving)
         onClick { onClick() }
     }) { Icon(icon, size = SMALL_ICON) }
 }
@@ -365,14 +364,6 @@ private fun genreSummary(
 ): String {
     val genreText = if (genres == 1) "1 genre" else "$genres genres"
     return "$genreText · ${bookCountLabel(books)}"
-}
-
-/**
- * `disabled` is a boolean attribute: what makes a control disabled is the attribute being present,
- * not its value — so every site writes the same empty string, and this says it once.
- */
-private fun AttrsScope<HTMLButtonElement>.disabledWhenSaving(isSaving: Boolean) {
-    if (isSaving) attr("disabled", "")
 }
 
 /** Every button here is an action, never a form submit. */
