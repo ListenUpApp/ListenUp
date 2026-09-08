@@ -962,7 +962,20 @@ internal class SyncEngine(
         if (healDrainJob?.isActive == true) return
         healDrainJob =
             scope.launch {
-                queue.observeHealRequests().collect { ref -> drainReconciler.healEntity(ref) }
+                queue.observeHealRequests().collect { ref ->
+                    // Guard per request so one failed heal logs and the collector KEEPS COLLECTING —
+                    // an uncaught throw in an appScope collector kills the process on Kotlin/Native,
+                    // and here it would also strand every later heal behind an UNLIMITED channel that
+                    // nothing drains (ensureHealDrain is only re-entered from runStart, which no-ops
+                    // for an already-started user).
+                    try {
+                        drainReconciler.healEntity(ref)
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Heal request handling failed; heal collector continues" }
+                    }
+                }
             }
     }
 
