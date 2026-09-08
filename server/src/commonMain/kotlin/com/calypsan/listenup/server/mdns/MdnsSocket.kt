@@ -10,7 +10,14 @@ internal interface MdnsSocket {
     /** Sends [payload] to 224.0.0.251:5353 via this socket's pinned egress interface. Best-effort. */
     fun send(payload: ByteArray)
 
-    /** Blocks until a datagram arrives, returning its bytes; null on close/error (the cancel signal). */
+    /**
+     * Blocks until a datagram arrives and returns its bytes.
+     *
+     * Returns an **empty array** for a zero-length datagram or a retryable read (`EINTR`/`EAGAIN`)
+     * — the caller skips it and reads again — and `null` **only** when the socket is closed or the
+     * error is unrecoverable (the cancel signal). Both actuals are held to this: a `null` ends the
+     * receive loop for the life of the process.
+     */
     fun receive(): ByteArray?
 
     /** Best-effort IP_DROP_MEMBERSHIP + close the fd (also unblocks a blocked [receive]). */
