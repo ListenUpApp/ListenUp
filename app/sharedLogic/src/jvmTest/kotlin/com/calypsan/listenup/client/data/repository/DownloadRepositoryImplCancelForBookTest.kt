@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.AudioFileLocalPath
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
@@ -118,6 +119,8 @@ private class FailingUpdateStateDownloadDao(
     override suspend fun getIncompleteWithin(maxRetries: Int): List<DownloadEntity> = emptyList()
 
     override suspend fun getLocalPath(audioFileId: String): String? = null
+
+    override suspend fun getLocalPaths(audioFileIds: List<String>): List<AudioFileLocalPath> = emptyList()
 
     override suspend fun insert(download: DownloadEntity) = error("not needed by cancelForBook")
 
