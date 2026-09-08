@@ -77,9 +77,10 @@ hasAnyUser:
 SELECT EXISTS(SELECT 1 FROM users);
 
 -- Role only, for the audio-URL role resolution (UserRoleLookup): a signed URL proves WHO
--- but not their role, so the route resolves the live role here.
+-- but not their role, so the route resolves the live role here. Soft-deleted users resolve
+-- to no row, so an already-signed URL stops working the moment the account is removed.
 selectRoleById:
-SELECT role FROM users WHERE id = :id;
+SELECT role FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- The id of the first user with a given role — used by the invite seeder to resolve the demo
 -- ROOT it acts as. Matches the Exposed `find { role eq ROOT }.firstOrNull()`.
