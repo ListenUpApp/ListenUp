@@ -101,7 +101,10 @@ struct AdminInboxView: View {
 
     @ViewBuilder
     private func readyBody(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
-        if !ready.hasBooks {
+        // Empty means BOTH halves are empty. An inbox holding only scan issues is populated, and
+        // showing "Inbox Empty" over a list of problems would be the screen contradicting itself.
+        // Mirrors AdminInboxScreen.kt.
+        if ready.isEmpty {
             emptyState
         } else {
             ScrollView {
@@ -125,20 +128,24 @@ struct AdminInboxView: View {
     @ViewBuilder
     private func phoneLayout(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
         VStack(spacing: 0) {
-            subtitleRow(ready: ready)
+            scanIssueSection(observer: observer, ready: ready)
                 .padding(.horizontal, 20)
-                .padding(.bottom, 8)
-            FieldGroup(ready.books, separatorInset: ready.hasSelection ? 99 : 73) { book in
-                InboxBookRow(
-                    book: book,
-                    isSelected: ready.selectedBookIds.contains(book.id),
-                    isSelecting: ready.hasSelection,
-                    onTap: { observer.toggleBookSelection(bookId: book.id) },
-                    onEdit: { editingBook = InboxEditTarget(id: book.id) },
-                    onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
-                )
+            if ready.hasBooks {
+                subtitleRow(ready: ready)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                FieldGroup(ready.books, separatorInset: ready.hasSelection ? 99 : 73) { book in
+                    InboxBookRow(
+                        book: book,
+                        isSelected: ready.selectedBookIds.contains(book.id),
+                        isSelecting: ready.hasSelection,
+                        onTap: { observer.toggleBookSelection(bookId: book.id) },
+                        onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                        onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                    )
+                }
+                .padding(.horizontal, 20)
             }
-            .padding(.horizontal, 20)
             if ready.hasSelection {
                 Color.clear.frame(height: 100)
             }
@@ -154,6 +161,8 @@ struct AdminInboxView: View {
             padHeader(observer: observer, ready: ready)
                 .padding(.horizontal, 36)
                 .padding(.bottom, 16)
+            scanIssueSection(observer: observer, ready: ready)
+                .padding(.horizontal, 36)
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 320), spacing: 16)],
                 spacing: 16
@@ -207,41 +216,47 @@ struct AdminInboxView: View {
                     .foregroundStyle(Color.luTint)
                 Text(String(localized: "common.inbox"))
                     .font(.system(size: 40, weight: .bold))
-                subtitleRow(ready: ready)
-                    .font(.subheadline)
+                if ready.hasBooks {
+                    subtitleRow(ready: ready)
+                        .font(.subheadline)
+                }
             }
             Spacer()
-            HStack(spacing: 10) {
-                Button {
-                    if ready.allSelected { observer.clearSelection() } else { observer.selectAll() }
-                } label: {
-                    Text(ready.allSelected
-                         ? String(localized: "admin.inbox_deselect_all")
-                         : String(localized: "admin.inbox_select_all"))
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(Color.luFill, in: Capsule())
-                        .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
-                }
-                .buttonStyle(.plain)
-                if ready.hasSelection {
+            // Selection and release act on held books. With only scan issues there is nothing to
+            // select, so the controls stay out of the way rather than sitting there inert.
+            if ready.hasBooks {
+                HStack(spacing: 10) {
                     Button {
-                        showingReleaseConfirm = true
+                        if ready.allSelected { observer.clearSelection() } else { observer.selectAll() }
                     } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark")
-                                .font(.subheadline.weight(.bold))
-                            Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
-                                .font(.subheadline.weight(.semibold))
-                        }
-                        .foregroundStyle(Color.luOnTint)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 11)
-                        .background(Color.luTint, in: Capsule())
-                        .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
+                        Text(ready.allSelected
+                             ? String(localized: "admin.inbox_deselect_all")
+                             : String(localized: "admin.inbox_select_all"))
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 11)
+                            .background(Color.luFill, in: Capsule())
+                            .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
+                    if ready.hasSelection {
+                        Button {
+                            showingReleaseConfirm = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark")
+                                    .font(.subheadline.weight(.bold))
+                                Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .foregroundStyle(Color.luOnTint)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 11)
+                            .background(Color.luTint, in: Capsule())
+                            .shadow(color: Color.luTint.opacity(0.4), radius: 6, y: 3)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
@@ -281,6 +296,75 @@ struct AdminInboxView: View {
             .padding(.bottom, 8)
             .background(Color.luSurface)
         }
+    }
+
+    // MARK: - Scan issues
+
+    /// Folders the scanner walked but could not turn into a book.
+    ///
+    /// These are not books awaiting a decision, so they share none of the selection/release
+    /// machinery — they are statements that something went wrong, each paired with the thing the
+    /// user would actually do about it. Dismiss is the only action: someone who can see *why* a
+    /// folder failed fixes it on disk, and rename/move tools in the app would be a second, worse
+    /// file manager. Mirrors `ScanIssueSection.kt`.
+    @ViewBuilder
+    private func scanIssueSection(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
+        if ready.hasIssues {
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "admin.inbox_needs_attention"))
+                        .font(.title3.weight(.bold))
+                    Text(String(localized: "admin.inbox_needs_attention_subtitle"))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.luLabel2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ForEach(ready.scanIssues) { issue in
+                    scanIssueCard(issue: issue) { observer.dismissScanIssue(issueId: issue.id) }
+                }
+            }
+            .padding(.bottom, 16)
+        }
+    }
+
+    private func scanIssueCard(issue: ScanIssueRowModel, onDismiss: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.orange)
+                Text(issue.headline)
+                    .font(.headline)
+            }
+            // The folder is the thing the user goes and looks at, so it reads loudest after the
+            // headline — and it is library-relative, matching what they see on disk.
+            Text(issue.rootRelPath)
+                .font(.body)
+                .foregroundStyle(.primary)
+            Text(issue.fix)
+                .font(.subheadline)
+                .foregroundStyle(Color.luLabel2)
+            // What the scanner literally reported. Last and quiet: useful when the fix above is
+            // not enough, noise when it is.
+            if let detail = issue.detail, !detail.isEmpty {
+                Text(detail)
+                    .font(.footnote)
+                    .foregroundStyle(Color.luLabel3)
+            }
+            Button(String(localized: "admin.inbox_issue_dismiss"), action: onDismiss)
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.luTint)
+                .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.luSeparator, lineWidth: 0.5)
+        )
     }
 
     // MARK: - Empty state
