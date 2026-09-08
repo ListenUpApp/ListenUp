@@ -4,7 +4,9 @@ import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
+import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.settings.OpenSettings
@@ -108,6 +110,7 @@ internal fun mountAt(
     openSettings: OpenSettings = fixedSettings(),
     openLibrarySettings: OpenLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
     openAdminInbox: OpenAdminInbox = fixedAdminInbox(),
+    openServerSettings: OpenServerSettings = fixedServerSettings(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -117,29 +120,30 @@ internal fun mountAt(
     val composition =
         renderComposable(root = host) {
             WebAppRoot(
-                router,
-                openBookDetail,
-                fixedBookEdit(BookEditUiState()),
-                openContributorDetail,
-                openSeriesDetail,
-                openNotifications,
-                openNotificationPrefs,
-                openProfile,
-                openEditProfile,
-                openContributors,
-                openHome,
-                fixedDiscover(),
-                openSettings,
-                fixedDevices(),
-                fixedAdmin(),
-                openLibrarySettings,
-                openAdminInbox,
-                fixedShelfDetail(),
-                fixedShelfEdit(),
-                openLibrary,
-                openSearch,
-                openNotificationBell,
-                fixedPlayback(),
+                router = router,
+                openBookDetail = openBookDetail,
+                openBookEdit = fixedBookEdit(BookEditUiState()),
+                openContributorDetail = openContributorDetail,
+                openSeriesDetail = openSeriesDetail,
+                openNotifications = openNotifications,
+                openNotificationPrefs = openNotificationPrefs,
+                openProfile = openProfile,
+                openEditProfile = openEditProfile,
+                openContributors = openContributors,
+                openHome = openHome,
+                openDiscover = fixedDiscover(),
+                openSettings = openSettings,
+                openDevices = fixedDevices(),
+                openAdmin = fixedAdmin(),
+                openLibrarySettings = openLibrarySettings,
+                openAdminInbox = openAdminInbox,
+                openServerSettings = openServerSettings,
+                openShelfDetail = fixedShelfDetail(),
+                openShelfEdit = fixedShelfEdit(),
+                openLibrary = openLibrary,
+                openSearch = openSearch,
+                openNotificationBell = openNotificationBell,
+                openPlayback = fixedPlayback(),
                 observeIsAdmin = { isAdmin },
                 observeCurrentUserId = { currentUserId },
             )

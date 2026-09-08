@@ -80,6 +80,8 @@ import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.OpenServerSettings
+import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -143,6 +145,7 @@ fun WebAppRoot(
     openAdmin: OpenAdmin,
     openLibrarySettings: OpenLibrarySettings,
     openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -235,6 +238,7 @@ fun WebAppRoot(
             openAdmin = openAdmin,
             openLibrarySettings = openLibrarySettings,
             openAdminInbox = openAdminInbox,
+            openServerSettings = openServerSettings,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -314,6 +318,7 @@ private fun RouteContent(
     openAdmin: OpenAdmin,
     openLibrarySettings: OpenLibrarySettings,
     openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -425,6 +430,7 @@ private fun RouteContent(
             openNotificationPrefs = openNotificationPrefs,
             openLibrarySettings = openLibrarySettings,
             openAdminInbox = openAdminInbox,
+            openServerSettings = openServerSettings,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -1143,6 +1149,34 @@ private fun EditProfileRoute(
 }
 
 /**
+ * `/admin/settings` — what the server calls itself, and the two switches every listener feels.
+ *
+ * `SETTINGS_KEY` is reused as the second segment rather than given a name of its own: the URL reads
+ * `/admin/settings`, and a listener's own `/settings` is a different first segment entirely, so the
+ * two never collide.
+ */
+@Composable
+private fun ServerSettingsRoute(
+    router: Router,
+    openServerSettings: OpenServerSettings,
+) {
+    val session = remember { openServerSettings() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    ServerSettingsPage(
+        state = session.state.collectAsState().value,
+        onServerName = session.onServerName,
+        onRemoteUrl = session.onRemoteUrl,
+        onHoldNewBooks = session.onHoldNewBooks,
+        onPushNotifications = session.onPushNotifications,
+        onSave = session.onSave,
+        onClearError = session.onClearError,
+        onRetry = session.onRetry,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
  * `/admin/inbox` — what the scanner brought in, and what it could not.
  *
  * Unkeyed and opened once for the route's life: the ViewModel loads both halves and subscribes to
@@ -1612,6 +1646,7 @@ private fun AdminRoute(
     openAdmin: OpenAdmin,
     onOpenLibrarySettings: () -> Unit,
     onOpenInbox: () -> Unit,
+    onOpenServerSettings: () -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1631,6 +1666,7 @@ private fun AdminRoute(
         onRetry = session.onRetry,
         onOpenLibrarySettings = onOpenLibrarySettings,
         onOpenInbox = onOpenInbox,
+        onOpenServerSettings = onOpenServerSettings,
     )
 }
 
@@ -1658,6 +1694,7 @@ private fun AccountRouteContent(
     openNotificationPrefs: OpenNotificationPrefs,
     openLibrarySettings: OpenLibrarySettings,
     openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
 ) {
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == LIBRARY_KEY -> {
@@ -1666,6 +1703,10 @@ private fun AccountRouteContent(
 
         segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == INBOX_KEY -> {
             AdminInboxRoute(router = router, openAdminInbox = openAdminInbox)
+        }
+
+        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == SETTINGS_KEY -> {
+            ServerSettingsRoute(router = router, openServerSettings = openServerSettings)
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
@@ -1683,6 +1724,7 @@ private fun AccountRouteContent(
                 openAdmin = openAdmin,
                 onOpenLibrarySettings = { router.navigate(Route(listOf(ADMIN_KEY, LIBRARY_KEY))) },
                 onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
+                onOpenServerSettings = { router.navigate(Route(listOf(ADMIN_KEY, SETTINGS_KEY))) },
             )
         }
 

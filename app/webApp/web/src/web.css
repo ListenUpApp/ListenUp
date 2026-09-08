@@ -238,6 +238,7 @@ body { margin: 0; }
 .luw .inbox-selall:active,
 .luw .inbox-issue-x:active,
 .luw .inbox-notice-x:active,
+.luw .srv-err-x:active,
 .bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
@@ -2157,3 +2158,20 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .inbox-notice-t { flex: 1; min-width: 0; }
 .luw .inbox-notice-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .inbox-notice-x:hover { background: var(--surface-3); } }
+
+/* ---- server settings. Two text fields that batch behind Save, and two switches that write on
+   the flick — the layout has to make that difference visible, so they never share a section. */
+.luw .srv { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .srv-back { align-self: flex-start; }
+.luw .srv-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .srv-skel { height: 18rem; border-radius: 16px; }
+.luw .srv-body { display: flex; flex-direction: column; gap: 16px; }
+.luw .srv-hint { margin: 0; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+/* The description leads and the switch trails, so a column of switches lines up down the right
+   edge and the eye can run the settings without reading every sentence. */
+.luw .srv-toggle { display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; }
+.luw .srv-toggle-d { flex: 1; min-width: 0; font-size: 0.86rem; color: var(--ink-2); line-height: 1.45; }
+.luw .srv-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .srv-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .srv-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .srv-err-x:hover { background: var(--surface-3); } }

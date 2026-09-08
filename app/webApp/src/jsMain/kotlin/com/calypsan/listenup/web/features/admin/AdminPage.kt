@@ -48,6 +48,7 @@ fun AdminPage(
     onRetry: () -> Unit,
     onOpenLibrarySettings: () -> Unit = {},
     onOpenInbox: () -> Unit = {},
+    onOpenServerSettings: () -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
@@ -56,16 +57,9 @@ fun AdminPage(
         // with its own loading and failure states, and this page's own KDoc already says why it
         // is deliberately only the people.
         Div(attrs = { classes("adm-links") }) {
-            Button(attrs = {
-                classes("btn-o", "adm-link")
-                attr("type", "button")
-                onClick { onOpenLibrarySettings() }
-            }) { Text("Library folders") }
-            Button(attrs = {
-                classes("btn-o", "adm-link")
-                attr("type", "button")
-                onClick { onOpenInbox() }
-            }) { Text("Inbox") }
+            AdminLink("Library folders", onOpenLibrarySettings)
+            AdminLink("Inbox", onOpenInbox)
+            AdminLink("Server settings", onOpenServerSettings)
         }
 
         when (state) {
@@ -90,6 +84,24 @@ fun AdminPage(
             }
         }
     }
+}
+
+/**
+ * One way out of here, to an admin surface that is its own page.
+ *
+ * Three of these differing only in label and destination was three copies of the same five lines —
+ * the shape that drifts the moment one of them gains a class the others do not.
+ */
+@Composable
+private fun AdminLink(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Button(attrs = {
+        classes("btn-o", "adm-link")
+        attr("type", "button")
+        onClick { onClick() }
+    }) { Text(label) }
 }
 
 /**
