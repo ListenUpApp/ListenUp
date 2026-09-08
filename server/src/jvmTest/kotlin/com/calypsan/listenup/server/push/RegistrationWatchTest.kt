@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
+import com.calypsan.listenup.server.api.MAX_PUSH_TOKEN_LENGTH
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
@@ -122,6 +123,20 @@ class RegistrationWatchTest :
 
                 fix.auth
                     .registerRegistrationWatchToken(userId, "tok-1", PushPlatform.ANDROID)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                fix.watchCount() shouldBe 0
+            }
+        }
+
+        test("an over-long token is dropped: the reply is indistinguishable but nothing is stored") {
+            runTest {
+                val fix = newFixture()
+                val userId = fix.registerPendingUser()
+
+                // Same ceiling PushService applies to an authenticated registration. This path is
+                // pre-auth and oracle-free, so the bound must not become a distinguishable failure.
+                fix.auth
+                    .registerRegistrationWatchToken(userId, "t".repeat(MAX_PUSH_TOKEN_LENGTH + 1), PushPlatform.IOS)
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 fix.watchCount() shouldBe 0
             }

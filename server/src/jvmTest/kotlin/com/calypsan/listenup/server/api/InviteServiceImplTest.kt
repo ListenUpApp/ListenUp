@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.dto.invite.InviteStatus
+import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InviteError
@@ -151,6 +152,19 @@ class InviteServiceImplTest :
                     val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     svc
                         .createInvite("a@b.c", "   ", UserRole.MEMBER, null)
+                        .shouldFail<InviteError.InvalidInput>()
+                }
+            }
+        }
+
+        test("createInvite rejects a displayName over the profile ceiling") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    val tooLong = "n".repeat(UpdateProfileRequest.MAX_DISPLAY_NAME + 1)
+                    svc
+                        .createInvite("a@b.c", tooLong, UserRole.MEMBER, null)
                         .shouldFail<InviteError.InvalidInput>()
                 }
             }
@@ -345,6 +359,51 @@ class InviteServiceImplTest :
                         }
                     claimed.first.shouldNotBeNull()
                     claimed.second shouldBe newUserId
+                }
+            }
+        }
+
+        test("claimInvite rejects a displayName over the profile ceiling") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
+                    val tooLong = "n".repeat(UpdateProfileRequest.MAX_DISPLAY_NAME + 1)
+
+                    makeInviteService(sql)
+                        .claimInvite(invite.code, "password123", displayName = tooLong)
+                        .shouldFail<InviteError.InvalidInput>()
+                }
+            }
+        }
+
+        test("claimInvite accepts a displayName exactly at the profile ceiling") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
+                    val atLimit = "n".repeat(UpdateProfileRequest.MAX_DISPLAY_NAME)
+
+                    makeInviteService(sql).claimInvite(invite.code, "password123", displayName = atLimit).shouldSucceed()
+
+                    val stored = sql.usersQueries.selectByEmailNormalized("a@b.c").executeAsOneOrNull()!!
+                    stored.display_name shouldBe atLimit
+                }
+            }
+        }
+
+        test("claimInvite rejects a displayName that is blank after trimming") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
+
+                    makeInviteService(sql)
+                        .claimInvite(invite.code, "password123", displayName = "   ")
+                        .shouldFail<InviteError.InvalidInput>()
                 }
             }
         }

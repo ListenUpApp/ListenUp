@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.api.dto.invite.InviteStatus
 import com.calypsan.listenup.api.dto.invite.InviteSummary
+import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.result.AppResult
@@ -157,7 +158,9 @@ class InviteServiceImpl(
         requireAdmin()?.let { return it }
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         if (!Email.isLikelyEmail(email)) return AppResult.Failure(InviteError.InvalidInput())
-        if (displayName.isBlank()) return AppResult.Failure(InviteError.InvalidInput())
+        if (displayName.isBlank() || displayName.length > UpdateProfileRequest.MAX_DISPLAY_NAME) {
+            return AppResult.Failure(InviteError.InvalidInput())
+        }
         if (expiresInDays != null && expiresInDays <= 0) return AppResult.Failure(InviteError.InvalidInput())
         // ROOT is a protected tier: only a ROOT caller may mint a ROOT-granting invite.
         if (role == UserRole.ROOT && caller.role != UserRole.ROOT) {
@@ -230,6 +233,15 @@ class InviteServiceImpl(
         // Throttle BEFORE any Argon2 work so a brute-force burst can't turn into a CPU/memory DoS
         // (SEC-02, mirrors AuthServiceImpl.login).
         enforceRate(InviteRateBucket.CLAIM)?.let { return AppResult.Failure(it) }
+        // Bound the one caller-supplied string this anonymous path persists. Same ceiling as the
+        // profile DTO (UpdateProfileRequest.MAX_DISPLAY_NAME), so a name that survives claim also
+        // survives an edit.
+        val trimmedDisplayName = displayName?.trim()
+        if (trimmedDisplayName != null &&
+            (trimmedDisplayName.isEmpty() || trimmedDisplayName.length > UpdateProfileRequest.MAX_DISPLAY_NAME)
+        ) {
+            return AppResult.Failure(InviteError.InvalidInput())
+        }
         val now = clock.now().toEpochMilliseconds()
         // Cheap existence/expiry/claimed pre-check BEFORE the expensive Argon2 hash — stops a
         // bogus or dead code from paying for a hash it can never use. claimUserAtomically
@@ -250,7 +262,7 @@ class InviteServiceImpl(
         // is hoisted OUT: it opens its own session transaction, and the SQLDelight transaction body is
         // non-suspending — exactly the boundary AuthServiceImpl.register draws between commit and issue.
         val user: AuthUser =
-            when (val claim = claimUserAtomically(code, passwordHashed, displayName, now)) {
+            when (val claim = claimUserAtomically(code, passwordHashed, trimmedDisplayName, now)) {
                 is AppResult.Failure -> return claim
                 is AppResult.Success -> claim.data
             }

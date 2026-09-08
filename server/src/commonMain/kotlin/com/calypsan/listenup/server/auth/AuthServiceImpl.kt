@@ -28,6 +28,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
+import com.calypsan.listenup.server.api.MAX_PUSH_TOKEN_LENGTH
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -503,6 +504,11 @@ class AuthServiceImpl(
         platform: com.calypsan.listenup.api.push.PushPlatform,
     ): AppResult<Unit> {
         enforceRate(AuthRateBucket.REGISTER_WATCH_TOKEN)?.let { return AppResult.Failure(it) }
+        // Same ceiling PushService applies to an authenticated registration: past this a value
+        // is not a device token. This path is pre-auth, so the bound matters more, not less — and
+        // it answers Success, not a failure: the method is deliberately oracle-free (see KDoc), and
+        // a distinguishable rejection would break that property.
+        if (token.isBlank() || token.length > MAX_PUSH_TOKEN_LENGTH) return AppResult.Success(Unit)
         val store = pushWatchTokens ?: return AppResult.Success(Unit)
         if (!settings.pushNotificationsEnabled()) return AppResult.Success(Unit)
         val pending =

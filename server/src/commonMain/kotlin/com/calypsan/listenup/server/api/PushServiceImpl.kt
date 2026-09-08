@@ -17,7 +17,11 @@ import com.calypsan.listenup.server.push.PushNotifier
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import kotlin.time.Clock
 
-private const val MAX_TOKEN_LENGTH = 4096
+/**
+ * Ceiling past which a value is not a device token — FCM and APNs tokens are far shorter. Shared with
+ * the pre-auth registration-watch path in `AuthServiceImpl`, so both registrations apply one bound.
+ */
+internal const val MAX_PUSH_TOKEN_LENGTH = 4096
 
 /**
  * [PushService] implementation — the session-bound device push-token registry.
@@ -93,7 +97,7 @@ internal class PushServiceImpl(
     private fun validateToken(token: String): ValidationError? =
         when {
             token.isBlank() -> ValidationError(message = "token must not be blank.")
-            token.length > MAX_TOKEN_LENGTH -> ValidationError(message = "token is too long.")
+            token.length > MAX_PUSH_TOKEN_LENGTH -> ValidationError(message = "token is too long.")
             else -> null
         }
 
