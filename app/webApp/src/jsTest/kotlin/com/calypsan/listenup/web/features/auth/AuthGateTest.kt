@@ -59,6 +59,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withTimeout
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
+import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.client.presentation.search.SearchUiState
@@ -102,6 +104,7 @@ private fun mountGate(
             openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
             openProfile = fixedProfile(UserProfileUiState.Loading),
             openNotificationBell = fixedNotificationBell(),
+            openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
             openDiscover = fixedDiscover(),

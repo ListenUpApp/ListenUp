@@ -19,6 +19,8 @@ import com.calypsan.listenup.client.presentation.notifications.NotificationsUiSt
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
+import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
@@ -74,6 +76,7 @@ class ComposeHtmlRenderTest :
                         fixedNotifications(NotificationsUiState.Empty),
                         fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                         fixedProfile(UserProfileUiState.Loading),
+                        fixedEditProfile(EditProfileUiState.Loading),
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),
@@ -113,6 +116,7 @@ class ComposeHtmlRenderTest :
                         fixedNotifications(NotificationsUiState.Empty),
                         fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                         fixedProfile(UserProfileUiState.Loading),
+                        fixedEditProfile(EditProfileUiState.Loading),
                         fixedContributors(emptyList()),
                         fixedHome(HomeUiState.Loading),
                         fixedDiscover(),

@@ -14,23 +14,20 @@ import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.readByteArray
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.Text
-import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.Int8Array
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.url.URL
 import org.w3c.files.Blob
 import org.w3c.files.File
-import org.w3c.files.FileReader
-import kotlin.coroutines.resume
 
 /**
  * The cover on Book Edit — the web analogue of Android's tappable cover in the identity header.
@@ -145,21 +142,6 @@ private fun pickCover(
         onEvent(BookEditUiEvent.UploadCover(imageData = bytes, filename = file.name))
     }
 }
-
-/** [FileReader] as a suspend call; null on a read error rather than an exception. */
-private suspend fun File.readByteArray(): ByteArray? =
-    suspendCancellableCoroutine { continuation ->
-        val reader = FileReader()
-        reader.onload = {
-            val buffer = reader.result.unsafeCast<ArrayBuffer>()
-            continuation.resume(Int8Array(buffer).unsafeCast<ByteArray>())
-        }
-        reader.onerror = {
-            console.error("Cover file could not be read: $name")
-            continuation.resume(null)
-        }
-        reader.readAsArrayBuffer(this)
-    }
 
 private const val COVER_ART_WIDTH = 132
 

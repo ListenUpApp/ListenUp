@@ -34,6 +34,7 @@ import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
 import com.calypsan.listenup.web.features.setup.OpenLibrarySetup
+import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.contributors.OpenContributors
@@ -76,6 +77,7 @@ fun AuthGate(
     openNotificationPrefs: OpenNotificationPrefs,
     openLibrarySetup: OpenLibrarySetup,
     openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
     openNotificationBell: OpenNotificationBell,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
@@ -175,6 +177,7 @@ fun AuthGate(
                         openNotifications = openNotifications,
                         openNotificationPrefs = openNotificationPrefs,
                         openProfile = openProfile,
+                        openEditProfile = openEditProfile,
                         openNotificationBell = openNotificationBell,
                         openContributors = openContributors,
                         openLibrary = openLibrary,

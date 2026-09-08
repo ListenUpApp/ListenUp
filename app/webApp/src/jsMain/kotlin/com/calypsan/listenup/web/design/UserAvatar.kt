@@ -22,6 +22,11 @@ import org.jetbrains.compose.web.dom.Text
  * The tint is derived from the name rather than random, so a given person keeps the same colour
  * across sessions and devices — an avatar that changes on refresh reads as a bug even when nothing
  * is wrong. [avatarColor] overrides it where the server has recorded the person's own choice.
+ *
+ * [monogramOnly] draws the initials without ever asking for a picture. That is not the same as
+ * letting the fetch fail: Edit Profile has to show what "remove my photo" will leave behind, and a
+ * request for a picture the reader has just asked to delete would show the old one until the
+ * server answered.
  */
 @Composable
 fun UserAvatar(
@@ -29,8 +34,10 @@ fun UserAvatar(
     name: String,
     size: Int,
     avatarColor: String? = null,
+    monogramOnly: Boolean = false,
 ) {
     var failed by remember(userId) { mutableStateOf(false) }
+    val showMonogram = monogramOnly || failed
 
     Div(attrs = {
         classes("uav")
@@ -38,10 +45,10 @@ fun UserAvatar(
             property("width", "${size}px")
             property("height", "${size}px")
             property("font-size", "${size / MONOGRAM_DIVISOR}px")
-            if (failed) property("background", avatarColor ?: avatarTintFor(name))
+            if (showMonogram) property("background", avatarColor ?: avatarTintFor(name))
         }
     }) {
-        if (failed) {
+        if (showMonogram) {
             // Decorative: the person's name is beside this in every call site, so a screen reader
             // reading "BS" after "Brandon Sanderson" would only add noise.
             Div(attrs = {

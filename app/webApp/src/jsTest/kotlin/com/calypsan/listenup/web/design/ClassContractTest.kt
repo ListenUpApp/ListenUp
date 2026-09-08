@@ -75,8 +75,12 @@ import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
 import com.calypsan.listenup.web.features.admin.readyLibrary
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
 import com.calypsan.listenup.web.features.setup.setupState
+import com.calypsan.listenup.client.presentation.profile.AvatarChange
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.EditProfilePage
 import com.calypsan.listenup.web.features.profile.ProfilePage
+import com.calypsan.listenup.web.features.profile.editing
 import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -415,6 +419,7 @@ class ClassContractTest :
                         librarySetupShapes().forEach { it() }
                         librarySettingsShapes().forEach { it() }
                         profileShapes().forEach { it() }
+                        editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
                         // zero-hit Results and a populated one. The page joins this contract by
                         // hand, same as ContributorsPage above — a state nobody adds here is a
@@ -867,18 +872,47 @@ private fun librarySettingsShapes(): List<@Composable () -> Unit> {
  */
 private fun profileShapes(): List<@Composable () -> Unit> =
     listOf(
-        { ProfilePage(readyProfile(), onOpenBook = {}, onOpenShelf = {}, onRetry = {}) },
+        { ProfilePage(readyProfile(), onOpenBook = {}, onOpenShelf = {}, onRetry = {}, onEditProfile = {}) },
+        // Own profile, for `.prof-edit` — it renders nowhere else.
+        { ProfilePage(readyProfile(isOwnProfile = true), {}, {}, {}, {}) },
         {
             ProfilePage(
                 state = readyProfile(recentBooks = emptyList(), publicShelves = emptyList()),
                 onOpenBook = {},
                 onOpenShelf = {},
                 onRetry = {},
+                onEditProfile = {},
             )
         },
-        { ProfilePage(UserProfileUiState.Error("No such listener."), {}, {}, {}) },
-        { ProfilePage(UserProfileUiState.Loading, {}, {}, {}) },
+        { ProfilePage(UserProfileUiState.Error("No such listener."), {}, {}, {}, {}) },
+        { ProfilePage(UserProfileUiState.Loading, {}, {}, {}, {}) },
     )
+
+/**
+ * Edit Profile in every shape that draws a class of its own.
+ *
+ * The photo row alone has three: the saved avatar, a staged upload previewing from its own bytes,
+ * and a staged removal previewing as the monogram. A contract that only rendered the happy path
+ * would leave two of the three unchecked, and they are exactly the ones a reader sees mid-edit.
+ */
+private fun editProfileShapes(): List<@Composable () -> Unit> {
+    fun form(
+        state: EditProfileUiState,
+        saveError: String? = null,
+    ): @Composable () -> Unit =
+        {
+            EditProfilePage(state, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, saveError)
+        }
+
+    return listOf(
+        // A dirty form with a photo to remove and a failed save on it — most of the classes.
+        form(editing(tagline = "Counting on it.", hasImageAvatar = true, isDirty = true), saveError = "Nope."),
+        form(editing(avatarChange = AvatarChange.Upload(byteArrayOf(1), "image/png"), hasImageAvatar = true)),
+        form(editing(avatarChange = AvatarChange.RevertToAuto, hasImageAvatar = true)),
+        form(EditProfileUiState.Error("No user data available")),
+        form(EditProfileUiState.Loading),
+    )
+}
 
 /**
  * The notification inbox in every state it has, plus the sidebar wearing a badge.

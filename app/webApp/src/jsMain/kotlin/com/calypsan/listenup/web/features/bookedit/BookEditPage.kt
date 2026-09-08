@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.Field
-import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.RelationField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
@@ -81,31 +81,14 @@ fun BookEditPage(
                 onEvent(BookEditUiEvent.Save)
             }
         }) {
-            EditSection("Cover") { CoverField(state, onEvent) }
-            EditSection("Details") { CoreFields(state, onEvent) }
-            EditSection("People") { ContributorFields(state, onEvent) }
-            EditSection("Series") { SeriesFields(state, onEvent) }
-            EditSection("Classification") { ClassificationFields(state, onEvent) }
-            EditSection("Identifiers") { IdentifierFields(state, onEvent) }
+            FormSection("Cover") { CoverField(state, onEvent) }
+            FormSection("Details") { CoreFields(state, onEvent) }
+            FormSection("People") { ContributorFields(state, onEvent) }
+            FormSection("Series") { SeriesFields(state, onEvent) }
+            FormSection("Classification") { ClassificationFields(state, onEvent) }
+            FormSection("Identifiers") { IdentifierFields(state, onEvent) }
             EditActions(state, onEvent)
         }
-    }
-}
-
-/**
- * One titled block of form rows.
- *
- * The panel and the row rhythm always travel together — a section that forgot the rhythm would
- * render its fields flush against each other — so they are one thing rather than two lines to
- * remember at five call sites.
- */
-@Composable
-private fun EditSection(
-    title: String,
-    content: @Composable () -> Unit,
-) {
-    Panel(title = title) {
-        Div(attrs = { classes("edit-form") }) { content() }
     }
 }
 
