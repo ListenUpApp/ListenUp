@@ -1,20 +1,10 @@
 package com.calypsan.listenup.web.design
 
-import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
-import org.w3c.dom.HTMLElement
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { content() }
-    return host
-}
 
 /**
  * Book descriptions are Markdown-flavoured, and every Audible one carries it — so rendering the
@@ -27,9 +17,11 @@ private fun mount(content: @Composable () -> Unit): HTMLElement {
  */
 class BookMarkdownTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("bold and italic render as elements rather than literal syntax") {
-            val host = mount { BookMarkdown("**Lead a life of adventure** and _earn a good living._") }
+            val host = mounts.mount { BookMarkdown("**Lead a life of adventure** and _earn a good living._") }
 
             host.querySelector("strong")!!.textContent shouldBe "Lead a life of adventure"
             host.querySelector("em")!!.textContent shouldBe "earn a good living."
@@ -41,7 +33,7 @@ class BookMarkdownTest :
             // ⛔ Found by looking at the running app, not by a test: this is the FIRST LINE of a
             // real Audible description, and the inner `_…_` was rendering as literal underscores
             // because a strong run kept its content as flat text and never parsed inside it.
-            val host = mount { BookMarkdown("**Lead a life of adventure—_and earn a good living._**") }
+            val host = mounts.mount { BookMarkdown("**Lead a life of adventure—_and earn a good living._**") }
 
             val strong = host.querySelector("strong")!!
             strong.querySelector("em")!!.textContent shouldBe "and earn a good living."
@@ -49,27 +41,27 @@ class BookMarkdownTest :
         }
 
         test("strong nested inside emphasis works the same way round") {
-            val host = mount { BookMarkdown("_a whole *phrase* emphasised_") }
+            val host = mounts.mount { BookMarkdown("_a whole *phrase* emphasised_") }
 
             host.querySelector("em")!!.querySelector("em").let { it != null } shouldBe true
             host.textContent!! shouldNotContain "*"
         }
 
         test("a blank line starts a new paragraph") {
-            val host = mount { BookMarkdown("First para.\n\nSecond para.") }
+            val host = mounts.mount { BookMarkdown("First para.\n\nSecond para.") }
 
             host.querySelectorAll("p").length shouldBe 2
         }
 
         test("a single newline stays inside its paragraph") {
             // Publisher blurbs wrap mid-sentence; treating every newline as a break would shred them.
-            val host = mount { BookMarkdown("one line\nstill the same para") }
+            val host = mounts.mount { BookMarkdown("one line\nstill the same para") }
 
             host.querySelectorAll("p").length shouldBe 1
         }
 
         test("html tags carried by an imported description are converted or stripped") {
-            val host = mount { BookMarkdown("<p>A <b>bold</b> claim.<br>And a new line.</p>") }
+            val host = mounts.mount { BookMarkdown("<p>A <b>bold</b> claim.<br>And a new line.</p>") }
 
             host.querySelector("strong")!!.textContent shouldBe "bold"
             host.textContent!! shouldNotContain "<"
@@ -78,28 +70,28 @@ class BookMarkdownTest :
 
         // ⛔ The injection cases. A description is written by whoever wrote the metadata, not by us.
         test("a script tag in a description cannot become an element") {
-            val host = mount { BookMarkdown("Nice book.<script>alert('xss')</script>") }
+            val host = mounts.mount { BookMarkdown("Nice book.<script>alert('xss')</script>") }
 
             host.querySelectorAll("script").length shouldBe 0
             host.textContent!! shouldNotContain "<script"
         }
 
         test("an event handler on a smuggled tag cannot become an element") {
-            val host = mount { BookMarkdown("""Cover: <img src=x onerror="alert(1)">""") }
+            val host = mounts.mount { BookMarkdown("""Cover: <img src=x onerror="alert(1)">""") }
 
             host.querySelectorAll("img").length shouldBe 0
             host.textContent!! shouldNotContain "onerror"
         }
 
         test("a javascript: link renders as plain text, never as an anchor") {
-            val host = mount { BookMarkdown("[click me](javascript:alert(1))") }
+            val host = mounts.mount { BookMarkdown("[click me](javascript:alert(1))") }
 
             host.querySelectorAll("a").length shouldBe 0
             host.textContent!! shouldContain "click me"
         }
 
         test("an http link becomes an anchor that cannot reach back through the opener") {
-            val host = mount { BookMarkdown("See [the author](https://example.com/a).") }
+            val host = mounts.mount { BookMarkdown("See [the author](https://example.com/a).") }
 
             val anchor = host.querySelector("a")!!
             anchor.textContent shouldBe "the author"
@@ -109,21 +101,21 @@ class BookMarkdownTest :
 
         test("an underscore inside a word is not emphasis") {
             // `snake_case_names` appear in paths and file names quoted in descriptions.
-            val host = mount { BookMarkdown("the file is book_part_one.m4b") }
+            val host = mounts.mount { BookMarkdown("the file is book_part_one.m4b") }
 
             host.querySelectorAll("em").length shouldBe 0
             host.textContent!! shouldContain "book_part_one.m4b"
         }
 
         test("an unterminated emphasis run is left as written") {
-            val host = mount { BookMarkdown("2 * 3 is not emphasis") }
+            val host = mounts.mount { BookMarkdown("2 * 3 is not emphasis") }
 
             host.querySelectorAll("em").length shouldBe 0
             host.textContent!! shouldContain "2 * 3 is not emphasis"
         }
 
         test("a description that is only whitespace renders nothing at all") {
-            val host = mount { BookMarkdown("   \n\n  ") }
+            val host = mounts.mount { BookMarkdown("   \n\n  ") }
 
             host.querySelectorAll("p").length shouldBe 0
         }

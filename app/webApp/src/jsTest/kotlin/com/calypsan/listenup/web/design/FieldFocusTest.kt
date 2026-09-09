@@ -1,11 +1,10 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlinx.browser.document
 import kotlinx.browser.window
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 
@@ -21,16 +20,14 @@ import org.w3c.dom.HTMLInputElement
  */
 class FieldFocusTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         fun renderedField(): HTMLElement {
-            val root = document.createElement("div") as HTMLElement
+            val root = mounts.mount { Field(label = "Email", value = "", onInput = {}, id = "focus-probe") }
             // The kit-wide focus rules are scoped to the app root's `luw` class; without it
             // neither the bug nor the fix applies and these specs would pass vacuously.
             root.className = "luw"
-            document.body?.appendChild(root)
-            renderComposable(root = root) {
-                Field(label = "Email", value = "", onInput = {}, id = "focus-probe")
-            }
             return root
         }
 
