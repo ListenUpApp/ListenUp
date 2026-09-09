@@ -4,33 +4,13 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
-
-private fun seriesDetailPage(
-    state: SeriesDetailUiState,
-    onOpenLibrary: () -> Unit = {},
-    onOpenBook: (String) -> Unit = {},
-    onPlayBook: (String) -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        SeriesDetailPage(
-            state = state,
-            onOpenLibrary = onOpenLibrary,
-            onOpenBook = onOpenBook,
-            onPlayBook = onPlayBook,
-        )
-    }
-    return root
-}
 
 /**
  * Series Detail rendered against the shared [SeriesDetailUiState].
@@ -43,6 +23,23 @@ private fun seriesDetailPage(
  */
 class SeriesDetailPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun seriesDetailPage(
+            state: SeriesDetailUiState,
+            onOpenLibrary: () -> Unit = {},
+            onOpenBook: (String) -> Unit = {},
+            onPlayBook: (String) -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                SeriesDetailPage(
+                    state = state,
+                    onOpenLibrary = onOpenLibrary,
+                    onOpenBook = onOpenBook,
+                    onPlayBook = onPlayBook,
+                )
+            }
 
         test("the hero renders the series' name and its author") {
             val root = seriesDetailPage(readySeries())
