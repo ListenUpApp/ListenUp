@@ -11,11 +11,20 @@
 //   1. `close` null-checks its ids instead of testing them for truthiness — the
 //      counters start at 0, so the first database and the first statement were
 //      never closed.
-//   2. `close` replies on success, not only on failure.
-//   3. No per-message logging — it printed every prepared statement's SQL and
+//   2. No per-message logging — it printed every prepared statement's SQL and
 //      every step's bindings to the production console.
-//   4. A rejected `sqlite3InitModule()` fails the queued and every subsequent
+//   3. A rejected `sqlite3InitModule()` fails the queued and every subsequent
 //      request instead of leaving them unanswered forever.
+//
+// NOT a divergence, and must never become one: `close` answers only on failure.
+// It is the one command the driver sends fire-and-forget — CoroutineWebWorker.
+// sendRequest(request) posts the message and registers NO pending entry — so a
+// success reply is an id onMessage never expected, and it throws
+// `IllegalStateException: ... was not expected.` straight out of the Worker's
+// onmessage, once per finalized statement and closed database. Nothing in Kotlin
+// can catch that. An ERROR reply is different and stays: onMessage routes an
+// unknown id that carries `error` to onError(), which fails every in-flight
+// request instead of throwing. See SqliteWorkerProtocolTest.
 // Sunset: replace with official packaging if/when androidx ships the worker.
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -99,8 +108,6 @@ function closeRequest(id, requestData) {
     // `!= null` rather than truthiness: the id counters start at 0, so `if (requestData.databaseId)`
     // was false for the first database and the first statement ever opened — in practice the only
     // ones the app has — and their OPFS handles were held for the life of the worker.
-    let failed = false;
-
     if (requestData.statementId != null) {
         const statement = statements.get(requestData.statementId);
         if (!statement) {
@@ -112,7 +119,6 @@ function closeRequest(id, requestData) {
             statements.delete(requestData.statementId);
         } catch (error) {
             postMessage({'id': id, error: error.message});
-            failed = true;
         }
     }
 
@@ -127,15 +133,11 @@ function closeRequest(id, requestData) {
             databases.delete(requestData.databaseId);
         } catch (error) {
             postMessage({'id': id, error: error.message});
-            failed = true;
         }
     }
 
-    // Every other handler answers exactly once; close answered only on failure, so a caller that
-    // waits for a reply waits forever.
-    if (!failed) {
-        postMessage({'id': id, data: {}});
-    }
+    // Deliberately silent on success — see the header note. The driver holds no pending entry for
+    // a `close`, so the only correct answer to one that worked is no answer at all.
 }
 
 // A map that links command names (strings) to their respective handler functions.
