@@ -38,8 +38,10 @@ internal data class MpegFrameInfo(
  *    duration = audioBytes × 8 × 1000 / bitrate.
  *
  * Returns [MpegFrameInfo.durationMs] of 0 if no MPEG frame can be located in
- * the sniff window or the frame header is invalid — the parser still surfaces
- * tags successfully; only duration and stream params are unknown.
+ * the sniff window or the frame header is invalid — a reserved MPEG version, a
+ * layer other than Layer III, or an out-of-range bitrate / sample-rate index.
+ * The parser still surfaces tags successfully; only duration and stream params
+ * are unknown.
  *
  * VBR header offsets (byte offset from start of frame header):
  * - Xing/Info: 4 + sideInfoSize, where sideInfoSize depends on MPEG version
@@ -182,6 +184,11 @@ internal object MpegDurationCalculator {
         // bitrate, sample rate and (on MPEG-2.5) half its real duration.
         val mpegVersion = (header ushr 19) and 0x3
         if (mpegVersion == MPEG_VERSION_RESERVED) return null
+        // Layer: bits 18..17. 0b01=Layer III (the only layer this calculator's tables describe),
+        // 0b10=Layer II, 0b11=Layer I, 0b00=reserved. A Layer I/II frame decoded against Layer III
+        // tables yields a plausible-looking but wrong duration, so decline instead — the parser
+        // still surfaces the file's tags, only the duration is reported as unknown.
+        if ((header ushr 17) and 0x3 != LAYER_III) return null
         val bitrateTable = if (mpegVersion == MPEG_VERSION_1) BITRATE_TABLE_V1 else BITRATE_TABLE_V2
         val sampleRateTable =
             when (mpegVersion) {
@@ -256,6 +263,9 @@ internal object MpegDurationCalculator {
 
     /** MPEG version bits 20..19, `0b01` — reserved by the spec, never a valid frame. */
     private const val MPEG_VERSION_RESERVED = 0b01
+
+    /** Layer bits 18..17, `0b01` — Layer III, the only layer these tables describe. */
+    private const val LAYER_III = 0b01
 
     /** Layer III bitrate table, kbps, MPEG-1. Index 0 (free) and 15 (bad) are invalid. */
     private val BITRATE_TABLE_V1 = intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)

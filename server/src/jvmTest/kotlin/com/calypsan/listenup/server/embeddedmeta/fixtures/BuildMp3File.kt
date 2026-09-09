@@ -79,6 +79,7 @@ internal class Mp3Builder internal constructor() {
         sampleRate: Int = 44_100,
         version: MpegVersion = MpegVersion.V1,
         mono: Boolean = false,
+        layerBits: Int = LAYER_III_BITS,
     ) {
         require(durationSeconds >= 0) { "durationSeconds must be non-negative" }
         val frameSize = (version.frameLengthCoefficient * bitrate) / sampleRate
@@ -88,7 +89,14 @@ internal class Mp3Builder internal constructor() {
             (totalSamples / version.samplesPerFrame)
                 .toInt()
                 .coerceAtLeast(if (durationSeconds > 0) 1 else 0)
-        val header = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate, version = version, mono = mono)
+        val header =
+            mpegFrameHeader(
+                bitrate = bitrate,
+                sampleRate = sampleRate,
+                version = version,
+                mono = mono,
+                layerBits = layerBits,
+            )
         val padding = ByteArray(frameSize - 4)
         repeat(frameCount) {
             out.write(header)
@@ -221,7 +229,7 @@ internal class Mp3Builder internal constructor() {
  * |-------|-----------------|---------------------------------------------|
  * | 31..21| Sync (11 bits)  | `0b11111111111` (0xFFE)                     |
  * | 20..19| MPEG version    | [MpegVersion.versionBits]                   |
- * | 18..17| Layer           | `0b01` (Layer III)                          |
+ * | 18..17| Layer           | [layerBits], default [LAYER_III_BITS]       |
  * | 16    | Protection      | `1` (no CRC follows)                        |
  * | 15..12| Bitrate index   | from [MpegVersion.bitrateTable]             |
  * | 11..10| Sample rate idx | from [MpegVersion.sampleRateTable]          |
@@ -240,6 +248,7 @@ internal fun mpegFrameHeader(
     sampleRate: Int,
     version: MpegVersion = MpegVersion.V1,
     mono: Boolean = false,
+    layerBits: Int = LAYER_III_BITS,
 ): ByteArray {
     val bitrateIdx =
         version.bitrateTable.indexOf(bitrate / 1000).also {
@@ -253,7 +262,7 @@ internal fun mpegFrameHeader(
     var header = 0
     header = header or (0xFFE shl 20) // sync (11 bits) → bits 31..21
     header = header or (version.versionBits shl 19) // MPEG version → bits 20..19
-    header = header or (0b01 shl 17) // layer III     → bits 18..17
+    header = header or ((layerBits and 0x3) shl 17) // layer → bits 18..17
     header = header or (1 shl 16) // protection bit (no CRC) → bit 16
     header = header or ((bitrateIdx and 0xF) shl 12)
     header = header or ((sampleRateIdx and 0x3) shl 10)
@@ -286,6 +295,13 @@ internal fun sideInfoSize(
         !mono -> 17
         else -> 9
     }
+
+/**
+ * Frame-header layer bits (18..17) for Layer III — the only layer this fixture
+ * builder's tables describe. `0b10` is Layer II, `0b11` Layer I, `0b00` reserved;
+ * a test emits those directly to prove the decoder declines them.
+ */
+internal const val LAYER_III_BITS: Int = 0b01
 
 /** Layer III bitrate table in kbps, MPEG-1. Index 0 (free) and 15 (reserved) are invalid. */
 internal val BITRATE_TABLE_V1: IntArray =

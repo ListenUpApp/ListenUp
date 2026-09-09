@@ -173,4 +173,53 @@ class MpegVersionDurationTest :
             result.data.audioStream?.bitrate shouldBe 128_000
             result.data.audioStream?.channels shouldBe 2
         }
+
+        // Layer bits (18..17): 0b01 Layer III, 0b10 Layer II, 0b11 Layer I, 0b00 reserved.
+        // Only Layer III matches this calculator's tables — everything else must decline rather
+        // than produce a plausible-looking wrong duration. Declining is not rejecting the file:
+        // the parser still surfaces its tags, only the duration is reported as unknown.
+        listOf(
+            "Layer II" to 0b10,
+            "Layer I" to 0b11,
+            "the reserved layer" to 0b00,
+        ).forEach { (label, layerBits) ->
+            test("a frame declaring $label yields no duration, and the tags still parse") {
+                val bytes =
+                    buildMp3File {
+                        id3v2(version = 4) { textFrame("TIT2", "Not Layer Three") }
+                        mpegFrames(durationSeconds = 10, layerBits = layerBits)
+                    }
+
+                val result = parser.parse(byteSource(bytes))
+                require(result is AppResult.Success<EmbeddedAudioMetadata>)
+
+                result.data.durationMs shouldBe 0L
+                result.data.audioStream?.bitrate shouldBe null
+                result.data.audioStream?.sampleRate shouldBe null
+                result.data.audioStream?.channels shouldBe null
+                result.data.tags.title shouldBe "Not Layer Three"
+            }
+        }
+
+        test("a frame declaring the reserved MPEG version yields no duration, and the tags still parse") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) { textFrame("TIT2", "Reserved Version") }
+                    mpegFrames(
+                        durationSeconds = 10,
+                        bitrate = 32_000,
+                        sampleRate = 22_050,
+                        version = MpegVersion.RESERVED,
+                    )
+                }
+
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+
+            result.data.durationMs shouldBe 0L
+            result.data.audioStream?.bitrate shouldBe null
+            result.data.audioStream?.sampleRate shouldBe null
+            result.data.audioStream?.channels shouldBe null
+            result.data.tags.title shouldBe "Reserved Version"
+        }
     })
