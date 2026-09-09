@@ -94,6 +94,22 @@ class WebAppRoutesTest :
             }
         }
 
+        test("a missing asset falls back to the shell and is NOT cached for a year") {
+            // The reference check in WebAppRoutes, and the only thing that pins it. /assets/ is the
+            // immutable prefix, but a MISS there is served the shell, whose URL never changes —
+            // freezing that for a year strands the visitor on a stale build at that URL forever.
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                val response = client.get("/assets/gone.js")
+
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "ListenUp"
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-cache"
+            }
+        }
+
         test("a hashed asset is cached for a year") {
             // Vite content-hashes everything under assets/, so the URL changes whenever the bytes
             // do — which is exactly the precondition `immutable` asks for.
