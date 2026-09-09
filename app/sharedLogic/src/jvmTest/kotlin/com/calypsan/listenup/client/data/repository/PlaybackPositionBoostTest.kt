@@ -250,4 +250,57 @@ class PlaybackPositionBoostTest :
                 }
             }
         }
+
+        // `lastPlayedAt` is the ConflictPolicy.NewerWins key for playback_positions. A preference
+        // change is not a statement about where the listener is, so it must not bump that key —
+        // doing so makes a locally-stale position instantly outrank newer progress from another
+        // device. Same rationale as handlePlaybackStarted, which was hardened first.
+
+        test("a speed change does not claim to be the newest listening moment") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(
+                            bookId,
+                            PlaybackUpdate.Speed(positionMs = 5_000L, speed = 1.5f, custom = true),
+                        ).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val row = db.playbackPositionDao().get(bookId).shouldNotBeNull()
+                    row.lastPlayedAt shouldBe 1_000L
+                    row.playbackSpeed shouldBe 1.5f
+                    (row.updatedAt > 1_000L) shouldBe true
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("a volume-boost change does not claim to be the newest listening moment") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(
+                            bookId,
+                            PlaybackUpdate.VolumeBoost(boostDb = 6f, custom = true, positionMs = 5_000L),
+                        ).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val row = db.playbackPositionDao().get(bookId).shouldNotBeNull()
+                    row.lastPlayedAt shouldBe 1_000L
+                    row.volumeBoostDb shouldBe 6f
+                    (row.updatedAt > 1_000L) shouldBe true
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })

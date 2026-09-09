@@ -343,6 +343,15 @@ internal class PlaybackPositionRepositoryImpl(
         }
     }
 
+    // The five preference handlers below (speed, speed reset, boost, boost reset, measured gain)
+    // all preserve `existing.lastPlayedAt` rather than stamping `now`, for exactly the reason
+    // spelled out in [handlePlaybackStarted]: lastPlayedAt is the NewerWins conflict key, and a
+    // preference change is not a claim about where the listener is. A brand-new row (the `blank`
+    // fallback) legitimately gets `now`.
+    //
+    // Note this is the LOCAL row only — [requestFor] still sends `lastPlayedAt = now` on the wire
+    // for these variants, deliberately (the server short-circuits an older stamp). Whether
+    // speed/boost should sync per book at all is plan 018's decision.
     private suspend fun handleSpeed(
         bookId: BookId,
         u: PlaybackUpdate.Speed,
@@ -355,7 +364,7 @@ internal class PlaybackPositionRepositoryImpl(
                 playbackSpeed = u.speed,
                 hasCustomSpeed = u.custom,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -377,7 +386,7 @@ internal class PlaybackPositionRepositoryImpl(
                 playbackSpeed = u.defaultSpeed,
                 hasCustomSpeed = false,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -399,7 +408,7 @@ internal class PlaybackPositionRepositoryImpl(
                 volumeBoostDb = u.boostDb,
                 hasCustomBoost = u.custom,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -421,7 +430,7 @@ internal class PlaybackPositionRepositoryImpl(
                 volumeBoostDb = u.defaultBoostDb,
                 hasCustomBoost = false,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -444,7 +453,7 @@ internal class PlaybackPositionRepositoryImpl(
                 positionMs = u.positionMs,
                 measuredGainDb = u.gainDb,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
