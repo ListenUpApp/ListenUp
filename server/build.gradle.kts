@@ -155,6 +155,7 @@ kotlin {
                 implementation(libs.ktor.server.auth)
                 implementation(libs.ktor.server.call.id)
                 implementation(libs.ktor.server.rate.limit)
+                implementation(libs.ktor.server.forwarded.header)
                 // PartialContent — byte-range/seek support behind the file-response seam
                 // (respondSeekable). Publishes a linuxX64 variant.
                 implementation(libs.ktor.server.partial.content)

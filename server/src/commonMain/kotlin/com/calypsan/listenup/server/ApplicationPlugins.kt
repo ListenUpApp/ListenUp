@@ -86,6 +86,10 @@ private const val WS_MAX_FRAME_SIZE_BYTES = 33_554_432L
 internal fun Application.installCorePlugins() {
     install(ContentNegotiation) { json(contractJson) }
     install(Resources)
+    // First, so every later plugin and every handler sees the caller's real address: the per-IP
+    // rate-limit buckets key on `origin.remoteHost`, which behind a proxy is otherwise the proxy.
+    // Off unless the operator opts in — see the KDoc for why that default is not negotiable.
+    installForwardedHeadersIfTrusted()
     // Keepalive for the kotlinx.rpc WebSockets: server-side pings detect a dead/half-open client
     // socket and close the session, so a stalled RPC call is torn down rather than left hanging.
     // Mirrors the client-side ping in ApiClientFactory. Must precede install(Krpc), which transports
