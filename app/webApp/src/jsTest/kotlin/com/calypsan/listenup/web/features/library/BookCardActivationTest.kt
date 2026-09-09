@@ -1,10 +1,9 @@
 package com.calypsan.listenup.web.features.library
 
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
@@ -20,18 +19,16 @@ import org.w3c.dom.events.KeyboardEventInit
  */
 class BookCardActivationTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         fun render(
             state: LibraryUiState,
             onOpenBook: (String) -> Unit,
-        ): HTMLElement {
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) {
+        ): HTMLElement =
+            mounts.mount {
                 LibraryPage(state = state, onEvent = {}, onOpenBook = { onOpenBook(it) }, onSelectFacet = {})
             }
-            return root
-        }
 
         fun EventTarget.press(key: String) {
             dispatchEvent(

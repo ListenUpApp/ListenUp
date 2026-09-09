@@ -1,7 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
@@ -10,47 +10,13 @@ import com.calypsan.listenup.web.playback.silentSegment
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
-
-/**
- * An open speed picker, with every parameter overridable.
- *
- * One shape for every case here: a test that differs from its neighbour in one argument says what
- * it is about in that argument, rather than in six lines of repeated wiring.
- */
-private fun picker(
-    speed: Float = NORMAL,
-    defaultSpeed: Float = NORMAL,
-    open: Boolean = true,
-    onSet: (Float) -> Unit = {},
-    onReset: () -> Unit = {},
-    onDismiss: () -> Unit = {},
-): HTMLElement =
-    mount {
-        SpeedPicker(
-            open = open,
-            speed = speed,
-            defaultSpeed = defaultSpeed,
-            onSet = onSet,
-            onReset = onReset,
-            onDismiss = onDismiss,
-        )
-    }
 
 /** Drags the slider to [speed] and releases, the way a pointer does. */
 private fun HTMLElement.dragSliderTo(speed: Float) {
@@ -78,6 +44,35 @@ private const val HUNDREDTHS = 100
 
 class SpeedPickerTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        /**
+         * An open speed picker, with every parameter overridable.
+         *
+         * One shape for every case here: a test that differs from its neighbour in one argument
+         * says what it is about in that argument, rather than in six lines of repeated wiring.
+         */
+        fun picker(
+            speed: Float = NORMAL,
+            defaultSpeed: Float = NORMAL,
+            open: Boolean = true,
+            onSet: (Float) -> Unit = {},
+            onReset: () -> Unit = {},
+            onDismiss: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                WebAppSurface {
+                    SpeedPicker(
+                        open = open,
+                        speed = speed,
+                        defaultSpeed = defaultSpeed,
+                        onSet = onSet,
+                        onReset = onReset,
+                        onDismiss = onDismiss,
+                    )
+                }
+            }
 
         test("a closed picker renders nothing at all") {
             val host = picker(open = false)

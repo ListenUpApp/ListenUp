@@ -1,12 +1,11 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.doubles.shouldBeLessThan
-import kotlinx.browser.document
 import kotlinx.browser.window
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import kotlin.math.abs
 
@@ -23,29 +22,30 @@ import kotlin.math.abs
  */
 class CardUniformityTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("cards are the same height whether their titles are short or very long") {
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) {
-                LibraryPage(
-                    state =
-                        contractLibrary(
-                            listOf(
-                                contractBook("b1", "Ubik"),
-                                contractBook(
-                                    "b2",
-                                    "The Girl Who Kicked the Hornet's Nest and Then Kept Right On " +
-                                        "Kicking Until Every Last Line Of This Title Had Wrapped",
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state =
+                            contractLibrary(
+                                listOf(
+                                    contractBook("b1", "Ubik"),
+                                    contractBook(
+                                        "b2",
+                                        "The Girl Who Kicked the Hornet's Nest and Then Kept Right On " +
+                                            "Kicking Until Every Last Line Of This Title Had Wrapped",
+                                    ),
+                                    contractBook("b3", "Dune"),
                                 ),
-                                contractBook("b3", "Dune"),
                             ),
-                        ),
-                    onEvent = {},
-                    onOpenBook = {},
-                    onSelectFacet = {},
-                )
-            }
+                        onEvent = {},
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                    )
+                }
 
             val cards = root.querySelectorAll(".lib-card")
             val heights = (0 until cards.length).map { (cards.item(it) as HTMLElement).offsetHeight }
@@ -57,16 +57,15 @@ class CardUniformityTest :
         test("a long title is clamped to one line rather than reserving a second") {
             // The regression this replaces: two reserved lines left a visible gap under every
             // single-line title, which is most of them.
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) {
-                LibraryPage(
-                    state = contractLibrary(listOf(contractBook("b1", "A Title Long Enough To Wrap If It Were Ever Allowed To"))),
-                    onEvent = {},
-                    onOpenBook = {},
-                    onSelectFacet = {},
-                )
-            }
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = contractLibrary(listOf(contractBook("b1", "A Title Long Enough To Wrap If It Were Ever Allowed To"))),
+                        onEvent = {},
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                    )
+                }
 
             val title = root.querySelector(".lib-title") as HTMLElement
             // Compared against the element's OWN computed line-height rather than a hardcoded
