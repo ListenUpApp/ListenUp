@@ -27,18 +27,21 @@ internal data class MpegFrameInfo(
  * 1. Seek to [audioStart] (just past the ID3v2 tag, or 0 if no tag).
  * 2. Read a small sniff window and locate the first MPEG sync (`0xFFE` top
  *    11 bits) within it.
- * 3. Decode bitrate, sample rate, MPEG version, and channel mode from the
- *    4-byte frame header.
+ * 3. Decode MPEG version first, then bitrate, sample rate, and channel mode
+ *    from the 4-byte frame header — every table is version-specific.
  * 4. Check for a Xing/Info VBR header at the version/channel-mode-dependent
  *    offset past the frame sync, or a VBRI header at the fixed +32 offset.
  *    If a frame-count field is present, derive duration from frame count ×
- *    1152 samples/frame ÷ sample-rate (exact for VBR).
+ *    samples-per-frame ÷ sample-rate (exact for VBR). Layer III carries 1152
+ *    samples per frame on MPEG-1 and 576 on MPEG-2 / MPEG-2.5.
  * 5. Fall back to CBR approximation when no VBR header is found:
  *    duration = audioBytes × 8 × 1000 / bitrate.
  *
  * Returns [MpegFrameInfo.durationMs] of 0 if no MPEG frame can be located in
- * the sniff window or the frame header is invalid — the parser still surfaces
- * tags successfully; only duration and stream params are unknown.
+ * the sniff window or the frame header is invalid — a reserved MPEG version, a
+ * layer other than Layer III, or an out-of-range bitrate / sample-rate index.
+ * The parser still surfaces tags successfully; only duration and stream params
+ * are unknown.
  *
  * VBR header offsets (byte offset from start of frame header):
  * - Xing/Info: 4 + sideInfoSize, where sideInfoSize depends on MPEG version
@@ -49,10 +52,11 @@ internal data class MpegFrameInfo(
  *     MPEG-2/2.5 Mono       → 9   → Xing at offset 13
  * - VBRI: fixed offset 32 (produced by Fraunhofer encoder).
  *
- * MagicNumber suppressed: MPEG-1 Layer III frame-header field widths, the
- * 11-bit `0xFFE` sync mask, side-information sizes, the Xing/VBRI field
- * offsets, and the samples-per-frame constant (1152) are fixed by
- * ISO/IEC 11172-3 and the Fraunhofer/Xing VBR specifications.
+ * MagicNumber suppressed: Layer III frame-header field widths, the 11-bit
+ * `0xFFE` sync mask, side-information sizes, the Xing/VBRI field offsets, and
+ * the samples-per-frame constants (1152 on MPEG-1, 576 on MPEG-2 / MPEG-2.5)
+ * are fixed by ISO/IEC 11172-3 (MPEG-1), ISO/IEC 13818-3 (MPEG-2 low sampling
+ * frequency) and the Fraunhofer/Xing VBR specifications.
  */
 @Suppress("MagicNumber")
 internal object MpegDurationCalculator {
@@ -126,7 +130,7 @@ internal object MpegDurationCalculator {
         if (flags and 0x0001 == 0) return null
         val frameCount = readInt32BE(prefix, xingOffset + 8).toLong()
         if (frameCount <= 0) return null
-        return plausibleOrNull(frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate)
+        return plausibleOrNull(frameCount * frame.samplesPerFrame * 1000L / frame.sampleRate)
     }
 
     /**
@@ -148,7 +152,7 @@ internal object MpegDurationCalculator {
         if (tag != "VBRI") return null
         val frameCount = readInt32BE(prefix, vbriOffset + 14).toLong()
         if (frameCount <= 0) return null
-        return plausibleOrNull(frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate)
+        return plausibleOrNull(frameCount * frame.samplesPerFrame * 1000L / frame.sampleRate)
     }
 
     /**
@@ -167,6 +171,9 @@ internal object MpegDurationCalculator {
         val sideInfoSize: Int,
         /** Channel count: 1 for mono (channel mode 3), 2 for all stereo families. */
         val channels: Int,
+        /** Layer III PCM samples carried by one encoded frame: 1152 on MPEG-1,
+         *  576 on MPEG-2 and MPEG-2.5. Both VBR paths divide by it. */
+        val samplesPerFrame: Int,
     )
 
     private fun decodeFrameHeader(
@@ -179,16 +186,34 @@ internal object MpegDurationCalculator {
                 ((prefix[syncOffset + 1].toInt() and 0xFF) shl 16) or
                 ((prefix[syncOffset + 2].toInt() and 0xFF) shl 8) or
                 (prefix[syncOffset + 3].toInt() and 0xFF)
+        // MPEG version: bits 20..19. 0b11=MPEG-1, 0b10=MPEG-2, 0b01=reserved, 0b00=MPEG-2.5.
+        // Read BEFORE the tables: every table below is version-specific, and indexing the MPEG-1
+        // tables for an MPEG-2/2.5 frame is what made every 22.05 kHz audiobook report the wrong
+        // bitrate, sample rate and (on MPEG-2.5) half its real duration.
+        val mpegVersion = (header ushr 19) and 0x3
+        if (mpegVersion == MPEG_VERSION_RESERVED) return null
+        // Layer: bits 18..17. 0b01=Layer III (the only layer this calculator's tables describe),
+        // 0b10=Layer II, 0b11=Layer I, 0b00=reserved. A Layer I/II frame decoded against Layer III
+        // tables yields a plausible-looking but wrong duration, so decline instead — the parser
+        // still surfaces the file's tags, only the duration is reported as unknown.
+        if ((header ushr 17) and 0x3 != LAYER_III) return null
+        val bitrateTable = if (mpegVersion == MPEG_VERSION_1) BITRATE_TABLE_V1 else BITRATE_TABLE_V2
+        val sampleRateTable =
+            when (mpegVersion) {
+                MPEG_VERSION_1 -> SAMPLE_RATE_TABLE_V1
+                MPEG_VERSION_2 -> SAMPLE_RATE_TABLE_V2
+                else -> SAMPLE_RATE_TABLE_V2_5
+            }
+        val samplesPerFrame = if (mpegVersion == MPEG_VERSION_1) SAMPLES_PER_FRAME_V1 else SAMPLES_PER_FRAME_LSF
+
         val bitrateIdx = (header ushr 12) and 0xF
         val sampleRateIdx = (header ushr 10) and 0x3
-        if (bitrateIdx <= 0 || bitrateIdx >= BITRATE_TABLE.size) return null
-        if (sampleRateIdx >= SAMPLE_RATE_TABLE.size) return null
-        val bitrate = BITRATE_TABLE[bitrateIdx] * 1000
-        val sampleRate = SAMPLE_RATE_TABLE[sampleRateIdx]
+        if (bitrateIdx <= 0 || bitrateIdx >= bitrateTable.size) return null
+        if (sampleRateIdx >= sampleRateTable.size) return null
+        val bitrate = bitrateTable[bitrateIdx] * 1000
+        val sampleRate = sampleRateTable[sampleRateIdx]
         if (bitrate == 0 || sampleRate == 0) return null
 
-        // MPEG version: bits 20..19. 0b11=MPEG-1, 0b10=MPEG-2, 0b00=MPEG-2.5.
-        val mpegVersion = (header ushr 19) and 0x3
         // Channel mode: bits 7..6. 0b11=Mono, else stereo-family (stereo/JS/dual-channel).
         val channelMode = (header ushr 6) and 0x3
         val isMono = channelMode == 3
@@ -196,10 +221,10 @@ internal object MpegDurationCalculator {
         //   MPEG-1 stereo=32, mono=17; MPEG-2/2.5 stereo=17, mono=9.
         val sideInfoSize =
             when {
-                mpegVersion == 3 && !isMono -> 32
+                mpegVersion == MPEG_VERSION_1 && !isMono -> 32
 
                 // MPEG-1 stereo/JS/dual
-                mpegVersion == 3 && isMono -> 17
+                mpegVersion == MPEG_VERSION_1 && isMono -> 17
 
                 // MPEG-1 mono
                 !isMono -> 17
@@ -213,6 +238,7 @@ internal object MpegDurationCalculator {
             sampleRate = sampleRate,
             sideInfoSize = sideInfoSize,
             channels = if (isMono) 1 else 2,
+            samplesPerFrame = samplesPerFrame,
         )
     }
 
@@ -237,14 +263,38 @@ internal object MpegDurationCalculator {
             ((buf[offset + 2].toInt() and 0xFF) shl 8) or
             (buf[offset + 3].toInt() and 0xFF)
 
-    /** MPEG-1 Layer III bitrate table in kbps. */
-    private val BITRATE_TABLE = intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)
+    /** MPEG version bits 20..19, `0b11` — MPEG-1. */
+    private const val MPEG_VERSION_1 = 0b11
 
-    /** MPEG-1 sample-rate table in Hz. */
-    private val SAMPLE_RATE_TABLE = intArrayOf(44_100, 48_000, 32_000, 0)
+    /** MPEG version bits 20..19, `0b10` — MPEG-2, the "low sampling frequency" extension. */
+    private const val MPEG_VERSION_2 = 0b10
 
-    /** MPEG-1 Layer III: 1152 PCM samples per encoded audio frame. */
-    private const val SAMPLES_PER_FRAME = 1152
+    /** MPEG version bits 20..19, `0b01` — reserved by the spec, never a valid frame. */
+    private const val MPEG_VERSION_RESERVED = 0b01
+
+    /** Layer bits 18..17, `0b01` — Layer III, the only layer these tables describe. */
+    private const val LAYER_III = 0b01
+
+    /** Layer III bitrate table, kbps, MPEG-1. Index 0 (free) and 15 (bad) are invalid. */
+    private val BITRATE_TABLE_V1 = intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)
+
+    /** Layer III bitrate table, kbps, MPEG-2 (LSF) and MPEG-2.5 — the "low sampling frequency" set. */
+    private val BITRATE_TABLE_V2 = intArrayOf(0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0)
+
+    /** Sample-rate table, Hz, MPEG-1. Index 3 is reserved. */
+    private val SAMPLE_RATE_TABLE_V1 = intArrayOf(44_100, 48_000, 32_000, 0)
+
+    /** Sample-rate table, Hz, MPEG-2 — exactly half MPEG-1 at every index. */
+    private val SAMPLE_RATE_TABLE_V2 = intArrayOf(22_050, 24_000, 16_000, 0)
+
+    /** Sample-rate table, Hz, MPEG-2.5 — exactly a quarter of MPEG-1 at every index. */
+    private val SAMPLE_RATE_TABLE_V2_5 = intArrayOf(11_025, 12_000, 8_000, 0)
+
+    /** Layer III PCM samples per encoded frame, MPEG-1. */
+    private const val SAMPLES_PER_FRAME_V1 = 1152
+
+    /** Layer III PCM samples per encoded frame, MPEG-2 and MPEG-2.5 — LSF halves it. */
+    private const val SAMPLES_PER_FRAME_LSF = 576
 
     /**
      * Upper bound on a believable audiobook duration: 200 hours. The longest books in print run
