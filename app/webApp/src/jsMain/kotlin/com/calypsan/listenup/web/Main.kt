@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web
 
+import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.diagnostics.BrowserStoreEnvironment
+import com.calypsan.listenup.client.diagnostics.checkBrowserStoreEnvironment
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
@@ -9,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
@@ -44,6 +48,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.Koin
@@ -63,6 +69,16 @@ import org.w3c.dom.Worker
  */
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
+
+    // Probe first, boot second. Every precondition below is checked without touching the
+    // store, so a browser that can host the database is unaffected — and one that cannot
+    // gets the sentence naming the broken link instead of a spinner over a worker whose
+    // init already rejected.
+    val environment = checkBrowserStoreEnvironment()
+    if (environment is BrowserStoreEnvironment.Unavailable) {
+        renderComposable(root = mount) { WebAppSurface { StoreUnavailable(environment.reason) } }
+        return
+    }
 
     // The worker is the one thing :app:sharedLogic cannot supply — it ships no worker script —
     // so it is the browser application's contribution to an otherwise shared graph.
@@ -88,8 +104,7 @@ fun main() {
         // Read and strip BEFORE the router is built, so it never sees the code: the router
         // reads `window.location` in its constructor, and an entry it captured with the code in
         // it would be restored by the Back button after we had gone to the trouble of removing it.
-        val (inviteCode, withoutInvite) =
-            takeInviteCode(Route.parse(window.location.pathname + window.location.search))
+        val (inviteCode, withoutInvite) = takeInviteCodeFromLaunchUrl()
         if (inviteCode != null) {
             window.history.replaceState(null, "", withoutInvite.toUrl())
         }
@@ -129,6 +144,23 @@ fun main() {
         }
     }
 }
+
+/**
+ * Reads the invite code out of the launch URL, along with the route that no longer carries it.
+ *
+ * Lifted out of `main` and wrapped for the same reason as [seedServerUrlIfNeeded]: rendering is the
+ * boot coroutine's continuation, so an escape here is a white page — a far worse answer to "this URL
+ * is odd" than opening at the root.
+ */
+private fun takeInviteCodeFromLaunchUrl(): Pair<String?, Route> =
+    try {
+        takeInviteCode(Route.parse(window.location.pathname + window.location.search))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        console.warn("Could not read the launch URL; opening at the root: ${e.message}")
+        null to Route(emptyList())
+    }
 
 /**
  * Connects realtime sync on every transition into [AuthState.Authenticated].
@@ -187,6 +219,18 @@ private suspend fun seedServerUrlIfNeeded(koin: Koin) {
     } catch (e: Exception) {
         console.warn("Failed to seed server URL from page origin: ${e.message}")
     }
+}
+
+/**
+ * What a browser that cannot host the local database sees instead of the app.
+ *
+ * The reason comes from [checkBrowserStoreEnvironment], which names the first broken link
+ * in the OPFS precondition chain — an operator can act on "the server must send COOP/COEP"
+ * and cannot act on a spinner.
+ */
+@Composable
+internal fun StoreUnavailable(reason: String) {
+    Div(attrs = { classes("auth-boot") }) { Text(reason) }
 }
 
 private const val MOUNT_ID = "app"

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web
 
 import org.w3c.dom.Worker
+import org.w3c.dom.events.Event
 
 /**
  * Spawns the SQLite web worker that backs `WebWorkerSQLiteDriver`.
@@ -20,8 +21,24 @@ import org.w3c.dom.Worker
  * `:app:sharedLogic` deliberately ships no worker script: the worker is an
  * application-provided resource, which is why the store takes a `Worker` rather than
  * creating one.
+ *
+ * The handle is returned with diagnostics attached. A worker that fails to parse or load never
+ * sends a message at all, so the driver's only symptom is a reply that never arrives — the same
+ * silent spinner an operator gets for a stripped COOP/COEP header. `onerror` and `onmessageerror`
+ * are the only places that failure is nameable.
  */
-fun createSqliteWorker(): Worker =
-    js(
-        """new Worker(new URL("sqlite-wasm-worker/worker.js", import.meta.url), { type: "module" })""",
-    ).unsafeCast<Worker>()
+fun createSqliteWorker(): Worker {
+    val worker =
+        js(
+            """new Worker(new URL("sqlite-wasm-worker/worker.js", import.meta.url), { type: "module" })""",
+        ).unsafeCast<Worker>()
+    worker.onerror = { event ->
+        console.error("SQLite worker error: $event")
+    }
+    // Through `asDynamic` because Kotlin's `Worker` external declaration predates
+    // `onmessageerror` and never got it; the DOM property has been there since 2018.
+    worker.asDynamic().onmessageerror = { event: Event ->
+        console.error("SQLite worker message could not be deserialized: $event")
+    }
+    return worker
+}

@@ -37,14 +37,14 @@ class Route(
                 path
                     .split('/')
                     .filter { it.isNotEmpty() }
-                    .map { decodeURIComponent(it) }
+                    .map { decodeOrRaw(it) }
             val query =
                 search
                     .split('&')
                     .filter { it.isNotEmpty() }
                     .associate { parameter ->
-                        val key = decodeURIComponent(parameter.substringBefore('='))
-                        val value = decodeURIComponent(parameter.substringAfter('=', ""))
+                        val key = decodeOrRaw(parameter.substringBefore('='))
+                        val value = decodeOrRaw(parameter.substringAfter('=', ""))
                         key to value
                     }
             return Route(segments, query)
@@ -107,6 +107,25 @@ private fun locationRoute(): Route = Route.parse(window.location.pathname + wind
  * contract and is meant to be read by people, not rendered as `sel=9%2C10`.
  */
 private fun encodeReadable(value: String): String = encodeURIComponent(value).replace("%2C", ",")
+
+/**
+ * Percent-decodes [value], or returns it unchanged when it is not valid percent-encoding.
+ *
+ * `decodeURIComponent` throws `URIError` on a lone `%`, and this codec runs on whatever text is in
+ * the address bar — including a link somebody hand-edited. A route that shows the raw segment is
+ * wrong in a way the reader can see and fix; a thrown `URIError` out of the boot coroutine is a
+ * white page.
+ *
+ * `URIError` is a JS error type with no Kotlin class, so `Throwable` is the narrowest catch
+ * available here. No `CancellationException` re-throw clause: [Route.parse] is not `suspend`, so a
+ * cancellation cannot be raised by this call.
+ */
+private fun decodeOrRaw(value: String): String =
+    try {
+        decodeURIComponent(value)
+    } catch (ignored: Throwable) {
+        value
+    }
 
 private external fun encodeURIComponent(value: String): String
 

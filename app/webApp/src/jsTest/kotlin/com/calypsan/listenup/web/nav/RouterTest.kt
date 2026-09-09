@@ -63,6 +63,21 @@ class RouterTest :
             Route.parse(route.toUrl()).query shouldBe mapOf("q" to "war & peace = 100%")
         }
 
+        // A lone `%` is not valid percent-encoding, and the address bar accepts anything a person
+        // can type or hand-edit into a link. Showing the raw text is wrong in a way the reader can
+        // see and fix; throwing out of the boot coroutine is a white page.
+        test("a malformed percent escape in a path segment survives as raw text") {
+            Route.parse("/book/100%").segments shouldBe listOf("book", "100%")
+        }
+
+        test("a malformed percent escape in a query value survives as raw text") {
+            Route.parse("/search?q=50%").query shouldBe mapOf("q" to "50%")
+        }
+
+        test("a malformed percent escape in a query key survives as raw text") {
+            Route.parse("/search?%=1").query shouldBe mapOf("%" to "1")
+        }
+
         // ⛔ Do not assert that history.length GREW here. Chrome caps a tab's history at 50
         // entries and the browser suite shares one tab, so by the time this spec runs the stack
         // is full: a push still pushes, it just drops the oldest entry instead of growing the
