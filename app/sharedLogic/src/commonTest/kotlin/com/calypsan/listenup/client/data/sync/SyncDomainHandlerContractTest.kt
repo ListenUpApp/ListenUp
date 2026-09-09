@@ -20,9 +20,7 @@ class SyncDomainHandlerContractTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                        ): AppResult<Unit> = AppResult.Success(Unit)
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                         override suspend fun onCatchUpItem(
                             item: Tag,
@@ -55,9 +53,7 @@ class SyncDomainHandlerContractTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                        ): AppResult<Unit> = AppResult.Success(Unit)
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                         override suspend fun onCatchUpItem(
                             item: Tag,

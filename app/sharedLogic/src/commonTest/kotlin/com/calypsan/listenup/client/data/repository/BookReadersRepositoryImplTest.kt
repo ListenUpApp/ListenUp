@@ -333,7 +333,7 @@ private class ThrowOnceBookReadershipDao(
     ) {
         if (!thrown) {
             thrown = true
-            throw RuntimeException("simulated storage failure")
+            throw IllegalStateException("simulated storage failure")
         }
         delegate.replaceForBook(bookId, rows)
     }

@@ -49,7 +49,14 @@ private fun createFixture(): RegisterFixture {
     return fixture
 }
 
-private fun pendingResult(userId: String = "user-42"): AppResult<RegisterResult> = AppResult.Success(RegisterResult.PendingApproval(UserId(userId)))
+private fun pendingResult(userId: String = "user-42"): AppResult<RegisterResult> =
+    AppResult.Success(
+        RegisterResult.PendingApproval(
+            UserId(
+                userId,
+            ),
+        ),
+    )
 
 private fun authenticatedResult(
     userId: String = "user-7",
@@ -71,7 +78,7 @@ private fun authenticatedResult(
                             displayName = "John Doe",
                             role = UserRole.MEMBER,
                             status = UserStatus.ACTIVE,
-                            createdAt = 1704067200000L,
+                            createdAt = 1_704_067_200_000L,
                         ),
                 ),
         ),

@@ -54,10 +54,10 @@ class ActivityRepositoryImplTest :
                 id = id,
                 userId = userId,
                 type = "finished_book",
-                occurredAt = 1704067200000L,
+                occurredAt = 1_704_067_200_000L,
                 bookId = bookId,
                 isReread = true,
-                durationMs = 3600000L,
+                durationMs = 3_600_000L,
                 milestoneValue = 0,
                 milestoneUnit = null,
                 shelfId = null,
@@ -96,7 +96,7 @@ class ActivityRepositoryImplTest :
                 activity.book?.coverPath shouldBe "LKO2?U%2Tw=w]~RBVZRi};RPxuwH"
                 // Raw activity fields carried through
                 activity.isReread shouldBe true
-                activity.durationMs shouldBe 3600000L
+                activity.durationMs shouldBe 3_600_000L
             }
         }
 

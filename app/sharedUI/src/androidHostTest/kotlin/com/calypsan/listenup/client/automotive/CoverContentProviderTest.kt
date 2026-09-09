@@ -135,7 +135,7 @@ class CoverContentProviderTest {
                     // always throws — expected, and irrelevant to what this test asserts.
                     try {
                         provider.openFile(CoverUri.forBook(packageName, "bk-conc-$index"), "r")
-                    } catch (e: FileNotFoundException) {
+                    } catch (expected: FileNotFoundException) {
                         // Expected.
                     }
                 }.apply { start() }
@@ -153,7 +153,7 @@ class CoverContentProviderTest {
                     try {
                         provider.openFile(CoverUri.forBook(packageName, "bk-conc-overflow"), "r")
                         false
-                    } catch (e: FileNotFoundException) {
+                    } catch (expected: FileNotFoundException) {
                         true
                     }
             }

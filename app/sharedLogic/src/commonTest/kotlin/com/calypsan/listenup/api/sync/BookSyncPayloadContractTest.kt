@@ -125,14 +125,14 @@ private fun bookSyncPayloadMinimal(): BookSyncPayload =
         cover = CoverPayload(source = CoverSource.FILESYSTEM, hash = "abc"),
         rootRelPath = "stormlight/way-of-kings",
         inode = null,
-        scannedAt = 1730000000000L,
+        scannedAt = 1_730_000_000_000L,
         contributors = emptyList(),
         series = emptyList(),
         audioFiles = emptyList(),
         chapters = emptyList(),
         revision = 1L,
-        updatedAt = 1730000000000L,
-        createdAt = 1730000000000L,
+        updatedAt = 1_730_000_000_000L,
+        createdAt = 1_730_000_000_000L,
         deletedAt = null,
     )
 
@@ -156,7 +156,7 @@ private fun bookSyncPayloadFull(): BookSyncPayload =
         cover = CoverPayload(source = CoverSource.EMBEDDED, hash = "deadbeef"),
         rootRelPath = "stormlight/words-of-radiance",
         inode = 314159L,
-        scannedAt = 1730000000000L,
+        scannedAt = 1_730_000_000_000L,
         contributors =
             listOf(
                 BookContributorPayload(
@@ -219,7 +219,7 @@ private fun bookSyncPayloadFull(): BookSyncPayload =
                 ),
             ),
         revision = 42L,
-        updatedAt = 1730000005000L,
-        createdAt = 1729000000000L,
+        updatedAt = 1_730_000_005_000L,
+        createdAt = 1_729_000_000_000L,
         deletedAt = null,
     )

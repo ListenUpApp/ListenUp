@@ -472,7 +472,8 @@ private fun fakeBook(
     )
 
 private class FakeDownloadEnqueuer : DownloadEnqueuer {
-    override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult<Unit> =
+        AppResult.Success(Unit)
 }
 
 private class FakeBookRepository : BookRepository {

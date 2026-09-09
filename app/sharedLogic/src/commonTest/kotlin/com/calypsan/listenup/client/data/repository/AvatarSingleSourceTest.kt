@@ -119,7 +119,18 @@ class AvatarSingleSourceTest :
 
         test("revertToAutoAvatar makes observeProfile emit auto + the server version before any sync") {
             runTest {
-                val dao = RecordingPublicProfileDao(MutableStateFlow(mapOf(selfId to publicRow(avatarType = "image", avatarUpdatedAt = 1_000L))))
+                val dao =
+                    RecordingPublicProfileDao(
+                        MutableStateFlow(
+                            mapOf(
+                                selfId to
+                                    publicRow(
+                                        avatarType = "image",
+                                        avatarUpdatedAt = 1_000L,
+                                    ),
+                            ),
+                        ),
+                    )
                 val serverTs = 9_000L
                 val service =
                     mock<ProfileService> {
@@ -142,7 +153,19 @@ class AvatarSingleSourceTest :
         test("an SSE echo after the optimistic upload converges to server truth without regressing the version") {
             runTest {
                 // A pre-existing synced row: auto avatar, version 0, revision 1.
-                val dao = RecordingPublicProfileDao(MutableStateFlow(mapOf(selfId to publicRow(avatarType = "auto", avatarUpdatedAt = 0L, revision = 1))))
+                val dao =
+                    RecordingPublicProfileDao(
+                        MutableStateFlow(
+                            mapOf(
+                                selfId to
+                                    publicRow(
+                                        avatarType = "auto",
+                                        avatarUpdatedAt = 0L,
+                                        revision = 1,
+                                    ),
+                            ),
+                        ),
+                    )
                 val serverTs = 5_000L
                 val repo = repoWith(dao, uploadResult = AppResult.Success(serverTs))
 

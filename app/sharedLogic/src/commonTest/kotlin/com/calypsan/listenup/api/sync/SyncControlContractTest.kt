@@ -78,16 +78,16 @@ class SyncControlContractTest :
             val accessChanged: SyncControl = SyncControl.AccessChanged()
             contractJson
                 .encodeToString(SyncControl.serializer(), stale)
-                .contains("\"type\":\"SyncControl.CursorStale\"") shouldBe true
+                .contains(""""type":"SyncControl.CursorStale"""") shouldBe true
             contractJson
                 .encodeToString(SyncControl.serializer(), streamErr)
-                .contains("\"type\":\"SyncControl.StreamError\"") shouldBe true
+                .contains(""""type":"SyncControl.StreamError"""") shouldBe true
             contractJson
                 .encodeToString(SyncControl.serializer(), accessChanged)
-                .contains("\"type\":\"SyncControl.AccessChanged\"") shouldBe true
+                .contains(""""type":"SyncControl.AccessChanged"""") shouldBe true
             val userDeleted: SyncControl = SyncControl.UserDeleted()
             contractJson
                 .encodeToString(SyncControl.serializer(), userDeleted)
-                .contains("\"type\":\"SyncControl.UserDeleted\"") shouldBe true
+                .contains(""""type":"SyncControl.UserDeleted"""") shouldBe true
         }
     })

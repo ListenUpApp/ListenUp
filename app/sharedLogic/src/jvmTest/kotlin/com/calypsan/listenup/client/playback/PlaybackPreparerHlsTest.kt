@@ -331,15 +331,11 @@ private class FakeHlsPlaybackService(
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = stubFailure
 
-    override suspend fun recordPosition(
-        request: RecordPositionRequest,
-    ): AppResult<PlaybackPositionSyncPayload> = stubFailure
+    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> = stubFailure
 
     override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = stubFailure
 
-    override suspend fun recordListeningEvent(
-        request: RecordListeningEventRequest,
-    ): AppResult<ListeningEventSyncPayload> = stubFailure
+    override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> = stubFailure
 }
 
 /** Fake [PlaybackPrepareRepository] that delegates to a fixed [FakeHlsPlaybackService] without any I/O. */

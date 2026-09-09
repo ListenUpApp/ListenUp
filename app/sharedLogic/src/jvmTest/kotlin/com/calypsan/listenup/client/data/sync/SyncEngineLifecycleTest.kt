@@ -48,9 +48,7 @@ class SyncEngineLifecycleTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                        ): AppResult<Unit> {
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> {
                             sequence += "sse:${event.id}"
                             return AppResult.Success(Unit)
                         }
@@ -248,9 +246,7 @@ class SyncEngineLifecycleTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                        ): AppResult<Unit> {
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> {
                             dispatchStarted.complete(Unit)
                             kotlinx.coroutines.awaitCancellation()
                             dispatchFinished.complete(Unit)

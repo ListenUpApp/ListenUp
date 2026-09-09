@@ -293,7 +293,7 @@ class AuthRepositoryImplTest :
                 everySuspend { authSession.currentAuthEpoch() } returns 0L
                 everySuspend { authSession.getRefreshToken() } calls {
                     readGate.await()
-                    throw RuntimeException("secure storage read failed")
+                    throw IllegalStateException("secure storage read failed")
                 }
                 val repo =
                     AuthRepositoryImpl(

@@ -559,24 +559,23 @@ private fun withTestHandler(
  * Like [withTestHandler] but injects a [RecordingDocumentStorage] so document-cache GC
  * can be asserted. The storage is exposed to the block.
  */
-private fun withGcHandler(
-    block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase, RecordingDocumentStorage) -> Unit,
-) = runTest {
-    val db = createInMemoryTestDatabase()
-    try {
-        val storage = RecordingDocumentStorage()
-        val handler =
-            booksDomain(
-                database = db,
-                mapper = BookEntityMapper(),
-                imageStorage = stubImageStorage(),
-                documentStorage = storage,
-            ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
-        block(handler, db, storage)
-    } finally {
-        db.close()
+private fun withGcHandler(block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase, RecordingDocumentStorage) -> Unit) =
+    runTest {
+        val db = createInMemoryTestDatabase()
+        try {
+            val storage = RecordingDocumentStorage()
+            val handler =
+                booksDomain(
+                    database = db,
+                    mapper = BookEntityMapper(),
+                    imageStorage = stubImageStorage(),
+                    documentStorage = storage,
+                ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+            block(handler, db, storage)
+        } finally {
+            db.close()
+        }
     }
-}
 
 /** In-memory [DocumentStorage] that records every [deleteCached] call as a (bookId, docId, format) triple. */
 private class RecordingDocumentStorage : DocumentStorage {

@@ -60,7 +60,7 @@ class TimelineGeometryTest :
             val g = TimelineGeometry(windowStartMs = 0L, windowEndMs = BOOK_MS, widthPx = 1200f)
 
             withClue("195 seconds per pixel on a 65-hour book at 1200px") {
-                (g.msPerPixel / 1000.0) shouldBeGreaterThan 190.0
+                g.msPerPixel / 1000.0 shouldBeGreaterThan 190.0
             }
         }
 

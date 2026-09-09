@@ -42,9 +42,9 @@ class ChapterDriftTest :
             result as DriftResult.Corrected
             val ch = result.chapters
             for (i in 0 until ch.lastIndex) {
-                (ch[i].startTime + ch[i].duration) shouldBe ch[i + 1].startTime
+                ch[i].startTime + ch[i].duration shouldBe ch[i + 1].startTime
             }
-            (ch.last().startTime + ch.last().duration) shouldBe book
+            ch.last().startTime + ch.last().duration shouldBe book
         }
 
         test("inverted anchors (would reverse order) are rejected") {

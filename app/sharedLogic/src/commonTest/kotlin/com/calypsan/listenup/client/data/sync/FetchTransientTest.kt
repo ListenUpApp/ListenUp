@@ -61,9 +61,7 @@ class FetchTransientTest :
 
                 override fun syncId(item: Tag): String = item.id
 
-                override suspend fun onEvent(
-                    event: SyncEvent<Tag>,
-                ): AppResult<Unit> = AppResult.Success(Unit)
+                override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                 override suspend fun onCatchUpItem(
                     item: Tag,
@@ -154,7 +152,8 @@ private class InMemoryCursorDao : SyncCursorDao {
         if (current == null || revision > current) cursors[domainName] = revision
     }
 
-    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+    override suspend fun all(): List<SyncCursorEntity> =
+        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
     override suspend fun deleteAll() {
         cursors.clear()

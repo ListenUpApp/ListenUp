@@ -14,7 +14,7 @@ class TagContractTest :
                     name = "Sci-Fi",
                     slug = "sci-fi",
                     revision = 42,
-                    updatedAt = 1730000000000L,
+                    updatedAt = 1_730_000_000_000L,
                     deletedAt = null,
                 )
             val json = contractJson.encodeToString(Tag.serializer(), original)
@@ -29,8 +29,8 @@ class TagContractTest :
                     name = "Fantasy",
                     slug = "fantasy",
                     revision = 50,
-                    updatedAt = 1730000000000L,
-                    deletedAt = 1730000005000L,
+                    updatedAt = 1_730_000_000_000L,
+                    deletedAt = 1_730_000_005_000L,
                 )
             val json = contractJson.encodeToString(Tag.serializer(), original)
             val decoded = contractJson.decodeFromString(Tag.serializer(), json)

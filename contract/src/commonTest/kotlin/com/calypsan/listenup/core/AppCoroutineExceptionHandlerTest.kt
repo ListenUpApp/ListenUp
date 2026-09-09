@@ -40,7 +40,7 @@ class AppCoroutineExceptionHandlerTest :
                 val siblingRan = CompletableDeferred<Unit>()
                 // Without the handler this reaches propagateExceptionFinalResort and kills the
                 // process on Kotlin/Native.
-                scope.launch { throw RuntimeException("simulated realtime-socket drop") }
+                scope.launch { throw IllegalStateException("simulated realtime-socket drop") }
                 // A sibling on the same scope must still run to completion.
                 scope.launch { siblingRan.complete(Unit) }
 

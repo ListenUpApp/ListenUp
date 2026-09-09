@@ -190,7 +190,7 @@ class ActivityFeedViewModelTest :
                 val fixture = TestFixture()
                 every { fixture.activityRepository.observeRecent(any()) } returns
                     flow {
-                        throw RuntimeException("boom")
+                        throw IllegalStateException("boom")
                     }
 
                 // When

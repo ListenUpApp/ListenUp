@@ -105,7 +105,7 @@ class SettingsRepositoryTest :
                 verifySuspend { storage.save("server_url", "https://api.example.com") }
                 verifySuspend { authSession.checkServerStatus() }
                 // authStateFlow is unused but kept to document the seam shape.
-                (authStateFlow.value as? DomainAuthState.NeedsLogin) shouldBe null
+                authStateFlow.value as? DomainAuthState.NeedsLogin shouldBe null
             }
         }
 

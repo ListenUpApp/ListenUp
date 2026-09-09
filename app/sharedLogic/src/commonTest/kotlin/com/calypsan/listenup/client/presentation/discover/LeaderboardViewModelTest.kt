@@ -200,7 +200,7 @@ class LeaderboardViewModelTest :
 
         test("repo flow throwing emits Error with isRetryable = true") {
             runTest {
-                val repo = FakeLeaderboardRepository { flow { throw RuntimeException("db error") } }
+                val repo = FakeLeaderboardRepository { flow { throw IllegalStateException("db error") } }
                 val vm = LeaderboardViewModel(repo)
 
                 backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }

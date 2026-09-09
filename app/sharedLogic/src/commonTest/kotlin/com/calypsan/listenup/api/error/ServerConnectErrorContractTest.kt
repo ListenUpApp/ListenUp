@@ -24,7 +24,7 @@ class ServerConnectErrorContractTest :
         test("LocalNetworkPermissionDenied has stable @SerialName") {
             val err: AppError = ServerConnectError.LocalNetworkPermissionDenied()
             val json = contractJson.encodeToString(AppError.serializer(), err)
-            json.contains("\"type\":\"ServerConnectError.LocalNetworkPermissionDenied\"") shouldBe true
+            json.contains(""""type":"ServerConnectError.LocalNetworkPermissionDenied"""") shouldBe true
         }
 
         test("LocalNetworkPermissionDenied carries the expected message and code") {

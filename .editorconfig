@@ -21,8 +21,12 @@ ktlint_standard_import-ordering = disabled
 trim_trailing_whitespace = false
 
 [*Test.kt]
-# Tests often have longer descriptive names and setup lines
-ktlint_standard_max-line-length = disabled
+# Tests get a longer line than production code — but a LIMIT, matching detekt's MaxLineLength (140).
+# This used to disable ktlint's rule outright, which ktlint treats as "no limit" for its own wrapping
+# decisions: its function-signature rule then re-joins any expression body onto the signature line
+# at any length, and detekt fails the very lines ktlint just produced. Two formatters must agree.
+max_line_length = 140
+ktlint_ignore_back_ticked_identifier = true
 
 [*.{yml,yaml}]
 indent_size = 2

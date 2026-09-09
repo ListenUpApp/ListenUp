@@ -41,9 +41,7 @@ class SyncReconcilerTest :
 
                 override fun syncId(item: Tag): String = item.id
 
-                override suspend fun onEvent(
-                    event: SyncEvent<Tag>,
-                ): AppResult<Unit> = AppResult.Success(Unit)
+                override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                 override suspend fun onCatchUpItem(
                     item: Tag,
@@ -81,7 +79,8 @@ class SyncReconcilerTest :
                         if (current == null || revision > current) cursors[domainName] = revision
                     }
 
-                    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+                    override suspend fun all(): List<SyncCursorEntity> =
+                        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
                     override suspend fun deleteAll() {
                         cursors.clear()
@@ -284,9 +283,7 @@ private fun accessGatedHandler(
 
         override fun syncId(item: Tag): String = item.id
 
-        override suspend fun onEvent(
-            event: SyncEvent<Tag>,
-        ): AppResult<Unit> = AppResult.Success(Unit)
+        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
         override suspend fun onCatchUpItem(
             item: Tag,
@@ -309,6 +306,6 @@ private fun accessGatedHandler(
             accessibleIds: Set<String>,
             now: Long,
         ) {
-            prunedTo += (candidateIds intersect accessibleIds)
+            prunedTo += candidateIds intersect accessibleIds
         }
     }

@@ -125,7 +125,7 @@ class ContributorRepositoryTest :
                 // Punctuation is neutralized by per-token quoting (QueryUtils.toFtsQuery), not by
                 // stripping it out — a stripped-character query would corrupt punctuated names
                 // like "O'Brien" or "George R.R. Martin".
-                verifySuspend { searchDao.searchContributors("\"test*()\"\":\"*", any()) }
+                verifySuspend { searchDao.searchContributors(""""test*()"":"*""", any()) }
             }
         }
 

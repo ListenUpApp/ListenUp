@@ -26,6 +26,9 @@ complexity:
   LargeClass:
     active: true
     allowedLines: 600
+    # A spec with many cases is one class by construction; splitting it to satisfy a line count
+    # scatters the behaviour it documents.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   LongMethod:
     active: true
     allowedLines: 120  # Composables and media player logic are naturally verbose
@@ -56,6 +59,9 @@ complexity:
     ignoreAnnotation: true
     allowedWithLengthLessThan: 5
     ignoreStringsRegex: '$^'
+    # Fixture ids ("book1", "user-a") repeat across tests by design; a named constant for each would
+    # hide the value the assertion is about.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   TooManyFunctions:
     active: true
     allowedFunctionsPerFile: 20
@@ -66,6 +72,8 @@ complexity:
     ignoreDeprecated: true
     ignorePrivate: true
     ignoreOverridden: true
+    # As LargeClass: a spec's helper functions are the test, not a design smell.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
 
 coroutines:
   active: true
@@ -125,6 +133,9 @@ exceptions:
     active: true
   NotImplementedDeclaration:
     active: true
+    # TODO() is how a test fake declines an interface member it will never be asked for. In production
+    # it is a stub that ships; in a fake it is the honest answer. Same category call as MagicNumber's.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   ObjectExtendsThrowable:
     active: true
   PrintStackTrace:
@@ -149,12 +160,12 @@ exceptions:
     active: true
   ThrowingExceptionsWithoutMessageOrCause:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   ThrowingNewInstanceOfSameException:
     active: true
   TooGenericExceptionCaught:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
     exceptionNames:
       - 'ArrayIndexOutOfBoundsException'
       - 'Error'
@@ -196,7 +207,13 @@ naming:
     forbiddenName: []
   FunctionNaming:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    # Test source sets. `androidUnitTest` is the OLD AGP name and matches nothing on disk — the KMP
+    # library plugin calls it `androidHostTest`, and `desktopTest`/`appleTest` never appeared here at
+    # all. Until 2026-09 none of those directories were even listed as detekt sources, so this list
+    # was never exercised against them; the moment they were, 600+ findings were this rename.
+    # Keep it COMPLETE: an explicit excludes list replaces detekt's default one rather than extending
+    # it, so leaving a test set out here removes protection that set silently had before.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
     functionPattern: '[a-z][a-zA-Z0-9]*'
     excludeClassPattern: '$^'
     ignoreAnnotated: ['Composable']
@@ -255,7 +272,7 @@ performance:
     active: true
   SpreadOperator:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   UnnecessaryPartOfBinaryExpression:
     active: true
   UnnecessaryTemporaryInstantiation:
@@ -301,7 +318,7 @@ potential-bugs:
     active: true
   LateinitUsage:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
     ignoreAnnotated: ['Inject']
     ignoreOnClassesPattern: ''
   MapGetWithNotNullAssertionOperator:
@@ -328,7 +345,7 @@ potential-bugs:
     active: true
   UnsafeCallOnNullableType:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
   UnsafeCast:
     active: true
   UnusedUnaryOperator:
@@ -415,7 +432,7 @@ style:
   MagicNumber:
     active: true
     ignoreAnnotated: ['Composable']  # Compose layout literals (dp/sp/alpha/weight/durations) are self-documenting at the call site; parity with LongMethod/UnusedParameter Compose scoping
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/*Previews.kt']  # *Previews.kt are non-shipping mock-data fixtures, same category as test fixtures
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**', '**/*Previews.kt']  # *Previews.kt are non-shipping mock-data fixtures, same category as test fixtures
     ignoreNumbers:
       - '-1'
       - '0'
@@ -609,4 +626,5 @@ listenup-custom:
     #
     # So this is a genuine gap, not a false alarm to be silenced: WEB LOCALIZATION IS UNSOLVED.
     # Remove this exclusion the moment web gets a string pipeline, and expect it to light up.
-    excludes: ['**/app/webApp/**']
+    # Component tests render literal Text("...") precisely to assert on it — that is the test, not a UI string.
+    excludes: ['**/app/webApp/**', '**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']

@@ -45,9 +45,7 @@ class HomeRepositoryObserveTest :
         // Helpers
         // ====================================================================
 
-        fun makeDao(
-            positionFlow: MutableStateFlow<List<PlaybackPositionEntity>>,
-        ): PlaybackPositionDao {
+        fun makeDao(positionFlow: MutableStateFlow<List<PlaybackPositionEntity>>): PlaybackPositionDao {
             val dao: PlaybackPositionDao = mock()
             every { dao.observeRecentPositions(any()) } returns positionFlow
             everySuspend { dao.getRecentPositions(any()) } returns emptyList()

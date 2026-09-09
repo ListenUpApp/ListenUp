@@ -25,7 +25,7 @@ class PlaybackErrorContractTest :
         test("Stalled has stable @SerialName") {
             val err: AppError = PlaybackError.Stalled()
             val json = contractJson.encodeToString(AppError.serializer(), err)
-            json.contains("\"type\":\"PlaybackError.Stalled\"") shouldBe true
+            json.contains(""""type":"PlaybackError.Stalled"""") shouldBe true
         }
 
         test("Stalled exposes the expected constants") {

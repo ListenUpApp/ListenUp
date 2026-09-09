@@ -55,7 +55,9 @@ class AdminCollectionsViewModelTest :
             isOwner = true,
         )
 
-        fun fixture(collectionsFlow: MutableStateFlow<List<Collection>>): Triple<AdminCollectionsViewModel, CollectionRepository, LibraryRepository> {
+        fun fixture(
+            collectionsFlow: MutableStateFlow<List<Collection>>,
+        ): Triple<AdminCollectionsViewModel, CollectionRepository, LibraryRepository> {
             val repo: CollectionRepository = mock()
             val libraryRepo: LibraryRepository = mock()
             every { repo.observeCollections() } returns collectionsFlow

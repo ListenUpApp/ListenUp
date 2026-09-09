@@ -20,6 +20,6 @@ class SyncErrorContractTest :
         test("NotFound has stable @SerialName") {
             val err: AppError = SyncError.NotFound(domain = "tags", entityId = "x")
             val json = contractJson.encodeToString(AppError.serializer(), err)
-            json.contains("\"type\":\"SyncError.NotFound\"") shouldBe true
+            json.contains(""""type":"SyncError.NotFound"""") shouldBe true
         }
     })

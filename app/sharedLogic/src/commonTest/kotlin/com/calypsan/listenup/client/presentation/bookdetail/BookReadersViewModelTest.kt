@@ -87,7 +87,7 @@ class BookReadersViewModelTest :
 
         test("upstream flow failure maps to Error(isRetryable = true)") {
             runTest {
-                val failingFlow: Flow<BookReaders> = flow { throw RuntimeException("room blew up") }
+                val failingFlow: Flow<BookReaders> = flow { throw IllegalStateException("room blew up") }
                 val viewModel = BookReadersViewModel(fakeRepo(failingFlow), bookId = "b1")
 
                 viewModel.uiState.test {

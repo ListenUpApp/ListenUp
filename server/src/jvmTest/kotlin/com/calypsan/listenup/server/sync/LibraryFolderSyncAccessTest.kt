@@ -156,9 +156,7 @@ private data class TestUser(
  * users inside the `testApplication` receiver (so `application` and `seedTestLibraryAndFolder`
  * are in scope).
  */
-private fun withFolderSyncApp(
-    block: suspend ApplicationTestBuilder.(admin: TestUser, member: TestUser) -> Unit,
-) {
+private fun withFolderSyncApp(block: suspend ApplicationTestBuilder.(admin: TestUser, member: TestUser) -> Unit) {
     val libraryRoot = Files.createTempDirectory("listenup-library-folder-access-")
     try {
         testApplication {

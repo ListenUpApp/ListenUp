@@ -171,7 +171,7 @@ class AuthFailureObserverTest :
                             authState = AuthState.Authenticated(UserId("u1"), SessionId("session")),
                             onClearSessionCredentials = {
                                 clearCalls++
-                                if (clearCalls == 1) throw RuntimeException("Keychain locked on first attempt")
+                                if (clearCalls == 1) throw IllegalStateException("Keychain locked on first attempt")
                             },
                         )
 

@@ -766,9 +766,7 @@ private suspend fun stageAnalyzedImport(
     )
 }
 
-private fun applierFor(
-    staged: StagedImport,
-): ImportApplier =
+private fun applierFor(staged: StagedImport): ImportApplier =
     ImportApplier(
         reader = AbsBackupReader(),
         store = ImportStore(staged.paths),
