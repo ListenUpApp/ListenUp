@@ -89,8 +89,7 @@ class SqliteWorkerProtocolTest :
     })
 
 /** An `open` command against a database name no other run can collide with — OPFS outlives the suite. */
-private fun openCommand(): Json =
-    json("cmd" to "open", "fileName" to "listenup-protocol-${Random.nextInt(0, Int.MAX_VALUE)}.db")
+private fun openCommand(): Json = json("cmd" to "open", "fileName" to "listenup-protocol-${Random.nextInt(0, Int.MAX_VALUE)}.db")
 
 /** The reply's `error` string, or null when the worker answered successfully. */
 private fun errorOf(reply: dynamic): String? {
