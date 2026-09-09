@@ -634,6 +634,21 @@ jobs:
       - name: Build debug APK
         run: ./gradlew :app:androidApp:assembleDebug --no-daemon
 
+      # CI has never exercised a minified build: isMinifyEnabled is scoped to `release`, and
+      # `release` needs the Play keystore. `benchmarkRelease` derives from `release` (so it is
+      # minified + resource-shrunk) and is reassigned to the debug signing config by the
+      # androidComponents block in app/androidApp/build.gradle.kts, so it builds keyless. Measured
+      # locally: 22 MB against the debug APK's 119 MB, i.e. R8 really ran.
+      - name: Build minified canary APK
+        run: ./gradlew :app:androidApp:assembleBenchmarkRelease --no-daemon
+
+      # The gate that exists because ListenUp 0.8.0 shipped an app that could not reach ANY server
+      # — R8 renamed the @Rpc interfaces its client resolves by name. It used to run only in
+      # release.yml, after the release was already being built; here it catches the regression on
+      # the merge that introduced it instead.
+      - name: Verify @Rpc surface survived R8
+        run: bash tools/scripts/verify-r8-rpc-surface.sh app/androidApp/build/outputs/apk/benchmarkRelease/androidApp-benchmarkRelease.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
