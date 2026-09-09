@@ -18,6 +18,20 @@ internal interface SyncStreamClient {
     fun disconnect()
 
     /**
+     * Close the firehose subscription and SUSPEND until its loop has actually completed.
+     *
+     * [disconnect] only requests cancellation: `connect()`'s "already running" guard reads
+     * `Job.isActive`, which is already false for a cancelled-but-not-yet-complete job — so a
+     * `disconnect(); connect()` pair can leave two subscription loops live at once, both writing
+     * the same resume cursor and emitting into the same frame bus. Every suspend caller uses this;
+     * [disconnect] survives only for the non-suspend [SyncEngine.stop] soft path.
+     *
+     * The default delegates to [disconnect] — correct for fakes with no background loop; the
+     * production [RpcSyncStreamClient] overrides it to join.
+     */
+    suspend fun disconnectAndJoin() = disconnect()
+
+    /**
      * Current resume cursor the stream client will subscribe from on the next
      * reconnect. Read-only; visibility lets [SyncEngine.handleCursorStale]
      * observe the cursor and tests assert reconnect behavior.
