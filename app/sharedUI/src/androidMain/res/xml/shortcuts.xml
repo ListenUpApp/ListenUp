@@ -21,7 +21,6 @@
             android:action="com.calypsan.listenup.action.RESUME"
             android:targetPackage="com.calypsan.listenup.client"
             android:targetClass="com.calypsan.listenup.client.MainActivity" />
-        <categories android:name="android.shortcut.conversation" />
     </shortcut>
 
     <!-- Search Library -->
@@ -35,7 +34,6 @@
             android:action="com.calypsan.listenup.action.SEARCH"
             android:targetPackage="com.calypsan.listenup.client"
             android:targetClass="com.calypsan.listenup.client.MainActivity" />
-        <categories android:name="android.shortcut.conversation" />
     </shortcut>
 
     <!-- Sleep Timer -->
@@ -49,7 +47,6 @@
             android:action="com.calypsan.listenup.action.SLEEP_TIMER"
             android:targetPackage="com.calypsan.listenup.client"
             android:targetClass="com.calypsan.listenup.client.MainActivity" />
-        <categories android:name="android.shortcut.conversation" />
     </shortcut>
 
 </shortcuts>
