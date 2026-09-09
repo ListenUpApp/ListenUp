@@ -53,22 +53,29 @@ private const val WS_PING_PERIOD_MS = 15_000L
 private const val WS_PING_TIMEOUT_MS = 15_000L
 
 /**
- * Largest **inbound** WebSocket frame the RPC mounts accept. Ktor reads this in `WebSocketReader`
- * only, so it bounds what a peer may send us, not what we send back.
+ * Largest **inbound** WebSocket frame the RPC mounts accept.
  *
- * That is exactly the exposure worth bounding: an inbound frame is buffered in full before any
- * handler — including the per-IP throttle in
- * [com.calypsan.listenup.server.auth.AuthServiceImpl] — runs, and `/api/rpc/public` is reachable
- * without a credential. Ktor's default is `Long.MAX_VALUE`, so one anonymous connection could
- * otherwise cost unbounded memory before the throttle ever got a say.
+ * **Inbound only.** Ktor passes `maxFrameSize` to `WebSocketReader` and nowhere else —
+ * `WebSocketWriter` takes no size parameter — so this bounds what a peer may send *us*. Server
+ * responses are unaffected, and in particular a catch-up sync page (which can run to tens of MB for
+ * a large library) is never measured against this number.
  *
- * Sized with headroom against the largest frame this transport moves at all — a catch-up sync page
- * of [com.calypsan.listenup.server.sync.MAX_PAGE_LIMIT] (5000) rows, measured end-to-end at
- * 5,302,527 bytes; ×4 headroom = 21,210,108, rounded up to the next power of two = 32 MiB. Real
- * inbound frames are RPC call messages (a method name and its arguments — no binary payload rides
- * this transport; uploads are REST multipart), which sit orders of magnitude below that.
+ * Inbound is the exposure worth bounding: a frame is buffered in full before any handler runs —
+ * including the per-IP throttle in [com.calypsan.listenup.server.auth.AuthServiceImpl] — and
+ * `/api/rpc/public` is reachable without a credential. Ktor's default is `Long.MAX_VALUE`, so one
+ * anonymous connection could otherwise cost unbounded memory before the throttle got a say.
  *
- * ⚠️ Re-measure if `MAX_PAGE_LIMIT` is ever raised.
+ * Sized against the largest call a legitimate client can make: `BookService.setBookChapters` at
+ * `MAX_CHAPTERS_PER_BOOK` (5000) rows with every [com.calypsan.listenup.api.dto.ChapterInput] field
+ * at its contract maximum (`MAX_TITLE` 1024, both `MAX_SECTION_TITLE` 256 headings populated),
+ * measured through `contractJson` at **8,258,144 bytes**; ×4 headroom = 33,032,576, rounded up to
+ * the next power of two = **32 MiB**. Nothing else on the RPC surface comes close — no binary
+ * payload rides this transport at all (uploads are REST multipart), and the same call with
+ * real-world chapter titles measures 707,037 bytes.
+ *
+ * ⚠️ Re-measure if `MAX_CHAPTERS_PER_BOOK` or `ChapterInput`'s length ceilings are raised. Note also
+ * that `setBookCollections` and `reorderShelfBooks` take **uncapped** id lists, so for those this
+ * cap is the only bound there is.
  */
 private const val WS_MAX_FRAME_SIZE_BYTES = 33_554_432L
 
