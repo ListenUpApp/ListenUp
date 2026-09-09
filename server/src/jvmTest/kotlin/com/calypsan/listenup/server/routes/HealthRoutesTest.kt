@@ -21,6 +21,15 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlin.time.TimeSource
 
+/** Spelled out rather than escaped, so the JSON-literal expectations below stay readable. */
+private const val QUOTE = "\""
+
+/** The `"key":"value"` text a compact JSON body carries — what serve-smoke.sh greps for. */
+private fun jsonField(
+    key: String,
+    value: String,
+) = "$QUOTE$key$QUOTE:$QUOTE$value$QUOTE"
+
 /**
  * `/healthz` is the only surface the release smoke gate (`server/scripts/serve-smoke.sh`) and a
  * container `HEALTHCHECK` can assert on, so its shape is a contract with the release pipeline —
@@ -60,7 +69,7 @@ class HealthRoutesTest :
                 val response = client.get("/healthz")
 
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldContain "\"status\":\"ok\""
+                response.bodyAsText() shouldContain jsonField("status", "ok")
             }
         }
 
@@ -70,7 +79,7 @@ class HealthRoutesTest :
 
                 val body = client.get("/healthz").bodyAsText()
 
-                body shouldContain "\"version\":\"${ServerIdentity.VERSION}\""
+                body shouldContain jsonField("version", ServerIdentity.VERSION)
             }
         }
 
@@ -94,6 +103,7 @@ class HealthRoutesTest :
 
                 response.status shouldBe HttpStatusCode.OK
                 val raw = response.bodyAsText()
+                raw shouldContain jsonField("status", "ok")
                 contractJson
                     .decodeFromString<HealthResponse>(raw)
                     .schemaVersion
@@ -101,7 +111,7 @@ class HealthRoutesTest :
                     .shouldNotBeBlank()
                 // The literal shape serve-smoke.sh matches, so the gate and this test agree on
                 // bytes rather than on two independent readings of "non-blank".
-                raw shouldContain Regex("\"schemaVersion\":\"[^\"]+\"")
+                raw shouldContain Regex("${QUOTE}schemaVersion$QUOTE:$QUOTE[^$QUOTE]+$QUOTE")
             }
         }
     })
