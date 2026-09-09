@@ -49,16 +49,15 @@ final class ABSImportHubObserver {
     /// Pure: project the sealed `ABSImportListUiState` onto the hub screen's phase.
     /// `nonisolated` so tests can exercise it off the main actor.
     nonisolated static func phase(from state: ABSImportListUiState) -> ImportHubPhase {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             return .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             return .ready(ImportHubReadyModel(from: ready))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             return .error(message: error.error.message)
-        case .unknown:
-            Log.error("Unexpected ABSImportListUiState case")
-            return .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

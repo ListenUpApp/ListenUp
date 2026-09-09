@@ -114,14 +114,12 @@ final class StorageObserver {
 
     private func mapConfirmation(_ confirmation: DeleteConfirmation?, total: Int64) -> StoragePendingDeletion? {
         guard let confirmation else { return nil }
-        switch onEnum(of: confirmation) {
-        case .singleBook(let single):
+        switch confirmation.sealedType() {
+        case .singleBook(let singleType):
+            let single = singleType.value
             return .single(title: single.book.title, sizeBytes: single.book.sizeBytes)
         case .allDownloads:
             return .all(count: books.count, totalBytes: total)
-        case .unknown:
-            Log.error("Unexpected DeleteConfirmation case")
-            return nil
         }
     }
 }

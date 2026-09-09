@@ -41,20 +41,16 @@ final class LoginViewModelWrapper {
     // MARK: - State mapping
 
     private func apply(_ state: LoginUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             isLoading = false; isSuccess = false; clearErrors()
         case .loading:
             isLoading = true; isSuccess = false; clearErrors()
         case .success:
             isLoading = false; isSuccess = true; clearErrors()
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             isLoading = false; isSuccess = false; mapError(error.type)
-        case .unknown:
-            Log.error("Unexpected LoginUiState case")
-            isLoading = false; isSuccess = false
-            clearErrors()
-            generalError = String(localized: "auth.server_error")
         }
     }
 
@@ -66,21 +62,21 @@ final class LoginViewModelWrapper {
 
     private func mapError(_ errorType: LoginErrorType) {
         clearErrors()
-        switch onEnum(of: errorType) {
+        switch errorType.sealedType() {
         case .invalidCredentials:
             generalError = String(localized: "auth.invalid_credentials")
-        case .networkError(let error):
+        case .networkError(let errorType):
+            let error = errorType.value
             generalError = error.detail ?? String(localized: "auth.unable_to_connect")
-        case .serverError(let error):
+        case .serverError(let errorType):
+            let error = errorType.value
             generalError = error.detail ?? String(localized: "auth.server_error")
-        case .validationError(let error):
+        case .validationError(let errorType):
+            let error = errorType.value
             switch error.field {
             case .email: emailError = String(localized: "auth.invalid_email")
             case .password: passwordError = String(localized: "auth.enter_password")
             }
-        case .unknown:
-            Log.error("Unexpected LoginErrorType case")
-            generalError = String(localized: "auth.server_error")
         }
     }
 }

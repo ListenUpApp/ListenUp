@@ -38,16 +38,15 @@ final class AdminCollectionsObserver {
     // MARK: - State mapping
 
     private func apply(_ state: AdminCollectionsUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(AdminCollectionsReadyModel(from: ready))
-        case .error(let err):
+        case .error(let errType):
+            let err = errType.value
             phase = .error(err.message)
-        case .unknown:
-            Log.error("Unexpected AdminCollectionsUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }

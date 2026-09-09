@@ -41,7 +41,7 @@ final class SeeAllSearchObserver {
     // MARK: - State mapping
 
     private func apply(_ state: SeeAllSearchUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             phase = .idle
         case .loading:
@@ -51,24 +51,29 @@ final class SeeAllSearchObserver {
             // existed, through .unknown's error branch) tells the user their search failed when
             // they have simply not typed enough for the trigram index to answer yet.
             phase = .tooShort
-        case .results(let results):
+        case .results(let resultsType):
+            let results = resultsType.value
             phase = results.hits.isEmpty ? .empty : .results(results.hits.map { SearchRow($0) })
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(error.message)
-        case .unknown:
-            Log.error("Unexpected SeeAllSearchUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 
     private func applyNav(_ action: SearchNavAction) {
-        switch onEnum(of: action) {
-        case .navigateToBook(let a): pendingNavigation = .book(id: a.bookId)
-        case .navigateToContributor(let a): pendingNavigation = .contributor(id: a.contributorId)
-        case .navigateToSeries(let a): pendingNavigation = .series(id: a.seriesId)
-        case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId, name: a.tagName)
-        case .unknown:
-            Log.error("Unexpected SearchNavAction case")
+        switch action.sealedType() {
+        case .navigateToBook(let aType):
+            let a = aType.value
+            pendingNavigation = .book(id: a.bookId)
+        case .navigateToContributor(let aType):
+            let a = aType.value
+            pendingNavigation = .contributor(id: a.contributorId)
+        case .navigateToSeries(let aType):
+            let a = aType.value
+            pendingNavigation = .series(id: a.seriesId)
+        case .navigateToTag(let aType):
+            let a = aType.value
+            pendingNavigation = .tag(id: a.tagId, name: a.tagName)
         }
     }
 }

@@ -8,7 +8,7 @@ enum NotificationsPhase {
     case ready([NotificationRowModel])
 }
 
-/// One inbox row, native. Copy selection happens HERE (onEnum over the event), never in ForEach.
+/// One inbox row, native. Copy selection happens HERE (`sealedType()` over the event), never in ForEach.
 struct NotificationRowModel: Identifiable, Equatable {
     let id: String
     let title: String
@@ -23,12 +23,13 @@ struct NotificationRowModel: Identifiable, Equatable {
         self.createdAtMs = notification.createdAt
         self.isUnread = notification.isUnread
         if let event = notification.event {
-            switch onEnum(of: event) {
+            switch event.sealedType() {
             case .campfireInvite:
                 title = String(localized: "notifications.campfire_invite_title")
                 body = String(localized: "notifications.campfire_invite_body")
                 systemImage = "flame"
-            case .registrationDecision(let decision):
+            case .registrationDecision(let decisionType):
+                let decision = decisionType.value
                 title = String(localized: decision.approved
                     ? "notifications.registration_decision_approved_title"
                     : "notifications.registration_decision_denied_title")
@@ -42,10 +43,6 @@ struct NotificationRowModel: Identifiable, Equatable {
                 title = String(localized: "notifications.registration_approval_title")
                 body = String(localized: "notifications.registration_approval_body")
                 systemImage = "person.badge.clock"
-            case .unknown:
-                title = String(localized: "notifications.unknown_title")
-                body = String(localized: "notifications.unknown_subtitle")
-                systemImage = "bell"
             }
             target = PushTapRouter.outcome(for: event.target)
         } else {
@@ -84,16 +81,14 @@ final class NotificationsObserver {
     // MARK: - State mapping
 
     private func apply(_ state: NotificationsUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
         case .empty:
             phase = .empty
-        case .data(let data):
+        case .data(let dataType):
+            let data = dataType.value
             phase = .ready(data.notifications.map { NotificationRowModel(from: $0) })
-        case .unknown:
-            Log.error("Unexpected NotificationsUiState case")
-            phase = .empty
         }
     }
 }

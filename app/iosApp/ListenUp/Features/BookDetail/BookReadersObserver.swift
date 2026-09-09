@@ -35,18 +35,17 @@ final class BookReadersObserver {
     // MARK: - State mapping
 
     private func apply(_ state: BookReadersUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
         case .noReaders:
             phase = .empty
-        case .data(let data):
+        case .data(let dataType):
+            let data = dataType.value
             phase = .data(Self.rows(from: data.readers))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(isRetryable: error.isRetryable)
-        case .unknown:
-            Log.error("Unexpected BookReadersUiState case")
-            phase = .error(isRetryable: false)
         }
     }
 

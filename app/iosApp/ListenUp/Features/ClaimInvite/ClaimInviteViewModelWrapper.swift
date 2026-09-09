@@ -49,13 +49,14 @@ final class ClaimInviteViewModelWrapper {
     // MARK: - State mapping
 
     private func apply(_ state: ClaimInviteUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             phase = .codeEntry
             preview = nil
         case .lookingUp:
             phase = .lookingUp
-        case .preview(let previewState):
+        case .preview(let previewStateType):
+            let previewState = previewStateType.value
             preview = previewState.preview
             if previewState.preview.valid {
                 phase = .preview
@@ -66,11 +67,9 @@ final class ClaimInviteViewModelWrapper {
             phase = .submitting
         case .claimed:
             phase = .claimed
-        case .error(let errorState):
+        case .error(let errorStateType):
+            let errorState = errorStateType.value
             phase = .error(errorState.message)
-        case .unknown:
-            Log.error("Unexpected ClaimInviteUiState case")
-            phase = .error(String(localized: "invite.error_invalid"))
         }
     }
 }

@@ -277,10 +277,11 @@ final class BulkEditObserver {
     // MARK: - State mapping
 
     private func applyState(_ state: BulkEditUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             isLoading = true
-        case .editing(let editing):
+        case .editing(let editingType):
+            let editing = editingType.value
             isLoading = false
             bookCount = Int(editing.bookCount)
             requestedCount = Int(editing.requestedCount)
@@ -312,27 +313,22 @@ final class BulkEditObserver {
             }
             tagChips = chosenTags.map(BulkEditMapping.nameChip)
             moodChips = chosenMoods.map(BulkEditMapping.nameChip)
-        case .unknown:
-            // Swift cannot switch a Kotlin sealed interface exhaustively, so this branch is real
-            // rather than unreachable: a state this build does not know about leaves the form as it
-            // was instead of blanking it, and says so in the log.
-            Log.error("Unexpected BulkEditUiState case")
         }
     }
 
     private func applyEvent(_ event: BulkEditEvent) {
-        switch onEnum(of: event) {
-        case .applied(let applied):
+        switch event.sealedType() {
+        case .applied(let appliedType):
+            let applied = appliedType.value
             appliedCount = Int(applied.changedCount)
             didFinish = true
-        case .failed(let failed):
+        case .failed(let failedType):
+            let failed = failedType.value
             appliedCount = Int(failed.appliedCount)
             error = BulkEditFormatting.failureMessage(
                 reason: failed.error.message,
                 appliedCount: Int(failed.appliedCount)
             )
-        case .unknown:
-            Log.error("Unexpected BulkEditEvent case")
         }
     }
 

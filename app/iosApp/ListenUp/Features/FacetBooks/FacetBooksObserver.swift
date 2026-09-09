@@ -29,10 +29,11 @@ struct FacetBooksSnapshot: Equatable {
     /// family as a genre tile. `bookCount`/`totalDurationMs` are the server-aggregate stats from
     /// the shared VM (not `books.count`), mirroring `GenrePageSnapshot`.
     static func from(_ state: BrowseFacetUiState, fallbackName: String) -> FacetBooksSnapshot {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             return FacetBooksSnapshot(phase: .loading, facetName: fallbackName)
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             return FacetBooksSnapshot(
                 phase: .ready,
                 facetName: r.facetName,
@@ -43,9 +44,6 @@ struct FacetBooksSnapshot: Equatable {
                 totalDurationMs: r.totalDurationMs
             )
         case .notFound:
-            return FacetBooksSnapshot(phase: .notFound, facetName: fallbackName)
-        case .unknown:
-            Log.error("Unexpected BrowseFacetUiState case")
             return FacetBooksSnapshot(phase: .notFound, facetName: fallbackName)
         }
     }

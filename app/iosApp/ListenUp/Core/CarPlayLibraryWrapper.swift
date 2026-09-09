@@ -34,7 +34,8 @@ final class CarPlayLibraryWrapper {
     }
 
     private func apply(_ state: LibraryUiState) {
-        guard case .loaded(let loaded) = onEnum(of: state) else { return }
+        guard case .loaded(let loadedType) = state.sealedType() else { return }
+        let loaded = loadedType.value
         books = loaded.books.map { BookRow($0) }
     }
 }

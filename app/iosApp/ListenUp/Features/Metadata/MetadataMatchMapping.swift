@@ -8,18 +8,17 @@ enum MetadataMatchMapping {
     // MARK: - Search
 
     static func searchPhase(from state: MetadataUiStateSearch) -> MetadataSearchStatus {
-        switch onEnum(of: state.loadState) {
+        switch state.loadState.sealedType() {
         case .idle:
             return .idle
         case .inFlight:
             return .inFlight
-        case .loaded(let loaded):
+        case .loaded(let loadedType):
+            let loaded = loadedType.value
             return .loaded(loaded.results.map(resultItem(from:)))
-        case .failed(let failed):
+        case .failed(let failedType):
+            let failed = failedType.value
             return .failed(failed.message)
-        case .unknown:
-            Log.error("Unexpected SearchLoadState case")
-            return .failed(String(localized: "common.error"))
         }
     }
 
@@ -38,16 +37,15 @@ enum MetadataMatchMapping {
     // MARK: - Preview
 
     static func previewPhase(from state: MetadataUiStatePreview) -> MetadataPreviewStatus {
-        switch onEnum(of: state.loadState) {
+        switch state.loadState.sealedType() {
         case .loading:
             return .loading
-        case .failed(let failed):
+        case .failed(let failedType):
+            let failed = failedType.value
             return .failed(failed.message)
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             return .ready(preview(from: ready, match: state.match))
-        case .unknown:
-            Log.error("Unexpected PreviewLoadState case")
-            return .failed(String(localized: "common.error"))
         }
     }
 
@@ -235,12 +233,14 @@ enum MetadataMatchMapping {
     // MARK: - Chapters
 
     static func chapterState(from suggestion: ChapterSuggestion) -> ChapterReviewState {
-        switch onEnum(of: suggestion) {
+        switch suggestion.sealedType() {
         case .unavailable:
             return .unavailable
-        case .countMismatch(let mismatch):
+        case .countMismatch(let mismatchType):
+            let mismatch = mismatchType.value
             return .mismatch(localCount: Int(mismatch.localCount), audibleCount: Int(mismatch.audibleCount))
-        case .available(let available):
+        case .available(let availableType):
+            let available = availableType.value
             let selected = available.selectedOrdinals
             let rows = available.rows.map { row in
                 ChapterRenameRow(
@@ -257,9 +257,6 @@ enum MetadataMatchMapping {
                 isApplying: available.isApplying,
                 applyError: available.applyError
             ))
-        case .unknown:
-            Log.error("Unexpected ChapterSuggestion case")
-            return .unavailable
         }
     }
 

@@ -4,7 +4,7 @@ import Testing
 @Suite("ConnectionHealthKind")
 struct ConnectionHealthKindTests {
     // ConnectionHealthObserver itself needs a live KMP ConnectionHealthViewModel; its construction
-    // and `onEnum` mapping are reviewed against the contract. ConnectionHealthKind — the flattened
+    // and `sealedType()` mapping are reviewed against the contract. ConnectionHealthKind — the flattened
     // enum the banner switches on — is pure and verified here.
 
     @Test func valuelessCasesAreDistinct() {

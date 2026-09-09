@@ -58,18 +58,17 @@ final class CreateInviteObserver {
     /// Pure: project a `CreateInviteStatus` onto the sheet's phase. `nonisolated` so tests can
     /// exercise it off the main actor.
     nonisolated static func phase(from status: CreateInviteStatus) -> CreateInvitePhase {
-        switch onEnum(of: status) {
+        switch status.sealedType() {
         case .idle:
             return .idle
         case .submitting:
             return .submitting
-        case .success(let success):
+        case .success(let successType):
+            let success = successType.value
             return .success(CreatedInviteModel(from: success.invite))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             return .failure(InviteFailure(from: error.type))
-        case .unknown:
-            Log.error("Unexpected CreateInviteStatus case")
-            return .failure(.server(detail: nil))
         }
     }
 }
@@ -157,18 +156,18 @@ enum InviteFailure: Equatable {
     case server(detail: String?)
 
     init(from type: CreateInviteErrorType) {
-        switch onEnum(of: type) {
-        case .validationError(let validation):
+        switch type.sealedType() {
+        case .validationError(let validationType):
+            let validation = validationType.value
             self = .validation(InviteField(from: validation.field))
         case .emailInUse:
             self = .emailInUse
-        case .networkError(let network):
+        case .networkError(let networkType):
+            let network = networkType.value
             self = .network(detail: network.detail)
-        case .serverError(let server):
+        case .serverError(let serverType):
+            let server = serverType.value
             self = .server(detail: server.detail)
-        case .unknown:
-            Log.error("Unexpected CreateInviteErrorType case")
-            self = .server(detail: nil)
         }
     }
 }

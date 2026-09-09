@@ -65,16 +65,14 @@ final class PendingApprovalViewModelWrapper {
     // MARK: - State mapping
 
     private func apply(_ state: PendingApprovalUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .waiting:
             phase = .waiting
         case .approved:
             phase = .approved
-        case .denied(let denied):
+        case .denied(let deniedType):
+            let denied = deniedType.value
             phase = .denied(denied.message)
-        case .unknown:
-            Log.error("Unexpected PendingApprovalUiState case")
-            phase = .waiting
         }
     }
 }

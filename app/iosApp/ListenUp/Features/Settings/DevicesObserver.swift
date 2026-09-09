@@ -44,20 +44,19 @@ final class DevicesObserver {
     // MARK: - State mapping
 
     private func apply(_ state: DevicesUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             let devices = Array(ready.devices)
             // The Kotlin Set<String> arrives as a bridged Kotlin set, not a Swift Set;
             // map through String(describing:) to produce a Swift-native Set<String>.
             let signingOut = Set(ready.signingOut.map { String(describing: $0) })
             phase = .ready(devices: devices, signingOut: signingOut)
-        case .error(let errorState):
+        case .error(let errorStateType):
+            let errorState = errorStateType.value
             phase = .error(errorState.error.message)
-        case .unknown:
-            Log.error("Unexpected DevicesUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }

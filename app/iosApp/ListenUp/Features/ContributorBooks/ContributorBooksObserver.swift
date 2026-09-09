@@ -49,14 +49,15 @@ struct ContributorBooksSnapshot: Equatable {
         fallbackName: String,
         fallbackRole: String
     ) -> ContributorBooksSnapshot {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle, .loading:
             return ContributorBooksSnapshot(
                 phase: .loading,
                 contributorName: fallbackName,
                 roleDisplayName: fallbackRole
             )
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             return ContributorBooksSnapshot(
                 phase: .ready,
                 contributorName: r.contributorName,
@@ -65,20 +66,13 @@ struct ContributorBooksSnapshot: Equatable {
                 standaloneBooks: r.standaloneBooks.map { BookRow($0) },
                 bookProgress: mapProgress(r.bookProgress)
             )
-        case .error(let err):
+        case .error(let errType):
+            let err = errType.value
             return ContributorBooksSnapshot(
                 phase: .error,
                 contributorName: fallbackName,
                 roleDisplayName: fallbackRole,
                 errorMessage: err.message
-            )
-        case .unknown:
-            Log.error("Unexpected ContributorBooksUiState case")
-            return ContributorBooksSnapshot(
-                phase: .error,
-                contributorName: fallbackName,
-                roleDisplayName: fallbackRole,
-                errorMessage: String(localized: "common.something_went_wrong")
             )
         }
     }

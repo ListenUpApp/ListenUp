@@ -28,17 +28,15 @@ final class HomeStatsObserver {
     // MARK: - State mapping
 
     private func apply(_ state: HomeStatsUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             statsPhase = .loading
         case .empty:
             statsPhase = .empty
-        case .data(let data):
+        case .data(let dataType):
+            let data = dataType.value
             statsPhase = .data(HomeStatsData(from: data))
         case .error:
-            statsPhase = .error
-        case .unknown:
-            Log.error("Unexpected HomeStatsUiState case")
             statsPhase = .error
         }
     }

@@ -127,14 +127,15 @@ final class ContributorMetadataObserver {
     private func apply(_ state: ContributorMetadataUiState) {
         region = MetadataRegionOption(state.region)
 
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             results = []
             rawHits = [:]
             previewPhase = nil
             profile = nil
 
-        case .search(let search):
+        case .search(let searchType):
+            let search = searchType.value
             applyContext(search.context)
             query = search.query
 
@@ -150,7 +151,8 @@ final class ContributorMetadataObserver {
             isApplying = false
             applyError = nil
 
-        case .preview(let preview):
+        case .preview(let previewType):
+            let preview = previewType.value
             applyContext(preview.context)
             query = preview.query
             isSearching = false
@@ -163,8 +165,6 @@ final class ContributorMetadataObserver {
             isApplying = mapped.isApplying
             applyError = mapped.applyError
 
-        case .unknown:
-            Log.error("Unexpected ContributorMetadataUiState case")
         }
     }
 

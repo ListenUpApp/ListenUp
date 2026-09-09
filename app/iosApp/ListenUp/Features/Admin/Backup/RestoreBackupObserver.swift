@@ -48,18 +48,17 @@ final class RestoreBackupObserver {
     /// Pure: project the sealed `RestoreBackupUiState` onto the restore phase.
     /// `nonisolated` so tests can exercise it off the main actor.
     nonisolated static func phase(from state: RestoreBackupUiState) -> RestorePhase {
-        switch onEnum(of: state) {
-        case .idle(let idle):
+        switch state.sealedType() {
+        case .idle(let idleType):
+            let idle = idleType.value
             return .idle(error: idle.error?.message)
         case .confirming:
             return .confirming
         case .restoring:
             return .restoring
-        case .completed(let completed):
+        case .completed(let completedType):
+            let completed = completedType.value
             return .completed(RestoreCompletedModel(from: completed.result))
-        case .unknown:
-            Log.error("Unexpected RestoreBackupUiState case")
-            return .idle(error: String(localized: "common.something_went_wrong"))
         }
     }
 
@@ -68,7 +67,7 @@ final class RestoreBackupObserver {
     /// keys. `nonisolated` so tests can exercise it off the main actor.
     nonisolated static func statusLabel(from event: BackupEvent?) -> String {
         guard let event else { return String(localized: "admin.restore_status_default") }
-        switch onEnum(of: event) {
+        switch event.sealedType() {
         case .validating:
             return String(localized: "admin.restore_status_validating")
         case .draining:

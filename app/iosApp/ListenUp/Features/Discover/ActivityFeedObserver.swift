@@ -37,15 +37,13 @@ final class ActivityFeedObserver {
     // MARK: - State mapping
 
     private func apply(_ state: ActivityFeedUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(ready.activities.map(ActivityRowItem.init(from:)))
         case .error:
-            phase = .error
-        case .unknown:
-            Log.error("Unexpected ActivityFeedUiState case")
             phase = .error
         }
     }

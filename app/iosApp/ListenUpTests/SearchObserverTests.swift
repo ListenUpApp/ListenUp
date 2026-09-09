@@ -13,7 +13,7 @@ import Shared
 /// `SearchObserver.apply`'s flatten of the sealed `SearchUiState` (including the
 /// `.tooShort` phase added for the trigram-index minimum-query-length floor) can't be
 /// exercised here: SKIE bridges `SearchUiState` as a sealed protocol whose cases aren't
-/// constructible from Swift, so that `onEnum` mapping — including the new `TooShort` →
+/// constructible from Swift, so that `sealedType()` mapping — including the new `TooShort` →
 /// `.tooShort` arm landing before any empty-collapse logic — is proven at the
 /// green-build pass (the app target's exhaustive `switch` compiling). What *is* pure and
 /// constructible is the mirrored `minSearchQueryLength` floor, pinned below.

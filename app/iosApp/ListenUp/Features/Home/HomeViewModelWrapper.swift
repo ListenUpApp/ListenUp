@@ -50,16 +50,15 @@ final class HomeViewModelWrapper {
     // MARK: - State mapping
 
     private func apply(_ state: HomeUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(HomeReady(from: ready))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(error.message)
-        case .unknown:
-            Log.error("Unexpected HomeUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }
@@ -111,8 +110,9 @@ struct ContinueItem: Identifiable, Equatable {
     let isLoading: Bool
 
     init(from item: ContinueListeningItem) {
-        switch onEnum(of: item) {
-        case .ready(let ready):
+        switch item.sealedType() {
+        case .ready(let readyType):
+            let ready = readyType.value
             let book = ready.book
             self.init(
                 id: book.bookId,
@@ -125,22 +125,10 @@ struct ContinueItem: Identifiable, Equatable {
                 timeLeft: book.timeRemainingFormatted,
                 isLoading: false
             )
-        case .loading(let loading):
+        case .loading(let loadingType):
+            let loading = loadingType.value
             self.init(
                 id: loading.bookId,
-                title: "",
-                author: "",
-                coverPath: nil,
-                coverHash: nil,
-                progress: 0,
-                progressPercent: 0,
-                timeLeft: "",
-                isLoading: true
-            )
-        case .unknown:
-            Log.error("Unexpected ContinueListeningItem case")
-            self.init(
-                id: "",
                 title: "",
                 author: "",
                 coverPath: nil,

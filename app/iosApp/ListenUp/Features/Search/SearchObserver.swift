@@ -66,7 +66,7 @@ final class SearchObserver {
         // element cast. See `SearchScope.from(typeNames:)`.
         selectedScope = SearchScope.from(typeNames: state.selectedTypeNames)
 
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             phase = .idle
             groups = SearchHitGroups()
@@ -75,26 +75,31 @@ final class SearchObserver {
             groups = SearchHitGroups()
         case .searching:
             phase = .searching
-        case .results(let results):
+        case .results(let resultsType):
+            let results = resultsType.value
             groups = SearchHitGroups.group(results.result.hits.map { SearchRow($0) })
             phase = groups.isEmpty ? .empty : .results
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(error.message)
-            groups = SearchHitGroups()
-        case .unknown:
-            Log.error("Unexpected SearchUiState case")
-            phase = .error(String(localized: "common.error"))
             groups = SearchHitGroups()
         }
     }
 
     private func applyNav(_ action: SearchNavAction) {
-        switch onEnum(of: action) {
-        case .navigateToBook(let a): pendingNavigation = .book(id: a.bookId)
-        case .navigateToContributor(let a): pendingNavigation = .contributor(id: a.contributorId)
-        case .navigateToSeries(let a): pendingNavigation = .series(id: a.seriesId)
-        case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId, name: a.tagName)
-        case .unknown: Log.error("Unexpected SearchNavAction case")
+        switch action.sealedType() {
+        case .navigateToBook(let aType):
+            let a = aType.value
+            pendingNavigation = .book(id: a.bookId)
+        case .navigateToContributor(let aType):
+            let a = aType.value
+            pendingNavigation = .contributor(id: a.contributorId)
+        case .navigateToSeries(let aType):
+            let a = aType.value
+            pendingNavigation = .series(id: a.seriesId)
+        case .navigateToTag(let aType):
+            let a = aType.value
+            pendingNavigation = .tag(id: a.tagId, name: a.tagName)
         }
     }
 }

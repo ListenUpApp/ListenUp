@@ -55,12 +55,12 @@ struct BulkEditPreviewLine: Identifiable, Equatable, Sendable {
 enum BulkEditMapping {
     /// The field a bridged instruction changes, or nil when Swift cannot name it.
     ///
-    /// Swift cannot switch a Kotlin sealed interface exhaustively, so `onEnum(of:)` always carries
+    /// Swift cannot switch a Kotlin sealed interface exhaustively, so `.sealedType()` always carries
     /// an `.unknown` branch. A `BulkEdit` variant this build does not know about is logged and
     /// dropped rather than rendered as a blank row — an unnamed row in a destructive preview is
     /// worse than one fewer row, and the log is what makes the omission findable.
     static func field(of edit: BulkEdit) -> BulkEditField? {
-        switch onEnum(of: edit) {
+        switch edit.sealedType() {
         case .setPublisher: return .publisher
         case .setPublishYear: return .year
         case .setLanguage: return .language
@@ -69,9 +69,6 @@ enum BulkEditMapping {
         case .addGenres: return .genres
         case .addTags: return .tags
         case .addMoods: return .moods
-        case .unknown:
-            Log.error("Unexpected BulkEdit case in preview")
-            return nil
         }
     }
 

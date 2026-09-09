@@ -26,16 +26,15 @@ final class UserDetailObserver {
     // MARK: - State mapping
 
     private func apply(_ state: UserDetailUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(UserDetailReadyModel(from: ready))
-        case .error(let err):
+        case .error(let errType):
+            let err = errType.value
             phase = .error(err.error.message)
-        case .unknown:
-            Log.error("Unexpected UserDetailUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }
