@@ -4,7 +4,9 @@ import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
 import com.calypsan.listenup.web.features.admin.OpenCategories
 import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
+import com.calypsan.listenup.web.features.admin.OpenBackups
 import com.calypsan.listenup.web.features.admin.OpenCollections
+import com.calypsan.listenup.web.features.admin.OpenRestore
 import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.features.devices.OpenDevices
@@ -97,6 +99,8 @@ fun AuthGate(
     openCategories: OpenCategories,
     openCollections: OpenCollections,
     openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -202,6 +206,8 @@ fun AuthGate(
                         openCategories = openCategories,
                         openCollections = openCollections,
                         openCollectionDetail = openCollectionDetail,
+                        openBackups = openBackups,
+                        openRestore = openRestore,
                         openShelfDetail = openShelfDetail,
                         openShelfEdit = openShelfEdit,
                         openSearch = openSearch,
