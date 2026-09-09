@@ -44,7 +44,7 @@ class AudiobookNotificationProvider(
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = NotificationChannels.PLAYBACK
 
-        private const val MAX_ARTWORK_CACHE = 8
+        private const val MAX_ARTWORK_CACHE = 3
 
         // Custom commands. Value-neutral names and action strings: the amount they move is the
         // user's synced setting (#1300), so a "_30" in the name was a lie the moment the setting
@@ -90,7 +90,12 @@ class AudiobookNotificationProvider(
         icPause = R.drawable.ic_pause
     }
 
-    /** LRU artwork cache — Media3 re-emits createNotification on every state tick. */
+    /**
+     * LRU artwork cache — Media3 re-emits createNotification on every state tick.
+     *
+     * Entries are downsampled to [NOTIFICATION_ARTWORK_MAX_EDGE_PX] on the longest edge before
+     * they land here, so the whole cache costs about what one full-resolution cover used to.
+     */
     private val artworkCache =
         object : LinkedHashMap<String, android.graphics.Bitmap>(
             MAX_ARTWORK_CACHE,
@@ -140,14 +145,13 @@ class AudiobookNotificationProvider(
         val subtitle = buildChapterSubtitle(chapterInfo)
         builder.setContentText(subtitle)
 
-        // Cover art
+        // Cover art. Downsampled before caching: the provider serves covers at their stored
+        // resolution and a notification large icon needs a fraction of it.
         metadata.artworkUri?.let { uri ->
             val bitmap =
                 cachedArtwork(uri.toString()) {
                     try {
-                        context.contentResolver.openInputStream(uri)?.use { stream ->
-                            android.graphics.BitmapFactory.decodeStream(stream)
-                        }
+                        decodeDownsampled(openStream = { context.contentResolver.openInputStream(uri) })
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
