@@ -55,7 +55,7 @@ class EmbeddedMetaTypesInCommonMainRule :
                     .classes()
                     .withoutAbstractModifier()
                     .filter { cls ->
-                        cls.parents().any { it.name == "AudioFormatParser" }
+                        cls.parents().any { it.name.bareTypeName() == "AudioFormatParser" }
                     }
 
             assertScopeNotEmpty(
@@ -79,7 +79,7 @@ class EmbeddedMetaTypesInCommonMainRule :
                     .classes()
                     .withoutAbstractModifier()
                     .filter { cls ->
-                        cls.parents().any { it.name == "AudioFormatParser" }
+                        cls.parents().any { it.name.bareTypeName() == "AudioFormatParser" }
                     }
 
             assertScopeNotEmpty(

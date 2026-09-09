@@ -18,7 +18,7 @@ class OnlyOutboxOpSenderImplementsSenderRule :
             val implementors =
                 productionScope()
                     .classes()
-                    .filter { cls -> cls.parents().any { it.name == "PendingOperationSender" } }
+                    .filter { cls -> cls.parents().any { it.name.bareTypeName() == "PendingOperationSender" } }
 
             implementors.shouldNotBeEmpty()
 
