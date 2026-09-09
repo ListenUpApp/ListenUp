@@ -34,7 +34,10 @@ private const val MAX_READER_CONNECTIONS = 4
  *   default `synchronous=FULL`'s per-commit `fsync` dominated those flows; NORMAL removes it. Matches
  *   the JVM driver so both engines write with identical durability semantics.
  * - [DatabaseConfiguration.Extended.busyTimeout] = 5000 → `sqlite3_busy_timeout(db, 5000)`
- * - [DatabaseConfiguration.Extended.foreignKeyConstraints] = true → `PRAGMA foreign_keys=ON`
+ * - [DatabaseConfiguration.Extended.foreignKeyConstraints] = true → `PRAGMA foreign_keys=ON` — the
+ *   JVM actual (`DriverFactory.jvm.kt`) enforces it too, via `SQLiteConfig.enforceForeignKeys`, so
+ *   referential integrity is a property of the schema rather than of the platform. The two are pinned
+ *   together by `ForeignKeyParityTest`, which lives in commonTest and therefore runs on both lanes.
  *
  * [Schema.create] / [Schema.migrate] callbacks are left as no-ops — [MigrationRunner] owns the
  * schema history and has already applied all migrations before this driver is opened.

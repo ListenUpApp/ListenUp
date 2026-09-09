@@ -102,13 +102,13 @@ class ExpiredSessionCleanupTaskTest :
             }
         }
 
-        test("orphan sweep cleans push tokens even without FK enforcement (production runs FK-off)") {
-            // Production connections do NOT enforce foreign keys (see DriverFactory / the
-            // withSqlDatabase fixture comment), so push_tokens' ON DELETE CASCADE never fires
-            // there — the deleteOrphaned sweep inside SessionService.deleteExpired is the real
-            // cleanup path. The shared fixtures open FK-ON drivers, where the cascade masks the
-            // sweep; this test opens an FK-OFF driver (matching production) so only the sweep
-            // can remove the orphaned row.
+        test("the orphan sweep clears push tokens on its own, with no cascade to help it") {
+            // Every driver — production JVM, production native, and the shared withSqlDatabase
+            // fixture — now enforces foreign keys, so push_tokens' ON DELETE CASCADE fires and
+            // MASKS the deleteOrphaned sweep inside SessionService.deleteExpired. This test opens
+            // a bare FK-OFF driver purely to take the cascade away, leaving the sweep as the only
+            // thing that can remove the orphaned row — that is the behaviour under test, not a
+            // claim about how production is configured.
             val tmp =
                 Files.createTempFile("listenup-push-orphan-", ".db").toFile().apply { deleteOnExit() }
             DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))

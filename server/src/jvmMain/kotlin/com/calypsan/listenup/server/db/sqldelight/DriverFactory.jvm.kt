@@ -23,10 +23,14 @@ private const val BUSY_TIMEOUT_MS = 5_000
  *   default `synchronous=FULL`'s per-commit `fsync` dominated the wall-clock of those bulk flows;
  *   NORMAL removes it. Safe for a self-hosted single-instance server.
  * - `busy_timeout=5000` — wait up to 5 s for a write-lock before SQLITE_BUSY.
- * - foreign_keys is intentionally LEFT OFF on JVM: enabling it changes live-scan insert ordering and
- *   breaks `LibraryLessOnboardingE2ETest` (202→404). The native actual ([DriverFactory] on linuxX64)
- *   enforces FK; closing that JVM/native divergence (FK-clean scan + production FK enforcement) is a
- *   separate follow-up. SQLITE_BUSY_SNAPSHOT is handled by the retry in [suspendTransaction], not here.
+ * - `foreign_keys=ON` — matches the native actual (`DriverFactory.linux.kt`, which has always passed
+ *   `foreignKeyConstraints = true`), so referential integrity is a property of the SCHEMA and not of
+ *   the platform: an insert-ordering bug now fails identically on a dev JVM and in the shipped
+ *   `server.kexe`. It has to ride in the connection properties for the same reason as the PRAGMAs
+ *   above — a post-open `PRAGMA foreign_keys=ON` would configure one transient connection and be
+ *   silently lost, which is how ON DELETE CASCADE once looked dead here. `ForeignKeyParityTest`
+ *   (commonTest, so it runs on the JVM and linuxX64 lanes alike) pins the two actuals together.
+ *   SQLITE_BUSY_SNAPSHOT is handled by the retry in [suspendTransaction], not here.
  *
  * `Schema.create` is intentionally NOT called — [com.calypsan.listenup.server.db.MigrationRunner] owns
  * the schema history and has already run all migrations before this driver is opened.
@@ -37,6 +41,7 @@ actual class DriverFactory {
             "jdbc:sqlite:$dbPath",
             SQLiteConfig()
                 .apply {
+                    enforceForeignKeys(true)
                     busyTimeout = BUSY_TIMEOUT_MS
                     setJournalMode(SQLiteConfig.JournalMode.WAL)
                     setSynchronous(SQLiteConfig.SynchronousMode.NORMAL)
