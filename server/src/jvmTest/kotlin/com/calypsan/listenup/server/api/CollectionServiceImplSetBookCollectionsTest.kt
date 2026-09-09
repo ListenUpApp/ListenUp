@@ -64,6 +64,7 @@ class CollectionServiceImplSetBookCollectionsTest :
         data class Harness(
             val service: CollectionServiceImpl,
             val bus: ChangeBus,
+            val collectionBookRepo: CollectionBookRepository,
         )
 
         fun makeHarness(db: SqlTestDatabases): Harness {
@@ -104,7 +105,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     bookRevisionTouch = FakeBookRevisionTouch(),
                     principal = principalFor("u1"),
                 )
-            return Harness(service, bus)
+            return Harness(service, bus, collectionBookRepo)
         }
 
         fun CollectionServiceImpl.actAs(
@@ -217,6 +218,52 @@ class CollectionServiceImplSetBookCollectionsTest :
                     val result = admin.setBookCollections(BookId("ghost-book"), listOf(c1.data.id))
                     require(result is AppResult.Failure)
                     result.error.shouldBeInstanceOf<CollectionError.BookNotFound>()
+                }
+            }
+        }
+
+        test("setBookCollections accepts a target set at the cap") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
+                runTest {
+                    val (service, _, membership) = makeHarness(db)
+                    val admin = service.actAs("admin", UserRole.ADMIN)
+                    val targets = admin.createCollections(MAX_COLLECTIONS_PER_BOOK)
+
+                    admin.setBookCollections(BookId("book1"), targets) shouldBe AppResult.Success(Unit)
+
+                    // The cap must not bite a set that is exactly at it — every target took the book.
+                    membership.findCollectionIdsForBook("book1") shouldContainExactlyInAnyOrder
+                        targets.map { it.value }
+                }
+            }
+        }
+
+        test("setBookCollections rejects a target set one past the cap and writes nothing") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
+                runTest {
+                    val (service, _, membership) = makeHarness(db)
+                    val admin = service.actAs("admin", UserRole.ADMIN)
+                    // Every target is a real, live collection, so the size bound is the only thing that
+                    // can reject the call — nothing downstream would.
+                    val targets = admin.createCollections(MAX_COLLECTIONS_PER_BOOK + 1)
+                    val settled = targets.first()
+                    admin.setBookCollections(BookId("book1"), listOf(settled)) shouldBe AppResult.Success(Unit)
+
+                    val result = admin.setBookCollections(BookId("book1"), targets)
+                    require(result is AppResult.Failure)
+                    result.error.shouldBeInstanceOf<CollectionError.InvalidInput>()
+
+                    // A bound that rejects after writing is not a bound: membership is untouched.
+                    membership.findCollectionIdsForBook("book1") shouldContainExactlyInAnyOrder
+                        listOf(settled.value)
                 }
             }
         }
@@ -337,3 +384,15 @@ class CollectionServiceImplSetBookCollectionsTest :
 private suspend fun drainControlFrames() {
     repeat(8) { kotlinx.coroutines.yield() }
 }
+
+/**
+ * Creates [count] distinct live collections in `test-library` and returns their ids, so a size-bound
+ * test can build its target set from real rows rather than ids that would be rejected as unknown
+ * long before the bound is reached.
+ */
+private suspend fun CollectionServiceImpl.createCollections(count: Int): List<CollectionId> =
+    List(count) { index ->
+        val created = createCollection("test-library", "C$index")
+        require(created is AppResult.Success)
+        created.data.id
+    }

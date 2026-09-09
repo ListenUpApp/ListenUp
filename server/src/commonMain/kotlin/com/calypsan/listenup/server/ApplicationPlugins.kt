@@ -53,12 +53,45 @@ private const val WS_PING_PERIOD_MS = 15_000L
 private const val WS_PING_TIMEOUT_MS = 15_000L
 
 /**
+ * Largest **inbound** WebSocket frame the RPC mounts accept.
+ *
+ * **Inbound only.** Ktor passes `maxFrameSize` to `WebSocketReader` and nowhere else —
+ * `WebSocketWriter` takes no size parameter — so this bounds what a peer may send *us*. Server
+ * responses are unaffected, and in particular a catch-up sync page (which can run to tens of MB for
+ * a large library) is never measured against this number.
+ *
+ * Inbound is the exposure worth bounding: a frame is buffered in full before any handler runs —
+ * including the per-IP throttle in [com.calypsan.listenup.server.auth.AuthServiceImpl] — and
+ * `/api/rpc/public` is reachable without a credential. Ktor's default is `Long.MAX_VALUE`, so one
+ * anonymous connection could otherwise cost unbounded memory before the throttle got a say.
+ *
+ * Sized against the largest call a legitimate client can make: `BookService.setBookChapters` at
+ * `MAX_CHAPTERS_PER_BOOK` (5000) rows with every [com.calypsan.listenup.api.dto.ChapterInput] field
+ * at its contract maximum (`MAX_TITLE` 1024, both `MAX_SECTION_TITLE` 256 headings populated),
+ * measured through `contractJson` at **8,258,144 bytes**; ×4 headroom = 33,032,576, rounded up to
+ * the next power of two = **32 MiB**. Nothing else on the RPC surface comes close — no binary
+ * payload rides this transport at all (uploads are REST multipart), and the same call with
+ * real-world chapter titles measures 707,037 bytes.
+ *
+ * ⚠️ Re-measure if `MAX_CHAPTERS_PER_BOOK` or `ChapterInput`'s length ceilings are raised. Every
+ * other list-taking call is now bounded at its own service — `setBookCollections` by
+ * `MAX_COLLECTIONS_PER_BOOK` and `reorderShelfBooks` by `MAX_BOOKS_PER_SHELF_REORDER`, both id lists
+ * that sit far inside this number even at their ceiling — so this is a transport backstop, not the
+ * primary bound on any call.
+ */
+private const val WS_MAX_FRAME_SIZE_BYTES = 33_554_432L
+
+/**
  * Installs the core Ktor plugins every route depends on (serialization, resources, RPC, ranges, HEAD),
  * and registers the shutdown farewell log.
  */
 internal fun Application.installCorePlugins() {
     install(ContentNegotiation) { json(contractJson) }
     install(Resources)
+    // First, so every later plugin and every handler sees the caller's real address: the per-IP
+    // rate-limit buckets key on `origin.remoteHost`, which behind a proxy is otherwise the proxy.
+    // Off unless the operator opts in — see the KDoc for why that default is not negotiable.
+    installForwardedHeadersIfTrusted()
     // Keepalive for the kotlinx.rpc WebSockets: server-side pings detect a dead/half-open client
     // socket and close the session, so a stalled RPC call is torn down rather than left hanging.
     // Mirrors the client-side ping in ApiClientFactory. Must precede install(Krpc), which transports
@@ -66,6 +99,7 @@ internal fun Application.installCorePlugins() {
     install(WebSockets) {
         pingPeriodMillis = WS_PING_PERIOD_MS
         timeoutMillis = WS_PING_TIMEOUT_MS
+        maxFrameSize = WS_MAX_FRAME_SIZE_BYTES
     }
     install(Krpc)
     install(PartialContent)

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
+import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
@@ -208,6 +209,10 @@ fun metadataModule(imageHome: Path): Module =
 
         metadataEnrichmentBindings()
 
+        // Per-user throttle in front of the process-wide, *blocking* provider limiters above, so one
+        // member's lookup burst cannot queue ahead of everyone else's metadata work.
+        single { MetadataRateLimiter(clock = get()) }
+
         single<MetadataLookupService> {
             MetadataLookupServiceImpl(
                 metadataService = get(),
@@ -231,6 +236,7 @@ fun metadataModule(imageHome: Path): Module =
                     PrincipalProvider {
                         error("Unscoped MetadataLookupService — call copyWith(PrincipalProvider) at the route")
                     },
+                rateLimiter = get<MetadataRateLimiter>(),
             )
         }
 

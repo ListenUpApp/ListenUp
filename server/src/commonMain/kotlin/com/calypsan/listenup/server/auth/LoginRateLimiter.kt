@@ -47,6 +47,14 @@ enum class AuthRateBucket(
     OBSERVE_REGISTRATION_POLICY(20),
 
     /**
+     * `observePasswordResetStatus` subscriptions. Each open subscription holds a poll loop that
+     * re-reads the ticket forever and never completes while it is PENDING — the same
+     * open-subscription exhaustion vector as [OBSERVE_REGISTRATION_STATUS], and the same ceiling:
+     * a legitimate client re-subscribes on every reconnect-with-backoff attempt.
+     */
+    OBSERVE_PASSWORD_RESET_STATUS(20),
+
+    /**
      * `requestPasswordReset`. Unauthenticated, and the known/unknown-account branches differ
      * measurably in cost (the known path runs an extra transaction plus an HMAC). That timing
      * delta is not a one-shot signal, but it is repeatable and free to sample — this bucket is
@@ -140,13 +148,54 @@ class LoginRateLimiter(
             entry.tokens = (entry.tokens + elapsed * tokensPerMillis).coerceAtMost(capacity)
             entry.lastRefillMillis = now
 
-            if (entry.tokens >= 1.0) {
-                entry.tokens -= 1.0
-                RateDecision.Allowed
-            } else {
-                val deficit = 1.0 - entry.tokens
-                val retryAfter = ceil(deficit / tokensPerMillis / 1000.0).toInt().coerceAtLeast(1)
-                RateDecision.Throttled(retryAfterSeconds = retryAfter)
-            }
+            val decision =
+                if (entry.tokens >= 1.0) {
+                    entry.tokens -= 1.0
+                    RateDecision.Allowed
+                } else {
+                    val deficit = 1.0 - entry.tokens
+                    val retryAfter = ceil(deficit / tokensPerMillis / 1000.0).toInt().coerceAtLeast(1)
+                    RateDecision.Throttled(retryAfterSeconds = retryAfter)
+                }
+            // AFTER this call's token is spent, never before: sweeping first could drop the very
+            // entry the decision above is about, throwing the decrement away with it.
+            sweep(now)
+            decision
         }
+
+    /** Live (unswept) bucket count — for tests that pin the sweep. */
+    internal suspend fun liveBucketCount(): Int =
+        mutex.withLock {
+            sweep(clock.now().toEpochMilliseconds())
+            buckets.size
+        }
+
+    /**
+     * Drops entries that have refilled to capacity, so a long-lived process does not accumulate one
+     * map entry per remote host it has ever seen. A full bucket is indistinguishable from a host
+     * never seen before — [getOrPut] recreates it full — so removing it changes no decision.
+     *
+     * Only a *full* one. A partially drained entry still owes its host the tokens it has spent;
+     * dropping it would hand a caller a fresh full bucket mid-burst, which is an under-throttle that
+     * no burst test would catch.
+     */
+    private fun sweep(nowMillis: Long) {
+        buckets.entries.removeAll { (key, entry) -> refilledToCapacity(key.first, entry, nowMillis) }
+    }
+
+    /**
+     * Whether [entry] would refill to its bucket's full capacity by [nowMillis]. Capacity is read
+     * from the entry's OWN bucket rather than the caller's — the map mixes buckets with different
+     * ceilings, and reusing the caller's would sweep entries that are still in debt.
+     */
+    private fun refilledToCapacity(
+        bucket: AuthRateBucket,
+        entry: Bucket,
+        nowMillis: Long,
+    ): Boolean {
+        val capacity = bucket.perMinuteLimit.toDouble()
+        val tokensPerMillis = capacity / refillPeriod.inWholeMilliseconds
+        val elapsed = (nowMillis - entry.lastRefillMillis).coerceAtLeast(0)
+        return entry.tokens + elapsed * tokensPerMillis >= capacity
+    }
 }

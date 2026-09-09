@@ -11,31 +11,48 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
 /**
- * The throttled invite operations reachable over the RPC public mount, with their per-IP,
- * per-minute ceilings. This is the sole throttle for these operations — the invite claim/lookup
- * surface has no REST mirror.
+ * The throttled metadata-lookup operations, with their per-**user**, per-minute ceilings.
+ *
+ * Keyed per user rather than per IP: these are authenticated reads, and the upstream provider
+ * limiters (e.g. `AudibleClient`'s `rateLimiter.await`) are process-wide and *blocking* — so one
+ * member's burst queues in front of every other caller, including an admin running the match
+ * wizard. The per-user bucket is what keeps that a local problem.
  */
-enum class InviteRateBucket(
+enum class MetadataRateBucket(
     val perMinuteLimit: Int,
 ) {
-    CLAIM(5),
-    LOOKUP(20),
+    /**
+     * `searchBooks` / `searchContributorMetadata` — the wizard's opening move. A match wizard issues
+     * ONE search and then fetches per candidate, so a search is the rarer of the two calls; twenty a
+     * minute covers a user retyping a title several times over, and typing is what bounds this in
+     * practice.
+     */
+    SEARCH(20),
+
+    /**
+     * `getBookMetadata` / `getBookChapters` / `getContributorMetadata` — the per-candidate fetches
+     * that follow a search. The wizard issues several per search (core, chapters, contributor
+     * profile) and a user may preview a handful of candidates, so this sits well above [SEARCH]:
+     * sixty a minute leaves room for a whole wizard session without a legitimate user meeting it.
+     */
+    FETCH(60),
 }
 
 /**
- * In-memory, per-IP token-bucket throttle for the RPC invite surface (SEC-02) — the [InviteService]
- * sibling of [LoginRateLimiter].
+ * In-memory, per-user token-bucket throttle for the authenticated metadata-lookup reads — the
+ * [LoginRateLimiter] sibling for a surface whose callers all have a user id.
  *
- * Ktor's `RateLimit` plugin throttles the REST invite routes, but first-party clients reach
- * [claimInvite]/[lookupInvite] over the RPC public mount too — many messages ride a single
- * WebSocket, so throttling the upgrade is useless. This limiter runs per-call inside the invite
- * service instead, keyed by the caller's remote host, so an anonymous claim/lookup burst — and the
- * Argon2 CPU/memory amplification behind a claim burst — is capped on the RPC path too.
+ * The five read methods on `MetadataLookupService` carry no `canEdit` gate, so any member reaches
+ * them, and every one of them fans out to an external catalog through a provider limiter that
+ * *waits* rather than rejects. That makes an unthrottled burst a head-of-line block on everyone
+ * else's metadata work rather than only the burster's own. This caps it per user, in front of that
+ * shared queue.
  *
- * In-memory keying by host is acceptable for the self-hosted, single-process deployment — the same
- * rationale as [LoginRateLimiter] and the REST `RateLimiting` plugin.
+ * In-memory keying is acceptable for the self-hosted, single-process deployment — the same rationale
+ * as [LoginRateLimiter] and [InviteRateLimiter]. The bucket starts full and refills continuously at
+ * `limit / refillPeriod`, so a caller can burst up to the limit and then proceeds at the steady rate.
  */
-class InviteRateLimiter(
+class MetadataRateLimiter(
     private val clock: Clock,
     private val refillPeriod: Duration = 1.minutes,
 ) {
@@ -45,22 +62,22 @@ class InviteRateLimiter(
     )
 
     private val mutex = Mutex()
-    private val buckets = mutableMapOf<Pair<InviteRateBucket, String>, Bucket>()
+    private val buckets = mutableMapOf<Pair<MetadataRateBucket, String>, Bucket>()
 
     /**
-     * Consume one token for ([bucket], [host]). Returns [RateDecision.Allowed] when a token was
+     * Consume one token for ([bucket], [userId]). Returns [RateDecision.Allowed] when a token was
      * available, or [RateDecision.Throttled] with the whole seconds until the next token otherwise.
      */
     suspend fun check(
-        bucket: InviteRateBucket,
-        host: String,
+        bucket: MetadataRateBucket,
+        userId: String,
     ): RateDecision =
         mutex.withLock {
             val capacity = bucket.perMinuteLimit.toDouble()
             val tokensPerMillis = capacity / refillPeriod.inWholeMilliseconds
             val now = clock.now().toEpochMilliseconds()
 
-            val entry = buckets.getOrPut(bucket to host) { Bucket(tokens = capacity, lastRefillMillis = now) }
+            val entry = buckets.getOrPut(bucket to userId) { Bucket(tokens = capacity, lastRefillMillis = now) }
             val elapsed = (now - entry.lastRefillMillis).coerceAtLeast(0)
             entry.tokens = (entry.tokens + elapsed * tokensPerMillis).coerceAtMost(capacity)
             entry.lastRefillMillis = now
@@ -89,10 +106,10 @@ class InviteRateLimiter(
 
     /**
      * Drops entries that have refilled to capacity, so a long-lived process does not accumulate one
-     * map entry per remote host it has ever seen. A full bucket is indistinguishable from a host
-     * never seen before — [getOrPut] recreates it full — so removing it changes no decision.
+     * map entry per user it has ever served. A full bucket is indistinguishable from a user never
+     * seen before — [getOrPut] recreates it full — so removing it changes no decision.
      *
-     * Only a *full* one. A partially drained entry still owes its host the tokens it has spent;
+     * Only a *full* one. A partially drained entry still owes its user the tokens it has spent;
      * dropping it would hand a caller a fresh full bucket mid-burst, which is an under-throttle that
      * no burst test would catch.
      */
@@ -106,7 +123,7 @@ class InviteRateLimiter(
      * ceilings, and reusing the caller's would sweep entries that are still in debt.
      */
     private fun refilledToCapacity(
-        bucket: InviteRateBucket,
+        bucket: MetadataRateBucket,
         entry: Bucket,
         nowMillis: Long,
     ): Boolean {
