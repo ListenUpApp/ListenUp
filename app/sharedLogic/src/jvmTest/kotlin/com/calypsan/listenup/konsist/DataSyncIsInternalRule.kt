@@ -24,6 +24,15 @@ class DataSyncIsInternalRule :
 
         test("no top-level declaration in data/sync is public") {
             val scope = productionScope()
+
+            // The package itself is the population: if `/data/sync/` stops matching any path, every
+            // kind-specific filter below returns empty and the rule reports green over nothing.
+            assertScopeNotEmpty(
+                scope.files.filter { "/data/sync/" in it.path },
+                expectedMin = 35,
+                why = "files under data/sync/ — the sync substrate this rule keeps out of the export surface",
+            )
+
             // Only top-level declarations are gated: nested members of an allow-listed public type
             // (e.g. ConnectionState's sealed subtypes) are public by construction and not export entry
             // points on their own. `it !in allowList` covers them transitively via their parent.

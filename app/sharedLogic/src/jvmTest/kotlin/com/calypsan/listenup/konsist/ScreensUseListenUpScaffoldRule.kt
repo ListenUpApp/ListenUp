@@ -15,12 +15,21 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class ScreensUseListenUpScaffoldRule :
     FunSpec({
         test("feature screens use ListenUpScaffold, not raw Material3 Scaffold") {
-            val offenders =
+            val screenFiles =
                 productionScope()
                     .files
                     .filter { it.path.contains("/sharedUI/") }
                     .filter { it.path.contains("/features/") }
                     .filter { it.path.endsWith("Screen.kt") }
+
+            assertScopeNotEmpty(
+                screenFiles,
+                expectedMin = 25,
+                why = "sharedUI feature *Screen.kt files — a naming-convention change would silently empty this",
+            )
+
+            val offenders =
+                screenFiles
                     .filter { file -> file.imports.any { it.name == "androidx.compose.material3.Scaffold" } }
                     .filter { file -> SCAFFOLD_RULE_ALLOWLIST.none { allowed -> file.path.endsWith(allowed) } }
                     .map { it.name }

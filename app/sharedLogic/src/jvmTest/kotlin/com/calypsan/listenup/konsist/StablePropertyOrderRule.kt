@@ -19,14 +19,24 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class StablePropertyOrderRule :
     FunSpec({
         test("@Serializable data classes tag at least one property or the class with @SerialName") {
-            val offenders =
+            val serializableDataClasses =
                 productionScope()
                     .classes()
                     .filter { it.path.contains("/commonMain/") }
                     .filter { klass ->
                         klass.annotations.any { it.name == "Serializable" } &&
                             klass.hasModifier(KoModifier.DATA)
-                    }.filter { klass ->
+                    }
+
+            assertScopeNotEmpty(
+                serializableDataClasses,
+                expectedMin = 220,
+                why = "commonMain @Serializable data classes — the wire surface whose property order this pins",
+            )
+
+            val offenders =
+                serializableDataClasses
+                    .filter { klass ->
                         val classTagged = klass.annotations.any { it.name == "SerialName" }
                         val anyPropertyTagged =
                             klass.primaryConstructor

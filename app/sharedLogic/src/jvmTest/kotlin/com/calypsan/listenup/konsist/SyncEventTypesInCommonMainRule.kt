@@ -14,6 +14,9 @@ import io.kotest.matchers.collections.shouldContainAll
 class SyncEventTypesInCommonMainRule :
     FunSpec({
 
+        // No assertScopeNotEmpty guard: this test asserts something POSITIVE about the scope
+        // (shouldContainAll a fixed 7-FQN set), so a collapsed scope makes `foundInCommonMain` empty
+        // and turns it RED. A count guard would only restate what the assertion already does.
         test("sync wire types live in :shared/commonMain") {
             val expectedFqns =
                 setOf(

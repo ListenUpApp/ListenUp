@@ -27,6 +27,9 @@ import io.kotest.matchers.shouldBe
  */
 class NoRestSurfaceRegrowthRule :
     FunSpec({
+        // No assertScopeNotEmpty guard: this test asserts set EQUALITY against a non-empty frozen
+        // list, so a collapsed scope makes `declared` empty and turns it RED. A count guard would
+        // only restate what the equality already proves.
         test("@Resource is confined to the frozen blob surface — REST cannot regrow") {
             val declared =
                 productionScope()

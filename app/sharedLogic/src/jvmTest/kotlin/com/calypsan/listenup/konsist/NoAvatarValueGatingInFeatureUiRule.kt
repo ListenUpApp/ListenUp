@@ -21,10 +21,19 @@ class NoAvatarValueGatingInFeatureUiRule :
         val avatarValueRef = Regex("""\bavatarValue\b""")
 
         test("no sharedUI feature file references the dead avatarValue field") {
-            val offenders =
+            val featureFiles =
                 productionScope()
                     .files
                     .filter { it.path.contains("/sharedUI/") && it.path.contains("/features/") }
+
+            assertScopeNotEmpty(
+                featureFiles,
+                expectedMin = 100,
+                why = "sharedUI feature files — the surface where the dead avatarValue gating could reappear",
+            )
+
+            val offenders =
+                featureFiles
                     .filter { avatarValueRef.containsMatchIn(it.text) }
                     .map { it.path }
             offenders shouldBe emptyList()

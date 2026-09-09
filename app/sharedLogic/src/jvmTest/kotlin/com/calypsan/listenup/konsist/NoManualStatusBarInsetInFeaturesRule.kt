@@ -31,10 +31,16 @@ class NoManualStatusBarInsetInFeaturesRule :
                     "features/setup/LibrarySetupScreen.kt",
                     "features/setup/scan/LibraryScanScreen.kt",
                 )
+            val sharedUiFiles = productionScope().files.filter { it.path.contains("/sharedUI/") }
+
+            assertScopeNotEmpty(
+                sharedUiFiles,
+                expectedMin = 190,
+                why = "every :app:sharedUI production file — the module this ratchet locks today's good state in",
+            )
+
             val offenders =
-                productionScope()
-                    .files
-                    .filter { it.path.contains("/sharedUI/") }
+                sharedUiFiles
                     .filter { f -> allowlist.none { f.path.endsWith(it) } }
                     .flatMap { file ->
                         file.imports

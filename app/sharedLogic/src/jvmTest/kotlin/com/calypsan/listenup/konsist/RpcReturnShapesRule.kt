@@ -33,12 +33,17 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class RpcReturnShapesRule :
     FunSpec({
         test("@Rpc interface suspend methods return AppResult<*>") {
+            val rpcInterfaces = productionScope().interfaces().filter { i -> i.annotations.any { it.name == "Rpc" } }
+
+            assertScopeNotEmpty(
+                rpcInterfaces,
+                expectedMin = 15,
+                why = "@Rpc service interfaces — the contract surface this backstop checks behind KSP",
+            )
+
             val offenders =
-                productionScope()
-                    .interfaces()
-                    .filter { iface ->
-                        iface.annotations.any { it.name == "Rpc" }
-                    }.flatMap { it.functions() }
+                rpcInterfaces
+                    .flatMap { it.functions() }
                     .filter { fn -> fn.hasModifier(KoModifier.SUSPEND) }
                     .filter { fn ->
                         val rt = fn.returnType?.sourceType ?: return@filter true
@@ -51,12 +56,19 @@ class RpcReturnShapesRule :
         }
 
         test("@Rpc interface non-suspend methods return Flow<RpcEvent<*>>") {
+            val rpcInterfaces = productionScope().interfaces().filter { i -> i.annotations.any { it.name == "Rpc" } }
+
+            // Guarded on the INTERFACE set, not the non-suspend function set: a service legitimately
+            // declaring no streaming method is normal, so only the interface set collapsing is a bug.
+            assertScopeNotEmpty(
+                rpcInterfaces,
+                expectedMin = 15,
+                why = "@Rpc service interfaces — the contract surface this backstop checks behind KSP",
+            )
+
             val offenders =
-                productionScope()
-                    .interfaces()
-                    .filter { iface ->
-                        iface.annotations.any { it.name == "Rpc" }
-                    }.flatMap { it.functions() }
+                rpcInterfaces
+                    .flatMap { it.functions() }
                     .filter { fn -> !fn.hasModifier(KoModifier.SUSPEND) }
                     .filter { fn ->
                         val rt = fn.returnType?.sourceType ?: return@filter true

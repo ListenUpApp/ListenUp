@@ -26,6 +26,19 @@ class RpcFactoriesDelegateToRpcProxyCacheRule :
                     .filter { it.name.startsWith("Ktor") && it.name.endsWith("RpcFactory") }
                     .filterNot { it.name in allowlist }
 
+            // expectedMin = 0 is the honest answer here, not an oversight. Per this rule's KDoc, the
+            // last post-login factory was retired in W8a, "so the non-allowlisted factory set is now
+            // empty — the pattern is gone, not merely tamed. This rule stays live as a reintroduction
+            // ratchet." An empty population IS the passing state; a positive floor would fail the day
+            // the codebase is correct.
+            assertScopeNotEmpty(
+                factories,
+                expectedMin = 0,
+                why =
+                    "non-allowlisted Ktor*RpcFactory classes. Empty BY DESIGN — the pattern was retired in W8a " +
+                        "and this rule survives only as a reintroduction ratchet, so zero is the healthy count.",
+            )
+
             val offenders =
                 factories
                     .filter { cls ->

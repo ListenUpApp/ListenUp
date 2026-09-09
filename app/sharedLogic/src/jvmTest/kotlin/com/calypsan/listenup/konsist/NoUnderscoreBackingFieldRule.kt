@@ -27,10 +27,19 @@ class NoUnderscoreBackingFieldRule :
             // sweep covered :app:sharedLogic; :app:sharedUI and :contract are folded in here. :server is a
             // separate (Kotlin/Native) track with its own conventions and stays out of scope.
             val inScope = listOf("/sharedLogic/", "/sharedUI/", "/contract/")
-            val offenders =
+            val clientClasses =
                 productionScope()
                     .classes()
                     .filter { cls -> inScope.any { cls.path.contains(it) } }
+
+            assertScopeNotEmpty(
+                clientClasses,
+                expectedMin = 750,
+                why = "classes across the three client KMP modules — the surface the 2a sweep made canonical",
+            )
+
+            val offenders =
+                clientClasses
                     .filter { underscoreBacking.containsMatchIn(it.text) }
                     .filterNot { it.name in allowed }
                     .map { it.name }

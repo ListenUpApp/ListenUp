@@ -10,6 +10,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
  */
 class NoLegacyCoreAppResultRule :
     FunSpec({
+        // A ban rule: the population is the whole production file set, with no narrowing before the
+        // violation predicate. Its only vacuity failure mode is a collapsed scope, which
+        // KonsistScopeTest's scope-sanity case covers centrally.
         test("no file imports the deleted com.calypsan.listenup.core.AppResult") {
             val offenders =
                 productionScope()

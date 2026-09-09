@@ -27,12 +27,21 @@ class OneShotEventsUseChannelRule :
         val nullableEventStateFlow = Regex("""StateFlow<\w*Event\?>""")
 
         test("no ViewModel exposes one-shot events as StateFlow<Event?>") {
-            val offenders =
+            val viewModels =
                 productionScope()
                     .classes()
                     .filter { it.path.contains("/sharedLogic/") }
                     .filter { it.path.contains("/client/presentation/") }
                     .filter { it.name.endsWith("ViewModel") }
+
+            assertScopeNotEmpty(
+                viewModels,
+                expectedMin = 30,
+                why = "ViewModels under client/presentation/ — an empty set means the rule policed nothing",
+            )
+
+            val offenders =
+                viewModels
                     .filterNot { it.name in byDesignExclusions }
                     .filter { vm -> nullableEventStateFlow.containsMatchIn(vm.text) }
                     .map { it.name }
