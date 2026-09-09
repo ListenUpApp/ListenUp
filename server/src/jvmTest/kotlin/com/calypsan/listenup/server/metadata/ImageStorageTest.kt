@@ -1,8 +1,12 @@
 package com.calypsan.listenup.server.metadata
 
+import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.result.AppResult
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockEngineConfig
@@ -70,16 +74,21 @@ class ImageStorageTest :
 
             val returned = storageWith(expected).downloadBytes("https://example.com/cover.jpg")
 
-            returned shouldBe expected
+            returned.shouldBeInstanceOf<AppResult.Success<*>>().data shouldBe expected
         }
 
-        test("downloadBytes propagates a network-level failure") {
-            // Network-level failure (simulates a connection refused / timeout).
+        test("downloadBytes reports a network-level failure as a typed result, not a throw") {
+            // Network-level failure (simulates a connection refused / timeout). The transport
+            // detail stays server-side: the caller gets a constant debugInfo.
             val config = MockEngineConfig()
             config.addHandler { _ -> throw IOException("simulated network failure") }
             val storage = ImageStorage(HttpClient(MockEngine(config)))
 
-            shouldThrow<Exception> { storage.downloadBytes("https://example.com/bad.jpg") }
+            val result = storage.downloadBytes("https://example.com/bad.jpg")
+
+            val error = result.shouldBeInstanceOf<AppResult.Failure>().error
+            error.shouldBeInstanceOf<MetadataError.ExternalUnavailable>()
+            error.debugInfo shouldNotContain "simulated network failure"
         }
     })
 

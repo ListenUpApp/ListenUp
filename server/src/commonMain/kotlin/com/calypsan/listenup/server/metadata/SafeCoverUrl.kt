@@ -9,9 +9,9 @@ import io.ktor.http.Url
  * unicast destination rather than loopback, link-local, or private address space.
  *
  * Guards [com.calypsan.listenup.server.api.MetadataLookupServiceImpl.applyCover] — the one RPC
- * method that accepts a caller-supplied URL — and every hop of [ImageStorage.downloadBytes]'s
- * redirect chain, so a public host that 302s to an internal one is rejected exactly like a direct
- * request to that internal host would be.
+ * method that accepts a caller-supplied URL — and, through [BoundedImageFetch], every hop of every
+ * untrusted image fetch's redirect chain, so a public host that 302s to an internal one is rejected
+ * exactly like a direct request to that internal host would be.
  *
  * This is a string-level check, not a DNS-resolving one: it classifies hosts that are themselves
  * literal loopback/link-local/private addresses (or `localhost`), without resolving arbitrary
@@ -116,12 +116,3 @@ object SafeCoverUrl {
     private const val GLOBAL_UNICAST_IPV6_LOW = 0x2000
     private const val GLOBAL_UNICAST_IPV6_HIGH = 0x3FFF
 }
-
-/**
- * Thrown by [ImageStorage] when [SafeCoverUrl] rejects the initial URL or a redirect hop.
- * Carries the typed [appError] so callers can surface it directly as an `AppResult.Failure`
- * instead of falling through to a generic network-failure mapping.
- */
-class UnsafeCoverUrlException(
-    val appError: AppError,
-) : Exception(appError.code)

@@ -97,11 +97,24 @@ internal class ContributorMetadataApplier(
      */
     private suspend fun ContributorMeta.downloadImage(contributorId: ContributorId): String? {
         val url = imageUrl?.takeIf { it.isNotBlank() } ?: return null
+        val bytes =
+            when (val fetched = imageStorage.downloadBytes(url)) {
+                is AppResult.Success -> {
+                    fetched.data
+                }
+
+                is AppResult.Failure -> {
+                    log.warn {
+                        "Photo fetch refused for contributor ${contributorId.value} (ASIN $key): " +
+                            "${fetched.error.code} — skipping"
+                    }
+                    return null
+                }
+            }
         val dir = Path(imageHome.toString(), "contributors")
         return try {
             kotlinx.io.files.SystemFileSystem
                 .createDirectories(dir)
-            val bytes = imageStorage.downloadBytes(url)
             // Content-addressed filename: a re-fetch with a different photo yields a new `imagePath`,
             // which is what the client keys its image cache on (the path is the version). With a stable
             // id-based name the path never changes and clients keep rendering the old photo.
@@ -112,7 +125,7 @@ internal class ContributorMetadataApplier(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "Photo download failed for contributor ${contributorId.value} (ASIN $key) — skipping" }
+            log.warn(e) { "Photo write failed for contributor ${contributorId.value} (ASIN $key) — skipping" }
             null
         }
     }

@@ -24,10 +24,8 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ComposedBook
-import com.calypsan.listenup.server.metadata.CoverTooLargeException
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.SafeCoverUrl
-import com.calypsan.listenup.server.metadata.UnsafeCoverUrlException
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ContributorHitRanker
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
@@ -305,25 +303,25 @@ internal class MetadataLookupServiceImpl(
         // Echo-in-response: withCapturedFrames collects the book's own cover-update frame so the
         // originating device applies the new cover read-your-writes, not only via the firehose.
         return withCapturedFrames {
+            // The fetch already carries its own typed failure (unsafe URL or hop, oversize
+            // response, declared non-image type) — surface it as-is rather than re-deriving one.
+            val bytes =
+                when (val fetched = imageDeps.imageStorage.downloadBytes(url)) {
+                    is AppResult.Success -> fetched.data
+                    is AppResult.Failure -> return@withCapturedFrames fetched
+                }
             try {
-                val bytes = imageDeps.imageStorage.downloadBytes(url)
                 val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
                 val relPath = "covers/${stored.path.name}"
                 bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: UnsafeCoverUrlException) {
-                // A redirect hop pointed at a loopback/link-local/private host.
-                AppResult.Failure(e.appError)
             } catch (e: ImageStore.InvalidImageException) {
                 // The fetched bytes are not a usable image — user must pick a different URL.
                 // Non-retryable: re-firing the same call against the same URL can't succeed. The
                 // debugInfo below is a fixed string — echoing the caught exception's own message
                 // here would let a caller distinguish connected/refused/not-an-image outcomes for
                 // hosts it has no business probing (SEC-05). Logged server-side only.
-                logger.warn(e) { COVER_FETCH_FAILURE_LOG_MESSAGE }
-                AppResult.Failure(MetadataError.Malformed(debugInfo = COVER_REJECTED_DEBUG))
-            } catch (e: CoverTooLargeException) {
                 logger.warn(e) { COVER_FETCH_FAILURE_LOG_MESSAGE }
                 AppResult.Failure(MetadataError.Malformed(debugInfo = COVER_REJECTED_DEBUG))
             } catch (e: Exception) {
@@ -336,7 +334,7 @@ internal class MetadataLookupServiceImpl(
     }
 }
 
-private const val COVER_FETCH_FAILURE_LOG_MESSAGE = "cover download/store failed"
+private const val COVER_FETCH_FAILURE_LOG_MESSAGE = "cover store failed"
 private const val COVER_REJECTED_DEBUG = "cover bytes rejected"
 private const val COVER_DOWNLOAD_FAILED_DEBUG = "cover download/store failed"
 

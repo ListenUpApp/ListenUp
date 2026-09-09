@@ -25,7 +25,10 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import java.io.IOException
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
@@ -168,6 +171,43 @@ class ContributorMetadataApplierTest :
                     updated.shouldNotBeNull()
                     updated.imagePath shouldBe "contributors/existing.jpg"
                     updated.description shouldBe "New bio."
+                }
+            }
+        }
+
+        test("a contributor photo response that declares a non-image type is refused") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.upsert(existingPayload)
+                    val profile =
+                        ContributorMeta(
+                            key = "B0ASIN",
+                            name = "Brandon Sanderson",
+                            description = "New bio.",
+                            imageUrl = "https://img.example/p.jpg",
+                        )
+                    val htmlStorage =
+                        ImageStorage(
+                            HttpClient(
+                                MockEngine {
+                                    respond(
+                                        content = ByteArray(8),
+                                        status = HttpStatusCode.OK,
+                                        headers = headersOf(HttpHeaders.ContentType, ContentType.Text.Html.toString()),
+                                    )
+                                },
+                            ),
+                        )
+
+                    applier(repo, profile, storage = htmlStorage)
+                        .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val updated = repo.findById("c-1")
+                    updated.shouldNotBeNull()
+                    // The existing photo survives: nothing that isn't an image reaches the disk.
+                    updated.imagePath shouldBe "contributors/existing.jpg"
                 }
             }
         }

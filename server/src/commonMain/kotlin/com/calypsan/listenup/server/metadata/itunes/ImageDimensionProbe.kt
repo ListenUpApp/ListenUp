@@ -1,10 +1,8 @@
 package com.calypsan.listenup.server.metadata.itunes
 
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.metadata.BoundedImageFetch
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsBytes
-import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.CancellationException
 
 private const val HEADER_BYTES = 32_768
@@ -99,21 +97,28 @@ private fun u32(
         (data[off + 3].toInt() and BYTE_MASK)
 
 /**
- * Fetches just an image's leading bytes via an HTTP Range request and parses its
- * dimensions. Returns null on any network/parse failure (callers degrade to 0×0) —
- * a missing dimension must never drop an otherwise-usable cover. Re-raises [CancellationException].
+ * Fetches just an image's leading bytes and parses its dimensions. Returns null on any
+ * network/parse failure (callers degrade to 0×0) — a missing dimension must never drop an
+ * otherwise-usable cover. Re-raises [CancellationException].
+ *
+ * The URL is provider-supplied and this method is reachable from an ungated read path, so the
+ * fetch goes through [BoundedImageFetch] like every other untrusted image fetch: the destination
+ * policy applies, redirect hops are re-validated, and the read stops at [HEADER_BYTES] whether or
+ * not the remote honours the `Range` hint. Before that, a remote was free to answer a
+ * header-sized request with an unbounded body.
  */
 class ImageDimensionProbe(
-    private val httpClient: HttpClient,
+    httpClient: HttpClient,
 ) {
+    private val boundedFetch = BoundedImageFetch(httpClient)
+
     suspend fun probe(url: String): Pair<Int, Int>? {
         if (url.isBlank()) return null
         return try {
-            val bytes =
-                httpClient
-                    .get(url) { header(HttpHeaders.Range, "bytes=0-${HEADER_BYTES - 1}") }
-                    .bodyAsBytes()
-            parseImageDimensions(if (bytes.size > HEADER_BYTES) bytes.copyOf(HEADER_BYTES) else bytes)
+            when (val fetched = boundedFetch.fetch(url, leadingBytes = HEADER_BYTES)) {
+                is AppResult.Success -> parseImageDimensions(fetched.data)
+                is AppResult.Failure -> null
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
