@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.io.SeekableSource
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.runBlocking
@@ -110,6 +111,19 @@ class Mp4ParserAdversarialTest :
             val chapterTrak = atom("trak", tkhd + mdia)
 
             return atom("moov", mvhd + audioTrak + chapterTrak)
+        }
+
+        /**
+         * Wrap [chapterTrakBody] as the chapter `trak` inside a `moov` that also carries a valid
+         * `mvhd` (90 s at timescale 1000) and an audio `trak` whose `tref.chap` points at track
+         * id 2. The chapter `trak` is the LAST child of `moov`, so whatever the caller puts last
+         * inside [chapterTrakBody] also ends the buffer — which is how a test puts a box's
+         * payload-free head exactly at the buffer's edge.
+         */
+        fun moovAroundChapterTrak(chapterTrakBody: ByteArray): ByteArray {
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(90_000))
+            val audioTrak = atom("trak", atom("tref", atom("chap", be32(2))))
+            return atom("moov", mvhd + audioTrak + atom("trak", chapterTrakBody))
         }
 
         /** `stts` payload with entryCount = 0 — benign, returns emptyList() with no loop. */
@@ -386,6 +400,70 @@ class Mp4ParserAdversarialTest :
 
             val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
             success.data.durationMs shouldBe 0L
+        }
+
+        // The chapter-track resolver reads a one-byte version field at the head of `tkhd` and
+        // `mdhd` to pick between the two field layouts each box version defines. A box that
+        // carries no payload at all has no such byte. Placing that empty box last in the buffer
+        // is what makes the difference observable: the read has nowhere to land. The correct
+        // answer is to skip the unreadable box — the file's tags and duration are still perfectly
+        // good — not to fail the file and lose them.
+
+        test("a chapter track whose tkhd box carries no payload still yields the rest of the file") {
+            val emptyTkhd = atomHeader("tkhd", size32 = 8)
+            val mdhd = atom("mdhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000))
+            val stbl =
+                atom(
+                    "stbl",
+                    atom("stts", benignSttsPayload()) +
+                        atom("stsz", benignStszPayload()) +
+                        atom("stco", benignStcoPayload()),
+                )
+            val mdia = atom("mdia", mdhd + atom("minf", stbl))
+            val bytes = moovAroundChapterTrak(mdia + emptyTkhd)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 90_000L
+            success.data.chapters.shouldBeEmpty()
+        }
+
+        test("a chapter track whose mdhd box carries no payload still yields the rest of the file") {
+            val tkhd = atom("tkhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(2))
+            val emptyMdhd = atomHeader("mdhd", size32 = 8)
+            val stbl =
+                atom(
+                    "stbl",
+                    atom("stts", benignSttsPayload()) +
+                        atom("stsz", benignStszPayload()) +
+                        atom("stco", benignStcoPayload()),
+                )
+            val mdia = atom("mdia", atom("minf", stbl) + emptyMdhd)
+            val bytes = moovAroundChapterTrak(tkhd + mdia)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 90_000L
+            success.data.chapters.shouldBeEmpty()
+        }
+
+        test("a covr data box with no payload yields no artwork rather than failing the file") {
+            // The artwork reader takes a 4-byte type prefix off the head of the `data` box before
+            // it can classify the image bytes that follow. A payload-free box has neither. Same
+            // last-in-buffer placement, same expectation: no artwork, everything else intact.
+            val emptyData = atomHeader("data", size32 = 8)
+            val ilst = atom("ilst", atom("covr", emptyData))
+            val udta = atom("udta", atom("meta", ByteArray(4) + ilst))
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(90_000))
+            val bytes = atom("moov", mvhd + udta)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.artwork shouldBe null
+            success.data.durationMs shouldBe 90_000L
         }
 
         test("atom size declared near Int.MAX_VALUE at a non-zero offset overflows offset+size safely") {

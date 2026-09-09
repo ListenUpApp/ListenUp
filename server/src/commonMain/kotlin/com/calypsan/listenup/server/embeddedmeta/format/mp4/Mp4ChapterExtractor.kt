@@ -40,6 +40,21 @@ internal object Mp4ChapterExtractor {
     private const val MAX_SAMPLE_ENTRIES = 2_000_000
 
     /**
+     * Smallest `tkhd` payload that can carry a track id: version(1) + flags(3) + creation(4) +
+     * modification(4) + track_id(4). The version-1 layout is larger still, so a box below this
+     * size cannot answer the question under either layout — including the version byte itself,
+     * which is why the check runs *before* that byte is read.
+     */
+    private const val TKHD_MIN_PAYLOAD_BYTES = 16
+
+    /**
+     * Smallest `mdhd` payload that can carry a timescale: version(1) + flags(3) + creation(4) +
+     * modification(4) + timescale(4). Same reasoning as [TKHD_MIN_PAYLOAD_BYTES] — the guard
+     * precedes the version byte read because a payload-free box has no version byte either.
+     */
+    private const val MDHD_MIN_PAYLOAD_BYTES = 16
+
+    /**
      * Read Nero `chpl` chapters. Returns an empty list if `moov.udta.chpl`
      * is absent or contains zero entries.
      */
@@ -137,6 +152,10 @@ internal object Mp4ChapterExtractor {
             val tkhd = AtomWalker.findChild(bytes, atom.dataOffset, atom.end, "tkhd") ?: return@forEachChild
             // tkhd v0: version(1) + flags(3) + creation(4) + modification(4) + track_id(4)
             // tkhd v1: version(1) + flags(3) + creation(8) + modification(8) + track_id(4)
+            // A box too short to hold even the v0 layout carries no readable track id — skip this
+            // trak rather than index its (absent) version byte. Losing one unresolvable chapter
+            // track must not cost the file its tags and duration.
+            if (tkhd.dataOffset + TKHD_MIN_PAYLOAD_BYTES > tkhd.end) return@forEachChild
             val version = bytes[tkhd.dataOffset].toInt() and 0xFF
             val trackIdOffset = if (version == 1) tkhd.dataOffset + 20 else tkhd.dataOffset + 12
             if (trackIdOffset + 4 > tkhd.end) return@forEachChild
@@ -213,6 +232,9 @@ internal object Mp4ChapterExtractor {
         mdiaAtom: Atom,
     ): Int {
         val mdhd = AtomWalker.findChild(bytes, mdiaAtom.dataOffset, mdiaAtom.end, "mdhd") ?: return 1000
+        // Too short to hold even the v0 layout — fall back to the default timescale exactly as a
+        // missing mdhd does, rather than indexing a version byte the box does not carry.
+        if (mdhd.dataOffset + MDHD_MIN_PAYLOAD_BYTES > mdhd.end) return 1000
         val version = bytes[mdhd.dataOffset].toInt() and 0xFF
         val tsOffset = if (version == 1) mdhd.dataOffset + 20 else mdhd.dataOffset + 12
         if (tsOffset + 4 > mdhd.end) return 1000
