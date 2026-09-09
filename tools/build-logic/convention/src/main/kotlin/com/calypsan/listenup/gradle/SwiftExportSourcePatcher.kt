@@ -22,9 +22,8 @@ data class PatchOutcome(
  */
 object SwiftExportSourcePatcher {
     /**
-     * Swift reserved words. A generated case identifier (or sealed-enum case) that collides with
-     * one must be back-tick-escaped. Shared by the sealed-enum and camelCase passes (it was
-     * copy-pasted into both before the extraction).
+     * Swift reserved words. A generated case identifier that collides with one must be
+     * back-tick-escaped by the camelCase pass.
      */
     internal val swiftKeywords: Set<String> =
         setOf(
@@ -77,13 +76,7 @@ object SwiftExportSourcePatcher {
         )
 
     private const val FLAT_TYPEALIAS_MARKER = "// --- swift-export flat typealias layer (generated) ---"
-    private const val SEALED_ENUM_MARKER = "// --- swift-export sealed-enum support (generated) ---"
-    private const val APP_RESULT_MARKER = "// --- swift-export AppResult accessor (generated) ---"
-
-    /** The generated subtype-class names + erased base type for `AppResult`. See [appendAppResultAccessor]. */
-    private const val APP_RESULT_SUCCESS_CLASS = "_ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Success"
-    private const val APP_RESULT_FAILURE_CLASS = "_ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure"
-    private const val APP_RESULT_BASE_TYPE = "ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult"
+    private const val SEALED_ALIAS_MARKER = "// --- swift-export sealed subtype aliases (generated) ---"
 
     /**
      * Operator-unavailability + undefined-type + codegen-shape fixes for one
@@ -269,7 +262,15 @@ object SwiftExportSourcePatcher {
                 var j = i
                 while (j < lines.size && !lines[j].contains('{')) j++
                 if (j == lines.size) break
-                val signature = lines.subList(i, j + 1).joinToString(" ").substringBefore('{').replace(Regex("""\s+"""), " ").trim()
+                val signature =
+                    lines
+                        .subList(
+                            i,
+                            j + 1,
+                        ).joinToString(" ")
+                        .substringBefore('{')
+                        .replace(Regex("""\s+"""), " ")
+                        .trim()
                 var bodyDepth = lines[j].count { it == '{' } - lines[j].count { it == '}' }
                 var k = j + 1
                 var isStub = false
@@ -354,14 +355,21 @@ object SwiftExportSourcePatcher {
      * not conform to; returns whether anything changed.
      */
     private fun widenUnconformedSealedValues(lines: MutableList<String>): Boolean {
-        val protocols = lines.flatMap { line -> protocolDeclaration.findAll(line).map { it.groupValues[1] }.toList() }.toHashSet()
+        val protocols =
+            lines
+                .flatMap { line ->
+                    protocolDeclaration.findAll(line).map { it.groupValues[1] }.toList()
+                }.toHashSet()
         val conformances = HashMap<String, String>()
         val wrappedClass = HashMap<String, String>()
         lines.forEachIndexed { index, line ->
             classDeclaration.find(line)?.let { conformances[it.groupValues[1]] = it.groupValues[2] }
             wrapperStruct.find(line)?.let { struct ->
                 lines.getOrNull(index + 1)?.let { next ->
-                    wrapperValue.matchEntire(next)?.let { wrappedClass[struct.groupValues[1]] = it.groupValues[1].substringAfterLast('.') }
+                    wrapperValue.matchEntire(next)?.let {
+                        wrappedClass[struct.groupValues[1]] =
+                            it.groupValues[1].substringAfterLast('.')
+                    }
                 }
             }
         }
@@ -383,7 +391,15 @@ object SwiftExportSourcePatcher {
             if (getter != null) {
                 val match = sealedValueGetter.matchEntire(lines[getter])!!
                 val valueType = match.groupValues[2].substringAfterLast('.')
-                val payloads = body.mapNotNull { sealedCase.matchEntire(lines[it])?.groupValues?.get(1)?.substringAfterLast('.') }
+                val payloads =
+                    body.mapNotNull {
+                        sealedCase
+                            .matchEntire(
+                                lines[it],
+                            )?.groupValues
+                            ?.get(1)
+                            ?.substringAfterLast('.')
+                    }
                 val unconformed =
                     valueType in protocols &&
                         payloads.any { payload ->
@@ -409,7 +425,7 @@ object SwiftExportSourcePatcher {
      * top-level `public typealias` for every exported type. Idempotent via a marker. Name
      * collisions across packages resolve to the `client.domain.model` (then any `client.domain`)
      * variant; remaining ambiguous names are skipped and stay qualified. Underscore-prefixed names
- * (Swift Export's `__<Name>` sealed marker protocols, public since Kotlin 2.4.20) are skipped too.
+     * (Swift Export's `__<Name>` sealed marker protocols, public since Kotlin 2.4.20) are skipped too.
      *
      * @param sharedContent the `Shared.swift` contents the aliases are appended to.
      * @param sourceContents the `Shared.swift` + `ListenupContract.swift` contents to harvest types
@@ -490,12 +506,12 @@ object SwiftExportSourcePatcher {
         )
 
     /**
-     * Harvest every sealed parent and its subtypes from the generated Swift, keyed by the same
-     * [SealedParent] used to emit the `onEnum` support. Single source of truth shared by
-     * [appendSealedEnumSupport] (the emitter) and [sealedSubtypeDrift] (the exact-count guard), so
-     * the count the build asserts against is exactly the count the generator would emit.
+     * Harvest every sealed parent and its subtypes from the generated Swift, keyed by
+     * [SealedParent]. [appendSealedSubtypeAliases] emits one flat alias per harvested subtype.
      */
-    internal fun harvestSealedSubtypes(sourceContents: List<String>): LinkedHashMap<SealedParent, MutableList<Pair<String, String>>> {
+    internal fun harvestSealedSubtypes(
+        sourceContents: List<String>,
+    ): LinkedHashMap<SealedParent, MutableList<Pair<String, String>>> {
         val sealedTypes = LinkedHashMap<SealedParent, MutableList<Pair<String, String>>>()
         for (fileContent in sourceContents) {
             for (line in fileContent.lineSequence()) {
@@ -509,168 +525,39 @@ object SwiftExportSourcePatcher {
         return sealedTypes
     }
 
-
     /**
-     * Compares the harvested subtypes of each sealed parent against what the Kotlin sources
-     * actually declare ([SealedHierarchyScanner]), returning one human-readable line per drift.
+     * SKIE-style flat aliases for sealed subtypes, appended onto the generated `Shared.swift`:
+     * `public typealias <Parent><Subtype> = _ExportedKotlinPackages_<path>_<Parent>_<Subtype>` for
+     * every subtype class the harvest finds, so Swift names `AdminInboxUiStateReady` instead of the
+     * mangled class. Idempotent via a marker.
      *
-     * This replaced a map of 127 hand-typed counts. That map was only a *shrink floor* — a parent
-     * that legitimately grew was deliberately not flagged — so its numbers rotted silently:
-     * `PlaybackUpdate` sat at 10 against a real 13, and could have lost two subtypes while still
-     * clearing the floor meant to protect it. Source is the one expectation that cannot go stale.
+     * This pass used to also regenerate SKIE's `onEnum(of:)`: a hand-rolled enum per sealed parent
+     * with a synthetic `unknown` case, policed by a source-vs-Swift drift guard. Kotlin 2.4.20's
+     * Swift Export emits `sealedType()` natively, returning an enum that is exhaustive by
+     * construction (a dropped subtype is a Swift compile error, never a runtime fallthrough), so the
+     * enum, the overload and the guard are gone. Only the aliases remain.
      *
-     * Only parents the harvest actually found are checked. Source declares roughly twice the sealed
-     * types Swift Export emits (the export surface is deliberately lean), so asserting that every
-     * source subtype is emitted would fail on ~300 legitimate absences. Validated against a real
-     * 2.4.10 `Shared.swift`: 128 exported parents, 0 mismatches.
-     *
-     * @param sourceContents the generated `Shared.swift` + `ListenupContract.swift` contents.
-     * @param declaredInSource parent simple name -> concrete subtype simple names, from Kotlin source.
-     */
-    internal fun sealedSubtypeDrift(
-        sourceContents: List<String>,
-        declaredInSource: Map<String, Set<String>>,
-    ): List<String> =
-        harvestSealedSubtypes(sourceContents).mapNotNull { (parent, subtypes) ->
-            val qualified = "${parent.path}.${parent.name}"
-            val expected =
-                declaredInSource[parent.name]
-                    ?: return@mapNotNull "$qualified: harvested a sealed type that the Kotlin sources do not " +
-                        "declare. Either the scanner's source roots no longer cover this type, or the emitted " +
-                        "shape changed — until they agree the exhaustive-switch guarantee is unverifiable."
-            val harvested = subtypes.map { (subtype, _) -> subtype }.toSet()
-            val missing = expected - harvested
-            if (missing.isEmpty()) {
-                null
-            } else {
-                "$qualified: Kotlin declares ${expected.size} concrete subtype(s) but ${harvested.size} " +
-                    "were harvested — missing ${missing.sorted().joinToString(", ")}. Each dropped subtype " +
-                    "would fall to the generated `unknown` case instead of getting its own Swift case."
-            }
-        }
-
-    /**
-     * Sealed-class enum support (the `onEnum(of:)` exhaustive-switch helper), appended onto the
-     * generated `Shared.swift`. Swift export maps a Kotlin sealed class to `protocol <Name>` +
-     * marker `package protocol __<Name>` (Kotlin 2.4.20 renamed it from `_<Name>`; the
-     * exact-count guard caught the rename as an all-parents-harvested-zero drift) + one
-     * `public final class _ExportedKotlinPackages_<path>_<Name>_<Subtype>` per subtype (each
-     * conforming to both). That gives no exhaustive Swift `switch`. SKIE gave callers `onEnum(of:)`
-     * returning a Swift enum; this regenerates that. Per sealed type, appended onto Shared.swift:
-     *   • a flat alias `<Name><Subtype>` for each subtype (SKIE's nested-subtype name), and
-     *   • `enum` (case = lowercased subtype, associated value = the subtype) + a generated `unknown`
-     *     case carrying the base type + an `onEnum(of: <Name>)` overload that `as?`-casts to each
-     *     subtype and returns `.unknown(value)` for anything that matches none. Idempotent via a
-     *     marker.
-     *
-     * @param sharedContent the `Shared.swift` contents the support is appended to.
+     * @param sharedContent the `Shared.swift` contents the aliases are appended to.
      * @param sourceContents the `Shared.swift` + `ListenupContract.swift` contents to harvest
      *   subtypes from.
-     * @return the rewritten `Shared.swift` and `count` = number of sealed parents emitted.
+     * @return the rewritten `Shared.swift` and `count` = number of sealed parents aliased.
      */
-    fun appendSealedEnumSupport(
+    fun appendSealedSubtypeAliases(
         sharedContent: String,
         sourceContents: List<String>,
     ): PatchOutcome {
-        if (sharedContent.contains(SEALED_ENUM_MARKER)) return PatchOutcome(sharedContent, 0)
+        if (sharedContent.contains(SEALED_ALIAS_MARKER)) return PatchOutcome(sharedContent, 0)
         val sealedTypes = harvestSealedSubtypes(sourceContents)
         if (sealedTypes.isEmpty()) return PatchOutcome(sharedContent, 0)
-        val builder = StringBuilder("\n$SEALED_ENUM_MARKER\n")
+        val builder = StringBuilder("\n$SEALED_ALIAS_MARKER\n")
         val emittedAlias = HashSet<String>()
-        var count = 0
         for ((parent, subtypes) in sealedTypes) {
-            val enumName = "OnEnum_${parent.path.replace('.', '_')}_${parent.name}"
-            // The synthetic catch-all case name. Normally `unknown`, but a real Kotlin subtype named
-            // `Unknown` already maps to `case unknown` (e.g. `Reachability.Unknown`); emitting another
-            // `unknown` is an invalid Swift redeclaration. So pick the first name that doesn't collide
-            // with any real subtype's lowercased-first-char case — keeps `.unknown` for the 99% case,
-            // sidesteps the collision for the rare real-`Unknown` enum without consumer churn.
-            val existingCases = subtypes.mapTo(HashSet()) { (subtype, _) -> subtype.replaceFirstChar { it.lowercase() } }
-            val catchAll = generateSequence(0) { it + 1 }
-                .map { if (it == 0) "unknown" else "unknownCatchAll$it" }
-                .first { it !in existingCases }
-            // subtype flat aliases (SKIE's `<Parent><Subtype>` name)
             for ((subtype, className) in subtypes) {
                 val alias = "${parent.name}$subtype"
                 if (emittedAlias.add(alias)) builder.append("public typealias $alias = $className\n")
             }
-            // enum — one case per subtype, plus a synthetic catch-all carrying the base type so a value
-            // matching no known subtype degrades gracefully (the consumer `switch` is forced to handle
-            // it) instead of hitting a runtime `fatalError`. See Plan 004.
-            builder.append("public enum $enumName {\n")
-            for ((subtype, className) in subtypes) {
-                val raw = subtype.replaceFirstChar { it.lowercase() }
-                val case = if (raw in swiftKeywords) "`$raw`" else raw
-                builder.append("    case $case($className)\n")
-            }
-            builder.append("    case $catchAll(ExportedKotlinPackages.${parent.path}.${parent.name})\n")
-            builder.append("}\n")
-            // onEnum overload
-            builder.append(
-                "public func onEnum(of value: ExportedKotlinPackages.${parent.path}.${parent.name}) -> $enumName {\n",
-            )
-            for ((subtype, className) in subtypes) {
-                val raw = subtype.replaceFirstChar { it.lowercase() }
-                val case = if (raw in swiftKeywords) "`$raw`" else raw
-                builder.append("    if let value = value as? $className { return .$case(value) }\n")
-            }
-            builder.append("    return .$catchAll(value)\n}\n")
-            count++
         }
-        return PatchOutcome(sharedContent + builder.toString(), count)
-    }
-
-    /**
-     * Typed `AppResult` accessor, appended onto the generated `Shared.swift`. `AppResult<T>` is the
-     * success/failure envelope every fallible repository call returns — but because it's *generic*,
-     * Swift Export erases it to `any AppResult` and its subtypes are emitted as plain
-     * `_ExportedKotlinPackages_…_AppResult_Success` / `…_Failure` classes that do *not* conform to the
-     * `AppResult` protocol, so [appendSealedEnumSupport]'s [subtypeRe] never matches them and no
-     * `onEnum` is generated. Consumers were left hand-casting a 60-char mangled symbol — and the two
-     * sites diverged (one folded the failure, one silently dropped it).
-     *
-     * This emits a clean, compiler-forced accessor (idempotent, behind a marker): flat typealiases for
-     * the two subtype classes, an `AppResultCase` enum (`success` / `failure` / a defensive `unknown`
-     * tail — never a silent success), and an `appResultCase(_:)` fold over the erased base type. The
-     * success payload stays accessible (`success.data as? T`) via the clean `AppResultSuccess` alias.
-     *
-     * Generated only when the `_AppResult_Success`/`_Failure` classes are actually present in
-     * [sourceContents] (scoped to `AppResult` — the one generic sealed type that matters; a general
-     * generic-sealed solution is out of scope). Removable when Swift Export gains generic-sealed
-     * support upstream (Plan 013).
-     *
-     * @param sharedContent the `Shared.swift` contents the accessor is appended to.
-     * @param sourceContents the `Shared.swift` + `ListenupContract.swift` contents to detect the
-     *   `AppResult` subtype classes in (they live in the `:contract` module's `ListenupContract.swift`).
-     * @return the rewritten `Shared.swift` and `count` = 1 if the accessor was emitted, else 0.
-     */
-    fun appendAppResultAccessor(
-        sharedContent: String,
-        sourceContents: List<String>,
-    ): PatchOutcome {
-        if (sharedContent.contains(APP_RESULT_MARKER)) return PatchOutcome(sharedContent, 0)
-        val hasSuccess = sourceContents.any { it.contains("public final class $APP_RESULT_SUCCESS_CLASS:") }
-        val hasFailure = sourceContents.any { it.contains("public final class $APP_RESULT_FAILURE_CLASS:") }
-        if (!hasSuccess || !hasFailure) return PatchOutcome(sharedContent, 0)
-
-        val block =
-            """
-
-            $APP_RESULT_MARKER
-            public typealias AppResultSuccess = $APP_RESULT_SUCCESS_CLASS
-            public typealias AppResultFailure = $APP_RESULT_FAILURE_CLASS
-            public enum AppResultCase {
-                case success(AppResultSuccess)
-                case failure(AppResultFailure)
-                case unknown(any $APP_RESULT_BASE_TYPE)
-            }
-            public func appResultCase(_ value: any $APP_RESULT_BASE_TYPE) -> AppResultCase {
-                if let failure = value as? AppResultFailure { return .failure(failure) }
-                if let success = value as? AppResultSuccess { return .success(success) }
-                return .unknown(value)
-            }
-            """.trimIndent() + "\n"
-        return PatchOutcome(sharedContent + block, 1)
+        return PatchOutcome(sharedContent + builder.toString(), sealedTypes.size)
     }
 
     /**
@@ -752,29 +639,20 @@ object SwiftExportSourcePatcher {
 
     /**
      * Walks a generated SPM package dir, applies every transform to the right files, returns
-     * per-pass counts keyed `patchSource` / `camelCase` / `flatTypealias` / `sealedEnum`. The only
+     * per-pass counts keyed `patchSource` / `camelCase` / `flatTypealias` / `sealedAlias`. The only
      * File-touching code; mirrors [LocalizationArtifacts]'s role around [LocalizationGenerator].
      *
      * Order matches the original `doLast`: per-file passes first (`patchSource`, `camelCase`), then
-     * the Shared.swift-append passes (`flatTypealias`, `sealedEnum`, `appResult`). A missing root
-     * yields all-zero counts (the original returned 0 from each transform).
-     *
-     * Before emitting the sealed-enum support, it enforces the exact-count guard
-     * ([sealedSubtypeDrift]): a *partial* subtype drop on a known sealed type fails the build loudly
-     * here (naming the parent), rather than slipping the dropped subtype to the `unknown` case
-     * silently. The aggregate `> 0` floor in `build.gradle.kts` stays as the *total*-failure net.
+     * the Shared.swift-append passes (`flatTypealias`, `sealedAlias`). A missing root yields
+     * all-zero counts (the original returned 0 from each transform).
      */
-    fun patchPackage(
-        root: File,
-        kotlinSourceRoots: List<File>,
-    ): Map<String, Int> {
+    fun patchPackage(root: File): Map<String, Int> {
         if (!root.exists()) {
             return mapOf(
                 "patchSource" to 0,
                 "camelCase" to 0,
                 "flatTypealias" to 0,
-                "sealedEnum" to 0,
-                "appResult" to 0,
+                "sealedAlias" to 0,
             )
         }
 
@@ -808,40 +686,22 @@ object SwiftExportSourcePatcher {
             flatTypealiasCount = 0
         }
 
-        val sealedEnumCount: Int
+        val sealedAliasCount: Int
         if (sharedFile != null) {
             // Re-read source contents: the flat-typealias pass mutated Shared.swift above.
             val sealedSources = moduleSourceFiles(root).map { it.readText() }
-            val drift = sealedSubtypeDrift(sealedSources, SealedHierarchyScanner.scanSourceRoots(kotlinSourceRoots))
-            check(drift.isEmpty()) {
-                "Swift Export patcher: the generated Swift and the Kotlin sources disagree about a sealed " +
-                    "hierarchy. A subtype Kotlin declares was not harvested, so it would fall to the generated " +
-                    "`unknown` case instead of getting its own Swift case. This is read from source — there is " +
-                    "no count to update; fix the harvest or the emitted shape.\n  - " + drift.joinToString("\n  - ")
-            }
-            val outcome = appendSealedEnumSupport(sharedFile.readText(), sealedSources)
+            val outcome = appendSealedSubtypeAliases(sharedFile.readText(), sealedSources)
             if (outcome.content != sharedFile.readText()) sharedFile.writeText(outcome.content)
-            sealedEnumCount = outcome.count
+            sealedAliasCount = outcome.count
         } else {
-            sealedEnumCount = 0
-        }
-
-        val appResultCount: Int
-        if (sharedFile != null) {
-            val appResultSources = moduleSourceFiles(root).map { it.readText() }
-            val outcome = appendAppResultAccessor(sharedFile.readText(), appResultSources)
-            if (outcome.content != sharedFile.readText()) sharedFile.writeText(outcome.content)
-            appResultCount = outcome.count
-        } else {
-            appResultCount = 0
+            sealedAliasCount = 0
         }
 
         return mapOf(
             "patchSource" to patchSourceCount,
             "camelCase" to camelCaseCount,
             "flatTypealias" to flatTypealiasCount,
-            "sealedEnum" to sealedEnumCount,
-            "appResult" to appResultCount,
+            "sealedAlias" to sealedAliasCount,
         )
     }
 

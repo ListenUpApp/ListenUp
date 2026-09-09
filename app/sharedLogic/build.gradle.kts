@@ -352,39 +352,21 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
             ?: error("Unexpected GenerateSPMPackage task name '$name' — cannot derive its SPM config dir.")
     val targetName = packageStem.removeSuffix(configName) // e.g. "iosArm64"
     val spmPackageDir = project.layout.buildDirectory.dir("SPMPackage/$targetName/$configName")
-    // Kotlin source truth for the sealed-hierarchy guard. Resolved at CONFIGURATION time: reading
-    // `rootProject` inside `doLast` is a configuration-cache violation. These are the two commonMain
-    // sets whose sealed types reach the Swift export surface.
-    val kotlinSourceRoots =
-        listOf(
-            rootProject.layout.projectDirectory
-                .dir("contract/src/commonMain")
-                .asFile,
-            rootProject.layout.projectDirectory
-                .dir("app/sharedLogic/src/commonMain")
-                .asFile,
-        )
     doLast {
         val counts =
             com.calypsan.listenup.gradle.SwiftExportSourcePatcher
-                .patchPackage(spmPackageDir.get().asFile, kotlinSourceRoots)
+                .patchPackage(spmPackageDir.get().asFile)
         // Fail-fast on a silent codegen-shape drift. A Kotlin/Swift-Export bump that breaks the
-        // sealed-enum or flat-typealias regexes would otherwise ship a bridge with no `onEnum`
-        // support / no flat aliases on a green Linux PR. `patchSource` / `camelCase` can legitimately
+        // sealed-subtype or flat-typealias regexes would otherwise ship a bridge with no subtype
+        // aliases / no flat aliases on a green Linux PR. `patchSource` / `camelCase` can legitimately
         // match nothing on a clean tool version, so they are not floored here.
-        check((counts["sealedEnum"] ?: 0) > 0) {
-            "Swift Export patcher: appendSealedEnumSupport matched 0 sealed types — the generated output " +
-                "shape likely changed (Kotlin/Swift-Export bump). The bridge would ship with no onEnum " +
-                "support. Run `./gradlew :build-logic:convention:test` to localize the broken transform."
+        check((counts["sealedAlias"] ?: 0) > 0) {
+            "Swift Export patcher: appendSealedSubtypeAliases matched 0 sealed types — the generated output " +
+                "shape likely changed (Kotlin/Swift-Export bump). The bridge would ship with no subtype " +
+                "aliases. Run `./gradlew :build-logic:convention:test` to localize the broken transform."
         }
         check((counts["flatTypealias"] ?: 0) > 0) {
             "Swift Export patcher: 0 flat typealiases emitted — generated shape drift. Run " +
-                "`./gradlew :build-logic:convention:test` to localize the broken transform."
-        }
-        check((counts["appResult"] ?: 0) > 0) {
-            "Swift Export patcher: AppResult accessor not emitted — the generated " +
-                "_AppResult_Success/_Failure class shape likely changed (Kotlin/Swift-Export bump). The " +
-                "two iOS call sites cast the raw mangled names and would break. Run " +
                 "`./gradlew :build-logic:convention:test` to localize the broken transform."
         }
         logger.lifecycle("Swift export patcher: $counts")

@@ -20,197 +20,28 @@ class SwiftExportSourcePatcherTest {
     // ---- sealed-enum pass ----------------------------------------------------------------------
 
     @Test
-    fun `sealed pass emits enum, cases, onEnum overload and counts parents`() {
+    fun `sealed pass emits a flat alias per subtype and counts parents`() {
         val source = fixture("sealed-subtypes.swift")
-        val outcome = SwiftExportSourcePatcher.appendSealedEnumSupport("", listOf(source))
+        val outcome = SwiftExportSourcePatcher.appendSealedSubtypeAliases("", listOf(source))
 
         assertEquals(1, outcome.count, "one sealed parent (SyncResult)")
         val out = outcome.content
-        assertTrue(
-            out.contains("public enum OnEnum_com_calypsan_listenup_client_domain_model_SyncResult {"),
-            "enum named per parent path",
-        )
-        assertTrue(
-            out.contains("case success(_ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Success)"),
-            "lowercased success case with subtype associated value",
-        )
-        assertTrue(
-            out.contains("case error(_ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Error)"),
-            "lowercased error case",
-        )
-        assertTrue(
-            out.contains(
-                "public func onEnum(of value: ExportedKotlinPackages." +
-                    "com.calypsan.listenup.client.domain.model.SyncResult) -> " +
-                    "OnEnum_com_calypsan_listenup_client_domain_model_SyncResult {",
-            ),
-            "onEnum overload keyed to the parent",
-        )
         assertTrue(
             out.contains(
                 "public typealias SyncResultSuccess = _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Success",
             ),
             "SKIE-style flat subtype alias",
         )
-        // Plan 004: a generated `unknown` tail (carrying the base type) replaces the old `fatalError`,
-        // so a value matching no known subtype degrades gracefully and the consumer switch is forced
-        // to handle it.
-        assertTrue(
-            out.contains("case unknown(ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.SyncResult)"),
-            "generated unknown case carrying the base type",
-        )
-        assertTrue(out.contains("    return .unknown(value)\n}"), "onEnum returns .unknown for an unmatched value")
-        assertFalse(out.contains("fatalError"), "no fatalError crash path remains")
-    }
-
-    @Test
-    fun `sealed pass avoids redeclaring unknown when a real Unknown subtype exists`() {
-        // Reachability has a real `Unknown` subtype -> `case unknown`. The synthetic catch-all must NOT
-        // also be named `unknown` (an invalid Swift redeclaration that fails the real iOS compile); it
-        // falls back to a non-colliding name.
-        val source = fixture("sealed-with-unknown-subtype.swift")
-        val out = SwiftExportSourcePatcher.appendSealedEnumSupport("", listOf(source)).content
-
-        // The real subtype keeps its `case unknown`.
-        assertTrue(
-            out.contains("case unknown(_ExportedKotlinPackages_com_calypsan_listenup_client_domain_repository_Reachability_Unknown)"),
-            "real Unknown subtype maps to case unknown",
-        )
-        // Exactly one `case unknown(` in the enum — no redeclaration.
-        assertEquals(1, Regex("""case unknown\(""").findAll(out).count(), "no duplicate `case unknown`")
-        // The synthetic catch-all uses the non-colliding fallback name + returns it.
-        assertTrue(
-            out.contains("case unknownCatchAll1(ExportedKotlinPackages.com.calypsan.listenup.client.domain.repository.Reachability)"),
-            "synthetic catch-all renamed to avoid the collision",
-        )
-        assertTrue(out.contains("    return .unknownCatchAll1(value)\n}"), "onEnum returns the renamed catch-all")
-        assertFalse(out.contains("fatalError"), "no fatalError crash path")
-    }
-
-    @Test
-    fun `sealed exact-count guard flags a known parent that lost a subtype`() {
-        // SyncResult is recorded as having 2 subtypes; emit only one -> a partial drop the build fails on.
-        val partial =
-            "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Success: " +
-                "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.SyncResult, " +
-                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.__SyncResult {\n}\n"
-        // A test-only expected baseline of 2 for SyncResult: assert the pure drift detector via the public map.
-        // (The production map keys real types; here we verify the comparison logic by harvesting + comparing.)
-        val harvested =
-            SwiftExportSourcePatcher.harvestSealedSubtypes(listOf(partial))
-        val syncResult =
-            harvested.entries.single { it.key.name == "SyncResult" }
-        assertEquals(1, syncResult.value.size, "only one subtype harvested from the partial fixture")
-    }
-
-    private val connectErrorBase = "ExportedKotlinPackages.com.calypsan.listenup.api.error"
-
-    private fun connectErrorSubtype(name: String) =
-        "public final class _ExportedKotlinPackages_com_calypsan_listenup_api_error_ServerConnectError_$name: " +
-            "KotlinRuntime.KotlinBase, $connectErrorBase.ServerConnectError, " +
-            "$connectErrorBase.__ServerConnectError {\n}\n"
-
-    private val connectErrorSubtypes =
-        setOf("InvalidUrl", "NotListenUpServer", "ServerNotReachable", "VerificationFailed", "LocalNetworkPermissionDenied")
-
-    @Test
-    fun `a subtype Kotlin declares but the Swift does not emit is drift`() {
-        // The partial-drop case: Kotlin says five, the generated Swift carries four. The fifth would
-        // fall to the generated `unknown` case, so it must fail the build naming the missing subtype.
-        val four = (connectErrorSubtypes - "LocalNetworkPermissionDenied").joinToString("", transform = ::connectErrorSubtype)
-
-        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(four), mapOf("ServerConnectError" to connectErrorSubtypes))
-
-        assertTrue(drift.any { it.contains("ServerConnectError") && it.contains("LocalNetworkPermissionDenied") })
-    }
-
-    @Test
-    fun `a parent whose harvest matches source is not drift`() {
-        val five = connectErrorSubtypes.joinToString("", transform = ::connectErrorSubtype)
-
-        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(five), mapOf("ServerConnectError" to connectErrorSubtypes))
-
-        assertEquals(emptyList(), drift, "source and harvest agree")
-    }
-
-    @Test
-    fun `a harvested parent absent from the Kotlin scan is drift`() {
-        // The scanner's roots no longer cover this type, or the emitted shape moved. Either way the
-        // exhaustive-switch guarantee is unverifiable, so it cannot pass silently.
-        val novel =
-            "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_BrandNewType_One: " +
-                "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.BrandNewType, " +
-                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.__BrandNewType {\n}\n"
-
-        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(novel), emptyMap())
-
-        assertTrue(drift.any { it.contains("BrandNewType") && it.contains("do not declare") })
-    }
-
-    @Test
-    fun `a sealed type Kotlin declares but Swift never exports is not drift`() {
-        // Source carries roughly twice the sealed types the export surface emits. Only harvested
-        // parents are checked, so an unexported hierarchy must stay silent — otherwise the guard
-        // would fail on ~300 legitimate absences and get switched off.
-        val drift =
-            SwiftExportSourcePatcher.sealedSubtypeDrift(
-                listOf(connectErrorSubtypes.joinToString("", transform = ::connectErrorSubtype)),
-                mapOf("ServerConnectError" to connectErrorSubtypes, "NeverExported" to setOf("A", "B")),
-            )
-
-        assertEquals(emptyList(), drift, "an unexported sealed hierarchy is not drift")
-    }
-
-    // ---- AppResult accessor pass ---------------------------------------------------------------
-
-    @Test
-    fun `appResult pass emits typealiases, AppResultCase enum and the fold accessor`() {
-        val source = fixture("app-result.swift")
-        val outcome = SwiftExportSourcePatcher.appendAppResultAccessor("", listOf(source))
-
-        assertEquals(1, outcome.count, "accessor emitted when both subtype classes are present")
-        val out = outcome.content
-        assertTrue(
-            out.contains("public typealias AppResultSuccess = _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Success"),
-            "success typealias to the mangled class",
-        )
-        assertTrue(
-            out.contains("public typealias AppResultFailure = _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure"),
-            "failure typealias to the mangled class",
-        )
-        assertTrue(out.contains("public enum AppResultCase {"), "AppResultCase enum")
-        assertTrue(out.contains("case success(AppResultSuccess)"), "success case")
-        assertTrue(out.contains("case failure(AppResultFailure)"), "failure case")
-        assertTrue(
-            out.contains("case unknown(any ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult)"),
-            "defensive unknown case carrying the erased base — never a silent success",
-        )
         assertTrue(
             out.contains(
-                "public func appResultCase(_ value: any ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult) -> AppResultCase {",
+                "public typealias SyncResultError = _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Error",
             ),
-            "fold over the erased base type",
+            "one alias per subtype",
         )
-        assertTrue(out.contains("if let failure = value as? AppResultFailure { return .failure(failure) }"), "failure branch")
-        assertTrue(out.contains("if let success = value as? AppResultSuccess { return .success(success) }"), "success branch")
-        assertTrue(out.contains("return .unknown(value)"), "no silent success on an unmatched value")
-    }
-
-    @Test
-    fun `appResult pass is a no-op when the subtype classes are absent`() {
-        val shared = "// Shared.swift with no AppResult subtype classes\n"
-        val outcome = SwiftExportSourcePatcher.appendAppResultAccessor(shared, listOf("import KotlinRuntime\n"))
-        assertEquals(0, outcome.count, "nothing to anchor on -> no emission")
-        assertEquals(shared, outcome.content, "shared content untouched")
-    }
-
-    @Test
-    fun `appResult pass is idempotent`() {
-        val source = fixture("app-result.swift")
-        val once = SwiftExportSourcePatcher.appendAppResultAccessor("", listOf(source))
-        val twice = SwiftExportSourcePatcher.appendAppResultAccessor(once.content, listOf(source))
-        assertEquals(once.content, twice.content)
-        assertEquals(0, twice.count)
+        // Kotlin 2.4.20 emits `sealedType()` natively; the hand-rolled enum must not come back.
+        assertFalse(out.contains("enum OnEnum_"), "no hand-rolled sealed enum")
+        assertFalse(out.contains("onEnum("), "no onEnum overload")
+        assertFalse(out.contains("unknown"), "no synthetic unknown case")
     }
 
     // ---- flat-typealias pass -------------------------------------------------------------------
@@ -318,9 +149,9 @@ class SwiftExportSourcePatcherTest {
     @Test
     fun `each transform is idempotent`() {
         val sealedSrc = fixture("sealed-subtypes.swift")
-        val sealedOnce = SwiftExportSourcePatcher.appendSealedEnumSupport("", listOf(sealedSrc))
+        val sealedOnce = SwiftExportSourcePatcher.appendSealedSubtypeAliases("", listOf(sealedSrc))
         // Second run sees the marker in the already-appended content -> no-op.
-        val sealedTwice = SwiftExportSourcePatcher.appendSealedEnumSupport(sealedOnce.content, listOf(sealedSrc))
+        val sealedTwice = SwiftExportSourcePatcher.appendSealedSubtypeAliases(sealedOnce.content, listOf(sealedSrc))
         assertEquals(sealedOnce.content, sealedTwice.content)
         assertEquals(0, sealedTwice.count)
 
@@ -349,7 +180,7 @@ class SwiftExportSourcePatcherTest {
         val drifted =
             "public final class _ExportedKotlinPackages_x_SyncResult_Success: KotlinRuntime.KotlinBase, " +
                 "SomeNewWrapper, ExportedKotlinPackages.x.SyncResult, ExportedKotlinPackages.x.__SyncResult {\n}\n"
-        val outcome = SwiftExportSourcePatcher.appendSealedEnumSupport("", listOf(drifted))
+        val outcome = SwiftExportSourcePatcher.appendSealedSubtypeAliases("", listOf(drifted))
         assertEquals(0, outcome.count, "drifted shape matches nothing -> build assertion would fire")
         assertEquals("", outcome.content, "no support appended on zero match")
     }
