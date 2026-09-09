@@ -51,26 +51,6 @@ class ImageStorage(
     suspend fun downloadBytes(url: String): ByteArray = fetchCapped(url)
 
     /**
-     * Downloads [url] and writes the bytes to [destination].
-     *
-     * @param url the remote image URL
-     * @param destination absolute [Path] to the target file
-     * @return the image bytes
-     * @throws UnsafeCoverUrlException if [url] or a redirect hop fails [SafeCoverUrl]
-     * @throws CoverTooLargeException if the response exceeds [maxBytes]
-     * @throws Exception on download or filesystem failure (after deleting the
-     *   temp file if one was created)
-     */
-    suspend fun download(
-        url: String,
-        destination: Path,
-    ): ByteArray {
-        val bytes = fetchCapped(url)
-        writeBytes(bytes, destination)
-        return bytes
-    }
-
-    /**
      * Validates [url], follows redirects up to [MAX_REDIRECT_HOPS] (re-validating each Location
      * target before following it), and reads the terminal response as a size-capped stream.
      */
