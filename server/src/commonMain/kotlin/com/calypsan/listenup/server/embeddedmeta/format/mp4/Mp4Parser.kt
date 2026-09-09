@@ -247,7 +247,7 @@ internal class Mp4Parser : AudioFormatParser {
         // wrapped product is a plausible-looking negative or small number, not an obvious one.
         // Reject the operands that cannot survive the multiply before performing it.
         if (durationUnits < 0 || durationUnits > Long.MAX_VALUE / MILLIS_PER_SECOND) return 0
-        val durationMs = (durationUnits * MILLIS_PER_SECOND) / timescale.toLong()
+        val durationMs = durationUnits * MILLIS_PER_SECOND / timescale.toLong()
         return if (durationMs in 0..MAX_PLAUSIBLE_DURATION_MS) durationMs else 0
     }
 }
