@@ -534,9 +534,18 @@ class AuthServiceImpl(
         return passwordResetService.request(email, deviceClaim)
     }
 
-    /** Delegates to [PasswordResetService.observeStatus]. */
+    /** Delegates to [PasswordResetService.observeStatus], behind the same per-IP subscription throttle. */
     override fun observePasswordResetStatus(ticketId: String): Flow<RpcEvent<PasswordResetStatusEvent>> =
-        passwordResetService.observeStatus(ticketId).map { RpcEvent.Data(it) }
+        flow {
+            // Same C3-style per-IP throttle as observeRegistrationStatus/Policy: each open
+            // subscription holds a poll loop that never completes while the ticket is pending, so
+            // an unbounded stream of subscribe attempts is a resource-exhaustion vector of its own.
+            enforceRate(AuthRateBucket.OBSERVE_PASSWORD_RESET_STATUS)?.let {
+                emit(RpcEvent.Error(it))
+                return@flow
+            }
+            emitAll(passwordResetService.observeStatus(ticketId).map { RpcEvent.Data(it) })
+        }
 
     /** Delegates to [PasswordResetService.complete]. */
     override suspend fun completePasswordReset(

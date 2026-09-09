@@ -47,6 +47,14 @@ enum class AuthRateBucket(
     OBSERVE_REGISTRATION_POLICY(20),
 
     /**
+     * `observePasswordResetStatus` subscriptions. Each open subscription holds a poll loop that
+     * re-reads the ticket forever and never completes while it is PENDING — the same
+     * open-subscription exhaustion vector as [OBSERVE_REGISTRATION_STATUS], and the same ceiling:
+     * a legitimate client re-subscribes on every reconnect-with-backoff attempt.
+     */
+    OBSERVE_PASSWORD_RESET_STATUS(20),
+
+    /**
      * `requestPasswordReset`. Unauthenticated, and the known/unknown-account branches differ
      * measurably in cost (the known path runs an extra transaction plus an HMAC). That timing
      * delta is not a one-shot signal, but it is repeatable and free to sample — this bucket is
