@@ -39,7 +39,6 @@ import com.calypsan.listenup.client.foldable.PostureProvider
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -91,19 +90,15 @@ class MainActivity : ComponentActivity() {
         // Without this, a just-registered user has no live sync stream, so books the
         // server scans right after library creation don't arrive until the app is
         // relaunched. Re-collected per STARTED so foreground resumes reconnect too;
-        // engine.start() is single-flight, so overlapping with onResume is safe.
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                authSession.authState
-                    .map { it is AuthState.Authenticated }
-                    .distinctUntilChanged()
-                    .collect { authenticated ->
-                        if (authenticated) {
-                            logger.debug { "Authenticated — connecting realtime sync" }
-                            syncRepository.connectRealtime()
-                        }
-                    }
+        // engine.start() is single-flight, so overlapping resumes are safe. The
+        // teardown half lives in the same window — see SyncLifecyclePolicy for why
+        // onPause was the wrong signal for it.
+        val syncLifecycle =
+            SyncLifecyclePolicy(syncRepository) {
+                authSession.authState.map { it is AuthState.Authenticated }
             }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) { syncLifecycle.runWhileStarted() }
         }
 
         setContent {
@@ -222,17 +217,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             connectionCoordinator.reevaluate()
         }
-
-        // Connect realtime sync when app comes to foreground (if authenticated)
-        lifecycleScope.launch {
-            val isAuthenticated = authSession.getAccessToken() != null
-            if (isAuthenticated) {
-                logger.debug { "App resumed and user authenticated, connecting realtime sync" }
-                syncRepository.connectRealtime()
-            } else {
-                logger.debug { "App resumed but user not authenticated, skipping realtime sync" }
-            }
-        }
     }
 
     override fun onPause() {
@@ -241,10 +225,6 @@ class MainActivity : ComponentActivity() {
         // Record background timestamp so onAppForegrounded can decide
         // whether a library-setup re-check is needed on the next resume.
         appStartupViewModel.onAppBackgrounded()
-
-        // Disconnect realtime sync when app goes to background to save battery
-        logger.debug { "App paused, disconnecting realtime sync to save battery" }
-        lifecycleScope.launch { syncRepository.disconnect() }
     }
 }
 
