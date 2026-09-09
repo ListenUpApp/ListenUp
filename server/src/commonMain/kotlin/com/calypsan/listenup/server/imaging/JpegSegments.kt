@@ -207,6 +207,8 @@ private fun readFrameHeader(
     val width = readUShort(bytes, start + 3)
     val componentCount = readUByte(bytes, start + 5)
     if (width <= 0 || height <= 0) return null
+    // Refused here, before allocateCoefficients sizes three IntArrays from these two numbers.
+    if (width.toLong() * height.toLong() > MAX_DECODABLE_PIXELS) return null
     if (componentCount != GREYSCALE_COMPONENTS && componentCount != YCBCR_COMPONENTS) return null
 
     val components =

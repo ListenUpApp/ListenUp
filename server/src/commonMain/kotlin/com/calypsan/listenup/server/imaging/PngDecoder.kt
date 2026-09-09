@@ -27,20 +27,26 @@ internal fun decodePng(bytes: ByteArray): PixelBuffer? {
 
     // Chunk walk. IDAT may be split across any number of chunks and must be concatenated *before*
     // inflating — the compressed stream spans them, so decompressing each one alone would fail.
-    while (offset + CHUNK_OVERHEAD <= bytes.size) {
+    //
+    // The bounds are computed in Long: a declared length just under Int.MAX_VALUE would wrap an Int
+    // sum negative and walk straight past the end-of-file check. Indices convert back to Int only
+    // once the check has proven they fit.
+    while (offset.toLong() + CHUNK_OVERHEAD <= bytes.size) {
         val length = readBigEndianInt(bytes, offset)
         if (length < 0) return null
         val type = readChunkType(bytes, offset + LENGTH_FIELD_BYTES)
-        val dataStart = offset + LENGTH_FIELD_BYTES + TYPE_FIELD_BYTES
-        if (dataStart + length + CRC_FIELD_BYTES > bytes.size) return null
+        val dataStart = offset.toLong() + LENGTH_FIELD_BYTES + TYPE_FIELD_BYTES
+        val chunkEnd = dataStart + length + CRC_FIELD_BYTES
+        if (chunkEnd > bytes.size) return null
+        val dataOffset = dataStart.toInt()
 
         when (type) {
-            "IHDR" -> header = parsePngHeader(bytes, dataStart, length) ?: return null
-            "IDAT" -> compressed.write(bytes, dataStart, dataStart + length)
+            "IHDR" -> header = parsePngHeader(bytes, dataOffset, length) ?: return null
+            "IDAT" -> compressed.write(bytes, dataOffset, dataOffset + length)
             "IEND" -> return header?.let { inflateAndUnfilter(it, compressed) }
         }
 
-        offset = dataStart + length + CRC_FIELD_BYTES
+        offset = chunkEnd.toInt()
     }
 
     // No IEND: the file was truncated mid-stream.
@@ -67,6 +73,8 @@ private fun parsePngHeader(
     val interlace = readUByte(bytes, at + IHDR_INTERLACE)
 
     if (width <= 0 || height <= 0) return null
+    // Refused here, before the raster these two numbers describe is ever sized.
+    if (width.toLong() * height.toLong() > MAX_DECODABLE_PIXELS) return null
     if (bitDepth != SUPPORTED_BIT_DEPTH) return null
     if (interlace != INTERLACE_NONE) return null
 
@@ -97,14 +105,18 @@ private fun inflateAndUnfilter(
         compressed.readAtMostTo(zlibHeader, 0, ZLIB_HEADER_BYTES)
         if (zlibHeader[0].toInt() and ZLIB_METHOD_MASK != ZLIB_DEFLATE_METHOD) return null
 
-        val stride = header.width * header.channels
+        // Long arithmetic from header-declared values: an Int product here could wrap to a small
+        // positive number and pass a size check it should have failed.
+        val stride = header.width.toLong() * header.channels
+        val rawSize = header.height.toLong() * (FILTER_BYTE + stride)
+        if (rawSize > MAX_RAW_IMAGE_BYTES) return null
         val raw =
             compressed
                 .inflated()
                 .buffered()
-                .readByteArray(header.height * (FILTER_BYTE + stride))
+                .readByteArray(rawSize.toInt())
 
-        unfilter(header, raw, stride)
+        unfilter(header, raw, stride.toInt())
     } catch (_: Exception) {
         // Truncated, corrupt, or a stream shorter than the header promised — all the same answer.
         null
@@ -226,6 +238,14 @@ private const val ZLIB_HEADER_BYTES = 2
 private const val ZLIB_METHOD_MASK = 0x0F
 private const val ZLIB_DEFLATE_METHOD = 8
 private const val FILTER_BYTE = 1
+
+/**
+ * Largest unfiltered raster this decoder will read, derived from [MAX_DECODABLE_PIXELS]: every pixel's
+ * four RGBA channels plus, in the worst case of a one-pixel-wide image, one filter byte per pixel.
+ * A header that passed the pixel cap can never exceed it — this is the belt to that cap's braces,
+ * sized so it declines nothing the cap admits.
+ */
+private const val MAX_RAW_IMAGE_BYTES: Long = MAX_DECODABLE_PIXELS * (RGBA_CHANNELS + FILTER_BYTE)
 private const val FILTER_NONE = 0
 private const val FILTER_SUB = 1
 private const val FILTER_UP = 2
