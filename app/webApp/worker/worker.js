@@ -14,6 +14,8 @@
 //   2. `close` replies on success, not only on failure.
 //   3. No per-message logging — it printed every prepared statement's SQL and
 //      every step's bindings to the production console.
+//   4. A rejected `sqlite3InitModule()` fails the queued and every subsequent
+//      request instead of leaving them unanswered forever.
 // Sunset: replace with official packaging if/when androidx ships the worker.
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -170,17 +172,35 @@ function handleMessage(e) {
 }
 
 const messageQueue = [];
+// A rejected init is permanent: every already-queued and every future request must be
+// answered with the reason, or the driver's CompletableDeferred never completes and the
+// tab spins forever with nothing in the console to act on.
+let initError = null;
+
+function failRequest(requestMsg, reason) {
+    postMessage({'id': requestMsg.id, 'error': "SQLite worker failed to start: " + reason});
+}
+
 onmessage = (e) => {
-    if (!sqlite3) {
+    if (initError !== null) {
+        failRequest(e.data, initError);
+    } else if (!sqlite3) {
         messageQueue.push(e);
     } else {
         handleMessage(e);
     }
 };
 
-sqlite3InitModule().then(instance => {
-    sqlite3 = instance;
-    while (messageQueue.length > 0) {
-        handleMessage(messageQueue.shift());
-    }
-});
+sqlite3InitModule()
+    .then(instance => {
+        sqlite3 = instance;
+        while (messageQueue.length > 0) {
+            handleMessage(messageQueue.shift());
+        }
+    })
+    .catch(error => {
+        initError = String(error && error.message ? error.message : error);
+        while (messageQueue.length > 0) {
+            failRequest(messageQueue.shift().data, initError);
+        }
+    });
