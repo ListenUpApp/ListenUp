@@ -478,7 +478,7 @@ class AppleDownloadService internal constructor(
  * Handles progress updates and completion. Each download task has a registered
  * continuation that is resumed when the task finishes.
  */
-private class DownloadSessionDelegate(
+internal class DownloadSessionDelegate(
     private val downloadDao: DownloadDao,
     private val scope: CoroutineScope,
 ) : NSObject(),
@@ -610,6 +610,19 @@ private class DownloadSessionDelegate(
         }
     }
 
+    /**
+     * Fail a task exactly once: remove its pending state and resume its continuation with `false`.
+     *
+     * This is the unconditional tail of EVERY exit path in both delegate callbacks. The previous
+     * shape dropped the continuation on a nil/short `taskDescription` — the caller's
+     * `suspendCancellableCoroutine` then suspended forever and its DB row stayed DOWNLOADING with
+     * nothing behind it. [removePending] returning null means some other path already finished it,
+     * so a second call is a safe no-op.
+     */
+    private fun failTask(taskId: ULong) {
+        removePending(taskId)?.let { safeResume(it.continuation, false) }
+    }
+
     override fun URLSession(
         session: NSURLSession,
         downloadTask: NSURLSessionDownloadTask,
@@ -617,8 +630,13 @@ private class DownloadSessionDelegate(
     ) {
         val taskId = downloadTask.taskIdentifier
         val pending = lock.withLock { pendingDownloads[taskId] } ?: return
-        val parts = downloadTask.taskDescription?.split("|") ?: return
-        val audioFileId = parts.getOrNull(1) ?: return
+        val parts = downloadTask.taskDescription?.split("|")
+        val audioFileId = parts?.getOrNull(1)
+        if (audioFileId == null) {
+            logger.error { "Finished download task $taskId carries no usable tag; failing it" }
+            failTask(taskId)
+            return
+        }
         val filename = parts.getOrNull(2) ?: "unknown"
 
         // Check HTTP status
@@ -627,7 +645,7 @@ private class DownloadSessionDelegate(
         if (statusCode !in 200L..299L && statusCode != 0L) {
             logger.error { "Download HTTP $statusCode for $filename" }
             scope.launch { downloadDao.updateError(audioFileId, "HTTP error: $statusCode") }
-            removePending(taskId)?.let { safeResume(it.continuation, false) }
+            failTask(taskId)
             return
         }
 
@@ -639,7 +657,7 @@ private class DownloadSessionDelegate(
         if (!moved) {
             logger.error { "Failed to move downloaded file: $filename" }
             scope.launch { downloadDao.updateError(audioFileId, "Failed to save file") }
-            removePending(taskId)?.let { safeResume(it.continuation, false) }
+            failTask(taskId)
             return
         }
 
@@ -651,7 +669,7 @@ private class DownloadSessionDelegate(
         if (fileSize == 0L) {
             logger.error { "Downloaded file is empty: $filename" }
             scope.launch { downloadDao.updateError(audioFileId, "Downloaded file is empty") }
-            removePending(taskId)?.let { safeResume(it.continuation, false) }
+            failTask(taskId)
             return
         }
 
@@ -703,15 +721,19 @@ private class DownloadSessionDelegate(
         task: NSURLSessionTask,
         didCompleteWithError: NSError?,
     ) {
+        // A nil error means the download succeeded; `didFinishDownloadingToURL` already resumed it.
         if (didCompleteWithError == null) return
         val taskId = task.taskIdentifier
-        val pending = removePending(taskId) ?: return
-        val parts = task.taskDescription?.split("|") ?: return
-        val audioFileId = parts.getOrNull(1) ?: return
+        val audioFileId = task.taskDescription?.split("|")?.getOrNull(1)
 
         logger.error { "Download error: ${didCompleteWithError.localizedDescription}" }
-        scope.launch { downloadDao.updateError(audioFileId, didCompleteWithError.localizedDescription) }
-        safeResume(pending.continuation, false)
+        if (audioFileId != null) {
+            scope.launch { downloadDao.updateError(audioFileId, didCompleteWithError.localizedDescription) }
+        } else {
+            logger.error { "Failed download task $taskId carries no usable tag; no row to mark" }
+        }
+        // Unconditional tail: the continuation is resumed even when the tag is unusable.
+        failTask(taskId)
     }
 }
 
