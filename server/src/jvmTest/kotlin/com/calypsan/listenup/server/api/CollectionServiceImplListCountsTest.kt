@@ -86,11 +86,17 @@ class CollectionServiceImplListCountsTest :
                 sql.seedTestBook("b1")
                 sql.seedTestBook("b2")
                 sql.seedTestBook("b3")
-                // 020 gates curation on book visibility, and a bare seedTestBook row sits in no
-                // collection — invisible under the pure-union rule. This is the access path a real
-                // member has; without it the owner's own counts read zero.
-                makeBooksVisibleTo("u1", "b1", "b2", "b3")
                 runTest {
+                    // `addBookToCollection` only lets a caller curate a book they can already SEE, and
+                    // book visibility is a pure union: a live book is visible to a member only via a
+                    // collection they own or hold a grant on. Production always supplies one — the
+                    // scanner files every new book into ALL_BOOKS (INBOX for a held library) and
+                    // `DefaultAllBooksGrantIssuer` hands every member a live ALL_BOOKS read grant at
+                    // creation, re-healed on each login. `seedTestBook`/`seedTestUser` write the bare
+                    // `books`/`users` rows and neither of those, so without this seam u1 cannot see its
+                    // own books, all three adds fail `BookNotFound`, and every count reads zero.
+                    // Suspend, so it seeds here rather than beside the non-suspend seeds above.
+                    db.makeBooksVisibleTo("u1", "b1", "b2", "b3")
                     val service = makeService(db)
                     val owner = service.actAs("u1")
                     val colOwned = owner.createCollection("test-library", "Owned")
