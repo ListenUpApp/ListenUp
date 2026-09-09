@@ -48,6 +48,8 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.contributor_change_photo
 import listenup.composeapp.generated.resources.contributor_contributor_photo
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Identity header with large avatar and name field side by side.
@@ -200,6 +202,7 @@ fun ContributorIdentityHeader(
                 variant = ListenUpTextFieldVariant.Hero,
                 heroContainerColor = surfaceColor,
                 modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
         }
     }

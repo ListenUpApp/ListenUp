@@ -39,6 +39,8 @@ import listenup.composeapp.generated.resources.contributor_merge_search_placehol
 import listenup.composeapp.generated.resources.contributor_merge_title
 import listenup.composeapp.generated.resources.contributor_merge_truncated
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
 
 private const val LIST_MAX_HEIGHT_DP = 280
 private const val SELECTED_BG_ALPHA = 0.4f
@@ -92,6 +94,7 @@ fun ContributorMergeDialog(
                     onValueChange = onQueryChange,
                     label = stringResource(Res.string.common_search),
                     placeholder = stringResource(Res.string.contributor_merge_search_placeholder),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 )
                 // Above the list, not below it: the list is capped at LIST_MAX_HEIGHT_DP, so a
                 // notice placed underneath is pushed out of the dialog exactly when it is needed —

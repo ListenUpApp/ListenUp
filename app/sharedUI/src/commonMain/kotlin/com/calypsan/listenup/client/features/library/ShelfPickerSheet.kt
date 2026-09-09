@@ -54,6 +54,8 @@ import listenup.composeapp.generated.resources.library_create_new_shelf
 import listenup.composeapp.generated.resources.common_shelf_name_hint
 import listenup.composeapp.generated.resources.library_shelf_name
 import listenup.composeapp.generated.resources.library_you_dont_have_any_shelves
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Bottom sheet for selecting a shelf to add books to.
@@ -363,6 +365,7 @@ private fun CreateShelfDialog(
                 label = stringResource(Res.string.library_shelf_name),
                 placeholder = stringResource(Res.string.common_shelf_name_hint),
                 modifier = Modifier.focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
         },
         confirmButton = {

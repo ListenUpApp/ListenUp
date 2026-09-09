@@ -19,6 +19,9 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_edit_abridged
 import listenup.composeapp.generated.resources.book_edit_shortened_version_of_the_original
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Identifiers section: ISBN, ASIN, and Abridged toggle.
@@ -43,6 +46,7 @@ fun IdentifiersSection(
                 onValueChange = onIsbnChange,
                 label = "ISBN",
                 modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             )
 
             ListenUpTextField(
@@ -50,6 +54,11 @@ fun IdentifiersSection(
                 onValueChange = onAsinChange,
                 label = "ASIN",
                 modifier = Modifier.weight(1f),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        capitalization = KeyboardCapitalization.Characters,
+                    ),
             )
         }
 

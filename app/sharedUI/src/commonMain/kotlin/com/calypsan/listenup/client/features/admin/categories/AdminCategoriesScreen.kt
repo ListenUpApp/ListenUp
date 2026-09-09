@@ -107,6 +107,8 @@ import listenup.composeapp.generated.resources.common_expand
 import listenup.composeapp.generated.resources.common_no_items
 import listenup.composeapp.generated.resources.common_rename
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Admin screen for managing the category (genre) tree.
@@ -583,6 +585,7 @@ private fun GenreNameDialog(
                     // Keep the pre-migration corner radius (the OutlinedTextField default).
                     shape = OutlinedTextFieldDefaults.shape,
                     modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
             }
         },
