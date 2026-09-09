@@ -111,6 +111,7 @@ detekt {
         "$rootDir/app/baselineprofile/src/main",
         "$rootDir/app/sharedLogic/src/appleTest/kotlin",
         "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
+        "$rootDir/contract/src/jvmTest/kotlin",
     )
 }
 

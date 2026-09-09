@@ -27,6 +27,6 @@ class ErrorLoggingTest :
             val line = error.diagnosticLogLine()
 
             line shouldContain "TRANSPORT_NETWORK_UNAVAILABLE"
-            (line.contains("cid=")) shouldBe false
+            line.contains("cid=") shouldBe false
         }
     })
