@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.MetadataRateBucket
 import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -244,5 +245,6 @@ private fun SqlTestDatabases.rateLimitedService(
         sqlDb = sql,
         genreRepository = genreRepo,
         rateLimiter = limiter,
+        bookAccessPolicy = BookAccessPolicy(sql, driver),
     )
 }

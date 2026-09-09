@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -66,6 +67,7 @@ class CollectionServiceImplListCountsTest :
                 clock = fixedClock,
                 bookRevisionTouch = FakeBookRevisionTouch(),
                 principal = principalFor("u1"),
+                bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
             )
         }
 
