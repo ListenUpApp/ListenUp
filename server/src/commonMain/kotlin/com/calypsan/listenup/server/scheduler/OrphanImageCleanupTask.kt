@@ -102,8 +102,19 @@ internal class OrphanImageCleanupTask(
         label: String,
     ) {
         if (!SystemFileSystem.exists(dir)) return
+        val files = SystemFileSystem.list(dir)
+        // An empty reference set is indistinguishable from a broken query or a failed read, and this
+        // task deletes by default — so the one input that would take out the whole directory is the
+        // one input it refuses to act on. The trade: an operator who genuinely deleted every
+        // contributor keeps a directory of dead files until one more is created. That is
+        // recoverable; the alternative is not. Orthogonal to ORPHAN_GRACE, which covers a
+        // *recently written* file rather than a *systematically empty* reference set.
+        if (referencedNames.isEmpty() && files.isNotEmpty()) {
+            log.warn { "OrphanImageCleanupTask: no live $label images referenced but files exist; skipping sweep" }
+            return
+        }
         val graceCutoffMs = clock.now().toEpochMilliseconds() - ORPHAN_GRACE.inWholeMilliseconds
-        SystemFileSystem.list(dir).forEach { file ->
+        files.forEach { file ->
             if (file.name in referencedNames) return@forEach
             if (SystemFileSystem.metadataOrNull(file)?.isRegularFile != true) return@forEach
             val mtimeMs = statFile(file)?.mtimeMs ?: return@forEach

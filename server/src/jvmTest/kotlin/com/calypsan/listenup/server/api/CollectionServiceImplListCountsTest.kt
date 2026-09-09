@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -85,6 +86,10 @@ class CollectionServiceImplListCountsTest :
                 sql.seedTestBook("b1")
                 sql.seedTestBook("b2")
                 sql.seedTestBook("b3")
+                // 020 gates curation on book visibility, and a bare seedTestBook row sits in no
+                // collection — invisible under the pure-union rule. This is the access path a real
+                // member has; without it the owner's own counts read zero.
+                makeBooksVisibleTo("u1", "b1", "b2", "b3")
                 runTest {
                     val service = makeService(db)
                     val owner = service.actAs("u1")
@@ -93,9 +98,12 @@ class CollectionServiceImplListCountsTest :
                     require(colOwned is AppResult.Success)
                     require(colShared is AppResult.Success)
 
-                    owner.addBookToCollection(colOwned.data.id, BookId("b1"))
-                    owner.addBookToCollection(colOwned.data.id, BookId("b2"))
-                    owner.addBookToCollection(colShared.data.id, BookId("b3"))
+                    // Assert the setup: 020 gates curation on book visibility, so a silently
+                    // failing add would leave the counts at zero and the test would be measuring
+                    // nothing.
+                    require(owner.addBookToCollection(colOwned.data.id, BookId("b1")) is AppResult.Success)
+                    require(owner.addBookToCollection(colOwned.data.id, BookId("b2")) is AppResult.Success)
+                    require(owner.addBookToCollection(colShared.data.id, BookId("b3")) is AppResult.Success)
 
                     val grantRepo = CollectionGrantRepository(db = db.sql, bus = ChangeBus(), registry = SyncRegistry(), driver = db.driver)
                     grantRepo.upsert(
