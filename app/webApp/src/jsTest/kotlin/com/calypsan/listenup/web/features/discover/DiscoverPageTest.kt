@@ -18,11 +18,10 @@ import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 
 /** A day in milliseconds — far enough back that the relative time is stable to read. */
@@ -35,16 +34,6 @@ private const val DISCOVER_SECTIONS = 6
 
 /** Any count above one, so the shelf card's plural reads naturally. */
 private const val SHELF_BOOK_COUNT = 4
-
-private val mountedHosts = mutableListOf<HTMLElement>()
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    mountedHosts += host
-    renderComposable(root = host) { content() }
-    return host
-}
 
 private fun listener(
     isLive: Boolean,
@@ -138,16 +127,13 @@ private fun page(
  */
 class DiscoverPageTest :
     FunSpec({
-
-        afterSpec {
-            mountedHosts.forEach { it.remove() }
-            mountedHosts.clear()
-        }
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("every section is announced, even before any of them has data") {
             // The page's shape must not depend on which upstreams answered first, or Discover
             // reflows under the reader as each section lands.
-            val host = mount { page() }
+            val host = mounts.mount { page() }
 
             val headings = host.querySelectorAll(".disc-section-h")
             headings.length shouldBe DISCOVER_SECTIONS
@@ -159,7 +145,7 @@ class DiscoverPageTest :
         test("one section failing costs exactly that section") {
             // The whole reason each section owns its own sealed state.
             val host =
-                mount {
+                mounts.mount {
                     page(
                         leaderboard = LeaderboardUiState.Error(isRetryable = true),
                         currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
@@ -172,7 +158,7 @@ class DiscoverPageTest :
 
         test("a live listener is marked as listening now, not as a stale timestamp") {
             val host =
-                mount { page(currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)))) }
+                mounts.mount { page(currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener(isLive = true)))) }
 
             host.querySelector(".disc-live")!!.textContent shouldBe "Listening now"
             host.querySelector(".disc-when") shouldBe null
@@ -180,7 +166,7 @@ class DiscoverPageTest :
 
         test("someone who has stopped is shown on when they last played") {
             val host =
-                mount {
+                mounts.mount {
                     page(
                         currentlyListening =
                             CurrentlyListeningUiState.Ready(
@@ -195,7 +181,7 @@ class DiscoverPageTest :
 
         test("the selected period and category are the ones marked on, for a screen reader too") {
             val host =
-                mount {
+                mounts.mount {
                     page(
                         leaderboard =
                             LeaderboardUiState.Data(
@@ -218,7 +204,7 @@ class DiscoverPageTest :
             var period: LeaderboardPeriod? = null
             var category: LeaderboardCategory? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         leaderboard =
                             LeaderboardUiState.Data(
@@ -245,7 +231,7 @@ class DiscoverPageTest :
             // The shared projection pins the rule; this pins that the page actually asks for the
             // streak list rather than rendering whichever list happens to be first.
             val host =
-                mount {
+                mounts.mount {
                     page(
                         leaderboard =
                             LeaderboardUiState.Data(
@@ -269,7 +255,7 @@ class DiscoverPageTest :
             // A control that looks tappable and does nothing is worse than plain text.
             var opened: String? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         activityState =
                             ActivityFeedUiState.Ready(listOf(activity("finished_book"), activity("user_joined", bookId = null))),
@@ -289,7 +275,7 @@ class DiscoverPageTest :
         test("a shared shelf opens, grouped under whoever made it") {
             var opened: String? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         shelves =
                             DiscoverShelvesUiState.Ready(
@@ -318,7 +304,7 @@ class DiscoverPageTest :
         test("opening a book from a discovery card reports that book") {
             var opened: String? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         books =
                             DiscoverBooksUiState.Ready(
@@ -335,7 +321,7 @@ class DiscoverPageTest :
 
         test("an empty section says so rather than rendering an empty frame") {
             val host =
-                mount {
+                mounts.mount {
                     page(
                         recentlyAdded = RecentlyAddedUiState.Ready(emptyList()),
                         books =
@@ -352,7 +338,7 @@ class DiscoverPageTest :
 
         test("recently added renders its own books, not the discovery ones") {
             val host =
-                mount {
+                mounts.mount {
                     page(
                         recentlyAdded =
                             RecentlyAddedUiState.Ready(

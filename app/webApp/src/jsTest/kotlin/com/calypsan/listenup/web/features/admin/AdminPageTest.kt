@@ -7,27 +7,16 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.events.Event
-
-private val mountedHosts = mutableListOf<HTMLElement>()
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    mountedHosts += host
-    renderComposable(root = host) { content() }
-    return host
-}
 
 private fun user(
     id: String,
@@ -101,17 +90,14 @@ private fun page(
  */
 class AdminPageTest :
     FunSpec({
-
-        afterSpec {
-            mountedHosts.forEach { it.remove() }
-            mountedHosts.clear()
-        }
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("the owner cannot be removed — the control is absent, not disabled") {
             // Removing the root account would leave nobody able to administer the server. Offering
             // it and refusing later would be a worse way to say so.
             val host =
-                mount { page(AdminUiState.Ready(users = listOf(user("u1", "Simon", isRoot = true)))) }
+                mounts.mount { page(AdminUiState.Ready(users = listOf(user("u1", "Simon", isRoot = true)))) }
 
             host.textContent.orEmpty() shouldContain "Owner"
             host.querySelectorAll(".adm-row-actions button").length shouldBe 0
@@ -120,7 +106,7 @@ class AdminPageTest :
         test("removing a member asks first, and says what happens to their history") {
             var deleted: String? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         state = AdminUiState.Ready(users = listOf(user("u2", "Ada"))),
                         onDeleteUser = { deleted = it },
@@ -139,7 +125,7 @@ class AdminPageTest :
         test("confirming is what removes them") {
             var deleted: String? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         state = AdminUiState.Ready(users = listOf(user("u2", "Ada"))),
                         onDeleteUser = { deleted = it },
@@ -155,7 +141,7 @@ class AdminPageTest :
 
         test("revoking an invite is worded more lightly than removing a person") {
             // Different weights should not share a prompt: nobody has used the invite yet.
-            val host = mount { page(AdminUiState.Ready(pendingInvites = listOf(invite("i1")))) }
+            val host = mounts.mount { page(AdminUiState.Ready(pendingInvites = listOf(invite("i1")))) }
 
             (host.querySelector(".adm-row-actions button") as HTMLElement).click()
             awaitFrame()
@@ -170,7 +156,7 @@ class AdminPageTest :
             // removing, and it is the action an admin came here to take.
             var approved: String? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         state = AdminUiState.Ready(pendingUsers = listOf(user("u3", "Grace"))),
                         onApproveUser = { approved = it },
@@ -184,7 +170,7 @@ class AdminPageTest :
 
         test("an action already in flight cannot be fired twice") {
             val host =
-                mount {
+                mounts.mount {
                     page(
                         AdminUiState.Ready(
                             pendingUsers = listOf(user("u3", "Grace")),
@@ -201,7 +187,7 @@ class AdminPageTest :
         test("a password reset can be approved or declined, and says which") {
             var decision: Pair<String, Boolean>? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         state = AdminUiState.Ready(pendingPasswordResets = listOf(resetRequest("r1"))),
                         onDecidePasswordReset = { id, approved -> decision = id to approved },
@@ -217,7 +203,7 @@ class AdminPageTest :
             // It is a credential. The copy has to make clear it will not come back, or someone
             // dismisses it expecting to find it again later.
             val host =
-                mount {
+                mounts.mount {
                     page(
                         AdminUiState.Ready(
                             resetCodeToConvey = "MOON-42",
@@ -234,7 +220,7 @@ class AdminPageTest :
         }
 
         test("no reset code means no dialog holding the screen") {
-            val host = mount { page(AdminUiState.Ready()) }
+            val host = mounts.mount { page(AdminUiState.Ready()) }
 
             host.querySelector("dialog.dlg") shouldBe null
         }
@@ -242,7 +228,7 @@ class AdminPageTest :
         test("the registration policy reports the choice, and reads as what it means") {
             var policy: RegistrationPolicy? = null
             val host =
-                mount {
+                mounts.mount {
                     page(
                         state = AdminUiState.Ready(registrationPolicy = RegistrationPolicy.CLOSED),
                         onSetRegistrationPolicy = { policy = it },
@@ -268,7 +254,7 @@ class AdminPageTest :
             // There is no Error state — a failed load arrives as Ready carrying `error`. Replacing
             // the page with a blank error would throw away the half that did load.
             val host =
-                mount {
+                mounts.mount {
                     page(AdminUiState.Ready(users = listOf(user("u2", "Ada")), error = "Invites unavailable"))
                 }
 
@@ -278,7 +264,7 @@ class AdminPageTest :
 
         test("sections with nothing in them are not announced") {
             // An admin with no pending anything should not read four empty headings.
-            val host = mount { page(AdminUiState.Ready(users = listOf(user("u2", "Ada")))) }
+            val host = mounts.mount { page(AdminUiState.Ready(users = listOf(user("u2", "Ada")))) }
 
             val text = host.textContent.orEmpty()
             text shouldNotContain "Waiting for you"
