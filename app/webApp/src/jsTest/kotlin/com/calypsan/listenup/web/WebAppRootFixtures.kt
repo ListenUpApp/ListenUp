@@ -66,8 +66,13 @@ import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
+import com.calypsan.listenup.web.features.contributoredit.ContributorEditSession
+import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
+import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
@@ -111,6 +116,7 @@ internal fun mountAt(
     isAdmin: Flow<Boolean> = flowOf(false),
     openBookDetail: OpenBookDetail = fixedBookDetail(readyBook()),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+    openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
     openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
@@ -145,6 +151,7 @@ internal fun mountAt(
                 openBookDetail = openBookDetail,
                 openBookEdit = fixedBookEdit(BookEditUiState()),
                 openContributorDetail = openContributorDetail,
+                openContributorEdit = openContributorEdit,
                 openSeriesDetail = openSeriesDetail,
                 openNotifications = openNotifications,
                 openNotificationPrefs = openNotificationPrefs,
@@ -298,6 +305,30 @@ internal class RecordingSeriesDetail {
         requestedIds += id
         SeriesDetailSession(
             state = MutableStateFlow(readySeries(seriesId = id, seriesName = "Series $id")),
+            close = {},
+        )
+    }
+}
+
+/**
+ * A Contributor Edit session that remembers which people were asked for, and lets a spec push a
+ * navigation action through the same channel the ViewModel uses.
+ */
+internal class RecordingContributorEdit(
+    private val navActions: Flow<ContributorEditNavAction> = emptyFlow(),
+) {
+    val requestedIds = mutableListOf<String>()
+    val open: OpenContributorEdit = { id ->
+        requestedIds += id
+        ContributorEditSession(
+            state =
+                MutableStateFlow(
+                    ContributorEditUiState(isLoading = false, contributorId = id, name = "Person $id"),
+                ),
+            mergeCandidates = MutableStateFlow(emptyList()),
+            navActions = navActions,
+            onEvent = {},
+            onMergeQuery = {},
             close = {},
         )
     }

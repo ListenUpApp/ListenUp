@@ -51,6 +51,7 @@ fun ContributorDetailPage(
     onOpenContributors: () -> Unit,
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit = {},
+    onEdit: () -> Unit = {},
 ) {
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page
@@ -62,7 +63,7 @@ fun ContributorDetailPage(
 
         when (state) {
             is ContributorDetailUiState.Ready -> {
-                ReadyContent(state, onOpenBook, onOpenSeries)
+                ReadyContent(state, onOpenBook, onOpenSeries, onEdit)
             }
 
             is ContributorDetailUiState.Error -> {
@@ -108,7 +109,7 @@ private fun WayBack(
         P { Text(body) }
         Button(attrs = {
             classes("btn-c")
-            attr("type", "button")
+            attr("type", BUTTON_VALUE)
             onClick { onOpenContributors() }
         }) {
             Text("Back to Contributors")
@@ -121,8 +122,9 @@ private fun ReadyContent(
     state: ContributorDetailUiState.Ready,
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
+    onEdit: () -> Unit,
 ) {
-    Hero(state)
+    Hero(state, onEdit)
 
     state.roleSections.forEach { section ->
         Div(attrs = { classes("cd-role-section") }) {
@@ -157,7 +159,10 @@ private fun ReadyContent(
 }
 
 @Composable
-private fun Hero(state: ContributorDetailUiState.Ready) {
+private fun Hero(
+    state: ContributorDetailUiState.Ready,
+    onEdit: () -> Unit,
+) {
     Div(attrs = { classes("cd-hero") }) {
         Div(attrs = {
             classes("cd-avatar")
@@ -188,6 +193,16 @@ private fun Hero(state: ContributorDetailUiState.Ready) {
                 StatPill(WebIcon.Clock, "${state.formatTotalDuration()} of audio")
             }
         }
+
+        // Icon-only, so the accessible name is the attribute rather than the content — the same
+        // shape Book Detail's Edit uses, for the same reason: a hero has no room for a verb.
+        Button(attrs = {
+            classes("btn-sq", "cd-edit")
+            attr("type", BUTTON_VALUE)
+            attr("aria-label", "Edit contributor")
+            attr("title", "Edit contributor")
+            onClick { onEdit() }
+        }) { Icon(WebIcon.Pencil) }
     }
 }
 
@@ -284,7 +299,7 @@ private fun SeriesCard(
 ) {
     Button(attrs = {
         classes("cd-series-card")
-        attr("type", "button")
+        attr("type", BUTTON_VALUE)
         onClick { onOpen() }
     }) {
         SeriesFan(seriesWithBooks.booksSortedBySequence())
@@ -381,3 +396,6 @@ private const val FAN_FIRST_LIGHTNESS = 34
 private const val FAN_SECOND_SATURATION = 32
 
 private const val FAN_SECOND_LIGHTNESS = 14
+
+/** Every button here is an action, never a form submit. */
+private const val BUTTON_VALUE = "button"

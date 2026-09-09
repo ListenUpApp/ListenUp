@@ -24,6 +24,7 @@ import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
@@ -46,6 +47,7 @@ import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.search.fixedSearch
@@ -85,6 +87,7 @@ class BookDetailPanesTest :
                     openBookDetail = source,
                     openBookEdit = fixedBookEdit(BookEditUiState()),
                     openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                    openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
                     openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
                     openNotifications = fixedNotifications(NotificationsUiState.Empty),
                     openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),

@@ -15,6 +15,7 @@ import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.bookedit.graphBookEdit
 import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
 import com.calypsan.listenup.web.features.contributors.graphContributors
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
@@ -112,6 +113,7 @@ fun main() {
                 openBookDetail = graphBookDetail(koin),
                 openBookEdit = graphBookEdit(koin),
                 openContributorDetail = graphContributorDetail(koin),
+                openContributorEdit = graphContributorEdit(koin),
                 openSeriesDetail = graphSeriesDetail(koin),
                 openNotifications = graphNotifications(koin),
                 openNotificationPrefs = graphNotificationPrefs(koin),

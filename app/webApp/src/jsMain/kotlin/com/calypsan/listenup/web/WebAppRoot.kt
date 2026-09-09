@@ -24,7 +24,10 @@ import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
+import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
@@ -155,6 +158,7 @@ fun WebAppRoot(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
+    openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
@@ -254,6 +258,7 @@ fun WebAppRoot(
             openBookDetail = openBookDetail,
             openBookEdit = openBookEdit,
             openContributorDetail = openContributorDetail,
+            openContributorEdit = openContributorEdit,
             openSeriesDetail = openSeriesDetail,
             openNotifications = openNotifications,
             openNotificationPrefs = openNotificationPrefs,
@@ -328,6 +333,19 @@ fun WebAppRoot(
 }
 
 /**
+ * `/{key}/{id}` — the thing this route names, or null when the route isn't about one at all.
+ */
+private fun Route.idUnder(key: String): String? = if (segments.firstOrNull() == key) segments.getOrNull(1) else null
+
+/**
+ * `/{key}/{id}/edit` — the same [id] again, but only when the route asks for the form over it.
+ *
+ * The form is a route of its own rather than a mode of the page beneath it, so it is linkable,
+ * Back leaves it, and a half-finished edit can never be mistaken for the thing it will become.
+ */
+private fun Route.editTargetOf(id: String?): String? = if (id != null && segments.getOrNull(2) == EDIT_KEY) id else null
+
+/**
  * The one page the current route actually shows — Book Edit, Book Detail, Contributors, Library
  * or the placeholder — pulled out of [WebAppRoot] itself purely to keep that function's branching
  * readable as a single glance rather than one long `if`/`else if` chain.
@@ -341,6 +359,7 @@ private fun RouteContent(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
+    openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
@@ -372,22 +391,21 @@ private fun RouteContent(
     onHeroBookIdChange: (String) -> Unit,
 ) {
     val shelfRoute = shelfRouteOf(route.segments)
-    val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
-    // `/book/{id}/edit` — a route of its own rather than a mode of Book Detail, so the form is
-    // linkable, Back leaves it, and a half-finished edit cannot be mistaken for the book.
-    val editingBookId = if (bookId != null && route.segments.getOrNull(2) == EDIT_KEY) bookId else null
+    val bookId = route.idUnder(BOOK_KEY)
+    val editingBookId = route.editTargetOf(bookId)
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
     val isContributors = active == LIBRARY_KEY && route.segments.getOrNull(1) == CONTRIBUTORS_KEY
     // `/contributor/{id}` — the person behind the books, a route of its own (unlike the list, one
     // book's worth of detail is not a facet of anything else).
-    val contributorId = if (page == CONTRIBUTOR_KEY) route.segments.getOrNull(1) else null
+    val contributorId = route.idUnder(CONTRIBUTOR_KEY)
+    val editingContributorId = route.editTargetOf(contributorId)
     // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
     // series is something you arrive at and link to, not a filter over the library grid.
-    val seriesId = if (page == SERIES_KEY) route.segments.getOrNull(1) else null
+    val seriesId = route.idUnder(SERIES_KEY)
     // `/profile/{id}` — a listener's own page, reached from a notification, the account menu,
     // or a link someone sent. A route of its own for the same reason a contributor's is.
-    val profileId = if (page == PROFILE_KEY) route.segments.getOrNull(1) else null
+    val profileId = route.idUnder(PROFILE_KEY)
     // `/profile/{id}/edit` — a route of its own rather than a mode of the profile, for the same
     // reason `/book/{id}/edit` is one: the form is linkable, Back leaves it, and a half-finished
     // edit cannot be mistaken for the profile it will become.
@@ -405,22 +423,16 @@ private fun RouteContent(
             openBookEdit = openBookEdit,
             playback = playback,
         )
-    } else if (isContributors) {
-        val role = parseContributorRole(route.query[ROLE_QUERY_KEY])
-        val contributorsSession = contributorsState(role, openContributors)
-        ContributorsPage(
-            state = contributorsSession.state.collectAsState().value,
-            role = role,
-            onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
-            onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
-        )
-    } else if (contributorId != null) {
-        ContributorDetailPage(
-            state = contributorDetailState(contributorId, openContributorDetail),
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-            onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
-            onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-            onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+    } else if (isContributors || contributorId != null) {
+        ContributorRouteContent(
+            isList = isContributors,
+            contributorId = contributorId,
+            editingContributorId = editingContributorId,
+            role = parseContributorRole(route.query[ROLE_QUERY_KEY]),
+            router = router,
+            openContributors = openContributors,
+            openContributorDetail = openContributorDetail,
+            openContributorEdit = openContributorEdit,
         )
     } else if (profileId != null) {
         ProfileRouteContent(
@@ -932,6 +944,104 @@ private fun contributorsState(
     val session = remember(role) { openContributors(role) }
     DisposableEffect(session) { onDispose { session.close() } }
     return session
+}
+
+/**
+ * `/contributor/{id}/edit` — the person's own details, and who they are really.
+ *
+ * Keyed on [contributorId] for the reason Contributor Detail is: `loadContributor` returns early
+ * for a repeat of the id it already holds, so a session reused across two people would keep
+ * showing the first.
+ *
+ * ⛔ **A merge can delete the contributor being edited.** The rename-collision path folds this one
+ * into an existing contributor, so popping back would land on a detail page for someone who no
+ * longer exists. `NavigateToMerged` carries the survivor's id precisely so the route can land
+ * there instead — and it REPLACES rather than pushes, so Back does not return to the editor of a
+ * contributor that is gone.
+ */
+@Composable
+private fun ContributorEditRoute(
+    router: Router,
+    openContributorEdit: OpenContributorEdit,
+    contributorId: String,
+) {
+    val session = remember(contributorId) { openContributorEdit(contributorId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    LaunchedEffect(session) {
+        session.navActions.collect { action ->
+            when (action) {
+                ContributorEditNavAction.NavigateBack,
+                ContributorEditNavAction.SaveSuccess,
+                -> {
+                    router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId)))
+                }
+
+                is ContributorEditNavAction.NavigateToMerged -> {
+                    router.replace(Route(listOf(CONTRIBUTOR_KEY, action.contributorId.value)))
+                }
+            }
+        }
+    }
+
+    ContributorEditPage(
+        state = session.state.collectAsState().value,
+        mergeCandidates = session.mergeCandidates.collectAsState().value,
+        onEvent = session.onEvent,
+        onMergeQuery = session.onMergeQuery,
+    )
+}
+
+/**
+ * The contributor family: the people list, one person's page, and the form over it.
+ *
+ * Split out of [RouteContent] for the same reason `BookRouteContent` and `AdminRouteContent` were —
+ * a family of three branches was pushing that function past the branching the build allows. The
+ * line is the one the URLs already draw.
+ */
+@Composable
+private fun ContributorRouteContent(
+    isList: Boolean,
+    contributorId: String?,
+    editingContributorId: String?,
+    role: ContributorRole,
+    router: Router,
+    openContributors: OpenContributors,
+    openContributorDetail: OpenContributorDetail,
+    openContributorEdit: OpenContributorEdit,
+) {
+    when {
+        isList -> {
+            val contributorsSession = contributorsState(role, openContributors)
+            ContributorsPage(
+                state = contributorsSession.state.collectAsState().value,
+                role = role,
+                onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+                onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+            )
+        }
+
+        // ⛔ The edit branch first: without it the detail branch matches `/contributor/{id}/edit`
+        // too and the form is unreachable by link.
+        editingContributorId != null -> {
+            ContributorEditRoute(
+                router = router,
+                openContributorEdit = openContributorEdit,
+                contributorId = editingContributorId,
+            )
+        }
+
+        contributorId != null -> {
+            ContributorDetailPage(
+                state = contributorDetailState(contributorId, openContributorDetail),
+                onEdit = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
+                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+                onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
+                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+                onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+            )
+        }
+    }
 }
 
 /**

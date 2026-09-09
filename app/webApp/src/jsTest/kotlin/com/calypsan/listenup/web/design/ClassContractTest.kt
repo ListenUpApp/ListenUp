@@ -130,6 +130,9 @@ import com.calypsan.listenup.web.features.nowplaying.PlayerLink
 import com.calypsan.listenup.web.features.nowplaying.PlayerSeriesLink
 import com.calypsan.listenup.web.features.nowplaying.TransportChapter
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
+import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
+import com.calypsan.listenup.web.features.contributoredit.candidate
+import com.calypsan.listenup.web.features.contributoredit.editingContributor
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.roleSection
@@ -424,6 +427,39 @@ class ClassContractTest :
                             onOpenLibrary = {},
                             onOpenContributors = {},
                             onOpenBook = {},
+                        )
+                        // Contributor Edit: the loaded form with everything on it (an error banner,
+                        // a portrait, aliases), the skeleton, and each dialog — three dialogs that
+                        // never appear together, so each needs its own render or its classes are
+                        // invented in a file nothing renders.
+                        ContributorEditPage(
+                            state =
+                                editingContributor(
+                                    error = "That name is already taken.",
+                                    aliases = listOf("Richard Bachman"),
+                                    imagePath = "contributors/c-king.jpg",
+                                ),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        ContributorEditPage(
+                            state = editingContributor(isLoading = true),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        ContributorEditPage(
+                            state = editingContributor(mergeDialogVisible = true, mergeQuery = "Bach"),
+                            mergeCandidates = listOf(candidate()),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        ContributorEditPage(
+                            state = editingContributor(renameCollisionCandidate = candidate()),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
                         )
                         // Series Detail: a fully loaded page — hero stats, the reading order with a
                         // progress bar and a finished mark, and the About panel — plus the two

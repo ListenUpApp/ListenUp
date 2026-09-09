@@ -50,6 +50,7 @@ import org.w3c.dom.events.Event
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
@@ -72,6 +73,7 @@ import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
@@ -108,6 +110,7 @@ private fun mountGate(
             openBookDetail = fixedBookDetail(readyBook()),
             openBookEdit = fixedBookEdit(BookEditUiState()),
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+            openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
             openNotifications = fixedNotifications(NotificationsUiState.Empty),
             openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
