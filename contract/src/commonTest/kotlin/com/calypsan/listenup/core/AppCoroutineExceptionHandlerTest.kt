@@ -40,7 +40,7 @@ class AppCoroutineExceptionHandlerTest :
                 val siblingRan = CompletableDeferred<Unit>()
                 // Without the handler this reaches propagateExceptionFinalResort and kills the
                 // process on Kotlin/Native.
-                scope.launch { throw RuntimeException("simulated realtime-socket drop") }
+                scope.launch { throw SimulatedSocketDropException() }
                 // A sibling on the same scope must still run to completion.
                 scope.launch { siblingRan.complete(Unit) }
 
@@ -51,3 +51,10 @@ class AppCoroutineExceptionHandlerTest :
             }
         }
     })
+
+/**
+ * The arbitrary failure this spec injects. Named rather than a bare `RuntimeException` so the
+ * stack trace says what was being simulated — and so the throw is a specific type, which is what
+ * the codebase asks of every other throw site.
+ */
+private class SimulatedSocketDropException : RuntimeException("simulated realtime-socket drop")

@@ -113,6 +113,7 @@ detekt {
         "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
         "$rootDir/contract/src/jvmTest/kotlin",
         "$rootDir/tools/build-logic/detekt-rules/src",
+        "$rootDir/contract/src/commonTest/kotlin",
         "$rootDir/app/sharedUI/src/desktopTest/kotlin",
     )
 }
