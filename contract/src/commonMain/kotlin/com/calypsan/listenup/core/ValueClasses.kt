@@ -18,8 +18,11 @@ import kotlin.time.Instant
 /**
  * Type-safe wrapper for server URLs with built-in validation and normalization.
  *
- * Validates URL format (must start with http:// or https://) and normalizes
- * by removing the trailing slash. Client-only — the server doesn't need to
+ * Validates that the value is a plain absolute `http(s)` URL — non-blank, `http://` or
+ * `https://` scheme, no whitespace or control characters anywhere, and no userinfo in the
+ * authority — and normalizes by removing the trailing slash. The persisted server URL is
+ * the host every authenticated request is sent to, so the type refuses the shapes that
+ * could carry a credential in the URL itself. Client-only — the server doesn't need to
  * know which server URL the client is pointed at.
  */
 @Serializable
@@ -31,6 +34,19 @@ value class ServerUrl(
         require(raw.isNotBlank()) { "Server URL cannot be blank" }
         require(raw.startsWith("http://") || raw.startsWith("https://")) {
             "Server URL must start with http:// or https://, got: $raw"
+        }
+        // No whitespace or control characters: a URL is a single token, and an embedded control
+        // character is only ever a smuggling attempt or a copy/paste accident — either way the
+        // transport layer's interpretation of it is not something this type should leave open.
+        require(raw.none { it.isWhitespace() || it.isISOControl() }) {
+            "Server URL must not contain whitespace or control characters"
+        }
+        // No userinfo in the authority. `scheme://user:pass@host` is a credential the URL itself
+        // carries to the host — a shape this app never produces and must never persist, because the
+        // client attaches its own bearer token and would then be sending two independent credentials
+        // to an address the user did not type.
+        require('@' !in raw.substringAfter("://").substringBefore('/')) {
+            "Server URL must not contain userinfo"
         }
     }
 
