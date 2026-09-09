@@ -294,13 +294,19 @@ class Mp4ParserAdversarialTest :
             failure.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
         }
 
-        // C-03: the chapter text-track sample-table counts (`stts`/`stsz`/`stco`) are untrusted
-        // 32-bit fields that directly drive IntArray/LongArray allocations and an unbounded append
-        // loop in Mp4ChapterExtractor. Each test below is malicious in exactly ONE of the three
-        // fields (the other two are benign zero-count atoms) so a hang/OOM is attributable to a
-        // single site. Run each in ISOLATION first (`--tests` with the exact test name) before the
-        // fix lands — the point of RED here is that the JVM must OOM or otherwise fail to return,
-        // never that the assertion body fails.
+        // C-03: the chapter text-track sample-table counts (`stts`/`stsz`/`stco`/`co64`) are
+        // untrusted 32-bit fields that directly drive IntArray/LongArray allocations and an
+        // unbounded append loop in Mp4ChapterExtractor. Each test below is malicious in exactly
+        // ONE of those fields (the rest are benign zero-count atoms) so a failure is attributable
+        // to a single site.
+        //
+        // Every one asserts Success rather than "either outcome". That distinction is the whole
+        // test: `Mp4Parser.parse` wraps this path in a catch-all that answers any escaped
+        // Throwable — an OutOfMemoryError from an uncapped array included — with a typed
+        // CorruptHeader. A case that also accepted Failure would therefore pass just as happily
+        // with its cap deleted, which makes it no test of the cap at all. Success pins the real
+        // property: the declared count was reconciled with the bytes present, so nothing was
+        // ever allocated and nothing was ever thrown.
 
         test("chapter text-track stts sampleCount near Int.MAX_VALUE returns in bounded memory") {
             // parseSampleStartsMs's inner `for (j in 0 until sampleCount)` has no bound on the
@@ -315,12 +321,8 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            // The point is that parse RETURNS at all, in bounded time/memory — either outcome is
-            // acceptable, chapters just aren't required to survive a malicious sample table.
-            when (result) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
-            }
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
         }
 
         test("chapter text-track stsz count near Int.MAX_VALUE returns in bounded memory") {
@@ -335,10 +337,8 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            when (result) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
-            }
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
         }
 
         test("chapter text-track stco count near Int.MAX_VALUE returns in bounded memory") {
@@ -353,10 +353,8 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            when (result) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
-            }
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
         }
 
         test("chapter text-track co64 count near Int.MAX_VALUE returns in bounded memory") {
@@ -364,13 +362,6 @@ class Mp4ParserAdversarialTest :
             // differs: a `co64` entry is 8 bytes wide where an `stco` entry is 4. That second arm
             // of the formula has no other coverage, so an entry count declared far beyond what the
             // box holds is fed to the 64-bit variant specifically.
-            //
-            // Success is asserted rather than "either outcome", deliberately. `Mp4Parser.parse`
-            // wraps this whole path in a catch-all that answers any escaped Throwable — an
-            // `OutOfMemoryError` from an oversized array included — with a typed CorruptHeader.
-            // A test that accepts a Failure therefore still passes with the cap removed, which
-            // makes it no test of the cap at all. Insisting on Success pins the real property:
-            // the count was reconciled with the bytes present, so nothing was ever thrown.
             val bytes =
                 buildChapterTrackMoov(
                     sttsPayload = benignSttsPayload(),
