@@ -86,7 +86,9 @@ class AdminRepositoryImplSettingsTest :
                 object : AdminSettingsService {
                     override suspend fun getServerSettings(): AppResult<AdminServerSettings> = throw IOException("network down")
 
-                    override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> = throw IOException("network down")
+                    override suspend fun updateServerSettings(
+                        patch: AdminServerSettingsPatch,
+                    ): AppResult<AdminServerSettings> = throw IOException("network down")
                 }
             repo(throwing)
                 .getServerSettings()

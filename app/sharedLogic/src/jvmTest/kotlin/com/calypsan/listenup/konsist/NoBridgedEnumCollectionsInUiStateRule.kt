@@ -50,11 +50,29 @@ class NoBridgedEnumCollectionsInUiStateRule :
                     .mapNotNull { it.name }
                     .toSet()
 
-            val offenders =
+            // Two independent collapse modes, so two guards. `exposesEnumCollection` returns false
+            // for every type once `enumNames` is empty, and the property set is the surface itself —
+            // either one emptying makes this rule green over an unexamined bridged surface.
+            assertScopeNotEmpty(
+                enumNames,
+                expectedMin = 50,
+                why = "known enum type names — the vocabulary exposesEnumCollection matches against",
+            )
+
+            val bridgedPresentationProperties =
                 productionScope()
                     .properties()
                     .filter { "/presentation/" in it.path }
                     .filter { it.hasPublicOrDefaultModifier }
+
+            assertScopeNotEmpty(
+                bridgedPresentationProperties,
+                expectedMin = 500,
+                why = "public presentation properties — the Swift-Export-bridged surface this rule polices",
+            )
+
+            val offenders =
+                bridgedPresentationProperties
                     .filter { it.name !in ALLOWED_ENUM_COLLECTION_MEMBERS }
                     .filter { prop -> exposesEnumCollection(prop.type?.text, enumNames) }
                     .map { "${it.name}: ${it.type?.text} in ${it.path}" }

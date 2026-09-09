@@ -26,6 +26,10 @@ complexity:
   LargeClass:
     active: true
     allowedLines: 600
+    # Size is a design smell in production and a virtue in a spec. A thorough suite covering one
+    # unit's whole surface is legitimately long, and splitting it to satisfy a line count scatters
+    # one subject across files for no reader's benefit.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   LongMethod:
     active: true
     allowedLines: 120  # Composables and media player logic are naturally verbose
@@ -56,8 +60,22 @@ complexity:
     ignoreAnnotation: true
     allowedWithLengthLessThan: 5
     ignoreStringsRegex: '$^'
+    # The rule's premise — a repeated literal is a missing constant — inverts in a test. Fixtures
+    # repeat strings by construction, and each occurrence is an independent, self-describing input;
+    # hoisting them into constants makes a case harder to read, not easier.
+    #
+    # This list carries `androidTest`/`jsTest`/`iosTest` where the sibling rules do not, and that is
+    # deliberate: `buildUponDefaultConfig` REPLACES a rule's default `excludes` rather than merging,
+    # and this is the one rule here whose upstream default already excluded them. Writing a shorter
+    # list silently un-excluded `app/webApp/src/jsTest` and lit up 104 findings. Verified 2026-09-09
+    # by narrowing the list and re-running: only this rule regressed.
+    excludes: ['**/test/**', '**/androidTest/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/jsTest/**', '**/iosTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   TooManyFunctions:
     active: true
+    # Same reasoning as LargeClass above: a spec's function count tracks how many cases it covers,
+    # and capping it would reward thinner coverage. A test fake also implements whatever its
+    # interface declares — the count is the interface's, not the fake's.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
     allowedFunctionsPerFile: 20
     allowedFunctionsPerClass: 25  # Repositories and ViewModels can be large
     allowedFunctionsPerInterface: 36  # DAOs have many query methods (+ per-domain digestRows for sync reconciliation, + SearchDao's revision-watermark incremental-reindex queries)
@@ -125,6 +143,10 @@ exceptions:
     active: true
   NotImplementedDeclaration:
     active: true
+    # `TODO()` in production is unfinished work. In a test fake it is the finished article: a fake
+    # implements the members a case exercises and leaves the rest unreachable, and `TODO()` is the
+    # honest body for those — it fails loudly if a case ever reaches one.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   ObjectExtendsThrowable:
     active: true
   PrintStackTrace:
@@ -149,12 +171,12 @@ exceptions:
     active: true
   ThrowingExceptionsWithoutMessageOrCause:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   ThrowingNewInstanceOfSameException:
     active: true
   TooGenericExceptionCaught:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
     exceptionNames:
       - 'ArrayIndexOutOfBoundsException'
       - 'Error'
@@ -196,7 +218,7 @@ naming:
     forbiddenName: []
   FunctionNaming:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
     functionPattern: '[a-z][a-zA-Z0-9]*'
     excludeClassPattern: '$^'
     ignoreAnnotated: ['Composable']
@@ -255,7 +277,7 @@ performance:
     active: true
   SpreadOperator:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   UnnecessaryPartOfBinaryExpression:
     active: true
   UnnecessaryTemporaryInstantiation:
@@ -301,7 +323,7 @@ potential-bugs:
     active: true
   LateinitUsage:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
     ignoreAnnotated: ['Inject']
     ignoreOnClassesPattern: ''
   MapGetWithNotNullAssertionOperator:
@@ -328,7 +350,7 @@ potential-bugs:
     active: true
   UnsafeCallOnNullableType:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   UnsafeCast:
     active: true
   UnusedUnaryOperator:
@@ -415,7 +437,7 @@ style:
   MagicNumber:
     active: true
     ignoreAnnotated: ['Composable']  # Compose layout literals (dp/sp/alpha/weight/durations) are self-documenting at the call site; parity with LongMethod/UnusedParameter Compose scoping
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/*Previews.kt']  # *Previews.kt are non-shipping mock-data fixtures, same category as test fixtures
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/*Previews.kt']  # *Previews.kt are non-shipping mock-data fixtures, same category as test fixtures
     ignoreNumbers:
       - '-1'
       - '0'
@@ -497,6 +519,12 @@ style:
     active: true
     maxEscapedCharacterCount: 2
     ignoredCharacters: []
+    # Every occurrence in test code is a JSON or FTS fragment asserted against serializer output,
+    # and 14 of the 15 found on 2026-09-09 CANNOT become raw strings: a Kotlin raw string cannot
+    # end with a quote, and `"type":"SyncEvent.Created"` does. The escape-free spelling would be
+    # `"""…${'"'}"""`, which is worse than what it replaces. The rule's premise — escapes hurt
+    # readability — inverts once the payload is itself a quote-delimited format.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   ThrowsCount:
     active: true
     max: 2
@@ -609,4 +637,9 @@ listenup-custom:
     #
     # So this is a genuine gap, not a false alarm to be silenced: WEB LOCALIZATION IS UNSOLVED.
     # Remove this exclusion the moment web gets a string pipeline, and expect it to light up.
-    excludes: ['**/app/webApp/**']
+    #
+    # The test source sets are excluded for a different and permanent reason: the rule asks UI code
+    # to name a string resource instead of a literal, but a test asserting what the UI renders must
+    # write the expected text out. Routing it through the catalog would assert the catalog against
+    # itself and pass no matter what the screen shows.
+    excludes: ['**/app/webApp/**', '**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']

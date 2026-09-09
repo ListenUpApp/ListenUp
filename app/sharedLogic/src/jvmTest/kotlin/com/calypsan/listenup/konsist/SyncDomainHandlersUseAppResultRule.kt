@@ -12,10 +12,22 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class SyncDomainHandlersUseAppResultRule :
     FunSpec({
         test("SyncDomainHandler implementations don't throw outside cancellation rethrows") {
-            val offenders =
+            val handlers =
                 productionScope()
                     .classes()
-                    .filter { it.parents().any { p -> p.name == "SyncDomainHandler" } }
+                    .filter { it.parents().any { p -> p.name.bareTypeName() == "SyncDomainHandler" } }
+
+            assertScopeNotEmpty(
+                handlers,
+                expectedMin = 1,
+                why =
+                    "SyncDomainHandler implementations. Exactly one exists by design " +
+                        "(ComposedSyncDomainHandler), which OnlyComposedHandlerImplementsSyncDomainHandlerRule " +
+                        "is what enforces — so 1 is the honest population, not a placeholder.",
+            )
+
+            val offenders =
+                handlers
                     .flatMap { it.functions() }
                     .filter { it.name == "onEvent" || it.name == "onCatchUpItem" }
                     .filter { fn ->

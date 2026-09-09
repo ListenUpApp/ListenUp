@@ -257,7 +257,9 @@ class ListenUpTextFieldCaretTest {
     }
 }
 
-private fun SemanticsNodeInteraction.assertSelection(expected: TextRange): SemanticsNodeInteraction = assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, expected))
+private fun SemanticsNodeInteraction.assertSelection(
+    expected: TextRange,
+): SemanticsNodeInteraction = assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, expected))
 
 private const val FIELD_TAG = "caret-test-field"
 

@@ -22,9 +22,20 @@ class ShareLogicLivesInCommonMainRule :
                     "ShareLinkConstants",
                 )
             val scope = productionScope()
-            val offenders =
+            val shareDeclarations =
                 (scope.classes() + scope.interfaces() + scope.objects())
                     .filter { it.name in shareTypes }
+
+            assertScopeNotEmpty(
+                shareDeclarations,
+                expectedMin = 2,
+                why =
+                    "declarations named in shareTypes. A small fixed set (5 names), so this floor is a pure " +
+                        "collapse detector — do not raise it toward the count.",
+            )
+
+            val offenders =
+                shareDeclarations
                     .filterNot { "/commonMain/" in it.path }
                     .map { "${it.name} @ ${it.path}" }
 

@@ -23,7 +23,10 @@ class MetadataApplySelectionContractTest :
                     seriesAsins = emptySet(),
                     coverUrl = "https://itunes/7000x7000.jpg",
                 )
-            json.decodeFromString(MetadataApplySelection.serializer(), json.encodeToString(MetadataApplySelection.serializer(), selection)) shouldBe selection
+            json.decodeFromString(
+                MetadataApplySelection.serializer(),
+                json.encodeToString(MetadataApplySelection.serializer(), selection),
+            ) shouldBe selection
         }
 
         test("MetadataApplySelection round-trips with selected genres") {
@@ -42,7 +45,10 @@ class MetadataApplySelectionContractTest :
                     coverUrl = null,
                     genres = setOf("Fantasy", "Science Fiction & Fantasy"),
                 )
-            json.decodeFromString(MetadataApplySelection.serializer(), json.encodeToString(MetadataApplySelection.serializer(), selection)) shouldBe selection
+            json.decodeFromString(
+                MetadataApplySelection.serializer(),
+                json.encodeToString(MetadataApplySelection.serializer(), selection),
+            ) shouldBe selection
         }
 
         test("MetadataApplySelection round-trips with selected moods and tags") {
@@ -63,7 +69,10 @@ class MetadataApplySelectionContractTest :
                     moods = setOf("Dark", "Tense"),
                     tags = setOf("Found Family", "Slow Burn"),
                 )
-            json.decodeFromString(MetadataApplySelection.serializer(), json.encodeToString(MetadataApplySelection.serializer(), selection)) shouldBe selection
+            json.decodeFromString(
+                MetadataApplySelection.serializer(),
+                json.encodeToString(MetadataApplySelection.serializer(), selection),
+            ) shouldBe selection
         }
 
         test("MetadataApplySelection survives a JSON round-trip") {

@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -200,7 +201,7 @@ class LeaderboardViewModelTest :
 
         test("repo flow throwing emits Error with isRetryable = true") {
             runTest {
-                val repo = FakeLeaderboardRepository { flow { throw RuntimeException("db error") } }
+                val repo = FakeLeaderboardRepository { flow { throw SimulatedFailure("db error") } }
                 val vm = LeaderboardViewModel(repo)
 
                 backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }

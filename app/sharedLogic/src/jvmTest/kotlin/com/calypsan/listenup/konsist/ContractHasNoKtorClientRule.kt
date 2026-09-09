@@ -11,10 +11,16 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class ContractHasNoKtorClientRule :
     FunSpec({
         test("no :contract file imports io.ktor.client") {
+            val contractFiles = productionScope().files.filter { "/contract/src/" in it.path }
+
+            assertScopeNotEmpty(
+                contractFiles,
+                expectedMin = 120,
+                why = "every :contract production file — an empty set means the module dropped out of the scope",
+            )
+
             val offenders =
-                productionScope()
-                    .files
-                    .filter { "/contract/src/" in it.path }
+                contractFiles
                     .filter { file -> file.imports.any { it.name.startsWith("io.ktor.client.") } }
                     .map { it.path }
             offenders.shouldBeEmpty()

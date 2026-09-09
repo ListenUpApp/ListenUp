@@ -47,13 +47,24 @@ class RpcServicesAreGuardedRule :
     FunSpec({
         test("every service registration passes its impl through guard(...)") {
             val registrationToken = Regex("""register(Service|Scoped)<""")
-            val offenders =
+            val registeringFunctions =
                 productionScope()
                     .functions()
                     // Exclude the registerScoped helper definition: it is the trusted plumbing
                     // that forwards guarding to its call sites (see KDoc).
                     .filterNot { fn -> fn.name == "registerScoped" }
                     .filter { fn -> registrationToken.containsMatchIn(fn.text) }
+
+            assertScopeNotEmpty(
+                registeringFunctions,
+                expectedMin = 2,
+                why =
+                    "functions containing a service registration. A small fixed set (4 today, all in " +
+                        "RpcRoutes.kt), so this floor is a pure collapse detector — do not raise it toward the count.",
+            )
+
+            val offenders =
+                registeringFunctions
                     .filter { fn ->
                         val body = stripComments(fn.text)
                         val registerCount = registrationToken.findAll(body).count()

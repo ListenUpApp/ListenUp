@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.test.SimulatedFailure
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -154,7 +155,7 @@ class SeriesRepositoryImplTest :
                 val result = repository.observeAll().first()
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -329,7 +330,7 @@ class SeriesRepositoryImplTest :
                 everySuspend { service.getSeries(any()) } returns AppResult.Success(payload)
                 val handler = mock<SyncDomainHandler<SeriesSyncPayload>>()
                 everySuspend { handler.onCatchUpItem(any(), any()) } calls {
-                    throw RuntimeException("Room write blew up")
+                    throw SimulatedFailure("Room write blew up")
                 }
 
                 val dao = createMockDao()
@@ -529,7 +530,7 @@ class SeriesRepositoryImplTest :
                 val result = repository.getBookIdsForSeries("series-1")
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -580,7 +581,7 @@ class SeriesRepositoryImplTest :
                 val result = repository.observeBookIdsForSeries("series-1").first()
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -785,7 +786,7 @@ class SeriesRepositoryImplTest :
 
                 val result = repository.observeAllWithBooks().first()
 
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 

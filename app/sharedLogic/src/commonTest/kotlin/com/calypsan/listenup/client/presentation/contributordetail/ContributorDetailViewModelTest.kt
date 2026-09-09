@@ -104,8 +104,8 @@ class ContributorDetailViewModelTest :
                             authors = emptyList(),
                             narrators = emptyList(),
                             coverPath = null,
-                            addedAt = Timestamp(1704067200000L),
-                            updatedAt = Timestamp(1704067200000L),
+                            addedAt = Timestamp(1_704_067_200_000L),
+                            updatedAt = Timestamp(1_704_067_200_000L),
                         )
                     },
                 bookSequences = bookIds.mapIndexed { i, bookId -> bookId to (i + 1).toDouble() }.toMap(),
@@ -145,8 +145,8 @@ class ContributorDetailViewModelTest :
                 duration = duration,
                 authors = emptyList(),
                 narrators = emptyList(),
-                addedAt = Timestamp(1704067200000L),
-                updatedAt = Timestamp(1704067200000L),
+                addedAt = Timestamp(1_704_067_200_000L),
+                updatedAt = Timestamp(1_704_067_200_000L),
                 series = series,
             )
 
@@ -350,7 +350,7 @@ class ContributorDetailViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorDetailUiState.Ready
-                (state.bookProgress.containsKey(BookId("book-1"))) shouldBe false
+                state.bookProgress.containsKey(BookId("book-1")) shouldBe false
             }
         }
 
@@ -364,7 +364,10 @@ class ContributorDetailViewModelTest :
                 every {
                     fixture.contributorRepository.observeBooksForContributorRole("contributor-1", ContributorRole.AUTHOR.apiValue)
                 } returns flowOf(listOf(createBookWithContributorRole(book)))
-                everySuspend { fixture.playbackPositionRepository.get(BookId("book-1")) } returns AppResult.Success(createPlaybackPosition("book-1", 0L))
+                everySuspend {
+                    fixture.playbackPositionRepository.get(BookId("book-1"))
+                } returns
+                    AppResult.Success(createPlaybackPosition("book-1", 0L))
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
@@ -374,7 +377,7 @@ class ContributorDetailViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorDetailUiState.Ready
-                (state.bookProgress.containsKey(BookId("book-1"))) shouldBe false
+                state.bookProgress.containsKey(BookId("book-1")) shouldBe false
             }
         }
 
@@ -389,7 +392,7 @@ class ContributorDetailViewModelTest :
                     previewBooks = emptyList(),
                 )
 
-            (section.showViewAll) shouldBe true
+            section.showViewAll shouldBe true
         }
 
         test("RoleSection showViewAll is false when bookCount at threshold") {
@@ -401,7 +404,7 @@ class ContributorDetailViewModelTest :
                     previewBooks = emptyList(),
                 )
 
-            (section.showViewAll) shouldBe false
+            section.showViewAll shouldBe false
         }
 
         test("RoleSection showViewAll is false when bookCount below threshold") {
@@ -413,7 +416,7 @@ class ContributorDetailViewModelTest :
                     previewBooks = emptyList(),
                 )
 
-            (section.showViewAll) shouldBe false
+            section.showViewAll shouldBe false
         }
 
         // ========== Cover Path ==========

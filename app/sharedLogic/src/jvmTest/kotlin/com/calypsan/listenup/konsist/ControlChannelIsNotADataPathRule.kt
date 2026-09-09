@@ -30,10 +30,19 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class ControlChannelIsNotADataPathRule :
     FunSpec({
 
+        // Guarded here rather than in each test: all three call sites below narrow to this same
+        // population, so one guard covers them and there is one number for a reviewer to weigh.
         fun serverCommonMainFiles() =
             productionScope()
                 .files
                 .filter { it.path.contains("/server/") && it.path.contains("/commonMain/") }
+                .also {
+                    assertScopeNotEmpty(
+                        it,
+                        expectedMin = 250,
+                        why = "server commonMain files — where every control emission and suppressed bulk write lives",
+                    )
+                }
 
         test("every broadcastControl/publishControl call site is on the (file, frame) allowlist") {
             val offenders =
@@ -80,9 +89,21 @@ class ControlChannelIsNotADataPathRule :
         }
 
         test("no MutableSharedFlow<Unit> refresh signals in data/repository or presentation") {
-            val offenders =
+            // The layer predicate is re-stated here only so the population can be counted before
+            // the content check runs; isBannedRefreshSignal re-applies it, so behaviour is unchanged.
+            val bannedLayerFiles =
                 productionScope()
                     .files
+                    .filter { "/data/repository/" in it.path || "/presentation/" in it.path }
+
+            assertScopeNotEmpty(
+                bannedLayerFiles,
+                expectedMin = 80,
+                why = "data/repository + presentation files — the two layers where the retired lossy nudge is banned",
+            )
+
+            val offenders =
+                bannedLayerFiles
                     .filter { ControlChannelDetector.isBannedRefreshSignal(it.path, it.text) }
                     .map {
                         "${it.name} declares a MutableSharedFlow<Unit> refresh signal — the retired lossy-nudge " +

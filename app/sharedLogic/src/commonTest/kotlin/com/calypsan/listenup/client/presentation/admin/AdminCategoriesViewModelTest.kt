@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -144,7 +145,7 @@ class AdminCategoriesViewModelTest :
                 val genreRepository: GenreRepository = mock()
                 every { genreRepository.observeAll() } returns
                     flow {
-                        throw RuntimeException("db broken")
+                        throw SimulatedFailure("db broken")
                     }
 
                 // When

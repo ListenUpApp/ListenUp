@@ -41,10 +41,19 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class OneFramePerCallBlockRule :
     FunSpec({
         test("each channel.call { } block in data/repository/*Impl issues exactly one RPC frame") {
-            val offenders =
+            val repositoryImplFiles =
                 productionScope()
                     .files
                     .filter { it.path.contains("/data/repository/") && it.path.endsWith("Impl.kt") }
+
+            assertScopeNotEmpty(
+                repositoryImplFiles,
+                expectedMin = 25,
+                why = "data/repository/*Impl.kt files — every file whose call { } blocks this heuristic scans",
+            )
+
+            val offenders =
+                repositoryImplFiles
                     .flatMap { file -> file.multiFrameCallBlocks().map { "$it in ${file.path}" } }
 
             offenders.shouldBeEmpty()

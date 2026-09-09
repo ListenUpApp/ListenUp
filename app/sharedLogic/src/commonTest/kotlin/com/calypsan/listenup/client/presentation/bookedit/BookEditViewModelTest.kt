@@ -170,9 +170,9 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
 
                 // Then
-                (viewModel.state.value.isLoading) shouldBe true
+                viewModel.state.value.isLoading shouldBe true
                 viewModel.state.value.title shouldBe ""
-                (viewModel.state.value.hasChanges) shouldBe false
+                viewModel.state.value.hasChanges shouldBe false
             }
         }
 
@@ -204,14 +204,14 @@ class BookEditViewModelTest :
 
                 // Then
                 val state = viewModel.state.value
-                (state.isLoading) shouldBe false
+                state.isLoading shouldBe false
                 state.title shouldBe "The Way of Kings"
                 state.subtitle shouldBe "Book One of the Stormlight Archive"
                 state.description shouldBe "An epic fantasy adventure"
                 state.publishYear shouldBe "2010"
                 state.publisher shouldBe "Tor Books"
                 state.language shouldBe "en"
-                (state.hasChanges) shouldBe false
+                state.hasChanges shouldBe false
                 state.error shouldBe null
             }
         }
@@ -229,7 +229,7 @@ class BookEditViewModelTest :
 
                 // Then
                 val state = viewModel.state.value
-                (state.isLoading) shouldBe false
+                state.isLoading shouldBe false
                 state.error shouldBe "Book not found"
             }
         }
@@ -278,13 +278,13 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                (viewModel.state.value.hasChanges) shouldBe false
+                viewModel.state.value.hasChanges shouldBe false
 
                 // When
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("New Title"))
 
                 // Then
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
                 viewModel.state.value.title shouldBe "New Title"
             }
         }
@@ -301,11 +301,11 @@ class BookEditViewModelTest :
 
                 // When - change then revert
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("New Title"))
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("Original Title"))
 
                 // Then
-                (viewModel.state.value.hasChanges) shouldBe false
+                viewModel.state.value.hasChanges shouldBe false
             }
         }
 
@@ -395,7 +395,7 @@ class BookEditViewModelTest :
                 authors.size shouldBe 1
                 authors.first().name shouldBe "New Author"
                 authors.first().id shouldBe null // New contributor has no ID
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -442,7 +442,7 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.authors.size shouldBe 0
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -467,7 +467,7 @@ class BookEditViewModelTest :
                 viewModel.state.value.series
                     .first()
                     .name shouldBe "The Stormlight Archive"
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -516,7 +516,7 @@ class BookEditViewModelTest :
                 viewModel.state.value.series
                     .first()
                     .sequence shouldBe "1"
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -541,7 +541,7 @@ class BookEditViewModelTest :
                 viewModel.state.value.genres
                     .first()
                     .name shouldBe "Fantasy"
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -565,7 +565,7 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.genres.size shouldBe 0
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -590,7 +590,7 @@ class BookEditViewModelTest :
                 viewModel.state.value.tags
                     .first()
                     .displayName() shouldBe "Favorites"
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -614,7 +614,7 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.tags.size shouldBe 0
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -639,7 +639,7 @@ class BookEditViewModelTest :
                 viewModel.state.value.moods
                     .first()
                     .displayName() shouldBe "Feel Good"
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -663,7 +663,7 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.moods.size shouldBe 0
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
             }
         }
 
@@ -678,7 +678,7 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                (viewModel.state.value.hasChanges) shouldBe false
+                viewModel.state.value.hasChanges shouldBe false
 
                 // When / Then
                 viewModel.navActions.test {
@@ -849,7 +849,7 @@ class BookEditViewModelTest :
                 // When — add a collection so the set differs from the baseline, then save
                 viewModel.onEvent(BookEditUiEvent.CollectionSelected(EditableCollection(id = "coll-1", name = "Favorites")))
                 advanceUntilIdle()
-                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.state.value.hasChanges shouldBe true
                 viewModel.onEvent(BookEditUiEvent.Save)
                 advanceUntilIdle()
 

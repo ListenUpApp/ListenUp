@@ -85,7 +85,7 @@ class LoadBookForEditUseCaseTest :
                 // Then
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.shouldBeInstanceOf<com.calypsan.listenup.api.error.ValidationError>()
-                (failure.message.contains("not found", ignoreCase = true)) shouldBe true
+                failure.message.contains("not found", ignoreCase = true) shouldBe true
             }
         }
 
@@ -195,12 +195,12 @@ class LoadBookForEditUseCaseTest :
                 val editableAuthor = editData.contributors.find { it.id == "c1" }
                 editableAuthor.shouldNotBeNull()
                 editableAuthor.name shouldBe "Jane Austen"
-                (editableAuthor.roles.contains(ContributorRole.AUTHOR)) shouldBe true
+                editableAuthor.roles.contains(ContributorRole.AUTHOR) shouldBe true
 
                 val editableNarrator = editData.contributors.find { it.id == "c2" }
                 editableNarrator.shouldNotBeNull()
                 editableNarrator.name shouldBe "Rosamund Pike"
-                (editableNarrator.roles.contains(ContributorRole.NARRATOR)) shouldBe true
+                editableNarrator.roles.contains(ContributorRole.NARRATOR) shouldBe true
             }
         }
 
@@ -232,8 +232,8 @@ class LoadBookForEditUseCaseTest :
                 editData.contributors.size shouldBe 1
                 val contributor = editData.contributors.first()
                 contributor.roles.size shouldBe 2
-                (contributor.roles.contains(ContributorRole.AUTHOR)) shouldBe true
-                (contributor.roles.contains(ContributorRole.NARRATOR)) shouldBe true
+                contributor.roles.contains(ContributorRole.AUTHOR) shouldBe true
+                contributor.roles.contains(ContributorRole.NARRATOR) shouldBe true
             }
         }
 
@@ -313,9 +313,9 @@ class LoadBookForEditUseCaseTest :
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.allGenres.size shouldBe 3
-                (editData.allGenres.any { it.id == "g1" && it.name == "Fiction" }) shouldBe true
-                (editData.allGenres.any { it.id == "g2" && it.name == "Mystery" }) shouldBe true
-                (editData.allGenres.any { it.id == "g3" && it.name == "Romance" }) shouldBe true
+                editData.allGenres.any { it.id == "g1" && it.name == "Fiction" } shouldBe true
+                editData.allGenres.any { it.id == "g2" && it.name == "Mystery" } shouldBe true
+                editData.allGenres.any { it.id == "g3" && it.name == "Romance" } shouldBe true
             }
         }
 
@@ -392,9 +392,9 @@ class LoadBookForEditUseCaseTest :
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.allTags.size shouldBe 3
-                (editData.allTags.any { it.id == "t1" && it.slug == "favorites" }) shouldBe true
-                (editData.allTags.any { it.id == "t2" && it.slug == "to-read" }) shouldBe true
-                (editData.allTags.any { it.id == "t3" && it.slug == "completed" }) shouldBe true
+                editData.allTags.any { it.id == "t1" && it.slug == "favorites" } shouldBe true
+                editData.allTags.any { it.id == "t2" && it.slug == "to-read" } shouldBe true
+                editData.allTags.any { it.id == "t3" && it.slug == "completed" } shouldBe true
             }
         }
 
@@ -471,9 +471,9 @@ class LoadBookForEditUseCaseTest :
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.allMoods.size shouldBe 3
-                (editData.allMoods.any { it.id == "m1" && it.slug == "feel-good" }) shouldBe true
-                (editData.allMoods.any { it.id == "m2" && it.slug == "tense" }) shouldBe true
-                (editData.allMoods.any { it.id == "m3" && it.slug == "scary" }) shouldBe true
+                editData.allMoods.any { it.id == "m1" && it.slug == "feel-good" } shouldBe true
+                editData.allMoods.any { it.id == "m2" && it.slug == "tense" } shouldBe true
+                editData.allMoods.any { it.id == "m3" && it.slug == "scary" } shouldBe true
             }
         }
 

@@ -54,7 +54,7 @@ class StreakReducerTest :
             expected shouldBe Streaks(current = 3, longest = 3)
 
             // Every shuffle of the same multiset must reduce to the same Streaks.
-            val rng = Random(seed = 20260702)
+            val rng = Random(seed = 20_260_702)
             repeat(50) {
                 StreakReducer.reduce(sorted.shuffled(rng), today) shouldBe expected
             }

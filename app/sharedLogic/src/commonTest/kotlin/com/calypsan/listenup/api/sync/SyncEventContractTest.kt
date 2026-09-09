@@ -13,7 +13,7 @@ class SyncEventContractTest :
                 SyncEvent.Created(
                     id = "abc",
                     revision = 42,
-                    occurredAt = 1730000000000L,
+                    occurredAt = 1_730_000_000_000L,
                     clientOpId = "op-uuid-1",
                     payload = "hello",
                 )
@@ -27,7 +27,7 @@ class SyncEventContractTest :
                 SyncEvent.Updated(
                     id = "abc",
                     revision = 43,
-                    occurredAt = 1730000000001L,
+                    occurredAt = 1_730_000_000_001L,
                     clientOpId = null,
                     payload = "world",
                 )
@@ -41,7 +41,7 @@ class SyncEventContractTest :
                 SyncEvent.Deleted(
                     id = "abc",
                     revision = 44,
-                    occurredAt = 1730000000002L,
+                    occurredAt = 1_730_000_000_002L,
                     clientOpId = "op-uuid-2",
                 )
             val json = contractJson.encodeToString(SyncEvent.serializer(String.serializer()), original)

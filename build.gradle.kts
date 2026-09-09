@@ -104,6 +104,28 @@ detekt {
         "$rootDir/app/sharedLogic/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsTest/kotlin",
+        // The client test source sets. Same reasoning as the js block above: detekt already
+        // scanned the SERVER's tests but none of the client's, so 561 .kt files sat outside a
+        // gate that reported green regardless.
+        //
+        // Six of the ten are in. Still absent, and deliberately so rather than forgotten:
+        // `app/sharedUI/src/androidHostTest` (127 findings) and `app/sharedLogic/src/commonTest`
+        // (305) — dominated by rules that do not belong in test code at all
+        // (NotImplementedDeclaration on fakes, StringLiteralDuplication and NoHardcodedUiString
+        // on fixtures). Those want a test-path exclusion like the seven rules in detekt.yml
+        // already carry, not 400 edits or a baseline that reads like coverage. Also absent:
+        // `tools/build-logic/convention/src`, whose findings are complexity limits in the
+        // Swift-export patcher — a real signal, and a refactor of its own.
+        "$rootDir/app/baselineprofile/src/main",
+        "$rootDir/app/sharedLogic/src/appleTest/kotlin",
+        "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
+        "$rootDir/contract/src/jvmTest/kotlin",
+        "$rootDir/tools/build-logic/detekt-rules/src",
+        "$rootDir/contract/src/commonTest/kotlin",
+        "$rootDir/app/sharedUI/src/androidHostTest/kotlin",
+        "$rootDir/app/sharedLogic/src/commonTest/kotlin",
+        "$rootDir/tools/build-logic/convention/src",
+        "$rootDir/app/sharedUI/src/desktopTest/kotlin",
     )
 }
 

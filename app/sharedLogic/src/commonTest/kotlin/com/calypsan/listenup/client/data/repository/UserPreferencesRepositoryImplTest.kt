@@ -287,7 +287,11 @@ class UserPreferencesRepositoryImplTest :
                 UpdateUserPreferencesRequest(defaultVolumeBoostDb = 6.0f),
             ),
             Triple("setDefaultSkipForwardSec", { setDefaultSkipForwardSec(45) }, UpdateUserPreferencesRequest(defaultSkipForwardSec = 45)),
-            Triple("setDefaultSkipBackwardSec", { setDefaultSkipBackwardSec(15) }, UpdateUserPreferencesRequest(defaultSkipBackwardSec = 15)),
+            Triple(
+                "setDefaultSkipBackwardSec",
+                { setDefaultSkipBackwardSec(15) },
+                UpdateUserPreferencesRequest(defaultSkipBackwardSec = 15),
+            ),
             Triple("setDefaultSleepTimerMin", { setDefaultSleepTimerMin(20) }, UpdateUserPreferencesRequest(defaultSleepTimerMin = 20)),
         ).forEach { (name, call, expectedPatch) ->
             test("$name enqueues only its field on the patch and returns Unit") {

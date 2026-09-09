@@ -165,9 +165,9 @@ class BookDetailViewModelTest :
                 volumeBoostDb = 0f,
                 hasCustomBoost = false,
                 measuredGainDb = null,
-                updatedAtMs = 1704067200000L, // Fixed test timestamp
+                updatedAtMs = 1_704_067_200_000L, // Fixed test timestamp
                 syncedAtMs = null,
-                lastPlayedAtMs = 1704067200000L, // Fixed test timestamp
+                lastPlayedAtMs = 1_704_067_200_000L, // Fixed test timestamp
             )
 
         beforeTest {
@@ -400,7 +400,7 @@ class BookDetailViewModelTest :
 
                     // Then
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
-                    (ready.genres.isEmpty()) shouldBe true
+                    ready.genres.isEmpty() shouldBe true
                     states.cancel()
                 }
             }
@@ -428,7 +428,7 @@ class BookDetailViewModelTest :
                     // Then - book loads successfully despite genre failure
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
                     ready.book shouldBe book
-                    (ready.genres.isEmpty()) shouldBe true
+                    ready.genres.isEmpty() shouldBe true
                     states.cancel()
                 }
             }

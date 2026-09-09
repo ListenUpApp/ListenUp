@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -190,7 +191,7 @@ class ActivityFeedViewModelTest :
                 val fixture = TestFixture()
                 every { fixture.activityRepository.observeRecent(any()) } returns
                     flow {
-                        throw RuntimeException("boom")
+                        throw SimulatedFailure("boom")
                     }
 
                 // When

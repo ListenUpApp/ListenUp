@@ -23,6 +23,9 @@ import io.kotest.matchers.collections.shouldContainAll
 class EmbeddedMetaTypesInCommonMainRule :
     FunSpec({
 
+        // No assertScopeNotEmpty guard on this first test: it asserts something POSITIVE about the
+        // scope (shouldContainAll a fixed 7-FQN set), so a collapsed scope makes `foundInCommonMain`
+        // empty and turns it RED. A count guard would only restate what the assertion already does.
         test("embeddedmeta domain types live in commonMain") {
             val expectedTypes =
                 setOf(
@@ -52,8 +55,17 @@ class EmbeddedMetaTypesInCommonMainRule :
                     .classes()
                     .withoutAbstractModifier()
                     .filter { cls ->
-                        cls.parents().any { it.name == "AudioFormatParser" }
+                        cls.parents().any { it.name.bareTypeName() == "AudioFormatParser" }
                     }
+
+            assertScopeNotEmpty(
+                implementations,
+                expectedMin = 1,
+                why =
+                    "concrete AudioFormatParser implementations. A small fixed set (2 today, one per audio " +
+                        "container), so this floor is a pure collapse detector — do not raise it toward the count.",
+            )
+
             val misplaced =
                 implementations.filterNot { cls ->
                     cls.fullyQualifiedName?.startsWith("com.calypsan.listenup.server.embeddedmeta.") ?: false
@@ -67,8 +79,17 @@ class EmbeddedMetaTypesInCommonMainRule :
                     .classes()
                     .withoutAbstractModifier()
                     .filter { cls ->
-                        cls.parents().any { it.name == "AudioFormatParser" }
+                        cls.parents().any { it.name.bareTypeName() == "AudioFormatParser" }
                     }
+
+            assertScopeNotEmpty(
+                implementations,
+                expectedMin = 1,
+                why =
+                    "concrete AudioFormatParser implementations. A small fixed set (2 today, one per audio " +
+                        "container), so this floor is a pure collapse detector — do not raise it toward the count.",
+            )
+
             val violators =
                 implementations.filter { cls ->
                     val supportsProperty = cls.properties().firstOrNull { it.name == "supports" }

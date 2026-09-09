@@ -31,7 +31,7 @@ class CreateCollectionUseCaseTest :
                 metadataPrecedence = "audible",
                 accessMode = AccessMode.OPEN,
                 createdByUserId = null,
-                createdAt = 1704067200000L,
+                createdAt = 1_704_067_200_000L,
                 revision = 1L,
             )
 

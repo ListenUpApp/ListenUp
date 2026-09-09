@@ -24,7 +24,7 @@ class BookListItemTest :
     FunSpec({
 
         fun createTestBook(
-            duration: Long = 3600000L, // 1 hour
+            duration: Long = 3_600_000L, // 1 hour
             coverPath: String? = null,
             authors: List<BookContributor> = emptyList(),
             narrators: List<BookContributor> = emptyList(),

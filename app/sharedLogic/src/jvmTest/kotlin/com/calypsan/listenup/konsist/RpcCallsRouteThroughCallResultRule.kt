@@ -32,10 +32,19 @@ import io.kotest.matchers.shouldBe
 class RpcCallsRouteThroughCallResultRule :
     FunSpec({
         test("data/repository/*Impl files fold RPC through callResult, not a hand-rolled WireAppResult alias") {
-            val offenders =
+            val repositoryImplFiles =
                 productionScope()
                     .files
                     .filter { it.path.contains("/data/repository/") && it.path.endsWith("Impl.kt") }
+
+            assertScopeNotEmpty(
+                repositoryImplFiles,
+                expectedMin = 25,
+                why = "data/repository/*Impl.kt files — the migrated surface this ratchet locks",
+            )
+
+            val offenders =
+                repositoryImplFiles
                     .filter { f -> RESIDUAL_HANDROLLED_RPC_ALLOWLIST.none { allowed -> f.path.endsWith(allowed) } }
                     .filter { file -> file.imports.any { it.alias?.name == "WireAppResult" } }
                     .map { it.path }

@@ -53,7 +53,7 @@ class LoudnessMeterTest :
                     val s = sineMono(fs, 3.0, 1000.0, 0.2)
                     addFrames(s, s.size)
                 }
-            (loud.integratedLufs()!! - quiet.integratedLufs()!!) shouldBe (6.02 plusOrMinus 0.1)
+            loud.integratedLufs()!! - quiet.integratedLufs()!! shouldBe (6.02 plusOrMinus 0.1)
         }
 
         test("gainToTarget: normalizationGain = TARGET - measured") {

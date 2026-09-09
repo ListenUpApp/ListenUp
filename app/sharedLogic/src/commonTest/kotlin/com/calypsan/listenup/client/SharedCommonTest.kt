@@ -6,6 +6,6 @@ import io.kotest.matchers.shouldBe
 class SharedCommonTest :
     FunSpec({
         test("example") {
-            (1 + 2) shouldBe 3
+            1 + 2 shouldBe 3
         }
     })

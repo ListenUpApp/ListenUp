@@ -39,20 +39,47 @@ fun AbstractTestTask.failBelowDiscoveredTestCount(
 ) {
     afterSuite(
         KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
-            if (desc.parent == null && result.testCount < floor && !isExplicitTestFilterActive()) {
-                throw GradleException(
-                    "$taskLabel discovered only ${result.testCount} tests, below the floor of " +
-                        "$floor. No test filter was detected on this run, so the likely cause is a " +
-                        "source set silently dropping out of the compilation rather than a " +
-                        "legitimate test deletion — investigate before lowering this floor. (If you " +
-                        "intended to run a subset with --tests or -Dkotest.filter.specs/.tests and " +
-                        "land here anyway, the filter-detection probe below didn't recognize your " +
-                        "filter shape — that's a bug in the probe, not a real collapse.)",
-                )
-            }
+            discoveredCountFailure(
+                taskLabel = taskLabel,
+                floor = floor,
+                testCount = result.testCount,
+                isRootSuite = desc.parent == null,
+                isFiltered = isExplicitTestFilterActive(),
+            )?.let { throw GradleException(it) }
         }),
     )
 }
+
+/**
+ * The failure message for a collapsed run, or null when the run is acceptable.
+ *
+ * Extracted from [failBelowDiscoveredTestCount]'s `afterSuite` closure so the decision — which is
+ * the whole point of the floor — is unit-testable without a live Gradle Test task. The closure
+ * keeps only the Gradle plumbing: reading the descriptor, the result, and the filter probe.
+ *
+ * @param isRootSuite whether this is the aggregated task-level suite. Per-class suites report their
+ *   own small counts and must never be measured against a whole-lane floor.
+ * @param isFiltered whether an explicit test filter is active, in which case a lower count is
+ *   expected rather than suspicious.
+ */
+internal fun discoveredCountFailure(
+    taskLabel: String,
+    floor: Int,
+    testCount: Long,
+    isRootSuite: Boolean,
+    isFiltered: Boolean,
+): String? =
+    if (isRootSuite && testCount < floor && !isFiltered) {
+        "$taskLabel discovered only $testCount tests, below the floor of " +
+            "$floor. No test filter was detected on this run, so the likely cause is a " +
+            "source set silently dropping out of the compilation rather than a " +
+            "legitimate test deletion — investigate before lowering this floor. (If you " +
+            "intended to run a subset with --tests or -Dkotest.filter.specs/.tests and " +
+            "land here anyway, the filter-detection probe below didn't recognize your " +
+            "filter shape — that's a bug in the probe, not a real collapse.)"
+    } else {
+        null
+    }
 
 /**
  * True when [this] task has an explicit, intentional test-subset filter active — either Gradle's

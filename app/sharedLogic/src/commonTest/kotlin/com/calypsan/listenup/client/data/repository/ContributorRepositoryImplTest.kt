@@ -107,7 +107,7 @@ class ContributorRepositoryImplTest :
                 val result = repository.observeAll().first()
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -402,7 +402,7 @@ class ContributorRepositoryImplTest :
                 val result = repository.observeByBookId("book-1").first()
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -481,7 +481,7 @@ class ContributorRepositoryImplTest :
                 val result = repository.getByBookId("book-1")
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -563,7 +563,7 @@ class ContributorRepositoryImplTest :
                 val result = repository.getBookIdsForContributor("contrib-1")
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -614,7 +614,7 @@ class ContributorRepositoryImplTest :
                 val result = repository.observeBookIdsForContributor("contrib-1").first()
 
                 // Then
-                (result.isEmpty()) shouldBe true
+                result.isEmpty() shouldBe true
             }
         }
 
@@ -725,7 +725,7 @@ class ContributorRepositoryImplTest :
                 result.website shouldBe null
                 result.birthDate shouldBe null
                 result.deathDate shouldBe null
-                (result.aliases.isEmpty()) shouldBe true
+                result.aliases.isEmpty() shouldBe true
             }
         }
 
@@ -818,7 +818,7 @@ class ContributorRepositoryImplTest :
 
                 // Then
                 result.shouldNotBeNull()
-                (result.aliases.isEmpty()) shouldBe true
+                result.aliases.isEmpty() shouldBe true
             }
         }
 
@@ -910,9 +910,9 @@ class ContributorRepositoryImplTest :
 
                 // Then
                 result.shouldNotBeNull()
-                (result.matchesName("Stephen King")) shouldBe true
-                (result.matchesName("STEPHEN KING")) shouldBe true
-                (result.matchesName("stephen king")) shouldBe true
+                result.matchesName("Stephen King") shouldBe true
+                result.matchesName("STEPHEN KING") shouldBe true
+                result.matchesName("stephen king") shouldBe true
             }
         }
 
@@ -933,9 +933,9 @@ class ContributorRepositoryImplTest :
 
                 // Then
                 result.shouldNotBeNull()
-                (result.matchesName("Richard Bachman")) shouldBe true
-                (result.matchesName("RICHARD BACHMAN")) shouldBe true
-                (result.matchesName("richard bachman")) shouldBe true
+                result.matchesName("Richard Bachman") shouldBe true
+                result.matchesName("RICHARD BACHMAN") shouldBe true
+                result.matchesName("richard bachman") shouldBe true
             }
         }
 
@@ -956,8 +956,8 @@ class ContributorRepositoryImplTest :
 
                 // Then
                 result.shouldNotBeNull()
-                (!result.matchesName("Neil Gaiman")) shouldBe true
-                (!result.matchesName("Random Name")) shouldBe true
+                !result.matchesName("Neil Gaiman") shouldBe true
+                !result.matchesName("Random Name") shouldBe true
             }
         }
 

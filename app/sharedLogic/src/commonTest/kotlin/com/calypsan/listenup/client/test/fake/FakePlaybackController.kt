@@ -79,7 +79,7 @@ class FakePlaybackController(
         items: List<PlaybackMediaItem>,
         startPositionMs: Long,
     ) {
-        _setMediaQueueCalls += (items to startPositionMs)
+        _setMediaQueueCalls += items to startPositionMs
     }
 
     override suspend fun startPlayback(prepareResult: PlaybackManager.PrepareResult) {

@@ -13,11 +13,20 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class NoPresentationImportsInDataLayerRule :
     FunSpec({
         test("no commonMain client data-layer file imports client presentation symbols") {
-            val offenders =
+            val clientDataFiles =
                 productionScope()
                     .files
                     .filter { it.path.contains("/commonMain/") }
                     .filter { it.path.contains("/client/data/") }
+
+            assertScopeNotEmpty(
+                clientDataFiles,
+                expectedMin = 110,
+                why = "commonMain client data-layer files — the side of the layering boundary this rule polices",
+            )
+
+            val offenders =
+                clientDataFiles
                     .flatMap { file ->
                         file.imports
                             .filter { it.name.startsWith("com.calypsan.listenup.client.presentation.") }

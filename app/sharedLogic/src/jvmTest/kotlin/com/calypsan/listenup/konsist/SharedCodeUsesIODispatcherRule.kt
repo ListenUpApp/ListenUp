@@ -26,10 +26,19 @@ class SharedCodeUsesIODispatcherRule :
             val sharedSourceSetMarkers =
                 listOf("/commonMain/", "/appleMain/", "/iosMain/", "/nativeMain/", "/macosMain/")
 
-            val offenders =
+            val sharedFiles =
                 productionScope()
                     .files
                     .filter { file -> sharedSourceSetMarkers.any { file.path.contains(it) } }
+
+            assertScopeNotEmpty(
+                sharedFiles,
+                expectedMin = 800,
+                why = "commonMain + Apple/Native files — a marker that stops matching would silently disarm this",
+            )
+
+            val offenders =
+                sharedFiles
                     // The IODispatcher expect/actual itself is the sanctioned home of the
                     // platform dispatcher choice — it necessarily names Dispatchers.IO.
                     .filterNot { file -> file.path.endsWith("/core/Dispatchers.apple.kt") }
