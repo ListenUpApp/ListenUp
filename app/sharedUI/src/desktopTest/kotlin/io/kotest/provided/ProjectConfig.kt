@@ -14,9 +14,9 @@ import io.kotest.core.names.DuplicateTestNameMode
  * - [duplicateTestNameMode]: two tests with the same name inside one spec silently shadow each
  *   other's results — make it an error so the copy-paste is caught.
  *
- * No discovered-count floor is wired for this lane (see `app/sharedUI/build.gradle.kts`) —
- * `desktopTest` is not part of `verifyLocal`/CI's `test-jvm` job, so a collapse here wouldn't be
- * caught by the gate a floor exists to protect anyway.
+ * The discovered-count floor for this lane lives in Gradle (`app/sharedUI/build.gradle.kts`), not
+ * here: these two flags catch a spec going wrong, while the floor catches the whole source set
+ * going missing. Both matter — `desktopTest` runs in CI's `test-jvm` job and in `verifyLocal`.
  */
 class ProjectConfig : AbstractProjectConfig() {
     override val failOnEmptyTestSuite: Boolean = true

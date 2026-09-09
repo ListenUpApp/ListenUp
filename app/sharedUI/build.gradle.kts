@@ -314,8 +314,7 @@ tasks.withType<Test>().configureEach {
     // a run that fails outright. Registered on the Gradle `Test` task itself rather than a Kotest
     // `afterProject` listener so it always reads the TASK TOTAL, aggregated across any forked
     // workers (`desc.parent == null`) — see `io.kotest.provided.ProjectConfig`'s retry-ledger
-    // KDoc for the per-worker trap this avoids. `testAndroidHostTest` only: `desktopTest` is not
-    // part of `verifyLocal`/CI's `test-jvm` job, so it has no floor to protect.
+    // KDoc for the per-worker trap this avoids.
     //
     // The floor catches COLLAPSE, not attrition: 255 tests ran green on 2026-07-25, and the bar sits
     // far enough below that a normal deletion does not trip it. Deliberately not a ratchet — a floor
@@ -324,6 +323,14 @@ tasks.withType<Test>().configureEach {
     if (name == "testAndroidHostTest") {
         forwardKotestFilterProperties()
         failBelowDiscoveredTestCount(200, ":app:sharedUI:testAndroidHostTest")
+    }
+    if (name == "desktopTest") {
+        forwardKotestFilterProperties()
+        // Same posture as the lane above — 62 tests across 7 specs ran green on 2026-09-09, and the
+        // bar sits far enough below that an honest deletion never trips it. This lane runs in CI's
+        // test-jvm job (ci.yml) and in verifyLocal (root build.gradle.kts), so a silent collapse
+        // here is a real hole, not a theoretical one.
+        failBelowDiscoveredTestCount(40, ":app:sharedUI:desktopTest")
     }
 }
 
