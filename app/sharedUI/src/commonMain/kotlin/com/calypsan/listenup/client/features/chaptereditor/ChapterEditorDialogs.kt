@@ -28,6 +28,8 @@ import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_discard
 import listenup.composeapp.generated.resources.common_save
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Leaving with unsaved edits.
@@ -99,6 +101,7 @@ internal fun RenameChapterDialog(
                 onValueChange = { title = it },
                 label = stringResource(Res.string.chapter_editor_rename_label),
                 transform = { it.take(ChapterInput.MAX_TITLE) },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
         },
         confirmButton = {

@@ -43,6 +43,8 @@ import listenup.composeapp.generated.resources.series_merge_search_placeholder
 import listenup.composeapp.generated.resources.series_merge_title
 import listenup.composeapp.generated.resources.series_merge_truncated
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
 
 private const val LIST_MAX_HEIGHT_DP = 280
 private const val SELECTED_BG_ALPHA = 0.4f
@@ -115,6 +117,7 @@ fun SeriesMergeDialog(
                     // Keep the pre-migration corner radius (the OutlinedTextField default).
                     shape = OutlinedTextFieldDefaults.shape,
                     modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 )
                 // Above the list, not below it: the list is capped at LIST_MAX_HEIGHT_DP, so a
                 // notice underneath is pushed out of the dialog exactly when the list is long

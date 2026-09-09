@@ -92,6 +92,8 @@ import listenup.composeapp.generated.resources.series_series_name
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Series Edit Screen — edit series metadata and cover.
@@ -559,6 +561,7 @@ private fun SeriesIdentityHeader(
                         ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
             }
         }

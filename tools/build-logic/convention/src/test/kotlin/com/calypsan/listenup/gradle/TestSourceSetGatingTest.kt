@@ -38,6 +38,7 @@ class TestSourceSetGatingTest {
                 "app/sharedLogic/src/commonTest" to ":app:sharedLogic:jvmTest",
                 "app/sharedLogic/src/jvmTest" to ":app:sharedLogic:jvmTest",
                 "app/sharedLogic/src/androidHostTest" to ":app:sharedLogic:testAndroidHostTest",
+                "app/sharedLogic/src/appleTest" to ":app:sharedLogic:iosSimulatorArm64Test",
                 "app/sharedUI/src/androidHostTest" to ":app:sharedUI:testAndroidHostTest",
                 "app/sharedUI/src/desktopTest" to ":app:sharedUI:desktopTest",
                 "app/webApp/src/jsTest" to ":app:webApp:webKotest",
