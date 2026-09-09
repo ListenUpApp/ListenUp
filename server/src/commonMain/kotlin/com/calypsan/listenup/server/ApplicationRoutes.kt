@@ -34,6 +34,7 @@ import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.cover.CoverResponder
+import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.document.DocumentFileLocator
@@ -67,6 +68,7 @@ import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import io.ktor.server.application.Application
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
+import kotlin.time.TimeSource
 import kotlinx.io.files.Path
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
@@ -126,9 +128,16 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val transcoderAvailability by inject<TranscoderAvailability>()
     val sessionService by inject<SessionService>()
     val rpcServices = rpcServiceBundle()
+    // Resolved eagerly (not `by inject`) because /healthz reads it from inside a request handler,
+    // and the health route is the one place a lazy Koin access would outlive route installation.
+    val databaseHandle = koinGet<DatabaseHandle>()
+    val startedAt = TimeSource.Monotonic.markNow()
 
     routing {
-        healthRoutes()
+        healthRoutes(
+            schemaVersion = { databaseHandle.currentSchemaVersion() },
+            startedAt = startedAt,
+        )
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
             bookBlobWriteRoutes(bookService)

@@ -289,9 +289,10 @@ jobs:
 
   server:
     name: Server → GHCR
-    # Pin to 24.04 so the builder's glibc matches the ubuntu:24.04 runtime image
-    # (Dockerfile.native). The dynamically-linked server.kexe would fail to start on an
-    # older-glibc base with a "GLIBC_x.y not found" error.
+    # Pin to 24.04 so the builder's glibc matches what the runtime image provides:
+    # Dockerfile.native builds against debian:12-slim and runs on
+    # gcr.io/distroless/cc-debian12:nonroot (glibc 2.36). The dynamically-linked
+    # server.kexe would fail to start on an older-glibc base with "GLIBC_x.y not found".
     runs-on: ubuntu-24.04
     needs: set-version
     if: ${{ inputs.server }}
@@ -331,6 +332,32 @@ jobs:
 
       - name: Stage binary for Docker
         run: cp server/build/bin/linuxX64/releaseExecutable/server.kexe server/server-binary
+
+      # The release must not ship a binary whose own native test suite was never run. The aarch64-
+      # free link dependencies this needs are already installed above.
+      - name: Run :server linuxX64 tests
+        run: ./gradlew :server:linuxX64Test --no-daemon
+
+      # Build the image locally and boot it BEFORE anything is pushed. Nothing had ever run the
+      # artifact we publish: Dockerfile.native's own header records a dropped FTS5 flag shipping an
+      # image that died on first boot — "a release-blocking break that CI could not see, because CI
+      # never builds this image". This is that gate. The push step below rebuilds from the same
+      # context on the same daemon and reuses this build's layer cache.
+      - name: Build image locally for the boot smoke
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: server
+          file: server/Dockerfile.native
+          push: false
+          load: true
+          tags: listenup-server:smoke
+
+      # Hard release gate: an image that cannot reach a healthy /healthz never reaches GHCR. The
+      # expected version is asserted too, so a stale layer cannot pass itself off as this build.
+      - name: Boot-test the image (serve-smoke.sh)
+        env:
+          EXPECTED_VERSION: ${{ needs.set-version.outputs.version }}
+        run: bash server/scripts/serve-smoke.sh listenup-server:smoke "" "$EXPECTED_VERSION"
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
