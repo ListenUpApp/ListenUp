@@ -93,8 +93,15 @@ class HealthRoutesTest :
                 val response = client.get("/healthz")
 
                 response.status shouldBe HttpStatusCode.OK
-                val body = contractJson.decodeFromString<HealthResponse>(response.bodyAsText())
-                body.schemaVersion.shouldNotBeNull().shouldNotBeBlank()
+                val raw = response.bodyAsText()
+                contractJson
+                    .decodeFromString<HealthResponse>(raw)
+                    .schemaVersion
+                    .shouldNotBeNull()
+                    .shouldNotBeBlank()
+                // The literal shape serve-smoke.sh matches, so the gate and this test agree on
+                // bytes rather than on two independent readings of "non-blank".
+                raw shouldContain Regex("\"schemaVersion\":\"[^\"]+\"")
             }
         }
     })
