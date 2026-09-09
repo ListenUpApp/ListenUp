@@ -9,6 +9,8 @@ import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
@@ -42,6 +44,7 @@ import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
 import io.kotest.matchers.string.shouldNotContain
@@ -49,6 +52,7 @@ import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.renderComposable
@@ -64,10 +68,8 @@ import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.search.seriesHit
-import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.EventInit
 import org.w3c.dom.events.Event
@@ -313,6 +315,81 @@ class WebAppRootTest :
                 (host.querySelector(".contrib-row") as HTMLElement).click()
 
                 window.location.pathname shouldBe "/contributor/c1"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/contributor/{id}/edit renders the form over that contributor, not their page") {
+            val recorder = RecordingContributorEdit()
+            val (host, router) = mountAt("/contributor/c-king/edit", openContributorEdit = recorder.open)
+
+            try {
+                recorder.requestedIds shouldBe listOf("c-king")
+                (host.querySelector(".ced-title") as HTMLElement).textContent shouldBe "Person c-king"
+                // ⛔ The detail page must not also be up. `/contributor/{id}` is a prefix of this
+                // route, and a branch order that tests it first makes the form unreachable by link.
+                host.querySelector(".cd-name") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the pencil on a contributor's page opens the form over them") {
+            val (host, router) =
+                mountAt("/contributor/c-king", openContributorDetail = fixedContributorDetail(readyContributor()))
+
+            try {
+                (host.querySelector(".cd-edit") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/contributor/c-king/edit"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("leaving the form lands back on the contributor it was editing") {
+            val recorder = RecordingContributorEdit(flowOf(ContributorEditNavAction.NavigateBack))
+            val (_, router) = mountAt("/contributor/c-king/edit", openContributorEdit = recorder.open)
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/contributor/c-king"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ `replace`, not `navigate`. A merge can delete the contributor being edited — the
+        // rename-collision path folds them into someone else — so a pushed entry would send Back
+        // to the editor of a contributor that no longer exists.
+        test("a merge lands on the survivor, and Back does not return to the deleted one") {
+            // ⛔ One-shot, not `flowOf`. A cold flow re-emits to the session that a Back would
+            // remount, which redirects forward again and hides the pushed entry — sabotage proved
+            // `navigate` in place of `replace` survived this spec until the merge fired once.
+            val merged = Channel<ContributorEditNavAction>(Channel.BUFFERED)
+            merged.trySend(ContributorEditNavAction.NavigateToMerged(ContributorId("c-bachman")))
+            val recorder = RecordingContributorEdit(merged.receiveAsFlow())
+            // Two pushes, so what lies behind the editor is known: `mountAt` replaces the entry it
+            // lands on, and every spec here shares one window, so without this Back returns to
+            // whatever an earlier spec happened to push. `history.length` cannot stand in for it —
+            // the browser caps the stack, so a push stops growing it long before this spec runs.
+            window.history.pushState(null, "", MERGE_SENTINEL_PATH)
+            window.history.pushState(null, "", MERGE_SENTINEL_PATH)
+            val (_, router) = mountAt("/contributor/c-king/edit", openContributorEdit = recorder.open)
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/contributor/c-bachman"
+
+                window.history.back()
+                // history.back() is asynchronous; a frame is not enough to see popstate land.
+                delay(POPSTATE_SETTLE_MS)
+
+                window.location.pathname shouldBe MERGE_SENTINEL_PATH
             } finally {
                 router.dispose()
             }
@@ -679,3 +756,9 @@ class WebAppRootTest :
             }
         }
     })
+
+/** How long `history.back()` takes to become a popstate the router has actually seen. */
+private const val POPSTATE_SETTLE_MS = 120L
+
+/** The entry the merge redirect must leave behind it — anything else means it pushed one. */
+private const val MERGE_SENTINEL_PATH = "/before-the-contributor-editor"

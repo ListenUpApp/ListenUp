@@ -243,6 +243,9 @@ body { margin: 0; }
 .luw .coll-err-x:active,
 .luw .bkp-err-x:active,
 .luw .imp-err-x:active,
+.luw .ced-err-x:active,
+.luw .ced-split:active,
+.luw .ced-merge:active,
 .luw .imp-new:active,
 .luw .iflow-skip:active,
 .luw .iflow-find:active,
@@ -279,6 +282,7 @@ body { margin: 0; }
 .luw .lset-brow-open:active,
 .luw .coll-open:active,
 .luw .cdet-result:active,
+.luw .ced-result:active,
 .luw .iflow-result:active,
 .luw .cdet-person:active,
 .luw .inbox-book:active,
@@ -2344,3 +2348,32 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 @media (hover: hover) { .luw .iflow-result:hover { background: var(--surface-3); } }
 .luw .iflow-result-t { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .luw .iflow-result-b { flex: none; font-size: 0.78rem; color: var(--ink-3); }
+
+/* ---- contributor edit. The person's own details, and who they are really. */
+.luw .ced { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .ced-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .ced-skel { height: 22rem; border-radius: 16px; }
+.luw .ced-hint { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .ced-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .ced-portrait { display: flex; align-items: center; gap: 20px; }
+/* Fixed to the frame's own size so a tall photo cannot stretch the row while it is staged. */
+.luw .ced-photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; display: block; background: var(--surface-3); }
+.luw .ced-photo-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); }
+.luw .ced-portrait-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.luw .ced-portrait-hint { font-size: 0.78rem; color: var(--ink-3); font-weight: 600; }
+.luw .ced-aliases { display: flex; flex-direction: column; gap: 0.4rem; }
+.luw .ced-alias { display: flex; align-items: center; gap: 0.7rem; }
+.luw .ced-alias-n { flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.luw .ced-split, .luw .ced-merge { flex: none; padding: 4px 11px; font-size: 0.78rem; }
+.luw .ced-alias-act { display: flex; justify-content: flex-end; margin-top: 10px; }
+/* Capped and scrollable: a contributor search can return far more rows than a dialog can hold. */
+.luw .ced-results { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
+.luw .ced-result { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .ced-result:hover { background: var(--surface-3); } }
+.luw .ced-result-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .ced-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .ced-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .ced-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .ced-err-x:hover { background: var(--surface-3); } }
+/* Pushed to the hero's trailing edge, clear of the name block. */
+.luw .cd-edit { flex: none; align-self: flex-start; margin-left: auto; }
