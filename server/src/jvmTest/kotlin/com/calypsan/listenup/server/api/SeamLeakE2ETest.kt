@@ -226,6 +226,7 @@ class SeamLeakE2ETest :
                     val client = jsonClient()
 
                     val admin = runSetup()
+                    val stranger = registerMember("stranger")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "B")
                     writeAudioFile(libraryRoot, "B_inbox")
@@ -238,7 +239,10 @@ class SeamLeakE2ETest :
                     val collections = collectionServiceAs(admin.userId, UserRole.ADMIN)
                     // Private collection owned by a STRANGER — the admin has no relationship to it,
                     // so a reachable result can only come from the ADMIN bypass, not ownership.
-                    collections.createPrivateCollectionAs("stranger", "Private", "B")
+                    // The stranger can only curate a book they can see: B starts in ALL_BOOKS (reached
+                    // through the default grant registration issued them) and leaves it on curation.
+                    makeBookPublic("B")
+                    collections.createPrivateCollectionAs(stranger.userId, "Private", "B")
                     collections.addToInbox("B_inbox", "test-library").requireSuccess()
 
                     // SEAM 1: getBook → 200 for both.

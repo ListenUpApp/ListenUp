@@ -4,9 +4,11 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
@@ -34,6 +36,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testCoordinator
@@ -59,6 +62,11 @@ import kotlinx.io.files.Path
  * case short-circuits before any external fetch; the ADMIN case proves the gate passed (it
  * proceeds into the real applier and fails only because the book is absent — not a
  * PermissionDenied).
+ *
+ * The book-scoped applies (`applyBookMetadata` / `applyChapterNames` / `applyCover`) carry a second
+ * half: `canEdit` is a permission, not an access decision (it defaults to true for every account),
+ * so the caller must also be able to see the book. A denial is reported as `MetadataError.NotFound`
+ * with the same `debugInfo` as the absent-book answer, so it cannot be told apart from "no such book".
  */
 class MetadataLookupServiceImplPermissionTest :
     FunSpec({
@@ -91,6 +99,26 @@ class MetadataLookupServiceImplPermissionTest :
                 }
             }
         }
+
+        bookScopedApplies.forEach { apply ->
+            test("${apply.name} by a canEdit MEMBER who cannot see the book is reported as NotFound") {
+                withSqlDatabase {
+                    sql.seedTestLibraryAndFolder()
+                    sql.seedTestUser("member")
+                    // In no collection at all — invisible to every non-admin under the pure-union rule.
+                    sql.seedTestBook("hidden")
+                    val service = makeMetadataPermService(this).copyWith(memberPrincipal("member"))
+                    runTest {
+                        val result = apply.call(service, BookId("hidden"))
+
+                        val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                        val denial = failure.error.shouldBeInstanceOf<MetadataError.NotFound>()
+                        // Byte-identical to the absent-book answer, so a denial is not an existence oracle.
+                        denial.debugInfo shouldBe "no book for id hidden"
+                    }
+                }
+            }
+        }
     })
 
 private val ALL_SELECTED =
@@ -105,6 +133,20 @@ private val ALL_SELECTED =
         authorAsins = emptySet(),
         narratorAsins = emptySet(),
         seriesAsins = emptySet(),
+    )
+
+/** A book-scoped apply, invoked against a scoped service for one book. */
+private class BookScopedApply(
+    val name: String,
+    val call: suspend MetadataLookupServiceImpl.(BookId) -> AppResult<Mutated<Unit>>,
+)
+
+/** The applies that take a [BookId]: each must deny before it looks at anything else. */
+private val bookScopedApplies =
+    listOf(
+        BookScopedApply("applyBookMetadata") { id -> applyBookMetadata(id, "ASIN1", MetadataLocale("us"), ALL_SELECTED) },
+        BookScopedApply("applyChapterNames") { id -> applyChapterNames(id, "ASIN1", MetadataLocale("us"), setOf(1)) },
+        BookScopedApply("applyCover") { id -> applyCover(id, "https://covers.example/hidden.jpg") },
     )
 
 private fun makeMetadataPermService(dbs: SqlTestDatabases): MetadataLookupServiceImpl {
@@ -142,6 +184,7 @@ private fun makeMetadataPermService(dbs: SqlTestDatabases): MetadataLookupServic
             ),
         enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, registry),
         permissionPolicy = UserPermissionPolicy(dbs.sql),
+        bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,
     )

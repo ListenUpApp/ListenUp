@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -71,6 +72,7 @@ class CollectionServiceImplTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
+                bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
                 permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
@@ -148,7 +150,8 @@ class CollectionServiceImplTest :
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
 
-                    // Owner can add.
+                    // Owner can add — a book they can see (seeded the way the substrate makes it so).
+                    db.makeBooksVisibleTo("u1", "book1")
                     val ownerAdd = owner.addBookToCollection(collectionId, BookId("book1"))
                     ownerAdd shouldBe AppResult.Success(Unit)
 
@@ -188,6 +191,7 @@ class CollectionServiceImplTest :
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
 
+                    db.makeBooksVisibleTo("u1", "book1")
                     service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
                     service.listCollectionBooks(collectionId).let {
                         require(it is AppResult.Success)
@@ -286,6 +290,7 @@ class CollectionServiceImplTest :
 
                     // Attach a real junction row and a real active share so the cascade
                     // branches run against NON-empty sets.
+                    db.makeBooksVisibleTo("u1", "book1")
                     service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
 
                     val collectionBookRepo =
@@ -390,6 +395,7 @@ class CollectionServiceImplTest :
                     require(created is AppResult.Success)
                     val collectionId = created.data.id
 
+                    db.makeBooksVisibleTo("u1", "book1", "book2")
                     service.addBookToCollection(collectionId, BookId("book1"))
                     service.addBookToCollection(collectionId, BookId("book2"))
 

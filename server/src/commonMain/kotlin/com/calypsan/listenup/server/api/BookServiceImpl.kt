@@ -123,7 +123,8 @@ internal class BookServiceImpl(
     /**
      * Returns the [AppError] denial when the caller lacks the `canEdit` permission, or null when
      * the edit is allowed. Exposed as `internal` so the cover-upload route can gate before buffering
-     * the multipart body — `setBookCover` also calls `requireCanEdit()` internally as defense-in-depth.
+     * the multipart body — `setBookCover` also re-gates internally as defense-in-depth, and that inner
+     * gate additionally requires the caller to be able to see the book.
      */
     internal suspend fun checkCanEdit(): AppError? = requireCanEdit()
 
@@ -155,6 +156,25 @@ internal class BookServiceImpl(
     private suspend fun requireCanEdit(): AppError? {
         val p = principal.current() ?: return AuthError.PermissionDenied()
         return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
+    /**
+     * The gate every content mutation runs: the caller must hold `canEdit` **and** be able to
+     * see the book. `canEdit` defaults to true for every account, so it is a permission, not an
+     * access decision — without the visibility half, a member could rewrite (and delete the
+     * cover of) a book they cannot see, and probe which ids exist from the reply.
+     *
+     * An access denial is reported as [BookError.NotFound], identical to the absent-book answer
+     * the same method already returns, so the two are indistinguishable to the caller.
+     * Returns null when the edit is permitted; the denial to surface otherwise.
+     */
+    private suspend fun requireEditableBook(id: BookId): AppError? {
+        requireCanEdit()?.let { return it }
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        if (!accessPolicy.canAccess(p.userId.value, p.role, id.value)) {
+            return BookError.NotFound(debugInfo = "bookId=${id.value}")
+        }
+        return null
     }
 
     /**
@@ -191,7 +211,7 @@ internal class BookServiceImpl(
         id: BookId,
         patch: BookUpdate,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         val current =
             repo.findById(id)
                 ?: return bookNotFound(id)
@@ -227,7 +247,7 @@ internal class BookServiceImpl(
         id: BookId,
         contributors: List<BookContributorInput>,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         if (contributors.size > MAX_CONTRIBUTORS_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
@@ -282,7 +302,7 @@ internal class BookServiceImpl(
         id: BookId,
         chapters: List<ChapterInput>,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         if (chapters.size > MAX_CHAPTERS_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
@@ -325,7 +345,7 @@ internal class BookServiceImpl(
         bookTierLabel: String?,
         partTierLabel: String?,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         validateTierLabel("bookTierLabel", bookTierLabel)?.let { return AppResult.Failure(it) }
         validateTierLabel("partTierLabel", partTierLabel)?.let { return AppResult.Failure(it) }
         return when (val res = repo.setTierLabels(id, bookTierLabel, partTierLabel)) {
@@ -381,7 +401,7 @@ internal class BookServiceImpl(
         id: BookId,
         series: List<BookSeriesInput>,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         if (series.size > MAX_SERIES_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
@@ -436,7 +456,7 @@ internal class BookServiceImpl(
         id: BookId,
         genres: List<BookGenreInput>,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         if (genres.size > MAX_GENRES_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
@@ -499,7 +519,7 @@ internal class BookServiceImpl(
         bytes: ByteArray,
         contentType: String,
     ): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         val store = coverImageStore ?: error("CoverImageStore not wired — library must be configured")
         val stored = store.store.store(id.value, bytes, contentType)
         // Derive the repo-relative path from the stored absolute path's filename only.
@@ -509,7 +529,7 @@ internal class BookServiceImpl(
     }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(id)?.let { return AppResult.Failure(it) }
         // Validate the book exists and has a cover before touching anything.
         // Read the payload first to determine the cover source (authoritative) and
         // whether the cover is managed (UPLOADED/ENRICHED) or filesystem-side.

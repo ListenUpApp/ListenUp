@@ -549,6 +549,7 @@ private fun makeService(
             ),
         enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, syncRegistry),
         permissionPolicy = UserPermissionPolicy(dbs.sql),
+        bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,
         probeDimensions = probeDimensions,

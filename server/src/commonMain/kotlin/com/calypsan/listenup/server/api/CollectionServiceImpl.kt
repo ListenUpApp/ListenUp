@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.dto.CollectionShareDto
 import com.calypsan.listenup.api.dto.CollectionSummary
@@ -246,6 +247,7 @@ internal class CollectionServiceImpl(
     private val collectionBookRepo: CollectionBookRepository,
     private val grantRepo: CollectionGrantRepository,
     private val accessPolicy: CollectionAccessPolicy,
+    private val bookAccessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy,
     private val bus: ChangeBus,
     private val sql: ListenUpDatabase,
@@ -428,6 +430,13 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         writeGate(decision)?.let { return AppResult.Failure(it) }
+
+        // A caller can only add a book they can already see. NotFound (not Forbidden):
+        // revealing that an inaccessible book exists would be an existence oracle, and
+        // adding it here would hand the caller a fresh access path to it.
+        if (!bookAccessPolicy.canAccess(caller.userId, caller.role.toContract(), bookId.value)) {
+            return AppResult.Failure(CollectionError.BookNotFound())
+        }
 
         if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
 
@@ -1115,6 +1124,7 @@ internal class CollectionServiceImpl(
             collectionBookRepo = collectionBookRepo,
             grantRepo = grantRepo,
             accessPolicy = accessPolicy,
+            bookAccessPolicy = bookAccessPolicy,
             permissionPolicy = permissionPolicy,
             bus = bus,
             sql = sql,
@@ -1150,18 +1160,6 @@ internal class CollectionServiceImpl(
         when {
             decision.isOwner -> null
             role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN -> null
-            decision.canAccess -> CollectionError.Forbidden()
-            else -> CollectionError.NotFound()
-        }
-
-    /** Admin gate: null = allowed (ROOT/ADMIN); [CollectionError.Forbidden] for everyone else. */
-    private fun adminGate(role: UserRoleColumn): CollectionError? =
-        if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
-
-    /** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
-    private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =
-        when {
-            decision.canAccess && decision.permission.canWrite() -> null
             decision.canAccess -> CollectionError.Forbidden()
             else -> CollectionError.NotFound()
         }
@@ -1226,6 +1224,18 @@ internal class CollectionServiceImpl(
         softDelete(id, clientOpId = null)
 }
 
+/** Admin gate: null = allowed (ROOT/ADMIN); [CollectionError.Forbidden] for everyone else. */
+private fun adminGate(role: UserRoleColumn): CollectionError? =
+    if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
+
+/** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
+private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =
+    when {
+        decision.canAccess && decision.permission.canWrite() -> null
+        decision.canAccess -> CollectionError.Forbidden()
+        else -> CollectionError.NotFound()
+    }
+
 /**
  * Constructs a [CollectionService] backed by [CollectionServiceImpl]. Public so cross-module
  * test harnesses (e.g. `:app:sharedLogic:jvmTest`'s `WithCollectionSyncEngineAgainstServer`) can
@@ -1242,6 +1252,7 @@ fun createCollectionService(
     grantRepo: CollectionGrantRepository,
     bus: ChangeBus,
     sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+    driver: SqlDriver,
     bookRevisionTouch: BookRevisionTouch,
     clock: Clock = Clock.System,
 ): CollectionService =
@@ -1250,6 +1261,7 @@ fun createCollectionService(
         collectionBookRepo = collectionBookRepo,
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
+        bookAccessPolicy = BookAccessPolicy(sql, driver),
         permissionPolicy = UserPermissionPolicy(sql),
         bus = bus,
         sql = sql,

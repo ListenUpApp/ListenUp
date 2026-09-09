@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
@@ -213,6 +214,7 @@ fun metadataModule(imageHome: Path): Module =
                     ),
                 enrichmentDeps = get<MetadataEnrichmentDeps>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
+                bookAccessPolicy = get<BookAccessPolicy>(),
                 sqlDb = get<ListenUpDatabase>(),
                 genreRepository = get<GenreRepository>(),
                 probeDimensions = { url -> get<ImageDimensionProbe>().probe(url) },

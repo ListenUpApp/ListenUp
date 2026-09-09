@@ -22,6 +22,12 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import kotlin.time.Clock
 
 /**
+ * Ceiling past which a value is not a device token — FCM and APNs tokens are far shorter. Shared with
+ * the pre-auth registration-watch path in `AuthServiceImpl`, so both registrations apply one bound.
+ */
+internal const val MAX_PUSH_TOKEN_LENGTH = 4096
+
+/**
  * [PushService] implementation — the session-bound device push-token registry.
  *
  * Resolves the authenticated caller from [principal] (never from request fields). Push is
@@ -113,6 +119,11 @@ internal class PushServiceImpl(
         return when (val decision = limiter.check(AuthRateBucket.PUSH_TEST, userId)) {
             RateDecision.Allowed -> null
             is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
+    private fun validateToken(token: String): ValidationError? =
+        when {
+            token.isBlank() -> ValidationError(message = "token must not be blank.")
+            token.length > MAX_PUSH_TOKEN_LENGTH -> ValidationError(message = "token is too long.")
+            else -> null
         }
     }
 

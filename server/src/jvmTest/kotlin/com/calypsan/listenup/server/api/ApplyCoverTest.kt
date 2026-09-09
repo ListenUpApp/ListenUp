@@ -173,6 +173,7 @@ private fun withCoverFixture(
                         ),
                     enrichmentDeps = testEnrichmentDeps(db.sql, db.driver, bus, registry),
                     permissionPolicy = UserPermissionPolicy(db.sql),
+                    bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
                     sqlDb = db.sql,
                     genreRepository = genreRepo,
                     principal =

@@ -88,6 +88,7 @@ class CollectionListSystemVisibilityTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
+                bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
                 permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,

@@ -177,6 +177,7 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
                 grantRepo = grantRepo,
                 bus = bus,
                 sql = serverSqlDb,
+                driver = serverDriver,
                 bookRevisionTouch = bookRepo,
             )
         val adminCollections =

@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -97,6 +98,7 @@ class AccessChangedEmissionTest :
                     collectionBookRepo = collectionBookRepo,
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
+                    bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
                     permissionPolicy = UserPermissionPolicy(db.sql),
                     bus = bus,
                     sql = db.sql,
@@ -287,6 +289,7 @@ class AccessChangedEmissionTest :
                     u1.shareCollection(created.data.id, "u2", SharePermission.Read).let {
                         require(it is AppResult.Success)
                     }
+                    this@withSqlDatabase.makeBooksVisibleTo("u1", "book1")
 
                     // Subscribe after the share so we observe only the add's frames.
                     val frames = mutableListOf<ControlFrame>()
@@ -319,6 +322,7 @@ class AccessChangedEmissionTest :
                     u1.shareCollection(created.data.id, "u2", SharePermission.Read).let {
                         require(it is AppResult.Success)
                     }
+                    this@withSqlDatabase.makeBooksVisibleTo("u1", "book1")
                     u1.addBookToCollection(created.data.id, BookId("book1")) shouldBe AppResult.Success(Unit)
 
                     // Subscribe after the add so we observe only the remove's frames.
