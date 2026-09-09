@@ -480,7 +480,7 @@ actor AudioEngine: PlaybackEngine {
             Log.error(
                 "AVPlayer streaming error: status=\(event.errorStatusCode) " +
                     "domain=\(event.errorDomain) comment=\(event.errorComment ?? "—") " +
-                    "uri=\(event.uri ?? "—")"
+                    "uri=\(UrlRedaction.withoutQuery(event.uri))"
             )
         }
     }
