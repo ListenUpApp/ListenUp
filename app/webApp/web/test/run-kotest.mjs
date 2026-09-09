@@ -157,6 +157,7 @@ const problems = problemsFor({
   timedOut,
   minTests: MIN_TESTS,
   ceilingMs: CEILING_MS,
+  pageErrors,
 })
 
 for (const p of problems) console.log(`PROBLEM: ${p}`)

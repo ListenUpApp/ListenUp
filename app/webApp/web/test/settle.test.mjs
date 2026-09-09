@@ -96,6 +96,28 @@ test('every independent problem is reported, not just the first', () => {
   ])
 })
 
+test('an uncaught page error is a problem even when every test passed', () => {
+  const problems = problemsFor({
+    counts: SERVER_FREE,
+    timedOut: false,
+    minTests: 144,
+    ceilingMs: 180_000,
+    pageErrors: ['TypeError: x'],
+  })
+  assert.deepEqual(problems, ['1 uncaught page error(s)'])
+})
+
+test('a clean run with no page errors still reports nothing', () => {
+  const problems = problemsFor({
+    counts: SERVER_FREE,
+    timedOut: false,
+    minTests: 144,
+    ceilingMs: 180_000,
+    pageErrors: [],
+  })
+  assert.deepEqual(problems, [])
+})
+
 test('the committed baseline names both lanes', () => {
   assert.equal(Number.isInteger(baseline.serverFree), true)
   assert.equal(Number.isInteger(baseline.serverBacked), true)

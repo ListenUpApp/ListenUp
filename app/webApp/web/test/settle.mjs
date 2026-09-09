@@ -34,8 +34,13 @@ export const isSettled = (counts, { now, lastMessageAt, idleMs }) =>
  *
  * Each clause is independent on purpose: a run can both time out and have failures, and hiding the
  * second behind the first is how a fix gets declared complete while something else is still broken.
+ *
+ * [pageErrors] are the browser's uncaught errors — an exception or promise rejection that escaped
+ * every spec's own handling. That is a spec leaving a broken world behind for whichever spec runs
+ * next, and the harness used to print the list and then pass anyway. A block that is printed and
+ * never acted on teaches everyone to scroll past it; counting it here is what makes it a signal.
  */
-export const problemsFor = ({ counts, timedOut, minTests, ceilingMs }) => {
+export const problemsFor = ({ counts, timedOut, minTests, ceilingMs, pageErrors = [] }) => {
   const problems = []
   if (timedOut) problems.push(`the run did not settle within ${ceilingMs / 1000}s`)
   if (counts.started < minTests) {
@@ -44,5 +49,8 @@ export const problemsFor = ({ counts, timedOut, minTests, ceilingMs }) => {
   const dangling = inFlight(counts)
   if (dangling > 0) problems.push(`${dangling} test(s) started but never reported a result`)
   if (counts.failed > 0) problems.push(`${counts.failed} test(s) failed`)
+  if (pageErrors.length > 0) {
+    problems.push(`${pageErrors.length} uncaught page error(s)`)
+  }
   return problems
 }
