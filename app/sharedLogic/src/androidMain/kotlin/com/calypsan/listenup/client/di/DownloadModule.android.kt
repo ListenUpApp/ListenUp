@@ -4,13 +4,18 @@ import android.content.Context
 import androidx.work.WorkManager
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.download.AndroidDownloadEnqueuer
+import com.calypsan.listenup.client.download.DownloadConstraintObserver
 import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadManager
 import com.calypsan.listenup.client.download.DownloadService
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
+
+/** Koin qualifier for the application-lifetime `CoroutineScope`. */
+private const val APP_SCOPE = "appScope"
 
 /**
  * Android download wiring. Lives in `:app:sharedLogic` (not `:app:sharedUI`) so the bindings can
@@ -42,6 +47,16 @@ val androidDownloadModule: Module =
                 errorBus = get(),
             )
         } bind DownloadService::class
+
+        // Wi-Fi-only preference watcher. createdAtStart so it subscribes before the user can
+        // reach Settings — a lazily-created observer would miss the very first toggle.
+        single(createdAtStart = true) {
+            DownloadConstraintObserver(
+                localPreferences = get<LocalPreferences>(),
+                downloadManager = get<DownloadManager>(),
+                scope = get(qualifier = named(APP_SCOPE)),
+            )
+        }
 
         // DownloadEnqueuer seam — Android backend for DownloadRepository.resumeIncompleteDownloads.
         single {
