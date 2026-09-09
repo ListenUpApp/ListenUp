@@ -52,6 +52,7 @@ fun AdminPage(
     onOpenCategories: () -> Unit = {},
     onOpenCollections: () -> Unit = {},
     onOpenBackups: () -> Unit = {},
+    onOpenImports: () -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
@@ -66,6 +67,7 @@ fun AdminPage(
             AdminLink("Categories", onOpenCategories)
             AdminLink("Collections", onOpenCollections)
             AdminLink("Backups", onOpenBackups)
+            AdminLink("Imports", onOpenImports)
         }
 
         when (state) {

@@ -2,6 +2,12 @@ package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.web.features.admin.BackupsPage
+import com.calypsan.listenup.web.features.admin.ImportFlowPage
+import com.calypsan.listenup.web.features.admin.ImportsPage
+import com.calypsan.listenup.web.features.admin.absItem
+import com.calypsan.listenup.web.features.admin.importResult
+import com.calypsan.listenup.web.features.admin.readyImports
+import com.calypsan.listenup.web.features.admin.review
 import com.calypsan.listenup.web.features.admin.CategoriesPage
 import com.calypsan.listenup.web.features.admin.RestorePage
 import com.calypsan.listenup.web.features.admin.backup
@@ -24,7 +30,10 @@ import com.calypsan.listenup.web.features.admin.inboxBook
 import com.calypsan.listenup.web.features.admin.readyInbox
 import com.calypsan.listenup.web.features.admin.scanIssue
 import com.calypsan.listenup.api.dto.backup.BackupEvent
+import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
+import com.calypsan.listenup.client.presentation.admin.imports.BookSearchState
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
@@ -454,6 +463,7 @@ class ClassContractTest :
                         categoryShapes().forEach { it() }
                         collectionShapes().forEach { it() }
                         backupShapes().forEach { it() }
+                        importShapes().forEach { it() }
                         profileShapes().forEach { it() }
                         editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
@@ -1036,6 +1046,50 @@ private fun backupShapes(): List<@Composable () -> Unit> {
         restore(RestoreBackupUiState.Restoring, progress = BackupEvent.Swapping),
         // Migrated, so `.rst-schema` renders.
         restore(RestoreBackupUiState.Completed(restoreResult(from = "6", to = "7"))),
+    )
+}
+
+private fun importShapes(): List<@Composable () -> Unit> {
+    fun list(state: ABSImportListUiState): @Composable () -> Unit = { ImportsPage(state, {}, {}, {}, {}, {}) }
+
+    fun flow(state: ImportFlowUiState): @Composable () -> Unit =
+        {
+            ImportFlowPage(state, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
+        }
+
+    return listOf(
+        list(readyImports(error = InternalError(debugInfo = "boom"))),
+        list(readyImports(imports = emptyList())),
+        list(ABSImportListUiState.Error(InternalError(debugInfo = "boom"))),
+        list(ABSImportListUiState.Loading),
+        flow(ImportFlowUiState.Idle),
+        flow(ImportFlowUiState.Analyzing(3, 10, "Elantris", 1, 4)),
+        // Review with a book needing a decision AND the search panel open — several classes
+        // render only in one of those two.
+        flow(
+            review(
+                ambiguous = listOf(absItem()),
+                bookSearch =
+                    BookSearchState(
+                        com.calypsan.listenup.core
+                            .AbsItemId("ai1"),
+                        query = "elantris",
+                        results =
+                            listOf(
+                                com.calypsan.listenup.client.presentation.admin.imports.BookSearchHit(
+                                    com.calypsan.listenup.core
+                                        .BookId("b1"),
+                                    "Elantris",
+                                    "Brandon Sanderson",
+                                ),
+                            ),
+                        isSearching = false,
+                    ),
+            ),
+        ),
+        // Done carrying books it could not place — `.iflow-note` renders nowhere else.
+        flow(ImportFlowUiState.Done(importResult(booksNotInLibrary = 3))),
+        flow(ImportFlowUiState.Error(InternalError(debugInfo = "boom"))),
     )
 }
 
