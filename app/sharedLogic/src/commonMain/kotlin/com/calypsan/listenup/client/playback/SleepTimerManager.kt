@@ -15,8 +15,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlin.time.TimeSource
 
 private val logger = KotlinLogging.logger {}
+
+// Anchor for elapsed-time math. MONOTONIC, not wall-clock: a duration timer measures "time since
+// the timer was armed", and on a wall clock an NTP step or a manual clock change (in either
+// direction) would fire it early or stall it indefinitely — while the listener is asleep and
+// cannot notice, let alone correct it. One module-level mark rather than one per timer keeps the
+// seam a plain `() -> Long`, which tests satisfy with the coroutines-test scheduler.
+private val processStartMark = TimeSource.Monotonic.markNow()
 
 /**
  * Manages the sleep timer for audiobook playback.
@@ -32,10 +40,17 @@ private val logger = KotlinLogging.logger {}
 class SleepTimerManager(
     private val scope: CoroutineScope,
     /**
-     * Wall-clock read seam. Defaults to the system clock; tests inject a virtual clock (e.g. the
-     * coroutines-test scheduler) so the fire-after-duration behaviour can be pinned deterministically.
+     * Wall-clock read seam. Its ONLY job is stamping the display-facing
+     * [SleepTimerState.Active.startedAt]; elapsed time comes from [elapsedMillis] instead, so a
+     * clock step can never move a deadline. Tests inject a virtual clock.
      */
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    /**
+     * Elapsed-time seam, read off a monotonic source (see [processStartMark]). Only differences
+     * between two reads are meaningful — the absolute value has no epoch. Tests inject the
+     * coroutines-test scheduler so the fire-after-duration behaviour is deterministic.
+     */
+    private val elapsedMillis: () -> Long = { processStartMark.elapsedNow().inWholeMilliseconds },
 ) {
     val state: StateFlow<SleepTimerState>
         field = MutableStateFlow<SleepTimerState>(SleepTimerState.Inactive)
@@ -162,6 +177,7 @@ class SleepTimerManager(
     private fun startDurationTimer(minutes: Int) {
         val totalMs = minutes * MS_PER_MINUTE
         val startedAt = nowMillis()
+        val startElapsedMs = elapsedMillis()
 
         state.value =
             SleepTimerState.Active(
@@ -181,7 +197,7 @@ class SleepTimerManager(
                     val current = state.value
                     if (current !is SleepTimerState.Active) break
 
-                    val elapsed = nowMillis() - current.startedAt
+                    val elapsed = elapsedMillis() - startElapsedMs
                     val remaining = (current.totalMs - elapsed).coerceAtLeast(0)
 
                     state.value = current.copy(remainingMs = remaining)
