@@ -5,8 +5,10 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.PassThroughTransactionRunner
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
@@ -201,6 +203,7 @@ internal class PendingOperationQueue(
     private val dao: PendingOperationV2Dao,
     private val sender: PendingOperationSender,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    private val transactionRunner: TransactionRunner = PassThroughTransactionRunner,
 ) {
     // Serializes drain() waves so the class is safe by construction against ANY caller —
     // concurrent drain() calls both reading nextDispatchable() before either deletes its
@@ -275,8 +278,9 @@ internal class PendingOperationQueue(
      *   the payload is a last-write-wins snapshot of current state (e.g. playback positions);
      *   event/entity-PATCH domains keep the default `false` so every op is replayed. Terminally
      *   failed rows are never coalesced away — see [PendingOperationV2Dao.deleteQueuedOps]. The
-     *   delete-then-insert is non-atomic: the one coalescing caller today serializes per entity on
-     *   a Mutex, and racing a concurrent drain is benign (Room `@Update`/`@Delete` on an
+     *   delete and the insert commit together through [TransactionRunner], so a failure between
+     *   them rolls the delete back rather than dropping the user's queued write with no trace and
+     *   no retry. Racing a concurrent drain remains benign (Room `@Update`/`@Delete` on an
      *   already-removed row is a silent no-op).
      * @param signal When true (the default), ticks the enqueue signal immediately after inserting
      *   the row. Callers that enqueue INSIDE a write transaction pass `false` and tick via
@@ -296,31 +300,39 @@ internal class PendingOperationQueue(
         check(op in channel.ops) {
             "op $op is not declared by outbox channel '${channel.name}' (declared: ${channel.ops})"
         }
-        if (coalesce) {
-            dao.deleteQueuedOps(channel.name, entityId, op.wire)
-        }
         val opId = Uuid.random().toString()
         val requestedAt = nowMillis()
-        val lastEnqueuedAt = dao.maxEnqueuedAtFor(channel.name, entityId)
-        // Bump strictly past any op already queued for this entity so two ops for the same
-        // entity never tie on enqueuedAt, even when enqueued in the same clock millisecond
-        // (fast double-actions, batch paths). Makes per-entity FIFO hold by construction at
-        // the source, ahead of nextDispatchable()'s own clientOpId tie-break.
-        val enqueuedAt = if (lastEnqueuedAt != null) maxOf(requestedAt, lastEnqueuedAt + 1) else requestedAt
-        dao.insert(
-            PendingOperationV2Entity(
-                clientOpId = opId,
-                domainName = channel.name,
-                entityId = entityId,
-                opType = op.wire,
-                payload = payload,
-                enqueuedAt = enqueuedAt,
-                lastAttemptAt = null,
-                failureCount = 0,
-                lastError = null,
-                ownerUserId = ownerUserId,
-            ),
-        )
+        // The coalescing delete and its replacement insert are ONE logical write. A failure
+        // between them (cancellation, disk error) would drop the user's queued write entirely,
+        // with no trace and no retry. Room's nested transactions mean this composes correctly
+        // under an outer atomically { } — the `signal = false` callers enqueue from inside one.
+        transactionRunner.atomically {
+            if (coalesce) {
+                dao.deleteQueuedOps(channel.name, entityId, op.wire)
+            }
+            val lastEnqueuedAt = dao.maxEnqueuedAtFor(channel.name, entityId)
+            // Bump strictly past any op already queued for this entity so two ops for the same
+            // entity never tie on enqueuedAt, even when enqueued in the same clock millisecond
+            // (fast double-actions, batch paths). Makes per-entity FIFO hold by construction at
+            // the source, ahead of nextDispatchable()'s own clientOpId tie-break.
+            val enqueuedAt = if (lastEnqueuedAt != null) maxOf(requestedAt, lastEnqueuedAt + 1) else requestedAt
+            dao.insert(
+                PendingOperationV2Entity(
+                    clientOpId = opId,
+                    domainName = channel.name,
+                    entityId = entityId,
+                    opType = op.wire,
+                    payload = payload,
+                    enqueuedAt = enqueuedAt,
+                    lastAttemptAt = null,
+                    failureCount = 0,
+                    lastError = null,
+                    ownerUserId = ownerUserId,
+                ),
+            )
+        }
+        // Outside the transaction on purpose: the drain signal must fire only after the row is
+        // committed and visible to another connection's reader (see the `signal` param KDoc).
         if (signal) {
             enqueueCounter.update { it + 1 }
         }

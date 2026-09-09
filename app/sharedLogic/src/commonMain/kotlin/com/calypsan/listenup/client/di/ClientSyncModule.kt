@@ -389,6 +389,7 @@ internal val clientSyncModule =
             PendingOperationQueue(
                 dao = get(),
                 sender = get(),
+                transactionRunner = get(),
             )
         }
         single { OfflineEditor(pendingQueue = get(), transactionRunner = get(), authSession = get()) }
