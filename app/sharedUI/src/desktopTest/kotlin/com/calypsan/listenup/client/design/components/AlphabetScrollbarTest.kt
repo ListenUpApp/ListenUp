@@ -29,13 +29,13 @@ class AlphabetScrollbarTest :
         }
 
         test("single item produces one-letter index") {
-            val index = AlphabetIndex.build(listOf("Apple")) { it }
+            val index = AlphabetIndex.build(listOf(APPLE)) { it }
             index.letters shouldBe listOf('A')
             index.letterToIndex shouldBe mapOf('A' to 0)
         }
 
         test("items with different leading letters each get their own entry") {
-            val items = listOf("Apple", "Banana", "Cherry")
+            val items = listOf(APPLE, "Banana", "Cherry")
             val index = AlphabetIndex.build(items) { it }
             index.letters shouldBe listOf('A', 'B', 'C')
             index.letterToIndex shouldBe mapOf('A' to 0, 'B' to 1, 'C' to 2)
@@ -43,7 +43,7 @@ class AlphabetScrollbarTest :
 
         test("duplicate leading letters map to the FIRST occurrence") {
             // 'A' appears at index 0 (Apple) and index 1 (Avocado); only 0 is recorded
-            val items = listOf("Apple", "Avocado", "Banana")
+            val items = listOf(APPLE, "Avocado", "Banana")
             val index = AlphabetIndex.build(items) { it }
             index.letters shouldBe listOf('A', 'B')
             index.letterToIndex['A'] shouldBe 0
@@ -69,7 +69,7 @@ class AlphabetScrollbarTest :
         // =====================================================================
 
         test("digits sort before letters") {
-            val items = listOf("1 Thing", "Apple")
+            val items = listOf("1 Thing", APPLE)
             val index = AlphabetIndex.build(items) { it }
             // '1' is not a letter → sorts before 'A'
             index.letters[0] shouldBe '1'
@@ -84,13 +84,13 @@ class AlphabetScrollbarTest :
         }
 
         test("letters are sorted alphabetically A before Z") {
-            val items = listOf("Zebra", "Apple", "Mango")
+            val items = listOf("Zebra", APPLE, "Mango")
             val index = AlphabetIndex.build(items) { it }
             index.letters shouldBe listOf('A', 'M', 'Z')
         }
 
         test("digits sort before letters and digit order is preserved") {
-            val items = listOf("9Lives", "1Thing", "Apple")
+            val items = listOf("9Lives", "1Thing", APPLE)
             val index = AlphabetIndex.build(items) { it }
             // Non-letters come first, then sorted; '1' < '9' < 'A'
             index.letters[0] shouldBe '1'
@@ -99,7 +99,7 @@ class AlphabetScrollbarTest :
         }
 
         test("mixed letters digits and symbols: non-letters first then letters alphabetically") {
-            val items = listOf("Zoo", "#hash", "1one", "Apple")
+            val items = listOf("Zoo", "#hash", "1one", APPLE)
             val index = AlphabetIndex.build(items) { it }
             val nonLetters = index.letters.filter { !it.isLetter() }
             val letters = index.letters.filter { it.isLetter() }
@@ -120,7 +120,7 @@ class AlphabetScrollbarTest :
         // =====================================================================
 
         test("items with empty names are skipped") {
-            val items = listOf("", "Apple", "")
+            val items = listOf("", APPLE, "")
             val index = AlphabetIndex.build(items) { it }
             index.letters shouldBe listOf('A')
             index.letterToIndex['A'] shouldBe 1
@@ -158,7 +158,7 @@ class AlphabetScrollbarTest :
         // =====================================================================
 
         test("letterToIndex values match the actual list positions") {
-            val items = listOf("Cherry", "Apple", "Banana")
+            val items = listOf("Cherry", APPLE, "Banana")
             val index = AlphabetIndex.build(items) { it }
             index.letterToIndex['C'] shouldBe 0
             index.letterToIndex['A'] shouldBe 1
@@ -228,3 +228,10 @@ class AlphabetScrollbarTest :
             }
         }
     })
+
+/**
+ * The stock A-item across these fixtures. Named rather than repeated so the file reads as one set
+ * of variations on a shared input — the case-sensitivity test above deliberately keeps its literals
+ * spelled out, because the exact casing is what that case is about.
+ */
+private const val APPLE = "Apple"

@@ -149,12 +149,12 @@ exceptions:
     active: true
   ThrowingExceptionsWithoutMessageOrCause:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   ThrowingNewInstanceOfSameException:
     active: true
   TooGenericExceptionCaught:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
     exceptionNames:
       - 'ArrayIndexOutOfBoundsException'
       - 'Error'
@@ -196,7 +196,7 @@ naming:
     forbiddenName: []
   FunctionNaming:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
     functionPattern: '[a-z][a-zA-Z0-9]*'
     excludeClassPattern: '$^'
     ignoreAnnotated: ['Composable']
@@ -255,7 +255,7 @@ performance:
     active: true
   SpreadOperator:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   UnnecessaryPartOfBinaryExpression:
     active: true
   UnnecessaryTemporaryInstantiation:
@@ -301,7 +301,7 @@ potential-bugs:
     active: true
   LateinitUsage:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
     ignoreAnnotated: ['Inject']
     ignoreOnClassesPattern: ''
   MapGetWithNotNullAssertionOperator:
@@ -328,7 +328,7 @@ potential-bugs:
     active: true
   UnsafeCallOnNullableType:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**']
   UnsafeCast:
     active: true
   UnusedUnaryOperator:
@@ -415,7 +415,7 @@ style:
   MagicNumber:
     active: true
     ignoreAnnotated: ['Composable']  # Compose layout literals (dp/sp/alpha/weight/durations) are self-documenting at the call site; parity with LongMethod/UnusedParameter Compose scoping
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/*Previews.kt']  # *Previews.kt are non-shipping mock-data fixtures, same category as test fixtures
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/*Previews.kt']  # *Previews.kt are non-shipping mock-data fixtures, same category as test fixtures
     ignoreNumbers:
       - '-1'
       - '0'
