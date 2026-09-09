@@ -216,7 +216,13 @@ data class BookChapterPayload(
 @Serializable
 @SerialName("CoverPayload")
 data class CoverPayload(
-    val source: CoverSource,
+    /**
+     * Where the bytes live on the server, or `null` when the server named a source this build does
+     * not know (an additive [CoverSource] member on a newer server). Clients render every source
+     * identically via the cover route, so a null source costs nothing but a diagnostic label — and
+     * [CoverSource] has no honest catch-all member to fall back to instead.
+     */
+    @SerialName("source") val source: CoverSource? = null,
     val hash: String,
 )
 
