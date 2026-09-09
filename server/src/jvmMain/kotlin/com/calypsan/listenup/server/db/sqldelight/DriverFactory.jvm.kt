@@ -8,6 +8,16 @@ import org.sqlite.SQLiteConfig
 private const val BUSY_TIMEOUT_MS = 5_000
 
 /**
+ * TEMPORARY (plan 028). Enables `PRAGMA foreign_keys` on the JVM driver so the insert-ordering
+ * divergence with the native driver — which has always enforced FK — can be surveyed and fixed.
+ * Default off; deleted once the JVM lane is FK-clean.
+ */
+private val ENFORCE_FOREIGN_KEYS: Boolean =
+    System.getProperty("listenup.jvm.enforceForeignKeys")?.toBoolean()
+        ?: System.getenv("LISTENUP_JVM_ENFORCE_FOREIGN_KEYS")?.toBoolean()
+        ?: false
+
+/**
  * JVM actual: opens the SQLite file at [dbPath] via [JdbcSqliteDriver] with the project-standard
  * PRAGMAs applied as JDBC connection PROPERTIES (via [SQLiteConfig.toProperties]) so they take
  * effect on EVERY connection. [JdbcSqliteDriver] opens a connection per operation, so a post-open
@@ -37,6 +47,7 @@ actual class DriverFactory {
             "jdbc:sqlite:$dbPath",
             SQLiteConfig()
                 .apply {
+                    enforceForeignKeys(ENFORCE_FOREIGN_KEYS)
                     busyTimeout = BUSY_TIMEOUT_MS
                     setJournalMode(SQLiteConfig.JournalMode.WAL)
                     setSynchronous(SQLiteConfig.SynchronousMode.NORMAL)

@@ -447,6 +447,11 @@ tasks.named<Test>("jvmTest") {
     // spec today is Gradle's own `--tests` with the EXACT fully-qualified class name — a glob
     // pattern fails outright here with Gradle's own "No tests found for given includes".
     forwardKotestFilterProperties()
+    // TEMPORARY (plan 028): forward the JVM foreign-key switch into the forked test JVM so the
+    // lane can be run FK-on while the insert-ordering divergence with the native driver is fixed.
+    System
+        .getProperty("listenup.jvm.enforceForeignKeys")
+        ?.let { systemProperty("listenup.jvm.enforceForeignKeys", it) }
     // Pin the E2E retry ledger (written by FlakyServerSpecRetryExtension) to an absolute path under
     // this module's build/ — the redirected workingDir above would otherwise land it under
     // build/test-cwd/build/, where the CI summary + artifact steps don't look.
