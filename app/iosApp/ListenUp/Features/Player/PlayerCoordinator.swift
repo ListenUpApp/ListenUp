@@ -85,7 +85,13 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// measurement persistence live in `PlayerCoordinator+Gain.swift`; only the stored state
     /// stays here, because Swift extensions cannot declare stored properties.
     var gain = GainState()
+    /// Bridged Kotlin chapters — read only by `ChapterMath` (via `refreshChapterIndex()` and the lock-screen
+    /// window in `remoteSeek`) and by `updateNowPlaying()` in `PlayerCoordinator+NowPlaying.swift`. Never
+    /// feed it to a `ForEach`/`List` (rule 8): Swift's file-scoped `private` can't enforce that across the
+    /// extension file, so the done-criterion grep (no view reads `.chapters`) plus review is the guard.
     private(set) var chapters: [Chapter] = []
+    /// The native projection every chapter surface renders from (rule 8) — see `ChapterRowModel`.
+    private(set) var chapterRows: [ChapterRowModel] = []
 
     // MARK: - Preserved UI surface — skip intervals (observed from Settings)
 
@@ -110,50 +116,15 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bookDurationMs > 0 ? Float(displayPositionMs) / Float(bookDurationMs) : 0
     }
 
-    // MARK: - Preserved UI surface — chapter (computed from chapters + position)
+    // MARK: - Preserved UI surface — chapter (memoized from chapters + position)
 
-    /// Chapter identity tracks the COARSE position: chapter transitions at 1 s
-    /// granularity are imperceptible, and this keeps chapter-derived reads
-    /// (title, "Chapter X of Y", duration) off the per-frame invalidation path.
-    var chapterIndex: Int { ChapterMath.index(forPositionMs: displayPositionMs, in: chapters) ?? 0 }
-    var totalChapters: Int { chapters.count }
-
-    var chapterTitle: String? {
-        guard !chapters.isEmpty else { return nil }
-        return chapters[chapterIndex].title
-    }
-
-    var chapterPositionMs: Int64 {
-        guard !chapters.isEmpty else { return 0 }
-        return max(0, bookPositionMs - chapters[chapterIndex].startTime)
-    }
-
-    var chapterDurationMs: Int64 {
-        guard !chapters.isEmpty else { return 0 }
-        return chapters[chapterIndex].duration
-    }
-
-    func chapterTitleForIndex(_ index: Int) -> String? {
-        guard index >= 0, index < chapters.count else { return nil }
-        return chapters[index].title
-    }
-
-    /// Chapter info for the seeking UI — rebuilt from the Swift-side chapter math.
-    var currentChapterInfoForSeeking: PlaybackManagerChapterInfo? {
-        guard !chapters.isEmpty else { return nil }
-        let index = chapterIndex
-        let chapter = chapters[index]
-        let endMs = chapter.startTime + chapter.duration
-        return PlaybackManagerChapterInfo(
-            index: Int32(index),
-            title: chapter.title,
-            startMs: chapter.startTime,
-            endMs: endMs,
-            remainingMs: max(0, endMs - bookPositionMs),
-            totalChapters: Int32(chapters.count),
-            isGenericTitle: false
-        )
-    }
+    /// Chapter identity tracks the COARSE position: chapter transitions at 1 s granularity are
+    /// imperceptible, and this keeps chapter-derived reads off the per-frame invalidation path.
+    /// Stored rather than computed: the linear `ChapterMath` index scan used to run once per
+    /// `ForEach` row per diff. Recomputed only where `positionTracker` or `chapters` is written —
+    /// see `refreshChapterIndex()`. The read surface built on it (`totalChapters`, `chapterTitle`,
+    /// `selectChapter`, …) lives in `PlayerCoordinator+Chapters.swift`.
+    private(set) var chapterIndex: Int = 0
 
     // MARK: - Preserved UI surface — sleep timer (observed from KMP)
 
@@ -433,12 +404,22 @@ final class PlayerCoordinator: RemoteCommandHandler {
         coverPath = nil
         coverHash = nil
         chapters = []
+        chapterRows = []
         gain.clearMeasurements()
         firstPdfDocId = nil
         documentToOpen = nil
         positionTracker.reset()
+        refreshChapterIndex()
         lastReportedPositionMs = 0
         lastSyncedChapterIndex = -1
+    }
+
+    /// Recompute the memoized chapter index from `chapters` and the tracker's coarse position. Called
+    /// wherever `positionTracker` or `chapters` is written. The tracker's display-link tick can still
+    /// move `displayPositionMs` between engine samples, so the index may trail a boundary by at most
+    /// one engine tick (~250 ms) — under the 1 s granularity the coarse position already accepts.
+    private func refreshChapterIndex() {
+        chapterIndex = ChapterMath.index(forPositionMs: displayPositionMs, in: chapters) ?? 0
     }
 
     /// Toggle between play and pause. In `.error`, retries the errored book so the user is
@@ -516,12 +497,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func skipBackward(seconds: Int? = nil) {
         let interval = seconds ?? skipBackwardSec
         seekTo(positionMs: max(bookPositionMs - Int64(interval) * 1000, 0))
-    }
-
-    /// Jump to a chapter by index.
-    func selectChapter(index: Int) {
-        guard index >= 0, index < chapters.count else { return }
-        seekTo(positionMs: chapters[index].startTime)
     }
 
     func setSleepTimer(minutes: Int) { sleep.setDurationTimer(minutes: minutes) }
@@ -617,10 +592,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
         coverPath = prepared.coverPath
         coverHash = prepared.coverHash
         chapters = prepared.chapters
+        // The single boundary crossing per book load: bridge each Kotlin `Chapter` once into the
+        // native row the list surfaces render from (rule 8).
+        chapterRows = prepared.chapters.map {
+            ChapterRowModel(id: $0.id, title: $0.title, startMs: $0.startTime, durationMs: $0.duration)
+        }
         playbackSpeed = prepared.resumeSpeed
         // RC-2: seed the tracker with the resume position (paused) so the UI shows the right
         // chapter/time immediately — before the engine's first real sample lands.
         positionTracker.update(positionMs: prepared.resumePositionMs, rate: 0)
+        refreshChapterIndex()
         lastReportedPositionMs = prepared.resumePositionMs
 
         let segments = AudioSegment.resolve(prepared.timeline.files)
@@ -708,6 +689,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 updateNowPlaying()
             }
             positionTracker.update(positionMs: ms, rate: rate)
+            refreshChapterIndex()
             reportPositionIfNeeded(ms)
             if chapterIndex != lastSyncedChapterIndex {
                 lastSyncedChapterIndex = chapterIndex

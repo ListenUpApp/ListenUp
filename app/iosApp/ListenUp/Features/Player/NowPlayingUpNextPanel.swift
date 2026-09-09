@@ -1,5 +1,4 @@
 import SwiftUI
-import Shared
 
 /// The inline "Up Next" chapters panel shown beside the player at regular width
 /// (iPad / large iPhone landscape). It replaces the chapter *sheet* on those
@@ -25,11 +24,11 @@ struct NowPlayingUpNextPanel: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(0..<observer.totalChapters, id: \.self) { index in
+                    ForEach(Array(observer.chapterRows.enumerated()), id: \.element.id) { index, chapter in
                         ChapterRow(
                             index: index,
-                            title: observer.chapterTitleForIndex(index) ?? "Chapter \(index + 1)",
-                            durationMs: index < observer.chapters.count ? observer.chapters[index].duration : 0,
+                            title: chapter.title,
+                            durationMs: chapter.durationMs,
                             isCurrent: index == observer.chapterIndex,
                             isPlaying: observer.isPlaying,
                             tint: tint,
