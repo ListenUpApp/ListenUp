@@ -229,20 +229,51 @@ internal class PlaybackPositionRepositoryImpl(
                 snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
             }
 
+            // The four flag-changing variants state the flag explicitly rather than inheriting it
+            // from the entity: the flag IS what the update is about, so it must reach the server
+            // even if the row snapshot were read before the handler's write landed.
             is PlaybackUpdate.Speed -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    playbackSpeed = update.speed,
+                    hasCustomSpeed = update.custom,
+                )
             }
 
             is PlaybackUpdate.SpeedReset -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.defaultSpeed)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    playbackSpeed = update.defaultSpeed,
+                    hasCustomSpeed = false,
+                )
             }
 
             is PlaybackUpdate.VolumeBoost -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, volumeBoostDb = update.boostDb)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    volumeBoostDb = update.boostDb,
+                    hasCustomBoost = update.custom,
+                )
             }
 
             is PlaybackUpdate.BoostReset -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, volumeBoostDb = update.defaultBoostDb)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    volumeBoostDb = update.defaultBoostDb,
+                    hasCustomBoost = false,
+                )
             }
 
             is PlaybackUpdate.MeasuredGain -> {
@@ -314,6 +345,9 @@ internal class PlaybackPositionRepositoryImpl(
         playbackSpeed: Float = entity?.playbackSpeed ?: 1.0f,
         volumeBoostDb: Float = entity?.volumeBoostDb ?: 0f,
         measuredGainDb: Float? = entity?.measuredGainDb,
+        finishedAt: Long? = entity?.finishedAt,
+        hasCustomSpeed: Boolean = entity?.hasCustomSpeed ?: false,
+        hasCustomBoost: Boolean = entity?.hasCustomBoost ?: false,
     ): RecordPositionRequest =
         RecordPositionRequest(
             bookId = bookId.value,
@@ -324,6 +358,9 @@ internal class PlaybackPositionRepositoryImpl(
             currentChapterId = null,
             volumeBoostDb = volumeBoostDb,
             measuredGainDb = measuredGainDb,
+            finishedAt = finishedAt,
+            hasCustomSpeed = hasCustomSpeed,
+            hasCustomBoost = hasCustomBoost,
         )
 
     // ----- Per-variant handlers -------------------------------------------------------------

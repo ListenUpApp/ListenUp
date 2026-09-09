@@ -26,8 +26,8 @@ import kotlinx.coroutines.test.runTest
  * [PlaybackUpdate.VolumeBoost]/[PlaybackUpdate.BoostReset] persist `volumeBoostDb` +
  * `hasCustomBoost`, [PlaybackUpdate.MeasuredGain] persists ONLY `measuredGainDb`,
  * periodic position writes never clobber the boost columns, the enqueued
- * [RecordPositionRequest] carries the boost fields, and inbound sync preserves the
- * client-local `hasCustomBoost` flag while taking boost values from the payload.
+ * [RecordPositionRequest] carries the boost fields, and inbound sync takes both the boost
+ * values and the now-synced `hasCustomBoost` flag from the payload.
  */
 class PlaybackPositionBoostTest :
     FunSpec({
@@ -214,7 +214,10 @@ class PlaybackPositionBoostTest :
             }
         }
 
-        test("inbound sync takes boost values from the payload but preserves local hasCustomBoost") {
+        test("inbound sync takes the boost values AND hasCustomBoost from the payload") {
+            // hasCustomBoost is a synced field, so the payload is authoritative for it: a device
+            // that reset the book to the account default sends false deliberately, and preserving
+            // the local true would make that reset unable to cross devices.
             runTest {
                 val db = createInMemoryTestDatabase()
                 try {
@@ -244,6 +247,43 @@ class PlaybackPositionBoostTest :
                     val row = db.playbackPositionDao().get(bookId).shouldNotBeNull()
                     row.volumeBoostDb shouldBe 3f
                     row.measuredGainDb shouldBe -2f
+                    row.hasCustomBoost shouldBe false
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("inbound sync carrying hasCustomBoost=true lands the flag on a row that lacked it") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(
+                        playedEntity(bookId).copy(volumeBoostDb = 0f, hasCustomBoost = false),
+                    )
+
+                    PlaybackPositionMirrorApply(db).upsert(
+                        PlaybackPositionSyncPayload(
+                            id = "pos-1",
+                            bookId = bookId.value,
+                            positionMs = 42_000L,
+                            lastPlayedAt = 9_000L,
+                            finished = false,
+                            playbackSpeed = 1.25f,
+                            currentChapterId = null,
+                            volumeBoostDb = 6f,
+                            measuredGainDb = null,
+                            hasCustomBoost = true,
+                            revision = 2L,
+                            updatedAt = 9_000L,
+                            createdAt = 50L,
+                            deletedAt = null,
+                        ),
+                    )
+
+                    val row = db.playbackPositionDao().get(bookId).shouldNotBeNull()
+                    row.volumeBoostDb shouldBe 6f
                     row.hasCustomBoost shouldBe true
                 } finally {
                     db.close()

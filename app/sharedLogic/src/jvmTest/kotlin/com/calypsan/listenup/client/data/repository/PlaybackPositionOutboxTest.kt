@@ -142,6 +142,35 @@ class PlaybackPositionOutboxTest :
             }
         }
 
+        test("a Speed write queues hasCustomSpeed=true and a SpeedReset queues false") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(hasCustomSpeed = false))
+
+                    repo
+                        .savePlaybackState(
+                            bookId,
+                            PlaybackUpdate.Speed(positionMs = 90_000L, speed = 1.5f, custom = true),
+                        ).shouldBeInstanceOf<AppResult.Success<*>>()
+                    singleQueuedRequest(db).hasCustomSpeed shouldBe true
+
+                    db.pendingOperationV2Dao().deleteAll()
+
+                    repo
+                        .savePlaybackState(
+                            bookId,
+                            PlaybackUpdate.SpeedReset(defaultSpeed = 1.0f, positionMs = 90_000L),
+                        ).shouldBeInstanceOf<AppResult.Success<*>>()
+                    singleQueuedRequest(db).hasCustomSpeed shouldBe false
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
         test("discardProgress enqueues an upsert of the reset position") {
             runTest {
                 val db = createInMemoryTestDatabase()
