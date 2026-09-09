@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
@@ -12,12 +13,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.await
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import org.jetbrains.compose.web.renderComposable
 import org.khronos.webgl.Int8Array
 import org.w3c.dom.DataTransfer
 import org.w3c.dom.DragEvent
@@ -32,16 +31,6 @@ import org.w3c.files.FilePropertyBag
 
 /** How long a spec waits for an event that SHOULD arrive. */
 private const val EVENT_TIMEOUT_MS = 2_000L
-
-private fun coverField(
-    state: BookEditUiState,
-    onEvent: (BookEditUiEvent) -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) { CoverField(state = state, onEvent = onEvent) }
-    return root
-}
 
 private fun withCover(): BookEditUiState =
     BookEditUiState(
@@ -78,6 +67,13 @@ private fun dropImage(root: HTMLElement) {
  */
 class CoverFieldTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun coverField(
+            state: BookEditUiState,
+            onEvent: (BookEditUiEvent) -> Unit = {},
+        ): HTMLElement = mounts.mount { CoverField(state = state, onEvent = onEvent) }
 
         test("no pending cover renders the book's current artwork, hash-busted") {
             val root = coverField(withCover())
@@ -109,9 +105,7 @@ class CoverFieldTest :
 
         test("a replaced preview releases its object URL") {
             var state by mutableStateOf(withCover().copy(pendingCoverData = byteArrayOf(1)))
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) { CoverField(state = state, onEvent = {}) }
+            val root = mounts.mount { CoverField(state = state, onEvent = {}) }
             val firstUrl = (root.querySelector(".cover-art img") as HTMLImageElement).src
 
             state = state.copy(pendingCoverData = byteArrayOf(2))
@@ -182,9 +176,7 @@ class CoverFieldTest :
             // must guard isUploadingCover itself.
             var state by mutableStateOf(withCover().copy(isUploadingCover = true))
             val events = mutableListOf<BookEditUiEvent>()
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) { CoverField(state = state, onEvent = { events += it }) }
+            val root = mounts.mount { CoverField(state = state, onEvent = { events += it }) }
 
             dropImage(root) // ignored: an upload is in flight
             state = state.copy(isUploadingCover = false)

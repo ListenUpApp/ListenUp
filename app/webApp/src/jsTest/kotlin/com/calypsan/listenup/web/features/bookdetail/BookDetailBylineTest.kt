@@ -1,10 +1,9 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import com.calypsan.listenup.client.domain.model.BookContributor
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
@@ -18,15 +17,15 @@ import org.w3c.dom.events.KeyboardEventInit
  */
 class BookDetailBylineTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         fun render(
             authors: List<BookContributor>,
             narrators: List<BookContributor>,
             onOpenContributor: (String) -> Unit = {},
-        ): HTMLElement {
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) {
+        ): HTMLElement =
+            mounts.mount {
                 BookDetailPage(
                     state = readyBook(authors = authors, narrators = narrators),
                     tab = "overview",
@@ -36,8 +35,6 @@ class BookDetailBylineTest :
                     onOpenContributor = onOpenContributor,
                 )
             }
-            return root
-        }
 
         fun EventTarget.press(key: String) {
             dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = key, bubbles = true, cancelable = true)))
