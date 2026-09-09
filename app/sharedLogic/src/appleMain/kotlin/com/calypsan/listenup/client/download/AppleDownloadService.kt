@@ -72,7 +72,16 @@ private const val BYTES_PER_MEGABYTE = 1_000_000
 private const val MAX_CONCURRENT_FILE_DOWNLOADS = 3
 
 /**
- * iOS implementation of [DownloadService] using NSURLSession background downloads.
+ * iOS implementation of [DownloadService] using NSURLSession **foreground** download tasks.
+ *
+ * **Not a background session (known gap).** [downloadSessionConfiguration] returns
+ * `defaultSessionConfiguration`, so transfers stop when iOS suspends the app and there is no
+ * resume data to pick them up again — a long download restarts from zero on the next foreground
+ * ([resumeIncompleteDownloads]). Migrating to `backgroundSessionConfigurationWithIdentifier`
+ * requires `application(_:handleEventsForBackgroundURLSession:completionHandler:)` in the iOS app
+ * delegate, delegate re-attachment after a relaunch, and persisting the data from
+ * `cancelByProducingResumeData`. Tracked as a follow-up; do not half-migrate — the wifi-only
+ * guarantee pinned by `DownloadNetworkPolicyTest` rides on this configuration.
  *
  * **Direct-DAO carveout:** this class still writes directly to
  * [com.calypsan.listenup.client.data.local.db.DownloadDao] via the `downloadDao` constructor
