@@ -7,14 +7,12 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.workDataOf
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 
-/**
- * The single place a download `OneTimeWorkRequest` is built.
- *
- * Three near-identical copies of this block used to live in `DownloadManager.downloadBook`,
- * `DownloadManager.resumeIncompleteDownloads`, and `AndroidDownloadEnqueuer` — and the third
- * quietly used a different `ExistingWorkPolicy` than the other two. One builder means the
- * constraint, the input data, and the tags cannot drift apart again.
- */
+// The single place a download OneTimeWorkRequest is built.
+//
+// Three near-identical copies of this block used to live in DownloadManager.downloadBook,
+// DownloadManager.resumeIncompleteDownloads, and AndroidDownloadEnqueuer — and the third
+// quietly used a different ExistingWorkPolicy than the other two. One builder means the
+// constraint, the input data, and the tags cannot drift apart again.
 
 /** WorkManager tag covering every file of one book — the unit `cancelAllWorkByTag` cancels. */
 internal fun bookTag(bookIdValue: String): String = "download_$bookIdValue"
