@@ -119,22 +119,15 @@ internal class PushServiceImpl(
         return when (val decision = limiter.check(AuthRateBucket.PUSH_TEST, userId)) {
             RateDecision.Allowed -> null
             is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
+        }
+    }
+
     private fun validateToken(token: String): ValidationError? =
         when {
             token.isBlank() -> ValidationError(message = "token must not be blank.")
             token.length > MAX_PUSH_TOKEN_LENGTH -> ValidationError(message = "token is too long.")
             else -> null
         }
-    }
-
-    private fun validateToken(token: String): ValidationError? {
-        if (isValidPushToken(token)) return null
-        return if (token.isBlank()) {
-            ValidationError(message = "token must not be blank.")
-        } else {
-            ValidationError(message = "token is too long.")
-        }
-    }
 
     private fun noPrincipal(): AppResult.Failure = AppResult.Failure(AuthError.PermissionDenied())
 }

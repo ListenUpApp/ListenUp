@@ -148,6 +148,7 @@ internal class MetadataLookupServiceImpl(
             null
         }
 
+    /**
      * `canEdit` plus visibility — the same gate [BookServiceImpl] runs. A denial is reported as
      * [MetadataError.NotFound], matching the absent-book answer, so the two cannot be told apart.
      */
