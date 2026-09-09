@@ -151,9 +151,14 @@ inline below.
 
 16. **iOS local build setup.** The iOS build drives a Gradle Swift Export embed step that
     generates and compiles the `Shared`/`ListenupContract` frameworks (Swift Export is the sole
-    interop layer). Set `JAVA_HOME` to a JDK before invoking `xcodebuild`
-    (CI does this in the iOS lane); any recent JDK that launches Gradle works — the Gradle
-    build resolves its own Kotlin toolchain. The first build is slow because it generates and
+    interop layer). The build phases resolve a JDK 21 themselves, checking each candidate's
+    real major version rather than trusting the lookup: an inherited `JAVA_HOME` wins (CI's
+    `setup-java` supplies it), then `/usr/libexec/java_home -v 21`, then the Homebrew
+    `openjdk@21` path as a last resort. So you normally need to set nothing; if none of them
+    is a JDK 21 the phase fails with a named error rather than building on the wrong major —
+    install a JDK 21 or point `JAVA_HOME` at one. (The version check earns its keep: the
+    system resolver hands back a *newer* JDK when no 21 is registered, and the build pins 21
+    in `gradle/gradle-daemon-jvm.properties`.) The first build is slow because it generates and
     compiles those Swift Export frameworks; subsequent incremental builds reuse them.
     **The pre-push gate must compile the test target** — `xcodebuild build` does *not*
     (`build-for-testing` or the full `Test (iOS)` does); see `client/CLAUDE.md` "Pushing".
