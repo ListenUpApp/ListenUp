@@ -1,8 +1,12 @@
 package com.calypsan.listenup.server.metadata
 
+import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.result.AppResult
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockEngineConfig
@@ -22,101 +26,82 @@ import java.nio.file.Files
  * filesystem surface. Verifies the atomic-write-then-rename contract: readers
  * never see a partial write, and the `.tmp` sibling is always cleaned up.
  *
+ * The URL policy, redirect handling, and byte ceiling that guard `downloadBytes` live in
+ * [BoundedImageFetch] and are covered by [BoundedImageFetchTest]; this spec covers what
+ * [ImageStorage] itself still owns — the disk write — plus the delegation.
+ *
  * `java.nio.file.Files.createTempDirectory` is grandfathered — kotlinx-io has
  * no equivalent "create a temp directory" API.
  */
 class ImageStorageTest :
     FunSpec({
 
-        test("download writes the returned bytes to the destination path") {
+        test("writeBytes writes the bytes to the destination path") {
             val tempDir = Files.createTempDirectory("imgtest-write-").toString()
             val destination = Path(tempDir, "cover.jpg")
-            val mockBytes = byteArrayOf(1, 2, 3, 4, 5)
+            val bytes = byteArrayOf(1, 2, 3, 4, 5)
 
-            val engine =
-                MockEngine { _ ->
-                    respond(
-                        content = mockBytes,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Image.JPEG.toString()),
-                    )
-                }
-            val storage = ImageStorage(HttpClient(engine))
+            storageWith(bytes).writeBytes(bytes, destination)
 
-            val returned = storage.download("https://example.com/cover.jpg", destination)
-
-            returned shouldBe mockBytes
             SystemFileSystem.exists(destination) shouldBe true
         }
 
-        test("download returns the bytes from the response") {
-            val tempDir = Files.createTempDirectory("imgtest-return-").toString()
-            val destination = Path(tempDir, "cover.jpg")
-            val expected = byteArrayOf(10, 20, 30)
-
-            val engine =
-                MockEngine { _ ->
-                    respond(
-                        content = expected,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Image.JPEG.toString()),
-                    )
-                }
-            val storage = ImageStorage(HttpClient(engine))
-
-            val returned = storage.download("https://example.com/cover.jpg", destination)
-
-            returned shouldBe expected
-        }
-
-        test("the .tmp sibling is absent after a successful download") {
+        test("the .tmp sibling is absent after a successful write") {
             val tempDir = Files.createTempDirectory("imgtest-notmp-").toString()
             val destination = Path(tempDir, "cover.jpg")
-            val mockBytes = byteArrayOf(99)
+            val bytes = byteArrayOf(99)
 
-            val engine =
-                MockEngine { _ ->
-                    respond(
-                        content = mockBytes,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Image.JPEG.toString()),
-                    )
-                }
-            val storage = ImageStorage(HttpClient(engine))
-
-            storage.download("https://example.com/cover.jpg", destination)
+            storageWith(bytes).writeBytes(bytes, destination)
 
             SystemFileSystem.exists(Path(tempDir, "cover.jpg.tmp")) shouldBe false
         }
 
-        test("download propagates a network-level exception") {
-            val tempDir = Files.createTempDirectory("imgtest-fail-").toString()
-            val destination = Path(tempDir, "cover.jpg")
-
-            // Network-level failure (simulates a connection refused / timeout).
-            val config = MockEngineConfig()
-            config.addHandler { _ -> throw IOException("simulated network failure") }
-            val engine = MockEngine(config)
-            val storage = ImageStorage(HttpClient(engine))
-
-            shouldThrow<Exception> {
-                storage.download("https://example.com/bad.jpg", destination)
-            }
-        }
-
-        test("the .tmp sibling is absent after a network-level failure") {
+        test("the .tmp sibling is absent after a failed write") {
+            // The destination's parent does not exist, so the temp sink can't be opened. The
+            // atomic-write helper must still leave nothing behind for a later reader to trip over.
             val tempDir = Files.createTempDirectory("imgtest-failtmp-").toString()
-            val destination = Path(tempDir, "cover.jpg")
+            val missingDir = Path(tempDir, "not-created-yet")
+            val destination = Path(missingDir.toString(), "cover.jpg")
+            val bytes = byteArrayOf(7)
 
-            // Network failure happens before any bytes are written to disk —
-            // no .tmp is created. Verify the cleanup path handles this case.
+            shouldThrow<Exception> { storageWith(bytes).writeBytes(bytes, destination) }
+
+            SystemFileSystem.exists(Path(missingDir.toString(), "cover.jpg.tmp")) shouldBe false
+        }
+
+        test("downloadBytes returns the bytes from the response") {
+            val expected = byteArrayOf(10, 20, 30)
+
+            val returned = storageWith(expected).downloadBytes("https://example.com/cover.jpg")
+
+            returned.shouldBeInstanceOf<AppResult.Success<*>>().data shouldBe expected
+        }
+
+        test("downloadBytes reports a network-level failure as a typed result, not a throw") {
+            // Network-level failure (simulates a connection refused / timeout). The transport
+            // detail stays server-side: the caller gets a constant debugInfo.
             val config = MockEngineConfig()
             config.addHandler { _ -> throw IOException("simulated network failure") }
-            val engine = MockEngine(config)
-            val storage = ImageStorage(HttpClient(engine))
+            val storage = ImageStorage(HttpClient(MockEngine(config)))
 
-            runCatching { storage.download("https://example.com/bad.jpg", destination) }
+            val result = storage.downloadBytes("https://example.com/bad.jpg")
 
-            SystemFileSystem.exists(Path(tempDir, "cover.jpg.tmp")) shouldBe false
+            val error = result.shouldBeInstanceOf<AppResult.Failure>().error
+            error.shouldBeInstanceOf<MetadataError.ExternalUnavailable>()
+            error.debugInfo shouldNotContain "simulated network failure"
         }
     })
+
+/** An [ImageStorage] whose every request answers with [bytes] as a JPEG. */
+private fun storageWith(bytes: ByteArray): ImageStorage =
+    ImageStorage(
+        HttpClient(
+            MockEngine {
+                respond(
+                    content = bytes,
+                    status = HttpStatusCode.OK,
+                    headers = headersOf("Content-Type", ContentType.Image.JPEG.toString()),
+                )
+            },
+        ),
+    )

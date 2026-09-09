@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
@@ -25,9 +26,10 @@ private val log = loggerFor<ContributorMetadataApplier>()
  *  - `asin` stamp
  *  - `description` (biography) — only when the profile carries a non-blank one;
  *    a blank incoming value keeps the existing biography
- *  - `imagePath` — downloads the photo to `contributors/{sha}.jpg` relative to
- *    [imageHome]; a failed download keeps the existing photo. The
- *    OrphanImageCleanupTask reclaims the orphan file if the DB write rolls back.
+ *  - `imagePath` — downloads the photo through [ImageStore] into `contributors/`, which
+ *    validates and names it `{sha}.{ext}` from the sniffed kind; a failed, oversized, or
+ *    not-actually-an-image download keeps the existing photo. The OrphanImageCleanupTask
+ *    reclaims the orphan file if the DB write rolls back.
  *
  * Returns [MetadataError.NotFound] when the contributor is absent from the DB,
  * when no catalog has a profile for the ASIN, or when the profile is an empty
@@ -41,8 +43,18 @@ internal class ContributorMetadataApplier(
     private val contributorRepository: ContributorRepository,
     private val imageStorage: ImageStorage,
     private val coordinator: EnrichmentCoordinator,
-    private val imageHome: Path,
+    imageHome: Path,
+    photoMaxBytes: Long = CONTRIBUTOR_PHOTO_MAX_BYTES,
 ) {
+    /**
+     * Validates and places every contributor photo. Photos used to be written straight to disk on
+     * the strength of the remote's word, which meant whatever a provider returned landed under a
+     * `.jpg` name in the operator's image home and was served back from there. Routing them
+     * through the same store the covers use puts a magic-number sniff and a size cap in front of
+     * the filesystem.
+     */
+    private val photoStore = ImageStore(Path(imageHome.toString(), "contributors"), photoMaxBytes)
+
     suspend fun apply(
         contributorId: ContributorId,
         asin: String,
@@ -90,30 +102,53 @@ internal class ContributorMetadataApplier(
     }
 
     /**
-     * Downloads the contributor photo from [ContributorMeta.imageUrl] and stores it at
-     * `contributors/{sha}.jpg` relative to [imageHome]. Returns the relative path to
-     * store in the DB, or `null` when the URL is absent or the download fails (failure
-     * is logged, not propagated — the photo is best-effort).
+     * Downloads the contributor photo from [ContributorMeta.imageUrl] and stores it through
+     * [photoStore] as `contributors/{sha}.{ext}`. Returns the relative path to store in the DB,
+     * or `null` when the URL is absent, the fetch is refused, or the bytes are not a usable
+     * image (every failure is logged, not propagated — the photo is best-effort).
      */
     private suspend fun ContributorMeta.downloadImage(contributorId: ContributorId): String? {
         val url = imageUrl?.takeIf { it.isNotBlank() } ?: return null
-        val dir = Path(imageHome.toString(), "contributors")
+        val bytes =
+            when (val fetched = imageStorage.downloadBytes(url)) {
+                is AppResult.Success -> {
+                    fetched.data
+                }
+
+                is AppResult.Failure -> {
+                    log.warn {
+                        "Photo fetch refused for contributor ${contributorId.value} (ASIN $key): " +
+                            "${fetched.error.code} — skipping"
+                    }
+                    return null
+                }
+            }
         return try {
-            kotlinx.io.files.SystemFileSystem
-                .createDirectories(dir)
-            val bytes = imageStorage.downloadBytes(url)
             // Content-addressed filename: a re-fetch with a different photo yields a new `imagePath`,
             // which is what the client keys its image cache on (the path is the version). With a stable
             // id-based name the path never changes and clients keep rendering the old photo.
-            val sha = hashBytesSha256(bytes)
-            val relPath = "contributors/$sha.jpg"
-            imageStorage.writeBytes(bytes, Path(imageHome.toString(), relPath))
-            relPath
+            // The declared type only colours a rejection message — the store's magic-number sniff is
+            // what actually decides, and it is the reason nothing but a real image reaches the disk.
+            val stored = photoStore.store(key = hashBytesSha256(bytes), bytes = bytes, declaredContentType = "image/*")
+            "contributors/${stored.path.name}"
         } catch (e: CancellationException) {
             throw e
+        } catch (e: ImageStore.InvalidImageException) {
+            log.warn(e) { "Photo rejected for contributor ${contributorId.value} (ASIN $key) — skipping" }
+            null
         } catch (e: Exception) {
-            log.warn(e) { "Photo download failed for contributor ${contributorId.value} (ASIN $key) — skipping" }
+            log.warn(e) { "Photo write failed for contributor ${contributorId.value} (ASIN $key) — skipping" }
             null
         }
+    }
+
+    companion object {
+        /**
+         * Ceiling for a *stored* contributor photo. Deliberately below the fetch ceiling in
+         * [com.calypsan.listenup.server.metadata.BoundedImageFetch] so it is a real second gate
+         * rather than a restatement of the first — a portrait is not a cover, and this matches
+         * what a user's own avatar upload is allowed to be.
+         */
+        const val CONTRIBUTOR_PHOTO_MAX_BYTES: Long = 5L * 1024 * 1024
     }
 }

@@ -381,8 +381,18 @@ internal class BookMetadataApplier(
         asin: String,
     ) {
         val url = coverUrl?.takeIf { it.isNotBlank() } ?: return
+        val bytes =
+            when (val fetched = imageStorage.downloadBytes(url)) {
+                is AppResult.Success -> {
+                    fetched.data
+                }
+
+                is AppResult.Failure -> {
+                    log.warn { "Wizard cover fetch refused for ${bookId.value} (ASIN $asin): ${fetched.error.code}" }
+                    return
+                }
+            }
         try {
-            val bytes = imageStorage.downloadBytes(url)
             val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
             val relPath = "covers/${stored.path.name}"
             val result = bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)

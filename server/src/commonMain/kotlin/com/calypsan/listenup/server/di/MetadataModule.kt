@@ -45,6 +45,7 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import kotlin.time.Clock
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -98,24 +99,7 @@ private val metadataModuleLogger = loggerFor<EnrichmentRoutes>()
 
 fun metadataModule(imageHome: Path): Module =
     module {
-        single(named(METADATA_HTTP_CLIENT)) {
-            metadataHttpClient {
-                install(ContentNegotiation) {
-                    json(
-                        Json {
-                            ignoreUnknownKeys = true
-                            isLenient = true
-                        },
-                    )
-                }
-                // A hung provider or a slow-drip image response must not block the caller
-                // indefinitely — bounded budget, mirroring PushModule's relay client.
-                install(HttpTimeout) {
-                    requestTimeoutMillis = METADATA_REQUEST_TIMEOUT_MS
-                    connectTimeoutMillis = METADATA_CONNECT_TIMEOUT_MS
-                }
-            }
-        }
+        single(named(METADATA_HTTP_CLIENT)) { metadataHttpClient { installMetadataClientDefaults() } }
 
         single { AudibleRateLimiter() }
 
@@ -242,6 +226,42 @@ fun metadataModule(imageHome: Path): Module =
 
         metadataCleanupBindings(imageHome)
     }
+
+/**
+ * The configuration every outbound metadata request runs under: lenient JSON, and a bounded time
+ * budget so a hung or slow-drip remote can't pin a coroutine — and its provider rate-limiter slot —
+ * indefinitely. Mirrors the relay client in `PushModule`.
+ *
+ * **This is Tier 1, and it must stay Tier 1.** Transport bounds only: a connect timeout and a
+ * request timeout, nothing else. Redirects stay followed and no host policy is applied here,
+ * because three shipped behaviours depend on exactly that:
+ *
+ *  1. Audnexus is open-source and self-hostable, and its base URL is an operator override
+ *     (`LISTENUP_AUDNEXUS_URL`) — an operator's own mirror is very likely on a private LAN address.
+ *  2. Operator-declared custom providers are documented as endpoints the operator fronts with a
+ *     network ACL, i.e. internal hosts.
+ *  3. [com.calypsan.listenup.server.metadata.audible.AudibleClient] detects a storefront
+ *     geo-redirect by inspecting the *final* request host, which needs redirects followed.
+ *
+ * A host allowlist or a redirect ban added here would fail all three closed, and the failure would
+ * surface to operators only as "metadata unavailable". Untrusted, provider-*returned* image URLs
+ * are Tier 2 and go through [com.calypsan.listenup.server.metadata.BoundedImageFetch] instead,
+ * which layers the host policy, per-hop redirect re-validation, and a byte ceiling on top of this.
+ */
+internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
+    install(ContentNegotiation) {
+        json(
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            },
+        )
+    }
+    install(HttpTimeout) {
+        requestTimeoutMillis = METADATA_REQUEST_TIMEOUT_MS
+        connectTimeoutMillis = METADATA_CONNECT_TIMEOUT_MS
+    }
+}
 
 /**
  * Scheduled-maintenance bindings for the metadata slice — the metadata-cache TTL sweep and the
