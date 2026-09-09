@@ -36,13 +36,13 @@ struct PlayerSwitchPathTests {
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
         #expect(coordinator.coverPath == "/covers/a.jpg")
-        #expect(!coordinator.chapters.isEmpty)
+        #expect(!coordinator.chapterRows.isEmpty)
 
         coordinator.play(bookId: "book2")
         // No `await` before these reads: the reset is synchronous, so it has happened while the
         // incoming book's prepare has not yet run.
         #expect(coordinator.coverPath == nil)
-        #expect(coordinator.chapters.isEmpty)
+        #expect(coordinator.chapterRows.isEmpty)
         #expect(coordinator.bookTitle.isEmpty)
         #expect(coordinator.currentBookId == "book2")
     }

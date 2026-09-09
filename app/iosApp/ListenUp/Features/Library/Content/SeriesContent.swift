@@ -5,7 +5,8 @@ import Shared
 ///
 /// Features:
 /// - iPhone: vertical list of standalone `SeriesRowCard` components (each its own rounded surface)
-/// - iPad: 3-column `LazyVGrid` of `SeriesGridCard` components
+/// - iPad / wide: width-responsive `LazyVGrid` of `SeriesGridCard` components (columns flow from
+///   the available width via `GridItem(.adaptive(minimum:))`, not a fixed 3-up)
 /// - Inline `SortRow` (Name, Book Count, Added)
 /// - Alphabet scrubber when sorted by name
 /// - Empty state when no series

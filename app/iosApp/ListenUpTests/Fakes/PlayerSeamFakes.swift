@@ -17,6 +17,11 @@ actor FakePlaybackEngine: PlaybackEngine {
     private(set) var lastGainDb: Float?
     private var measuredGainDb: Float?
     private(set) var didRelease = false
+    private(set) var didUnload = false
+    /// Mirrors `AudioEngine.isReleased`: `release()` is terminal on the real engine, so the fake
+    /// must refuse a `load` after it too — otherwise a coordinator-level "play after stop" test
+    /// passes against the fake while the real engine is dead.
+    private var isReleased = false
     /// When true, `load` reports failure (returns `false`) so tests can exercise the
     /// coordinator's load-failure → `.error` path without a live `AVPlayer`.
     var loadShouldFail = false
@@ -62,6 +67,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     func releaseLoad() { loadBlocker?.resume(); loadBlocker = nil }
 
     func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
+        if isReleased { commandLog.append("load-after-release"); return false }
         didLoad = true; lastLoadStartMs = startPositionMs; commandLog.append("load")
         gate.fire("load")
         if shouldBlockLoad { await withCheckedContinuation { loadBlocker = $0 } }
@@ -105,7 +111,12 @@ actor FakePlaybackEngine: PlaybackEngine {
     func activateSession() async {
         didActivateSession = true; commandLog.append("activate"); gate.fire("activate")
     }
-    func release() async { didRelease = true; teardownOrder.append("release"); gate.fire("release") }
+    func release() async {
+        didRelease = true; isReleased = true; teardownOrder.append("release"); gate.fire("release")
+    }
+    /// Non-terminal teardown: unloads the current item and its observers but leaves the
+    /// engine reusable — mirrors `AudioEngine.unload()`.
+    func unload() async { didUnload = true; teardownOrder.append("unload"); gate.fire("unload") }
 
     /// Suspend until `pause()` has executed. Returns immediately if it already has.
     func waitUntilPaused() async { await gate.wait(forKey: "pause") }

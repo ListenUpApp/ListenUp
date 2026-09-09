@@ -1,5 +1,4 @@
 import SwiftUI
-import Shared
 
 // MARK: - Speed Picker Sheet
 
@@ -276,11 +275,11 @@ struct ChapterListSheet: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 2) {
-                    ForEach(0..<observer.totalChapters, id: \.self) { index in
+                    ForEach(Array(observer.chapterRows.enumerated()), id: \.element.id) { index, chapter in
                         ChapterRow(
                             index: index,
-                            title: observer.chapterTitleForIndex(index) ?? "Chapter \(index + 1)",
-                            durationMs: index < observer.chapters.count ? observer.chapters[index].duration : 0,
+                            title: chapter.title,
+                            durationMs: chapter.durationMs,
                             isCurrent: index == observer.chapterIndex,
                             isPlaying: observer.isPlaying,
                             tint: .listenUpOrange,

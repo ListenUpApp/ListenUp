@@ -6,9 +6,10 @@ import SwiftUI
 /// and wraps the stack in a rounded `luSurface2` card.
 ///
 /// The primary initializer takes an explicit `id` KeyPath (mirroring SwiftUI's
-/// `ForEach(_:id:)`), so it works with the Swift Export-bridged Kotlin domain types that
-/// cannot conform to `Identifiable`. A convenience initializer defaults `id` to
-/// `\.id` for native `Identifiable` items.
+/// `ForEach(_:id:)`), for native value types that carry no `id` property — `[Int]` with
+/// `\.self`, a session row keyed on `\.sessionId`. A convenience initializer defaults `id` to
+/// `\.id` for native `Identifiable` items. Swift-Export-bridged Kotlin objects must NOT be
+/// passed here: map them to a native struct at the observer boundary first (rule 8).
 struct FieldGroup<Item, ID: Hashable, Row: View>: View {
     let items: [Item]
     let id: KeyPath<Item, ID>
