@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
+import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
@@ -77,19 +78,10 @@ internal class ShelfRepositoryImpl(
 
     override fun observeById(id: ShelfId): Flow<Shelf?> =
         dao.observeById(id.value).map { entity ->
-            entity?.toDomainWithDerived(
-                coverPaths = dao.coverHashesFor(id.value),
-                totalDurationMs = dao.totalDurationMsFor(id.value),
-                bookCountOverride = dao.bookCountFor(id.value),
-            )
+            entity?.let { deriveShelf(it) }
         }
 
-    override suspend fun getById(id: ShelfId): Shelf? =
-        dao.getById(id.value)?.toDomainWithDerived(
-            coverPaths = dao.coverHashesFor(id.value),
-            totalDurationMs = dao.totalDurationMsFor(id.value),
-            bookCountOverride = dao.bookCountFor(id.value),
-        )
+    override suspend fun getById(id: ShelfId): Shelf? = dao.getById(id.value)?.let { deriveShelf(it) }
 
     // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
 
@@ -151,11 +143,7 @@ internal class ShelfRepositoryImpl(
                 updatedAt = currentEpochMilliseconds(),
             )
         val domain =
-            updated.toDomainWithDerived(
-                coverPaths = dao.coverHashesFor(shelfId.value),
-                totalDurationMs = dao.totalDurationMsFor(shelfId.value),
-                bookCountOverride = dao.bookCountFor(shelfId.value),
-            )
+            deriveShelf(updated)
         return offlineEditor
             .edit(OutboxChannels.Shelves, shelfId.value, ShelfMutation.Update(name, description ?: "", isPrivate)) {
                 dao.upsert(updated)
@@ -307,37 +295,30 @@ internal class ShelfRepositoryImpl(
     // ── Mapping ───────────────────────────────────────────────────────────────────
 
     /**
-     * Map a JOIN-projected shelf row to the domain model, deriving covers and duration
-     * from the shelf's member books in the local mirror. Owner fields come from the current
-     * user — the local mirror holds only the caller's own shelves.
+     * Map a JOIN-projected shelf row to the domain model. The row already carries the book count;
+     * covers, duration and the owner are gathered by [deriveShelf].
      */
-    private suspend fun ShelfWithBookCount.toDomain(): Shelf =
-        shelf.toDomainWithDerived(
-            coverPaths = dao.coverHashesFor(shelf.id),
-            totalDurationMs = dao.totalDurationMsFor(shelf.id),
-            bookCountOverride = bookCount,
-        )
+    private suspend fun ShelfWithBookCount.toDomain(): Shelf = deriveShelf(shelf, bookCount = bookCount)
 
-    private suspend fun com.calypsan.listenup.client.data.local.db.ShelfEntity.toDomainWithDerived(
-        coverPaths: List<String>,
-        totalDurationMs: Long,
-        bookCountOverride: Int,
-    ): Shelf {
-        val currentUser = userDao.getCurrentUser()
-        return Shelf(
-            id = ShelfId(id),
-            name = name,
-            description = description.ifEmpty { null },
-            isPrivate = isPrivate,
-            ownerId = currentUser?.id?.value ?: "",
-            ownerDisplayName = currentUser?.displayName ?: "",
-            bookCount = bookCountOverride,
-            totalDurationSeconds = totalDurationMs / 1000,
-            createdAtMs = createdAt,
-            updatedAtMs = updatedAt,
-            coverPaths = coverPaths,
+    /**
+     * Gather everything the domain needs that is not on the row — covers and duration from the
+     * shelf's member books in the local mirror, the owner from the current user (the local mirror
+     * holds only the caller's own shelves) — then map. This is the ONE place those DAO reads live.
+     *
+     * Deliberately a plain function taking the entity as a parameter, not a suspend extension on
+     * it: mappers on entities stay pure ([NoSuspendExtensionOnRoomEntityRule]), and Kotlin/Native
+     * 2.4.20 cannot lower a suspend extension whose receiver carries `@Entity(indices = [...])`.
+     */
+    private suspend fun deriveShelf(
+        entity: ShelfEntity,
+        bookCount: Int? = null,
+    ): Shelf =
+        entity.toDomain(
+            owner = userDao.getCurrentUser(),
+            coverPaths = dao.coverHashesFor(entity.id),
+            totalDurationMs = dao.totalDurationMsFor(entity.id),
+            bookCount = bookCount ?: dao.bookCountFor(entity.id),
         )
-    }
 
     /**
      * Optimistically mirror a just-created shelf into Room so it appears immediately, without waiting
@@ -361,6 +342,27 @@ internal class ShelfRepositoryImpl(
         )
     }
 }
+
+/** Pure entity -> domain mapping; every fact not on the row arrives as a parameter. */
+private fun ShelfEntity.toDomain(
+    owner: UserEntity?,
+    coverPaths: List<String>,
+    totalDurationMs: Long,
+    bookCount: Int,
+): Shelf =
+    Shelf(
+        id = ShelfId(id),
+        name = name,
+        description = description.ifEmpty { null },
+        isPrivate = isPrivate,
+        ownerId = owner?.id?.value ?: "",
+        ownerDisplayName = owner?.displayName ?: "",
+        bookCount = bookCount,
+        totalDurationSeconds = totalDurationMs / 1000,
+        createdAtMs = createdAt,
+        updatedAtMs = updatedAt,
+        coverPaths = coverPaths,
+    )
 
 private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =
     Shelf(

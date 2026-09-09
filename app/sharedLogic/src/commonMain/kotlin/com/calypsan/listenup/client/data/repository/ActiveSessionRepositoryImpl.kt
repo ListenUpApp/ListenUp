@@ -69,7 +69,7 @@ internal class ActiveSessionRepositoryImpl(
         observeActiveSessions(currentUserId).map { it.size }
 
     private fun cachedSessions(): Flow<List<ActiveSession>> =
-        cachedSessionDao.observeAll().map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
+        cachedSessionDao.observeAll().map { rows -> rows.mapNotNull { deriveActiveSession(it) } }
 
     private fun refreshOnPing(): Flow<List<ActiveSession>> =
         presence
@@ -97,9 +97,13 @@ internal class ActiveSessionRepositoryImpl(
         }
     }
 
-    private suspend fun CachedActiveSessionEntity.toDomainOrNull(): ActiveSession? {
-        val summary = bookDao.getBookSummary(bookId) ?: return null
-        return toDomain(summary)
+    /**
+     * Resolve the cached row's book summary, then map. A plain function taking the entity, not a
+     * suspend extension on it: entity mappers stay pure ([NoSuspendExtensionOnRoomEntityRule]).
+     */
+    private suspend fun deriveActiveSession(entity: CachedActiveSessionEntity): ActiveSession? {
+        val summary = bookDao.getBookSummary(entity.bookId) ?: return null
+        return entity.toDomain(summary)
     }
 
     private fun CachedActiveSessionEntity.toDomain(summary: BookSummary): ActiveSession {
