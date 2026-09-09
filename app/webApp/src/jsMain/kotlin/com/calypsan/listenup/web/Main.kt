@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.lifecycle.Playhead
 import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
+import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
@@ -98,6 +99,11 @@ fun main() {
             },
             flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
             isHidden = { document.asDynamic().visibilityState == "hidden" },
+            scope = this,
+        )
+        recoverSyncOnReturn(
+            recover = { koin.get<SyncRepository>().recoverRealtime() },
+            isVisible = { document.asDynamic().visibilityState == "visible" },
             scope = this,
         )
 

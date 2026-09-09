@@ -76,3 +76,48 @@ internal fun flushPositionWhenHidden(
         window.removeEventListener("pagehide", onPageHide)
     }
 }
+
+/**
+ * Re-opens a sync firehose that died while the tab was away, and returns the disposer.
+ *
+ * `SyncRepository.connectRealtime`'s own KDoc names the callers on every other platform —
+ * "MainActivity.onResume, the auth-transition collector, shell entry". A browser has only the
+ * auth transition, which fires once, so a laptop that slept came back with a dead firehose and
+ * no gesture that could revive it. `recoverRealtime` no-ops the reconnect when the connection
+ * is already healthy (`SyncEngine.recoverRealtime`), so a tab switch costs nothing.
+ *
+ * The `online` edge matters independently: `SyncEngine` drops an outbox drain while offline
+ * and waits for a later edge to pick it up. This is that edge.
+ *
+ * @param recover how a dead firehose gets re-opened.
+ * @param isVisible how to read the document's visibility. A parameter so a spec can drive it.
+ * @param scope the lifetime the recover runs on.
+ */
+internal fun recoverSyncOnReturn(
+    recover: suspend () -> Unit,
+    isVisible: () -> Boolean,
+    scope: CoroutineScope,
+): () -> Unit {
+    fun run() {
+        scope.launch {
+            try {
+                recover()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Same reasoning as the auth-transition collector in Main.kt: a sync failure must
+                // never take the tab down, because everything already in Room still works.
+                console.warn("Failed to recover realtime sync: ${e.message}")
+            }
+        }
+    }
+
+    val onVisibility: (Event) -> Unit = { if (isVisible()) run() }
+    val onOnline: (Event) -> Unit = { run() }
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("online", onOnline)
+    return {
+        document.removeEventListener("visibilitychange", onVisibility)
+        window.removeEventListener("online", onOnline)
+    }
+}

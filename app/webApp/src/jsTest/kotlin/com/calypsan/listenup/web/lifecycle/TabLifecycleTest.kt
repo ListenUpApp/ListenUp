@@ -145,4 +145,74 @@ class TabLifecycleTest :
                 scope.cancel()
             }
         }
+
+        test("a tab becoming visible recovers realtime sync") {
+            val recoveries = mutableListOf<Unit>()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            val dispose =
+                recoverSyncOnReturn(
+                    recover = { recoveries += Unit },
+                    isVisible = { true },
+                    scope = scope,
+                )
+            try {
+                document.dispatchEvent(Event("visibilitychange"))
+
+                awaitFirstCall(recoveries)
+                recoveries.size shouldBe 1
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
+        test("coming back online recovers realtime sync") {
+            val recoveries = mutableListOf<Unit>()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            // `isVisible` is false on purpose: an `online` event only ever means the network came
+            // back, so the recover must not be gated on the visibility read at all.
+            val dispose =
+                recoverSyncOnReturn(
+                    recover = { recoveries += Unit },
+                    isVisible = { false },
+                    scope = scope,
+                )
+            try {
+                window.dispatchEvent(Event("online"))
+
+                awaitFirstCall(recoveries)
+                recoveries.size shouldBe 1
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
+        test("a disposed registration stops recovering") {
+            val disposed = mutableListOf<Unit>()
+            val live = mutableListOf<Unit>()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            recoverSyncOnReturn(
+                recover = { disposed += Unit },
+                isVisible = { true },
+                scope = scope,
+            )()
+            window.dispatchEvent(Event("online"))
+
+            val dispose =
+                recoverSyncOnReturn(
+                    recover = { live += Unit },
+                    isVisible = { true },
+                    scope = scope,
+                )
+            try {
+                window.dispatchEvent(Event("online"))
+
+                awaitFirstCall(live)
+                disposed.shouldBeEmpty()
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
     })
