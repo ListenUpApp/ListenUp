@@ -1438,7 +1438,12 @@
     "get_started": "Get started",
     "error_invalid": "This invite isn't valid.",
     "have_invite_prompt": "Have an invite code?",
-    "enter_code": "Enter code"
+    "enter_code": "Enter code",
+    "confirm_server_title": "Connect to this server?",
+    "confirm_server_body": "This invite points at %1$s. Continue only if you recognise it.",
+    "confirm_server_signed_out_warning": "You're signed in to a different server. Continuing signs you out of it.",
+    "confirm_server_continue": "Continue",
+    "confirm_server_cancel": "Not now"
   },
   "licenses": {
     "overline_open_source": "Open Source",

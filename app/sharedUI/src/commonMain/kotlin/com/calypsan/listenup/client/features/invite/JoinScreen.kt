@@ -46,6 +46,11 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.auth_your_email
+import listenup.composeapp.generated.resources.invite_confirm_server_body
+import listenup.composeapp.generated.resources.invite_confirm_server_cancel
+import listenup.composeapp.generated.resources.invite_confirm_server_continue
+import listenup.composeapp.generated.resources.invite_confirm_server_signed_out_warning
+import listenup.composeapp.generated.resources.invite_confirm_server_title
 
 /**
  * Public invite-claim landing screen — the redeem half of the invite vertical.
@@ -99,6 +104,16 @@ fun JoinScreen(
     when (val current = state) {
         ClaimInviteUiState.Idle -> {
             CodeEntryStep(onCodeEntered = viewModel::onCodeEntered, onCancel = onCancel, modifier = modifier)
+        }
+
+        is ClaimInviteUiState.ConfirmServer -> {
+            ConfirmServerStep(
+                host = current.host,
+                signedInElsewhere = current.signedInElsewhere,
+                onConfirm = viewModel::onConfirmServer,
+                onCancel = viewModel::onCancelServer,
+                modifier = modifier,
+            )
         }
 
         ClaimInviteUiState.LookingUp -> {
@@ -161,6 +176,65 @@ private fun CodeEntryStep(
             onClick = { onCodeEntered(code.trim()) },
             text = "Continue",
             enabled = code.isNotBlank(),
+        )
+    }
+}
+
+/**
+ * The link named a server this device is not already pointed at. The whole value of this step is
+ * that the user SEES the address before the client moves to it, so [host] is rendered in full — in
+ * the subtitle and again in its own card — never truncated. Declining is not a dead end: it falls
+ * back to manual code entry against the server the device already uses.
+ */
+@Composable
+private fun ConfirmServerStep(
+    host: String,
+    signedInElsewhere: Boolean,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AuthScaffold(
+        title = stringResource(Res.string.invite_confirm_server_title),
+        subtitle = stringResource(Res.string.invite_confirm_server_body, host),
+        onBack = onCancel,
+        modifier = modifier,
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(Icons.Outlined.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = host,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
+        if (signedInElsewhere) {
+            Text(
+                text = stringResource(Res.string.invite_confirm_server_signed_out_warning),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
+        ListenUpButton(
+            onClick = onConfirm,
+            text = stringResource(Res.string.invite_confirm_server_continue),
+        )
+        ListenUpButton(
+            onClick = onCancel,
+            text = stringResource(Res.string.invite_confirm_server_cancel),
+            filled = false,
         )
     }
 }

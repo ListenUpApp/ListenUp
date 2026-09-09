@@ -13,6 +13,18 @@ sealed interface ClaimInviteUiState {
     /** Initial state — awaiting an invite code. */
     data object Idle : ClaimInviteUiState
 
+    /**
+     * A deep link named a server this device is not already pointed at, and the user must agree
+     * before it is persisted. [host] is the host part of the address, shown to the user — the
+     * whole point of the step is that the address is visible before the client moves to it.
+     * [signedInElsewhere] is true when a session for a DIFFERENT server is currently active, in
+     * which case confirming signs that session out.
+     */
+    data class ConfirmServer(
+        val host: String,
+        val signedInElsewhere: Boolean,
+    ) : ClaimInviteUiState
+
     /** Code lookup request in progress. */
     data object LookingUp : ClaimInviteUiState
 

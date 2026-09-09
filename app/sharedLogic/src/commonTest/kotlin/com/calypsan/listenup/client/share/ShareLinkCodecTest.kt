@@ -151,6 +151,51 @@ class ShareLinkCodecTest :
             ShareLinkCodec.decode("https://link.listenup.audio/o#t=invite&server=https%3A%2F%2Flib.example.com") shouldBe null
         }
 
+        // The link's server address becomes the host every authenticated request is sent to, so
+        // the codec refuses anything that is not a plain absolute http(s) URL — the same floor
+        // ServerUrl enforces, applied before the value can reach the claim flow. Unusable values
+        // are assembled by concatenation and run through encode() so the link itself is well-formed.
+
+        test("decode returns null for an invite whose server address is not http or https") {
+            val link = ShareLinkCodec.encode(ShareTarget.Invite(serverUrl = "ftp://example.com", code = "JOIN9"))
+
+            ShareLinkCodec.decode(link) shouldBe null
+        }
+
+        test("decode returns null for an invite whose server address carries userinfo") {
+            val withUserinfo = "https://" + "u:p" + "@" + "example.com"
+            val link = ShareLinkCodec.encode(ShareTarget.Invite(serverUrl = withUserinfo, code = "JOIN9"))
+
+            ShareLinkCodec.decode(link) shouldBe null
+        }
+
+        test("decode returns null for an invite whose server address contains whitespace") {
+            val withSpace = "https://example.com" + " " + "library"
+            val link = ShareLinkCodec.encode(ShareTarget.Invite(serverUrl = withSpace, code = "JOIN9"))
+
+            ShareLinkCodec.decode(link) shouldBe null
+        }
+
+        test("decode drops an unusable remote address but keeps the link (a bad optional must not discard a good link)") {
+            val link =
+                ShareLinkCodec.encode(
+                    ShareTarget.Invite(
+                        serverUrl = "https://example.com",
+                        code = "JOIN9",
+                        remoteUrl = "ftp://other.example.com",
+                    ),
+                )
+
+            ShareLinkCodec.decode(link) shouldBe
+                ShareTarget.Invite(serverUrl = "https://example.com", code = "JOIN9", remoteUrl = null)
+        }
+
+        test("decode still accepts an ordinary https invite exactly as before") {
+            val original = ShareTarget.Invite(serverUrl = "https://example.com", code = "JOIN9")
+
+            ShareLinkCodec.decode(ShareLinkCodec.encode(original)) shouldBe original
+        }
+
         test("decode returns null for the removed listenup:// custom scheme") {
             ShareLinkCodec.decode("listenup://join?server=https%3A%2F%2Flib.example.com&code=ABC123") shouldBe null
             ShareLinkCodec.decode("listenup://book/book-legacy") shouldBe null

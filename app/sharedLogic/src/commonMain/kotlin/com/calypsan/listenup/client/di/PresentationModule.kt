@@ -98,6 +98,7 @@ internal val authPresentationModule =
                 repository = get(),
                 serverConfig = get(),
                 instanceRepository = get(),
+                authSession = get(),
             )
         }
         // LibrarySetupViewModel for initial library configuration

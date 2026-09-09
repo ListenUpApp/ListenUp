@@ -46,6 +46,16 @@ fun ClaimInvitePanel(
             CodeStep(lookingUp = state is ClaimInviteUiState.LookingUp, onCodeEntered, onBackToSignIn)
         }
 
+        is ClaimInviteUiState.ConfirmServer -> {
+            // Web never reaches this state today: the panel calls `onCodeEntered` and never
+            // `start(serverUrl, …)`, for the reasons the KDoc above gives. If a future web deep-link
+            // path ever parks here, the untrusted host has NOT been persisted — the ViewModel is
+            // waiting for a confirmation this panel does not yet offer — so manual code entry against
+            // the server this page was served from is the Never-Stranded fallback. A real
+            // confirmation rendering for web is the follow-up the plan names.
+            CodeStep(lookingUp = false, onCodeEntered, onBackToSignIn)
+        }
+
         is ClaimInviteUiState.Preview -> {
             // An invite the server has already rejected is an error wearing a preview's shape —
             // rendering the join form over it would invite someone to fill in four fields for a

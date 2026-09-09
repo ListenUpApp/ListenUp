@@ -89,13 +89,32 @@ object ShareLinkCodec {
         )
     }
 
+    /**
+     * Whether [candidate] is a plain absolute `http(s)` URL this app may hand to [ServerUrl].
+     *
+     * A share link is untrusted input from outside the app, and its server address ends up as the
+     * host every subsequent authenticated request is sent to. Rejecting here — returning `null` from
+     * [decode], i.e. "not a recognised ListenUp link" — keeps the unusable shapes out of the claim
+     * flow entirely, rather than surfacing as a thrown `IllegalArgumentException` from `ServerUrl`
+     * inside a `viewModelScope` coroutine. Mirrors `ServerUrl`'s own `init` requirements.
+     */
+    private fun isPlainHttpUrl(candidate: String): Boolean {
+        if (!candidate.startsWith("http://") && !candidate.startsWith("https://")) return false
+        if (candidate.any { it.isWhitespace() || it.isISOControl() }) return false
+        val authority = candidate.substringAfter("://").substringBefore('/')
+        if (authority.isBlank()) return false
+        return '@' !in authority
+    }
+
     private fun decodeInviteParams(params: Parameters): ShareTarget? {
-        val server = params["server"]?.takeIf { it.isNotBlank() } ?: return null
+        val server = params["server"]?.takeIf { it.isNotBlank() && isPlainHttpUrl(it) } ?: return null
         val code = params["code"]?.takeIf { it.isNotBlank() } ?: return null
         return ShareTarget.Invite(
             serverUrl = server,
             code = code,
-            remoteUrl = params["remote"]?.takeIf { it.isNotBlank() },
+            // An unusable optional remote is dropped, not fatal: the link still works over the
+            // local address, which is the Never-Stranded outcome.
+            remoteUrl = params["remote"]?.takeIf { it.isNotBlank() && isPlainHttpUrl(it) },
         )
     }
 

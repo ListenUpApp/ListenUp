@@ -10541,6 +10541,56 @@
         }
       }
     },
+    "invite.confirm_server_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This invite points at %1$@. Continue only if you recognise it."
+          }
+        }
+      }
+    },
+    "invite.confirm_server_cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        }
+      }
+    },
+    "invite.confirm_server_continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
+    "invite.confirm_server_signed_out_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're signed in to a different server. Continuing signs you out of it."
+          }
+        }
+      }
+    },
+    "invite.confirm_server_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect to this server?"
+          }
+        }
+      }
+    },
     "invite.enter_code": {
       "localizations": {
         "en": {
