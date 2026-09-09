@@ -133,6 +133,11 @@ import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPag
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.candidate
 import com.calypsan.listenup.web.features.contributoredit.editingContributor
+import com.calypsan.listenup.web.features.seriesedit.SeriesEditPage
+import com.calypsan.listenup.web.features.seriesedit.editingSeries
+import com.calypsan.listenup.web.features.seriesedit.seriesCandidate
+import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
+import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES as CONTRIBUTOR_MERGE_CAP
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.roleSection
@@ -458,6 +463,53 @@ class ClassContractTest :
                         ContributorEditPage(
                             state = editingContributor(renameCollisionCandidate = candidate()),
                             mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        // Series Edit: the loaded form with an error banner and its own artwork,
+                        // the same form with a staged pick (which swaps the art for a preview and
+                        // adds the discard control), the skeleton, and the picker in each of its
+                        // three shapes — nothing matched, a selectable list, and a capped one.
+                        SeriesEditPage(
+                            state = editingSeries(error = "That name is taken.", coverPath = "series/s.jpg"),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = stagedCoverSeries,
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = editingSeries(isLoading = true),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = editingSeries(mergeDialogVisible = true, mergeQuery = "Nothing"),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = editingSeries(mergeDialogVisible = true, mergeQuery = "Mist"),
+                            mergeCandidates =
+                                (1..MAX_MERGE_CANDIDATES).map {
+                                    seriesCandidate(id = "s$it", displayName = "Series $it")
+                                },
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        // And the contributor picker with a full page, for the truncation notice.
+                        ContributorEditPage(
+                            state = editingContributor(mergeDialogVisible = true, mergeQuery = "B"),
+                            mergeCandidates =
+                                (1..CONTRIBUTOR_MERGE_CAP).map {
+                                    candidate(id = "c$it", displayName = "Person $it")
+                                },
                             onEvent = {},
                             onMergeQuery = {},
                         )
@@ -1620,3 +1672,16 @@ private fun adminShapes(): List<@Composable () -> Unit> {
         ),
     )
 }
+
+/**
+ * The staged-cover shape, hoisted so its bytes keep ONE identity for the life of this spec.
+ *
+ * ⛔ Not inline. `CoverPickerField` remembers its object URL keyed on the byte array, and a
+ * `ByteArray` compares by identity — so a caller that builds a fresh array in the composable's
+ * argument list invalidates that key on every recomposition, and the field creates and revokes a
+ * blob URL every frame. Every real caller passes the array the ViewModel is holding, so this is a
+ * fixture hazard rather than a product one; inline, it burned enough of the browser's event loop
+ * to push `webAuthKotest`'s WebSocket handshakes past their timeout (247 RPC sockets against a
+ * normal 126, two transport specs failing) with nothing in the failure pointing back here.
+ */
+private val stagedCoverSeries = editingSeries(pendingCoverData = byteArrayOf(1, 2, 3))

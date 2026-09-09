@@ -45,8 +45,6 @@ import org.jetbrains.compose.web.dom.Text
  * [Cover] falls back to a gradient rather than to a second URL. The first book's cover is a real
  * URL that always resolves, and it is the same image the ViewModel's own last-resort branch picks.
  *
- * No edit pencil: there is no web series-edit form, and a button that goes nowhere is the lie this
- * arc keeps refusing to ship.
  */
 @Composable
 fun SeriesDetailPage(
@@ -54,6 +52,7 @@ fun SeriesDetailPage(
     onOpenLibrary: () -> Unit,
     onOpenBook: (String) -> Unit,
     onPlayBook: (String) -> Unit = {},
+    onEdit: () -> Unit = {},
 ) {
     Div(attrs = { classes("sd") }) {
         // Renders in every state, including the ones with no series: a page that cannot show what
@@ -62,7 +61,7 @@ fun SeriesDetailPage(
 
         when (state) {
             is SeriesDetailUiState.Ready -> {
-                ReadyContent(state, onOpenBook, onPlayBook)
+                ReadyContent(state, onOpenBook, onPlayBook, onEdit)
             }
 
             is SeriesDetailUiState.Error -> {
@@ -98,7 +97,7 @@ private fun WayBack(
         P { Text(body) }
         Button(attrs = {
             classes("btn-c")
-            attr("type", "button")
+            attr("type", BUTTON_VALUE)
             onClick { onOpenLibrary() }
         }) {
             Text("Back to Library")
@@ -111,8 +110,9 @@ private fun ReadyContent(
     state: SeriesDetailUiState.Ready,
     onOpenBook: (String) -> Unit,
     onPlayBook: (String) -> Unit,
+    onEdit: () -> Unit,
 ) {
-    Hero(state, onPlayBook)
+    Hero(state, onPlayBook, onEdit)
 
     val description = state.seriesDescription
     if (!description.isNullOrBlank()) {
@@ -140,6 +140,7 @@ private fun ReadyContent(
 private fun Hero(
     state: SeriesDetailUiState.Ready,
     onPlayBook: (String) -> Unit,
+    onEdit: () -> Unit,
 ) {
     Div(attrs = { classes("sd-head") }) {
         val first = state.books.firstOrNull()
@@ -174,7 +175,7 @@ private fun Hero(
                 Div(attrs = { classes("sd-actions") }) {
                     Button(attrs = {
                         classes("btn-c")
-                        attr("type", "button")
+                        attr("type", BUTTON_VALUE)
                         onClick { onPlayBook(target.value) }
                     }) {
                         Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
@@ -183,6 +184,17 @@ private fun Hero(
                 }
             }
         }
+
+        // Icon-only, so the accessible name is the attribute rather than the content — the same
+        // shape Book Detail and Contributor Detail use, for the same reason: a hero has no room
+        // for a verb.
+        Button(attrs = {
+            classes("btn-sq", "sd-edit")
+            attr("type", BUTTON_VALUE)
+            attr("aria-label", "Edit series")
+            attr("title", "Edit series")
+            onClick { onEdit() }
+        }) { Icon(WebIcon.Pencil) }
     }
 }
 
@@ -223,7 +235,7 @@ private fun BookRow(
 
     Button(attrs = {
         classes("sd-book")
-        attr("type", "button")
+        attr("type", BUTTON_VALUE)
         onClick { onOpen() }
     }) {
         // Absent, not "—": a series with no numbering at all should read as a list of books, not
@@ -302,6 +314,8 @@ private fun authorLine(state: SeriesDetailUiState.Ready): String? {
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
 
 /** The hero is the largest cover this page shows, so it asks for its own rung. See `coverUrl`. */
+private const val BUTTON_VALUE = "button"
+
 private const val COVER_RUNG = 600
 
 private const val COVER_SIZE = 180

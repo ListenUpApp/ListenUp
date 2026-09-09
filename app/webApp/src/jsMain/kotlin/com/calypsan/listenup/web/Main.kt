@@ -44,6 +44,7 @@ import com.calypsan.listenup.web.features.setup.graphLibrarySetup
 import com.calypsan.listenup.web.features.profile.graphEditProfile
 import com.calypsan.listenup.web.features.profile.graphProfile
 import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
+import com.calypsan.listenup.web.features.seriesedit.graphSeriesEdit
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -115,6 +116,7 @@ fun main() {
                 openContributorDetail = graphContributorDetail(koin),
                 openContributorEdit = graphContributorEdit(koin),
                 openSeriesDetail = graphSeriesDetail(koin),
+                openSeriesEdit = graphSeriesEdit(koin),
                 openNotifications = graphNotifications(koin),
                 openNotificationPrefs = graphNotificationPrefs(koin),
                 openLibrarySetup = graphLibrarySetup(koin),
