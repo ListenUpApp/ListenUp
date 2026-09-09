@@ -190,7 +190,7 @@ fun ListenUpNavigation(
         }
 
         AuthState.CheckingServer -> {
-            LoadingScreen("Checking server...")
+            LoadingScreen()
         }
 
         AuthState.NeedsSetup -> {
@@ -275,8 +275,7 @@ private fun JoinNavigation(
  * Displayed briefly on app start while checking for stored credentials.
  */
 @Composable
-@Suppress("UNUSED_PARAMETER")
-private fun LoadingScreen(message: String = "Loading...") {
+private fun LoadingScreen() {
     FullScreenLoadingIndicator()
 }
 
@@ -551,7 +550,7 @@ private suspend fun handleShortcutAction(
         }
 
         is ShortcutAction.NavigateToBook -> {
-            logger.info { "Navigating to book: ${'$'}{action.bookId}" }
+            logger.info { "Navigating to book: ${action.bookId}" }
             // Ensure we're on Shell first, then navigate to book detail
             resetToShell(backStack)
             backStack.add(BookDetail(action.bookId))
