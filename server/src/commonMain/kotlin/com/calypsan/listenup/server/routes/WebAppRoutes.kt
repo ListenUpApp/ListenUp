@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.io.readBytes
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.application.install
@@ -47,18 +49,45 @@ fun Route.webAppRoutes(webRoot: Path?) {
         // means a deep link is a URL the user can reload or share, but only index.html exists.
         // A traversal attempt lands here too, which is exactly right — it is not an error worth
         // telling the caller about, it is simply not a file we serve.
-        val target = requested?.takeIf { it.isRegularFile() } ?: resolveUnder(webRoot, listOf(INDEX))
+        val fallback = resolveUnder(webRoot, listOf(INDEX))
+        val target = requested?.takeIf { it.isRegularFile() } ?: fallback
 
         val bytes = withContext(fileIoDispatcher) { target.takeIf { it.isRegularFile() }?.readBytes() }
         if (bytes == null) {
             call.respond(HttpStatusCode.NotFound)
             return@get
         }
+
+        // The content hash, not a timestamp: kotlinx-io's FileMetadata carries no modification
+        // time, and the native target has no java.time — so `Last-Modified` is not on the table
+        // and the ETag has to be the whole story. Same shape as CoverResponder.
+        val etag = "\"${hashBytesSha256(bytes)}\""
+        if (call.request.headers[HttpHeaders.IfNoneMatch] == etag) {
+            call.respond(HttpStatusCode.NotModified)
+            return@get
+        }
+        call.response.headers.append(HttpHeaders.ETag, etag)
+        // Vite content-hashes everything under assets/, so those URLs are immutable by
+        // construction and a year is safe. The shell is the one file whose URL never changes,
+        // so it must revalidate or a deploy is invisible until the cache expires. `no-cache`
+        // means revalidate, not don't-store — the ETag above makes that a 304, not a re-download.
+        //
+        // `target !== fallback` is reference inequality on purpose: a request for a *missing*
+        // `/assets/gone.js` is served the shell, and freezing the shell for a year under an
+        // assets/ URL would strand every future visitor on a stale build. Do not simplify this
+        // to a path check.
+        call.response.headers.append(
+            HttpHeaders.CacheControl,
+            if (target !== fallback && segments.firstOrNull() == ASSETS_DIR) CACHE_IMMUTABLE else CACHE_REVALIDATE,
+        )
         call.respondBytes(bytes, contentTypeFor(target.name))
     }
 }
 
 private const val INDEX = "index.html"
+private const val ASSETS_DIR = "assets"
+private const val CACHE_IMMUTABLE = "public, max-age=31536000, immutable"
+private const val CACHE_REVALIDATE = "no-cache"
 
 /**
  * Rejects any segment that could escape [webRoot].

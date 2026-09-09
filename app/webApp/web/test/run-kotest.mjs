@@ -67,8 +67,8 @@ console.log(`mode: ${mode}  base: ${BASE}`)
 // --autoplay-policy: a headless browser has no user gestures, so Chrome's default policy
 // rejects every unmuted element.play() with NotAllowedError. That would leave the whole
 // Playing / advance / release / error surface of HtmlAudioPlayer unreachable by any spec.
-// The karma lane sets the identical flag (../../karma.config.d/autoplay.js) so the two
-// lanes cannot disagree about which paths are reachable.
+// This is the only place the flag is set — there is one browser lane, so nothing can
+// disagree with it about which paths are reachable.
 const browser = await chromium.launch({
   args: ['--autoplay-policy=no-user-gesture-required'],
 })
