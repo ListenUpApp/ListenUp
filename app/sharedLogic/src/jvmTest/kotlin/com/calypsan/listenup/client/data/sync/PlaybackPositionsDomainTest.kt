@@ -151,6 +151,38 @@ class PlaybackPositionsDomainTest :
             }
         }
 
+        test("an inbound payload with a null measuredGainDb keeps the local measurement") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 10_000L, lastPlayedAt = 1_000L, revision = 1L)
+                        .copy(measuredGainDb = -3.5f),
+                )
+
+                handler.onEvent(
+                    updated(payload("pos-1", "book-1", positionMs = 20_000L, lastPlayedAt = 2_000L, revision = 2L)),
+                )
+
+                db.playbackPositionDao().get(BookId("book-1"))!!.measuredGainDb shouldBe -3.5f
+            }
+        }
+
+        test("an inbound payload with a measuredGainDb overwrites the local one") {
+            // Anti-overfit: a real remote measurement must still win.
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 10_000L, lastPlayedAt = 1_000L, revision = 1L)
+                        .copy(measuredGainDb = -3.5f),
+                )
+                handler.onEvent(
+                    updated(
+                        payload("pos-1", "book-1", positionMs = 20_000L, lastPlayedAt = 2_000L, revision = 2L)
+                            .copy(measuredGainDb = -8.0f),
+                    ),
+                )
+                db.playbackPositionDao().get(BookId("book-1"))!!.measuredGainDb shouldBe -8.0f
+            }
+        }
+
         test("onCatchUpItem with isTombstone soft-deletes the position") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("pos-1", "book-1")))
