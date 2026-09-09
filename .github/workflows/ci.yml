@@ -471,11 +471,6 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # The Xcode "Compile Kotlin Framework" run-script hardcodes
-      # JAVA_HOME=/opt/homebrew/opt/openjdk@21/... — ensure that path exists.
-      - name: Ensure openjdk@21 at the hardcoded path
-        run: brew install openjdk@21
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
@@ -690,9 +685,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-
-      - name: Ensure openjdk@21 at the hardcoded path
-        run: brew install openjdk@21
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
