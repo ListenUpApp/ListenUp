@@ -305,4 +305,27 @@ class DownloadManager internal constructor(
 
         logger.info { "Re-enqueued ${incomplete.size} incomplete downloads" }
     }
+
+    /**
+     * Re-enqueue every non-terminal download under the current Wi-Fi-only policy.
+     *
+     * WorkManager bakes `Constraints` into the work request at enqueue time and offers no way to
+     * amend them in place, so a preference change can only be honoured by replacing the work.
+     * `REPLACE` (not `KEEP`) is required and is safe: `KEEP` would discard the new request and
+     * leave the stale constraint, while cancelling a running worker routes through
+     * `persistDownloadCancellation`, which marks the row PAUSED and KEEPS its `.tmp` partial —
+     * the replacement worker resumes from those bytes via the `Range` header in
+     * `downloadAudioFile`. No progress is lost; the download simply moves onto the right network.
+     */
+    internal suspend fun reapplyNetworkConstraints(wifiOnly: Boolean) {
+        val rows = downloadDao.getIncomplete()
+        if (rows.isEmpty()) return
+        logger.info {
+            "Re-applying network constraint to ${rows.size} download(s): " +
+                if (wifiOnly) "UNMETERED (WiFi only)" else "CONNECTED (any network)"
+        }
+        constraintRefreshWork(rows, wifiOnly).forEach { (workName, request) ->
+            workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request)
+        }
+    }
 }

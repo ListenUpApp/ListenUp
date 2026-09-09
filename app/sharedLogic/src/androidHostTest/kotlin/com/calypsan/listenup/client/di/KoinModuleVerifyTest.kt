@@ -120,9 +120,11 @@ class KoinModuleVerifyTest :
         }
 
         // Verify [androidDownloadModule] — wires DownloadFileManager, DownloadManager (bound
-        // to DownloadService), and AndroidDownloadEnqueuer (bound to DownloadEnqueuer).
+        // to DownloadService), DownloadConstraintObserver (createdAtStart, watches the Wi-Fi-only
+        // preference), and AndroidDownloadEnqueuer (bound to DownloadEnqueuer).
         // WorkManager is constructed inline via WorkManager.getInstance(get<Context>()) — it is
-        // not a get() target itself, but Context is.
+        // not a get() target itself, but Context is. CoroutineScope is the app scope, declared in
+        // appCoreModule, which this verification does not load.
         test("verifyAndroidDownloadModule") {
             androidDownloadModule.verify(
                 extraTypes =
@@ -136,6 +138,7 @@ class KoinModuleVerifyTest :
                         DownloadRepository::class,
                         TransactionRunner::class,
                         ErrorBus::class,
+                        CoroutineScope::class,
                     ),
             )
         }

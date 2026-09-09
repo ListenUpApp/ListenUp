@@ -4,7 +4,9 @@ import androidx.work.NetworkType
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.collections.shouldContainOnly
 import io.kotest.matchers.shouldBe
 
 /**
@@ -93,6 +95,52 @@ class DownloadWorkRequestTest :
 
             test("fileCancelTag is distinct from the unique-work name") {
                 fileCancelTag("af1") shouldBe "download_file_af1"
+            }
+        }
+
+        context("re-applying the constraint to already-enqueued rows") {
+            test("nothing incomplete means nothing to re-enqueue") {
+                constraintRefreshWork(rows = emptyList(), wifiOnly = true).shouldBeEmpty()
+            }
+
+            test("every row yields its own unique-work name, in order") {
+                val rows =
+                    listOf(
+                        downloadEntity(audioFileId = "af1"),
+                        downloadEntity(audioFileId = "af2"),
+                        downloadEntity(audioFileId = "af3"),
+                    )
+
+                constraintRefreshWork(rows, wifiOnly = false).map { it.first } shouldBe
+                    listOf("download_af1", "download_af2", "download_af3")
+            }
+
+            test("turning Wi-Fi-only on puts every row on an unmetered network") {
+                val rows = listOf(downloadEntity(audioFileId = "af1"), downloadEntity(audioFileId = "af2"))
+
+                constraintRefreshWork(rows, wifiOnly = true)
+                    .map { it.second.workSpec.constraints.requiredNetworkType }
+                    .shouldContainOnly(NetworkType.UNMETERED)
+            }
+
+            test("turning Wi-Fi-only off puts every row back on any connected network") {
+                val rows = listOf(downloadEntity(audioFileId = "af1"), downloadEntity(audioFileId = "af2"))
+
+                constraintRefreshWork(rows, wifiOnly = false)
+                    .map { it.second.workSpec.constraints.requiredNetworkType }
+                    .shouldContainOnly(NetworkType.CONNECTED)
+            }
+
+            test("the constraint comes from the argument, never from the row") {
+                // The regression: rows enqueued while the preference was off carry no record of
+                // that policy, so the only honest source for the new constraint is the argument.
+                // If a future `wifiOnly` column on DownloadEntity ever drives this, it fails here.
+                val enqueuedWhileCellularWasAllowed =
+                    listOf(downloadEntity(audioFileId = "af1"), downloadEntity(audioFileId = "af2"))
+
+                constraintRefreshWork(enqueuedWhileCellularWasAllowed, wifiOnly = true)
+                    .map { it.second.workSpec.constraints.requiredNetworkType }
+                    .shouldContainOnly(NetworkType.UNMETERED)
             }
         }
     })

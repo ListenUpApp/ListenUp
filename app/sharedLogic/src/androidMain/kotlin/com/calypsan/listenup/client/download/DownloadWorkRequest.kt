@@ -58,3 +58,15 @@ internal fun buildDownloadRequest(
         .addTag(bookTag(entity.bookId))
         .addTag(fileCancelTag(entity.audioFileId))
         .build()
+
+/**
+ * The unique-work name / request pairs needed to bring [rows] onto the [wifiOnly] policy.
+ *
+ * The constraint comes from the argument, never from the row: a row carries no record of the
+ * policy it was enqueued under, which is exactly why the preference used to be decorative.
+ */
+internal fun constraintRefreshWork(
+    rows: List<DownloadEntity>,
+    wifiOnly: Boolean,
+): List<Pair<String, OneTimeWorkRequest>> =
+    rows.map { row -> fileWorkName(row.audioFileId) to buildDownloadRequest(row, wifiOnly) }
