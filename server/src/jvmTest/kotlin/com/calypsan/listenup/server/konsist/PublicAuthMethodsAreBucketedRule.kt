@@ -63,11 +63,17 @@ class PublicAuthMethodsAreBucketedRule :
                 checkedMethods.mapNotNull { name ->
                     val override = implementation.functions().firstOrNull { it.name == name }
                     when {
-                        override == null -> "$name has no override in AuthServiceImpl"
-                        !stripComments(override.text).contains("enforceRate(") ->
-                            "$name does not call enforceRate(...) — bucket it, or add it to `exempt` with a reason"
+                        override == null -> {
+                            "$name has no override in AuthServiceImpl"
+                        }
 
-                        else -> null
+                        !stripComments(override.text).contains("enforceRate(") -> {
+                            "$name does not call enforceRate(...) — bucket it, or add it to `exempt` with a reason"
+                        }
+
+                        else -> {
+                            null
+                        }
                     }
                 }
 
