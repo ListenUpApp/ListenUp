@@ -1,17 +1,11 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
 
-// The Kotlin compiler is the only thing KGP still owns: it emits ES modules here and stops.
-// Vite takes over from this directory for dev server, bundling and tests.
-//
-// Development vs production executable is a Kotlin-side distinction (DCE + minification), not
-// a Vite one — point at whichever KGP last synced. `KOTLIN_OUT` lets CI pin the production
-// tree explicitly.
-const kotlinOut = resolve(
-  __dirname,
-  process.env.KOTLIN_OUT ??
-    '../build/compileSync/js/main/developmentExecutable/kotlin',
-)
+// The Kotlin compiler is the only thing KGP still owns: it emits ES modules and stops. Which
+// variant those are — development or production, i.e. with DCE and minification or without —
+// is a Kotlin-side choice made by `scripts/sync-kotlin.mjs`, which copies the chosen tree into
+// `web/kotlin`. Vite takes over from there for dev server, bundling and tests, and the pages
+// load the synced modules by path.
 
 // OPFS needs SharedArrayBuffer, which the browser exposes only under cross-origin isolation,
 // which requires these two headers. This replaces BOTH webpack.config.d/coop-coep.js and
@@ -35,7 +29,6 @@ const apiTarget = process.env.LU_SERVER_URL ?? 'http://localhost:8080'
 export default defineConfig({
   resolve: {
     alias: {
-      '@kotlin': kotlinOut,
       // worker/worker.js sits OUTSIDE this project root, so Node resolution walks up from
       // app/webApp/worker/ and never reaches web/node_modules — its bare import of
       // @sqlite.org/sqlite-wasm fails. Webpack papered over this by having the worker

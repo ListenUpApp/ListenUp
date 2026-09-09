@@ -20,17 +20,29 @@ const here = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(here, '..')
 const webAppRoot = resolve(webRoot, '..')
 
+// Which Kotlin output each variant means. `main-prod` is the one `pnpm build` uses:
+// developmentExecutable skips DCE and minification entirely, so shipping it means shipping
+// every unreachable declaration in the graph.
+const VARIANTS = {
+  main: ['build/compileSync/js/main/developmentExecutable/kotlin', 'jsDevelopmentExecutableCompileSync'],
+  'main-prod': ['build/compileSync/js/main/productionExecutable/kotlin', 'jsProductionExecutableCompileSync'],
+  test: ['build/compileSync/js/test/testDevelopmentExecutable/kotlin', 'jsTestTestDevelopmentExecutableCompileSync'],
+}
+
 const variant = process.argv[2] ?? 'test'
-const source =
-  variant === 'main'
-    ? resolve(webAppRoot, 'build/compileSync/js/main/developmentExecutable/kotlin')
-    : resolve(webAppRoot, 'build/compileSync/js/test/testDevelopmentExecutable/kotlin')
+const entry = VARIANTS[variant]
+if (!entry) {
+  console.error(`Unknown variant "${variant}". Expected one of: ${Object.keys(VARIANTS).join(', ')}`)
+  process.exit(1)
+}
+const [relativeSource, gradleTask] = entry
+const source = resolve(webAppRoot, relativeSource)
 
 if (!existsSync(source)) {
   console.error(
     `No Kotlin output at ${source}\n` +
-      `Run the matching Gradle compile first, e.g.\n` +
-      `  ./gradlew :app:webApp:jsTestTestDevelopmentExecutableCompileSync`,
+      `Run the matching Gradle compile first:\n` +
+      `  ./gradlew :app:webApp:${gradleTask}`,
   )
   process.exit(1)
 }

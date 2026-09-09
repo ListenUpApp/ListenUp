@@ -5,8 +5,10 @@
   "scripts": {
     "sync": "node scripts/sync-kotlin.mjs",
     "dev": "node scripts/sync-kotlin.mjs main && vite",
-    "build": "node scripts/sync-kotlin.mjs main && vite build",
+    "build": "node scripts/sync-kotlin.mjs main-prod && vite build",
+    "build:check": "pnpm build && node test/prod-boot.mjs",
     "preview": "vite preview",
+    "test:prod": "node scripts/sync-kotlin.mjs test && LU_TEST_PAGE=1 vite build && node test/run-kotest.mjs preview",
     "test:harness": "node --test \"test/*.test.mjs\"",
     "test": "pnpm test:harness && node scripts/sync-kotlin.mjs test && node test/run-kotest.mjs",
     "test:auth": "pnpm test:harness && node scripts/sync-kotlin.mjs test && KOTEST_MIN_TESTS=217 node scripts/with-server.mjs node test/run-kotest.mjs"
