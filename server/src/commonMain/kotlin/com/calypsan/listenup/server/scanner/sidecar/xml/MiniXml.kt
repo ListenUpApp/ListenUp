@@ -7,6 +7,12 @@ package com.calypsan.listenup.server.scanner.sidecar.xml
  * text, attributes (both quote styles), CDATA, predefined + numeric char entities. It is XXE-safe
  * by construction: DOCTYPE declarations are skipped wholesale and entities are never expanded
  * beyond the five predefined names and numeric character references. Malformed structure throws.
+ *
+ * Nesting is bounded at 100 levels. The reader descends once per level, and its callers catch
+ * `Exception` — which does not catch a `StackOverflowError`. Refusing at a fixed depth keeps an
+ * over-nested sidecar an ordinary parse failure those callers already log and skip, instead of an
+ * Error that ends the scan on the JVM and the process on the native binary. Real `.opf`/`.nfo`
+ * files nest a handful of levels.
  */
 internal fun parseXml(input: String): XmlElement {
     val reader = MiniXmlReader(input)
@@ -21,6 +27,9 @@ private class MiniXmlReader(
     private val s: String,
 ) {
     private var pos = 0
+
+    /** Elements currently open above the cursor. Bounded by [MAX_DEPTH]; see the file KDoc. */
+    private var depth = 0
 
     /** Skips inter-element "misc": whitespace, `<?xml … ?>`, `<!-- … -->`, and `<!DOCTYPE … >`. */
     fun skipMisc() {
@@ -38,17 +47,24 @@ private class MiniXmlReader(
 
     /** Parses one element at the cursor (which must sit on its opening `<`). */
     fun parseElement(): XmlElement {
-        expect('<')
-        val tag = readName()
-        val attributes = readAttributes()
-        if (peek() == '/') {
-            pos++
+        if (depth >= MAX_DEPTH) error("XML nesting exceeds $MAX_DEPTH levels")
+        depth++
+        try {
+            expect('<')
+            val tag = readName()
+            val attributes = readAttributes()
+            if (peek() == '/') {
+                pos++
+                expect('>')
+                return XmlElement(tag, attributes, emptyList())
+            }
             expect('>')
-            return XmlElement(tag, attributes, emptyList())
+            val children = readChildren(tag)
+            return XmlElement(tag, attributes, children)
+        } finally {
+            // Restored on the throwing path too, so a caught-and-retried parse starts level again.
+            depth--
         }
-        expect('>')
-        val children = readChildren(tag)
-        return XmlElement(tag, attributes, children)
     }
 
     /** Reads children until the matching `</tag>`, which it consumes. */
@@ -166,6 +182,13 @@ private class MiniXmlReader(
         const val NUL = '\u0000'
 
         fun isNameChar(c: Char): Boolean = c.isLetterOrDigit() || c == '_' || c == '-' || c == '.' || c == ':'
+
+        /**
+         * Deepest element nesting this reader will descend into. Real `.opf`/`.nfo` sidecars nest
+         * a handful of levels, so 100 leaves an order of magnitude of headroom while staying far
+         * below the depth at which per-level recursion threatens the stack.
+         */
+        const val MAX_DEPTH = 100
     }
 }
 
