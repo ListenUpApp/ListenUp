@@ -42,10 +42,7 @@ object LocalizationGenerator {
     ) {
         for ((key, value) in obj) {
             val path = if (prefix.isEmpty()) key else "$prefix.$key"
-            when (value) {
-                is JsonObject -> flatten(value, path, out)
-                else -> out[path] = value.jsonPrimitive.content
-            }
+            if (value is JsonObject) flatten(value, path, out) else out[path] = value.jsonPrimitive.content
         }
     }
 

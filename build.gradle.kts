@@ -117,9 +117,13 @@ detekt {
         "$rootDir/contract/src/commonTest/kotlin",
         "$rootDir/contract/src/jvmTest/kotlin",
         "$rootDir/app/baselineprofile/src/main/kotlin",
-        // NOT yet listed: tools/build-logic/**. It has ~20 issues, most in SwiftExportSourcePatcher,
-        // which #1398 is rewriting — linting it here would collide with that branch. Add the four
-        // build-logic source dirs once #1398 lands and fix what remains in the same change.
+        // tools/build-logic is an included build, so its own `detekt` task never runs from here;
+        // listing its four source dirs is the only way the convention plugins and the custom
+        // detekt rules get the same rules as the code they gate.
+        "$rootDir/tools/build-logic/convention/src/main/kotlin",
+        "$rootDir/tools/build-logic/convention/src/test/kotlin",
+        "$rootDir/tools/build-logic/detekt-rules/src/main/kotlin",
+        "$rootDir/tools/build-logic/detekt-rules/src/test/kotlin",
     )
 }
 

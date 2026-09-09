@@ -16,9 +16,12 @@ plugins {
     id("org.jetbrains.kotlin.multiplatform")
 }
 
+// The JDK every module compiles with; pinned so a newer local or daemon JDK can't shift validation.
+val pinnedJdk = 21
+
 kotlin {
     // Pin compilation to JDK 21 so a newer local/daemon JDK can't shift validation.
-    jvmToolchain(21)
+    jvmToolchain(pinnedJdk)
 
     compilerOptions {
         freeCompilerArgs.addAll(LISTENUP_FREE_COMPILER_ARGS)

@@ -88,10 +88,10 @@ class VerifyLocalParityTest {
         val quoted =
             Regex("dependsOn\\(([^)]*)\\)")
                 .findAll(block)
-                .flatMap { Regex("\"([^\"]+)\"").findAll(it.groupValues[1]) }
+                .flatMap { Regex(""""([^"]+)"""").findAll(it.groupValues[1]) }
                 .map { it.groupValues[1] }
         val composite =
-            Regex("includedBuild\\(\"([^\"]+)\"\\)\\s*\\.task\\(\"([^\"]+)\"\\)")
+            Regex("""includedBuild\("([^"]+)"\)\s*\.task\("([^"]+)"\)""")
                 .findAll(block)
                 .map { ":${it.groupValues[1]}${it.groupValues[2]}" }
         return (quoted + composite).toSet()
