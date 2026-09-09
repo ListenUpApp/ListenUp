@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web
 
+import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.diagnostics.BrowserStoreEnvironment
+import com.calypsan.listenup.client.diagnostics.checkBrowserStoreEnvironment
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
@@ -9,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
@@ -44,6 +48,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.Koin
@@ -63,6 +69,16 @@ import org.w3c.dom.Worker
  */
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
+
+    // Probe first, boot second. Every precondition below is checked without touching the
+    // store, so a browser that can host the database is unaffected — and one that cannot
+    // gets the sentence naming the broken link instead of a spinner over a worker whose
+    // init already rejected.
+    val environment = checkBrowserStoreEnvironment()
+    if (environment is BrowserStoreEnvironment.Unavailable) {
+        renderComposable(root = mount) { WebAppSurface { StoreUnavailable(environment.reason) } }
+        return
+    }
 
     // The worker is the one thing :app:sharedLogic cannot supply — it ships no worker script —
     // so it is the browser application's contribution to an otherwise shared graph.
@@ -187,6 +203,18 @@ private suspend fun seedServerUrlIfNeeded(koin: Koin) {
     } catch (e: Exception) {
         console.warn("Failed to seed server URL from page origin: ${e.message}")
     }
+}
+
+/**
+ * What a browser that cannot host the local database sees instead of the app.
+ *
+ * The reason comes from [checkBrowserStoreEnvironment], which names the first broken link
+ * in the OPFS precondition chain — an operator can act on "the server must send COOP/COEP"
+ * and cannot act on a spinner.
+ */
+@Composable
+internal fun StoreUnavailable(reason: String) {
+    Div(attrs = { classes("auth-boot") }) { Text(reason) }
 }
 
 private const val MOUNT_ID = "app"
