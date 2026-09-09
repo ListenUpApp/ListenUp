@@ -270,6 +270,14 @@ class NowPlayingViewModel internal constructor(
         )
 
     init {
+        // The sleep timer is a request about the CURRENT book's chapters. Tell it when the book
+        // changes so a timer armed on one book cannot fire on the next one's first boundary.
+        // No distinctUntilChanged: currentBookId is a StateFlow, which already conflates equal
+        // consecutive values, and onBookChanged ignores a repeat of the book it already holds.
+        viewModelScope.launch {
+            playbackManager.currentBookId.collect { bookId -> sleepTimerManager.onBookChanged(bookId?.value) }
+        }
+
         // Side effect: notify SleepTimerManager when the chapter index changes
         // (drives end-of-chapter sleep timer). Distinct-by-index dedupes within the
         // flow rather than via a private var.

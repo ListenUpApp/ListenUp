@@ -112,4 +112,43 @@ class SleepTimerManagerTest :
                 }
             }
         }
+
+        test("an end-of-chapter timer set on one book does not fire on the next book's first boundary") {
+            runTest {
+                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+                manager.sleepEvent.test {
+                    manager.onBookChanged("book-a")
+                    manager.onChapterChanged(4)
+                    manager.setTimer(SleepTimerMode.EndOfChapter)
+
+                    // The listener starts a different book. The timer belonged to book A.
+                    manager.onBookChanged("book-b")
+                    manager.onChapterChanged(0)
+                    manager.onChapterChanged(1)
+                    runCurrent()
+
+                    expectNoEvents()
+                    manager.state.value shouldBe SleepTimerState.Inactive
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("re-reporting the same book does not disturb a running timer") {
+            runTest {
+                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+                manager.sleepEvent.test {
+                    manager.onBookChanged("book-a")
+                    manager.onChapterChanged(4)
+                    manager.setTimer(SleepTimerMode.EndOfChapter)
+                    manager.onBookChanged("book-a") // same book, e.g. a re-emit on resubscribe
+                    manager.onChapterChanged(5)
+                    runCurrent()
+
+                    awaitItem()
+                    manager.state.value shouldBe SleepTimerState.FadingOut
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })

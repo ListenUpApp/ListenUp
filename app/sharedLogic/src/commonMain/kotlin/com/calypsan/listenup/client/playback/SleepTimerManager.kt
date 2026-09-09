@@ -56,8 +56,14 @@ class SleepTimerManager(
      * one is needed, so the next boundary is spent re-learning it and end-of-chapter fires a whole
      * chapter late: the listener asks to stop at the end of chapter 5 and wakes up in chapter 7.
      * That is the one failure this mode cannot have, because they are asleep when it happens.
+     *
+     * It IS reset on a book change ([onBookChanged]) — the baseline is where the listener is *in
+     * this book*, and it means nothing in the next one.
      */
     private var lastKnownChapterIndex: Int = -1
+
+    // The book the running timer belongs to. See [onBookChanged].
+    private var currentBookId: String? = null
 
     companion object {
         private const val TICK_INTERVAL_MS = 1000L
@@ -109,6 +115,20 @@ class SleepTimerManager(
                     totalMs = newTotal,
                 )
         }
+    }
+
+    /**
+     * Tell the timer which book the listener is on. A change of book cancels any running timer
+     * and clears the end-of-chapter baseline: a timer is a request about *this* book's chapters,
+     * and carrying it (or its baseline) into the next book fires the fade at a boundary nobody
+     * asked for — while the listener is asleep and cannot correct it. Re-reporting the same book
+     * is a no-op, so a re-emitting upstream flow never cancels a live timer.
+     */
+    fun onBookChanged(bookId: String?) {
+        if (bookId == currentBookId) return
+        currentBookId = bookId
+        lastKnownChapterIndex = -1
+        cancelTimer()
     }
 
     /**
