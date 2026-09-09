@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 private val logger = KotlinLogging.logger {}
 
@@ -293,6 +292,12 @@ internal class PlaybackManagerImpl(
                 )
             }
 
+        // Cancel the PREVIOUS session's observation job BEFORE loading. `load()` resets the
+        // player's reported position (the web media element zeroes it synchronously), and a
+        // still-live collector from the prior session would read that zero as this instant's
+        // progress and persist it as the newest truth.
+        playerObservationJob?.cancel()
+
         // Load segments into player
         player.load(segments)
 
@@ -318,8 +323,8 @@ internal class PlaybackManagerImpl(
 
         // Bridge player state and position back to PlaybackManager.
         // Both child launches are parented to playerObservationJob so a single
-        // cancel() in clearPlayback stops both collectors together.
-        playerObservationJob?.cancel()
+        // cancel() in clearPlayback stops both collectors together. (The previous
+        // job was already cancelled above, before player.load.)
         playerObservationJob =
             scope.launch {
                 launch {
@@ -337,14 +342,23 @@ internal class PlaybackManagerImpl(
                     var lastPersistedPositionMs = resumePositionMs
                     player.positionMs.collect { position ->
                         updatePosition(position)
-                        if (persistTransitionsViaReporter &&
+                        val advancedMs = position - lastPersistedPositionMs
+                        if (advancedMs < 0) {
+                            // A backwards move is a seek — or a player reset: `load()` sets positionMs to 0
+                            // synchronously on the web element. Neither is "the newest truth about where the
+                            // listener is", so re-baseline and let the next POSITION_PERSIST_INTERVAL_MS of
+                            // forward playback record the new position honestly. A pause in the meantime
+                            // persists it anyway via [setPlaybackState].
+                            lastPersistedPositionMs = position
+                        } else if (persistTransitionsViaReporter &&
                             isPlaying.value &&
-                            abs(position - lastPersistedPositionMs) >= POSITION_PERSIST_INTERVAL_MS
+                            // Second defence behind the cancel-before-load above: never file this
+                            // session's position under whatever book happens to be active now.
+                            currentBookId.value == bookId &&
+                            advancedMs >= POSITION_PERSIST_INTERVAL_MS
                         ) {
                             lastPersistedPositionMs = position
-                            currentBookId.value?.let { activeBookId ->
-                                reporter.onPositionUpdate(activeBookId, position, playbackSpeed.value)
-                            }
+                            reporter.onPositionUpdate(bookId, position, playbackSpeed.value)
                         }
                     }
                 }
