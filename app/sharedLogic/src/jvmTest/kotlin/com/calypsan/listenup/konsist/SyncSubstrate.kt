@@ -44,9 +44,6 @@ data class SyncableRepositoryFacts(
     val overridesIdAsString: Boolean,
 )
 
-/** Strips a generic argument list: `SqlSyncableRepository<Shelf, ShelfId>` → `SqlSyncableRepository`. */
-private fun String.bareTypeName(): String = substringBefore('<')
-
 /**
  * The root table's queries wrapper is whatever the `substrate` property adapts — by definition.
  * Reading it from the `substrate` declaration specifically (rather than the first `db.*Queries`

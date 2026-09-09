@@ -31,3 +31,20 @@ internal fun assertScopeNotEmpty(
         declarations.size shouldBeGreaterThanOrEqual expectedMin
     }
 }
+
+/**
+ * Strips a generic argument list from a type name: `SyncDomainHandler<T>` → `SyncDomainHandler`.
+ *
+ * **Always compare a Konsist parent name through this.** `KoParentDeclaration.name` carries the
+ * type arguments as written, so `p.name == "SomeInterface"` silently matches nothing the moment
+ * that supertype is generic — the filter compiles, the rule runs, and it polices an empty set.
+ *
+ * That is not a hypothetical. [SyncDomainHandlersSelfRegisterRule] and
+ * [SyncDomainHandlersUseAppResultRule] both compared against the bare `"SyncDomainHandler"` while
+ * the real parent name was `"SyncDomainHandler<T>"`, so both reported green over a population of
+ * zero until 2026-09-09. The two rules that got it right —
+ * [OnlyComposedHandlerImplementsSyncDomainHandlerRule] and [syncableRepositories] — each carried
+ * their own private copy of this one-liner, which is why the fix never propagated to the two that
+ * did not. One canonical helper, so the next generic supertype cannot reopen the hole.
+ */
+internal fun String.bareTypeName(): String = substringBefore('<')

@@ -15,10 +15,22 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class SyncDomainHandlersSelfRegisterRule :
     FunSpec({
         test("SyncDomainHandler impls call registry.register(this) in their init block") {
-            val offenders =
+            val handlers =
                 productionScope()
                     .classes()
-                    .filter { it.parents().any { p -> p.name == "SyncDomainHandler" } }
+                    .filter { it.parents().any { p -> p.name.bareTypeName() == "SyncDomainHandler" } }
+
+            assertScopeNotEmpty(
+                handlers,
+                expectedMin = 1,
+                why =
+                    "SyncDomainHandler implementations. Exactly one exists by design " +
+                        "(ComposedSyncDomainHandler), which OnlyComposedHandlerImplementsSyncDomainHandlerRule " +
+                        "is what enforces — so 1 is the honest population, not a placeholder.",
+            )
+
+            val offenders =
+                handlers
                     .filterNot { cls ->
                         val stripped = stripComments(cls.text)
                         stripped.contains("register(this)")
