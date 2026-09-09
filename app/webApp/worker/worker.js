@@ -12,6 +12,8 @@
 //      counters start at 0, so the first database and the first statement were
 //      never closed.
 //   2. `close` replies on success, not only on failure.
+//   3. No per-message logging — it printed every prepared statement's SQL and
+//      every step's bindings to the production console.
 // Sunset: replace with official packaging if/when androidx ships the worker.
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -144,7 +146,6 @@ const commandMap = {
 
 function handleMessage(e) {
     const requestMsg = e.data;
-    console.log("handleMessage: " + JSON.stringify(requestMsg));
     if (!Object.hasOwn(requestMsg, 'data') && requestMsg.data == null) {
         postMessage(
             {'id': requestMsg.id, 'error': "Invalid request, missing 'data'."}
