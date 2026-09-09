@@ -1,7 +1,12 @@
 package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.web.features.admin.BackupsPage
 import com.calypsan.listenup.web.features.admin.CategoriesPage
+import com.calypsan.listenup.web.features.admin.RestorePage
+import com.calypsan.listenup.web.features.admin.backup
+import com.calypsan.listenup.web.features.admin.readyBackups
+import com.calypsan.listenup.web.features.admin.restoreResult
 import com.calypsan.listenup.web.features.admin.CollectionDetailPage
 import com.calypsan.listenup.web.features.admin.CollectionsPage
 import com.calypsan.listenup.web.features.admin.collection
@@ -18,7 +23,11 @@ import com.calypsan.listenup.web.features.admin.AdminPage
 import com.calypsan.listenup.web.features.admin.inboxBook
 import com.calypsan.listenup.web.features.admin.readyInbox
 import com.calypsan.listenup.web.features.admin.scanIssue
+import com.calypsan.listenup.api.dto.backup.BackupEvent
+import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
+import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
+import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
@@ -444,6 +453,7 @@ class ClassContractTest :
                         serverSettingsShapes().forEach { it() }
                         categoryShapes().forEach { it() }
                         collectionShapes().forEach { it() }
+                        backupShapes().forEach { it() }
                         profileShapes().forEach { it() }
                         editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
@@ -997,6 +1007,35 @@ private fun collectionShapes(): List<@Composable () -> Unit> {
         detail(readyDetail(isSystem = true, books = emptyList())),
         detail(AdminCollectionDetailUiState.Error("nope")),
         detail(AdminCollectionDetailUiState.Loading),
+    )
+}
+
+private fun backupShapes(): List<@Composable () -> Unit> {
+    fun list(
+        state: AdminBackupUiState,
+        uploadState: RestoreFromFileUiState = RestoreFromFileUiState.Idle,
+    ): @Composable () -> Unit =
+        {
+            BackupsPage(state, uploadState, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    fun restore(
+        state: RestoreBackupUiState,
+        progress: BackupEvent? = null,
+    ): @Composable () -> Unit = { RestorePage(state, progress, {}, {}, {}, {}) }
+
+    return listOf(
+        // A list wearing its error, with a row to draw the row classes.
+        list(readyBackups(error = InternalError(debugInfo = "boom"))),
+        list(readyBackups(backups = emptyList())),
+        list(AdminBackupUiState.Error(InternalError(debugInfo = "boom"))),
+        list(AdminBackupUiState.Loading),
+        // Idle wearing a prior failure — `.rst-err` renders nowhere else.
+        restore(RestoreBackupUiState.Idle(error = InternalError(debugInfo = "boom"))),
+        restore(RestoreBackupUiState.Confirming),
+        restore(RestoreBackupUiState.Restoring, progress = BackupEvent.Swapping),
+        // Migrated, so `.rst-schema` renders.
+        restore(RestoreBackupUiState.Completed(restoreResult(from = "6", to = "7"))),
     )
 }
 

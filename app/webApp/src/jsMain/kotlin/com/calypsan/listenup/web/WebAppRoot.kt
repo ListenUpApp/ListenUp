@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -79,7 +80,18 @@ import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.web.BrowserFileSource
+import com.calypsan.listenup.web.BufferingSink
+import com.calypsan.listenup.web.features.admin.BackupsPage
 import com.calypsan.listenup.web.features.admin.CategoriesPage
+import com.calypsan.listenup.web.features.admin.OpenBackups
+import com.calypsan.listenup.web.features.admin.OpenRestore
+import com.calypsan.listenup.web.features.admin.RestorePage
+import com.calypsan.listenup.web.features.admin.formatWhen
+import com.calypsan.listenup.web.readByteArray
+import com.calypsan.listenup.web.saveToDisk
 import com.calypsan.listenup.web.features.admin.CollectionDetailPage
 import com.calypsan.listenup.web.features.admin.CollectionsPage
 import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
@@ -100,6 +112,7 @@ import com.calypsan.listenup.web.motion.isPageChange
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
@@ -155,6 +168,8 @@ fun WebAppRoot(
     openCategories: OpenCategories,
     openCollections: OpenCollections,
     openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -251,6 +266,8 @@ fun WebAppRoot(
             openCategories = openCategories,
             openCollections = openCollections,
             openCollectionDetail = openCollectionDetail,
+            openBackups = openBackups,
+            openRestore = openRestore,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -334,6 +351,8 @@ private fun RouteContent(
     openCategories: OpenCategories,
     openCollections: OpenCollections,
     openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -449,6 +468,8 @@ private fun RouteContent(
             openCategories = openCategories,
             openCollections = openCollections,
             openCollectionDetail = openCollectionDetail,
+            openBackups = openBackups,
+            openRestore = openRestore,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -1167,6 +1188,97 @@ private fun EditProfileRoute(
 }
 
 /**
+ * `/admin/backups` — take one, take one away, take one off the server, or put one back.
+ *
+ * ⛔ **This route is where the browser's two file seams live**, and neither belongs in the page.
+ * A download writes into a [BufferingSink] and reaches the browser only when the ViewModel says the
+ * transfer succeeded — the ViewModel closes the sink in a `finally`, before it knows, so saving on
+ * close would deliver a truncated archive named as though it were whole. An upload reads the picked
+ * file once and wraps it as the shared `FileSource` the repository speaks.
+ */
+@Composable
+private fun BackupsRoute(
+    router: Router,
+    openBackups: OpenBackups,
+) {
+    val session = remember { openBackups() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val scope = rememberCoroutineScope()
+
+    // The sink and the name it will be saved under, held between starting a download and hearing
+    // that it finished. Null whenever no download is in flight.
+    var pending by remember { mutableStateOf<Pair<String, BufferingSink>?>(null) }
+
+    LaunchedEffect(session) {
+        session.downloadSaved.collect {
+            pending?.let { (filename, sink) -> saveToDisk(filename, sink.bytes()) }
+            pending = null
+        }
+    }
+    LaunchedEffect(session) {
+        session.uploaded.collect { backupId ->
+            router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY, backupId.value)))
+        }
+    }
+
+    BackupsPage(
+        state = session.state.collectAsState().value,
+        uploadState = session.uploadState.collectAsState().value,
+        onCreate = session.onCreate,
+        onDownload = { backup ->
+            val sink = BufferingSink()
+            pending = backupFilename(backup.createdAt) to sink
+            session.onDownload(BackupId(backup.id), sink)
+        },
+        onAskDelete = session.onAskDelete,
+        onDismissDelete = session.onDismissDelete,
+        onDelete = session.onDelete,
+        onPickFile = { file ->
+            scope.launch {
+                // A read failure is a browser-local dead end: it logs and drops the pick, and the
+                // screen is untouched so the reader can simply pick again.
+                val bytes = file.readByteArray() ?: return@launch
+                session.onPickFile(BrowserFileSource(file, bytes))
+            }
+        },
+        onResetUpload = session.onResetUpload,
+        onClearError = session.onClearError,
+        onRetry = session.onRetry,
+        onRestore = { backup -> router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY, backup.id))) },
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/** What a downloaded archive is called on the reader's machine. */
+private fun backupFilename(createdAt: Timestamp): String =
+    "listenup-" + formatWhen(createdAt).replace(Regex("[^0-9A-Za-z]+"), "-").trim('-') + ".listenup.zip"
+
+/**
+ * `/admin/backups/{id}` — the restore confirmation and the narration.
+ *
+ * Keyed on [backupId] for the same reason a collection's detail is: `RestoreBackupViewModel` takes
+ * the id as a constructor parameter, so a session cannot be repointed.
+ */
+@Composable
+private fun RestoreRoute(
+    router: Router,
+    openRestore: OpenRestore,
+    backupId: String,
+) {
+    val session = remember(backupId) { openRestore(backupId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    RestorePage(
+        state = session.state.collectAsState().value,
+        progress = session.progress.collectAsState().value,
+        onRequest = session.onRequest,
+        onCancel = session.onCancel,
+        onConfirm = session.onConfirm,
+        onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
+    )
+}
+
+/**
  * `/admin/collections` — the groups an admin curates.
  */
 @Composable
@@ -1527,6 +1639,9 @@ private val PRIMARY_NAV =
 
 private const val ADMIN_KEY = "admin"
 
+/** The path segment that opens the archives — `/admin/backups`. */
+private const val BACKUPS_KEY = "backups"
+
 /** The path segment that opens the curated groups — `/admin/collections`. */
 private const val COLLECTIONS_KEY = "collections"
 
@@ -1757,6 +1872,7 @@ private fun AdminRoute(
     onOpenServerSettings: () -> Unit,
     onOpenCategories: () -> Unit,
     onOpenCollections: () -> Unit,
+    onOpenBackups: () -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1779,6 +1895,7 @@ private fun AdminRoute(
         onOpenServerSettings = onOpenServerSettings,
         onOpenCategories = onOpenCategories,
         onOpenCollections = onOpenCollections,
+        onOpenBackups = onOpenBackups,
     )
 }
 
@@ -1793,6 +1910,74 @@ private fun isAccountRoute(
     segments: List<String>,
     active: String,
 ): Boolean = active == SETTINGS_KEY || active == ADMIN_KEY || segments.firstOrNull() == SETTINGS_KEY
+
+/**
+ * Everything under `/admin/…` that is not the Admin page itself.
+ *
+ * Split out of [AccountRouteContent] when the eighth admin surface pushed that function past the
+ * branching the build allows. The line drawn here is the one the URLs already draw: every branch
+ * below used to re-test `segments.firstOrNull() == ADMIN_KEY`, and testing it once in the caller is
+ * what turns eight compound conditions into eight `==`.
+ *
+ * [sub] is the segment after `admin`; [id] the one after that, where a sub-path has one.
+ */
+@Composable
+private fun AdminRouteContent(
+    sub: String,
+    id: String?,
+    router: Router,
+    openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
+) {
+    when (sub) {
+        LIBRARY_KEY -> {
+            LibrarySettingsRoute(router = router, openLibrarySettings = openLibrarySettings)
+        }
+
+        INBOX_KEY -> {
+            AdminInboxRoute(router = router, openAdminInbox = openAdminInbox)
+        }
+
+        SETTINGS_KEY -> {
+            ServerSettingsRoute(router = router, openServerSettings = openServerSettings)
+        }
+
+        CATEGORIES_KEY -> {
+            CategoriesRoute(router = router, openCategories = openCategories)
+        }
+
+        // ⛔ The id case first, in both families below. Without it the bare list matches every URL
+        // beneath it and the detail page becomes unreachable by link.
+        COLLECTIONS_KEY -> {
+            if (id != null) {
+                CollectionDetailRoute(router = router, openCollectionDetail = openCollectionDetail, collectionId = id)
+            } else {
+                CollectionsRoute(router = router, openCollections = openCollections)
+            }
+        }
+
+        BACKUPS_KEY -> {
+            if (id != null) {
+                RestoreRoute(router = router, openRestore = openRestore, backupId = id)
+            } else {
+                BackupsRoute(router = router, openBackups = openBackups)
+            }
+        }
+
+        // An `/admin/*` path nobody routed. The shell's own not-found, not Admin — the same
+        // resolution the `size <= 1` guard reaches for `/admin/nonsense`, stated here as the
+        // absence of a branch rather than as a length test.
+        else -> {
+            PagePlaceholder(ADMIN_KEY)
+        }
+    }
+}
 
 /** The account family: settings, the devices beneath it, and admin. */
 @Composable
@@ -1810,37 +1995,24 @@ private fun AccountRouteContent(
     openCategories: OpenCategories,
     openCollections: OpenCollections,
     openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
 ) {
     when {
-        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == LIBRARY_KEY -> {
-            LibrarySettingsRoute(router = router, openLibrarySettings = openLibrarySettings)
-        }
-
-        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == INBOX_KEY -> {
-            AdminInboxRoute(router = router, openAdminInbox = openAdminInbox)
-        }
-
-        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == SETTINGS_KEY -> {
-            ServerSettingsRoute(router = router, openServerSettings = openServerSettings)
-        }
-
-        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == CATEGORIES_KEY -> {
-            CategoriesRoute(router = router, openCategories = openCategories)
-        }
-
-        // `/admin/collections/{id}` before the bare list, so the id branch is not swallowed.
-        segments.firstOrNull() == ADMIN_KEY &&
-            segments.getOrNull(1) == COLLECTIONS_KEY &&
-            segments.getOrNull(2) != null -> {
-            CollectionDetailRoute(
+        segments.firstOrNull() == ADMIN_KEY && segments.size > 1 -> {
+            AdminRouteContent(
+                sub = segments[1],
+                id = segments.getOrNull(2),
                 router = router,
+                openLibrarySettings = openLibrarySettings,
+                openAdminInbox = openAdminInbox,
+                openServerSettings = openServerSettings,
+                openCategories = openCategories,
+                openCollections = openCollections,
                 openCollectionDetail = openCollectionDetail,
-                collectionId = segments[2],
+                openBackups = openBackups,
+                openRestore = openRestore,
             )
-        }
-
-        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == COLLECTIONS_KEY -> {
-            CollectionsRoute(router = router, openCollections = openCollections)
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
@@ -1861,6 +2033,7 @@ private fun AccountRouteContent(
                 onOpenServerSettings = { router.navigate(Route(listOf(ADMIN_KEY, SETTINGS_KEY))) },
                 onOpenCategories = { router.navigate(Route(listOf(ADMIN_KEY, CATEGORIES_KEY))) },
                 onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
+                onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
             )
         }
 

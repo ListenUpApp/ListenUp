@@ -5,7 +5,9 @@ import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedBackups
 import com.calypsan.listenup.web.features.admin.fixedCollections
+import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
@@ -122,6 +124,8 @@ private fun mountGate(
             openCategories = fixedCategories(),
             openCollections = fixedCollections(),
             openCollectionDetail = fixedCollectionDetail(),
+            openBackups = fixedBackups(),
+            openRestore = fixedRestore(),
             openShelfDetail = fixedShelfDetail(),
             openShelfEdit = fixedShelfEdit(),
             openLibrary = fakeLibrary(),

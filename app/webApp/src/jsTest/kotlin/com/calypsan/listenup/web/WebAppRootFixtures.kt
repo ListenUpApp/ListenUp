@@ -6,12 +6,16 @@ import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.features.admin.OpenAdminInbox
 import com.calypsan.listenup.web.features.admin.OpenCategories
 import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
+import com.calypsan.listenup.web.features.admin.OpenBackups
 import com.calypsan.listenup.web.features.admin.OpenCollections
+import com.calypsan.listenup.web.features.admin.OpenRestore
 import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedBackups
 import com.calypsan.listenup.web.features.admin.fixedCollections
+import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
@@ -120,6 +124,8 @@ internal fun mountAt(
     openCategories: OpenCategories = fixedCategories(),
     openCollections: OpenCollections = fixedCollections(),
     openCollectionDetail: OpenCollectionDetail = fixedCollectionDetail(),
+    openBackups: OpenBackups = fixedBackups(),
+    openRestore: OpenRestore = fixedRestore(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -150,6 +156,8 @@ internal fun mountAt(
                 openCategories = openCategories,
                 openCollections = openCollections,
                 openCollectionDetail = openCollectionDetail,
+                openBackups = openBackups,
+                openRestore = openRestore,
                 openShelfDetail = fixedShelfDetail(),
                 openShelfEdit = fixedShelfEdit(),
                 openLibrary = openLibrary,

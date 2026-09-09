@@ -2,6 +2,7 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
+import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
@@ -10,13 +11,16 @@ import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedBackups
 import com.calypsan.listenup.web.features.admin.fixedCollections
+import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.admin.genre
 import com.calypsan.listenup.web.features.admin.node
 import com.calypsan.listenup.web.features.admin.collection
 import com.calypsan.listenup.web.features.admin.readyCategories
+import com.calypsan.listenup.web.features.admin.readyBackups
 import com.calypsan.listenup.web.features.admin.readyCollections
 import com.calypsan.listenup.web.features.admin.readyDetail
 import com.calypsan.listenup.web.features.admin.readyInbox
@@ -298,6 +302,51 @@ class AccountRoutesTest :
                 awaitFrame()
 
                 window.location.pathname shouldBe "/admin/collections/c7"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/backups renders the list") {
+            val (host, router) =
+                mountAt("/admin/backups", openBackups = fixedBackups(readyBackups()))
+
+            try {
+                host.querySelector(".bkp-row").shouldNotBeNull()
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ Same hazard as the collection detail: without the id branch first, the list swallows
+        // it and the restore page is unreachable by URL.
+        test("/admin/backups/{id} renders the restore page, not the list") {
+            val (host, router) =
+                mountAt(
+                    "/admin/backups/bk7",
+                    openRestore = fixedRestore(RestoreBackupUiState.Idle()),
+                )
+
+            try {
+                host.querySelector(".rst").shouldNotBeNull()
+                host.querySelector(".bkp-list") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Admin offers a way to the backups") {
+            val (host, router) = mountAt("/admin")
+
+            try {
+                host
+                    .querySelectorAll(".adm-link")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Backups" }
+                    .click()
+
+                window.location.pathname shouldBe "/admin/backups"
             } finally {
                 router.dispose()
             }

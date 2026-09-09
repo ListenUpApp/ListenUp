@@ -241,6 +241,8 @@ body { margin: 0; }
 .luw .srv-err-x:active,
 .luw .cat-err-x:active,
 .luw .coll-err-x:active,
+.luw .bkp-err-x:active,
+.luw .bkp-restore:active,
 .luw .coll-new:active,
 .luw .cdet-add:active,
 .luw .cdet-share:active,
@@ -2261,3 +2263,33 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cdet-result, .luw .cdet-person { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
 @media (hover: hover) { .luw .cdet-result:hover, .luw .cdet-person:hover { background: var(--surface-3); } }
 .luw .cdet-result-t, .luw .cdet-person-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- admin backups. Take one, take one away, take one off the server, or put one back. */
+.luw .bkp { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .bkp-back, .luw .rst-back { align-self: flex-start; }
+.luw .bkp-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .bkp-skel { height: 16rem; border-radius: 16px; }
+.luw .bkp-make { display: flex; flex-direction: column; gap: 0.7rem; padding: 16px; border: 1px solid var(--line); border-radius: var(--rad); background: var(--surface); }
+.luw .bkp-hint { margin: 0; font-size: 0.84rem; color: var(--ink-3); line-height: 1.5; }
+.luw .bkp-make-acts { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.luw .bkp-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .bkp-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .bkp-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.luw .bkp-when { font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.luw .bkp-size { font-size: 0.79rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .bkp-act { flex: none; }
+.luw .bkp-restore { flex: none; padding: 4px 11px; font-size: 0.78rem; }
+.luw .bkp-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .bkp-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .bkp-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .bkp-err-x:hover { background: var(--surface-3); } }
+
+/* ---- restore. Narrow and quiet: the most destructive page in the app should not look busy. */
+.luw .rst { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .rst-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .rst-body { margin: 0; font-size: 0.95rem; color: var(--ink-2); line-height: 1.6; }
+.luw .rst-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .rst-schema { margin: 0; font-size: 0.82rem; color: var(--ink-3); }
+.luw .rst-live { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .rst-bar { height: 6px; border-radius: 999px; }
+.luw .rst-phase { margin: 0; font-size: 0.92rem; font-weight: 650; color: var(--ink); }

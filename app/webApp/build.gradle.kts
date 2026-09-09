@@ -77,6 +77,13 @@ kotlin {
             // "Can't resolve 'hls.js'". The version is pinned exactly rather than caret-ranged so
             // the two trees cannot drift onto different builds of the decoder.
             implementation(npm("hls.js", "1.7.1"))
+            // Same reason as koin-core and the lifecycle artifact above. Backups are the one
+            // feature whose shared seams are IO types rather than domain types: the web module
+            // implements `FileSource` (ktor's ByteReadChannel) for an upload and a `RawSink`
+            // (kotlinx.io) for a download, so both have to be on this module's own classpath —
+            // :app:sharedLogic keeps them `implementation` and they don't arrive transitively.
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.ktor.io)
         }
         jsTest.dependencies {
             implementation(libs.kotest.framework.engine)
