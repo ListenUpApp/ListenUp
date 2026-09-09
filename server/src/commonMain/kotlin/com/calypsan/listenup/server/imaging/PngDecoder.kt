@@ -110,9 +110,11 @@ private fun inflateAndUnfilter(
         val stride = header.width.toLong() * header.channels
         val rawSize = header.height.toLong() * (FILTER_BYTE + stride)
         if (rawSize > MAX_RAW_IMAGE_BYTES) return null
+        // The raster the header declares is the exact inflate budget: a stream that wants to produce
+        // more is not this image, and it declines here instead of being buffered.
         val raw =
             compressed
-                .inflated()
+                .inflated(maxOutputBytes = rawSize)
                 .buffered()
                 .readByteArray(rawSize.toInt())
 

@@ -1,8 +1,12 @@
 package com.calypsan.listenup.server.imaging
 
+import com.calypsan.listenup.server.compression.deflated
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import kotlinx.io.Buffer
+import kotlinx.io.buffered
+import kotlinx.io.readByteArray
 
 /**
  * The ceiling on what a header can ask for.
@@ -37,6 +41,15 @@ class ImageDimensionLimitTest :
             parseJpegSegments(jpegHeaderOnly(AT_CAP_WIDTH, height + 1)).shouldBeNull()
         }
 
+        // The header is within the cap, so the pixel check passes; the IDAT is the attacker's second
+        // lever. Its stream inflates to thousands of times the 18-byte raster a 2×2 image needs, and
+        // the decoder must stop at what the header promised rather than buffer whatever arrives.
+        test("a PNG whose IDAT inflates past the raster its header declares declines rather than throwing") {
+            val idat = zlibStreamOfZeros(OVER_DECLARED_IDAT_BYTES)
+
+            decodePng(pngOf(2, 2, idat)).shouldBeNull()
+        }
+
         // The regression guard: the cap must never bite a legitimate cover. The env-gated
         // JpegCorpusTest is the real check over a library; this is the hermetic stand-in.
         test("a legitimate cover still decodes") {
@@ -47,8 +60,26 @@ class ImageDimensionLimitTest :
         }
     })
 
+/**
+ * A zlib stream — the two-byte header PNG requires, then our own raw DEFLATE — of [count] zero bytes.
+ * Zeros are also valid PNG rows (filter type None), so the only thing wrong with the result is how
+ * much of it there is.
+ */
+private fun zlibStreamOfZeros(count: Int): ByteArray {
+    val out = Buffer()
+    out.writeByte(ZLIB_CMF)
+    out.writeByte(ZLIB_FLG)
+    out.deflated().buffered().use { it.write(ByteArray(count)) }
+    return out.readByteArray()
+}
+
 /** 1.6 gigapixels: 32× the cap, and past any heap a test worker has, so an allocation cannot pass unnoticed. */
 private const val OVER_CAP_SIDE = 40_000
+private const val OVER_DECLARED_IDAT_BYTES = 64 * 1024
+
+/** zlib header: CM = 8 (deflate), CINFO = 7; FLG chosen so the pair is a multiple of 31. */
+private const val ZLIB_CMF: Byte = 0x78
+private const val ZLIB_FLG: Byte = 0x9C.toByte()
 
 /** Divides the cap exactly, so the at-cap fixture sits on the boundary rather than beside it. */
 private const val AT_CAP_WIDTH = 5_000
