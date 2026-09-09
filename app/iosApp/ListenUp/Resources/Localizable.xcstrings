@@ -6851,6 +6851,16 @@
         }
       }
     },
+    "common.hide_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide password"
+          }
+        }
+      }
+    },
     "common.home": {
       "localizations": {
         "en": {
@@ -7407,6 +7417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "e.g., To Read, Favorites, Mystery..."
+          }
+        }
+      }
+    },
+    "common.show_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show password"
           }
         }
       }

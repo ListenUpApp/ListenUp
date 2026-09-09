@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.presentation.auth.LoginErrorType
@@ -195,6 +196,7 @@ internal fun LoginFields(
         leadingIcon = Icons.Outlined.Lock,
         trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
         onTrailingClick = { passwordVisible = !passwordVisible },
+        trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { submit() }),
@@ -362,6 +364,7 @@ private fun RootResetDialog(
                         supportingText = errorMessage,
                         trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                         onTrailingClick = { passwordVisible = !passwordVisible },
+                        trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
                         visualTransformation =
                             if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions =
