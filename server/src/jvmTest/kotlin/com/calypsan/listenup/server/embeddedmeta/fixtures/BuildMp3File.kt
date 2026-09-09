@@ -63,27 +63,32 @@ internal class Mp3Builder internal constructor() {
     }
 
     /**
-     * Emit N MPEG-1 Layer III audio frames sized to approximate [durationSeconds]
+     * Emit N Layer III audio frames sized to approximate [durationSeconds]
      * at constant [bitrate] bps and [sampleRate] Hz. Each frame is its 4-byte
      * header followed by zeroed payload bytes — the parser only inspects the
      * header bits for bitrate / sample rate / channel mode and counts the
      * frames for duration.
      *
-     * MPEG-1 Layer III: 1152 samples per frame.
+     * Frame geometry follows [version]: MPEG-1 is 1152 samples per frame and
+     * `144 × bitrate ÷ sampleRate` bytes; MPEG-2 and MPEG-2.5 halve both
+     * (576 samples, coefficient 72).
      */
     fun mpegFrames(
         durationSeconds: Int,
         bitrate: Int = 64_000,
         sampleRate: Int = 44_100,
+        version: MpegVersion = MpegVersion.V1,
+        mono: Boolean = false,
     ) {
         require(durationSeconds >= 0) { "durationSeconds must be non-negative" }
-        // Frame size in bytes for MPEG-1 Layer III: floor(144 * bitrate / sampleRate)
-        val frameSize = (144 * bitrate) / sampleRate
+        val frameSize = (version.frameLengthCoefficient * bitrate) / sampleRate
         require(frameSize >= 4) { "computed frame size $frameSize too small for 4-byte header" }
-        val samplesPerFrame = 1152
         val totalSamples = durationSeconds.toLong() * sampleRate
-        val frameCount = (totalSamples / samplesPerFrame).toInt().coerceAtLeast(if (durationSeconds > 0) 1 else 0)
-        val header = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate)
+        val frameCount =
+            (totalSamples / version.samplesPerFrame)
+                .toInt()
+                .coerceAtLeast(if (durationSeconds > 0) 1 else 0)
+        val header = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate, version = version, mono = mono)
         val padding = ByteArray(frameSize - 4)
         repeat(frameCount) {
             out.write(header)
@@ -92,14 +97,14 @@ internal class Mp3Builder internal constructor() {
     }
 
     /**
-     * Emit a single MPEG-1 Layer III stereo frame containing a Xing (VBR) or
-     * Info (CBR-with-TOC) header that declares [frameCount] frames. The
+     * Emit a single Layer III frame containing a Xing (VBR) or Info
+     * (CBR-with-TOC) header that declares [frameCount] frames. The
      * remainder of the file is zeroed byte padding so the CBR formula on the
      * same bytes would produce a different (wrong) answer — thereby proving
      * that the VBR path engaged.
      *
-     * The Xing/Info tag sits at byte offset 36 within the frame
-     * (4-byte frame header + 32-byte MPEG-1 stereo side information).
+     * The Xing/Info tag sits immediately past the frame's side-information
+     * region, whose size depends on [version] and [mono] — see [sideInfoSize].
      *
      * @param tag       "Xing" for a true VBR file, "Info" for CBR-but-has-header.
      * @param frameCount declared frame count embedded in the Xing/Info header.
@@ -110,6 +115,9 @@ internal class Mp3Builder internal constructor() {
      * @param extraPaddingBytes extra zero bytes appended after the frame so
      *                   the CBR formula (file size / bitrate) produces a
      *                   measurably different duration from the VBR formula.
+     * @param version   MPEG audio version to encode in the frame header.
+     * @param mono      true to encode channel mode "mono", which also shrinks
+     *                  the side-information region and moves the Xing tag.
      */
     @Suppress("MagicNumber")
     fun xingVbrFrames(
@@ -118,18 +126,20 @@ internal class Mp3Builder internal constructor() {
         sampleRate: Int = 44_100,
         bitrate: Int = 128_000,
         extraPaddingBytes: Int = 0,
+        version: MpegVersion = MpegVersion.V1,
+        mono: Boolean = false,
     ) {
         require(tag == "Xing" || tag == "Info") { "tag must be 'Xing' or 'Info'" }
         require(frameCount > 0) { "frameCount must be positive" }
-        val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate)
-        val frameSize = (144 * bitrate) / sampleRate
-        require(frameSize >= 4 + 32 + 12) { "frame too small to hold Xing header" }
+        val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate, version = version, mono = mono)
+        val frameSize = (version.frameLengthCoefficient * bitrate) / sampleRate
+        // Xing tag offset = 4 (frame header) + side info, exactly where the decoder looks.
+        val xingOffset = 4 + sideInfoSize(version, mono)
+        require(frameSize >= xingOffset + 12) { "frame too small to hold Xing header" }
 
-        // Build the frame: 4-byte header + 32-byte side info (zeroed) + Xing header + padding.
+        // Build the frame: 4-byte header + side info (zeroed) + Xing header + padding.
         val frame = ByteArray(frameSize)
         frameHeader.copyInto(frame)
-        // Xing/Info tag at offset 36 = 4 (frame header) + 32 (MPEG-1 stereo side info).
-        val xingOffset = 36
         tag.toByteArray(Charsets.ISO_8859_1).copyInto(frame, xingOffset)
         // Flags = 0x0001: frames field present.
         frame[xingOffset + 4] = 0x00
@@ -146,26 +156,31 @@ internal class Mp3Builder internal constructor() {
     }
 
     /**
-     * Emit a single MPEG-1 Layer III stereo frame containing a VBRI header
+     * Emit a single Layer III stereo frame containing a VBRI header
      * (produced by the Fraunhofer encoder) that declares [frameCount] frames.
      *
      * The VBRI tag sits at fixed byte offset 32 from the start of the frame
-     * (4-byte frame header + 28 bytes). VBRI layout within its block:
-     * tag(4) + version(2) + delay(2) + quality(2) + bytes(4) + frames(4).
+     * (4-byte frame header + 28 bytes) — unlike Xing, that offset is fixed by
+     * the Fraunhofer layout rather than derived from the side-information size,
+     * so it does not move with [version] or the channel mode. VBRI layout
+     * within its block: tag(4) + version(2) + delay(2) + quality(2) +
+     * bytes(4) + frames(4).
      *
      * @param frameCount declared frame count.
      * @param sampleRate sample rate to encode in the frame header.
      * @param bitrate    nominal bitrate for the frame header.
+     * @param version    MPEG audio version to encode in the frame header.
      */
     @Suppress("MagicNumber")
     fun vbriVbrFrames(
         frameCount: Int,
         sampleRate: Int = 44_100,
         bitrate: Int = 128_000,
+        version: MpegVersion = MpegVersion.V1,
     ) {
         require(frameCount > 0) { "frameCount must be positive" }
-        val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate)
-        val frameSize = (144 * bitrate) / sampleRate
+        val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate, version = version)
+        val frameSize = (version.frameLengthCoefficient * bitrate) / sampleRate
         require(frameSize >= 32 + 18) { "frame too small to hold VBRI header" }
 
         val frame = ByteArray(frameSize)
@@ -199,20 +214,20 @@ internal class Mp3Builder internal constructor() {
 }
 
 /**
- * Build the 4 bytes of an MPEG-1 Layer III frame header. Bit layout (MSB → LSB,
+ * Build the 4 bytes of a Layer III frame header. Bit layout (MSB → LSB,
  * 32 bits across 4 big-endian bytes):
  *
  * | Bits  | Field           | Value used                                  |
  * |-------|-----------------|---------------------------------------------|
  * | 31..21| Sync (11 bits)  | `0b11111111111` (0xFFE)                     |
- * | 20..19| MPEG version    | `0b11` (MPEG-1)                             |
+ * | 20..19| MPEG version    | [MpegVersion.versionBits]                   |
  * | 18..17| Layer           | `0b01` (Layer III)                          |
  * | 16    | Protection      | `1` (no CRC follows)                        |
- * | 15..12| Bitrate index   | from [BITRATE_TABLE]                        |
- * | 11..10| Sample rate idx | 0=44100, 1=48000, 2=32000                   |
+ * | 15..12| Bitrate index   | from [MpegVersion.bitrateTable]             |
+ * | 11..10| Sample rate idx | from [MpegVersion.sampleRateTable]          |
  * | 9     | Padding         | `0`                                         |
  * | 8     | Private         | `0`                                         |
- * | 7..6  | Channel mode    | `0b00` (stereo)                             |
+ * | 7..6  | Channel mode    | `0b11` when [mono], else `0b00` (stereo)    |
  * | 5..4  | Mode extension  | `0b00`                                      |
  * | 3     | Copyright       | `0`                                         |
  * | 2     | Original        | `0`                                         |
@@ -223,24 +238,28 @@ internal class Mp3Builder internal constructor() {
 internal fun mpegFrameHeader(
     bitrate: Int,
     sampleRate: Int,
+    version: MpegVersion = MpegVersion.V1,
+    mono: Boolean = false,
 ): ByteArray {
     val bitrateIdx =
-        BITRATE_TABLE.indexOf(bitrate / 1000).also {
-            require(it > 0) { "bitrate $bitrate bps not in MPEG-1 Layer III bitrate table" }
+        version.bitrateTable.indexOf(bitrate / 1000).also {
+            require(it > 0) { "bitrate $bitrate bps not in $version Layer III bitrate table" }
         }
     val sampleRateIdx =
-        SAMPLE_RATE_TABLE.indexOf(sampleRate).also {
-            require(it >= 0) { "sampleRate $sampleRate Hz not in MPEG-1 sample-rate table" }
+        version.sampleRateTable.indexOf(sampleRate).also {
+            require(it >= 0) { "sampleRate $sampleRate Hz not in $version sample-rate table" }
         }
     // Build 32-bit header
     var header = 0
     header = header or (0xFFE shl 20) // sync (11 bits) → bits 31..21
-    header = header or (0b11 shl 19) // version MPEG-1 → bits 20..19
+    header = header or (version.versionBits shl 19) // MPEG version → bits 20..19
     header = header or (0b01 shl 17) // layer III     → bits 18..17
     header = header or (1 shl 16) // protection bit (no CRC) → bit 16
     header = header or ((bitrateIdx and 0xF) shl 12)
     header = header or ((sampleRateIdx and 0x3) shl 10)
-    // padding=0, private=0, channel=stereo(0b00), mode-ext=0, copyright=0, original=0, emphasis=0
+    // A frame whose side-info size implies mono must also *say* mono, or it is not a valid file.
+    if (mono) header = header or (0b11 shl 6) // channel mode → bits 7..6
+    // padding=0, private=0, mode-ext=0, copyright=0, original=0, emphasis=0
     return byteArrayOf(
         ((header ushr 24) and 0xFF).toByte(),
         ((header ushr 16) and 0xFF).toByte(),
@@ -249,12 +268,77 @@ internal fun mpegFrameHeader(
     )
 }
 
-/** MPEG-1 Layer III bitrate table in kbps. Index 0 (free) and 15 (reserved) are invalid. */
-internal val BITRATE_TABLE: IntArray =
+/**
+ * Size in bytes of the side-information region that follows the 4-byte frame
+ * header, per ISO/IEC 11172-3 §2.4.3.1 and the table in
+ * [com.calypsan.listenup.server.embeddedmeta.format.mp3.MpegDurationCalculator]'s
+ * KDoc: MPEG-1 stereo 32, MPEG-1 mono 17, MPEG-2/2.5 stereo 17, MPEG-2/2.5 mono 9.
+ * A Xing/Info tag sits immediately past it.
+ */
+@Suppress("MagicNumber")
+internal fun sideInfoSize(
+    version: MpegVersion,
+    mono: Boolean,
+): Int =
+    when {
+        version == MpegVersion.V1 && !mono -> 32
+        version == MpegVersion.V1 -> 17
+        !mono -> 17
+        else -> 9
+    }
+
+/** Layer III bitrate table in kbps, MPEG-1. Index 0 (free) and 15 (reserved) are invalid. */
+internal val BITRATE_TABLE_V1: IntArray =
     intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)
 
-/** MPEG-1 sample-rate table in Hz. Index 3 (reserved) is invalid. */
-internal val SAMPLE_RATE_TABLE: IntArray = intArrayOf(44_100, 48_000, 32_000, 0)
+/**
+ * Layer III bitrate table in kbps, MPEG-2 (LSF) and MPEG-2.5 — the "low sampling
+ * frequency" set. Index 0 (free) and 15 (reserved) are invalid.
+ */
+internal val BITRATE_TABLE_LSF: IntArray =
+    intArrayOf(0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0)
+
+/** Sample-rate table in Hz, MPEG-1. Index 3 (reserved) is invalid. */
+internal val SAMPLE_RATE_TABLE_V1: IntArray = intArrayOf(44_100, 48_000, 32_000, 0)
+
+/** Sample-rate table in Hz, MPEG-2 — exactly half MPEG-1 at every index. */
+internal val SAMPLE_RATE_TABLE_V2: IntArray = intArrayOf(22_050, 24_000, 16_000, 0)
+
+/** Sample-rate table in Hz, MPEG-2.5 — exactly a quarter of MPEG-1 at every index. */
+internal val SAMPLE_RATE_TABLE_V2_5: IntArray = intArrayOf(11_025, 12_000, 8_000, 0)
+
+/**
+ * The MPEG audio versions the fixture builder can emit, with their frame-header
+ * bit pattern and the Layer III geometry and tables that go with it. Values are
+ * from ISO/IEC 11172-3 (MPEG-1) and ISO/IEC 13818-3 (MPEG-2 LSF); MPEG-2.5 is
+ * the de-facto Fraunhofer extension that reuses the MPEG-2 tables at a further
+ * halved sample rate.
+ */
+@Suppress("MagicNumber")
+internal enum class MpegVersion(
+    val versionBits: Int,
+    val samplesPerFrame: Int,
+    val frameLengthCoefficient: Int,
+    val bitrateTable: IntArray,
+    val sampleRateTable: IntArray,
+) {
+    /** MPEG-1: bits 20..19 = 0b11, 1152 samples/frame, frame length = 144 × bitrate ÷ sampleRate. */
+    V1(0b11, 1152, 144, BITRATE_TABLE_V1, SAMPLE_RATE_TABLE_V1),
+
+    /** MPEG-2 (LSF): bits 20..19 = 0b10, 576 samples/frame, frame length = 72 × bitrate ÷ sampleRate. */
+    V2(0b10, 576, 72, BITRATE_TABLE_LSF, SAMPLE_RATE_TABLE_V2),
+
+    /** MPEG-2.5: bits 20..19 = 0b00, 576 samples/frame, same frame-length coefficient as MPEG-2. */
+    V2_5(0b00, 576, 72, BITRATE_TABLE_LSF, SAMPLE_RATE_TABLE_V2_5),
+
+    /**
+     * Version bits 0b01 — reserved by ISO/IEC 11172-3, never valid in a real file.
+     * Exists only so a test can emit a frame the decoder is required to decline;
+     * its geometry and tables borrow the LSF values purely so the fixture can be
+     * sized, and nothing ever decodes them.
+     */
+    RESERVED(0b01, 576, 72, BITRATE_TABLE_LSF, SAMPLE_RATE_TABLE_V2),
+}
 
 internal fun writeSyncSafeInt(
     buf: Buffer,
