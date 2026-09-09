@@ -397,15 +397,15 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
 // `ViewModel.addCloseable` the final two-argument one — and the link dies in codegen with
 // `is not found in vtable`. The only seam is between generation and `compileSwiftExportMain`,
 // which is this task's `doLast`; no Swift references the dropped pair.
-tasks.matching { it.name.endsWith("SwiftExport") }.configureEach {
+// Only the per-target generators (`iosArm64ReleaseSwiftExport`, `iosSimulatorArm64DebugSwiftExport`, …);
+// KGP also registers `check…ForEmbedSwiftExport`, which shares the suffix and has no glue dir.
+val swiftExportGenerator = Regex("""^(\w+?)(Debug|Release)SwiftExport$""")
+tasks.matching { swiftExportGenerator.matches(it.name) }.configureEach {
     notCompatibleWithConfigurationCache(
         "Swift export (Alpha) glue generation and its post-gen codegen-bug patch are not configuration-cache compatible.",
     )
-    val stem = name.removeSuffix("SwiftExport") // e.g. "iosArm64Release"
-    val configName =
-        listOf("Debug", "Release").firstOrNull(stem::endsWith)
-            ?: error("Unexpected SwiftExport task name '$name' — cannot derive its glue dir.")
-    val glueDir = project.layout.buildDirectory.dir("SwiftExport/${stem.removeSuffix(configName)}/$configName/files")
+    val (targetName, configName) = swiftExportGenerator.matchEntire(name)!!.destructured
+    val glueDir = project.layout.buildDirectory.dir("SwiftExport/$targetName/$configName/files")
     doLast {
         val dropped =
             com.calypsan.listenup.gradle.SwiftExportGluePatcher
