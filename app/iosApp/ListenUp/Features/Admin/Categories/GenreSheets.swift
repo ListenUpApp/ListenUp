@@ -56,9 +56,9 @@ struct GenreNameSheet: View {
                 AppTextField(
                     placeholder: String(localized: "admin.genre_name"),
                     text: $name,
+                    entry: .words,
                     label: String(localized: "admin.genre_name"),
                     icon: "tag",
-                    autocapitalization: .words,
                     submitLabel: .done,
                     onSubmit: { if !trimmed.isEmpty { confirm() } }
                 )

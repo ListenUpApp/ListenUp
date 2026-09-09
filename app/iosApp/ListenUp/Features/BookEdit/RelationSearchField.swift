@@ -51,6 +51,7 @@ struct RelationSearchField: View {
             AppTextField(
                 placeholder: placeholder,
                 text: Binding(get: { query }, set: { onQueryChange($0) }),
+                entry: .search,
                 kind: .search,
                 submitLabel: .done,
                 onSubmit: submit

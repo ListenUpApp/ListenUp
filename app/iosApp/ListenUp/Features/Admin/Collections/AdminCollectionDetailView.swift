@@ -167,6 +167,7 @@ struct AdminCollectionDetailView: View {
                     get: { ready.editedName },
                     set: { observer.updateName($0) }
                 ),
+                entry: .words,
                 label: String(localized: "admin.collection_name"),
                 icon: "folder"
             )

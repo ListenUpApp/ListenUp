@@ -15,20 +15,22 @@ import SwiftUI
 ///
 /// Layout adapts to `label`: with a `label` it's the edit-card column (caption above the
 /// field); without one it's the inset-row layout (inline field) used by auth and search.
+///
+/// The keyboard comes entirely from `entry` (see `TextEntry`): a required parameter, so every
+/// field declares what it holds and none can fall back to a default that fits nothing.
 struct AppTextField: View {
     enum Kind { case text, secure, search }
 
     let placeholder: String
     @Binding var text: String
+    /// What the field holds — decides keyboard type, content hint, capitalization, autocorrection.
+    let entry: TextEntry
     var label: String?
     var icon: String?
     var kind: Kind = .text
     var error: String?
     var axis: Axis = .horizontal
     var isLast: Bool = true
-    var keyboardType: UIKeyboardType = .default
-    var textContentType: UITextContentType?
-    var autocapitalization: TextInputAutocapitalization = .never
     var submitLabel: SubmitLabel?
     var onSubmit: () -> Void = {}
 
@@ -121,10 +123,10 @@ struct AppTextField: View {
             .font(.body)
             .foregroundStyle(.primary)
             .lineLimit(axis == .vertical ? 3 ... 8 : 1 ... 1)
-            .keyboardType(keyboardType)
-            .textContentType(textContentType)
-            .textInputAutocapitalization(autocapitalization)
-            .autocorrectionDisabled()
+            .keyboardType(entry.keyboardType)
+            .textContentType(entry.contentType)
+            .textInputAutocapitalization(entry.capitalization.textInput)
+            .autocorrectionDisabled(!entry.autocorrects)
             .submitLabel(effectiveSubmitLabel)
             .onSubmit(onSubmit)
             .accessibilityLabel(placeholder)
@@ -201,25 +203,32 @@ struct AppTextField: View {
     return ScrollView {
         VStack(spacing: 16) {
             AuthFieldGroup {
-                AppTextField(placeholder: "Email", text: $email, icon: "envelope", isLast: false)
-                AppTextField(placeholder: "Password", text: $password, kind: .secure)
+                AppTextField(placeholder: "Email", text: $email, entry: .email, icon: "envelope", isLast: false)
+                AppTextField(placeholder: "Password", text: $password, entry: .password, kind: .secure)
             }
 
-            AppTextField(placeholder: "Name", text: $name, label: "Name")
+            AppTextField(placeholder: "Name", text: $name, entry: .words, label: "Name")
                 .fieldCard()
 
             AppTextField(
                 placeholder: "Add a description",
                 text: $desc,
+                entry: .sentences,
                 label: "Description",
                 axis: .vertical
             )
             .fieldCard()
 
-            AppTextField(placeholder: "Search", text: $query, kind: .search)
+            AppTextField(placeholder: "Search", text: $query, entry: .search, kind: .search)
                 .fieldCard()
 
-            AppTextField(placeholder: "Email", text: $email, icon: "envelope", error: "That doesn't look right.")
+            AppTextField(
+                placeholder: "Email",
+                text: $email,
+                entry: .email,
+                icon: "envelope",
+                error: "That doesn't look right."
+            )
                 .fieldCard()
         }
         .padding()

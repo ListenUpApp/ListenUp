@@ -150,22 +150,23 @@ struct BulkEditView: View {
             AppTextField(
                 placeholder: observer.publisherPlaceholder,
                 text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
-                label: String(localized: "bulk_edit.publisher"),
-                autocapitalization: .words
+                entry: .words,
+                label: String(localized: "bulk_edit.publisher")
             )
             .fieldCard()
 
             AppTextField(
                 placeholder: observer.yearPlaceholder,
                 text: Binding(get: { observer.year }, set: { observer.setYear($0) }),
-                label: String(localized: "bulk_edit.year"),
-                keyboardType: .numberPad
+                entry: .number,
+                label: String(localized: "bulk_edit.year")
             )
             .fieldCard()
 
             AppTextField(
                 placeholder: observer.languagePlaceholder,
                 text: Binding(get: { observer.language }, set: { observer.setLanguage($0) }),
+                entry: .words,
                 label: String(localized: "bulk_edit.language")
             )
             .fieldCard()
