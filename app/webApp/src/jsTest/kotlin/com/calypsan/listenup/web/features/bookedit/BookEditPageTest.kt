@@ -2,29 +2,16 @@ package com.calypsan.listenup.web.features.bookedit
 
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.HTMLTextAreaElement
 import org.w3c.dom.events.Event
-
-private fun edited(
-    state: BookEditUiState,
-    onEvent: (BookEditUiEvent) -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
-    }
-    return root
-}
 
 private fun loaded(): BookEditUiState =
     BookEditUiState(
@@ -51,6 +38,16 @@ private fun loaded(): BookEditUiState =
  */
 class BookEditPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun edited(
+            state: BookEditUiState,
+            onEvent: (BookEditUiEvent) -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
+            }
 
         test("the book's metadata reaches the fields") {
             val root = edited(loaded())

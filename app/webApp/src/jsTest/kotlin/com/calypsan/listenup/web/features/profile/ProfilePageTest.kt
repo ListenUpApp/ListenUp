@@ -3,13 +3,12 @@ package com.calypsan.listenup.web.features.profile
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 
@@ -17,8 +16,6 @@ private const val NINETY_TWO_HOURS_MS = 92L * 3_600_000
 
 /** A shelf size unlike any other number in these specs, so a wrong field cannot read as right. */
 private const val SHELF_BOOKS = 7
-
-private val hosts = mutableListOf<HTMLElement>()
 
 internal fun readyProfile(
     userId: String = "u1",
@@ -46,21 +43,6 @@ internal fun readyProfile(
         publicShelves = publicShelves,
     )
 
-private fun page(
-    state: UserProfileUiState,
-    onOpenBook: (String) -> Unit = {},
-    onOpenShelf: (String) -> Unit = {},
-    onRetry: () -> Unit = {},
-): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    hosts += host
-    renderComposable(root = host) {
-        ProfilePage(state = state, onOpenBook = onOpenBook, onOpenShelf = onOpenShelf, onRetry = onRetry)
-    }
-    return host
-}
-
 /**
  * A listener's page.
  *
@@ -72,11 +54,18 @@ private fun page(
  */
 class ProfilePageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        afterSpec {
-            hosts.forEach { it.remove() }
-            hosts.clear()
-        }
+        fun page(
+            state: UserProfileUiState,
+            onOpenBook: (String) -> Unit = {},
+            onOpenShelf: (String) -> Unit = {},
+            onRetry: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                ProfilePage(state = state, onOpenBook = onOpenBook, onOpenShelf = onOpenShelf, onRetry = onRetry)
+            }
 
         test("the header names the listener") {
             val host = page(readyProfile(displayName = "Simon Hull"))

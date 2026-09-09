@@ -3,19 +3,16 @@ package com.calypsan.listenup.web.features.notifications
 import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 
 private const val NOW_MS = 1_800_000_000_000L
 
 private const val ONE_HOUR_MS = 3_600_000L
-
-private val hosts = mutableListOf<HTMLElement>()
 
 internal fun notification(
     id: String = "n1",
@@ -31,19 +28,6 @@ internal fun notification(
         readAt = readAt,
     )
 
-private fun page(
-    state: NotificationsUiState,
-    onOpen: (AppNotification) -> Unit = {},
-): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    hosts += host
-    renderComposable(root = host) {
-        NotificationsPage(state = state, nowMs = NOW_MS, onOpen = onOpen)
-    }
-    return host
-}
-
 /**
  * The notification inbox.
  *
@@ -55,11 +39,16 @@ private fun page(
  */
 class NotificationsPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        afterSpec {
-            hosts.forEach { it.remove() }
-            hosts.clear()
-        }
+        fun page(
+            state: NotificationsUiState,
+            onOpen: (AppNotification) -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                NotificationsPage(state = state, nowMs = NOW_MS, onOpen = onOpen)
+            }
 
         test("a row says what happened, in words") {
             val host = page(NotificationsUiState.Data(listOf(notification())))

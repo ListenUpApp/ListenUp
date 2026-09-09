@@ -4,12 +4,11 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.events.Event
@@ -33,16 +32,6 @@ private const val SPEED_SELECT = 1
 private const val BOOST_SELECT = 2
 
 private const val SKIP_BACK_SELECT = 3
-
-private val mountedHosts = mutableListOf<HTMLElement>()
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    mountedHosts += host
-    renderComposable(root = host) { content() }
-    return host
-}
 
 @Composable
 private fun page(
@@ -99,14 +88,11 @@ private fun eventInit(): dynamic {
  */
 class SettingsPageTest :
     FunSpec({
-
-        afterSpec {
-            mountedHosts.forEach { it.remove() }
-            mountedHosts.clear()
-        }
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("the four sections a browser can keep are all present") {
-            val host = mount { page() }
+            val host = mounts.mount { page() }
 
             val text = host.textContent.orEmpty()
             text shouldContain "Appearance"
@@ -118,7 +104,7 @@ class SettingsPageTest :
         test("nothing a browser cannot honour is offered") {
             // Each of these has a real control on Android. Rendering one here — even disabled —
             // would promise something the browser has no way to deliver.
-            val host = mount { page() }
+            val host = mounts.mount { page() }
 
             val text = host.textContent.orEmpty()
             text shouldNotContain "Dynamic"
@@ -130,7 +116,7 @@ class SettingsPageTest :
         test("each section says whether a setting travels or stays") {
             // The synced/local split is invisible until it surprises you — changing a phone setting
             // and watching this browser ignore it, or the reverse.
-            val host = mount { page() }
+            val host = mounts.mount { page() }
 
             host.textContent.orEmpty() shouldContain "Follows you to your other devices."
             host.textContent.orEmpty() shouldContain "Kept on this browser."
@@ -138,7 +124,7 @@ class SettingsPageTest :
 
         test("choosing a theme reports the mode, not the label") {
             var chosen: ThemeMode? = null
-            val host = mount { page(onThemeMode = { chosen = it }) }
+            val host = mounts.mount { page(onThemeMode = { chosen = it }) }
 
             select(host, index = THEME_SELECT, value = "DARK")
 
@@ -156,7 +142,7 @@ class SettingsPageTest :
             // The option's value is parsed straight back to a Float. If the two ever disagree the
             // control silently stops reporting anything.
             var speed: Float? = null
-            val host = mount { page(onDefaultSpeed = { speed = it }) }
+            val host = mounts.mount { page(onDefaultSpeed = { speed = it }) }
 
             select(host, index = SPEED_SELECT, value = speedKey(CHOSEN_SPEED))
 
@@ -168,7 +154,7 @@ class SettingsPageTest :
             // round-trip risk as the speed control: the option's value is parsed straight back to
             // a Float, and a disagreement makes the control silently stop reporting.
             var boost: Float? = null
-            val host = mount { page(onDefaultBoost = { boost = it }) }
+            val host = mounts.mount { page(onDefaultBoost = { boost = it }) }
 
             select(host, index = BOOST_SELECT, value = boostKey(CHOSEN_BOOST_DB))
 
@@ -177,7 +163,7 @@ class SettingsPageTest :
 
         test("skip intervals report seconds, not labels") {
             var back: Int? = null
-            val host = mount { page(onSkipBackward = { back = it }) }
+            val host = mounts.mount { page(onSkipBackward = { back = it }) }
 
             select(host, index = SKIP_BACK_SELECT, value = CHOSEN_SKIP_SEC.toString())
 
@@ -186,7 +172,7 @@ class SettingsPageTest :
 
         test("the current values are the ones selected") {
             val host =
-                mount {
+                mounts.mount {
                     page(
                         state =
                             SettingsUiState(
@@ -209,7 +195,7 @@ class SettingsPageTest :
 
         test("a server with no version reported says nothing rather than saying null") {
             val host =
-                mount { page(state = SettingsUiState(isLoading = false, serverUrl = "https://x", serverVersion = null)) }
+                mounts.mount { page(state = SettingsUiState(isLoading = false, serverUrl = "https://x", serverVersion = null)) }
 
             host.textContent.orEmpty() shouldContain "https://x"
             host.textContent.orEmpty() shouldNotContain "null"
@@ -218,7 +204,7 @@ class SettingsPageTest :
         test("while loading it shows a shape, not a form full of defaults") {
             // Every field has a default, so a form rendered before the real values arrive would show
             // confident wrong answers and invite someone to "correct" one.
-            val host = mount { page(state = SettingsUiState(isLoading = true)) }
+            val host = mounts.mount { page(state = SettingsUiState(isLoading = true)) }
 
             host.querySelectorAll("select").length shouldBe 0
             host.querySelector(".set-skel").shouldNotBeNull()

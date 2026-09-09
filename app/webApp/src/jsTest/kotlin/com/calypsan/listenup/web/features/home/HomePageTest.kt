@@ -4,41 +4,15 @@ import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
-
-private fun homePage(
-    state: HomeUiState,
-    stats: HomeStatsUiState = HomeStatsUiState.Loading,
-    onOpenBook: (String) -> Unit = {},
-    onOpenSearch: () -> Unit = {},
-    onOpenLibrary: () -> Unit = {},
-    onOpenShelf: (String) -> Unit = {},
-    onCreateShelf: () -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        HomePage(
-            state = state,
-            stats = stats,
-            onOpenBook = onOpenBook,
-            onOpenSearch = onOpenSearch,
-            onOpenLibrary = onOpenLibrary,
-            onOpenShelf = onOpenShelf,
-            onCreateShelf = onCreateShelf,
-        )
-    }
-    return root
-}
 
 private fun EventTarget.press(key: String) {
     dispatchEvent(
@@ -64,6 +38,29 @@ private const val SILENT_DAYS = 5
  */
 class HomePageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun homePage(
+            state: HomeUiState,
+            stats: HomeStatsUiState = HomeStatsUiState.Loading,
+            onOpenBook: (String) -> Unit = {},
+            onOpenSearch: () -> Unit = {},
+            onOpenLibrary: () -> Unit = {},
+            onOpenShelf: (String) -> Unit = {},
+            onCreateShelf: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                HomePage(
+                    state = state,
+                    stats = stats,
+                    onOpenBook = onOpenBook,
+                    onOpenSearch = onOpenSearch,
+                    onOpenLibrary = onOpenLibrary,
+                    onOpenShelf = onOpenShelf,
+                    onCreateShelf = onCreateShelf,
+                )
+            }
 
         test("the greeting is the ViewModel's, not one assembled in the page") {
             val host = homePage(readyHome(userName = "Simon", timeGreeting = "Good evening"))

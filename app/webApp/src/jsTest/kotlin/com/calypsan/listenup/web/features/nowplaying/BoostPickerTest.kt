@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.VolumeBoostLimits
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
@@ -13,45 +14,14 @@ import com.calypsan.listenup.web.playback.silentSegment
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.url.URL
 import kotlin.math.abs
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
-
-/** An open boost picker, with every parameter overridable. */
-private fun picker(
-    boostDb: Float = OFF,
-    defaultBoostDb: Float = OFF,
-    unavailable: Boolean = false,
-    open: Boolean = true,
-    onSet: (Float) -> Unit = {},
-    onReset: () -> Unit = {},
-    onDismiss: () -> Unit = {},
-): HTMLElement =
-    mount {
-        BoostPicker(
-            open = open,
-            boostDb = boostDb,
-            defaultBoostDb = defaultBoostDb,
-            unavailable = unavailable,
-            onSet = onSet,
-            onReset = onReset,
-            onDismiss = onDismiss,
-        )
-    }
 
 /** A bar over a playing book, with only the boost inputs worth varying exposed. */
 @Composable
@@ -79,6 +49,32 @@ private const val BOOSTED = 6f
 
 class BoostPickerTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        /** An open boost picker, with every parameter overridable. */
+        fun picker(
+            boostDb: Float = OFF,
+            defaultBoostDb: Float = OFF,
+            unavailable: Boolean = false,
+            open: Boolean = true,
+            onSet: (Float) -> Unit = {},
+            onReset: () -> Unit = {},
+            onDismiss: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                WebAppSurface {
+                    BoostPicker(
+                        open = open,
+                        boostDb = boostDb,
+                        defaultBoostDb = defaultBoostDb,
+                        unavailable = unavailable,
+                        onSet = onSet,
+                        onReset = onReset,
+                        onDismiss = onDismiss,
+                    )
+                }
+            }
 
         test("a closed picker renders nothing at all") {
             picker(open = false).querySelectorAll("dialog").length shouldBe 0
@@ -197,6 +193,10 @@ class BoostPickerTest :
 
 class BoostBarTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
         test("the boost control is offered for any book, chapters or not") {
             val host = mount { boostBar() }

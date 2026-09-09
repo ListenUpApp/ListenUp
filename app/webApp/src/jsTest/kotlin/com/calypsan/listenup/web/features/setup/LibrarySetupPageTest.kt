@@ -2,18 +2,15 @@ package com.calypsan.listenup.web.features.setup
 
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 
 private const val MANY_ITEMS = 248
-
-private val hosts = mutableListOf<HTMLElement>()
 
 internal fun entry(
     name: String = "Audiobooks",
@@ -46,23 +43,6 @@ internal fun setupState(
     error = error,
 )
 
-private fun page(
-    state: LibrarySetupUiState,
-    onOpenFolder: (String) -> Unit = {},
-    onNavigateUp: () -> Unit = {},
-    onToggleFolder: (String) -> Unit = {},
-    onComplete: () -> Unit = {},
-    onDismissError: () -> Unit = {},
-): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    hosts += host
-    renderComposable(root = host) {
-        LibrarySetupPage(state, onOpenFolder, onNavigateUp, onToggleFolder, onComplete, onDismissError)
-    }
-    return host
-}
-
 /**
  * The folder picker a new admin meets before the app.
  *
@@ -73,11 +53,20 @@ private fun page(
  */
 class LibrarySetupPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        afterSpec {
-            hosts.forEach { it.remove() }
-            hosts.clear()
-        }
+        fun page(
+            state: LibrarySetupUiState,
+            onOpenFolder: (String) -> Unit = {},
+            onNavigateUp: () -> Unit = {},
+            onToggleFolder: (String) -> Unit = {},
+            onComplete: () -> Unit = {},
+            onDismissError: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                LibrarySetupPage(state, onOpenFolder, onNavigateUp, onToggleFolder, onComplete, onDismissError)
+            }
 
         // A file picker that looks like your own file picker and is not is a trap.
         test("the page says whose filesystem this is") {

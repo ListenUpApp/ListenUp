@@ -11,12 +11,11 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 
@@ -28,15 +27,13 @@ import org.w3c.dom.HTMLImageElement
  */
 class LibraryPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        fun render(state: LibraryUiState): HTMLElement {
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) {
+        fun render(state: LibraryUiState): HTMLElement =
+            mounts.mount {
                 LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
             }
-            return root
-        }
 
         test("the facet row survives every state — it is navigation, not data") {
             // A first sync can run for minutes. Hiding the row until the books land would strand a

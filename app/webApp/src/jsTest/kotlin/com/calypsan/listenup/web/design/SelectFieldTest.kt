@@ -1,21 +1,13 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLSelectElement
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
 
 private fun HTMLElement.optionLabels(): List<String> {
     val options = querySelectorAll("select option")
@@ -31,6 +23,10 @@ private val THEMES =
 
 class SelectFieldTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
         test("a picker draws its own chevron, because appearance:none took the browser's away") {
             val host = mount { SelectField(label = "Theme", value = "LIGHT", options = THEMES, onSelect = {}) }

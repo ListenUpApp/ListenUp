@@ -1,33 +1,21 @@
 package com.calypsan.listenup.web.features.devices
 
-import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AuthError.SessionExpired
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 
 /** Two days back, so the relative time is stable to read. */
 private const val NOW_MS = 1_000_000_000L
 
 private const val TWO_DAYS_MS = 172_800_000L
-
-private val mountedHosts = mutableListOf<HTMLElement>()
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    mountedHosts += host
-    renderComposable(root = host) { content() }
-    return host
-}
 
 private fun device(
     id: String,
@@ -52,18 +40,15 @@ private fun ready(
  */
 class DevicesPageTest :
     FunSpec({
-
-        afterSpec {
-            mountedHosts.forEach { it.remove() }
-            mountedHosts.clear()
-        }
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("this device is shown apart, and carries no sign-out button of its own") {
             // Revoking your own session is signing yourself out — a different intention from ending
             // one on a laptop you no longer have. A button doing the first while looking like the
             // second is the trap this separation exists to avoid.
             val host =
-                mount { DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, {}, {}) }
+                mounts.mount { DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, {}, {}) }
 
             host.textContent.orEmpty() shouldContain "This device"
             // The only buttons on the page are the deliberate one at the bottom.
@@ -72,7 +57,7 @@ class DevicesPageTest :
 
         test("other devices each get their own sign-out, naming the device") {
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(
                         ready(device("s1", "This Mac", isCurrent = true), device("s2", "Simon's iPhone")),
                         NOW_MS,
@@ -90,7 +75,7 @@ class DevicesPageTest :
         test("signing out a device reports that device, not the first in the list") {
             var revoked: String? = null
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(
                         ready(device("s1", "This Mac", isCurrent = true), device("s2", "iPhone"), device("s3", "iPad")),
                         NOW_MS,
@@ -107,7 +92,7 @@ class DevicesPageTest :
 
         test("a device already signing out cannot be asked twice") {
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(
                         ready(device("s1", "iPhone"), signingOut = setOf("s1")),
                         NOW_MS,
@@ -124,7 +109,7 @@ class DevicesPageTest :
 
         test("the current device says it is active now rather than guessing at a timestamp") {
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(
                         ready(device("s1", "This Mac", isCurrent = true, lastUsedAt = 0L)),
                         NOW_MS,
@@ -138,7 +123,7 @@ class DevicesPageTest :
         }
 
         test("another device says how long ago it was used") {
-            val host = mount { DevicesPage(ready(device("s2", "iPhone")), NOW_MS, {}, {}, {}) }
+            val host = mounts.mount { DevicesPage(ready(device("s2", "iPhone")), NOW_MS, {}, {}, {}) }
 
             host.textContent.orEmpty() shouldContain "2 days ago"
         }
@@ -147,7 +132,7 @@ class DevicesPageTest :
             // The consequence someone actually needs to know before pressing it.
             var signedOut = 0
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, { signedOut++ }, {})
                 }
 
@@ -162,7 +147,7 @@ class DevicesPageTest :
         test("confirming is what signs everything out") {
             var signedOut = 0
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, { signedOut++ }, {})
                 }
 
@@ -176,7 +161,7 @@ class DevicesPageTest :
         test("cancelling leaves every session alone") {
             var signedOut = 0
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, { signedOut++ }, {})
                 }
 
@@ -191,7 +176,7 @@ class DevicesPageTest :
 
         test("signing out of nowhere else says so rather than showing an empty heading") {
             val host =
-                mount { DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, {}, {}) }
+                mounts.mount { DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, {}, {}) }
 
             host.textContent.orEmpty() shouldContain "You are not signed in anywhere else."
         }
@@ -199,7 +184,7 @@ class DevicesPageTest :
         test("a failed load offers a way to try again when trying again could work") {
             var retried = 0
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(
                         DevicesUiState.Error(TransportError.NetworkUnavailable(debugInfo = "offline")),
                         NOW_MS,
@@ -220,7 +205,7 @@ class DevicesPageTest :
             // expired session reads "Please sign in again." directly above a Try again that can
             // only fail again, which is a way out only in appearance.
             val host =
-                mount {
+                mounts.mount {
                     DevicesPage(DevicesUiState.Error(SessionExpired()), NOW_MS, {}, {}, {})
                 }
 

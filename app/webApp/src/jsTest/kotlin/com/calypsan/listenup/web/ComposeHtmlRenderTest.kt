@@ -32,9 +32,7 @@ import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
 import kotlinx.coroutines.flow.flowOf
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.search.fixedSearch
@@ -51,15 +49,12 @@ import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
  */
 class ComposeHtmlRenderTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        fun mount(content: @Composable () -> Unit): HTMLElement {
-            val host = document.createElement("div") as HTMLElement
-            document.body!!.appendChild(host)
-            // AuthGate applies WebAppSurface in production, so the spec supplies it here the way
-            // ShellTest does — WebAppRoot itself no longer carries the `.luw` scope.
-            renderComposable(root = host) { WebAppSurface { content() } }
-            return host
-        }
+        // AuthGate applies WebAppSurface in production, so the spec supplies it here the way
+        // ShellTest does — WebAppRoot itself no longer carries the `.luw` scope.
+        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
         test("a composable emits real DOM elements") {
             val router = Router()

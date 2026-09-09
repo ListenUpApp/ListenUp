@@ -1,7 +1,7 @@
 package com.calypsan.listenup.web.features.auth
 
-import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
@@ -9,20 +9,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
 
 private fun HTMLElement.typeInto(
     selector: String,
@@ -33,27 +24,31 @@ private fun HTMLElement.typeInto(
     input.dispatchEvent(Event("input", EventInit(bubbles = true)))
 }
 
-private fun panel(
-    state: ForgotPasswordUiState,
-    onRequestReset: (String) -> Unit = {},
-    onCompleteReset: (String, String) -> Unit = { _, _ -> },
-    onCheckStatus: () -> Unit = {},
-    onRetryRequest: () -> Unit = {},
-    onBackToSignIn: () -> Unit = {},
-): HTMLElement =
-    mount {
-        ForgotPasswordPanel(
-            state = state,
-            onRequestReset = onRequestReset,
-            onCompleteReset = onCompleteReset,
-            onCheckStatus = onCheckStatus,
-            onRetryRequest = onRetryRequest,
-            onBackToSignIn = onBackToSignIn,
-        )
-    }
-
 class ForgotPasswordPanelTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun panel(
+            state: ForgotPasswordUiState,
+            onRequestReset: (String) -> Unit = {},
+            onCompleteReset: (String, String) -> Unit = { _, _ -> },
+            onCheckStatus: () -> Unit = {},
+            onRetryRequest: () -> Unit = {},
+            onBackToSignIn: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                WebAppSurface {
+                    ForgotPasswordPanel(
+                        state = state,
+                        onRequestReset = onRequestReset,
+                        onCompleteReset = onCompleteReset,
+                        onCheckStatus = onCheckStatus,
+                        onRetryRequest = onRetryRequest,
+                        onBackToSignIn = onBackToSignIn,
+                    )
+                }
+            }
 
         test("the first step asks for the address and opens a request with it") {
             var requestedFor: String? = null

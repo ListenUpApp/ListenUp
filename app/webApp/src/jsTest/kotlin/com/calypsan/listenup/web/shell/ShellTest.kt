@@ -1,22 +1,14 @@
 package com.calypsan.listenup.web.shell
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.design.WebIcon
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
 
 private val PRIMARY =
     NavSection(
@@ -38,6 +30,10 @@ private val FOOTER = listOf(NavEntry("settings", "Settings", WebIcon.Cog))
 
 class ShellTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
         test("exactly one nav item is active") {
             val host =

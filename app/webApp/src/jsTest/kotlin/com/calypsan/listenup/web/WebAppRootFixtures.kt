@@ -32,6 +32,7 @@ import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchSession
 import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.web.nav.Router
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -136,6 +137,42 @@ internal fun mountAt(
             )
         }
     return Triple(host, router, composition)
+}
+
+/**
+ * Every composition a spec mounts, and the hosts they own, so one `afterTest` can end them all.
+ *
+ * A composition outlives its DOM node: `host.remove()` detaches the markup and leaves the
+ * composition running, still holding whatever window-level listeners it registered — see
+ * [mountAt]'s note on the command palette answering a LATER spec's keystrokes from an orphaned
+ * tree. Disposal is the half that actually stops it, and doing both in one place is what keeps
+ * 40-odd spec files from each getting it half right.
+ *
+ * Usage — two lines per spec:
+ * ```
+ * val mounts = MountRegistry()
+ * afterTest { mounts.disposeAll() }
+ * ```
+ */
+internal class MountRegistry {
+    private val mounted = mutableListOf<Pair<HTMLElement, Composition>>()
+
+    /** Mounts [content] into a fresh host appended to `document.body`, and returns that host. */
+    fun mount(content: @Composable () -> Unit): HTMLElement {
+        val host = document.createElement("div") as HTMLElement
+        document.body!!.appendChild(host)
+        mounted += host to renderComposable(root = host) { content() }
+        return host
+    }
+
+    /** Disposes every composition, then detaches every host. Safe to call twice. */
+    fun disposeAll() {
+        mounted.forEach { (host, composition) ->
+            composition.dispose()
+            host.remove()
+        }
+        mounted.clear()
+    }
 }
 
 /**

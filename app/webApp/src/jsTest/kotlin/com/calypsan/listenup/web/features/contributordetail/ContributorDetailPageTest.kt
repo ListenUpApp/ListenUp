@@ -3,33 +3,11 @@ package com.calypsan.listenup.web.features.contributordetail
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
-
-private fun contributorDetailPage(
-    state: ContributorDetailUiState,
-    onOpenLibrary: () -> Unit = {},
-    onOpenContributors: () -> Unit = {},
-    onOpenBook: (String) -> Unit = {},
-    onOpenSeries: (String) -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        ContributorDetailPage(
-            state = state,
-            onOpenLibrary = onOpenLibrary,
-            onOpenContributors = onOpenContributors,
-            onOpenBook = onOpenBook,
-            onOpenSeries = onOpenSeries,
-        )
-    }
-    return root
-}
 
 /**
  * Contributor Detail rendered against the shared [ContributorDetailUiState] (Task B1 — no routing
@@ -42,6 +20,25 @@ private fun contributorDetailPage(
  */
 class ContributorDetailPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun contributorDetailPage(
+            state: ContributorDetailUiState,
+            onOpenLibrary: () -> Unit = {},
+            onOpenContributors: () -> Unit = {},
+            onOpenBook: (String) -> Unit = {},
+            onOpenSeries: (String) -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                ContributorDetailPage(
+                    state = state,
+                    onOpenLibrary = onOpenLibrary,
+                    onOpenContributors = onOpenContributors,
+                    onOpenBook = onOpenBook,
+                    onOpenSeries = onOpenSeries,
+                )
+            }
 
         test("the hero renders the contributor's name and both stat pills") {
             val root =

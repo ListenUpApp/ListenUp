@@ -3,12 +3,11 @@ package com.calypsan.listenup.web.features.search
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
@@ -16,29 +15,6 @@ import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
-
-private fun searchPage(
-    state: SearchUiState,
-    onQueryChanged: (String) -> Unit = {},
-    onToggleType: (SearchHitType) -> Unit = {},
-    onOpenHit: (SearchHit) -> Unit = {},
-    onRetry: () -> Unit = {},
-    openableTypes: Set<SearchHitType> = SearchHitType.entries.toSet(),
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        SearchPage(
-            state = state,
-            onQueryChanged = onQueryChanged,
-            onToggleType = onToggleType,
-            onOpenHit = onOpenHit,
-            onRetry = onRetry,
-            openableTypes = openableTypes,
-        )
-    }
-    return root
-}
 
 private fun EventTarget.press(key: String) {
     dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = key, bubbles = true, cancelable = true)))
@@ -56,6 +32,27 @@ private fun EventTarget.press(key: String) {
  */
 class SearchPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun searchPage(
+            state: SearchUiState,
+            onQueryChanged: (String) -> Unit = {},
+            onToggleType: (SearchHitType) -> Unit = {},
+            onOpenHit: (SearchHit) -> Unit = {},
+            onRetry: () -> Unit = {},
+            openableTypes: Set<SearchHitType> = SearchHitType.entries.toSet(),
+        ): HTMLElement =
+            mounts.mount {
+                SearchPage(
+                    state = state,
+                    onQueryChanged = onQueryChanged,
+                    onToggleType = onToggleType,
+                    onOpenHit = onOpenHit,
+                    onRetry = onRetry,
+                    openableTypes = openableTypes,
+                )
+            }
 
         test("Idle renders its own marker, and no other state's marker") {
             val root = searchPage(state = SearchUiState.Idle())

@@ -6,17 +6,14 @@ import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
-
-private val hosts = mutableListOf<HTMLElement>()
 
 internal fun library(folders: List<LibraryFolderRef> = listOf(LibraryFolderRef("f1", "/srv/Audiobooks"))) =
     Library(
@@ -64,39 +61,6 @@ private fun cancelButton(host: HTMLElement) = dialogButton(host, 0)
 
 private fun confirmButton(host: HTMLElement) = dialogButton(host, 1)
 
-@Suppress("LongParameterList")
-private fun page(
-    state: LibrarySettingsUiState,
-    scanStarted: Boolean = false,
-    onRemoveFolder: (String) -> Unit = {},
-    onAddPath: (String) -> Unit = {},
-    onScan: () -> Unit = {},
-    onShowBrowser: (Boolean) -> Unit = {},
-    onOpenBrowserPath: (String) -> Unit = {},
-    onBrowserUp: () -> Unit = {},
-    onClearError: () -> Unit = {},
-    onOpenAdmin: () -> Unit = {},
-): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    hosts += host
-    renderComposable(root = host) {
-        LibrarySettingsPage(
-            state,
-            scanStarted,
-            onRemoveFolder,
-            onAddPath,
-            onScan,
-            onShowBrowser,
-            onOpenBrowserPath,
-            onBrowserUp,
-            onClearError,
-            onOpenAdmin,
-        )
-    }
-    return host
-}
-
 /**
  * Which folders the library watches, after onboarding is over.
  *
@@ -108,11 +72,36 @@ private fun page(
  */
 class LibrarySettingsPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        afterSpec {
-            hosts.forEach { it.remove() }
-            hosts.clear()
-        }
+        @Suppress("LongParameterList")
+        fun page(
+            state: LibrarySettingsUiState,
+            scanStarted: Boolean = false,
+            onRemoveFolder: (String) -> Unit = {},
+            onAddPath: (String) -> Unit = {},
+            onScan: () -> Unit = {},
+            onShowBrowser: (Boolean) -> Unit = {},
+            onOpenBrowserPath: (String) -> Unit = {},
+            onBrowserUp: () -> Unit = {},
+            onClearError: () -> Unit = {},
+            onOpenAdmin: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                LibrarySettingsPage(
+                    state,
+                    scanStarted,
+                    onRemoveFolder,
+                    onAddPath,
+                    onScan,
+                    onShowBrowser,
+                    onOpenBrowserPath,
+                    onBrowserUp,
+                    onClearError,
+                    onOpenAdmin,
+                )
+            }
 
         test("each watched folder shows its path on the server") {
             val host = page(readyLibrary(folders = listOf(LibraryFolderRef("f1", "/srv/Audiobooks"))))

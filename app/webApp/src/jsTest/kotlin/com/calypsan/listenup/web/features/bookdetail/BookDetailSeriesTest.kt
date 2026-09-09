@@ -1,31 +1,11 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
-
-private fun bookDetailPage(
-    series: List<BookSeries>,
-    onOpenSeries: (String) -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        BookDetailPage(
-            state = readyBook(series = series),
-            tab = "overview",
-            onSelectTab = {},
-            onOpenLibrary = {},
-            onPlay = {},
-            onOpenSeries = onOpenSeries,
-        )
-    }
-    return root
-}
 
 /**
  * The series a book belongs to, on Book Detail.
@@ -38,6 +18,23 @@ private fun bookDetailPage(
  */
 class BookDetailSeriesTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun bookDetailPage(
+            series: List<BookSeries>,
+            onOpenSeries: (String) -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                BookDetailPage(
+                    state = readyBook(series = series),
+                    tab = "overview",
+                    onSelectTab = {},
+                    onOpenLibrary = {},
+                    onPlay = {},
+                    onOpenSeries = onOpenSeries,
+                )
+            }
 
         test("a book in no series renders no series row") {
             val root = bookDetailPage(series = emptyList())
