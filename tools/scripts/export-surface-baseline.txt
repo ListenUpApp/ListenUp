@@ -41,7 +41,6 @@ AppleNetworkMonitor
 AppleStoragePaths
 AudioFile
 AudioFileDownloader
-AudioFormat
 AudioFormatDisplay
 AudioPlayer
 AudioSegment

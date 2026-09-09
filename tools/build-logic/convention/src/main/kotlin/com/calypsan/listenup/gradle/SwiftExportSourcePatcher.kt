@@ -119,6 +119,14 @@ object SwiftExportSourcePatcher {
      *   deleted only when a same-signature implementation sits in the same block; a stub with no twin
      *   (coroutines' `MutableSharedFlow.resetReplayCache`) is a legitimate default and stays.
      *
+     *   Class 5 — a `<Name>_SealedType` enum case whose payload names a type the module never emits.
+     *   Kotlin 2.4.20's native `sealedType()` enumerates every Kotlin subtype, including one nested
+     *   in an `internal` class that Swift Export (correctly) does not export — kotlinx-datetime's
+     *   `DateTimeFormatBuilder.WithDateTimeComponents` has exactly one subtype,
+     *   `DateTimeComponentsFormat.Builder`, and the emitted case cannot resolve. The case and its
+     *   `value` getter arm are deleted; the enum stays because its parent enum and `sealedType()`
+     *   overloads still name it (the bridged `sealedType()` for it is a `fatalError` stub anyway).
+     *
      * @param module the file's parent directory name (the Swift module), used to scope the
      *   undefined-type reference regex exactly as the original walk did.
      */
@@ -222,6 +230,14 @@ object SwiftExportSourcePatcher {
             changed = true
         }
 
+        // Class 5 — drop a sealed-enum case whose payload the module never declares.
+        val resolvable = dropUnexportedSealedCases(out, defined)
+        if (resolvable != null) {
+            out.clear()
+            out.addAll(resolvable)
+            changed = true
+        }
+
         return if (changed) {
             PatchOutcome(out.joinToString("\n") + "\n", 1)
         } else {
@@ -288,6 +304,50 @@ object SwiftExportSourcePatcher {
         return lines.filterIndexed { index, _ -> index !in dropped }
     }
 
+    private val sealedEnumStart = Regex("""^public enum (\w+_SealedType)\b""")
+    private val sealedCasePayload =
+        Regex("""^\s*case (\w+)\(ExportedKotlinPackages\.(?:[a-z]\w*\.)+([A-Z]\w*)\.\w+_SealedType\)\s*$""")
+
+    /**
+     * [patchSource] Class 5. Returns [lines] without every top-level `<Name>_SealedType` case whose
+     * payload's outer type is not in [defined], and without that case's `value` getter arm inside the
+     * same enum; null when every case resolves.
+     */
+    private fun dropUnexportedSealedCases(
+        lines: List<String>,
+        defined: Set<String>,
+    ): List<String>? {
+        val dropped = HashSet<Int>()
+        var i = 0
+        while (i < lines.size) {
+            if (!sealedEnumStart.containsMatchIn(lines[i])) {
+                i++
+                continue
+            }
+            var depth = lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            var end = i + 1
+            while (end < lines.size && depth > 0) {
+                depth += lines[end].count { it == '{' } - lines[end].count { it == '}' }
+                end++
+            }
+            val doomedCases = HashSet<String>()
+            for (index in i + 1 until end) {
+                val case = sealedCasePayload.matchEntire(lines[index]) ?: continue
+                if (case.groupValues[2] !in defined) {
+                    doomedCases.add(case.groupValues[1])
+                    dropped.add(index)
+                }
+            }
+            for (case in doomedCases) {
+                val arm = Regex("""^\s*case let \.\Q$case\E\(type\): type\.value\s*$""")
+                for (index in i + 1 until end) if (arm.matches(lines[index])) dropped.add(index)
+            }
+            i = end
+        }
+        if (dropped.isEmpty()) return null
+        return lines.filterIndexed { index, _ -> index !in dropped }
+    }
+
     /**
      * Flat top-level typealiases for nested `ExportedKotlinPackages` types, appended onto the
      * generated `Shared.swift`. `flattenPackage` does NOT actually flatten in Kotlin 2.4.0 — every
@@ -295,7 +355,8 @@ object SwiftExportSourcePatcher {
      * `import Shared; Book` can't resolve. SKIE gave callers flat names; to match that, append a
      * top-level `public typealias` for every exported type. Idempotent via a marker. Name
      * collisions across packages resolve to the `client.domain.model` (then any `client.domain`)
-     * variant; remaining ambiguous names are skipped and stay qualified.
+     * variant; remaining ambiguous names are skipped and stay qualified. Underscore-prefixed names
+ * (Swift Export's `__<Name>` sealed marker protocols, public since Kotlin 2.4.20) are skipped too.
      *
      * @param sharedContent the `Shared.swift` contents the aliases are appended to.
      * @param sourceContents the `Shared.swift` + `ListenupContract.swift` contents to harvest types
@@ -341,7 +402,9 @@ object SwiftExportSourcePatcher {
         val builder = StringBuilder("\n$FLAT_TYPEALIAS_MARKER\n")
         var count = 0
         for ((name, namespaces) in packagesByName.toSortedMap()) {
-            if (name == "Companion") continue
+            // `Companion` is every class's nested object; a leading underscore marks generator
+            // plumbing (Kotlin 2.4.20's `public protocol __<Name>` sealed markers). Neither is API.
+            if (name == "Companion" || name.startsWith("_")) continue
             val namespace =
                 when {
                     namespaces.size == 1 -> {

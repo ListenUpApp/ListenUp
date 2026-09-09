@@ -230,6 +230,9 @@ class SwiftExportSourcePatcherTest {
             out.contains("public typealias Contributor = ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.Contributor"),
         )
         assertFalse(out.contains("typealias Companion"), "Companion is excluded")
+        // Kotlin 2.4.20 made the sealed marker protocols `public protocol __<Name>`; they are
+        // generator plumbing, not API, and must not widen the reviewed export surface.
+        assertFalse(out.contains("typealias __Book"), "underscore-prefixed generator internals are excluded")
     }
 
     // ---- patchSource pass ----------------------------------------------------------------------
@@ -266,6 +269,17 @@ class SwiftExportSourcePatcherTest {
         )
         // A stub with no twin in its block is the generator's legitimate default for Swift conformers.
         assertTrue(out.contains("'resetReplayCache' is an @_spi requirement"), "a stub-only requirement stays")
+    }
+
+    @Test
+    fun `patchSource drops a sealed case whose payload names a type the module never emits`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("patch-source.swift"), module = "Shared").content
+
+        assertFalse(out.contains("DateTimeComponentsFormat.Builder_SealedType"), "the unexported subtype's case is gone")
+        assertTrue(out.contains("public enum WithDateTimeComponents_SealedType"), "the enum itself survives (its callers still name it)")
+        assertEquals(1, Regex("""case let \.builder\(type\): type\.value""").findAll(out).count(), "only the doomed getter arm went")
+        // The control: same case name, but its outer type IS declared in the module.
+        assertTrue(out.contains("case builder(ExportedKotlinPackages.kotlinx.datetime.format.DateTimeFormat.Builder_SealedType)"))
     }
 
     // ---- camelCase pass ------------------------------------------------------------------------

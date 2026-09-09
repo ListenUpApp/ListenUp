@@ -38,3 +38,28 @@ extension ExportedKotlinPackages.kotlinx.coroutines.flow.MutableSharedFlow {
         fatalError("'resetReplayCache' is an @_spi requirement that must be implemented by Swift conformers")
     }
 }
+
+public enum WithDateTimeComponents_SealedType: KotlinRuntimeSupport.SealedType {
+    case builder(ExportedKotlinPackages.kotlinx.datetime.format.DateTimeComponentsFormat.Builder_SealedType)
+    public var value: Shared._ExportedKotlinPackages_kotlinx_datetime_format_DateTimeFormatBuilder_WithDateTimeComponents {
+        get {
+            switch self {
+            case let .builder(type): type.value
+            }
+        }
+    }
+}
+public enum DateTimeFormat_SealedType: KotlinRuntimeSupport.SealedType {
+    case builder(ExportedKotlinPackages.kotlinx.datetime.format.DateTimeFormat.Builder_SealedType)
+    public var value: Swift.Int32 {
+        get {
+            switch self {
+            case let .builder(type): type.value
+            }
+        }
+    }
+}
+extension ExportedKotlinPackages.kotlinx.datetime.format {
+    public final class DateTimeFormat: KotlinRuntime.KotlinBase {
+    }
+}
