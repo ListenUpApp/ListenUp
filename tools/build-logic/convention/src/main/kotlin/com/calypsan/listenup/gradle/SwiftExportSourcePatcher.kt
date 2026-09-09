@@ -295,7 +295,7 @@ object SwiftExportSourcePatcher {
     // ExportedKotlinPackages.<path>.<Parent>, ExportedKotlinPackages.<path>._<Parent> {`
     private val subtypeRe =
         Regex(
-            """^public final class (_ExportedKotlinPackages_\w+): KotlinRuntime\.KotlinBase, ExportedKotlinPackages\.([\w.]+)\.(\w+), ExportedKotlinPackages\.[\w.]+\._\3\b""",
+            """^public final class (_ExportedKotlinPackages_\w+): KotlinRuntime\.KotlinBase, ExportedKotlinPackages\.([\w.]+)\.(\w+), ExportedKotlinPackages\.[\w.]+\.__\3\b""",
         )
 
     /**
@@ -361,7 +361,8 @@ object SwiftExportSourcePatcher {
     /**
      * Sealed-class enum support (the `onEnum(of:)` exhaustive-switch helper), appended onto the
      * generated `Shared.swift`. Swift export maps a Kotlin sealed class to `protocol <Name>` +
-     * marker `package protocol _<Name>` + one
+     * marker `package protocol __<Name>` (Kotlin 2.4.20 renamed it from `_<Name>`; the
+     * exact-count guard caught the rename as an all-parents-harvested-zero drift) + one
      * `public final class _ExportedKotlinPackages_<path>_<Name>_<Subtype>` per subtype (each
      * conforming to both). That gives no exhaustive Swift `switch`. SKIE gave callers `onEnum(of:)`
      * returning a Swift enum; this regenerates that. Per sealed type, appended onto Shared.swift:

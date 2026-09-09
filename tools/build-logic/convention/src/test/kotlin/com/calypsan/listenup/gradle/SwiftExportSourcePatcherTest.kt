@@ -93,7 +93,7 @@ class SwiftExportSourcePatcherTest {
         val partial =
             "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Success: " +
                 "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.SyncResult, " +
-                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model._SyncResult {\n}\n"
+                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.__SyncResult {\n}\n"
         // A test-only expected baseline of 2 for SyncResult: assert the pure drift detector via the public map.
         // (The production map keys real types; here we verify the comparison logic by harvesting + comparing.)
         val harvested =
@@ -108,7 +108,7 @@ class SwiftExportSourcePatcherTest {
     private fun connectErrorSubtype(name: String) =
         "public final class _ExportedKotlinPackages_com_calypsan_listenup_api_error_ServerConnectError_$name: " +
             "KotlinRuntime.KotlinBase, $connectErrorBase.ServerConnectError, " +
-            "$connectErrorBase._ServerConnectError {\n}\n"
+            "$connectErrorBase.__ServerConnectError {\n}\n"
 
     private val connectErrorSubtypes =
         setOf("InvalidUrl", "NotListenUpServer", "ServerNotReachable", "VerificationFailed", "LocalNetworkPermissionDenied")
@@ -140,7 +140,7 @@ class SwiftExportSourcePatcherTest {
         val novel =
             "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_BrandNewType_One: " +
                 "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.BrandNewType, " +
-                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model._BrandNewType {\n}\n"
+                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.__BrandNewType {\n}\n"
 
         val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(novel), emptyMap())
 
@@ -306,7 +306,7 @@ class SwiftExportSourcePatcherTest {
         // An extra qualifier between KotlinBase and the conformances breaks the regex anchor.
         val drifted =
             "public final class _ExportedKotlinPackages_x_SyncResult_Success: KotlinRuntime.KotlinBase, " +
-                "SomeNewWrapper, ExportedKotlinPackages.x.SyncResult, ExportedKotlinPackages.x._SyncResult {\n}\n"
+                "SomeNewWrapper, ExportedKotlinPackages.x.SyncResult, ExportedKotlinPackages.x.__SyncResult {\n}\n"
         val outcome = SwiftExportSourcePatcher.appendSealedEnumSupport("", listOf(drifted))
         assertEquals(0, outcome.count, "drifted shape matches nothing -> build assertion would fire")
         assertEquals("", outcome.content, "no support appended on zero match")
