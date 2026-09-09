@@ -68,4 +68,19 @@ class KonsistScopeTest :
             // to catch. If this fails after a deliberate module change, update EXPECTED_MODULE_DIRS.
             discovered shouldBe EXPECTED_MODULE_SRC_DIRS
         }
+
+        test("the parsed production scope actually contains the codebase") {
+            // The other cases here guard DIRECTORY discovery. This one guards PARSING: if
+            // scopeFromDirectories ever comes back near-empty (a Konsist upgrade changing the
+            // creator's semantics, a source-set layout change), every rule in this package would
+            // still report green over nothing — and the ban rules, whose population IS this scope,
+            // have no other guard at all.
+            //
+            // Collapse floors, not ratchets — 2,001 files / 2,243 classes / 472 interfaces were
+            // parsed on 2026-09-09, so an ordinary deletion never comes near these bars.
+            val scope = productionScope()
+            assertScopeNotEmpty(scope.files, expectedMin = 800, why = "the production Kotlin file set")
+            assertScopeNotEmpty(scope.classes(), expectedMin = 800, why = "the production class set")
+            assertScopeNotEmpty(scope.interfaces(), expectedMin = 100, why = "the production interface set")
+        }
     })
