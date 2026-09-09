@@ -29,11 +29,8 @@ actor AudioEngine: PlaybackEngine {
     /// is the ordering guarantee — no two callbacks can be handled out of order (rule 7).
     private nonisolated let signals: AsyncStream<EngineSignal>
     private nonisolated let signalContinuation: AsyncStream<EngineSignal>.Continuation
-    /// `release()` is terminal: it finishes the inbox + event streams, so the drain loop ends and
-    /// no further callback can be delivered. Reuse (`load()` after `release()`) is therefore not
-    /// supported — this flag makes a stray reuse fail FAST instead of hanging the 20s readiness
-    /// wait (whose only resumer is the now-dead drain loop). `stop()` — the sole `release()` caller
-    /// — currently has no production callers; this guards the day one is wired without allowing replay.
+    /// `release()` is terminal (inbox + event streams finished, drain loop ended), so this flag makes a stray
+    /// `load()` fail FAST, not hang the 20 s readiness wait. No production caller; close book/sign-out use `unload()`.
     private var isReleased = false
 
     private let player = AVQueuePlayer()
@@ -314,8 +311,8 @@ actor AudioEngine: PlaybackEngine {
         }
     }
 
-    /// Tear down: stop playback, remove every observer, finish the event stream.
-    func release() async {
+    /// Unload the current book — pause, drop every observer, empty the queue. NOT terminal: a later `load` works.
+    func unload() async {
         if let timeObserver {
             player.removeTimeObserver(timeObserver)
             self.timeObserver = nil
@@ -332,12 +329,15 @@ actor AudioEngine: PlaybackEngine {
         statusObservation = nil
         timeControlObservation = nil
         await stopGainStage()
-        // Unblock any load still awaiting readiness so it doesn't leak a suspended task.
-        resumeReadyIfWaiting(false)
+        resumeReadyIfWaiting(false) // unblock a load still awaiting readiness — no leaked suspended task
+        player.pause()
         player.removeAllItems()
         queue = []
-        // Terminal: close the ordered inbox → the drain loop ends → the engine's event stream
-        // finishes. `load()` after this fails fast (see `isReleased`).
+    }
+
+    /// Terminal — [unload] then close the inbox + event stream; the engine can never load again. No production caller.
+    func release() async {
+        await unload()
         isReleased = true
         signalContinuation.finish()
         continuation.finish()

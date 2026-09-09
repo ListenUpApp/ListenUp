@@ -13,7 +13,7 @@ import Shared
 /// `engine.play()` command — the latter races the coordinator's post-`play` phase write.
 /// This poll remains only for the few cases that observe the coordinator's own `@Observable`
 /// state set from internal `Task`s the fakes can't signal (e.g. `firstPdfDocId`,
-/// `documentToOpen`) — and for the bounded *negative* check in `stopSeversEngineObservation`.
+/// `documentToOpen`) — and for the bounded *negative* check in `stopIgnoresLateEngineEvents`.
 ///
 /// The ceiling is deliberately generous: a passing condition returns in milliseconds, so the
 /// timeout is never paid on a green run — it is only ever reached when the awaited work
@@ -640,14 +640,14 @@ struct StopDeactivatesSessionTests {
     }
 
     /// The teardown invariant `stop()` exists to guarantee: the audio session is
-    /// deactivated *before* the engine is released, and both complete before `stop()`
+    /// deactivated *before* the engine is unloaded, and both complete before `stop()`
     /// returns (so the coordinator can't drop with the session still active).
-    @Test func stopDeactivatesSessionBeforeReleasingEngine() async throws {
+    @Test func stopDeactivatesSessionBeforeUnloadingEngine() async throws {
         let engine = FakePlaybackEngine()
         let coordinator = makeCoordinator(engine)
         await coordinator.stop()
-        #expect(await engine.teardownOrder == ["deactivate", "release"])
-        #expect(await engine.didRelease)
+        #expect(await engine.teardownOrder == ["deactivate", "unload"])
+        #expect(await engine.didUnload)
     }
 }
 
@@ -746,14 +746,15 @@ struct PlaybackLifecycleTests {
 
         await coordinator.stop()
         #expect(await engine.didDeactivateSession)
-        #expect(await engine.didRelease)
+        #expect(await engine.didUnload)
     }
 
-    /// `stop()` tears down engine observation (`bridge.cancelAll()`), so an engine event
-    /// arriving after teardown must not mutate `phase`. A leaked subscription would flip
-    /// it to `.error`; we poll briefly so a real leak is caught fast while a healthy run
-    /// pays only a small bounded cost.
-    @Test func stopSeversEngineObservation() async throws {
+    /// `stop()` keeps the engine subscription bound (the coordinator is an app-lifetime singleton
+    /// that must play the next book), so a late engine event from the unloaded book must be
+    /// dropped by the `.idle` guard in `handleEngineEvent` rather than mutate `phase`. A missing
+    /// guard would flip it to `.error`; we poll briefly so a real leak is caught fast while a
+    /// healthy run pays only a small bounded cost.
+    @Test func stopIgnoresLateEngineEvents() async throws {
         let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")

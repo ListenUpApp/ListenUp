@@ -551,14 +551,17 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await progress.savePositionNow(bookId: id, positionMs: bookPositionMs)
     }
 
-    /// Tear down all observation and release the engine. `async` so teardown is
-    /// deterministic: the audio session is deactivated and the engine released
-    /// *before* the call returns.
+    /// Unload the current book — the "Close book" and sign-out teardown. `async` so it is
+    /// deterministic: the audio session is deactivated and the engine unloaded *before* the call
+    /// returns. Deliberately NOT terminal: the coordinator is an app-lifetime singleton
+    /// (`Dependencies.playerCoordinator`), so it must stay able to play the next book. Its
+    /// subscriptions (sleep timer, skip intervals, interruptions, route changes) stay bound;
+    /// stale engine events are dropped by the `.idle` guard in `handleEngineEvent`.
     func stop() async {
         pausedByInterruption = false
         // Supersede any in-flight `prepareAndStart`: `Task.cancel()` alone does not interrupt its
         // non-cancellation-checking `await`s (prepare, engine.load), so without bumping the epoch a
-        // load that resolves after teardown would call `engine.play()` on the released engine and
+        // load that resolves after teardown would call `engine.play()` on the unloaded engine and
         // resurrect `.playing`. Bumping `loadGeneration` makes it bail at its next `!isSuperseded`.
         prepareTask?.cancel()
         loadGeneration &+= 1
@@ -567,10 +570,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // stop while `.buffering` would leave a streaming book "buffering" forever and pin
         // `shouldYield` true, suspending iOS downloads indefinitely.
         phase = .idle
-        bridge.cancelAll()
-        positionTracker.reset()
+        resetMetadataForSwitch()
         await engine.deactivateSession()
-        await engine.release()
+        await engine.unload()
     }
 
     // MARK: - RemoteCommandHandler
@@ -691,6 +693,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // event. Gated on the flag, not the `.preparing` phase, so the honest `.buffering(duration)`
         // state can be shown *during* the load while these events stay suppressed.
         if isEngineLoading { return }
+        // Nothing is loaded — a late event belongs to the book we just unloaded. Drop it. Without
+        // this, `.failed` would raise a phantom error bar over an empty player after "Close book".
+        if case .idle = phase { return }
         switch event {
         case .position(let ms, let rate):
             // Only a loaded book has a place to report to (guards `.idle`/`.error` too).
