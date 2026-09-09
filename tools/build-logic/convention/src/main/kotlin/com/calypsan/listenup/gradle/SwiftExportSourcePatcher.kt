@@ -127,6 +127,13 @@ object SwiftExportSourcePatcher {
      *   `value` getter arm are deleted; the enum stays because its parent enum and `sealedType()`
      *   overloads still name it (the bridged `sealedType()` for it is a `fatalError` stub anyway).
      *
+     *   Class 6 — a `<Name>_SealedType` enum whose `value` type is a protocol its payload classes do
+     *   not conform to. Generics are erased: `AppResult<T>` becomes `protocol AppResult`, while its
+     *   subtypes are emitted as plain `KotlinRuntime.KotlinBase` classes that never adopt it, so the
+     *   generated getter cannot return them as `AppResult`. The getter's type is widened to
+     *   `KotlinRuntime.KotlinBase`, the one supertype every payload has. Only `AppResult` has this
+     *   shape today (scanned across every generated module); a conformed protocol is left alone.
+     *
      * @param module the file's parent directory name (the Swift module), used to scope the
      *   undefined-type reference regex exactly as the original walk did.
      */
@@ -238,6 +245,9 @@ object SwiftExportSourcePatcher {
             changed = true
         }
 
+        // Class 6 — widen a sealed enum's `value` type past a protocol its payloads never adopt.
+        if (widenUnconformedSealedValues(out)) changed = true
+
         return if (changed) {
             PatchOutcome(out.joinToString("\n") + "\n", 1)
         } else {
@@ -346,6 +356,67 @@ object SwiftExportSourcePatcher {
         }
         if (dropped.isEmpty()) return null
         return lines.filterIndexed { index, _ -> index !in dropped }
+    }
+
+    private val anySealedEnumStart = Regex("""^\s*public enum (\w+_SealedType): KotlinRuntimeSupport\.SealedType\b""")
+    private val sealedCase = Regex("""^\s*case \w+\((\S+?)\)\s*$""")
+    private val sealedValueGetter = Regex("""^(\s*)public var value: (\S+) \{\s*$""")
+    private val protocolDeclaration = Regex("""\bprotocol (\w+)\b""")
+    private val classDeclaration = Regex("""\bclass (\w+): ([^{]*)\{""")
+    private val wrapperStruct = Regex("""\bstruct (\w+_SealedType): KotlinRuntimeSupport\.SealedType\b""")
+    private val wrapperValue = Regex("""^\s*public let value: (\S+)\s*$""")
+
+    /**
+     * [patchSource] Class 6. Rewrites, in place, the `value` getter type of every `*_SealedType` enum
+     * whose declared type is a protocol of this module that at least one payload's wrapped class does
+     * not conform to; returns whether anything changed.
+     */
+    private fun widenUnconformedSealedValues(lines: MutableList<String>): Boolean {
+        val protocols = lines.flatMap { line -> protocolDeclaration.findAll(line).map { it.groupValues[1] }.toList() }.toHashSet()
+        val conformances = HashMap<String, String>()
+        val wrappedClass = HashMap<String, String>()
+        lines.forEachIndexed { index, line ->
+            classDeclaration.find(line)?.let { conformances[it.groupValues[1]] = it.groupValues[2] }
+            wrapperStruct.find(line)?.let { struct ->
+                lines.getOrNull(index + 1)?.let { next ->
+                    wrapperValue.matchEntire(next)?.let { wrappedClass[struct.groupValues[1]] = it.groupValues[1].substringAfterLast('.') }
+                }
+            }
+        }
+        var changed = false
+        var i = 0
+        while (i < lines.size) {
+            if (!anySealedEnumStart.containsMatchIn(lines[i])) {
+                i++
+                continue
+            }
+            var depth = lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            var end = i + 1
+            while (end < lines.size && depth > 0) {
+                depth += lines[end].count { it == '{' } - lines[end].count { it == '}' }
+                end++
+            }
+            val body = i + 1 until end
+            val getter = body.firstOrNull { sealedValueGetter.matches(lines[it]) }
+            if (getter != null) {
+                val match = sealedValueGetter.matchEntire(lines[getter])!!
+                val valueType = match.groupValues[2].substringAfterLast('.')
+                val payloads = body.mapNotNull { sealedCase.matchEntire(lines[it])?.groupValues?.get(1)?.substringAfterLast('.') }
+                val unconformed =
+                    valueType in protocols &&
+                        payloads.any { payload ->
+                            val cls = wrappedClass[payload] ?: return@any false
+                            val supertypes = conformances[cls] ?: return@any false
+                            !Regex("""\b${Regex.escape(valueType)}\b""").containsMatchIn(supertypes)
+                        }
+                if (unconformed) {
+                    lines[getter] = "${match.groupValues[1]}public var value: KotlinRuntime.KotlinBase {"
+                    changed = true
+                }
+            }
+            i = end
+        }
+        return changed
     }
 
     /**

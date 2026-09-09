@@ -282,6 +282,20 @@ class SwiftExportSourcePatcherTest {
         assertTrue(out.contains("case builder(ExportedKotlinPackages.kotlinx.datetime.format.DateTimeFormat.Builder_SealedType)"))
     }
 
+    @Test
+    fun `patchSource widens a sealed enum's value type when its payload classes do not conform to it`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("patch-source.swift"), module = "Shared").content
+
+        // Generic sealed type: the erased base is a protocol the subtype classes never adopt.
+        assertFalse(
+            out.contains("public var value: ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult {"),
+            "the unconformed protocol type is gone",
+        )
+        assertTrue(out.contains("public var value: KotlinRuntime.KotlinBase {"), "widened to the common base class")
+        // The control: a protocol every payload class conforms to stays as the value type.
+        assertTrue(out.contains("public var value: ExportedKotlinPackages.x.Bar {"), "a conformed protocol is untouched")
+    }
+
     // ---- camelCase pass ------------------------------------------------------------------------
 
     @Test
