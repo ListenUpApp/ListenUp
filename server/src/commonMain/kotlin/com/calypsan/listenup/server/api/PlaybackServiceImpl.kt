@@ -180,6 +180,9 @@ internal class PlaybackServiceImpl(
             currentChapterId = request.currentChapterId,
             volumeBoostDb = request.volumeBoostDb,
             measuredGainDb = request.measuredGainDb,
+            finishedAt = request.finishedAt,
+            hasCustomSpeed = request.hasCustomSpeed,
+            hasCustomBoost = request.hasCustomBoost,
         )
     }
 

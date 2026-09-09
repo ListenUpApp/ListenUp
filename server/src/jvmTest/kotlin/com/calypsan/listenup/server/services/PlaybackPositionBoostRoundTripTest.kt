@@ -114,4 +114,109 @@ class PlaybackPositionBoostRoundTripTest :
                 }
             }
         }
+
+        test("recordPosition persists finishedAt, hasCustomSpeed and hasCustomBoost and reads them back") {
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val result =
+                        repo.recordPosition(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 42_000L,
+                            lastPlayedAt = 1_730_000_000_000L,
+                            finished = true,
+                            playbackSpeed = 1.5f,
+                            currentChapterId = null,
+                            volumeBoostDb = 6f,
+                            measuredGainDb = -2f,
+                            finishedAt = 1_730_000_000_000L,
+                            hasCustomSpeed = true,
+                            hasCustomBoost = true,
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val stored = repo.getPosition("u1", "book-1").shouldNotBeNull()
+                    stored.finishedAt shouldBe 1_730_000_000_000L
+                    stored.hasCustomSpeed shouldBe true
+                    stored.hasCustomBoost shouldBe true
+                }
+            }
+        }
+
+        test("a null finishedAt on an update preserves the stored finish date") {
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 42_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                        finishedAt = 1_730_000_000_000L,
+                    )
+
+                    // An offline-queued payload frozen before the book was finished replays with a
+                    // null finish date — it must not erase the one another device recorded.
+                    val result =
+                        repo.recordPosition(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 99_000L,
+                            lastPlayedAt = 1_730_000_999_000L,
+                            finished = true,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                            finishedAt = null,
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val stored = repo.getPosition("u1", "book-1").shouldNotBeNull()
+                    stored.positionMs shouldBe 99_000L
+                    stored.finishedAt shouldBe 1_730_000_000_000L
+                }
+            }
+        }
+
+        test("hasCustomSpeed is overwritten by the incoming value, not preserved") {
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 42_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = false,
+                        playbackSpeed = 1.5f,
+                        currentChapterId = null,
+                        hasCustomSpeed = true,
+                        hasCustomBoost = true,
+                    )
+
+                    // "Reset to default" un-sets the flag — these booleans must NOT COALESCE, or a
+                    // reset would be impossible.
+                    val result =
+                        repo.recordPosition(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 99_000L,
+                            lastPlayedAt = 1_730_000_999_000L,
+                            finished = false,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                            hasCustomSpeed = false,
+                            hasCustomBoost = false,
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val stored = repo.getPosition("u1", "book-1").shouldNotBeNull()
+                    stored.hasCustomSpeed shouldBe false
+                    stored.hasCustomBoost shouldBe false
+                }
+            }
+        }
     })

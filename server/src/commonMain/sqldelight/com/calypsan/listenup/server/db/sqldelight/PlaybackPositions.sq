@@ -4,7 +4,8 @@
 -- (user_id, book_id) pair; `last_played_at`-wins conflict resolution lives in the repo.
 -- `finished` is INTEGER 0/1 (mapped to Boolean at the repo boundary).
 -- Column set matches V15__playback_positions.sql plus V56__volume_boost_and_normalization.sql
--- (volume_boost_db, measured_gain_db).
+-- (volume_boost_db, measured_gain_db) plus V68__playback_position_cross_device_fields.sql
+-- (finished_at, has_custom_speed, has_custom_boost).
 CREATE TABLE playback_positions (
     id                 TEXT    NOT NULL PRIMARY KEY,
     user_id            TEXT    NOT NULL,
@@ -15,6 +16,9 @@ CREATE TABLE playback_positions (
     playback_speed     REAL    NOT NULL DEFAULT 1.0,
     volume_boost_db    REAL    NOT NULL DEFAULT 0.0,
     measured_gain_db   REAL,
+    finished_at        INTEGER,
+    has_custom_speed   INTEGER NOT NULL DEFAULT 0,
+    has_custom_boost   INTEGER NOT NULL DEFAULT 0,
     current_chapter_id TEXT,
     revision           INTEGER NOT NULL DEFAULT 0,
     created_at         INTEGER NOT NULL,
@@ -145,23 +149,33 @@ WHERE user_id = :userId AND deleted_at IS NULL;
 insert:
 INSERT INTO playback_positions (
     id, user_id, book_id, position_ms, last_played_at, finished, playback_speed,
-    volume_boost_db, measured_gain_db, current_chapter_id, revision, created_at,
+    volume_boost_db, measured_gain_db, finished_at, has_custom_speed, has_custom_boost,
+    current_chapter_id, revision, created_at,
     updated_at, deleted_at, client_op_id
 )
 VALUES (
     :id, :user_id, :book_id, :position_ms, :last_played_at, :finished, :playback_speed,
-    :volume_boost_db, :measured_gain_db, :current_chapter_id, :revision, :created_at,
+    :volume_boost_db, :measured_gain_db, :finished_at, :has_custom_speed, :has_custom_boost,
+    :current_chapter_id, :revision, :created_at,
     :updated_at, :deleted_at, :client_op_id
 );
 
--- `measured_gain_db` COALESCEs: a null in the incoming write (e.g. an offline-queued
--- payload frozen before any device measured) preserves the stored measurement instead
--- of erasing it. All other columns take the incoming value verbatim.
+-- `measured_gain_db` and `finished_at` COALESCE: a null in the incoming write (an offline-queued
+-- payload frozen before any device measured, or before the book was finished) means "I don't
+-- know", not "erase it", so the stored value survives.
+--
+-- `has_custom_speed` / `has_custom_boost` deliberately do NOT COALESCE — they take the incoming
+-- value verbatim. A false is a real statement ("the listener reset this book to the account
+-- default"), so preserving it would make a reset impossible.
+--
+-- All other columns take the incoming value verbatim.
 update:
 UPDATE playback_positions
 SET position_ms = :position_ms, last_played_at = :last_played_at, finished = :finished,
     playback_speed = :playback_speed, volume_boost_db = :volume_boost_db,
     measured_gain_db = COALESCE(:measured_gain_db, measured_gain_db),
+    finished_at = COALESCE(:finished_at, finished_at),
+    has_custom_speed = :has_custom_speed, has_custom_boost = :has_custom_boost,
     current_chapter_id = :current_chapter_id,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
