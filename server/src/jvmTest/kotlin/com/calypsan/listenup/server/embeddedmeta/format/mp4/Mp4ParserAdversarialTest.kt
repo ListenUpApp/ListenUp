@@ -363,9 +363,14 @@ class Mp4ParserAdversarialTest :
             // `parseChunkOffsets` serves BOTH chunk-offset box types from one cap, but the divisor
             // differs: a `co64` entry is 8 bytes wide where an `stco` entry is 4. That second arm
             // of the formula has no other coverage, so an entry count declared far beyond what the
-            // box holds is fed to the 64-bit variant specifically. Same proof shape as the `stco`
-            // case above: green means the count was reconciled with the bytes present before the
-            // `LongArray` was sized.
+            // box holds is fed to the 64-bit variant specifically.
+            //
+            // Success is asserted rather than "either outcome", deliberately. `Mp4Parser.parse`
+            // wraps this whole path in a catch-all that answers any escaped Throwable — an
+            // `OutOfMemoryError` from an oversized array included — with a typed CorruptHeader.
+            // A test that accepts a Failure therefore still passes with the cap removed, which
+            // makes it no test of the cap at all. Insisting on Success pins the real property:
+            // the count was reconciled with the bytes present, so nothing was ever thrown.
             val bytes =
                 buildChapterTrackMoov(
                     sttsPayload = benignSttsPayload(),
@@ -376,10 +381,8 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            when (result) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
-            }
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
         }
 
         // C-04: Mp4Parser.parse's post-moov body (readMvhdDurationMs, ilst, chapters) runs
