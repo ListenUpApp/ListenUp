@@ -128,106 +128,133 @@ object SwiftExportSourcePatcher {
         content: String,
         module: String,
     ): PatchOutcome {
-        val unavailable = Regex("""@available\(\*, *unavailable""")
-        val signatureClose = Regex("""\)\s*(->[^{]*)?\{\s*$""")
-        val helperCall = Regex("""^(\s*)this\._[A-Za-z]+\(.*""")
-        val typeDef = Regex("""\b(?:class|protocol|struct|enum|typealias|extension)\s+([A-Za-z0-9_]+)""")
-        val funcStart = Regex("""^\s*(?:public|package|open|final|static|\s)*func\s""")
-
-        val lines = content.lines().let { if (it.isNotEmpty() && it.last().isEmpty()) it.dropLast(1) else it }
+        val lines = linesOf(content)
         val defined = lines.flatMap { line -> typeDef.findAll(line).map { it.groupValues[1] }.toList() }.toHashSet()
+        val passes: List<(List<String>) -> List<String>?> =
+            listOf(
+                { deleteUndefinedTypeFunctions(it, module, defined) }, // Class 2
+                ::neutralizeUnavailableOperators, // Class 1
+                ::dropDuplicatedSpiStubs, // Class 4
+                { dropUnexportedSealedCases(it, defined) }, // Class 5
+                ::widenUnconformedSealedValues, // Class 6
+            )
+        var out = lines
+        var changed = false
+        for (pass in passes) {
+            val next = pass(out) ?: continue
+            out = next
+            changed = true
+        }
+        return if (changed) PatchOutcome(out.joinToString("\n") + "\n", 1) else PatchOutcome(content, 0)
+    }
+
+    private val unavailable = Regex("""@available\(\*, *unavailable""")
+    private val signatureClose = Regex("""\)\s*(->[^{]*)?\{\s*$""")
+    private val helperCall = Regex("""^(\s*)this\._[A-Za-z]+\(.*""")
+    private val typeDef = Regex("""\b(?:class|protocol|struct|enum|typealias|extension)\s+([A-Za-z0-9_]+)""")
+
+    /** Lines of [content] without the empty element a trailing newline would leave. */
+    private fun linesOf(content: String): List<String> =
+        content.lines().let { if (it.isNotEmpty() && it.last().isEmpty()) it.dropLast(1) else it }
+
+    /** `{` minus `}` on one line — the brace arithmetic every block walk below is built on. */
+    private fun braceDelta(line: String): Int = line.count { it == '{' } - line.count { it == '}' }
+
+    /** Exclusive end of the block whose opening brace sits on line [open]: the first line after the depth returns to zero. */
+    private fun blockEnd(
+        lines: List<String>,
+        open: Int,
+    ): Int {
+        var depth = braceDelta(lines[open])
+        var end = open + 1
+        while (end < lines.size && depth > 0) {
+            depth += braceDelta(lines[end])
+            end++
+        }
+        return end
+    }
+
+    /** Index of the line that closes the signature opened on line [from], or -1 when none does. */
+    private fun signatureCloseIndex(
+        lines: List<String>,
+        from: Int,
+    ): Int {
+        var j = from
+        while (j < lines.size && !signatureClose.containsMatchIn(lines[j])) j++
+        return if (j < lines.size) j else -1
+    }
+
+    /**
+     * [patchSource] Class 2. Returns [lines] without every function whose signature names a
+     * same-module `_ExportedKotlinPackages_…` type the file never declares, or null when none does.
+     */
+    private fun deleteUndefinedTypeFunctions(
+        lines: List<String>,
+        module: String,
+        defined: Set<String>,
+    ): List<String>? {
         val undefinedRef = Regex("""\Q$module\E\._ExportedKotlinPackages_([A-Za-z0-9_]+)""")
         val out = ArrayList<String>(lines.size)
-        var changed = false
         var i = 0
+        while (i < lines.size) {
+            val close = if (funcDeclaration.containsMatchIn(lines[i])) signatureCloseIndex(lines, i) else -1
+            if (close >= 0 &&
+                refersToUndefinedType(lines.subList(i, close + 1).joinToString("\n"), undefinedRef, defined)
+            ) {
+                i = blockEnd(lines, close)
+                continue
+            }
+            out.add(lines[i])
+            i++
+        }
+        return if (out.size != lines.size) out else null
+    }
+
+    private fun refersToUndefinedType(
+        signature: String,
+        undefinedRef: Regex,
+        defined: Set<String>,
+    ): Boolean =
+        undefinedRef.findAll(signature).any { m ->
+            val name = m.groupValues[1]
+            "_ExportedKotlinPackages_$name" !in defined && name !in defined
+        }
+
+    /**
+     * [patchSource] Class 1. Inside an `@available(*, unavailable)` operator, the `this._helper(...)`
+     * call becomes `fatalError`; returns the rewritten lines, or null when nothing was rewritten.
+     */
+    private fun neutralizeUnavailableOperators(lines: List<String>): List<String>? {
+        val out = ArrayList<String>(lines.size)
+        var changed = false
         var armed = false
         var inBody = false
         var depth = 0
-        while (i < lines.size) {
-            val line = lines[i]
-
-            // Class 2 — delete a whole function whose signature names an undefined same-module type.
-            if (!inBody && funcStart.containsMatchIn(line)) {
-                var j = i
-                while (j < lines.size && !signatureClose.containsMatchIn(lines[j])) j++
-                if (j < lines.size) {
-                    val signature = lines.subList(i, j + 1).joinToString("\n")
-                    val refsUndefined =
-                        undefinedRef.findAll(signature).any { m ->
-                            val name = m.groupValues[1]
-                            "_ExportedKotlinPackages_$name" !in defined && name !in defined
-                        }
-                    if (refsUndefined) {
-                        var d = lines[j].count { it == '{' } - lines[j].count { it == '}' }
-                        var k = j + 1
-                        while (k < lines.size && d > 0) {
-                            d += lines[k].count { it == '{' } - lines[k].count { it == '}' }
-                            k++
-                        }
-                        changed = true
-                        i = k
-                        continue
-                    }
-                }
-            }
-
-            // Class 1 — neutralize unavailable-operator bodies.
+        for (line in lines) {
+            var emitted = line
             when {
                 !inBody && unavailable.containsMatchIn(line) -> {
                     armed = true
-                    out.add(line)
                 }
 
                 armed && signatureClose.containsMatchIn(line) -> {
                     inBody = true
                     armed = false
                     depth = 1
-                    out.add(line)
                 }
 
                 inBody -> {
-                    val match = helperCall.matchEntire(line)
-                    if (match != null) {
-                        out.add("${match.groupValues[1]}fatalError(\"swift-export: unavailable operator\")")
+                    helperCall.matchEntire(line)?.let {
+                        emitted = "${it.groupValues[1]}fatalError(\"swift-export: unavailable operator\")"
                         changed = true
-                    } else {
-                        out.add(line)
                     }
-                    depth += line.count { it == '{' } - line.count { it == '}' }
+                    depth += braceDelta(line)
                     if (depth <= 0) inBody = false
                 }
-
-                else -> {
-                    out.add(line)
-                }
             }
-            i++
+            out.add(emitted)
         }
-
-        // Class 4 — drop an `@_spi` stub that duplicates a real implementation in its extension.
-        val deduplicated = dropDuplicatedSpiStubs(out)
-        if (deduplicated != null) {
-            out.clear()
-            out.addAll(deduplicated)
-            changed = true
-        }
-
-        // Class 5 — drop a sealed-enum case whose payload the module never declares.
-        val resolvable = dropUnexportedSealedCases(out, defined)
-        if (resolvable != null) {
-            out.clear()
-            out.addAll(resolvable)
-            changed = true
-        }
-
-        // Class 6 — widen a sealed enum's `value` type past a protocol its payloads never adopt.
-        if (widenUnconformedSealedValues(out)) changed = true
-
-        return if (changed) {
-            PatchOutcome(out.joinToString("\n") + "\n", 1)
-        } else {
-            PatchOutcome(content, 0)
-        }
+        return if (changed) out else null
     }
 
     private val spiStubBody =
@@ -251,42 +278,7 @@ object SwiftExportSourcePatcher {
      */
     private fun dropDuplicatedSpiStubs(lines: List<String>): List<String>? {
         if (lines.none { spiStubBody.matches(it) }) return null
-        val functions = ArrayList<SwiftFunction>()
-        var depth = 0
-        var block = -1
-        var i = 0
-        while (i < lines.size) {
-            val line = lines[i]
-            if (depth == 0 && line.contains('{')) block = i
-            if (depth >= 1 && funcDeclaration.containsMatchIn(line)) {
-                var j = i
-                while (j < lines.size && !lines[j].contains('{')) j++
-                if (j == lines.size) break
-                val signature =
-                    lines
-                        .subList(
-                            i,
-                            j + 1,
-                        ).joinToString(" ")
-                        .substringBefore('{')
-                        .replace(Regex("""\s+"""), " ")
-                        .trim()
-                var bodyDepth = lines[j].count { it == '{' } - lines[j].count { it == '}' }
-                var k = j + 1
-                var isStub = false
-                while (k < lines.size && bodyDepth > 0) {
-                    if (spiStubBody.matches(lines[k])) isStub = true
-                    bodyDepth += lines[k].count { it == '{' } - lines[k].count { it == '}' }
-                    k++
-                }
-                val first = if (i > 0 && spiAttribute.containsMatchIn(lines[i - 1])) i - 1 else i
-                functions.add(SwiftFunction(block, signature, first, k, isStub))
-                i = k
-                continue
-            }
-            depth += line.count { it == '{' } - line.count { it == '}' }
-            i++
-        }
+        val functions = swiftFunctions(lines)
         val doomed =
             functions.filter { stub ->
                 stub.isSpiStub &&
@@ -296,6 +288,53 @@ object SwiftExportSourcePatcher {
         val dropped = doomed.flatMapTo(HashSet()) { it.first until it.endExclusive }
         return lines.filterIndexed { index, _ -> index !in dropped }
     }
+
+    /** Every function declared inside a top-level block, with its normalized signature and body span. */
+    private fun swiftFunctions(lines: List<String>): List<SwiftFunction> {
+        val functions = ArrayList<SwiftFunction>()
+        var depth = 0
+        var block = -1
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            if (depth == 0 && line.contains('{')) block = i
+            val open = if (depth >= 1 && funcDeclaration.containsMatchIn(line)) openingBraceIndex(lines, i) else -1
+            if (open < 0) {
+                depth += braceDelta(line)
+                i++
+                continue
+            }
+            val end = blockEnd(lines, open)
+            val isStub = (open + 1 until end).any { spiStubBody.matches(lines[it]) }
+            val first = if (i > 0 && spiAttribute.containsMatchIn(lines[i - 1])) i - 1 else i
+            functions.add(SwiftFunction(block, normalizedSignature(lines, i, open), first, end, isStub))
+            i = end
+        }
+        return functions
+    }
+
+    /** Index of the first line at or after [from] carrying a `{`, or -1. */
+    private fun openingBraceIndex(
+        lines: List<String>,
+        from: Int,
+    ): Int {
+        var j = from
+        while (j < lines.size && !lines[j].contains('{')) j++
+        return if (j < lines.size) j else -1
+    }
+
+    /** The declaration on lines [from]..[open], up to its `{`, with whitespace collapsed. */
+    private fun normalizedSignature(
+        lines: List<String>,
+        from: Int,
+        open: Int,
+    ): String =
+        lines
+            .subList(from, open + 1)
+            .joinToString(" ")
+            .substringBefore('{')
+            .replace(Regex("""\s+"""), " ")
+            .trim()
 
     private val sealedEnumStart = Regex("""^public enum (\w+_SealedType)\b""")
     private val sealedCasePayload =
@@ -352,9 +391,10 @@ object SwiftExportSourcePatcher {
     /**
      * [patchSource] Class 6. Rewrites, in place, the `value` getter type of every `*_SealedType` enum
      * whose declared type is a protocol of this module that at least one payload's wrapped class does
-     * not conform to; returns whether anything changed.
+     * not conform to; returns the rewritten lines, or null when every payload conforms.
      */
-    private fun widenUnconformedSealedValues(lines: MutableList<String>): Boolean {
+    private fun widenUnconformedSealedValues(lines: List<String>): List<String>? {
+        val out = ArrayList(lines)
         val protocols =
             lines
                 .flatMap { line ->
@@ -408,13 +448,13 @@ object SwiftExportSourcePatcher {
                             !Regex("""\b${Regex.escape(valueType)}\b""").containsMatchIn(supertypes)
                         }
                 if (unconformed) {
-                    lines[getter] = "${match.groupValues[1]}public var value: KotlinRuntime.KotlinBase {"
+                    out[getter] = "${match.groupValues[1]}public var value: KotlinRuntime.KotlinBase {"
                     changed = true
                 }
             }
             i = end
         }
-        return changed
+        return if (changed) out else null
     }
 
     /**
@@ -437,59 +477,70 @@ object SwiftExportSourcePatcher {
         sourceContents: List<String>,
     ): PatchOutcome {
         if (sharedContent.contains(FLAT_TYPEALIAS_MARKER)) return PatchOutcome(sharedContent, 0)
-        val extensionRe = Regex("""^extension ExportedKotlinPackages\.([A-Za-z0-9_.]+?)(?:\s+where\b.*)?\s*\{""")
-        val typeRe = Regex("""^\s+public (?:final class|class|enum|protocol|struct|actor) ([A-Za-z_][A-Za-z0-9_]*)""")
+        val builder = StringBuilder("\n$FLAT_TYPEALIAS_MARKER\n")
+        var count = 0
+        for ((name, namespaces) in packageLevelTypes(sourceContents).toSortedMap()) {
+            // `Companion` is every class's nested object; a leading underscore marks generator
+            // plumbing (Kotlin 2.4.20's `public protocol __<Name>` sealed markers). Neither is API.
+            if (name == "Companion" || name.startsWith("_")) continue
+            val namespace = preferredNamespace(namespaces) ?: continue
+            builder.append("public typealias $name = ExportedKotlinPackages.$namespace.$name\n")
+            count++
+        }
+        return PatchOutcome(sharedContent + builder.toString(), count)
+    }
+
+    private val extensionRe = Regex("""^extension ExportedKotlinPackages\.([A-Za-z0-9_.]+?)(?:\s+where\b.*)?\s*\{""")
+    private val typeRe =
+        Regex("""^\s+public (?:final class|class|enum|protocol|struct|actor) ([A-Za-z_][A-Za-z0-9_]*)""")
+
+    /**
+     * A name declared in one package resolves to it. One declared in several resolves to the
+     * `client.domain.model` package, then any `client.domain` one; anything still ambiguous is null
+     * and stays qualified.
+     */
+    private fun preferredNamespace(namespaces: Set<String>): String? =
+        if (namespaces.size == 1) {
+            namespaces.first()
+        } else {
+            namespaces.firstOrNull { it.contains(".client.domain.model") }
+                ?: namespaces.firstOrNull { it.contains(".client.domain") }
+        }
+
+    /**
+     * Type name -> every package it is declared DIRECTLY in. Only depth 1 of a package extension
+     * counts — a sealed subtype or any other type nested inside a parent type (depth > 1) would get
+     * a flat path that is wrong.
+     */
+    private fun packageLevelTypes(sourceContents: List<String>): Map<String, Set<String>> {
         val packagesByName = HashMap<String, MutableSet<String>>()
         for (fileContent in sourceContents) {
             var packageNamespace: String? = null
             var depth = 0
             for (line in fileContent.lineSequence()) {
-                if (packageNamespace == null) {
-                    val ext = extensionRe.find(line)
-                    if (ext != null) {
-                        val path = ext.groupValues[1]
-                        // A package extension's last segment is lowercase; a type/conformance extension's is Capitalized.
-                        if (path.substringAfterLast('.').first().isLowerCase()) {
-                            packageNamespace = path
-                            depth = line.count { it == '{' } - line.count { it == '}' }
-                        }
-                    }
+                val namespace = packageNamespace
+                if (namespace == null) {
+                    packageNamespace = packageExtension(line)?.also { depth = braceDelta(line) }
                     continue
                 }
-                // Only alias types declared DIRECTLY in the package (depth 1) — not sealed subtypes or
-                // other types nested inside a parent type (depth > 1), whose flat path would be wrong.
                 if (depth == 1) {
-                    typeRe
-                        .find(
-                            line,
-                        )?.let { packagesByName.getOrPut(it.groupValues[1]) { HashSet() }.add(packageNamespace!!) }
+                    typeRe.find(line)?.let { packagesByName.getOrPut(it.groupValues[1]) { HashSet() }.add(namespace) }
                 }
-                depth += line.count { it == '{' } - line.count { it == '}' }
+                depth += braceDelta(line)
                 if (depth <= 0) packageNamespace = null
             }
         }
-        val builder = StringBuilder("\n$FLAT_TYPEALIAS_MARKER\n")
-        var count = 0
-        for ((name, namespaces) in packagesByName.toSortedMap()) {
-            // `Companion` is every class's nested object; a leading underscore marks generator
-            // plumbing (Kotlin 2.4.20's `public protocol __<Name>` sealed markers). Neither is API.
-            if (name == "Companion" || name.startsWith("_")) continue
-            val namespace =
-                when {
-                    namespaces.size == 1 -> {
-                        namespaces.first()
-                    }
+        return packagesByName
+    }
 
-                    else -> {
-                        namespaces.firstOrNull { it.contains(".client.domain.model") }
-                            ?: namespaces.firstOrNull { it.contains(".client.domain") }
-                            ?: continue
-                    }
-                }
-            builder.append("public typealias $name = ExportedKotlinPackages.$namespace.$name\n")
-            count++
-        }
-        return PatchOutcome(sharedContent + builder.toString(), count)
+    /**
+     * The package path an `extension ExportedKotlinPackages.<path> {` line opens, or null for any
+     * other line — including a type/conformance extension, whose last segment is Capitalized where a
+     * package's is lowercase.
+     */
+    private fun packageExtension(line: String): String? {
+        val path = extensionRe.find(line)?.groupValues?.get(1) ?: return null
+        return path.takeIf { it.substringAfterLast('.').first().isLowerCase() }
     }
 
     /** A sealed parent type harvested from the generated Swift: its package [path] and [name]. */
@@ -502,7 +553,8 @@ object SwiftExportSourcePatcher {
     // ExportedKotlinPackages.<path>.<Parent>, ExportedKotlinPackages.<path>._<Parent> {`
     private val subtypeRe =
         Regex(
-            """^public final class (_ExportedKotlinPackages_\w+): KotlinRuntime\.KotlinBase, ExportedKotlinPackages\.([\w.]+)\.(\w+), ExportedKotlinPackages\.[\w.]+\.__\3\b""",
+            """^public final class (_ExportedKotlinPackages_\w+): KotlinRuntime\.KotlinBase, """ +
+                """ExportedKotlinPackages\.([\w.]+)\.(\w+), ExportedKotlinPackages\.[\w.]+\.__\3\b""",
         )
 
     /**
@@ -574,67 +626,66 @@ object SwiftExportSourcePatcher {
      * @return the rewritten file and `count` = 1 if the file changed, else 0.
      */
     fun camelCaseEnumCases(content: String): PatchOutcome {
-        val enumStart = Regex("""^(\s*)public enum (\w+):""")
-        val caseDecl = Regex("""^(\s*)case ([A-Z][A-Z0-9_]+)\s*$""")
-
-        fun toCamel(name: String): String {
-            val camel =
-                name
-                    .split("_")
-                    .mapIndexed { i, part ->
-                        if (i == 0) part.lowercase() else part.lowercase().replaceFirstChar { it.uppercase() }
-                    }.joinToString("")
-            return if (camel in swiftKeywords) "`$camel`" else camel
-        }
-
-        val lines = content.lines().let { if (it.isNotEmpty() && it.last().isEmpty()) it.dropLast(1) else it }
+        val lines = linesOf(content)
         val out = ArrayList<String>(lines.size)
-        var changed = false
-        var inEnum = false
-        var enumDepth = 0
-        var depth = 0
         val caseMap = HashMap<String, String>()
+        var changed = false
+        // The brace depth the current enum opened at; -1 while outside any enum.
+        var enumDepth = -1
+        var depth = 0
         for (line in lines) {
-            if (!inEnum) {
-                if (enumStart.containsMatchIn(line)) {
-                    inEnum = true
-                    enumDepth = depth
-                    caseMap.clear()
-                    depth += line.count { it == '{' } - line.count { it == '}' }
-                    out.add(line)
-                    continue
-                }
-                out.add(line)
-                depth += line.count { it == '{' } - line.count { it == '}' }
-                continue
-            }
-            // Inside an enum body.
-            var rewritten = line
-            val decl = caseDecl.matchEntire(line)
-            if (decl != null) {
-                val camel = toCamel(decl.groupValues[2])
-                if (camel != decl.groupValues[2]) {
-                    caseMap[decl.groupValues[2]] = camel
-                    rewritten = "${decl.groupValues[1]}case $camel"
-                    changed = true
-                }
-            } else if (caseMap.isNotEmpty()) {
-                for ((raw, camel) in caseMap) {
-                    if (rewritten.contains(".$raw")) {
-                        rewritten = rewritten.replace(Regex("""\.$raw\b"""), ".$camel")
-                        changed = true
-                    }
-                }
+            val rewritten = if (enumDepth < 0) line else camelCaseEnumLine(line, caseMap)
+            if (rewritten != line) changed = true
+            if (enumDepth < 0 && enumStart.containsMatchIn(line)) {
+                enumDepth = depth
+                caseMap.clear()
             }
             out.add(rewritten)
-            depth += line.count { it == '{' } - line.count { it == '}' }
-            if (depth <= enumDepth) inEnum = false
+            depth += braceDelta(line)
+            if (enumDepth >= 0 && depth <= enumDepth) enumDepth = -1
         }
         return if (changed) {
             PatchOutcome(out.joinToString("\n") + "\n", 1)
         } else {
             PatchOutcome(content, 0)
         }
+    }
+
+    private val enumStart = Regex("""^(\s*)public enum (\w+):""")
+    private val caseDecl = Regex("""^(\s*)case ([A-Z][A-Z0-9_]+)\s*$""")
+
+    /**
+     * One line inside an enum body: a `SCREAMING_SNAKE` case declaration becomes camelCase (and is
+     * remembered in [caseMap]); any other line has every `.CASE` reference to a remembered case
+     * rewritten. Anything else comes back untouched.
+     */
+    private fun camelCaseEnumLine(
+        line: String,
+        caseMap: MutableMap<String, String>,
+    ): String {
+        val decl = caseDecl.matchEntire(line)
+        if (decl != null) {
+            val raw = decl.groupValues[2]
+            val camel = toCamel(raw)
+            if (camel == raw) return line
+            caseMap[raw] = camel
+            return "${decl.groupValues[1]}case $camel"
+        }
+        var rewritten = line
+        for ((raw, camel) in caseMap) {
+            if (rewritten.contains(".$raw")) rewritten = rewritten.replace(Regex("""\.$raw\b"""), ".$camel")
+        }
+        return rewritten
+    }
+
+    private fun toCamel(name: String): String {
+        val camel =
+            name
+                .split("_")
+                .mapIndexed { i, part ->
+                    if (i == 0) part.lowercase() else part.lowercase().replaceFirstChar { it.uppercase() }
+                }.joinToString("")
+        return if (camel in swiftKeywords) "`$camel`" else camel
     }
 
     /**

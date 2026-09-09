@@ -189,8 +189,12 @@ class SwiftExportSourcePatcherTest {
     fun `typealias pass returns count 0 when the extension shape drifts`() {
         // Capitalized last segment => treated as a type/conformance extension, not a package.
         val drifted =
-            "extension ExportedKotlinPackages.com.calypsan.listenup.Book {\n" +
-                "    public final class Inner: KotlinRuntime.KotlinBase {\n    }\n}\n"
+            """
+            extension ExportedKotlinPackages.com.calypsan.listenup.Book {
+                public final class Inner: KotlinRuntime.KotlinBase {
+                }
+            }
+            """.trimIndent() + "\n"
         val outcome = SwiftExportSourcePatcher.appendFlatTypealiases("", listOf(drifted))
         assertEquals(0, outcome.count)
     }

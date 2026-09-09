@@ -61,10 +61,10 @@ class LocalizationGeneratorTest {
             )
         assertTrue(cat.contains("\"common.add_name\""), "expected dotted key")
         assertTrue(cat.contains("Add %1$@"), "expected %1\$s -> %1\$@ conversion")
-        assertTrue(cat.contains("\"sourceLanguage\": \"en\""), "expected sourceLanguage")
+        assertTrue(cat.contains(""""sourceLanguage": "en""""), "expected sourceLanguage")
         assertTrue(cat.contains("\"common.amp\""))
         assertTrue(cat.contains("Tom & Jerry"), "JSON string value, no XML escaping of &")
-        assertTrue(cat.contains("\"state\": \"translated\""))
+        assertTrue(cat.contains(""""state": "translated""""))
     }
 
     @Test

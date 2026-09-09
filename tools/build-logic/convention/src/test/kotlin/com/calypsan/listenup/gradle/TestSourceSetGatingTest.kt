@@ -98,7 +98,8 @@ class TestSourceSetGatingTest {
 
     /** Repo-relative paths of every directory under a `src` folder whose name contains `est`. */
     private fun discoverTestSourceSets(): List<String> =
-        (SEARCH_ROOTS.map { repoRoot.resolve(it) })
+        SEARCH_ROOTS
+            .map { repoRoot.resolve(it) }
             .filter { it.isDirectory }
             .flatMap { root -> root.walkTopDown().maxDepth(SOURCE_SET_DEPTH).toList() }
             .filter { it.isDirectory && it.parentFile?.name == "src" && it.name.contains("est") }
