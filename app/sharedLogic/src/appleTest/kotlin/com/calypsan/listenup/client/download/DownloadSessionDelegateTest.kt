@@ -3,6 +3,7 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.client.data.local.db.DownloadDao
+import com.calypsan.listenup.client.data.local.db.AudioFileLocalPath
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import io.kotest.core.spec.style.FunSpec
@@ -216,6 +217,8 @@ private class FakeDownloadDao : DownloadDao {
     override suspend fun getByAudioFileId(audioFileId: String): DownloadEntity? = TODO("not used")
 
     override suspend fun getIncompleteWithin(maxRetries: Int): List<DownloadEntity> = TODO("not used")
+
+    override suspend fun getLocalPaths(audioFileIds: List<String>): List<AudioFileLocalPath> = TODO("not used")
 
     override suspend fun getLocalPath(audioFileId: String): String? = TODO("not used")
 
