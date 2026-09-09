@@ -8,8 +8,8 @@ import Shared
 final class ContributorEditObserver {
     private(set) var isLoading: Bool = true
     private(set) var name: String = ""
-    /// The contributor biography — stored as `bio` because Swift Export renames the Kotlin
-    /// `description` property to `description_` (dodging the Swift `description` clash).
+    /// The contributor biography — stored as `bio` and read from Kotlin's `descriptionText` alias:
+    /// Swift Export never exports a member named `description` (the `NSObject` clash).
     private(set) var bio: String = ""
     private(set) var website: String = ""
     private(set) var birthDate: String = ""
@@ -90,7 +90,7 @@ final class ContributorEditObserver {
     private func apply(_ state: ContributorEditUiState) {
         isLoading = state.isLoading
         name = state.name
-        bio = state.description_
+        bio = state.descriptionText
         website = state.website
         birthDate = state.birthDate
         deathDate = state.deathDate

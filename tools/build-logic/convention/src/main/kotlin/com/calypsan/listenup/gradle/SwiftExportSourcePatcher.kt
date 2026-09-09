@@ -86,7 +86,7 @@ object SwiftExportSourcePatcher {
     private const val APP_RESULT_BASE_TYPE = "ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult"
 
     /**
-     * Operator-unavailability + undefined-type + `description`/`release()` collision fixes for one
+     * Operator-unavailability + undefined-type + codegen-shape fixes for one
      * generated `.swift` file. `count` is 1 if the file changed, else 0 (matching the per-file
      * "patched files" tally of the original transform).
      *
@@ -105,11 +105,28 @@ object SwiftExportSourcePatcher {
      *   closure parameter `DateTimeFormatBuilder.WithDate`). Such a function can't compile and isn't
      *   part of any API we call from Swift, so the whole declaration is deleted (brace-aware).
      *
-     *   Class 3 — rename a generated `description` Kotlin property to `description_`. Swift export
-     *   emits `public var description: <T>` for any Kotlin `description` field, which collides with
-     *   the inherited `KotlinRuntime.KotlinBase.description: String` (different type -> an illegal
-     *   override). SKIE renamed the same field to `description_`; matching that keeps existing Swift
-     *   call sites stable.
+     *   Class 4 — an `@_spi` requirement stub duplicating its real implementation. Kotlin 2.4.20 maps
+     *   an opt-in-annotated interface member to `@_spi(...)`, and for each one emits BOTH a
+     *   `fatalError("'x' is an @_spi requirement …")` default for Swift conformers AND the bridged
+     *   implementation, inside the same plain `extension P { }` — an invalid redeclaration
+     *   (kotlinx-serialization's `CompositeDecoder.decodeSequentially` and two siblings). The stub is
+     *   deleted only when a same-signature implementation sits in the same block; a stub with no twin
+     *   (coroutines' `MutableSharedFlow.resetReplayCache`) is a legitimate default and stays.
+     *
+     *   Class 5 — a `<Name>_SealedType` enum case whose payload names a type the module never emits.
+     *   Kotlin 2.4.20's native `sealedType()` enumerates every Kotlin subtype, including one nested
+     *   in an `internal` class that Swift Export (correctly) does not export — kotlinx-datetime's
+     *   `DateTimeFormatBuilder.WithDateTimeComponents` has exactly one subtype,
+     *   `DateTimeComponentsFormat.Builder`, and the emitted case cannot resolve. The case and its
+     *   `value` getter arm are deleted; the enum stays because its parent enum and `sealedType()`
+     *   overloads still name it (the bridged `sealedType()` for it is a `fatalError` stub anyway).
+     *
+     *   Class 6 — a `<Name>_SealedType` enum whose `value` type is a protocol its payload classes do
+     *   not conform to. Generics are erased: `AppResult<T>` becomes `protocol AppResult`, while its
+     *   subtypes are emitted as plain `KotlinRuntime.KotlinBase` classes that never adopt it, so the
+     *   generated getter cannot return them as `AppResult`. The getter's type is widened to
+     *   `KotlinRuntime.KotlinBase`, the one supertype every payload has. Only `AppResult` has this
+     *   shape today (scanned across every generated module); a conformed protocol is left alone.
      *
      * @param module the file's parent directory name (the Swift module), used to scope the
      *   undefined-type reference regex exactly as the original walk did.
@@ -194,23 +211,194 @@ object SwiftExportSourcePatcher {
             i++
         }
 
-        // Class 3 — rename a generated `description` Kotlin property to `description_`. Guarded by
-        // the property's own `_description_get` getter so framework `description`s are never touched.
-        val descriptionProperty = Regex("""^(\s*)public var description: (.+)$""")
-        for (idx in out.indices) {
-            val match = descriptionProperty.matchEntire(out[idx]) ?: continue
-            val getterNearby = (idx + 1..minOf(idx + 3, out.lastIndex)).any { out[it].contains("_description_get(") }
-            if (getterNearby) {
-                out[idx] = "${match.groupValues[1]}public var description_: ${match.groupValues[2]}"
-                changed = true
-            }
+        // Class 4 — drop an `@_spi` stub that duplicates a real implementation in its extension.
+        val deduplicated = dropDuplicatedSpiStubs(out)
+        if (deduplicated != null) {
+            out.clear()
+            out.addAll(deduplicated)
+            changed = true
         }
+
+        // Class 5 — drop a sealed-enum case whose payload the module never declares.
+        val resolvable = dropUnexportedSealedCases(out, defined)
+        if (resolvable != null) {
+            out.clear()
+            out.addAll(resolvable)
+            changed = true
+        }
+
+        // Class 6 — widen a sealed enum's `value` type past a protocol its payloads never adopt.
+        if (widenUnconformedSealedValues(out)) changed = true
 
         return if (changed) {
             PatchOutcome(out.joinToString("\n") + "\n", 1)
         } else {
             PatchOutcome(content, 0)
         }
+    }
+
+    private val spiStubBody =
+        Regex("""^\s*fatalError\("'\w+' is an @_spi requirement that must be implemented by Swift conformers"\)\s*$""")
+    private val spiAttribute = Regex("""^\s*@_spi\(""")
+    private val funcDeclaration = Regex("""^\s*(?:public|package|open|final|static|\s)*func\s""")
+
+    /** One function declaration inside a top-level block: where it sits and what it declares. */
+    private data class SwiftFunction(
+        val block: Int,
+        val signature: String,
+        val first: Int,
+        val endExclusive: Int,
+        val isSpiStub: Boolean,
+    )
+
+    /**
+     * [patchSource] Class 4. Returns [lines] without every `@_spi` stub whose exact signature also has
+     * a non-stub implementation in the same top-level block, or null when there is nothing to drop.
+     * The stub's own `@_spi(...)` attribute line goes with it.
+     */
+    private fun dropDuplicatedSpiStubs(lines: List<String>): List<String>? {
+        if (lines.none { spiStubBody.matches(it) }) return null
+        val functions = ArrayList<SwiftFunction>()
+        var depth = 0
+        var block = -1
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            if (depth == 0 && line.contains('{')) block = i
+            if (depth >= 1 && funcDeclaration.containsMatchIn(line)) {
+                var j = i
+                while (j < lines.size && !lines[j].contains('{')) j++
+                if (j == lines.size) break
+                val signature = lines.subList(i, j + 1).joinToString(" ").substringBefore('{').replace(Regex("""\s+"""), " ").trim()
+                var bodyDepth = lines[j].count { it == '{' } - lines[j].count { it == '}' }
+                var k = j + 1
+                var isStub = false
+                while (k < lines.size && bodyDepth > 0) {
+                    if (spiStubBody.matches(lines[k])) isStub = true
+                    bodyDepth += lines[k].count { it == '{' } - lines[k].count { it == '}' }
+                    k++
+                }
+                val first = if (i > 0 && spiAttribute.containsMatchIn(lines[i - 1])) i - 1 else i
+                functions.add(SwiftFunction(block, signature, first, k, isStub))
+                i = k
+                continue
+            }
+            depth += line.count { it == '{' } - line.count { it == '}' }
+            i++
+        }
+        val doomed =
+            functions.filter { stub ->
+                stub.isSpiStub &&
+                    functions.any { !it.isSpiStub && it.block == stub.block && it.signature == stub.signature }
+            }
+        if (doomed.isEmpty()) return null
+        val dropped = doomed.flatMapTo(HashSet()) { it.first until it.endExclusive }
+        return lines.filterIndexed { index, _ -> index !in dropped }
+    }
+
+    private val sealedEnumStart = Regex("""^public enum (\w+_SealedType)\b""")
+    private val sealedCasePayload =
+        Regex("""^\s*case (\w+)\(ExportedKotlinPackages\.(?:[a-z]\w*\.)+([A-Z]\w*)\.\w+_SealedType\)\s*$""")
+
+    /**
+     * [patchSource] Class 5. Returns [lines] without every top-level `<Name>_SealedType` case whose
+     * payload's outer type is not in [defined], and without that case's `value` getter arm inside the
+     * same enum; null when every case resolves.
+     */
+    private fun dropUnexportedSealedCases(
+        lines: List<String>,
+        defined: Set<String>,
+    ): List<String>? {
+        val dropped = HashSet<Int>()
+        var i = 0
+        while (i < lines.size) {
+            if (!sealedEnumStart.containsMatchIn(lines[i])) {
+                i++
+                continue
+            }
+            var depth = lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            var end = i + 1
+            while (end < lines.size && depth > 0) {
+                depth += lines[end].count { it == '{' } - lines[end].count { it == '}' }
+                end++
+            }
+            val doomedCases = HashSet<String>()
+            for (index in i + 1 until end) {
+                val case = sealedCasePayload.matchEntire(lines[index]) ?: continue
+                if (case.groupValues[2] !in defined) {
+                    doomedCases.add(case.groupValues[1])
+                    dropped.add(index)
+                }
+            }
+            for (case in doomedCases) {
+                val arm = Regex("""^\s*case let \.\Q$case\E\(type\): type\.value\s*$""")
+                for (index in i + 1 until end) if (arm.matches(lines[index])) dropped.add(index)
+            }
+            i = end
+        }
+        if (dropped.isEmpty()) return null
+        return lines.filterIndexed { index, _ -> index !in dropped }
+    }
+
+    private val anySealedEnumStart = Regex("""^\s*public enum (\w+_SealedType): KotlinRuntimeSupport\.SealedType\b""")
+    private val sealedCase = Regex("""^\s*case \w+\((\S+?)\)\s*$""")
+    private val sealedValueGetter = Regex("""^(\s*)public var value: (\S+) \{\s*$""")
+    private val protocolDeclaration = Regex("""\bprotocol (\w+)\b""")
+    private val classDeclaration = Regex("""\bclass (\w+): ([^{]*)\{""")
+    private val wrapperStruct = Regex("""\bstruct (\w+_SealedType): KotlinRuntimeSupport\.SealedType\b""")
+    private val wrapperValue = Regex("""^\s*public let value: (\S+)\s*$""")
+
+    /**
+     * [patchSource] Class 6. Rewrites, in place, the `value` getter type of every `*_SealedType` enum
+     * whose declared type is a protocol of this module that at least one payload's wrapped class does
+     * not conform to; returns whether anything changed.
+     */
+    private fun widenUnconformedSealedValues(lines: MutableList<String>): Boolean {
+        val protocols = lines.flatMap { line -> protocolDeclaration.findAll(line).map { it.groupValues[1] }.toList() }.toHashSet()
+        val conformances = HashMap<String, String>()
+        val wrappedClass = HashMap<String, String>()
+        lines.forEachIndexed { index, line ->
+            classDeclaration.find(line)?.let { conformances[it.groupValues[1]] = it.groupValues[2] }
+            wrapperStruct.find(line)?.let { struct ->
+                lines.getOrNull(index + 1)?.let { next ->
+                    wrapperValue.matchEntire(next)?.let { wrappedClass[struct.groupValues[1]] = it.groupValues[1].substringAfterLast('.') }
+                }
+            }
+        }
+        var changed = false
+        var i = 0
+        while (i < lines.size) {
+            if (!anySealedEnumStart.containsMatchIn(lines[i])) {
+                i++
+                continue
+            }
+            var depth = lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            var end = i + 1
+            while (end < lines.size && depth > 0) {
+                depth += lines[end].count { it == '{' } - lines[end].count { it == '}' }
+                end++
+            }
+            val body = i + 1 until end
+            val getter = body.firstOrNull { sealedValueGetter.matches(lines[it]) }
+            if (getter != null) {
+                val match = sealedValueGetter.matchEntire(lines[getter])!!
+                val valueType = match.groupValues[2].substringAfterLast('.')
+                val payloads = body.mapNotNull { sealedCase.matchEntire(lines[it])?.groupValues?.get(1)?.substringAfterLast('.') }
+                val unconformed =
+                    valueType in protocols &&
+                        payloads.any { payload ->
+                            val cls = wrappedClass[payload] ?: return@any false
+                            val supertypes = conformances[cls] ?: return@any false
+                            !Regex("""\b${Regex.escape(valueType)}\b""").containsMatchIn(supertypes)
+                        }
+                if (unconformed) {
+                    lines[getter] = "${match.groupValues[1]}public var value: KotlinRuntime.KotlinBase {"
+                    changed = true
+                }
+            }
+            i = end
+        }
+        return changed
     }
 
     /**
@@ -220,7 +408,8 @@ object SwiftExportSourcePatcher {
      * `import Shared; Book` can't resolve. SKIE gave callers flat names; to match that, append a
      * top-level `public typealias` for every exported type. Idempotent via a marker. Name
      * collisions across packages resolve to the `client.domain.model` (then any `client.domain`)
-     * variant; remaining ambiguous names are skipped and stay qualified.
+     * variant; remaining ambiguous names are skipped and stay qualified. Underscore-prefixed names
+ * (Swift Export's `__<Name>` sealed marker protocols, public since Kotlin 2.4.20) are skipped too.
      *
      * @param sharedContent the `Shared.swift` contents the aliases are appended to.
      * @param sourceContents the `Shared.swift` + `ListenupContract.swift` contents to harvest types
@@ -266,7 +455,9 @@ object SwiftExportSourcePatcher {
         val builder = StringBuilder("\n$FLAT_TYPEALIAS_MARKER\n")
         var count = 0
         for ((name, namespaces) in packagesByName.toSortedMap()) {
-            if (name == "Companion") continue
+            // `Companion` is every class's nested object; a leading underscore marks generator
+            // plumbing (Kotlin 2.4.20's `public protocol __<Name>` sealed markers). Neither is API.
+            if (name == "Companion" || name.startsWith("_")) continue
             val namespace =
                 when {
                     namespaces.size == 1 -> {
@@ -295,7 +486,7 @@ object SwiftExportSourcePatcher {
     // ExportedKotlinPackages.<path>.<Parent>, ExportedKotlinPackages.<path>._<Parent> {`
     private val subtypeRe =
         Regex(
-            """^public final class (_ExportedKotlinPackages_\w+): KotlinRuntime\.KotlinBase, ExportedKotlinPackages\.([\w.]+)\.(\w+), ExportedKotlinPackages\.[\w.]+\._\3\b""",
+            """^public final class (_ExportedKotlinPackages_\w+): KotlinRuntime\.KotlinBase, ExportedKotlinPackages\.([\w.]+)\.(\w+), ExportedKotlinPackages\.[\w.]+\.__\3\b""",
         )
 
     /**
@@ -361,7 +552,8 @@ object SwiftExportSourcePatcher {
     /**
      * Sealed-class enum support (the `onEnum(of:)` exhaustive-switch helper), appended onto the
      * generated `Shared.swift`. Swift export maps a Kotlin sealed class to `protocol <Name>` +
-     * marker `package protocol _<Name>` + one
+     * marker `package protocol __<Name>` (Kotlin 2.4.20 renamed it from `_<Name>`; the
+     * exact-count guard caught the rename as an all-parents-harvested-zero drift) + one
      * `public final class _ExportedKotlinPackages_<path>_<Name>_<Subtype>` per subtype (each
      * conforming to both). That gives no exhaustive Swift `switch`. SKIE gave callers `onEnum(of:)`
      * returning a Swift enum; this regenerates that. Per sealed type, appended onto Shared.swift:

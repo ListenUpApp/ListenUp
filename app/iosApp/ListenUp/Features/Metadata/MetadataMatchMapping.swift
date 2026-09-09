@@ -187,10 +187,10 @@ enum MetadataMatchMapping {
         selections: MetadataSelections,
         sourceLabel: String?
     ) -> MetadataFieldSelection? {
-        guard let description = book.description_, !description.isEmpty else { return nil }
+        guard let description = book.descriptionText, !description.isEmpty else { return nil }
         return .init(
             field: .description, label: String(localized: "metadata.field_description"),
-            value: description, isSelected: selections.description_, systemImage: "doc.text",
+            value: description, isSelected: selections.descriptionSelected, systemImage: "doc.text",
             sourceLabel: sourceLabel
         )
     }

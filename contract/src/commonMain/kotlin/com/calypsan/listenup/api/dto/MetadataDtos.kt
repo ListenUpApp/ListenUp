@@ -50,7 +50,10 @@ data class MetadataBook(
     val coverUrlMaxSize: String?,
     /** Per-field provider provenance for this merged match; null on lean search hits and legacy payloads. */
     val matchProvenance: MatchProvenance? = null,
-)
+) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String? get() = description
+}
 
 /**
  * Provider provenance for a merged match preview — display labels only, for the wizard.
@@ -182,7 +185,10 @@ data class MetadataContributorProfile(
     val deathDate: String?,
     /** Official website URL, or `null`. */
     val website: String?,
-)
+) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String? get() = description
+}
 
 /**
  * A lightweight contributor search hit returned by

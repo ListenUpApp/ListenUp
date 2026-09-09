@@ -69,7 +69,7 @@ enum ContributorMetadataMapping {
         ContributorProfilePreview(
             asin: profile.asin,
             name: profile.name,
-            bio: profile.description_,
+            bio: profile.descriptionText,
             imageURL: profile.imageUrl,
             birthDate: profile.birthDate,
             deathDate: profile.deathDate,

@@ -391,6 +391,29 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
     }
 }
 
+// Kotlin-side twin of the SPM patch above, for the generated `swiftExportMain` glue. Kotlin 2.4.20
+// emits a reverse bridge (Swift overriding a Kotlin member) per open member, bound by bare method
+// NAME. On an overloaded name the Kotlin/Native binder resolves an arbitrary overload — for
+// `ViewModel.addCloseable` the final two-argument one — and the link dies in codegen with
+// `is not found in vtable`. The only seam is between generation and `compileSwiftExportMain`,
+// which is this task's `doLast`; no Swift references the dropped pair.
+// Only the per-target generators (`iosArm64ReleaseSwiftExport`, `iosSimulatorArm64DebugSwiftExport`, …);
+// KGP also registers `check…ForEmbedSwiftExport`, which shares the suffix and has no glue dir.
+val swiftExportGenerator = Regex("""^(\w+?)(Debug|Release)SwiftExport$""")
+tasks.matching { swiftExportGenerator.matches(it.name) }.configureEach {
+    notCompatibleWithConfigurationCache(
+        "Swift export (Alpha) glue generation and its post-gen codegen-bug patch are not configuration-cache compatible.",
+    )
+    val (targetName, configName) = swiftExportGenerator.matchEntire(name)!!.destructured
+    val glueDir = project.layout.buildDirectory.dir("SwiftExport/$targetName/$configName/files")
+    doLast {
+        val dropped =
+            com.calypsan.listenup.gradle.SwiftExportGluePatcher
+                .patchGlue(glueDir.get().asFile)
+        logger.lifecycle("Swift export glue patcher: dropped $dropped ambiguous reverse bridge(s)")
+    }
+}
+
 // Wire KSP for Room - platform-specific targets only
 // Note: kspCommonMainMetadata is intentionally omitted to avoid generating
 // an actual object that conflicts with the expect declaration.

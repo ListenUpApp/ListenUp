@@ -93,7 +93,7 @@ class SwiftExportSourcePatcherTest {
         val partial =
             "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Success: " +
                 "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.SyncResult, " +
-                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model._SyncResult {\n}\n"
+                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.__SyncResult {\n}\n"
         // A test-only expected baseline of 2 for SyncResult: assert the pure drift detector via the public map.
         // (The production map keys real types; here we verify the comparison logic by harvesting + comparing.)
         val harvested =
@@ -108,7 +108,7 @@ class SwiftExportSourcePatcherTest {
     private fun connectErrorSubtype(name: String) =
         "public final class _ExportedKotlinPackages_com_calypsan_listenup_api_error_ServerConnectError_$name: " +
             "KotlinRuntime.KotlinBase, $connectErrorBase.ServerConnectError, " +
-            "$connectErrorBase._ServerConnectError {\n}\n"
+            "$connectErrorBase.__ServerConnectError {\n}\n"
 
     private val connectErrorSubtypes =
         setOf("InvalidUrl", "NotListenUpServer", "ServerNotReachable", "VerificationFailed", "LocalNetworkPermissionDenied")
@@ -140,7 +140,7 @@ class SwiftExportSourcePatcherTest {
         val novel =
             "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_BrandNewType_One: " +
                 "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.BrandNewType, " +
-                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model._BrandNewType {\n}\n"
+                "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.__BrandNewType {\n}\n"
 
         val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(novel), emptyMap())
 
@@ -230,12 +230,15 @@ class SwiftExportSourcePatcherTest {
             out.contains("public typealias Contributor = ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.Contributor"),
         )
         assertFalse(out.contains("typealias Companion"), "Companion is excluded")
+        // Kotlin 2.4.20 made the sealed marker protocols `public protocol __<Name>`; they are
+        // generator plumbing, not API, and must not widen the reviewed export surface.
+        assertFalse(out.contains("typealias __Book"), "underscore-prefixed generator internals are excluded")
     }
 
     // ---- patchSource pass ----------------------------------------------------------------------
 
     @Test
-    fun `patchSource neutralizes unavailable operator, deletes undefined-type func, renames description`() {
+    fun `patchSource neutralizes unavailable operator and deletes undefined-type func`() {
         val source = fixture("patch-source.swift")
         val outcome = SwiftExportSourcePatcher.patchSource(source, module = "Shared")
 
@@ -248,8 +251,47 @@ class SwiftExportSourcePatcherTest {
         assertFalse(out.contains("this._plus"), "original helper call removed")
         assertFalse(out.contains("func Format("), "undefined-type func deleted whole")
         assertFalse(out.contains("_ExportedKotlinPackages_DateTimeFormatBuilder_WithDate"), "no dangling ref")
-        assertTrue(out.contains("public var description_: Swift.String"), "description -> description_")
-        assertFalse(out.contains("public var description: Swift.String"), "no collision-prone description")
+    }
+
+    @Test
+    fun `patchSource drops an spi stub that duplicates a real implementation in the same extension`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("patch-source.swift"), module = "Shared").content
+
+        assertEquals(1, Regex("""func decodeSequentially\(""").findAll(out).count(), "one declaration survives")
+        assertTrue(out.contains("decodeSequentially_direct"), "the bridged implementation is the survivor")
+        assertFalse(out.contains("'decodeSequentially' is an @_spi requirement"), "the stub is gone")
+        assertEquals(
+            1,
+            Regex(Regex.escape("@_spi(kotlinx\$serialization")).findAll(out).count(),
+            "the stub's attribute line went with it",
+        )
+        // A stub with no twin in its block is the generator's legitimate default for Swift conformers.
+        assertTrue(out.contains("'resetReplayCache' is an @_spi requirement"), "a stub-only requirement stays")
+    }
+
+    @Test
+    fun `patchSource drops a sealed case whose payload names a type the module never emits`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("patch-source.swift"), module = "Shared").content
+
+        assertFalse(out.contains("DateTimeComponentsFormat.Builder_SealedType"), "the unexported subtype's case is gone")
+        assertTrue(out.contains("public enum WithDateTimeComponents_SealedType"), "the enum itself survives (its callers still name it)")
+        assertEquals(1, Regex("""case let \.builder\(type\): type\.value""").findAll(out).count(), "only the doomed getter arm went")
+        // The control: same case name, but its outer type IS declared in the module.
+        assertTrue(out.contains("case builder(ExportedKotlinPackages.kotlinx.datetime.format.DateTimeFormat.Builder_SealedType)"))
+    }
+
+    @Test
+    fun `patchSource widens a sealed enum's value type when its payload classes do not conform to it`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("patch-source.swift"), module = "Shared").content
+
+        // Generic sealed type: the erased base is a protocol the subtype classes never adopt.
+        assertFalse(
+            out.contains("public var value: ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult {"),
+            "the unconformed protocol type is gone",
+        )
+        assertTrue(out.contains("public var value: KotlinRuntime.KotlinBase {"), "widened to the common base class")
+        // The control: a protocol every payload class conforms to stays as the value type.
+        assertTrue(out.contains("public var value: ExportedKotlinPackages.x.Bar {"), "a conformed protocol is untouched")
     }
 
     // ---- camelCase pass ------------------------------------------------------------------------
@@ -306,7 +348,7 @@ class SwiftExportSourcePatcherTest {
         // An extra qualifier between KotlinBase and the conformances breaks the regex anchor.
         val drifted =
             "public final class _ExportedKotlinPackages_x_SyncResult_Success: KotlinRuntime.KotlinBase, " +
-                "SomeNewWrapper, ExportedKotlinPackages.x.SyncResult, ExportedKotlinPackages.x._SyncResult {\n}\n"
+                "SomeNewWrapper, ExportedKotlinPackages.x.SyncResult, ExportedKotlinPackages.x.__SyncResult {\n}\n"
         val outcome = SwiftExportSourcePatcher.appendSealedEnumSupport("", listOf(drifted))
         assertEquals(0, outcome.count, "drifted shape matches nothing -> build assertion would fire")
         assertEquals("", outcome.content, "no support appended on zero match")

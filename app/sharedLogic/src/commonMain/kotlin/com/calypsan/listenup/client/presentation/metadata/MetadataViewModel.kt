@@ -60,7 +60,10 @@ data class MetadataSelections(
     val selectedGenres: Set<String> = emptySet(),
     val selectedMoods: Set<String> = emptySet(),
     val selectedTags: Set<String> = emptySet(),
-)
+) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionSelected: Boolean get() = description
+}
 
 /** Simple metadata fields that can be toggled as a unit. */
 enum class MetadataField {

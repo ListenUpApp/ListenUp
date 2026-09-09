@@ -62,7 +62,7 @@ struct ShelfDetailSnapshot: Equatable {
             return ShelfDetailSnapshot(
                 phase: .ready,
                 shelfName: r.detail.name,
-                shelfDescription: r.detail.description_,
+                shelfDescription: r.detail.descriptionText,
                 books: r.detail.books.map { ShelfBookRow($0) },
                 isOwner: r.isOwner
             )
