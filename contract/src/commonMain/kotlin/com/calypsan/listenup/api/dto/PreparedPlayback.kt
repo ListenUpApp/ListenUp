@@ -58,6 +58,18 @@ data class RecordPositionRequest(
     val currentChapterId: String?,
     @SerialName("volumeBoostDb") val volumeBoostDb: Float = 0f,
     @SerialName("measuredGainDb") val measuredGainDb: Float? = null,
+    /**
+     * When this book was first completed, epoch ms; null when it was never finished. Null never
+     * erases a stored finish date. See [PlaybackPositionSyncPayload.finishedAt].
+     */
+    @SerialName("finishedAt") val finishedAt: Long? = null,
+    /**
+     * True when the listener explicitly chose [playbackSpeed] for this book. Overwritten verbatim
+     * server-side, because the listener can un-set it. See [PlaybackPositionSyncPayload.hasCustomSpeed].
+     */
+    @SerialName("hasCustomSpeed") val hasCustomSpeed: Boolean = false,
+    /** True when the listener explicitly chose [volumeBoostDb] for this book. See [hasCustomSpeed]. */
+    @SerialName("hasCustomBoost") val hasCustomBoost: Boolean = false,
 )
 
 /**
