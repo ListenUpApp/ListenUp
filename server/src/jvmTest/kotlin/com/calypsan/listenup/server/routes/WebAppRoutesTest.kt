@@ -1,11 +1,16 @@
 package com.calypsan.listenup.server.routes
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
@@ -83,6 +88,62 @@ class WebAppRoutesTest :
 
                 response.status shouldBe HttpStatusCode.OK
                 response.bodyAsText() shouldContain "ListenUp"
+                // The fallback is the shell, whatever the URL looked like — so it must revalidate
+                // like a document, not be frozen for a year like a content-hashed asset.
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-cache"
+            }
+        }
+
+        test("a hashed asset is cached for a year") {
+            // Vite content-hashes everything under assets/, so the URL changes whenever the bytes
+            // do — which is exactly the precondition `immutable` asks for.
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                val response = client.get("/assets/app.js")
+
+                response.headers[HttpHeaders.CacheControl] shouldBe "public, max-age=31536000, immutable"
+            }
+        }
+
+        test("the document is never cached") {
+            // `no-cache` means revalidate, not don't-store: the shell's URL never changes, so a
+            // deploy would otherwise stay invisible until the cache expired.
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                val response = client.get("/")
+
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-cache"
+            }
+        }
+
+        test("every response carries a content ETag") {
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                val document = client.get("/").headers[HttpHeaders.ETag]
+                val asset = client.get("/assets/app.js").headers[HttpHeaders.ETag]
+
+                document.shouldNotBeNull().shouldNotBeBlank()
+                asset.shouldNotBeNull().shouldNotBeBlank()
+                document shouldNotBe asset
+            }
+        }
+
+        test("a matching If-None-Match is answered 304 with no body") {
+            testApplication {
+                val root = webRoot()
+                application { routing { webAppRoutes(root) } }
+
+                val etag = client.get("/assets/app.js").headers[HttpHeaders.ETag].shouldNotBeNull()
+                val revalidated = client.get("/assets/app.js") { header(HttpHeaders.IfNoneMatch, etag) }
+
+                revalidated.status shouldBe HttpStatusCode.NotModified
+                revalidated.bodyAsText().isEmpty() shouldBe true
             }
         }
 
