@@ -5,12 +5,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.awaitFrame
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.await
@@ -31,9 +32,6 @@ import org.w3c.files.FilePropertyBag
 
 /** How long a spec waits for an event that SHOULD arrive. */
 private const val EVENT_TIMEOUT_MS = 2_000L
-
-/** How long a spec waits before declaring an event correctly did NOT arrive. */
-private const val NO_EVENT_GRACE_MS = 150L
 
 private fun coverField(
     state: BookEditUiState,
@@ -61,6 +59,14 @@ private fun imageFile(
 
 private suspend fun awaitFirstEvent(events: List<BookEditUiEvent>) {
     withTimeout(EVENT_TIMEOUT_MS) { while (events.isEmpty()) delay(10) }
+}
+
+/** Drops a valid PNG on the cover control — the drop that MUST reach [BookEditUiEvent.UploadCover]. */
+private fun dropImage(root: HTMLElement) {
+    val transfer = js("new DataTransfer()").unsafeCast<DataTransfer>()
+    transfer.items.add(imageFile())
+    (root.querySelector(".cover-pick") as HTMLElement)
+        .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
 }
 
 /**
@@ -163,23 +169,30 @@ class CoverFieldTest :
             transfer.items.add(imageFile(name = "not-a-cover.pdf", type = "application/pdf"))
             (root.querySelector(".cover-pick") as HTMLElement)
                 .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
+            dropImage(root)
 
-            delay(NO_EVENT_GRACE_MS)
-            events.shouldBeEmpty()
+            awaitFirstEvent(events)
+            // Exactly one, and it is the PNG: the PDF drop before it contributed nothing.
+            // A clock-based "nothing arrived in 150 ms" proves that only on a fast machine.
+            events.single().shouldBeInstanceOf<BookEditUiEvent.UploadCover>().filename shouldBe "new-cover.png"
         }
 
         test("dropping while an upload is in flight is ignored") {
             // disabled suppresses CLICK, not the drag-and-drop machinery — the drop handler
             // must guard isUploadingCover itself.
+            var state by mutableStateOf(withCover().copy(isUploadingCover = true))
             val events = mutableListOf<BookEditUiEvent>()
-            val root = coverField(withCover().copy(isUploadingCover = true)) { events += it }
+            val root = document.createElement("div") as HTMLElement
+            document.body?.appendChild(root)
+            renderComposable(root = root) { CoverField(state = state, onEvent = { events += it }) }
 
-            val transfer = js("new DataTransfer()").unsafeCast<DataTransfer>()
-            transfer.items.add(imageFile())
-            (root.querySelector(".cover-pick") as HTMLElement)
-                .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
+            dropImage(root) // ignored: an upload is in flight
+            state = state.copy(isUploadingCover = false)
+            awaitFrame() // the recomposition that re-enables the field
+            dropImage(root) // must be accepted
 
-            delay(NO_EVENT_GRACE_MS)
-            events.shouldBeEmpty()
+            awaitFirstEvent(events)
+            // Exactly one: the drop that landed while uploading contributed nothing.
+            events.single().shouldBeInstanceOf<BookEditUiEvent.UploadCover>()
         }
     })
