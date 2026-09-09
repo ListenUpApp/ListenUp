@@ -466,6 +466,57 @@ class Mp4ParserAdversarialTest :
             success.data.durationMs shouldBe 90_000L
         }
 
+        // A decoded duration is not just a number shown to a reader: it sizes the HLS segment
+        // timeline, the seek bar, and the transcode plan. A movie header whose duration field
+        // cannot be believed must report "unknown" (0), never a number the rest of the system
+        // would then size work from.
+
+        test("an mvhd v0 duration carrying the ISO unknown sentinel reports duration 0") {
+            // Version 0 spells "duration not known" as an all-ones 32-bit field. Read literally
+            // it decodes to about seven weeks of audio.
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(0xFFFFFFFFL))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("an mvhd v1 duration that would overflow the millisecond conversion reports duration 0") {
+            // Version 1 carries a signed 64-bit duration; scaling it to milliseconds multiplies
+            // by 1000, which wraps for large values and yields a nonsense (often negative) result.
+            val versionFlags = byteArrayOf(1, 0, 0, 0)
+            val mvhd = atom("mvhd", versionFlags + ByteArray(8) + ByteArray(8) + be32(1000) + be64(Long.MAX_VALUE))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("an mvhd duration past any believable audiobook length reports duration 0") {
+            // Converts cleanly and is not the sentinel — it is simply about 1,100 hours, which no
+            // audiobook is. This is the case the plausibility band exists for.
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(0xF0000000L))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("an mvhd duration at the long end of the believable band is kept") {
+            // 150 hours — longer than any book in a real library, and still honoured. The band
+            // must reject nonsense without truncating the outliers that genuinely exist.
+            val durationUnits = 150L * 60 * 60 * 1000
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(durationUnits))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe durationUnits
+        }
+
         test("atom size declared near Int.MAX_VALUE at a non-zero offset overflows offset+size safely") {
             // The lone child of moov starts at offset 8 (right after moov's own 8-byte header —
             // a non-zero offset) and declares a size that, added to that offset, overflows Int:

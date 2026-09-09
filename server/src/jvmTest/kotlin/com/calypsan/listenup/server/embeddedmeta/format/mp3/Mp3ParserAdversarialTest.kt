@@ -102,6 +102,51 @@ class Mp3ParserAdversarialTest :
             return header + frameData
         }
 
+        /**
+         * A minimal MPEG-1 Layer III audio file whose first frame carries a Xing VBR header
+         * declaring [frameCount] frames. The frame header is a plain, valid one — 128 kbps,
+         * 44.1 kHz, stereo — so the only variable is the declared frame count the duration is
+         * derived from. Layout is fixed by the Xing specification: the header sits immediately
+         * after the frame's 32-byte side-information region.
+         */
+        fun xingFile(frameCount: Long): ByteArray {
+            val frameHeader = byteArrayOf(0xFF.toByte(), 0xFB.toByte(), 0x90.toByte(), 0x00)
+            val sideInfo = ByteArray(32)
+            val flagsFramesPresent = byteArrayOf(0x00, 0x00, 0x00, 0x01)
+            val count =
+                byteArrayOf(
+                    ((frameCount ushr 24) and 0xFF).toByte(),
+                    ((frameCount ushr 16) and 0xFF).toByte(),
+                    ((frameCount ushr 8) and 0xFF).toByte(),
+                    (frameCount and 0xFF).toByte(),
+                )
+            return frameHeader + sideInfo + "Xing".toByteArray(Charsets.US_ASCII) + flagsFramesPresent + count
+        }
+
+        test("a Xing frame count implying an implausible duration falls back to the CBR estimate") {
+            // The declared count is the file's own claim about how much audio follows; nothing
+            // cross-checks it against the bytes that are actually there. Near Int.MAX_VALUE it
+            // works out to some fifteen thousand hours. The honest answer is the CBR estimate
+            // derived from the file's real size — here a 48-byte file at 128 kbps, i.e. 3 ms.
+            val bytes = xingFile(frameCount = 0x7FFFFFFFL)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 3L
+        }
+
+        test("a Xing frame count implying a real book length is honoured") {
+            // Regression guard on the band: 137,812 frames at 44.1 kHz is almost exactly one
+            // hour, and must still come back as the exact VBR duration rather than the estimate.
+            val bytes = xingFile(frameCount = 137_812L)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 137_812L * 1152 * 1000 / 44_100
+        }
+
         test("ID3v2 header declaring a tag far larger than the file does not OOM") {
             // Header claims the maximum a sync-safe int can encode (~256 MB body)
             // but the file is only the 10-byte header itself. A missing

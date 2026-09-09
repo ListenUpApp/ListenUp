@@ -167,6 +167,25 @@ internal class Mp4Parser : AudioFormatParser {
          * malformed atom-size header from triggering a multi-GB allocation.
          */
         private const val MOOV_SOFT_LIMIT_BYTES = 200L * 1024 * 1024
+
+        /**
+         * ISO/IEC 14496-12 spells "duration is not known" as an all-ones 32-bit field in a
+         * version-0 movie header. Decoded arithmetically it reads as roughly seven weeks of
+         * audio, so it is recognised as the sentinel it is and reported as unknown.
+         */
+        private const val UNKNOWN_DURATION_V0 = 0xFFFF_FFFFL
+
+        /** Milliseconds per second — the scale factor from timescale units to the reported value. */
+        private const val MILLIS_PER_SECOND = 1000L
+
+        /**
+         * Upper bound on a believable audiobook duration: 200 hours. The longest books in print
+         * run comfortably under 150, so a value past this did not come from a field that means
+         * what it says. A duration is not just displayed — it sizes the HLS segment timeline and
+         * the transcode plan — so an unbelievable one is reported as unknown (0) rather than
+         * passed on for the rest of the system to size work from.
+         */
+        private const val MAX_PLAUSIBLE_DURATION_MS = 200L * 60 * 60 * 1000
     }
 
     /** Locate `moov.udta.meta.ilst`, accounting for `meta`'s 4-byte version+flags prefix. */
@@ -223,6 +242,12 @@ internal class Mp4Parser : AudioFormatParser {
                 ts to d
             }
         if (timescale <= 0) return 0
-        return (durationUnits * 1000L) / timescale.toLong()
+        if (version != 1 && durationUnits == UNKNOWN_DURATION_V0) return 0
+        // The version-1 field is signed 64-bit, so scaling it to milliseconds can wrap — and a
+        // wrapped product is a plausible-looking negative or small number, not an obvious one.
+        // Reject the operands that cannot survive the multiply before performing it.
+        if (durationUnits < 0 || durationUnits > Long.MAX_VALUE / MILLIS_PER_SECOND) return 0
+        val durationMs = (durationUnits * MILLIS_PER_SECOND) / timescale.toLong()
+        return if (durationMs in 0..MAX_PLAUSIBLE_DURATION_MS) durationMs else 0
     }
 }
