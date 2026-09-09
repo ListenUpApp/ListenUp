@@ -35,9 +35,7 @@ class SyncCatchUpClientTest :
 
                 override fun syncId(item: Tag): String = item.id
 
-                override suspend fun onEvent(
-                    event: SyncEvent<Tag>,
-                ): AppResult<Unit> = AppResult.Success(Unit)
+                override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                 override suspend fun onCatchUpItem(
                     item: Tag,
@@ -225,9 +223,7 @@ class SyncCatchUpClientTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                        ): AppResult<Unit> = AppResult.Success(Unit)
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                         override suspend fun onCatchUpItem(
                             item: Tag,
@@ -243,9 +239,7 @@ class SyncCatchUpClientTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                        ): AppResult<Unit> = AppResult.Success(Unit)
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                         override suspend fun onCatchUpItem(
                             item: Tag,
@@ -292,7 +286,6 @@ class SyncCatchUpClientTest :
         fun failingHandler(
             failIds: Set<String>,
             hasBackstop: Boolean,
-            requestedSince: MutableList<Long> = mutableListOf(),
         ): SyncDomainHandler<Tag> =
             object : SyncDomainHandler<Tag> {
                 override val domainName = "tags"
@@ -332,27 +325,23 @@ class SyncCatchUpClientTest :
                             limit: Int,
                         ): AppResult<SyncPage> {
                             requestedSince += since
-                            return when (since) {
-                                0L -> {
-                                    AppResult.Success(
-                                        syncPageOf(
-                                            domain = "tags",
-                                            serializer = Tag.serializer(),
-                                            items =
-                                                listOf(
-                                                    Tag("a", "alpha", "alpha", 1L, 100L),
-                                                    Tag("fail", "beta", "beta", 2L, 200L),
-                                                    Tag("c", "gamma", "gamma", 3L, 300L),
-                                                ),
-                                            nextCursor = 3L,
-                                            hasMore = true,
-                                        ),
-                                    )
-                                }
-
-                                else -> {
-                                    error("OptOut domain must NOT page past the hole (requested since=$since)")
-                                }
+                            return if (since == 0L) {
+                                AppResult.Success(
+                                    syncPageOf(
+                                        domain = "tags",
+                                        serializer = Tag.serializer(),
+                                        items =
+                                            listOf(
+                                                Tag("a", "alpha", "alpha", 1L, 100L),
+                                                Tag("fail", "beta", "beta", 2L, 200L),
+                                                Tag("c", "gamma", "gamma", 3L, 300L),
+                                            ),
+                                        nextCursor = 3L,
+                                        hasMore = true,
+                                    ),
+                                )
+                            } else {
+                                error("OptOut domain must NOT page past the hole (requested since=$since)")
                             }
                         }
                     }
@@ -381,27 +370,23 @@ class SyncCatchUpClientTest :
                             since: Long,
                             limit: Int,
                         ): AppResult<SyncPage> =
-                            when (since) {
-                                0L -> {
-                                    AppResult.Success(
-                                        syncPageOf(
-                                            domain = "tags",
-                                            serializer = Tag.serializer(),
-                                            items =
-                                                listOf(
-                                                    Tag("a", "alpha", "alpha", 1L, 100L),
-                                                    Tag("fail", "beta", "beta", 2L, 200L),
-                                                    Tag("c", "gamma", "gamma", 3L, 300L),
-                                                ),
-                                            nextCursor = 3L,
-                                            hasMore = false,
-                                        ),
-                                    )
-                                }
-
-                                else -> {
-                                    error("unexpected since=$since")
-                                }
+                            if (since == 0L) {
+                                AppResult.Success(
+                                    syncPageOf(
+                                        domain = "tags",
+                                        serializer = Tag.serializer(),
+                                        items =
+                                            listOf(
+                                                Tag("a", "alpha", "alpha", 1L, 100L),
+                                                Tag("fail", "beta", "beta", 2L, 200L),
+                                                Tag("c", "gamma", "gamma", 3L, 300L),
+                                            ),
+                                        nextCursor = 3L,
+                                        hasMore = false,
+                                    ),
+                                )
+                            } else {
+                                error("unexpected since=$since")
                             }
                     }
                 val store = SyncCursorStore(InMemorySyncCursorDao())
@@ -437,9 +422,7 @@ class SyncCatchUpClientTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                        ): AppResult<Unit> = AppResult.Success(Unit)
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                         override suspend fun onCatchUpItem(
                             item: Tag,
@@ -491,7 +474,8 @@ private class InMemorySyncCursorDao : SyncCursorDao {
         if (current == null || revision > current) cursors[domainName] = revision
     }
 
-    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+    override suspend fun all(): List<SyncCursorEntity> =
+        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
     override suspend fun deleteAll() {
         cursors.clear()

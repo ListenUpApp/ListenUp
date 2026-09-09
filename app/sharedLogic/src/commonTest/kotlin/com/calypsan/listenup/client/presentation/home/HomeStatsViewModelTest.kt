@@ -152,7 +152,7 @@ class HomeStatsViewModelTest :
                     object : StatsRepository {
                         override fun observeWeeklyStats(): Flow<WeeklyStats> =
                             flow {
-                                throw RuntimeException("boom")
+                                throw IllegalStateException("boom")
                             }
                     }
                 val vm = HomeStatsViewModel(repo)

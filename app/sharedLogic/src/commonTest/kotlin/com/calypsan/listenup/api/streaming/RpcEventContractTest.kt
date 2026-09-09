@@ -42,7 +42,7 @@ class RpcEventContractTest :
                 )
             decoded.shouldBeInstanceOf<RpcEvent.Error>()
             (decoded as RpcEvent.Error).error.shouldBeInstanceOf<InternalError>()
-            ((decoded.error) as InternalError).correlationId shouldBe "xyz"
+            (decoded.error as InternalError).correlationId shouldBe "xyz"
         }
 
         test("Complete variant round-trips through JSON") {

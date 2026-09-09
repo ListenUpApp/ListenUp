@@ -82,7 +82,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.observeServers() } returns
                     kotlinx.coroutines.flow.flow { /* never emits */ }
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
@@ -100,7 +107,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
                 every { serverRepository.stopDiscovery() } returns Unit
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
@@ -121,7 +135,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
                 every { serverRepository.startDiscovery() } returns Unit
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
 
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
@@ -140,7 +161,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.observeServers() } returns serversFlow
                 every { serverRepository.startDiscovery() } returns Unit
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
 
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
@@ -166,7 +194,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
                 val errorBus = ErrorBus()
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = errorBus, appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = errorBus,
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
@@ -194,7 +229,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
                 every { serverRepository.startDiscovery() } returns Unit
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
@@ -215,7 +257,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.startDiscovery() } returns Unit
                 every { serverRepository.stopDiscovery() } returns Unit
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -239,7 +288,14 @@ class ServerSelectViewModelTest :
                 everySuspend { serverConfig.setServerUrl(any()) } returns Unit
                 everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -272,7 +328,14 @@ class ServerSelectViewModelTest :
                 everySuspend { serverConfig.setServerUrl(any()) } returns Unit
                 everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -297,7 +360,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.startDiscovery() } returns Unit
                 everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
@@ -320,7 +390,14 @@ class ServerSelectViewModelTest :
                 every { serverRepository.startDiscovery() } returns Unit
                 everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
 
-                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                val viewModel =
+                    ServerSelectViewModel(
+                        serverRepository,
+                        serverConfig,
+                        instanceRepository,
+                        errorBus = ErrorBus(),
+                        appScope = CoroutineScope(testDispatcher),
+                    )
                 keepStateHot(viewModel)
                 viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()

@@ -103,8 +103,8 @@ class ContributorBooksViewModelTest :
                 duration = duration,
                 authors = emptyList(),
                 narrators = emptyList(),
-                addedAt = Timestamp(1704067200000L),
-                updatedAt = Timestamp(1704067200000L),
+                addedAt = Timestamp(1_704_067_200_000L),
+                updatedAt = Timestamp(1_704_067_200_000L),
                 series = series,
             )
 
@@ -218,7 +218,7 @@ class ContributorBooksViewModelTest :
                 state.seriesGroups.size shouldBe 1
                 state.seriesGroups[0].seriesName shouldBe "Dark Tower"
                 state.seriesGroups[0].books.size shouldBe 2
-                (state.standaloneBooks.isEmpty()) shouldBe true
+                state.standaloneBooks.isEmpty() shouldBe true
             }
         }
 
@@ -389,7 +389,7 @@ class ContributorBooksViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorBooksUiState.Ready
-                (state.bookProgress.containsKey(BookId("book-1"))) shouldBe false
+                state.bookProgress.containsKey(BookId("book-1")) shouldBe false
             }
         }
 
@@ -442,7 +442,7 @@ class ContributorBooksViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorBooksUiState.Ready
-                (state.hasStandaloneBooks) shouldBe true
+                state.hasStandaloneBooks shouldBe true
             }
         }
 
@@ -463,7 +463,7 @@ class ContributorBooksViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorBooksUiState.Ready
-                (state.hasStandaloneBooks) shouldBe false
+                state.hasStandaloneBooks shouldBe false
             }
         }
 
@@ -500,8 +500,8 @@ class ContributorBooksViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorBooksUiState.Ready
-                (state.seriesGroups.isEmpty()) shouldBe true
-                (state.standaloneBooks.isEmpty()) shouldBe true
+                state.seriesGroups.isEmpty() shouldBe true
+                state.standaloneBooks.isEmpty() shouldBe true
                 state.totalBooks shouldBe 0
             }
         }

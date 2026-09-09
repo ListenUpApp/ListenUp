@@ -51,7 +51,7 @@ class AuthDtoContractTest :
                     displayName = "Alice",
                     role = UserRole.MEMBER,
                     status = UserStatus.ACTIVE,
-                    createdAt = 1714694400000L,
+                    createdAt = 1_714_694_400_000L,
                 )
             roundTrip(user) shouldBe user
         }

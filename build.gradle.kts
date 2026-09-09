@@ -104,6 +104,22 @@ detekt {
         "$rootDir/app/sharedLogic/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsTest/kotlin",
+        // The test source sets that were never here. commonTest alone is 360 files — the client's
+        // largest test source set — and sharedUI's androidHostTest another 119, none of it ever
+        // analysed. Found the same way as jsMain above: moving files out of commonTest dragged
+        // pre-existing violations into scope, which is the only way an unlisted directory ever
+        // announces itself. Every source set on disk with a .kt file is now listed.
+        "$rootDir/app/sharedLogic/src/commonTest/kotlin",
+        "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
+        "$rootDir/app/sharedLogic/src/appleTest/kotlin",
+        "$rootDir/app/sharedUI/src/androidHostTest/kotlin",
+        "$rootDir/app/sharedUI/src/desktopTest/kotlin",
+        "$rootDir/contract/src/commonTest/kotlin",
+        "$rootDir/contract/src/jvmTest/kotlin",
+        "$rootDir/app/baselineprofile/src/main/kotlin",
+        // NOT yet listed: tools/build-logic/**. It has ~20 issues, most in SwiftExportSourcePatcher,
+        // which #1398 is rewriting — linting it here would collide with that branch. Add the four
+        // build-logic source dirs once #1398 lands and fix what remains in the same change.
     )
 }
 

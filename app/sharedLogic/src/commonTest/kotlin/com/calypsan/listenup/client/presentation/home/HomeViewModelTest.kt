@@ -110,8 +110,8 @@ class HomeViewModelTest :
                 email = email,
                 displayName = displayName,
                 isAdmin = isAdmin,
-                createdAtMs = 1704067200000L,
-                updatedAtMs = 1704067200000L,
+                createdAtMs = 1_704_067_200_000L,
+                updatedAtMs = 1_704_067_200_000L,
             )
 
         fun createContinueListeningBook(
@@ -568,7 +568,7 @@ class HomeViewModelTest :
             runTest {
                 val fixture = createFixture()
                 every { fixture.homeRepository.observeContinueListening(any()) } returns
-                    flow { throw RuntimeException("boom") }
+                    flow { throw IllegalStateException("boom") }
                 val viewModel = fixture.build()
 
                 val emitted = mutableListOf<String>()
@@ -619,7 +619,7 @@ class HomeViewModelTest :
                         userRepository = fixture.userRepository,
                         shelfRepository = fixture.shelfRepository,
                         syncRepository = fixture.syncRepository,
-                        currentHour = { throw RuntimeException("upstream boom") },
+                        currentHour = { throw IllegalStateException("upstream boom") },
                     )
                 // Emit a non-null user so the combine pipeline's transform actually runs.
                 fixture.userFlow.value = createUser()

@@ -58,7 +58,7 @@ class CollectionContractTest :
                     name = "My Favourites",
                     isInbox = false,
                     revision = 10L,
-                    updatedAt = 1730000000000L,
+                    updatedAt = 1_730_000_000_000L,
                     deletedAt = null,
                 )
             val decoded = json.decodeFromString<CollectionSyncPayload>(json.encodeToString(original))
@@ -74,8 +74,8 @@ class CollectionContractTest :
                     name = "Deleted",
                     isInbox = false,
                     revision = 20L,
-                    updatedAt = 1730000000000L,
-                    deletedAt = 1730000005000L,
+                    updatedAt = 1_730_000_000_000L,
+                    deletedAt = 1_730_000_005_000L,
                 )
             val decoded = json.decodeFromString<CollectionSyncPayload>(json.encodeToString(original))
             decoded shouldBe original
@@ -90,7 +90,7 @@ class CollectionContractTest :
                     name = "Inbox",
                     isInbox = true,
                     revision = 1L,
-                    updatedAt = 1730000000000L,
+                    updatedAt = 1_730_000_000_000L,
                 )
             val decoded = json.decodeFromString<CollectionSyncPayload>(json.encodeToString(original))
             decoded shouldBe original
@@ -104,7 +104,7 @@ class CollectionContractTest :
                     id = "a1b2c3d4e5f60718293a4b5c6d7e8f90",
                     collectionId = "col-1",
                     bookId = "book-1",
-                    createdAt = 1730000000000L,
+                    createdAt = 1_730_000_000_000L,
                     revision = 5L,
                     deletedAt = null,
                 )
@@ -120,9 +120,9 @@ class CollectionContractTest :
                     id = "b2c3d4e5f60718293a4b5c6d7e8f9001",
                     collectionId = "col-1",
                     bookId = "book-2",
-                    createdAt = 1730000000000L,
+                    createdAt = 1_730_000_000_000L,
                     revision = 8L,
-                    deletedAt = 1730000010000L,
+                    deletedAt = 1_730_000_010_000L,
                 )
             val decoded =
                 json.decodeFromString<CollectionBookSyncPayload>(json.encodeToString(original))
@@ -141,7 +141,7 @@ class CollectionContractTest :
                     sharedByUserId = "user-1",
                     permission = SharePermission.Read,
                     revision = 3L,
-                    updatedAt = 1730000000000L,
+                    updatedAt = 1_730_000_000_000L,
                     deletedAt = null,
                 )
             val decoded =
@@ -158,7 +158,7 @@ class CollectionContractTest :
                     sharedByUserId = "user-1",
                     permission = SharePermission.Write,
                     revision = 4L,
-                    updatedAt = 1730000000000L,
+                    updatedAt = 1_730_000_000_000L,
                     deletedAt = null,
                 )
             val decoded =
@@ -175,8 +175,8 @@ class CollectionContractTest :
                     sharedByUserId = "user-1",
                     permission = SharePermission.Read,
                     revision = 6L,
-                    updatedAt = 1730000000000L,
-                    deletedAt = 1730000020000L,
+                    updatedAt = 1_730_000_000_000L,
+                    deletedAt = 1_730_000_020_000L,
                 )
             val decoded =
                 json.decodeFromString<CollectionShareSyncPayload>(json.encodeToString(original))
@@ -211,7 +211,7 @@ class CollectionContractTest :
                     isInbox = false,
                     isSystem = true,
                     revision = 1L,
-                    updatedAt = 1730000000000L,
+                    updatedAt = 1_730_000_000_000L,
                     deletedAt = null,
                 )
             val decoded = json.decodeFromString<CollectionSyncPayload>(json.encodeToString(original))

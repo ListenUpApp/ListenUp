@@ -144,7 +144,7 @@ class AdminCategoriesViewModelTest :
                 val genreRepository: GenreRepository = mock()
                 every { genreRepository.observeAll() } returns
                     flow {
-                        throw RuntimeException("db broken")
+                        throw IllegalStateException("db broken")
                     }
 
                 // When

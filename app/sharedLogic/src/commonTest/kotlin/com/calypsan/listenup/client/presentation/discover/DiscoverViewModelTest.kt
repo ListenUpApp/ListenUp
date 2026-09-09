@@ -253,7 +253,7 @@ class DiscoverViewModelTest :
                 // Given - observeActiveSessions throws on collection
                 val fixture = createFixture()
                 every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
-                    flow { throw RuntimeException("boom") }
+                    flow { throw IllegalStateException("boom") }
 
                 // When
                 val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
@@ -306,7 +306,7 @@ class DiscoverViewModelTest :
                 // Given
                 val fixture = createFixture()
                 every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
-                    flow { throw RuntimeException("boom") }
+                    flow { throw IllegalStateException("boom") }
 
                 // When
                 val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }

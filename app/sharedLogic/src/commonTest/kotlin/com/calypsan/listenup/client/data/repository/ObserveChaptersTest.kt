@@ -157,7 +157,13 @@ class ObserveChaptersTest :
                 every { chapterDao.observeChaptersForBook(BookId("b3")) } returns
                     flowOf(
                         listOf(
-                            ChapterEntity(id = ChapterId("c99"), bookId = BookId("b3"), title = "Finale", duration = 5000L, startTime = 9000L),
+                            ChapterEntity(
+                                id = ChapterId("c99"),
+                                bookId = BookId("b3"),
+                                title = "Finale",
+                                duration = 5000L,
+                                startTime = 9000L,
+                            ),
                         ),
                     )
                 val repo = createRepository(chapterDao)

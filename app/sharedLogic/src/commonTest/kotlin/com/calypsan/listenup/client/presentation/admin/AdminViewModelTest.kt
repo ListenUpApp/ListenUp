@@ -47,9 +47,7 @@ class AdminViewModelTest :
     FunSpec({
         val testDispatcher = StandardTestDispatcher()
 
-        fun createMockGetRegistrationPolicyUseCase(
-            policy: RegistrationPolicy = RegistrationPolicy.CLOSED,
-        ): GetRegistrationPolicyUseCase {
+        fun createMockGetRegistrationPolicyUseCase(policy: RegistrationPolicy = RegistrationPolicy.CLOSED): GetRegistrationPolicyUseCase {
             val useCase: GetRegistrationPolicyUseCase = mock()
             everySuspend { useCase() } returns AppResult.Success(policy)
             return useCase
@@ -60,9 +58,7 @@ class AdminViewModelTest :
          * — the only method [AdminViewModel] calls on it. [rosterFlow] is exposed to the caller so
          * a test can push new roster snapshots and assert the ViewModel reacts without a poll.
          */
-        fun createMockAdminRepository(
-            rosterFlow: MutableStateFlow<List<AdminUserInfo>> = MutableStateFlow(emptyList()),
-        ): AdminRepository {
+        fun createMockAdminRepository(rosterFlow: MutableStateFlow<List<AdminUserInfo>> = MutableStateFlow(emptyList())): AdminRepository {
             val repo: AdminRepository = mock()
             every { repo.observeRoster() } returns rosterFlow
             return repo

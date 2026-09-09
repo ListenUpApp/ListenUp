@@ -82,9 +82,7 @@ class InotifyDirectoryWatcherNativeTest :
         }
     })
 
-private suspend fun Channel<DirectoryWatchEvent>.await(
-    predicate: (DirectoryWatchEvent) -> Boolean,
-): DirectoryWatchEvent =
+private suspend fun Channel<DirectoryWatchEvent>.await(predicate: (DirectoryWatchEvent) -> Boolean): DirectoryWatchEvent =
     withTimeout(AWAIT_TIMEOUT) {
         var event = receive()
         while (!predicate(event)) event = receive()

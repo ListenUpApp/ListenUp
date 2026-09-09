@@ -350,7 +350,7 @@ class HomeRepositoryTest :
                 // instead of ISO 8601 format, breaking UI display
                 val fixture = createFixture()
                 // Jan 1, 2024 12:00:00 UTC = 1704110400000L
-                val lastPlayedAtMs = 1704110400000L
+                val lastPlayedAtMs = 1_704_110_400_000L
                 val position =
                     PlaybackPositionEntity(
                         bookId = BookId("book-1"),
@@ -387,7 +387,7 @@ class HomeRepositoryTest :
             runTest {
                 // Given: A position without lastPlayedAt (legacy data before migration)
                 val fixture = createFixture()
-                val updatedAtMs = 1704110400000L // Jan 1, 2024 12:00:00 UTC
+                val updatedAtMs = 1_704_110_400_000L // Jan 1, 2024 12:00:00 UTC
                 val position =
                     PlaybackPositionEntity(
                         bookId = BookId("book-1"),

@@ -29,9 +29,7 @@ class SyncCatchUpFromZeroTest :
 
                 override fun syncId(item: Tag): String = item.id
 
-                override suspend fun onEvent(
-                    event: SyncEvent<Tag>,
-                ): AppResult<Unit> = AppResult.Success(Unit)
+                override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
 
                 override suspend fun onCatchUpItem(
                     item: Tag,
@@ -63,26 +61,22 @@ class SyncCatchUpFromZeroTest :
                             limit: Int,
                         ): AppResult<SyncPage> {
                             sinceValues += since
-                            return when (since) {
-                                0L -> {
-                                    AppResult.Success(
-                                        syncPageOf(
-                                            domain = "tags",
-                                            serializer = Tag.serializer(),
-                                            items =
-                                                listOf(
-                                                    Tag("x", "ex", "ex", 1L, 10L),
-                                                    Tag("y", "why", "why", 2L, 20L),
-                                                ),
-                                            nextCursor = 2L,
-                                            hasMore = false,
-                                        ),
-                                    )
-                                }
-
-                                else -> {
-                                    error("unexpected since=$since")
-                                }
+                            return if (since == 0L) {
+                                AppResult.Success(
+                                    syncPageOf(
+                                        domain = "tags",
+                                        serializer = Tag.serializer(),
+                                        items =
+                                            listOf(
+                                                Tag("x", "ex", "ex", 1L, 10L),
+                                                Tag("y", "why", "why", 2L, 20L),
+                                            ),
+                                        nextCursor = 2L,
+                                        hasMore = false,
+                                    ),
+                                )
+                            } else {
+                                error("unexpected since=$since")
                             }
                         }
                     }
@@ -125,7 +119,8 @@ private class InMemoryDao : SyncCursorDao {
         if (current == null || revision > current) cursors[domainName] = revision
     }
 
-    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+    override suspend fun all(): List<SyncCursorEntity> =
+        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
     override suspend fun deleteAll() {
         cursors.clear()

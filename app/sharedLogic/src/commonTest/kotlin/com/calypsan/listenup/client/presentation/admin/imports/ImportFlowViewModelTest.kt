@@ -775,7 +775,17 @@ class ImportFlowViewModelTest :
 
         test("updateBookSearchQuery with blank query clears results without searching") {
             runTest(testDispatcher) {
-                val searchRepo = FakeSearchRepository(results = listOf(SearchHit(id = "book-1", type = SearchHitType.BOOK, name = "Something")))
+                val searchRepo =
+                    FakeSearchRepository(
+                        results =
+                            listOf(
+                                SearchHit(
+                                    id = "book-1",
+                                    type = SearchHitType.BOOK,
+                                    name = "Something",
+                                ),
+                            ),
+                    )
                 val repo =
                     FakeImportRepository(
                         uploadResult = AppResult.Success(importSummary()),
@@ -1106,7 +1116,13 @@ private class FakeAdminRepository(
 
     override fun observeRoster(): Flow<List<AdminUserInfo>> = flowOf(emptyList())
 
-    override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+    override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
+        AppResult.Success(
+            fakeAdminUser(
+                userId,
+                "stub@example.com",
+            ),
+        )
 
     override suspend fun denyUser(userId: String): AppResult<Unit> = AppResult.Success(Unit)
 
@@ -1157,7 +1173,13 @@ private class FakeAdminRepository(
 
     override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun getServerSettings(): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = "Test", remoteUrl = null))
+    override suspend fun getServerSettings(): AppResult<ServerSettings> =
+        AppResult.Success(
+            ServerSettings(
+                serverName = "Test",
+                remoteUrl = null,
+            ),
+        )
 
     override suspend fun updateServerSettings(
         serverName: String?,
@@ -1168,17 +1190,14 @@ private class FakeAdminRepository(
 
     override suspend fun getLibrary(): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
-    override suspend fun addScanPath(
-        path: String,
-    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun addScanPath(path: String): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
-    override suspend fun removeFolder(
-        folderId: String,
-    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun removeFolder(folderId: String): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
     override suspend fun triggerScan(): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> = AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
+        AppResult.Failure(TransportError.NetworkUnavailable())
 }
 
 /**

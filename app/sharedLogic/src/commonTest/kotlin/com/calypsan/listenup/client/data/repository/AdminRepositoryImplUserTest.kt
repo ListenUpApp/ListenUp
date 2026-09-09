@@ -53,7 +53,10 @@ private class FakeAdminUserService : AdminUserService {
 
     override suspend fun listUsers(): AppResult<List<User>> = AppResult.Success(users.values.toList())
 
-    override suspend fun listPendingUsers(): AppResult<List<User>> = AppResult.Success(users.values.filter { it.status == UserStatus.PENDING_APPROVAL })
+    override suspend fun listPendingUsers(): AppResult<List<User>> =
+        AppResult.Success(
+            users.values.filter { it.status == UserStatus.PENDING_APPROVAL },
+        )
 
     override suspend fun getUser(id: UserId): AppResult<User> {
         val user =
@@ -64,7 +67,10 @@ private class FakeAdminUserService : AdminUserService {
         return AppResult.Success(user)
     }
 
-    override suspend fun searchUsers(query: String): AppResult<List<User>> = AppResult.Success(users.values.filter { it.email.contains(query) || it.displayName.contains(query) })
+    override suspend fun searchUsers(query: String): AppResult<List<User>> =
+        AppResult.Success(
+            users.values.filter { it.email.contains(query) || it.displayName.contains(query) },
+        )
 
     override suspend fun updateUser(
         id: UserId,
@@ -91,9 +97,7 @@ private class FakeAdminUserService : AdminUserService {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun decidePendingRegistration(
-        request: PendingRegistrationDecision,
-    ): AppResult<PendingRegistrationOutcome> {
+    override suspend fun decidePendingRegistration(request: PendingRegistrationDecision): AppResult<PendingRegistrationOutcome> {
         lastDecision = request
         val user =
             users[request.userId.value]

@@ -53,8 +53,8 @@ class UserRepositoryImplTest :
             lastName: String? = "User",
             isRoot: Boolean = false,
             tagline: String? = "Audiobook enthusiast",
-            createdAt: Long = 1704067200000L, // 2024-01-01 00:00:00 UTC
-            updatedAt: Long = 1704153600000L, // 2024-01-02 00:00:00 UTC
+            createdAt: Long = 1_704_067_200_000L, // 2024-01-01 00:00:00 UTC
+            updatedAt: Long = 1_704_153_600_000L, // 2024-01-02 00:00:00 UTC
         ): UserEntity =
             UserEntity(
                 id =
@@ -521,7 +521,7 @@ class UserRepositoryImplTest :
             runTest {
                 // Given - entity uses createdAt, domain uses createdAtMs
                 val userDao = createMockUserDao()
-                val timestamp = 1704067200000L // 2024-01-01 00:00:00 UTC
+                val timestamp = 1_704_067_200_000L // 2024-01-01 00:00:00 UTC
                 val entity = createTestUserEntity(createdAt = timestamp)
                 everySuspend { userDao.getCurrentUser() } returns entity
                 val authedChannel = createMockAuthedChannel()
@@ -539,7 +539,7 @@ class UserRepositoryImplTest :
             runTest {
                 // Given - entity uses updatedAt, domain uses updatedAtMs
                 val userDao = createMockUserDao()
-                val timestamp = 1704153600000L // 2024-01-02 00:00:00 UTC
+                val timestamp = 1_704_153_600_000L // 2024-01-02 00:00:00 UTC
                 val entity = createTestUserEntity(updatedAt = timestamp)
                 everySuspend { userDao.getCurrentUser() } returns entity
                 val authedChannel = createMockAuthedChannel()
@@ -569,10 +569,10 @@ class UserRepositoryImplTest :
                         tagline = "Keeping things running smoothly",
                         createdAt =
                             com.calypsan.listenup.core
-                                .Timestamp(1700000000000L),
+                                .Timestamp(1_700_000_000_000L),
                         updatedAt =
                             com.calypsan.listenup.core
-                                .Timestamp(1705000000000L),
+                                .Timestamp(1_705_000_000_000L),
                     )
                 everySuspend { userDao.getCurrentUser() } returns entity
                 val authedChannel = createMockAuthedChannel()
@@ -589,8 +589,8 @@ class UserRepositoryImplTest :
                 user.lastName shouldBe "Administrator"
                 user.isAdmin shouldBe true
                 user.tagline shouldBe "Keeping things running smoothly"
-                user.createdAtMs shouldBe 1700000000000L
-                user.updatedAtMs shouldBe 1705000000000L
+                user.createdAtMs shouldBe 1_700_000_000_000L
+                user.updatedAtMs shouldBe 1_705_000_000_000L
             }
         }
 

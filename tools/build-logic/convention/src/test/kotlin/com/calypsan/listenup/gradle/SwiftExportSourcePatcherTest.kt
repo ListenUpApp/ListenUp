@@ -47,7 +47,9 @@ class SwiftExportSourcePatcherTest {
             "onEnum overload keyed to the parent",
         )
         assertTrue(
-            out.contains("public typealias SyncResultSuccess = _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Success"),
+            out.contains(
+                "public typealias SyncResultSuccess = _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_SyncResult_Success",
+            ),
             "SKIE-style flat subtype alias",
         )
         // Plan 004: a generated `unknown` tail (carrying the base type) replaces the old `fatalError`,
@@ -184,7 +186,9 @@ class SwiftExportSourcePatcherTest {
             "defensive unknown case carrying the erased base — never a silent success",
         )
         assertTrue(
-            out.contains("public func appResultCase(_ value: any ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult) -> AppResultCase {"),
+            out.contains(
+                "public func appResultCase(_ value: any ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult) -> AppResultCase {",
+            ),
             "fold over the erased base type",
         )
         assertTrue(out.contains("if let failure = value as? AppResultFailure { return .failure(failure) }"), "failure branch")

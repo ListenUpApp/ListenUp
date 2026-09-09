@@ -18,13 +18,27 @@ class EmbeddedScanCountersWireRoundTripTest :
 
         test("UnsupportedFormatCount round-trips") {
             val count = UnsupportedFormatCount(format = AudioFormat.Flac, count = 12)
-            val decoded = json.decodeFromString(UnsupportedFormatCount.serializer(), json.encodeToString(UnsupportedFormatCount.serializer(), count))
+            val decoded =
+                json.decodeFromString(
+                    UnsupportedFormatCount.serializer(),
+                    json.encodeToString(
+                        UnsupportedFormatCount.serializer(),
+                        count,
+                    ),
+                )
             decoded shouldBe count
         }
 
         test("EmbeddedScanCounters with all defaults round-trips") {
             val counters = EmbeddedScanCounters()
-            val decoded = json.decodeFromString(EmbeddedScanCounters.serializer(), json.encodeToString(EmbeddedScanCounters.serializer(), counters))
+            val decoded =
+                json.decodeFromString(
+                    EmbeddedScanCounters.serializer(),
+                    json.encodeToString(
+                        EmbeddedScanCounters.serializer(),
+                        counters,
+                    ),
+                )
             decoded shouldBe counters
         }
 
@@ -43,7 +57,14 @@ class EmbeddedScanCountersWireRoundTripTest :
                         ),
                     unrecognisedMagic = 2,
                 )
-            val decoded = json.decodeFromString(EmbeddedScanCounters.serializer(), json.encodeToString(EmbeddedScanCounters.serializer(), counters))
+            val decoded =
+                json.decodeFromString(
+                    EmbeddedScanCounters.serializer(),
+                    json.encodeToString(
+                        EmbeddedScanCounters.serializer(),
+                        counters,
+                    ),
+                )
             decoded shouldBe counters
         }
 
@@ -70,7 +91,14 @@ class EmbeddedScanCountersWireRoundTripTest :
                             unrecognisedMagic = 0,
                         ),
                 )
-            val decoded = json.decodeFromString(ScanResultSummary.serializer(), json.encodeToString(ScanResultSummary.serializer(), summary))
+            val decoded =
+                json.decodeFromString(
+                    ScanResultSummary.serializer(),
+                    json.encodeToString(
+                        ScanResultSummary.serializer(),
+                        summary,
+                    ),
+                )
             decoded shouldBe summary
         }
     })

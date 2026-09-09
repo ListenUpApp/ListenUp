@@ -147,7 +147,7 @@ class NowPlayingStateMapperTest :
             p.bookProgress shouldBe 0.25f
             p.chapterPositionMs shouldBe 10_000L
             p.chapterDurationMs shouldBe 60_000L
-            p.chapterProgress shouldBe (10_000f / 60_000f)
+            p.chapterProgress shouldBe 10_000f / 60_000f
         }
 
         test("mapToPlaybackProgress clamps progress and floors chapter position at zero") {

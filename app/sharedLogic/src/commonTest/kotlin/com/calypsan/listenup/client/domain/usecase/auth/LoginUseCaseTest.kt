@@ -72,7 +72,7 @@ private fun createAuthSession(
                 displayName = "Test User",
                 role = UserRole.MEMBER,
                 status = UserStatus.ACTIVE,
-                createdAt = 1704067200000L,
+                createdAt = 1_704_067_200_000L,
             ),
     )
 

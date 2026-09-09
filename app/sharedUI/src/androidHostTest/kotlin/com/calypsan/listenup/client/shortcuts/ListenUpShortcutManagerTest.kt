@@ -41,7 +41,8 @@ class ListenUpShortcutManagerTest {
             context = RuntimeEnvironment.getApplication(),
             homeRepository =
                 object : HomeRepository {
-                    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(emptyList())
+                    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
+                        AppResult.Success(emptyList())
 
                     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                 },
@@ -59,7 +60,8 @@ class ListenUpShortcutManagerTest {
                     context = RuntimeEnvironment.getApplication(),
                     homeRepository =
                         object : HomeRepository {
-                            override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = throw CancellationException("shortcut refresh cancelled")
+                            override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
+                                throw CancellationException("shortcut refresh cancelled")
 
                             override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                         },
@@ -144,7 +146,7 @@ class ListenUpShortcutManagerTest {
         for (size in sourceSizes) {
             val result = manager.calculateSampleSize(options(size, size), targetSize, targetSize)
             // A power of two satisfies: result > 0 and exactly one bit set
-            (result > 0 && result and (result - 1) == 0) shouldBe true
+            (result > 0 && result and result - 1 == 0) shouldBe true
         }
     }
 

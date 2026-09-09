@@ -88,55 +88,54 @@ class BookRepositoryImplDocumentsTest :
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-private fun withTestRepoForDocuments(
-    block: suspend (BookRepositoryImpl, ListenUpDatabase) -> Unit,
-) = runTest {
-    val db = createInMemoryTestDatabase()
-    try {
-        val imageStorage: ImageStorage = mock()
-        every { imageStorage.exists(any()) } returns false
+private fun withTestRepoForDocuments(block: suspend (BookRepositoryImpl, ListenUpDatabase) -> Unit) =
+    runTest {
+        val db = createInMemoryTestDatabase()
+        try {
+            val imageStorage: ImageStorage = mock()
+            every { imageStorage.exists(any()) } returns false
 
-        val genreRepository: GenreRepository = mock()
-        every { genreRepository.observeGenresForBook(any()) } returns MutableStateFlow(emptyList())
+            val genreRepository: GenreRepository = mock()
+            every { genreRepository.observeGenresForBook(any()) } returns MutableStateFlow(emptyList())
 
-        val tagRepository: TagRepository = mock()
-        every { tagRepository.observeTagsForBook(any()) } returns MutableStateFlow(emptyList())
+            val tagRepository: TagRepository = mock()
+            every { tagRepository.observeTagsForBook(any()) } returns MutableStateFlow(emptyList())
 
-        val moodRepository: MoodRepository = mock()
-        every { moodRepository.observeMoodsForBook(any()) } returns MutableStateFlow(emptyList())
+            val moodRepository: MoodRepository = mock()
+            every { moodRepository.observeMoodsForBook(any()) } returns MutableStateFlow(emptyList())
 
-        val networkMonitor: NetworkMonitor = mock()
-        every { networkMonitor.isOnline() } returns false
+            val networkMonitor: NetworkMonitor = mock()
+            every { networkMonitor.isOnline() } returns false
 
-        val transactionRunner = RoomTransactionRunner(db)
-        val syncHandler =
-            booksDomain(
-                database = db,
-                mapper = BookEntityMapper(),
-                imageStorage = stubImageStorage(),
-            ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry())
+            val transactionRunner = RoomTransactionRunner(db)
+            val syncHandler =
+                booksDomain(
+                    database = db,
+                    mapper = BookEntityMapper(),
+                    imageStorage = stubImageStorage(),
+                ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry())
 
-        val channel = RpcChannel.forTest(mock<BookService>())
+            val channel = RpcChannel.forTest(mock<BookService>())
 
-        val repo =
-            BookRepositoryImpl(
-                bookDao = db.bookDao(),
-                chapterDao = db.chapterDao(),
-                audioFileDao = db.audioFileDao(),
-                searchDao = db.searchDao(),
-                transactionRunner = transactionRunner,
-                imageStorage = imageStorage,
-                joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
-                networkMonitor = networkMonitor,
-                channel = channel,
-                bookSyncDomainHandler = syncHandler,
-            )
+            val repo =
+                BookRepositoryImpl(
+                    bookDao = db.bookDao(),
+                    chapterDao = db.chapterDao(),
+                    audioFileDao = db.audioFileDao(),
+                    searchDao = db.searchDao(),
+                    transactionRunner = transactionRunner,
+                    imageStorage = imageStorage,
+                    joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
+                    networkMonitor = networkMonitor,
+                    channel = channel,
+                    bookSyncDomainHandler = syncHandler,
+                )
 
-        block(repo, db)
-    } finally {
-        db.close()
+            block(repo, db)
+        } finally {
+            db.close()
+        }
     }
-}
 
 /** Seeds a minimal book into Room via the canonical sync write path. */
 private suspend fun seedRoomBook(

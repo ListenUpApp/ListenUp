@@ -95,8 +95,8 @@ class BookMultiSelectViewModelTest :
                 email = "test@example.com",
                 displayName = "Test User",
                 isAdmin = isAdmin,
-                createdAtMs = 1704067200000L,
-                updatedAtMs = 1704067200000L,
+                createdAtMs = 1_704_067_200_000L,
+                updatedAtMs = 1_704_067_200_000L,
             )
 
         fun createShelf(
@@ -112,8 +112,8 @@ class BookMultiSelectViewModelTest :
                 ownerDisplayName = "Test User",
                 bookCount = 0,
                 totalDurationSeconds = 0,
-                createdAtMs = 1704067200000L,
-                updatedAtMs = 1704067200000L,
+                createdAtMs = 1_704_067_200_000L,
+                updatedAtMs = 1_704_067_200_000L,
             )
 
         beforeTest {
