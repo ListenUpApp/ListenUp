@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -84,6 +85,8 @@ import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
 import com.calypsan.listenup.web.motion.fadePageIn
 import com.calypsan.listenup.web.motion.isPageChange
+import com.calypsan.listenup.web.playback.bindMediaSession
+import com.calypsan.listenup.web.playback.browserMediaSession
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
@@ -786,6 +789,14 @@ private const val PALETTE_SHORTCUT_KEY = "k"
 private fun playbackState(openPlayback: OpenPlayback): PlaybackSession {
     val session = remember { openPlayback() }
     DisposableEffect(session) { onDispose { session.close() } }
+    // Shell-scoped for the same reason the session is: what is playing outlives the page, and
+    // an OS control bound to a route would stop working the moment the reader navigated.
+    val bridge = remember { browserMediaSession() }
+    val scope = rememberCoroutineScope()
+    DisposableEffect(session, bridge) {
+        val dispose = bridge?.let { bindMediaSession(session, it, scope) }
+        onDispose { dispose?.invoke() }
+    }
     return session
 }
 
