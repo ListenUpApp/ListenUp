@@ -104,17 +104,7 @@ fun main() {
         // Read and strip BEFORE the router is built, so it never sees the code: the router
         // reads `window.location` in its constructor, and an entry it captured with the code in
         // it would be restored by the Back button after we had gone to the trouble of removing it.
-        val (inviteCode, withoutInvite) =
-            try {
-                takeInviteCode(Route.parse(window.location.pathname + window.location.search))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Rendering is this coroutine's continuation: an escape here is a white page,
-                // which is a far worse answer to "this URL is odd" than opening at the root.
-                console.warn("Could not read the launch URL; opening at the root: ${e.message}")
-                null to Route(emptyList())
-            }
+        val (inviteCode, withoutInvite) = takeInviteCodeFromLaunchUrl()
         if (inviteCode != null) {
             window.history.replaceState(null, "", withoutInvite.toUrl())
         }
@@ -154,6 +144,23 @@ fun main() {
         }
     }
 }
+
+/**
+ * Reads the invite code out of the launch URL, along with the route that no longer carries it.
+ *
+ * Lifted out of `main` and wrapped for the same reason as [seedServerUrlIfNeeded]: rendering is the
+ * boot coroutine's continuation, so an escape here is a white page — a far worse answer to "this URL
+ * is odd" than opening at the root.
+ */
+private fun takeInviteCodeFromLaunchUrl(): Pair<String?, Route> =
+    try {
+        takeInviteCode(Route.parse(window.location.pathname + window.location.search))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        console.warn("Could not read the launch URL; opening at the root: ${e.message}")
+        null to Route(emptyList())
+    }
 
 /**
  * Connects realtime sync on every transition into [AuthState.Authenticated].
