@@ -100,42 +100,40 @@ final class BookSelectionObserver {
     /// rather than unreachable: a new event type is logged and says nothing, which is what this
     /// screen did for every event until now.
     private static func message(for event: BookMultiSelectEvent) -> String? {
-        switch onEnum(of: event) {
-        case .booksAddedToShelf(let added):
+        switch event.sealedType() {
+        case .booksAddedToShelf(let addedType):
+            let added = addedType.value
             return SelectionFormatting.addedToShelf(count: Int(added.count))
-        case .booksAddedToCollection(let added):
+        case .booksAddedToCollection(let addedType):
+            let added = addedType.value
             return SelectionFormatting.addedToCollection(count: Int(added.count))
-        case .shelfCreatedAndBooksAdded(let created):
+        case .shelfCreatedAndBooksAdded(let createdType):
+            let created = createdType.value
             return SelectionFormatting.createdWithBooks(
                 name: created.shelfName,
                 count: Int(created.bookCount)
             )
-        case .collectionCreatedAndBooksAdded(let created):
+        case .collectionCreatedAndBooksAdded(let createdType):
+            let created = createdType.value
             return SelectionFormatting.createdWithBooks(
                 name: created.collectionName,
                 count: Int(created.bookCount)
             )
-        case .unknown:
-            Log.error("Unexpected BookMultiSelectEvent case")
-            return nil
         }
     }
 
     /// Flatten the sealed `SelectionMode` into `isSelecting` + the native `Set<String>`.
     private func applySelectionMode(_ mode: SelectionMode) {
-        switch onEnum(of: mode) {
+        switch mode.sealedType() {
         case .none:
             isSelecting = false
             selectedBookIds = []
-        case .active(let active):
+        case .active(let activeType):
+            let active = activeType.value
             isSelecting = true
             // The Kotlin Set<String> arrives as a bridged Kotlin set, not a Swift Set;
             // map through String(describing:) to a Swift-native Set (DevicesObserver precedent).
             selectedBookIds = Set(active.selectedIds.map { String(describing: $0) })
-        case .unknown:
-            Log.error("Unexpected SelectionMode case")
-            isSelecting = false
-            selectedBookIds = []
         }
     }
 

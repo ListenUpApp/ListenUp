@@ -45,10 +45,11 @@ struct GenrePageSnapshot: Equatable {
     /// Flatten the sealed shared state into the flat snapshot the UI renders. The route-supplied
     /// `fallbackName` keeps the header titled while `Loading`.
     static func from(_ state: GenreDestinationUiState, fallbackName: String) -> GenrePageSnapshot {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             return GenrePageSnapshot(phase: .loading, name: fallbackName)
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             let identity = r.identity
             return GenrePageSnapshot(
                 phase: .ready,
@@ -73,9 +74,6 @@ struct GenrePageSnapshot: Equatable {
                 books: r.books.map { BookRow($0) }
             )
         case .notFound:
-            return GenrePageSnapshot(phase: .notFound, name: fallbackName)
-        case .unknown:
-            Log.error("Unexpected GenreDestinationUiState case")
             return GenrePageSnapshot(phase: .notFound, name: fallbackName)
         }
     }

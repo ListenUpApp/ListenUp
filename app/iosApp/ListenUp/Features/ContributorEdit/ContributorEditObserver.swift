@@ -106,15 +106,15 @@ final class ContributorEditObserver {
     }
 
     private func applyNav(_ action: ContributorEditNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .navigateBack, .saveSuccess: didFinish = true
-        case .navigateToMerged(let merged):
+        case .navigateToMerged(let mergedType):
+            let merged = mergedType.value
             // A merge can soft-delete the contributor being edited (the rename-collision path), so
             // dismissing would return to a detail page for something that no longer exists. Surface
             // the survivor so the presenting detail view can re-target itself in place.
             mergedIntoContributorId = merged.contributorId.value
             didFinish = true
-        case .unknown: Log.error("Unexpected ContributorEditNavAction case")
         }
     }
 }

@@ -120,8 +120,8 @@ struct RestoreStatusLabelTests {
     // creation data objects Finalizing/DbSnapshotting) — are `@Serializable data object`s, which the
     // current Swift Export exports as empty classes with no singleton accessor: they are unreachable
     // from Swift, so their label mappings can't be exercised here. That mapping is pinned instead by
-    // RestoreBackupObserver's exhaustive `onEnum` switch and the sealed-subtype-count guard in
-    // SwiftExportSourcePatcher. The reachable data-*class* events are asserted directly below.
+    // RestoreBackupObserver's exhaustive `sealedType()` switch: the native enum has no catch-all, so a
+    // dropped subtype is a compile error. The reachable data-*class* events are asserted directly below.
 
     @Test func terminalEventsMapToTheirLabels() {
         #expect(RestoreBackupObserver.statusLabel(from: BackupEventRestoreComplete(includedImages: true)) == String(localized: "admin.restore_status_finishing"))

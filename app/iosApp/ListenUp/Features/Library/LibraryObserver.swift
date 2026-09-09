@@ -88,11 +88,12 @@ final class LibraryObserver {
     // MARK: - State mapping
 
     private func apply(_ state: LibraryUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             isLoading = true
             errorMessage = nil
-        case .loaded(let l):
+        case .loaded(let lType):
+            let l = lType.value
             isLoading = false
             errorMessage = nil
             books = l.books.map { BookRow($0) }
@@ -108,13 +109,10 @@ final class LibraryObserver {
             ignoreTitleArticles = l.ignoreTitleArticles
             isEmpty = l.isEmpty
             isSyncing = l.isSyncing
-        case .error(let e):
+        case .error(let eType):
+            let e = eType.value
             isLoading = false
             errorMessage = e.message
-        case .unknown:
-            Log.error("Unexpected LibraryUiState case")
-            isLoading = false
-            errorMessage = String(localized: "common.something_went_wrong")
         }
     }
 

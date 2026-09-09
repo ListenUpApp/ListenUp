@@ -304,11 +304,12 @@ final class BookDetailObserver {
     // MARK: - State mapping
 
     private func apply(_ state: BookDetailUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             isLoading = true
             error = nil
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             isLoading = false
             error = nil
             applyBook(r.book)
@@ -343,13 +344,10 @@ final class BookDetailObserver {
                 isWaitingForWifi = r.isWaitingForWifi
                 latestDownloadStatus.map { applyDownloadStatus($0) }
             }
-        case .error(let e):
+        case .error(let eType):
+            let e = eType.value
             isLoading = false
             error = e.error.message
-        case .unknown:
-            Log.error("Unexpected BookDetailUiState case")
-            isLoading = false
-            error = String(localized: "common.something_went_wrong")
         }
     }
 
@@ -409,8 +407,9 @@ final class BookDetailObserver {
     }
 
     private func applyNavAction(_ action: BookDetailNavAction) {
-        switch onEnum(of: action) {
-        case .openDocumentViewer(let open):
+        switch action.sealedType() {
+        case .openDocumentViewer(let openType):
+            let open = openType.value
             documentToOpen = ReaderDocument(localPath: open.localPath, title: title)
         case .showViewerComingSoon:
             showComingSoon = true
@@ -419,20 +418,19 @@ final class BookDetailObserver {
             // can emit this. Named explicitly rather than swept into `.unknown` so the switch stays
             // exhaustive, and so whoever adds the iOS entry point lands on this line.
             Log.error("BookDetailNavAction.BookDeleted reached iOS, which has no delete affordance")
-        case .unknown:
-            Log.error("Unexpected BookDetailNavAction case")
         }
     }
 
     /// Flatten the sealed `BookDownloadStatus` into the UI-facing download props.
     private func applyDownloadStatus(_ status: BookDownloadStatus) {
         latestDownloadStatus = status
-        switch onEnum(of: status) {
+        switch status.sealedType() {
         case .notDownloaded:
             downloadState = .notDownloaded
             downloadProgress = 0
             isDownloaded = false
-        case .inProgress(let s):
+        case .inProgress(let sType):
+            let s = sType.value
             // A parked download is still "in progress" to the shared model, but nothing is moving.
             downloadState = isWaitingForWifi ? .waitingForWifi : .downloading
             downloadProgress = s.progress
@@ -444,16 +442,12 @@ final class BookDetailObserver {
         case .failed:
             downloadState = .failed
             isDownloaded = false
-        case .paused(let s):
+        case .paused(let sType):
+            let s = sType.value
             downloadState = .partial
             downloadProgress = s.totalBytes > 0
                 ? Float(s.downloadedBytes) / Float(s.totalBytes)
                 : 0
-            isDownloaded = false
-        case .unknown:
-            Log.error("Unexpected BookDownloadStatus case")
-            downloadState = .notDownloaded
-            downloadProgress = 0
             isDownloaded = false
         }
     }

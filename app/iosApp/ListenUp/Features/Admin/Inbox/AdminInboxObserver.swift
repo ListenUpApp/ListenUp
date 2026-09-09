@@ -47,16 +47,15 @@ final class AdminInboxObserver {
     /// Pure: project the sealed `AdminInboxUiState` onto the flattened phase.
     /// `nonisolated` so tests can exercise it off the main actor (mirrors the backup observers).
     nonisolated static func phase(from state: AdminInboxUiState) -> AdminInboxPhase {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             return .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             return .ready(AdminInboxReadyModel(from: ready))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             return .error(error.message)
-        case .unknown:
-            Log.error("Unexpected AdminInboxUiState case")
-            return .error(String(localized: "common.something_went_wrong"))
         }
     }
 }

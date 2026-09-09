@@ -6,7 +6,7 @@ import Shared
 /// VM's setters/actions. Thin over `FlowBridge`, mirroring `FacetBooksObserver`.
 ///
 /// `SettingsUiState` is a plain Kotlin `data class` (not a sealed hierarchy), so its
-/// fields bridge directly — no `onEnum` flatten is needed. The observer exists to give
+/// fields bridge directly — no `sealedType()` flatten is needed. The observer exists to give
 /// SwiftUI a `@MainActor`-isolated, `@Observable` surface and to host the small pure
 /// formatting helpers (`skipLabel`, `sleepTimerLabel`, `themeLabel`) that the view
 /// renders and the tests pin.

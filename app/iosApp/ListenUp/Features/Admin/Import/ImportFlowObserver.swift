@@ -89,12 +89,14 @@ final class ImportFlowObserver {
     // MARK: - State mapping
 
     private func apply(_ state: ImportFlowUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             phase = .idle
-        case .uploading(let uploading):
+        case .uploading(let uploadingType):
+            let uploading = uploadingType.value
             phase = .uploading(filename: uploading.filename)
-        case .analyzing(let analyzing):
+        case .analyzing(let analyzingType):
+            let analyzing = analyzingType.value
             phase = .analyzing(ImportProgressModel(
                 done: Int(analyzing.done),
                 total: Int(analyzing.total),
@@ -102,26 +104,27 @@ final class ImportFlowObserver {
                 usersMatched: Int(analyzing.usersMatched),
                 booksMatched: Int(analyzing.booksMatched)
             ))
-        case .review(let review):
+        case .review(let reviewType):
+            let review = reviewType.value
             // The boxed value-class state is flattened Kotlin-side; the picker users bridge
             // cleanly (AdminUserInfo has String ids), so map those here.
             let snapshot = ImportFlowSwiftBridge.shared.reviewSnapshot(state: state)
             let pickerUsers = review.listenupUsers.map(ImportPickerUser.init(from:))
             phase = .review(ImportReviewModel(snapshot: snapshot, pickerUsers: pickerUsers))
-        case .applying(let applying):
+        case .applying(let applyingType):
+            let applying = applyingType.value
             phase = .applying(ImportProgressModel(
                 done: Int(applying.done),
                 total: Int(applying.total),
                 currentItem: applying.currentItem,
                 sessionsWritten: Int(applying.sessionsWritten)
             ))
-        case .done(let done):
+        case .done(let doneType):
+            let done = doneType.value
             phase = .done(ImportDoneModel(from: done.result))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(message: error.error.message)
-        case .unknown:
-            Log.error("Unexpected ImportFlowUiState case")
-            phase = .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

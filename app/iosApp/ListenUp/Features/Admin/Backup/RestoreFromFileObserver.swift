@@ -49,16 +49,15 @@ final class RestoreFromFileObserver {
     /// Pure: project the sealed `RestoreFromFileUiState` onto the upload phase.
     /// `nonisolated` so tests can exercise it off the main actor.
     nonisolated static func phase(from state: RestoreFromFileUiState) -> UploadPhase {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             return .idle
-        case .uploading(let uploading):
+        case .uploading(let uploadingType):
+            let uploading = uploadingType.value
             return .uploading(filename: uploading.filename)
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             return .error(message: error.error.message)
-        case .unknown:
-            Log.error("Unexpected RestoreFromFileUiState case")
-            return .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

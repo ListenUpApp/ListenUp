@@ -55,10 +55,11 @@ struct ShelfDetailSnapshot: Equatable {
 
     /// Flatten the sealed shared state into the flat snapshot the UI renders.
     static func from(_ state: ShelfDetailUiState) -> ShelfDetailSnapshot {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle, .loading:
             return ShelfDetailSnapshot(phase: .loading)
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             return ShelfDetailSnapshot(
                 phase: .ready,
                 shelfName: r.detail.name,
@@ -66,11 +67,9 @@ struct ShelfDetailSnapshot: Equatable {
                 books: r.detail.books.map { ShelfBookRow($0) },
                 isOwner: r.isOwner
             )
-        case .error(let errorState):
+        case .error(let errorStateType):
+            let errorState = errorStateType.value
             return ShelfDetailSnapshot(phase: .error(errorState.message))
-        case .unknown:
-            Log.error("Unexpected ShelfDetailUiState case")
-            return ShelfDetailSnapshot(phase: .error(String(localized: "common.something_went_wrong")))
         }
     }
 }

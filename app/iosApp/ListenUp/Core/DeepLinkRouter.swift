@@ -55,28 +55,28 @@ final class DeepLinkRouter {
 
     private func resolve(_ target: ShareTarget?) {
         guard let target else { outcome = .none; return }
-        switch onEnum(of: target) {
-        case .invite(let invite):
+        switch target.sealedType() {
+        case .invite(let inviteType):
+            let invite = inviteType.value
             Log.info("DeepLink: resolved invite → presenting claim sheet")
             outcome = .claimInvite(serverURL: invite.serverUrl, code: invite.code, remoteURL: invite.remoteUrl)
-        case .book(let book):
+        case .book(let bookType):
+            let book = bookType.value
             Task { @MainActor [weak self] in await self?.resolveBook(book) }
-        case .unknown:
-            Log.error("Unexpected ShareTarget case")
-            consume()
         }
     }
 
     private func resolveBook(_ book: ShareTargetBook) async {
         let connectedId = try? await Dependencies.shared.serverConfig.getConnectedServerId()
-        switch onEnum(of: ShareTargetResolver.shared.resolve(target: book, connectedInstanceId: connectedId)) {
-        case .openBook(let open):
+        switch ShareTargetResolver.shared.resolve(target: book, connectedInstanceId: connectedId).sealedType() {
+        case .openBook(let openType):
+            let open = openType.value
             outcome = .openBook(id: open.bookId.value)
         case .wrongServer:
             outcome = .wrongServer
         case .notConnected:
             outcome = .notConnected
-        case .openInviteClaim, .noAccess, .unknown:
+        case .openInviteClaim, .noAccess:
             consume()
         }
     }

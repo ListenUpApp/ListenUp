@@ -41,18 +41,16 @@ final class RegisterViewModelWrapper {
     // MARK: - State mapping
 
     private func apply(_ state: RegisterUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             isLoading = false; isSuccess = false; error = nil
         case .loading:
             isLoading = true; isSuccess = false; error = nil
         case .success:
             isLoading = false; isSuccess = true; error = nil
-        case .error(let errorState):
+        case .error(let errorStateType):
+            let errorState = errorStateType.value
             isLoading = false; isSuccess = false; error = errorState.message
-        case .unknown:
-            Log.error("Unexpected RegisterUiState case")
-            isLoading = false; isSuccess = false; error = String(localized: "common.error")
         }
     }
 }

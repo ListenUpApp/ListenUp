@@ -502,10 +502,9 @@ final class BookEditObserver {
     }
 
     private func applyNav(_ action: BookEditNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .navigateBack: didFinish = true
         case .showSaveSuccess: didFinish = true
-        case .unknown: Log.error("Unexpected BookEditNavAction case")
         }
     }
 }

@@ -85,10 +85,11 @@ final class EditProfileObserver {
     // MARK: - State mapping
 
     private func apply(_ state: EditProfileUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             isLoading = true
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             isLoading = false
             user = r.user
             firstName = r.firstName
@@ -104,23 +105,18 @@ final class EditProfileObserver {
         case .error:
             isLoading = false
             user = nil
-        case .unknown:
-            Log.error("Unexpected EditProfileUiState case")
-            isLoading = false
-            user = nil
         }
     }
 
     private func applyEvent(_ event: EditProfileEvent) {
-        switch onEnum(of: event) {
+        switch event.sealedType() {
         case .saveSucceeded:
             // The VM clears its staged avatar on success; drop our local preview copy too.
             pickedImage = nil
             savedToken += 1
-        case .saveFailed(let failure):
+        case .saveFailed(let failureType):
+            let failure = failureType.value
             lastError = failure.message
-        case .unknown:
-            Log.error("Unexpected EditProfileEvent case")
         }
     }
 
@@ -130,16 +126,13 @@ final class EditProfileObserver {
     /// is previewed from the locally retained `pickedImage`; if that's somehow absent we
     /// fall back to `.none` rather than fabricate empty image data.
     nonisolated static func stagedAvatar(for change: AvatarChange, pickedImage: Data?) -> StagedAvatar {
-        switch onEnum(of: change) {
+        switch change.sealedType() {
         case .none:
             return .none
         case .revertToAuto:
             return .reverted
         case .upload:
             return pickedImage.map(StagedAvatar.image) ?? .none
-        case .unknown:
-            Log.error("Unexpected AvatarChange case")
-            return .none
         }
     }
 }

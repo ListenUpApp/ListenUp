@@ -48,19 +48,16 @@ final class SetupViewModelWrapper {
     // MARK: - State mapping
 
     private func apply(_ state: SetupUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             isLoading = false; isSuccess = false; clearErrors()
         case .loading:
             isLoading = true; isSuccess = false; clearErrors()
         case .success:
             isLoading = false; isSuccess = true; clearErrors()
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             isLoading = false; isSuccess = false; mapError(error.type)
-        case .unknown:
-            Log.error("Unexpected SetupUiState case")
-            isLoading = false; isSuccess = false
-            clearErrors(); generalError = String(localized: "common.something_went_wrong")
         }
     }
 
@@ -71,8 +68,9 @@ final class SetupViewModelWrapper {
 
     private func mapError(_ errorType: SetupErrorType) {
         clearErrors()
-        switch onEnum(of: errorType) {
-        case .validationError(let validation):
+        switch errorType.sealedType() {
+        case .validationError(let validationType):
+            let validation = validationType.value
             validationField = SetupValidation.errorField(for: validation.field)
         case .alreadyConfigured:
             generalError = String(localized: "setup.error_already_configured")
@@ -80,9 +78,6 @@ final class SetupViewModelWrapper {
             generalError = String(localized: "auth.unable_to_connect")
         case .serverError:
             generalError = String(localized: "auth.server_error")
-        case .unknown:
-            Log.error("Unexpected SetupErrorType case")
-            generalError = String(localized: "common.something_went_wrong")
         }
     }
 }

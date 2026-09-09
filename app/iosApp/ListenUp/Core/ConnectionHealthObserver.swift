@@ -43,16 +43,14 @@ final class ConnectionHealthObserver {
     // MARK: - Mapping
 
     private func apply(_ ui: ConnectionHealthUi) {
-        switch onEnum(of: ui) {
+        switch ui.sealedType() {
         case .hidden:
             kind = .hidden
         case .sessionExpired:
             kind = .sessionExpired
-        case .outdated(let outdated):
+        case .outdated(let outdatedType):
+            let outdated = outdatedType.value
             kind = .outdated(clientVersion: outdated.clientVersion, serverVersion: outdated.serverVersion)
-        case .unknown:
-            Log.error("Unexpected ConnectionHealthUi case")
-            kind = .hidden
         }
     }
 }

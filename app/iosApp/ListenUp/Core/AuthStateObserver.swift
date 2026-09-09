@@ -44,7 +44,7 @@ final class AuthStateObserver {
     // MARK: - Mapping
 
     private func apply(_ authState: AuthState) {
-        switch onEnum(of: authState) {
+        switch authState.sealedType() {
         case .initializing:
             state = .initializing
         case .needsServerUrl:
@@ -53,10 +53,12 @@ final class AuthStateObserver {
             state = .checkingServer
         case .needsSetup:
             state = .needsSetup
-        case .needsLogin(let login):
+        case .needsLogin(let loginType):
+            let login = loginType.value
             state = .needsLogin
             openRegistration = login.openRegistration
-        case .pendingApproval(let pending):
+        case .pendingApproval(let pendingType):
+            let pending = pendingType.value
             state = .pendingApproval
             pendingApprovalUserId = pending.userIdString
             pendingApprovalEmail = pending.email
@@ -64,9 +66,6 @@ final class AuthStateObserver {
             state = .authenticated
         case .sessionLapsed:
             state = .sessionLapsed
-        case .unknown:
-            Log.error("Unexpected AuthState case")
-            state = .initializing
         }
     }
 }

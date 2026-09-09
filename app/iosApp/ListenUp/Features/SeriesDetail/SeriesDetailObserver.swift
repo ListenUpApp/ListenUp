@@ -102,11 +102,12 @@ final class SeriesDetailObserver {
     // MARK: - State mapping
 
     private func apply(_ state: SeriesDetailUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle, .loading:
             isLoading = true
             error = nil
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             isLoading = false
             error = nil
             seriesName = r.seriesName
@@ -125,13 +126,10 @@ final class SeriesDetailObserver {
             } else {
                 resumeTarget = nil
             }
-        case .error(let e):
+        case .error(let eType):
+            let e = eType.value
             isLoading = false
             error = e.message
-        case .unknown:
-            Log.error("Unexpected SeriesDetailUiState case")
-            isLoading = false
-            error = String(localized: "common.something_went_wrong")
         }
     }
 

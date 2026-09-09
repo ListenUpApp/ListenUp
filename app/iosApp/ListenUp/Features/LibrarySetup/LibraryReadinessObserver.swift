@@ -133,7 +133,7 @@ final class LibraryReadinessObserver {
     // MARK: - Mapping
 
     private func apply(_ readiness: LibraryReadiness) {
-        switch onEnum(of: readiness) {
+        switch readiness.sealedType() {
         case .checking:
             phase = .checking
             scanProgress = nil
@@ -142,7 +142,8 @@ final class LibraryReadinessObserver {
             phase = .needsSetup
             scanProgress = nil
             isPopulatingStalled = false
-        case .populating(let populating):
+        case .populating(let populatingType):
+            let populating = populatingType.value
             phase = .populating
             scanProgress = populating.progress.map { ScanProgress(from: $0) }
             isPopulatingStalled = populating.stalled
@@ -151,11 +152,6 @@ final class LibraryReadinessObserver {
             scanProgress = nil
             isPopulatingStalled = false
         case .checkFailed:
-            phase = .checkFailed
-            scanProgress = nil
-            isPopulatingStalled = false
-        case .unknown:
-            Log.error("Unexpected LibraryReadiness case")
             phase = .checkFailed
             scanProgress = nil
             isPopulatingStalled = false
