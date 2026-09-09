@@ -105,7 +105,16 @@ fun main() {
         // reads `window.location` in its constructor, and an entry it captured with the code in
         // it would be restored by the Back button after we had gone to the trouble of removing it.
         val (inviteCode, withoutInvite) =
-            takeInviteCode(Route.parse(window.location.pathname + window.location.search))
+            try {
+                takeInviteCode(Route.parse(window.location.pathname + window.location.search))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Rendering is this coroutine's continuation: an escape here is a white page,
+                // which is a far worse answer to "this URL is odd" than opening at the root.
+                console.warn("Could not read the launch URL; opening at the root: ${e.message}")
+                null to Route(emptyList())
+            }
         if (inviteCode != null) {
             window.history.replaceState(null, "", withoutInvite.toUrl())
         }
