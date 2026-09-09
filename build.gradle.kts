@@ -104,6 +104,11 @@ detekt {
         "$rootDir/app/sharedLogic/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsTest/kotlin",
+        // The client test source sets, and the build machinery's own sources. Same reasoning as
+        // the js block above, at ten times the scale: detekt already scanned the SERVER's tests
+        // but none of the client's, so 561 .kt files — the whole commonTest suite that both the
+        // JVM and Apple lanes compile — were exempt from a gate that reported green regardless.
+        "$rootDir/app/baselineprofile/src/main",
     )
 }
 
