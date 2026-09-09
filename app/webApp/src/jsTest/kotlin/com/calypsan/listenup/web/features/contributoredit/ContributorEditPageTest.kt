@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.contributoredit
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -357,6 +358,23 @@ class ContributorEditPageTest :
             awaitFrame()
 
             typed shouldContainExactly listOf("Bach")
+        }
+
+        // ⛔ A capped list that says nothing reads as a complete one, and "they aren't in the list"
+        // is how the wrong contributor gets folded in. The ViewModel caps at MAX_MERGE_CANDIDATES.
+        test("a full page of candidates admits there may be more") {
+            val full = (1..MAX_MERGE_CANDIDATES).map { candidate(id = "c$it", displayName = "Person $it") }
+            val host = page(editingContributor(mergeDialogVisible = true, mergeQuery = "P"), mergeCandidates = full)
+
+            host.querySelector(".ced-trunc")?.textContent shouldBe
+                "Showing the first $MAX_MERGE_CANDIDATES. Search to narrow them down."
+        }
+
+        test("a list that fits claims nothing about a longer one") {
+            val some = (1..3).map { candidate(id = "c$it", displayName = "Person $it") }
+            val host = page(editingContributor(mergeDialogVisible = true, mergeQuery = "P"), mergeCandidates = some)
+
+            host.querySelector(".ced-trunc").shouldBeNull()
         }
 
         // ⛔ Name only. `bookCount` is always 0, so a count here would read "0 books" beside every

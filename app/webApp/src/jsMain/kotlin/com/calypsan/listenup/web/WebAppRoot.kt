@@ -66,6 +66,9 @@ import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
+import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
+import com.calypsan.listenup.web.features.seriesedit.SeriesEditPage
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
@@ -160,6 +163,7 @@ fun WebAppRoot(
     openContributorDetail: OpenContributorDetail,
     openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
+    openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openProfile: OpenProfile,
@@ -260,6 +264,7 @@ fun WebAppRoot(
             openContributorDetail = openContributorDetail,
             openContributorEdit = openContributorEdit,
             openSeriesDetail = openSeriesDetail,
+            openSeriesEdit = openSeriesEdit,
             openNotifications = openNotifications,
             openNotificationPrefs = openNotificationPrefs,
             openProfile = openProfile,
@@ -361,6 +366,7 @@ private fun RouteContent(
     openContributorDetail: OpenContributorDetail,
     openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
+    openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openProfile: OpenProfile,
@@ -403,6 +409,7 @@ private fun RouteContent(
     // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
     // series is something you arrive at and link to, not a filter over the library grid.
     val seriesId = route.idUnder(SERIES_KEY)
+    val editingSeriesId = route.editTargetOf(seriesId)
     // `/profile/{id}` — a listener's own page, reached from a notification, the account menu,
     // or a link someone sent. A route of its own for the same reason a contributor's is.
     val profileId = route.idUnder(PROFILE_KEY)
@@ -445,9 +452,14 @@ private fun RouteContent(
         )
     } else if (page == NOTIFICATIONS_KEY) {
         NotificationsRoute(router = router, openNotifications = openNotifications)
+    } else if (editingSeriesId != null) {
+        // ⛔ Before the detail branch: `/series/{id}` is a prefix of this route, and a branch order
+        // that tests it first makes the form unreachable by link.
+        SeriesEditRoute(router = router, openSeriesEdit = openSeriesEdit, seriesId = editingSeriesId)
     } else if (seriesId != null) {
         SeriesDetailPage(
             state = seriesDetailState(seriesId, openSeriesDetail),
+            onEdit = { router.navigate(Route(listOf(SERIES_KEY, seriesId, EDIT_KEY))) },
             onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
             onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
             onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
@@ -1651,6 +1663,44 @@ private fun notificationBadge(openNotificationBell: OpenNotificationBell): Int {
     val session = remember { openNotificationBell() }
     DisposableEffect(session) { onDispose { session.close() } }
     return session.unreadCount.collectAsState().value
+}
+
+/**
+ * Opens a Series Edit session for [seriesId], collects it, and answers the navigation it asks for.
+ */
+@Composable
+private fun SeriesEditRoute(
+    router: Router,
+    openSeriesEdit: OpenSeriesEdit,
+    seriesId: String,
+) {
+    val session = remember(seriesId) { openSeriesEdit(seriesId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    LaunchedEffect(session) {
+        session.navActions.collect { action ->
+            when (action) {
+                // A saved form and a cancelled one both leave the same way — this ViewModel has no
+                // separate SaveSuccess, so the series' own page is where both land.
+                SeriesEditNavAction.NavigateBack -> {
+                    router.navigate(Route(listOf(SERIES_KEY, seriesId)))
+                }
+
+                // ⛔ `replace`, not `navigate`. The merge deletes the series being edited, so a
+                // pushed entry would send Back to the editor of a series that no longer exists.
+                is SeriesEditNavAction.NavigateToMerged -> {
+                    router.replace(Route(listOf(SERIES_KEY, action.seriesId.value)))
+                }
+            }
+        }
+    }
+
+    SeriesEditPage(
+        state = session.state.collectAsState().value,
+        mergeCandidates = session.mergeCandidates.collectAsState().value,
+        onEvent = session.onEvent,
+        onMergeQuery = session.onMergeQuery,
+    )
 }
 
 /**

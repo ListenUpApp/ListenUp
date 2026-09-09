@@ -246,6 +246,9 @@ body { margin: 0; }
 .luw .ced-err-x:active,
 .luw .ced-split:active,
 .luw .ced-merge:active,
+.luw .sed-err-x:active,
+.luw .sed-merge:active,
+.luw .cover-undo:active,
 .luw .imp-new:active,
 .luw .iflow-skip:active,
 .luw .iflow-find:active,
@@ -283,6 +286,7 @@ body { margin: 0; }
 .luw .coll-open:active,
 .luw .cdet-result:active,
 .luw .ced-result:active,
+.luw .sed-result:active,
 .luw .iflow-result:active,
 .luw .cdet-person:active,
 .luw .inbox-book:active,
@@ -1007,6 +1011,8 @@ body { margin: 0; }
 .cover-art { width:132px; height:132px; border-radius:10px; overflow:hidden; flex-shrink:0; box-shadow:var(--shadow-card); }
 .cover-art img { width:100%; height:100%; object-fit:cover; display:block; }
 .cover-preview { width:100%; height:100%; object-fit:cover; display:block; }
+.cover-pick-col { flex:1; display:flex; flex-direction:column; gap:10px; }
+.cover-undo { align-self:flex-start; }
 .cover-pick {
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
   padding:18px; cursor:pointer; font-family:inherit;
@@ -2375,5 +2381,39 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ced-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .ced-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .ced-err-x:hover { background: var(--surface-3); } }
+
+/* Series Edit — the same form skeleton Contributor Edit uses, plus a cover picker and a merge
+   picker that selects before it commits. */
+.luw .sed { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .sed-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .sed-skel { height: 22rem; border-radius: 16px; }
+.luw .sed-hint { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .sed-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .sed-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+.luw .sed-cover-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--surface-3); color: var(--ink-3); font-size: 0.72rem; font-weight: 600; text-align: center; }
+.luw .sed-merge-act { display: flex; justify-content: flex-end; }
+.luw .sed-merge { flex: none; }
+/* The one irreversible thing this page does says so in the colour the rest of the app reserves
+   for it, above the list rather than beside the button — it is a fact about the operation, not a
+   label on a control. */
+.luw .sed-warn { margin: 0 0 12px; font-size: 0.86rem; font-weight: 700; color: var(--coral); }
+.luw .sed-trunc { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-3); }
+.luw .sed-results { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
+.luw .sed-result { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: 1.5px solid transparent; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .sed-result:hover { background: var(--surface-3); } }
+/* Selection is a border and a tint, not colour alone: the confirm button's enabled state is the
+   other half of the same signal, and one of the two has to survive a reader who cannot see it. */
+.luw .sed-result.on { border-color: var(--coral); background: var(--coral-soft); }
+.luw .sed-result-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .sed-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .sed-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .sed-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .sed-err-x:hover { background: var(--surface-3); } }
+/* The pencil sits at the top-right of the hero, out of the title's flow — the same placement
+   Contributor Detail gives its own. */
+.luw .sd-edit { flex: none; align-self: flex-start; margin-left: auto; }
+/* The truncation notice Contributor Edit's picker was missing: its list is capped at 30 too, and
+   a silently truncated list reads as a complete one. */
+.luw .ced-trunc { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-3); }
 /* Pushed to the hero's trailing edge, clear of the name block. */
 .luw .cd-edit { flex: none; align-self: flex-start; margin-left: auto; }

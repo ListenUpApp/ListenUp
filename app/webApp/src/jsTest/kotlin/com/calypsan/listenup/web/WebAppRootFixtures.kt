@@ -78,9 +78,14 @@ import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailSession
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
+import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
+import com.calypsan.listenup.web.features.seriesedit.SeriesEditSession
+import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
@@ -118,6 +123,7 @@ internal fun mountAt(
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+    openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
     openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
     openProfile: OpenProfile = fixedProfile(UserProfileUiState.Loading),
@@ -153,6 +159,7 @@ internal fun mountAt(
                 openContributorDetail = openContributorDetail,
                 openContributorEdit = openContributorEdit,
                 openSeriesDetail = openSeriesDetail,
+                openSeriesEdit = openSeriesEdit,
                 openNotifications = openNotifications,
                 openNotificationPrefs = openNotificationPrefs,
                 openProfile = openProfile,
@@ -305,6 +312,27 @@ internal class RecordingSeriesDetail {
         requestedIds += id
         SeriesDetailSession(
             state = MutableStateFlow(readySeries(seriesId = id, seriesName = "Series $id")),
+            close = {},
+        )
+    }
+}
+
+/**
+ * A Series Edit session that remembers which series were asked for, and lets a spec push a
+ * navigation action through the same channel the ViewModel uses.
+ */
+internal class RecordingSeriesEdit(
+    private val navActions: Flow<SeriesEditNavAction> = emptyFlow(),
+) {
+    val requestedIds = mutableListOf<String>()
+    val open: OpenSeriesEdit = { id ->
+        requestedIds += id
+        SeriesEditSession(
+            state = MutableStateFlow(SeriesEditUiState(isLoading = false, seriesId = id, name = "Series $id")),
+            mergeCandidates = MutableStateFlow(emptyList()),
+            navActions = navActions,
+            onEvent = {},
+            onMergeQuery = {},
             close = {},
         )
     }

@@ -35,7 +35,9 @@ import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
 import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
@@ -89,6 +91,7 @@ class BookDetailPanesTest :
                     openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                     openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
                     openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+                    openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
                     openNotifications = fixedNotifications(NotificationsUiState.Empty),
                     openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                     openProfile = fixedProfile(UserProfileUiState.Loading),

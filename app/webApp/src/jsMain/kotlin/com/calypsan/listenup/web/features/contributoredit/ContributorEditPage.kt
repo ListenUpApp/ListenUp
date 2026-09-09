@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
+import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
@@ -334,6 +335,14 @@ private fun MergeDialog(
             onInput = onQuery,
             id = "ced-merge-query",
         )
+        // Above the list, not below it: the list scrolls, so a notice underneath is out of sight
+        // exactly when the list is long enough to need one. Without it a capped list reads as a
+        // complete one, and "they aren't in the list" is how the wrong contributor gets folded in.
+        if (candidates.size >= MAX_MERGE_CANDIDATES) {
+            P(attrs = { classes("ced-trunc") }) {
+                Text("Showing the first $MAX_MERGE_CANDIDATES. Search to narrow them down.")
+            }
+        }
         Div(attrs = { classes("ced-results") }) {
             when {
                 query.isBlank() -> {

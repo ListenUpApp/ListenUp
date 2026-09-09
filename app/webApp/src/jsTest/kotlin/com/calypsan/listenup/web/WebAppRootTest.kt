@@ -10,6 +10,8 @@ import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
@@ -426,6 +428,74 @@ class WebAppRootTest :
             }
         }
 
+        test("/series/{id}/edit renders the form over that series, not its page") {
+            val recorder = RecordingSeriesEdit()
+            val (host, router) = mountAt("/series/s-cosmere/edit", openSeriesEdit = recorder.open)
+
+            try {
+                recorder.requestedIds shouldBe listOf("s-cosmere")
+                (host.querySelector(".sed-title") as HTMLElement).textContent shouldBe "Series s-cosmere"
+                // ⛔ The detail page must not also be up. `/series/{id}` is a prefix of this route,
+                // and a branch order that tests it first makes the form unreachable by link.
+                host.querySelector(".sd-t") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the pencil on a series page opens the form over it") {
+            val (host, router) =
+                mountAt("/series/s-cosmere", openSeriesDetail = fixedSeriesDetail(readySeries()))
+
+            try {
+                (host.querySelector(".sd-edit") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/series/s-cosmere/edit"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("leaving the series form lands back on the series it was editing") {
+            val recorder = RecordingSeriesEdit(flowOf(SeriesEditNavAction.NavigateBack))
+            val (_, router) = mountAt("/series/s-cosmere/edit", openSeriesEdit = recorder.open)
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/series/s-cosmere"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ `replace`, not `navigate`. A series merge deletes the series being edited, so a pushed
+        // entry would send Back to the editor of a series that no longer exists. See the
+        // contributor spec above for why the action fires once and a known entry is pushed first.
+        test("a series merge lands on the survivor, and Back does not return to the deleted one") {
+            val merged = Channel<SeriesEditNavAction>(Channel.BUFFERED)
+            merged.trySend(SeriesEditNavAction.NavigateToMerged(SeriesId("s-mistborn")))
+            val recorder = RecordingSeriesEdit(merged.receiveAsFlow())
+            window.history.pushState(null, "", MERGE_SENTINEL_PATH)
+            window.history.pushState(null, "", MERGE_SENTINEL_PATH)
+            val (_, router) = mountAt("/series/s-cosmere/edit", openSeriesEdit = recorder.open)
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/series/s-mistborn"
+
+                window.history.back()
+                // history.back() is asynchronous; a frame is not enough to see popstate land.
+                delay(POPSTATE_SETTLE_MS)
+
+                window.location.pathname shouldBe MERGE_SENTINEL_PATH
+            } finally {
+                router.dispose()
+            }
+        }
+
         // A series is reached FROM the library and belongs to it. Leaving no sidebar entry lit
         // reads as having navigated out of the app entirely.
         test("a series page keeps Library lit in the sidebar") {
@@ -760,5 +830,5 @@ class WebAppRootTest :
 /** How long `history.back()` takes to become a popstate the router has actually seen. */
 private const val POPSTATE_SETTLE_MS = 120L
 
-/** The entry the merge redirect must leave behind it — anything else means it pushed one. */
-private const val MERGE_SENTINEL_PATH = "/before-the-contributor-editor"
+/** The entry a merge redirect must leave behind it — anything else means it pushed one. */
+private const val MERGE_SENTINEL_PATH = "/before-the-editor"
