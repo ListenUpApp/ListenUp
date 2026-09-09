@@ -145,8 +145,11 @@ class MainActivity : ComponentActivity() {
                 }
                 // Diagnosability: an App-Link VIEW reached our host but did not decode to a share
                 // target (e.g. a stripped/malformed link). Log it so one logcat pinpoints the failure
-                // instead of the previous silent fall-through to auth routing.
-                logger.warn { "ACTION_VIEW did not decode to a share target: data=$raw" }
+                // instead of the previous silent fall-through to auth routing. Values are redacted
+                // because an invite `code` is a bearer secret and this log file is user-exportable.
+                logger.warn {
+                    "ACTION_VIEW did not decode to a share target: ${redactLinkForLog(raw)}"
+                }
             }
         }
 
