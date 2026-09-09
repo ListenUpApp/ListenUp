@@ -110,6 +110,7 @@ detekt {
         // JVM and Apple lanes compile — were exempt from a gate that reported green regardless.
         "$rootDir/app/baselineprofile/src/main",
         "$rootDir/app/sharedLogic/src/appleTest/kotlin",
+        "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
     )
 }
 
