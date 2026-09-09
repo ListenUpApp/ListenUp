@@ -112,13 +112,31 @@ internal class SettingsRepositoryImpl(
     }
 
     /**
-     * Persist a new server URL and refresh the auth state to match. If the
-     * device already has tokens for this URL we trust them (offline-first);
-     * otherwise we go to the network to learn whether setup is required.
+     * Persist a new server URL and refresh the auth state to match.
+     *
+     * A change of HOST is a change of identity: the tokens on this device were issued by the old
+     * server and mean nothing to the new one, yet the HTTP client rewrites every request's host from
+     * the persisted URL and attaches those tokens regardless — so keeping them would send live
+     * credentials to an address the user has just moved to. They are therefore wiped first, along
+     * with the connected-instance id and the active/remote URLs that were paired with the old host
+     * (a stale pairing would let the fallback path bounce between two unrelated servers). Same-host
+     * writes (a port change, an http→https upgrade, an IP-follow re-resolve) keep the session:
+     * that is the offline-first behaviour the old comment described, and it is preserved.
+     *
+     * This mirrors what [com.calypsan.listenup.client.data.connection.ReconnectionSupervisor] already
+     * does when it observes a changed server instance id.
      */
     override suspend fun setServerUrl(url: ServerUrl) {
-        logger.info { "setServerUrl: Saving URL ${url.value}" }
         val startMark = TimeSource.Monotonic.markNow()
+        val previous = secureStorage.read(KEY_SERVER_URL)
+        val hostChanged = previous != null && previous.hostOfUrl() != url.value.hostOfUrl()
+        if (hostChanged) {
+            logger.info { "setServerUrl: host changed; clearing credentials and stale URL pairing" }
+            if (authSession.isAuthenticated()) authSession.clearAuthTokens()
+            secureStorage.delete(KEY_CONNECTED_SERVER_ID)
+            secureStorage.delete(KEY_ACTIVE_URL)
+            secureStorage.delete(KEY_REMOTE_URL)
+        }
         secureStorage.save(KEY_SERVER_URL, url.value)
         logger.info { "setServerUrl: URL saved (${startMark.elapsedNow()})" }
 
