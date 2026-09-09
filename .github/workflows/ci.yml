@@ -601,6 +601,15 @@ jobs:
         timeout-minutes: 15
         run: ./gradlew :server:compileKotlinLinuxX64 --no-daemon
 
+      # linuxArm64 is a fully configured target (Raspberry Pi / Graviton self-host) that no
+      # workflow has ever built, so it can rot silently. COMPILE ONLY: server/build.gradle.kts is
+      # explicit that the executable LINK needs aarch64 libsqlite3/libargon2, which this x86_64
+      # runner does not have — compilation cross-works, linking does not. Its own timeout because
+      # a cold run fetches the aarch64 toolchain and sysroot before it compiles anything.
+      - name: Compile :server linuxArm64 (rot canary)
+        timeout-minutes: 15
+        run: ./gradlew :server:compileKotlinLinuxArm64 --no-daemon
+
       # Step-scoped so a wedged test.kexe is attributed to the TEST, not to "the job timed out"
       # — the job ceiling can't tell you which phase hung. Green runs of this lane take 1m50s to
       # 5m37s, so 10m is >2x the slowest observed pass and still fails 3x faster than the job.
