@@ -5,7 +5,7 @@
 # container, so discovery silently fails and you'd have to type the server URL in by hand.
 #
 #   docker compose up -d
-#   curl http://localhost:8080/healthz   # {"status":"ok"} once it's ready
+#   curl http://localhost:8080/healthz   # {"status":"ok","version":…,"schemaVersion":…} once it's ready
 #
 # Host networking is Linux-host only and shares the host's network stack (the server binds the host's
 # :8080 directly — no port mapping). If you're exposing ListenUp to the internet, running behind a
