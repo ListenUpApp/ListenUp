@@ -19,7 +19,10 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.auth.MetadataRateBucket
+import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RateDecision
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
@@ -84,6 +87,12 @@ internal class MetadataLookupServiceImpl(
     private val genreRepository: GenreRepository,
     private val probeDimensions: suspend (String) -> Pair<Int, Int>? = { _ -> null },
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    /**
+     * Per-user throttle for the open read methods. Nullable + defaulted on the same terms as
+     * `AuthServiceImpl.loginRateLimiter`: non-null in production, absent in the direct-construction
+     * unit tests, where it is a no-op.
+     */
+    private val rateLimiter: MetadataRateLimiter? = null,
 ) : MetadataLookupService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MetadataLookupServiceImpl =
@@ -101,6 +110,7 @@ internal class MetadataLookupServiceImpl(
             genreRepository = genreRepository,
             probeDimensions = probeDimensions,
             principal = principal,
+            rateLimiter = rateLimiter,
         )
 
     /**
@@ -114,11 +124,37 @@ internal class MetadataLookupServiceImpl(
         return permissionPolicy.requireCanEdit(p.userId, p.role)
     }
 
+    /**
+     * Per-user throttle probe. A no-op (null) when no limiter or no principal is bound — the
+     * same "only live where it is wired" shape as `AuthServiceImpl.enforceRate`.
+     */
+    private suspend fun enforceRate(bucket: MetadataRateBucket): AppError? {
+        val limiter = rateLimiter ?: return null
+        val userId = principal.current()?.userId?.value ?: return null
+        return when (val decision = limiter.check(bucket, userId)) {
+            RateDecision.Allowed -> null
+            is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
+        }
+    }
+
+    /**
+     * Rejects a search string that is not a query: blank, or past [MAX_METADATA_QUERY_LENGTH].
+     * Returns null when the query is usable, the typed failure otherwise.
+     */
+    private fun rejectUnusableQuery(query: String): AppError? =
+        if (query.isBlank() || query.length > MAX_METADATA_QUERY_LENGTH) {
+            MetadataError.Malformed(debugInfo = UNUSABLE_QUERY_DEBUG)
+        } else {
+            null
+        }
+
     override suspend fun searchBooks(
         query: String,
         region: MetadataLocale?,
         bookId: BookId?,
     ): AppResult<MetadataSearchResults> {
+        enforceRate(MetadataRateBucket.SEARCH)?.let { return AppResult.Failure(it) }
+        rejectUnusableQuery(query)?.let { return AppResult.Failure(it) }
         val locale = region ?: MetadataLocale.DEFAULT
         val local = bookId?.let { bookRepository.findById(it)?.toLocalIdentity() }
         val hits = coordinator.searchBooks(query, locale, local).map { it.toMetadataBook() }
@@ -143,17 +179,21 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getBookMetadata(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataBook?> =
-        when (val composed = composeBook(asin, region)) {
+    ): AppResult<MetadataBook?> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        return when (val composed = composeBook(asin, region)) {
             is AppResult.Success -> AppResult.Success(composed.data?.toMetadataBookWithProvenance())
             is AppResult.Failure -> composed
         }
+    }
 
     override suspend fun getBookChapters(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataChapters?> =
-        AppResult.Success(coordinator.composeChapters(bookIdentity(asin), region)?.toMetadataChapters())
+    ): AppResult<MetadataChapters?> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        return AppResult.Success(coordinator.composeChapters(bookIdentity(asin), region)?.toMetadataChapters())
+    }
 
     /**
      * Contributor auto-match — search + profile fetch — composed across the provider registry through
@@ -168,6 +208,8 @@ internal class MetadataLookupServiceImpl(
         query: String,
         region: MetadataLocale?,
     ): AppResult<List<MetadataContributorHit>> {
+        enforceRate(MetadataRateBucket.SEARCH)?.let { return AppResult.Failure(it) }
+        rejectUnusableQuery(query)?.let { return AppResult.Failure(it) }
         val locale = region ?: MetadataLocale.DEFAULT
         val ranked = ContributorHitRanker.rank(query, coordinator.searchContributors(query, locale))
         return AppResult.Success(ranked.map { MetadataContributorHit(asin = it.key, name = it.name) })
@@ -176,8 +218,10 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getContributorMetadata(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataContributorProfile?> =
-        AppResult.Success(coordinator.getContributor(asin, region)?.toMetadataContributorProfile())
+    ): AppResult<MetadataContributorProfile?> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        return AppResult.Success(coordinator.getContributor(asin, region)?.toMetadataContributorProfile())
+    }
 
     override suspend fun refreshBookMetadata(
         asin: String,
@@ -335,6 +379,16 @@ internal class MetadataLookupServiceImpl(
         }
     }
 }
+
+/**
+ * Longest metadata search query accepted. Real titles and author names sit far below this; past
+ * it the string is not a query, and the provider would reject or truncate it anyway. Clamped at
+ * the service boundary so no provider call, and no provider-limiter slot, is spent on it.
+ */
+private const val MAX_METADATA_QUERY_LENGTH = 200
+
+/** Constant [MetadataError.Malformed.debugInfo] for a blank or over-long search query. */
+private const val UNUSABLE_QUERY_DEBUG = "search query is blank or over the length bound"
 
 private const val COVER_FETCH_FAILURE_LOG_MESSAGE = "cover download/store failed"
 private const val COVER_REJECTED_DEBUG = "cover bytes rejected"
