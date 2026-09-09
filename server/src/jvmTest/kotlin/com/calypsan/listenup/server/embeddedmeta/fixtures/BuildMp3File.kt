@@ -82,7 +82,7 @@ internal class Mp3Builder internal constructor() {
         layerBits: Int = LAYER_III_BITS,
     ) {
         require(durationSeconds >= 0) { "durationSeconds must be non-negative" }
-        val frameSize = (version.frameLengthCoefficient * bitrate) / sampleRate
+        val frameSize = version.frameLengthCoefficient * bitrate / sampleRate
         require(frameSize >= 4) { "computed frame size $frameSize too small for 4-byte header" }
         val totalSamples = durationSeconds.toLong() * sampleRate
         val frameCount =
@@ -140,7 +140,7 @@ internal class Mp3Builder internal constructor() {
         require(tag == "Xing" || tag == "Info") { "tag must be 'Xing' or 'Info'" }
         require(frameCount > 0) { "frameCount must be positive" }
         val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate, version = version, mono = mono)
-        val frameSize = (version.frameLengthCoefficient * bitrate) / sampleRate
+        val frameSize = version.frameLengthCoefficient * bitrate / sampleRate
         // Xing tag offset = 4 (frame header) + side info, exactly where the decoder looks.
         val xingOffset = 4 + sideInfoSize(version, mono)
         require(frameSize >= xingOffset + 12) { "frame too small to hold Xing header" }
@@ -188,7 +188,7 @@ internal class Mp3Builder internal constructor() {
     ) {
         require(frameCount > 0) { "frameCount must be positive" }
         val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate, version = version)
-        val frameSize = (version.frameLengthCoefficient * bitrate) / sampleRate
+        val frameSize = version.frameLengthCoefficient * bitrate / sampleRate
         require(frameSize >= 32 + 18) { "frame too small to hold VBRI header" }
 
         val frame = ByteArray(frameSize)
