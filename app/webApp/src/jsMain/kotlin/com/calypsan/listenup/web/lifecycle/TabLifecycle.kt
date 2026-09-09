@@ -69,10 +69,10 @@ internal fun flushPositionWhenHidden(
 
     val onVisibility: (Event) -> Unit = { if (isHidden()) save() }
     val onPageHide: (Event) -> Unit = { save() }
-    document.addEventListener("visibilitychange", onVisibility)
+    document.addEventListener(VISIBILITY_CHANGE, onVisibility)
     window.addEventListener("pagehide", onPageHide)
     return {
-        document.removeEventListener("visibilitychange", onVisibility)
+        document.removeEventListener(VISIBILITY_CHANGE, onVisibility)
         window.removeEventListener("pagehide", onPageHide)
     }
 }
@@ -114,10 +114,13 @@ internal fun recoverSyncOnReturn(
 
     val onVisibility: (Event) -> Unit = { if (isVisible()) run() }
     val onOnline: (Event) -> Unit = { run() }
-    document.addEventListener("visibilitychange", onVisibility)
+    document.addEventListener(VISIBILITY_CHANGE, onVisibility)
     window.addEventListener("online", onOnline)
     return {
-        document.removeEventListener("visibilitychange", onVisibility)
+        document.removeEventListener(VISIBILITY_CHANGE, onVisibility)
         window.removeEventListener("online", onOnline)
     }
 }
+
+/** The one edge both registrations share: the tab changing from watched to not, or back. */
+private const val VISIBILITY_CHANGE = "visibilitychange"
