@@ -85,10 +85,14 @@ struct CollectionRowModel: Identifiable {
     let id: String
     let name: String
     let bookCount: Int
+    /// The server owns this collection — the library's inbox, or its all-books collection. It
+    /// refuses to rename or delete one, so the UI must not offer to.
+    let isSystem: Bool
 
     init(from collection: Collection) {
         self.id = collection.id
         self.name = collection.name
         self.bookCount = Int(collection.bookCount)
+        self.isSystem = collection.isSystem
     }
 }
