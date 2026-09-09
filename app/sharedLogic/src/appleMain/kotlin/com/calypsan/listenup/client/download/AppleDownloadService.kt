@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
@@ -57,6 +58,18 @@ private const val STORAGE_HEADROOM_FACTOR = 1.1
 
 /** Divisor to convert bytes into whole megabytes for log output. */
 private const val BYTES_PER_MEGABYTE = 1_000_000
+
+/**
+ * How many audio files may download at once.
+ *
+ * ListenUp servers are self-hosted — very often a single-board computer on a home LAN — so an
+ * unbounded fan-out is a self-inflicted denial of service on the user's own hardware. Three keeps
+ * a fat pipe busy while leaving headroom for the streaming player, which shares the same link.
+ * The yield (`PlaybackBandwidthCoordinator.shouldYield`) still governs whatever is registered —
+ * `registerDownload` holds a task suspended when yielding is already active — but a cap means far
+ * fewer sockets exist to contend for the link in the first place.
+ */
+private const val MAX_CONCURRENT_FILE_DOWNLOADS = 3
 
 /**
  * iOS implementation of [DownloadService] using NSURLSession background downloads.
@@ -103,6 +116,9 @@ class AppleDownloadService internal constructor(
      * Must be held as a strong reference (ObjC weak delegate pattern).
      */
     private val sessionDelegate = DownloadSessionDelegate(downloadDao, scope)
+
+    /** Caps in-flight file downloads at [MAX_CONCURRENT_FILE_DOWNLOADS]. */
+    private val downloadSlots = Semaphore(MAX_CONCURRENT_FILE_DOWNLOADS)
 
     init {
         // "Playback preempts downloads": while a stream is buffering, suspend in-flight download
@@ -218,29 +234,35 @@ class AppleDownloadService internal constructor(
             }
         downloadDao.insertAll(entities)
 
-        // Download files concurrently in background
-        for (file in toDownload) {
-            val signedRelativeUrl = signedUrls[file.id]
-            if (signedRelativeUrl == null) {
-                logger.error { "prepare() returned no URL for audioFile=${file.id}; skipping" }
-                downloadDao.updateError(file.id, "Server did not provide a download URL")
-                continue
+        // A file the server did not sign cannot be fetched at all, so it fails here rather than
+        // being launched into a request that would 404.
+        val launchable =
+            toDownload.mapNotNull { file ->
+                val signedRelativeUrl = signedUrls[file.id]
+                if (signedRelativeUrl == null) {
+                    logger.error { "prepare() returned no URL for audioFile=${file.id}; skipping" }
+                    downloadDao.updateError(file.id, "Server did not provide a download URL")
+                    null
+                } else {
+                    file to signedRelativeUrl
+                }
             }
-            scope.launch {
-                // Refresh token per file to avoid 401 on long-running batches
-                tokenProvider.prepareForPlayback()
-                val fileToken = tokenProvider.getToken() ?: token
-                downloadFile(
-                    bookId = bookId.value,
-                    audioFile = file,
-                    serverUrl = serverUrl,
-                    token = fileToken,
-                    signedRelativeUrl = signedRelativeUrl,
-                )
-            }
+
+        // Download files in the background, at most MAX_CONCURRENT_FILE_DOWNLOADS at a time.
+        scope.launchEachBounded(launchable, downloadSlots) { (file, signedRelativeUrl) ->
+            // Refresh token per file to avoid 401 on long-running batches
+            tokenProvider.prepareForPlayback()
+            val fileToken = tokenProvider.getToken() ?: token
+            downloadFile(
+                bookId = bookId.value,
+                audioFile = file,
+                serverUrl = serverUrl,
+                token = fileToken,
+                signedRelativeUrl = signedRelativeUrl,
+            )
         }
 
-        logger.info { "Queued ${toDownload.size} files for download: ${bookId.value}" }
+        logger.info { "Queued ${launchable.size} files for download: ${bookId.value}" }
         return AppResult.Success(DownloadOutcome.Started)
     }
 
@@ -393,37 +415,41 @@ class AppleDownloadService internal constructor(
                     }
                 }
 
-            for (download in rows) {
-                // No updateError here (unlike downloadBook): that bumps retryCount, and burning the
-                // retry budget on every foreground would strand a row the server may sign next time.
-                val signedRelativeUrl = signedUrls[download.audioFileId]
-                if (signedRelativeUrl == null) {
-                    logger.warn { "prepare() returned no URL for audioFile=${download.audioFileId}; skipping" }
-                    continue
-                }
-                if (download.state != DownloadState.QUEUED) {
-                    downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
+            val launchable =
+                rows.mapNotNull { download ->
+                    // No updateError here (unlike downloadBook): that bumps retryCount, and burning
+                    // the retry budget on every foreground would strand a row the server may well
+                    // sign on the next attempt.
+                    val signedRelativeUrl = signedUrls[download.audioFileId]
+                    if (signedRelativeUrl == null) {
+                        logger.warn { "prepare() returned no URL for audioFile=${download.audioFileId}; skipping" }
+                        null
+                    } else {
+                        if (download.state != DownloadState.QUEUED) {
+                            downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
+                        }
+                        download to signedRelativeUrl
+                    }
                 }
 
-                scope.launch {
-                    tokenProvider.prepareForPlayback()
-                    val fileToken = tokenProvider.getToken() ?: token
-                    downloadFile(
-                        bookId = download.bookId,
-                        audioFile =
-                            AudioFileResponse(
-                                id = download.audioFileId,
-                                filename = download.filename,
-                                format = "",
-                                codec = "",
-                                duration = 0,
-                                size = download.totalBytes,
-                            ),
-                        serverUrl = serverUrl,
-                        token = fileToken,
-                        signedRelativeUrl = signedRelativeUrl,
-                    )
-                }
+            scope.launchEachBounded(launchable, downloadSlots) { (download, signedRelativeUrl) ->
+                tokenProvider.prepareForPlayback()
+                val fileToken = tokenProvider.getToken() ?: token
+                downloadFile(
+                    bookId = download.bookId,
+                    audioFile =
+                        AudioFileResponse(
+                            id = download.audioFileId,
+                            filename = download.filename,
+                            format = "",
+                            codec = "",
+                            duration = 0,
+                            size = download.totalBytes,
+                        ),
+                    serverUrl = serverUrl,
+                    token = fileToken,
+                    signedRelativeUrl = signedRelativeUrl,
+                )
             }
         }
 
