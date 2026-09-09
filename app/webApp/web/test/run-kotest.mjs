@@ -7,6 +7,7 @@
 
 import { chromium } from 'playwright'
 import { createServer, preview } from 'vite'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isSettled, problemsFor } from './settle.mjs'
@@ -18,15 +19,22 @@ import { isSettled, problemsFor } from './settle.mjs'
 //
 // Raise it when specs are added. Lowering it needs a reason.
 //
-// The default is the SERVER-FREE lane's count (`pnpm test` / :app:webApp:webKotest). The
-// server-backed lane (`pnpm test:auth`) compiles the same bundle but additionally enables the
-// six specs that need a live server, so it overrides this to its own higher count. Two lanes,
-// two exact floors — that is what keeps "this lane skips some specs" from decaying into "this
-// lane silently stopped running them".
+// The server-free lane (`pnpm test` / :app:webApp:webKotest) and the server-backed lane
+// (`pnpm test:auth`) compile the same bundle; the second additionally enables the six specs
+// that need a live server. Two lanes, two exact floors — that is what keeps "this lane skips
+// some specs" from decaying into "this lane silently stopped running them".
 //
-// Counted against `testStarted`, so a spec that quietly becomes server-gated trips the floor the
-// same as one that stops compiling: 217 specs, 211 run here, all 217 run under `test:auth`.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 211)
+// Both floors live in `kotest-baseline.json`, keyed by lane, and are counted against
+// `testStarted` — so a spec that quietly becomes server-gated trips the floor the same as one
+// that stops compiling. A hand-edited constant here once sat at 211 while the suite grew to 820;
+// the committed file moves only under KOTEST_UPDATE_BASELINE=1 (see the end of this script), so
+// the diff lands in review next to the specs that caused it.
+const BASELINE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'kotest-baseline.json')
+const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
+const LANE = process.env.LU_SERVER_URL ? 'serverBacked' : 'serverFree'
+// The env override stays for ad-hoc runs; the committed baseline is what CI compares
+// against, so growth cannot silently re-open the gap the way a hand-edited constant did.
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? baseline[LANE])
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main` with
 // an empty continuation, so there is no promise to await either. Completion is therefore inferred
@@ -153,4 +161,13 @@ const problems = problemsFor({
 
 for (const p of problems) console.log(`PROBLEM: ${p}`)
 console.log(problems.length === 0 ? 'RESULT: PASS' : 'RESULT: FAIL')
+
+// Growing the suite is normal; silently shrinking the guard is not. The baseline moves
+// only when someone asks for it, and the diff lands in review with the specs that caused it.
+if (process.env.KOTEST_UPDATE_BASELINE === '1' && problems.length === 0) {
+  baseline[LANE] = started.length
+  writeFileSync(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`)
+  console.log(`baseline: ${LANE} = ${started.length} (updated)`)
+}
+
 process.exit(problems.length === 0 ? 0 : 1)
