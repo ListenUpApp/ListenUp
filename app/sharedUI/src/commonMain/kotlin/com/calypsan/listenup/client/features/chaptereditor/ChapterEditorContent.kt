@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import listenup.composeapp.generated.resources.chapter_editor_clear_search
 import listenup.composeapp.generated.resources.chapter_editor_jump_to_title
 import listenup.composeapp.generated.resources.chapter_editor_no_matches
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -339,6 +340,7 @@ private fun ChapterListPane(
             leadingIcon = Icons.Default.Search,
             trailingIcon = if (query.isEmpty()) null else Icons.Default.Close,
             onTrailingClick = { onQueryChange("") },
+            trailingIconContentDescription = stringResource(Res.string.chapter_editor_clear_search),
             modifier = Modifier.fillMaxWidth(),
         )
 

@@ -59,6 +59,7 @@ import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.rememberUserAvatarImage
 import com.calypsan.listenup.client.domain.model.User
@@ -601,5 +602,6 @@ private fun PasswordInputField(
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
         onTrailingClick = { visible = !visible },
+        trailingIconContentDescription = passwordVisibilityDescription(visible),
     )
 }

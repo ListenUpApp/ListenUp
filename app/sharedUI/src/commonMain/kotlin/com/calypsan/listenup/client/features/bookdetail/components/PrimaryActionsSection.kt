@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
@@ -64,10 +65,13 @@ fun PrimaryActionsSection(
     isPreparing: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
-    val focusRequester = FocusRequester()
+    // remember: a fresh FocusRequester per recomposition can be handed to the effect after the
+    // composition that attached it to the modifier is gone — a silent focus failure on D-pad
+    // devices. Keyed on requestFocus, not Unit, so a false → true flip actually re-runs.
+    val focusRequester = remember { FocusRequester() }
 
     if (requestFocus) {
-        LaunchedEffect(Unit) {
+        LaunchedEffect(requestFocus) {
             focusRequester.requestFocus()
         }
     }

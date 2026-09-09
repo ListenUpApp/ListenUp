@@ -23,6 +23,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_hide_password
+import listenup.composeapp.generated.resources.common_show_password
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Visual variant of [ListenUpTextField].
@@ -64,6 +68,11 @@ enum class ListenUpTextFieldVariant {
  * @param trailingIcon Optional icon shown at the end of the field
  * @param onTrailingClick When non-null, the trailing icon becomes a clickable button
  *   (e.g. a password visibility toggle)
+ * @param trailingIconContentDescription Accessibility label for the trailing icon BUTTON.
+ *   Required in practice whenever [onTrailingClick] is non-null: without it the reveal /
+ *   clear affordance is an unlabelled button to a screen reader. Ignored when
+ *   [onTrailingClick] is null, because a non-interactive trailing icon is decorative and
+ *   must stay unlabelled.
  * @param variant [ListenUpTextFieldVariant.Standard] (default) or [ListenUpTextFieldVariant.Hero]
  * @param heroContainerColor Tint for the [ListenUpTextFieldVariant.Hero] translucent container.
  *   Ignored by [ListenUpTextFieldVariant.Standard]. Defaults to the theme surface.
@@ -103,6 +112,7 @@ fun ListenUpTextField(
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     onTrailingClick: (() -> Unit)? = null,
+    trailingIconContentDescription: String? = null,
     variant: ListenUpTextFieldVariant = ListenUpTextFieldVariant.Standard,
     heroContainerColor: Color = MaterialTheme.colorScheme.surface,
     textStyle: TextStyle? = null,
@@ -175,7 +185,7 @@ fun ListenUpTextField(
                                     haptics.press()
                                     onTrailingClick()
                                 },
-                            ) { Icon(icon, contentDescription = null) }
+                            ) { Icon(icon, contentDescription = trailingIconContentDescription) }
                         } else {
                             Icon(icon, contentDescription = null)
                         }
@@ -198,6 +208,19 @@ fun ListenUpTextField(
         modifier = modifier.fillMaxWidth(),
     )
 }
+
+/**
+ * The accessibility label for a password field's reveal toggle, given whether the password is
+ * currently visible. One shape for all six password fields (sign-in, sign-up ×2, root reset,
+ * forgot-password, edit-profile), so the announced label cannot drift between them.
+ */
+@Composable
+internal fun passwordVisibilityDescription(visible: Boolean): String =
+    if (visible) {
+        stringResource(Res.string.common_hide_password)
+    } else {
+        stringResource(Res.string.common_show_password)
+    }
 
 /**
  * Applies [transform] to this value's text. An identity result returns the value untouched —
