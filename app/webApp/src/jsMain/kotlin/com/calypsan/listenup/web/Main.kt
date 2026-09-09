@@ -10,9 +10,14 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.web.design.WebAppSurface
+import com.calypsan.listenup.web.lifecycle.Playhead
+import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
+import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
@@ -100,6 +105,23 @@ fun main() {
         // wrong theme and then correct it in front of the reader.
         koin.get<LocalPreferences>().initializeLocalPreferences()
         connectSyncWhenAuthenticated(koin, this)
+        // The disposer is deliberately discarded: this scope lives as long as the tab does.
+        flushPositionWhenHidden(
+            playhead = {
+                // Resolved per event, not at boot: `koin.get<PlaybackManager>()` would build the
+                // whole playback graph before anyone had asked to play anything.
+                val manager = koin.get<PlaybackManager>()
+                manager.currentBookId.value?.let { Playhead(it, manager.currentPositionMs.value) }
+            },
+            flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
+            isHidden = { document.asDynamic().visibilityState == "hidden" },
+            scope = this,
+        )
+        recoverSyncOnReturn(
+            recover = { koin.get<SyncRepository>().recoverRealtime() },
+            isVisible = { document.asDynamic().visibilityState == "visible" },
+            scope = this,
+        )
 
         // Read and strip BEFORE the router is built, so it never sees the code: the router
         // reads `window.location` in its constructor, and an entry it captured with the code in
