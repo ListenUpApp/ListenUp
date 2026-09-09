@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.playback
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.res.Configuration
-import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -71,9 +70,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
-import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 private val logger = KotlinLogging.logger {}
@@ -247,7 +244,6 @@ class PlaybackService :
             // playback time — invalidate() is the explicit hook so connected controllers pick up
             // the new chapter window (see ChapterWindowPlayer's "Invalidation" KDoc).
             chapterWindowPlayer?.invalidate()
-            updateNotificationForChapter(chapterInfo)
         }
 
         // Auto-rewind-on-resume actuator (#1220): PlaybackManagerImpl.setPlaying feeds every
@@ -654,38 +650,6 @@ class PlaybackService :
         casting = false // normal idle logic resumes now that the local player drives the session
         logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
         saveCurrentPosition() // existing method — persists through the normal recorder
-    }
-
-    /**
-     * Push the chapter subtitle to session extras when the chapter changes.
-     *
-     * Chapter title/track number/total count for system surfaces (Android Auto display,
-     * Bluetooth metadata, the lock screen) now come from [ChapterWindowPlayer]'s window
-     * `MediaItemData` — the single metadata source for the session player, kept in sync via
-     * [ChapterWindowPlayer.invalidate] (called alongside this function in `onCreate`'s
-     * `onChapterChanged` hook). This function's remaining job is the session-extras push:
-     * `AudiobookNotificationProvider` builds the phone notification's subtitle straight from
-     * `playbackManager.currentChapter` rather than session extras, but the extra is kept for any
-     * other consumer relying on it.
-     */
-    private fun updateNotificationForChapter(chapterInfo: PlaybackManager.ChapterInfo) {
-        val session = mediaLibrarySession ?: return
-
-        val chapterText =
-            if (chapterInfo.isGenericTitle) {
-                "Chapter ${chapterInfo.index + 1} of ${chapterInfo.totalChapters}"
-            } else {
-                chapterInfo.title
-            }
-
-        val timeRemaining = DurationFormatter.hoursMinutesOrUnderMinute(chapterInfo.remainingMs.milliseconds)
-        val displaySubtitle = "$chapterText • $timeRemaining left"
-
-        session.setSessionExtras(Bundle().apply { putString("chapter_subtitle", displaySubtitle) })
-
-        logger.debug {
-            "Updated chapter subtitle: $chapterText (${chapterInfo.index + 1}/${chapterInfo.totalChapters})"
-        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaLibrarySession
