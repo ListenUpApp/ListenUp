@@ -111,6 +111,44 @@ class FileIoTest :
             created.name.shouldEndWith(".tmp")
         }
 
+        test("readTextCapped returns the content of a file exactly at the cap") {
+            val dir = createTempDirectory("file-io-cap-text-at")
+            val file = dir.resolve("at-cap.txt").apply { writeText("x".repeat(64)) }
+
+            file.toKxio().readTextCapped(maxBytes = 64) shouldBe "x".repeat(64)
+        }
+
+        test("readTextCapped refuses a file one byte over the cap") {
+            val dir = createTempDirectory("file-io-cap-text-over")
+            val file = dir.resolve("over-cap.txt").apply { writeText("x".repeat(65)) }
+
+            file.toKxio().readTextCapped(maxBytes = 64).shouldBeNull()
+        }
+
+        test("readTextCapped returns null for a nonexistent path rather than throwing") {
+            val dir = createTempDirectory("file-io-cap-text-missing")
+
+            dir
+                .resolve("absent.txt")
+                .toKxio()
+                .readTextCapped(maxBytes = 64)
+                .shouldBeNull()
+        }
+
+        test("readBytesCapped returns the content of a file exactly at the cap") {
+            val dir = createTempDirectory("file-io-cap-bytes-at")
+            val file = dir.resolve("at-cap.bin").apply { writeText("y".repeat(64)) }
+
+            file.toKxio().readBytesCapped(maxBytes = 64)?.size shouldBe 64
+        }
+
+        test("readBytesCapped refuses a file one byte over the cap") {
+            val dir = createTempDirectory("file-io-cap-bytes-over")
+            val file = dir.resolve("over-cap.bin").apply { writeText("y".repeat(65)) }
+
+            file.toKxio().readBytesCapped(maxBytes = 64).shouldBeNull()
+        }
+
         test("createTempFileIn yields distinct paths on repeated calls") {
             val dir = createTempDirectory("file-io-temp-distinct").toKxio()
 
