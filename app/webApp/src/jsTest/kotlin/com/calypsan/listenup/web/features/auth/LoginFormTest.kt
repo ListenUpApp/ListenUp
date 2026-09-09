@@ -4,26 +4,18 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.auth.LoginErrorType
 import com.calypsan.listenup.client.presentation.auth.LoginField
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.EventInit
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
 
 private fun HTMLElement.typeInto(
     selector: String,
@@ -36,6 +28,10 @@ private fun HTMLElement.typeInto(
 
 class LoginFormTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
         test("sign-in offers a way back in when the password is gone") {
             // The one client you reach by URL, on a machine that may have no app installed, had no
