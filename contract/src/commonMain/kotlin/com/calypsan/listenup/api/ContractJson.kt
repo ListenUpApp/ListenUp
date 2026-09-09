@@ -18,6 +18,8 @@ import kotlinx.serialization.modules.SerializersModule
  * - `ignoreUnknownKeys = true` — forward-compatible with new fields added on either side.
  * - `isLenient = true` — tolerates minor wire-format variance (e.g. mixed quote styles).
  * - `prettyPrint = false` — minimize over-the-wire bytes.
+ * - `coerceInputValues = true` — an enum literal this build does not know falls back to the
+ *   property's declared default rather than throwing.
  *
  * **Current use:** contract round-trip tests in `commonTest`, the kotlinx.rpc serialization
  * layer, and the server's RPC exception guard all reference this instance to guarantee that every
@@ -37,6 +39,15 @@ public val contractJson: Json =
         ignoreUnknownKeys = true
         isLenient = true
         prettyPrint = false
+        // Tolerant reader on the ENUM-VALUE axis. `ignoreUnknownKeys` covers unknown *fields* and the
+        // polymorphic default below covers unknown *subtypes*; neither covers an unknown enum
+        // *literal*, which throws. That made every additive enum member a wire-breaking change: one
+        // new member server-side froze the affected sync domain on every older client, because a
+        // catch-up page that cannot decode never advances its cursor. Coercion applies ONLY to a
+        // property that declares a default, and substitutes exactly that default — so it can never
+        // invent a value or hide a missing required field. It does NOT cover enum-typed MAP KEYS;
+        // see FieldProvenanceMapSerializer for that axis.
+        coerceInputValues = true
         serializersModule =
             SerializersModule {
                 // Tolerant reader on the POLYMORPHIC axis. `ignoreUnknownKeys` above covers

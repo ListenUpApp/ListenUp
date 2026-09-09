@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverPayload
@@ -16,7 +17,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.Books
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 
 /** Keeps `id IN (?, ?, …)` under SQLite's variable-parameter ceiling. */
@@ -24,14 +25,15 @@ private const val SQLITE_IN_CHUNK = 900
 
 /**
  * The stable JSON codec for the `books.field_provenance` column. A [BookField]-keyed map serializes to
- * a JSON object (`{"TITLE":{"kind":"USER","provider":null,"at":111}}`); `ignoreUnknownKeys` keeps an
- * older row readable after the enum evolves (forward-compat, matching the wire DTO). `encodeDefaults`
- * is off so an absent provider/at stays compact.
+ * a JSON object (`{"TITLE":{"kind":"USER","provider":null,"at":111}}`). Forward-compat on the KEY axis
+ * comes from [FieldProvenanceMapSerializer], which drops an unrecognised field name — `ignoreUnknownKeys`
+ * does NOT reach map keys, it only tolerates unknown properties INSIDE a [FieldProvenance] object.
+ * `encodeDefaults` is off so an absent provider/at stays compact.
  */
 private val fieldProvenanceJson = Json { ignoreUnknownKeys = true }
 
-private val fieldProvenanceSerializer =
-    MapSerializer(BookField.serializer(), FieldProvenance.serializer())
+private val fieldProvenanceSerializer: KSerializer<Map<BookField, FieldProvenance>> =
+    FieldProvenanceMapSerializer
 
 /**
  * Serializes a per-field provenance map to its `books.field_provenance` column form (a JSON object).
@@ -42,7 +44,8 @@ internal fun Map<BookField, FieldProvenance>.toFieldProvenanceColumn(): String =
 
 /**
  * Parses the `books.field_provenance` column back to a map. A blank/`"{}"` column is the empty map;
- * unrecognized field keys are dropped so an older row stays readable after [BookField] evolves.
+ * unrecognized field keys are dropped by [FieldProvenanceMapSerializer] so a column written by a
+ * newer build stays readable after a downgrade.
  */
 internal fun String.toFieldProvenance(): Map<BookField, FieldProvenance> =
     if (isBlank()) {

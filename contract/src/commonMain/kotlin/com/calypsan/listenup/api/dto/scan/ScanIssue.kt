@@ -55,8 +55,12 @@ data class ScanIssue(
     val id: String,
     @SerialName("rootRelPath")
     val rootRelPath: String,
+    /**
+     * Why the import failed. Defaults to [ScanIssueReason.UNKNOWN] so a reason this build does not
+     * know (an additive member on a newer server) degrades to "unclassified" rather than throwing.
+     */
     @SerialName("reason")
-    val reason: ScanIssueReason,
+    val reason: ScanIssueReason = ScanIssueReason.UNKNOWN,
     @SerialName("detail")
     val detail: String? = null,
     @SerialName("firstSeenAt")

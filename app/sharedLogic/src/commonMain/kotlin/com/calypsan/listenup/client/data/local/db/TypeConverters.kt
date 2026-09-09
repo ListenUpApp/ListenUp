@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room3.ColumnTypeConverter
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -11,8 +12,8 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.appJson
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 
 /**
@@ -165,8 +166,10 @@ internal enum class DownloadState {
  *
  * Stores the map as a JSON object keyed by [BookField] name (`{"TITLE":{"kind":"USER",...}}`) via
  * [appJson] — the same wire codec the server column uses, so a value survives the round-trip
- * client → server → client byte-for-byte. `ignoreUnknownKeys` keeps a row readable after the field
- * vocabulary evolves rather than dropping a user's rescan protection.
+ * client → server → client byte-for-byte. A row stays readable after the field vocabulary evolves
+ * because [FieldProvenanceMapSerializer] drops an unrecognised key; `ignoreUnknownKeys` never
+ * reached map keys, so without it one new [BookField] made the whole row — and a user's rescan
+ * protection with it — undecodable.
  */
 internal class FieldProvenanceConverter {
     @ColumnTypeConverter
@@ -177,7 +180,7 @@ internal class FieldProvenanceConverter {
         if (value.isBlank()) emptyMap() else appJson.decodeFromString(serializer, value)
 
     private companion object {
-        val serializer = MapSerializer(BookField.serializer(), FieldProvenance.serializer())
+        val serializer: KSerializer<Map<BookField, FieldProvenance>> = FieldProvenanceMapSerializer
     }
 }
 
