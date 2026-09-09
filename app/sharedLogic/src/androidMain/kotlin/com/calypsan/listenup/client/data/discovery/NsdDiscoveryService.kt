@@ -59,6 +59,9 @@ internal class NsdDiscoveryService(
                 override fun onDiscoveryStopped(serviceType: String) {
                     logger.info { "mDNS discovery stopped for: '$serviceType'" }
                     isDiscovering = false
+                    // Mirrors stopDiscovery: the system can stop discovery without going through
+                    // it, and its guard would then never release the shared resolve executor.
+                    resolveExecutors.shutdown()
                 }
 
                 override fun onServiceFound(serviceInfo: NsdServiceInfo) {
