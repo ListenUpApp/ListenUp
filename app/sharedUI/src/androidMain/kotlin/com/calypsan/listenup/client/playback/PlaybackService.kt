@@ -957,8 +957,8 @@ class PlaybackService :
      * Play/pause bookkeeping for the Cast transport, and nothing else.
      *
      * Deliberately not the full [PlayerListener]: that one's error handling acts on the *local*
-     * ExoPlayer (`errorHandler.handle(player = player!!)`), so attaching it to the cast player
-     * would recover the wrong player on a receiver-side failure.
+     * ExoPlayer captured in its `onPlayerError`, so attaching it to the cast player would
+     * recover the wrong player on a receiver-side failure.
      */
     private inner class CastPlaybackListener : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(TransportSource.CAST, isPlaying)
@@ -1046,13 +1046,23 @@ class PlaybackService :
                 errorBus.emit(PlaybackError.Stalled(debugInfo = error.message))
             }
 
-            serviceScope.launch {
-                val classified = errorHandler.classify(error)
+            // Captured synchronously: see playerErrorActionFor's KDoc for why reading the
+            // player inside the coroutine was a crash.
+            val activePlayer = this@PlaybackService.player
+            if (playerErrorActionFor(hasPlayer = activePlayer != null) ==
+                PlayerErrorAction.NOTHING_TO_RECOVER ||
+                activePlayer == null
+            ) {
+                logger.warn { "Playback error with no attached player — nothing to recover" }
+                return
+            }
+            val classified = errorHandler.classify(error)
 
+            serviceScope.launch {
                 val handled =
                     errorHandler.handle(
                         error = classified,
-                        player = player!!,
+                        player = activePlayer,
                         currentBookId = currentBookId,
                         // Book-relative (sum of prior file durations + file offset); never the
                         // raw file-relative player.currentPosition read inside the handler.
