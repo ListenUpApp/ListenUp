@@ -8,6 +8,7 @@ import Shared
 final class ClaimInviteViewModelWrapper {
     enum Phase: Equatable {
         case codeEntry
+        case confirmServer(host: String, signedInElsewhere: Bool)
         case lookingUp
         case preview
         case submitting
@@ -46,6 +47,16 @@ final class ClaimInviteViewModelWrapper {
         viewModel.onClaimSubmit(password: password, firstName: firstName, lastName: lastName)
     }
 
+    /// The user agreed to point this device at the link's server.
+    func confirmServer() {
+        viewModel.onConfirmServer()
+    }
+
+    /// The user declined the link's server; the flow falls back to manual code entry.
+    func cancelServer() {
+        viewModel.onCancelServer()
+    }
+
     // MARK: - State mapping
 
     private func apply(_ state: ClaimInviteUiState) {
@@ -53,6 +64,8 @@ final class ClaimInviteViewModelWrapper {
         case .idle:
             phase = .codeEntry
             preview = nil
+        case .confirmServer(let confirm):
+            phase = .confirmServer(host: confirm.host, signedInElsewhere: confirm.signedInElsewhere)
         case .lookingUp:
             phase = .lookingUp
         case .preview(let previewState):
