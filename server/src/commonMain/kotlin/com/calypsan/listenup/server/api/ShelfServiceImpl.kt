@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.Shelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
@@ -23,6 +24,20 @@ import kotlin.uuid.Uuid
 private const val MAX_NAME_LENGTH = 200
 private const val DISCOVER_LIMIT_MIN = 1
 private const val DISCOVER_LIMIT_MAX = 200
+
+/**
+ * Largest ordering [ShelfServiceImpl.reorderShelfBooks] will accept in one call. A reorder
+ * legitimately carries every live book on the shelf, and the shelf itself has no server-side size
+ * bound — [ShelfServiceImpl.addBookToShelf] admits one book at a time with no count check — so this
+ * is the first place the list is bounded at all. 5000 follows `MAX_CHAPTERS_PER_BOOK` in
+ * `BookServiceImpl`, the precedent for a list that is legitimately long: it sits above the whole
+ * book count of any self-hosted library we expect to see, while still keeping the per-entry cost
+ * (a live-row lookup and a possible `sortOrder` write each) off the transport's frame cap. Unlike
+ * [ShelfServiceImpl.discoverShelves], which clamps its limit, an over-long ordering is rejected
+ * rather than truncated — silently dropping the tail would save an ordering the caller never asked
+ * for.
+ */
+internal const val MAX_BOOKS_PER_SHELF_REORDER = 5000
 
 /**
  * [ShelfService] implementation.
@@ -187,6 +202,17 @@ internal class ShelfServiceImpl(
                 is OwnerGate.Denied -> return AppResult.Failure(gate.error)
                 is OwnerGate.Allowed -> gate.owned
             }
+        // Bound the ordering before it becomes a lookup and a possible `sortOrder` write per entry.
+        // The gate runs first so a non-owner still learns nothing about the shelf. `BookError.InvalidInput`
+        // is the shape `BookServiceImpl` uses for its own over-cap lists, and the rejected value here is a
+        // list of book ids; `ShelfError` has no `InvalidInput`, and `InvalidName` would name the wrong field.
+        if (orderedBookIds.size > MAX_BOOKS_PER_SHELF_REORDER) {
+            return AppResult.Failure(
+                BookError.InvalidInput(
+                    debugInfo = "orderedBookIds: size ${orderedBookIds.size} exceeds max $MAX_BOOKS_PER_SHELF_REORDER",
+                ),
+            )
+        }
 
         return shelfBookRepo.reorder(shelfId.value, orderedBookIds.map { it.value }, userId = owned.ownerId)
     }

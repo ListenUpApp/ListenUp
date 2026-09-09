@@ -58,6 +58,33 @@ private const val BOOK_LOCK_STRIPES = 64
 internal const val DELTA_MAX_BOOKS = 200
 
 /**
+ * Largest number of collections one book may be filed under in a single
+ * [CollectionServiceImpl.setBookCollections] call. The picker that produces this list is a checkbox
+ * over the caller's visible collections and a real save carries a handful; a book filed under more
+ * than this many is not a shelf anyone browses. Every id costs a `findById` round trip and, when
+ * added, a junction-row write, so the bound belongs here next to the work rather than being left to
+ * the transport's frame cap. 200 mirrors `MAX_CONTRIBUTORS_PER_BOOK` in `BookServiceImpl`, the same
+ * shape of per-book list.
+ */
+internal const val MAX_COLLECTIONS_PER_BOOK = 200
+
+/**
+ * The failure for a [CollectionServiceImpl.setBookCollections] target set larger than
+ * [MAX_COLLECTIONS_PER_BOOK], or `null` when [collectionIds] is within the bound. Bounds the set
+ * before it becomes a lookup and a row write per id; an over-cap set is rejected outright rather
+ * than truncated, because a partial replace-set would silently drop memberships. Top-level to keep
+ * the class body lean, like [listableCollectionsFor].
+ */
+private fun overCollectionCap(collectionIds: List<CollectionId>): CollectionError.InvalidInput? =
+    if (collectionIds.size > MAX_COLLECTIONS_PER_BOOK) {
+        CollectionError.InvalidInput(
+            debugInfo = "collectionIds: size ${collectionIds.size} exceeds max $MAX_COLLECTIONS_PER_BOOK",
+        )
+    } else {
+        null
+    }
+
+/**
  * Logs a discarded `collection_books` upsert [error] for [bookId]/[collectionId], tagged [op] —
  * #1226's three call sites ([CollectionServiceImpl.setBookCollections],
  * [CollectionServiceImpl.releaseBooks], the reconcile) that used to swallow this silently.
@@ -472,6 +499,7 @@ internal class CollectionServiceImpl(
     ): AppResult<Unit> {
         val caller = resolveCaller() ?: return noPrincipal()
         adminGate(caller.role)?.let { return AppResult.Failure(it) }
+        overCollectionCap(collectionIds)?.let { return AppResult.Failure(it) }
 
         if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
 

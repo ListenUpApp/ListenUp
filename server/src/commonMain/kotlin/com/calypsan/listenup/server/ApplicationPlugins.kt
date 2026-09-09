@@ -73,9 +73,11 @@ private const val WS_PING_TIMEOUT_MS = 15_000L
  * payload rides this transport at all (uploads are REST multipart), and the same call with
  * real-world chapter titles measures 707,037 bytes.
  *
- * ⚠️ Re-measure if `MAX_CHAPTERS_PER_BOOK` or `ChapterInput`'s length ceilings are raised. Note also
- * that `setBookCollections` and `reorderShelfBooks` take **uncapped** id lists, so for those this
- * cap is the only bound there is.
+ * ⚠️ Re-measure if `MAX_CHAPTERS_PER_BOOK` or `ChapterInput`'s length ceilings are raised. Every
+ * other list-taking call is now bounded at its own service — `setBookCollections` by
+ * `MAX_COLLECTIONS_PER_BOOK` and `reorderShelfBooks` by `MAX_BOOKS_PER_SHELF_REORDER`, both id lists
+ * that sit far inside this number even at their ceiling — so this is a transport backstop, not the
+ * primary bound on any call.
  */
 private const val WS_MAX_FRAME_SIZE_BYTES = 33_554_432L
 
