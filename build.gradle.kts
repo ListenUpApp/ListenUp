@@ -109,6 +109,7 @@ detekt {
         // but none of the client's, so 561 .kt files — the whole commonTest suite that both the
         // JVM and Apple lanes compile — were exempt from a gate that reported green regardless.
         "$rootDir/app/baselineprofile/src/main",
+        "$rootDir/app/sharedLogic/src/appleTest/kotlin",
     )
 }
 
