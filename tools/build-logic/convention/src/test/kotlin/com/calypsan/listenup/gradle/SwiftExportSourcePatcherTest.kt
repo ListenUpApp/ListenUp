@@ -252,6 +252,22 @@ class SwiftExportSourcePatcherTest {
         assertFalse(out.contains("public var description: Swift.String"), "no collision-prone description")
     }
 
+    @Test
+    fun `patchSource drops an spi stub that duplicates a real implementation in the same extension`() {
+        val out = SwiftExportSourcePatcher.patchSource(fixture("patch-source.swift"), module = "Shared").content
+
+        assertEquals(1, Regex("""func decodeSequentially\(""").findAll(out).count(), "one declaration survives")
+        assertTrue(out.contains("decodeSequentially_direct"), "the bridged implementation is the survivor")
+        assertFalse(out.contains("'decodeSequentially' is an @_spi requirement"), "the stub is gone")
+        assertEquals(
+            1,
+            Regex(Regex.escape("@_spi(kotlinx\$serialization")).findAll(out).count(),
+            "the stub's attribute line went with it",
+        )
+        // A stub with no twin in its block is the generator's legitimate default for Swift conformers.
+        assertTrue(out.contains("'resetReplayCache' is an @_spi requirement"), "a stub-only requirement stays")
+    }
+
     // ---- camelCase pass ------------------------------------------------------------------------
 
     @Test

@@ -21,3 +21,20 @@ public final class Note: KotlinRuntime.KotlinBase {
         }
     }
 }
+
+extension ExportedKotlinPackages.kotlinx.serialization.encoding.CompositeDecoder {
+    @_spi(kotlinx$serialization$ExperimentalSerializationApi)
+    public func decodeSequentially() -> Swift.Bool {
+        fatalError("'decodeSequentially' is an @_spi requirement that must be implemented by Swift conformers")
+    }
+    @_spi(kotlinx$serialization$ExperimentalSerializationApi)
+    public func decodeSequentially() -> Swift.Bool {
+        return kotlinx_serialization_encoding_CompositeDecoder_decodeSequentially_direct(self.__externalRCRef())
+    }
+}
+extension ExportedKotlinPackages.kotlinx.coroutines.flow.MutableSharedFlow {
+    @_spi(kotlinx$coroutines$ExperimentalCoroutinesApi)
+    public func resetReplayCache() -> Swift.Void {
+        fatalError("'resetReplayCache' is an @_spi requirement that must be implemented by Swift conformers")
+    }
+}

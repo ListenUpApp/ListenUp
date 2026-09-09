@@ -111,6 +111,14 @@ object SwiftExportSourcePatcher {
      *   override). SKIE renamed the same field to `description_`; matching that keeps existing Swift
      *   call sites stable.
      *
+     *   Class 4 — an `@_spi` requirement stub duplicating its real implementation. Kotlin 2.4.20 maps
+     *   an opt-in-annotated interface member to `@_spi(...)`, and for each one emits BOTH a
+     *   `fatalError("'x' is an @_spi requirement …")` default for Swift conformers AND the bridged
+     *   implementation, inside the same plain `extension P { }` — an invalid redeclaration
+     *   (kotlinx-serialization's `CompositeDecoder.decodeSequentially` and two siblings). The stub is
+     *   deleted only when a same-signature implementation sits in the same block; a stub with no twin
+     *   (coroutines' `MutableSharedFlow.resetReplayCache`) is a legitimate default and stays.
+     *
      * @param module the file's parent directory name (the Swift module), used to scope the
      *   undefined-type reference regex exactly as the original walk did.
      */
@@ -206,11 +214,78 @@ object SwiftExportSourcePatcher {
             }
         }
 
+        // Class 4 — drop an `@_spi` stub that duplicates a real implementation in its extension.
+        val deduplicated = dropDuplicatedSpiStubs(out)
+        if (deduplicated != null) {
+            out.clear()
+            out.addAll(deduplicated)
+            changed = true
+        }
+
         return if (changed) {
             PatchOutcome(out.joinToString("\n") + "\n", 1)
         } else {
             PatchOutcome(content, 0)
         }
+    }
+
+    private val spiStubBody =
+        Regex("""^\s*fatalError\("'\w+' is an @_spi requirement that must be implemented by Swift conformers"\)\s*$""")
+    private val spiAttribute = Regex("""^\s*@_spi\(""")
+    private val funcDeclaration = Regex("""^\s*(?:public|package|open|final|static|\s)*func\s""")
+
+    /** One function declaration inside a top-level block: where it sits and what it declares. */
+    private data class SwiftFunction(
+        val block: Int,
+        val signature: String,
+        val first: Int,
+        val endExclusive: Int,
+        val isSpiStub: Boolean,
+    )
+
+    /**
+     * [patchSource] Class 4. Returns [lines] without every `@_spi` stub whose exact signature also has
+     * a non-stub implementation in the same top-level block, or null when there is nothing to drop.
+     * The stub's own `@_spi(...)` attribute line goes with it.
+     */
+    private fun dropDuplicatedSpiStubs(lines: List<String>): List<String>? {
+        if (lines.none { spiStubBody.matches(it) }) return null
+        val functions = ArrayList<SwiftFunction>()
+        var depth = 0
+        var block = -1
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            if (depth == 0 && line.contains('{')) block = i
+            if (depth >= 1 && funcDeclaration.containsMatchIn(line)) {
+                var j = i
+                while (j < lines.size && !lines[j].contains('{')) j++
+                if (j == lines.size) break
+                val signature = lines.subList(i, j + 1).joinToString(" ").substringBefore('{').replace(Regex("""\s+"""), " ").trim()
+                var bodyDepth = lines[j].count { it == '{' } - lines[j].count { it == '}' }
+                var k = j + 1
+                var isStub = false
+                while (k < lines.size && bodyDepth > 0) {
+                    if (spiStubBody.matches(lines[k])) isStub = true
+                    bodyDepth += lines[k].count { it == '{' } - lines[k].count { it == '}' }
+                    k++
+                }
+                val first = if (i > 0 && spiAttribute.containsMatchIn(lines[i - 1])) i - 1 else i
+                functions.add(SwiftFunction(block, signature, first, k, isStub))
+                i = k
+                continue
+            }
+            depth += line.count { it == '{' } - line.count { it == '}' }
+            i++
+        }
+        val doomed =
+            functions.filter { stub ->
+                stub.isSpiStub &&
+                    functions.any { !it.isSpiStub && it.block == stub.block && it.signature == stub.signature }
+            }
+        if (doomed.isEmpty()) return null
+        val dropped = doomed.flatMapTo(HashSet()) { it.first until it.endExclusive }
+        return lines.filterIndexed { index, _ -> index !in dropped }
     }
 
     /**
