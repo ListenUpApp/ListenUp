@@ -46,7 +46,7 @@ final class CreateEditShelfObserver {
         case .loadingExisting:
             phase = .loadingExisting
         case .loaded(let state):
-            phase = .loaded(name: state.name, description: state.description_, isPrivate: state.isPrivate)
+            phase = .loaded(name: state.name, description: state.descriptionText, isPrivate: state.isPrivate)
         case .saving:
             phase = .saving
         case .error(let errorState):

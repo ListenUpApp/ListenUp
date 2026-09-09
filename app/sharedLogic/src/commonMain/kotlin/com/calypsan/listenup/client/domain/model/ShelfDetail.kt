@@ -34,6 +34,9 @@ data class ShelfDetail(
     val totalDurationSeconds: Long,
     val books: List<ShelfBook>,
 ) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String? get() = description
+
     /** The shelf id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
     val idString: String get() = id.value
 

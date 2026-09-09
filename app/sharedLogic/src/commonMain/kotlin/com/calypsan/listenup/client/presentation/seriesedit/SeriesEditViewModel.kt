@@ -81,6 +81,9 @@ data class SeriesEditUiState(
     // Track if changes have been made
     val hasChanges: Boolean = false,
 ) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String get() = description
+
     /**
      * Returns the cover path to display - staging if available, otherwise original.
      */

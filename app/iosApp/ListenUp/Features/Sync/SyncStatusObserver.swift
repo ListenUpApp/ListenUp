@@ -15,7 +15,7 @@ struct PendingOperationRow: Identifiable, Equatable {
 
     init(_ ui: PendingOperationUi) {
         self.id = ui.id
-        self.text = ui.description_
+        self.text = ui.descriptionText
         self.error = ui.error
     }
 }

@@ -94,7 +94,7 @@ final class ContributorDetailObserver {
             notFound = false
             let contributor = r.contributor
             name = contributor.name
-            bio = contributor.description_
+            bio = contributor.descriptionText
             imagePath = contributor.imagePath
             aliases = Array(contributor.aliases)
             birthDate = contributor.birthDate

@@ -14,14 +14,6 @@ public static func Format(
     return _Format(block: block)
 }
 
-public final class Note: KotlinRuntime.KotlinBase {
-    public var description: Swift.String {
-        get {
-            return self._description_get()
-        }
-    }
-}
-
 extension ExportedKotlinPackages.kotlinx.serialization.encoding.CompositeDecoder {
     @_spi(kotlinx$serialization$ExperimentalSerializationApi)
     public func decodeSequentially() -> Swift.Bool {

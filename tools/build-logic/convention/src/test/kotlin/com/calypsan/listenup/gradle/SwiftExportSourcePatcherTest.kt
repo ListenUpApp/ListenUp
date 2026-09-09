@@ -238,7 +238,7 @@ class SwiftExportSourcePatcherTest {
     // ---- patchSource pass ----------------------------------------------------------------------
 
     @Test
-    fun `patchSource neutralizes unavailable operator, deletes undefined-type func, renames description`() {
+    fun `patchSource neutralizes unavailable operator and deletes undefined-type func`() {
         val source = fixture("patch-source.swift")
         val outcome = SwiftExportSourcePatcher.patchSource(source, module = "Shared")
 
@@ -251,8 +251,6 @@ class SwiftExportSourcePatcherTest {
         assertFalse(out.contains("this._plus"), "original helper call removed")
         assertFalse(out.contains("func Format("), "undefined-type func deleted whole")
         assertFalse(out.contains("_ExportedKotlinPackages_DateTimeFormatBuilder_WithDate"), "no dangling ref")
-        assertTrue(out.contains("public var description_: Swift.String"), "description -> description_")
-        assertFalse(out.contains("public var description: Swift.String"), "no collision-prone description")
     }
 
     @Test

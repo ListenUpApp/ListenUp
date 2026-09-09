@@ -23,7 +23,10 @@ data class PendingOperationUi(
     val description: String,
     val isFailed: Boolean,
     val error: String?,
-)
+) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String get() = description
+}
 
 /**
  * UI state for sync indicator.

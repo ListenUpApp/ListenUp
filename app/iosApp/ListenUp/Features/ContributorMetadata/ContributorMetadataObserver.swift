@@ -13,9 +13,9 @@ struct ContributorHitRow: Identifiable, Hashable {
 }
 
 /// The fetched Audible contributor profile, flattened from the Swift Export-bridged
-/// `MetadataContributorProfile` into native Swift values. The Kotlin `description` property is
-/// exported as `description_` (Swift Export renames it to dodge the `description` clash); we expose
-/// it as `bio` to match the rest of the app.
+/// `MetadataContributorProfile` into native Swift values. The Kotlin `description` property is read
+/// through its `descriptionText` alias (Swift Export never exports a member named `description`);
+/// we expose it as `bio` to match the rest of the app.
 struct ContributorProfilePreview: Equatable {
     let asin: String
     let name: String
@@ -171,6 +171,6 @@ final class ContributorMetadataObserver {
     private func applyContext(_ context: ContributorContext) {
         contributorName = context.current?.name ?? ""
         currentImagePath = context.current?.imagePath
-        currentBio = context.current?.description_
+        currentBio = context.current?.descriptionText
     }
 }

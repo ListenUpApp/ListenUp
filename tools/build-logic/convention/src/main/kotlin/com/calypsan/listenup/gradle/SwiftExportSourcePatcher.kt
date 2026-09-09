@@ -86,7 +86,7 @@ object SwiftExportSourcePatcher {
     private const val APP_RESULT_BASE_TYPE = "ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult"
 
     /**
-     * Operator-unavailability + undefined-type + `description`/`release()` collision fixes for one
+     * Operator-unavailability + undefined-type + codegen-shape fixes for one
      * generated `.swift` file. `count` is 1 if the file changed, else 0 (matching the per-file
      * "patched files" tally of the original transform).
      *
@@ -104,12 +104,6 @@ object SwiftExportSourcePatcher {
      *   nested sealed-interface type it never emits (e.g. `LocalDate.Companion.Format(block:)`'s
      *   closure parameter `DateTimeFormatBuilder.WithDate`). Such a function can't compile and isn't
      *   part of any API we call from Swift, so the whole declaration is deleted (brace-aware).
-     *
-     *   Class 3 — rename a generated `description` Kotlin property to `description_`. Swift export
-     *   emits `public var description: <T>` for any Kotlin `description` field, which collides with
-     *   the inherited `KotlinRuntime.KotlinBase.description: String` (different type -> an illegal
-     *   override). SKIE renamed the same field to `description_`; matching that keeps existing Swift
-     *   call sites stable.
      *
      *   Class 4 — an `@_spi` requirement stub duplicating its real implementation. Kotlin 2.4.20 maps
      *   an opt-in-annotated interface member to `@_spi(...)`, and for each one emits BOTH a
@@ -215,18 +209,6 @@ object SwiftExportSourcePatcher {
                 }
             }
             i++
-        }
-
-        // Class 3 — rename a generated `description` Kotlin property to `description_`. Guarded by
-        // the property's own `_description_get` getter so framework `description`s are never touched.
-        val descriptionProperty = Regex("""^(\s*)public var description: (.+)$""")
-        for (idx in out.indices) {
-            val match = descriptionProperty.matchEntire(out[idx]) ?: continue
-            val getterNearby = (idx + 1..minOf(idx + 3, out.lastIndex)).any { out[it].contains("_description_get(") }
-            if (getterNearby) {
-                out[idx] = "${match.groupValues[1]}public var description_: ${match.groupValues[2]}"
-                changed = true
-            }
         }
 
         // Class 4 — drop an `@_spi` stub that duplicates a real implementation in its extension.
