@@ -22,6 +22,7 @@ import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
+import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.scanner.inference.AbsTitleParser
 import com.calypsan.listenup.server.scanner.inference.FolderShape
 import com.calypsan.listenup.server.scanner.inference.ParsedTitle
@@ -340,15 +341,25 @@ internal class Analyzer(
     private suspend fun runParserSafely(
         parser: SidecarParser,
         file: FileEntry,
-    ): SidecarMetadata? =
-        try {
-            parser.parse(Path(rootPath, file.relPath))
+    ): SidecarMetadata? {
+        // The Walker emits a symlink as a leaf and never recurses through it, which keeps
+        // enumeration cycle-safe — but opening that leaf still follows the link, wherever it
+        // goes, including outside the library root the operator configured. The refusal belongs
+        // here, at the open, because that is where the link is actually followed.
+        val path = Path(rootPath, file.relPath)
+        if (isSymlink(path)) {
+            logger.warn { "sidecar ${file.relPath} is a symlink; not reading it" }
+            return null
+        }
+        return try {
+            parser.parse(path)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             logger.warn(e) { "sidecar parser ${parser::class.simpleName} threw on ${file.relPath}; treating as null" }
             null
         }
+    }
 
     /**
      * Resolves the book's display title/subtitle from the precedence-picked raw title.

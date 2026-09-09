@@ -1,7 +1,9 @@
 package com.calypsan.listenup.server.transcode
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.doubles.shouldBeLessThan
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlin.math.abs
@@ -68,6 +70,22 @@ class HlsPlaylistTest :
             text shouldContain "#EXTINF:10.007800,"
             text shouldContain "seg/0.aac?sig=x"
             text shouldContain "#EXT-X-ENDLIST"
+        }
+
+        // The duration handed to `plan` comes from a parsed file header, so it is only as
+        // trustworthy as that header. It directly sizes the segment list, which makes a bad
+        // duration an allocation the caller never asked for. Green here is the proof: without a
+        // ceiling this call materialises a list with billions of entries and never returns.
+        test("an implausible duration does not allocate an unbounded segment list") {
+            val plan = HlsPlaylist.plan(durationMs = Long.MAX_VALUE / 2, sampleRate = 44_100, targetSeconds = 10)
+
+            plan.segmentDurations.size shouldBeLessThanOrEqual 99_999
+        }
+
+        test("a negative duration yields no segments rather than a negative-size list") {
+            val plan = HlsPlaylist.plan(durationMs = -1_000, sampleRate = 44_100, targetSeconds = 10)
+
+            plan.segmentDurations.shouldBeEmpty()
         }
 
         // A file with no recorded sample rate is common in a real library (257 of 1455 rows).

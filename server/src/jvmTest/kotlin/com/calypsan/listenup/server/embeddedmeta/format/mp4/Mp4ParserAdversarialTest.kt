@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.io.SeekableSource
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.runBlocking
@@ -87,6 +88,7 @@ class Mp4ParserAdversarialTest :
             sttsPayload: ByteArray,
             stszPayload: ByteArray,
             stcoPayload: ByteArray,
+            chunkOffsetType: String = "stco",
         ): ByteArray {
             // mvhd v0: version+flags(4) + creation(4) + modification(4) + timescale(4) + duration(4).
             val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(90_000))
@@ -102,13 +104,26 @@ class Mp4ParserAdversarialTest :
             val mdhd = atom("mdhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000))
             val stts = atom("stts", sttsPayload)
             val stsz = atom("stsz", stszPayload)
-            val stco = atom("stco", stcoPayload)
+            val stco = atom(chunkOffsetType, stcoPayload)
             val stbl = atom("stbl", stts + stsz + stco)
             val minf = atom("minf", stbl)
             val mdia = atom("mdia", mdhd + minf)
             val chapterTrak = atom("trak", tkhd + mdia)
 
             return atom("moov", mvhd + audioTrak + chapterTrak)
+        }
+
+        /**
+         * Wrap [chapterTrakBody] as the chapter `trak` inside a `moov` that also carries a valid
+         * `mvhd` (90 s at timescale 1000) and an audio `trak` whose `tref.chap` points at track
+         * id 2. The chapter `trak` is the LAST child of `moov`, so whatever the caller puts last
+         * inside [chapterTrakBody] also ends the buffer — which is how a test puts a box's
+         * payload-free head exactly at the buffer's edge.
+         */
+        fun moovAroundChapterTrak(chapterTrakBody: ByteArray): ByteArray {
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(90_000))
+            val audioTrak = atom("trak", atom("tref", atom("chap", be32(2))))
+            return atom("moov", mvhd + audioTrak + atom("trak", chapterTrakBody))
         }
 
         /** `stts` payload with entryCount = 0 — benign, returns emptyList() with no loop. */
@@ -279,13 +294,19 @@ class Mp4ParserAdversarialTest :
             failure.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
         }
 
-        // C-03: the chapter text-track sample-table counts (`stts`/`stsz`/`stco`) are untrusted
-        // 32-bit fields that directly drive IntArray/LongArray allocations and an unbounded append
-        // loop in Mp4ChapterExtractor. Each test below is malicious in exactly ONE of the three
-        // fields (the other two are benign zero-count atoms) so a hang/OOM is attributable to a
-        // single site. Run each in ISOLATION first (`--tests` with the exact test name) before the
-        // fix lands — the point of RED here is that the JVM must OOM or otherwise fail to return,
-        // never that the assertion body fails.
+        // C-03: the chapter text-track sample-table counts (`stts`/`stsz`/`stco`/`co64`) are
+        // untrusted 32-bit fields that directly drive IntArray/LongArray allocations and an
+        // unbounded append loop in Mp4ChapterExtractor. Each test below is malicious in exactly
+        // ONE of those fields (the rest are benign zero-count atoms) so a failure is attributable
+        // to a single site.
+        //
+        // Every one asserts Success rather than "either outcome". That distinction is the whole
+        // test: `Mp4Parser.parse` wraps this path in a catch-all that answers any escaped
+        // Throwable — an OutOfMemoryError from an uncapped array included — with a typed
+        // CorruptHeader. A case that also accepted Failure would therefore pass just as happily
+        // with its cap deleted, which makes it no test of the cap at all. Success pins the real
+        // property: the declared count was reconciled with the bytes present, so nothing was
+        // ever allocated and nothing was ever thrown.
 
         test("chapter text-track stts sampleCount near Int.MAX_VALUE returns in bounded memory") {
             // parseSampleStartsMs's inner `for (j in 0 until sampleCount)` has no bound on the
@@ -300,12 +321,8 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            // The point is that parse RETURNS at all, in bounded time/memory — either outcome is
-            // acceptable, chapters just aren't required to survive a malicious sample table.
-            when (result) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
-            }
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
         }
 
         test("chapter text-track stsz count near Int.MAX_VALUE returns in bounded memory") {
@@ -320,10 +337,8 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            when (result) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
-            }
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
         }
 
         test("chapter text-track stco count near Int.MAX_VALUE returns in bounded memory") {
@@ -338,10 +353,27 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
-            when (result) {
-                is AppResult.Success -> Unit
-                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
-            }
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
+        }
+
+        test("chapter text-track co64 count near Int.MAX_VALUE returns in bounded memory") {
+            // `parseChunkOffsets` serves BOTH chunk-offset box types from one cap, but the divisor
+            // differs: a `co64` entry is 8 bytes wide where an `stco` entry is 4. That second arm
+            // of the formula has no other coverage, so an entry count declared far beyond what the
+            // box holds is fed to the 64-bit variant specifically.
+            val bytes =
+                buildChapterTrackMoov(
+                    sttsPayload = benignSttsPayload(),
+                    stszPayload = benignStszPayload(),
+                    stcoPayload = maliciousStcoPayload(),
+                    chunkOffsetType = "co64",
+                )
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.chapters.shouldBeEmpty()
         }
 
         // C-04: Mp4Parser.parse's post-moov body (readMvhdDurationMs, ilst, chapters) runs
@@ -362,6 +394,121 @@ class Mp4ParserAdversarialTest :
 
             val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
             success.data.durationMs shouldBe 0L
+        }
+
+        // The chapter-track resolver reads a one-byte version field at the head of `tkhd` and
+        // `mdhd` to pick between the two field layouts each box version defines. A box that
+        // carries no payload at all has no such byte. Placing that empty box last in the buffer
+        // is what makes the difference observable: the read has nowhere to land. The correct
+        // answer is to skip the unreadable box — the file's tags and duration are still perfectly
+        // good — not to fail the file and lose them.
+
+        test("a chapter track whose tkhd box carries no payload still yields the rest of the file") {
+            val emptyTkhd = atomHeader("tkhd", size32 = 8)
+            val mdhd = atom("mdhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000))
+            val stbl =
+                atom(
+                    "stbl",
+                    atom("stts", benignSttsPayload()) +
+                        atom("stsz", benignStszPayload()) +
+                        atom("stco", benignStcoPayload()),
+                )
+            val mdia = atom("mdia", mdhd + atom("minf", stbl))
+            val bytes = moovAroundChapterTrak(mdia + emptyTkhd)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 90_000L
+            success.data.chapters.shouldBeEmpty()
+        }
+
+        test("a chapter track whose mdhd box carries no payload still yields the rest of the file") {
+            val tkhd = atom("tkhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(2))
+            val emptyMdhd = atomHeader("mdhd", size32 = 8)
+            val stbl =
+                atom(
+                    "stbl",
+                    atom("stts", benignSttsPayload()) +
+                        atom("stsz", benignStszPayload()) +
+                        atom("stco", benignStcoPayload()),
+                )
+            val mdia = atom("mdia", atom("minf", stbl) + emptyMdhd)
+            val bytes = moovAroundChapterTrak(tkhd + mdia)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 90_000L
+            success.data.chapters.shouldBeEmpty()
+        }
+
+        test("a covr data box with no payload yields no artwork rather than failing the file") {
+            // The artwork reader takes a 4-byte type prefix off the head of the `data` box before
+            // it can classify the image bytes that follow. A payload-free box has neither. Same
+            // last-in-buffer placement, same expectation: no artwork, everything else intact.
+            val emptyData = atomHeader("data", size32 = 8)
+            val ilst = atom("ilst", atom("covr", emptyData))
+            val udta = atom("udta", atom("meta", ByteArray(4) + ilst))
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(90_000))
+            val bytes = atom("moov", mvhd + udta)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.artwork shouldBe null
+            success.data.durationMs shouldBe 90_000L
+        }
+
+        // A decoded duration is not just a number shown to a reader: it sizes the HLS segment
+        // timeline, the seek bar, and the transcode plan. A movie header whose duration field
+        // cannot be believed must report "unknown" (0), never a number the rest of the system
+        // would then size work from.
+
+        test("an mvhd v0 duration carrying the ISO unknown sentinel reports duration 0") {
+            // Version 0 spells "duration not known" as an all-ones 32-bit field. Read literally
+            // it decodes to about seven weeks of audio.
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(0xFFFFFFFFL))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("an mvhd v1 duration that would overflow the millisecond conversion reports duration 0") {
+            // Version 1 carries a signed 64-bit duration; scaling it to milliseconds multiplies
+            // by 1000, which wraps for large values and yields a nonsense (often negative) result.
+            val versionFlags = byteArrayOf(1, 0, 0, 0)
+            val mvhd = atom("mvhd", versionFlags + ByteArray(8) + ByteArray(8) + be32(1000) + be64(Long.MAX_VALUE))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("an mvhd duration past any believable audiobook length reports duration 0") {
+            // Converts cleanly and is not the sentinel — it is simply about 1,100 hours, which no
+            // audiobook is. This is the case the plausibility band exists for.
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(0xF0000000L))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("an mvhd duration at the long end of the believable band is kept") {
+            // 150 hours — longer than any book in a real library, and still honoured. The band
+            // must reject nonsense without truncating the outliers that genuinely exist.
+            val durationUnits = 150L * 60 * 60 * 1000
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(durationUnits))
+
+            val result = runBlocking { parser.parse(byteSource(atom("moov", mvhd))) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe durationUnits
         }
 
         test("atom size declared near Int.MAX_VALUE at a non-zero offset overflows offset+size safely") {

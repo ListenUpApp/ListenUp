@@ -126,7 +126,7 @@ internal object MpegDurationCalculator {
         if (flags and 0x0001 == 0) return null
         val frameCount = readInt32BE(prefix, xingOffset + 8).toLong()
         if (frameCount <= 0) return null
-        return frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate
+        return plausibleOrNull(frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate)
     }
 
     /**
@@ -148,8 +148,16 @@ internal object MpegDurationCalculator {
         if (tag != "VBRI") return null
         val frameCount = readInt32BE(prefix, vbriOffset + 14).toLong()
         if (frameCount <= 0) return null
-        return frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate
+        return plausibleOrNull(frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate)
     }
+
+    /**
+     * A VBR header's frame count is the file's own claim about how much audio follows it, and
+     * nothing cross-checks it against the bytes actually present. Anything implying more than
+     * [MAX_PLAUSIBLE_DURATION_MS] is not a duration, so it is dropped — returning `null` hands
+     * the caller back to the CBR estimate, which is derived from the file's real size.
+     */
+    private fun plausibleOrNull(durationMs: Long): Long? = durationMs.takeIf { it in 0..MAX_PLAUSIBLE_DURATION_MS }
 
     private data class FrameHeader(
         val bitrate: Int,
@@ -237,6 +245,13 @@ internal object MpegDurationCalculator {
 
     /** MPEG-1 Layer III: 1152 PCM samples per encoded audio frame. */
     private const val SAMPLES_PER_FRAME = 1152
+
+    /**
+     * Upper bound on a believable audiobook duration: 200 hours. The longest books in print run
+     * comfortably under 150, so a VBR-declared duration past this came from a frame count that
+     * does not describe this file.
+     */
+    private const val MAX_PLAUSIBLE_DURATION_MS = 200L * 60 * 60 * 1000
 
     /**
      * 64 KB sniff window for the first MPEG sync byte. Real-world ID3v2 tags

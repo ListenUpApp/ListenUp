@@ -40,6 +40,13 @@ object HlsPlaylist {
     /** Digits after the decimal point in an `#EXTINF` duration. */
     private const val FRACTION_DIGITS = 6
 
+    /**
+     * Most segments one playlist can declare. [SegmentCache] zero-pads a segment index to five
+     * digits (`SegmentCache.INDEX_DIGITS`), so 99,999 is the largest index the cache can name —
+     * about eleven days of audio, well past the longest book that exists.
+     */
+    private const val MAX_SEGMENTS = 99_999
+
     /** The segmentation of one file: how long each segment is, and how many there are. */
     data class Plan(
         val segmentSeconds: Double,
@@ -79,10 +86,15 @@ object HlsPlaylist {
         val segmentSeconds = framesPerSegment.toDouble() * SAMPLES_PER_FRAME / rate
         val total = durationMs / 1000.0
 
-        val whole = (total / segmentSeconds).toInt()
+        // [durationMs] arrives from a parsed file header, so it is only as trustworthy as that
+        // header — and it sizes the list below directly. Reconcile it with what a segment index
+        // can even address before allocating; a duration outside that range describes no file
+        // this server can serve, so its trailing remainder is dropped along with it.
+        val declaredSegments = (total / segmentSeconds).toInt()
+        val whole = declaredSegments.coerceIn(0, MAX_SEGMENTS)
         val remainder = total - whole * segmentSeconds
         val durations = MutableList(whole) { segmentSeconds }
-        if (remainder > 0.0) durations += remainder
+        if (whole == declaredSegments && remainder > 0.0) durations += remainder
 
         return Plan(segmentSeconds, durations, rate, framesPerSegment)
     }
