@@ -1,31 +1,19 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 
 private const val BOOK_MS = 600_000L
 
 private const val CHAPTER_SPACING_MS = 1_000L
-
-private val hosts = mutableListOf<HTMLElement>()
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    hosts += host
-    renderComposable(root = host) { content() }
-    return host
-}
 
 private fun book(
     bookId: String = "b1",
@@ -49,54 +37,6 @@ private fun chapters(count: Int): List<TransportChapter> =
     }
 
 /**
- * Mounts the real bar, opens the expanded player through the handle a listener would use, and
- * hands back the host.
- *
- * Driven through [TransportBar] rather than by rendering [NowPlayingPanel] directly: the panel is
- * only worth anything if it can be reached, and the reaching is the half most likely to break —
- * the bar hides half its controls under 760px, and a gesture hung off one of those would be gone
- * on a phone without a single assertion noticing.
- */
-private suspend fun openPanel(
-    state: TransportState = playing(isPlaying = false),
-    nowPlaying: NowPlayingBook? = book(),
-    chapterList: List<TransportChapter> = emptyList(),
-    currentChapterIndex: Int? = null,
-    sleepTimer: SleepTimerState = SleepTimerState.Inactive,
-    volumeBoostDb: Float = 0f,
-    onPlayPause: () -> Unit = {},
-    onSeek: (Long) -> Unit = {},
-    onSeekToChapter: (Int) -> Unit = {},
-    onOpenBook: (String) -> Unit = {},
-    onOpenSeries: (String) -> Unit = {},
-    onOpenContributor: (String) -> Unit = {},
-): HTMLElement {
-    val host =
-        mount {
-            TransportBar(
-                state = state,
-                onPlayPause = onPlayPause,
-                onSeek = onSeek,
-                onSkipBack = {},
-                onSkipForward = {},
-                onSetSpeed = {},
-                chapters = chapterList,
-                currentChapterIndex = currentChapterIndex,
-                onSeekToChapter = onSeekToChapter,
-                sleepTimer = sleepTimer,
-                volumeBoostDb = volumeBoostDb,
-                nowPlaying = nowPlaying,
-                onOpenBook = onOpenBook,
-                onOpenSeries = onOpenSeries,
-                onOpenContributor = onOpenContributor,
-            )
-        }
-    (host.querySelector(".tport-expand") as HTMLElement).click()
-    awaitFrame()
-    return host
-}
-
-/**
  * The expanded player: the book the bar has no room to describe, and the places you can go from it.
  *
  * The docked bar can hold a title, a playhead and a row of round controls. Everything else about
@@ -108,10 +48,55 @@ private suspend fun openPanel(
  */
 class NowPlayingPanelTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        afterSpec {
-            hosts.forEach { it.remove() }
-            hosts.clear()
+        /**
+         * Mounts the real bar, opens the expanded player through the handle a listener would use,
+         * and hands back the host.
+         *
+         * Driven through [TransportBar] rather than by rendering [NowPlayingPanel] directly: the
+         * panel is only worth anything if it can be reached, and the reaching is the half most
+         * likely to break — the bar hides half its controls under 760px, and a gesture hung off one
+         * of those would be gone on a phone without a single assertion noticing.
+         */
+        suspend fun openPanel(
+            state: TransportState = playing(isPlaying = false),
+            nowPlaying: NowPlayingBook? = book(),
+            chapterList: List<TransportChapter> = emptyList(),
+            currentChapterIndex: Int? = null,
+            sleepTimer: SleepTimerState = SleepTimerState.Inactive,
+            volumeBoostDb: Float = 0f,
+            onPlayPause: () -> Unit = {},
+            onSeek: (Long) -> Unit = {},
+            onSeekToChapter: (Int) -> Unit = {},
+            onOpenBook: (String) -> Unit = {},
+            onOpenSeries: (String) -> Unit = {},
+            onOpenContributor: (String) -> Unit = {},
+        ): HTMLElement {
+            val host =
+                mounts.mount {
+                    TransportBar(
+                        state = state,
+                        onPlayPause = onPlayPause,
+                        onSeek = onSeek,
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onSetSpeed = {},
+                        chapters = chapterList,
+                        currentChapterIndex = currentChapterIndex,
+                        onSeekToChapter = onSeekToChapter,
+                        sleepTimer = sleepTimer,
+                        volumeBoostDb = volumeBoostDb,
+                        nowPlaying = nowPlaying,
+                        onOpenBook = onOpenBook,
+                        onOpenSeries = onOpenSeries,
+                        onOpenContributor = onOpenContributor,
+                    )
+                }
+            (host.querySelector(".tport-expand") as HTMLElement).click()
+            awaitFrame()
+            return host
         }
 
         test("the handle opens the player") {

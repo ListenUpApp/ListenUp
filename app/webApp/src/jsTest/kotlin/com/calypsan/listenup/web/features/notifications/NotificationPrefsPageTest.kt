@@ -4,16 +4,13 @@ import com.calypsan.listenup.api.dto.NotificationPreferenceDto
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
-
-private val hosts = mutableListOf<HTMLElement>()
 
 internal fun pref(
     type: String = "registration_approval",
@@ -26,26 +23,6 @@ internal fun pref(
         preference = NotificationPreference(inApp = inApp, push = push),
         pushEligible = pushEligible,
     )
-
-private fun page(
-    state: NotificationPrefsUiState,
-    onSetPreference: (String, NotificationPreference) -> Unit = { _, _ -> },
-    onRetry: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
-): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    hosts += host
-    renderComposable(root = host) {
-        NotificationPrefsPage(
-            state = state,
-            onSetPreference = onSetPreference,
-            onRetry = onRetry,
-            onOpenSettings = onOpenSettings,
-        )
-    }
-    return host
-}
 
 private fun switches(host: HTMLElement): List<HTMLInputElement> {
     val found = host.querySelectorAll(".sw-in")
@@ -63,11 +40,23 @@ private fun switches(host: HTMLElement): List<HTMLInputElement> {
  */
 class NotificationPrefsPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        afterSpec {
-            hosts.forEach { it.remove() }
-            hosts.clear()
-        }
+        fun page(
+            state: NotificationPrefsUiState,
+            onSetPreference: (String, NotificationPreference) -> Unit = { _, _ -> },
+            onRetry: () -> Unit = {},
+            onOpenSettings: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                NotificationPrefsPage(
+                    state = state,
+                    onSetPreference = onSetPreference,
+                    onRetry = onRetry,
+                    onOpenSettings = onOpenSettings,
+                )
+            }
 
         test("a row is named in words, not by its wire key") {
             val host = page(NotificationPrefsUiState.Data(listOf(pref(type = "registration_approval"))))
