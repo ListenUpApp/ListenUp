@@ -82,10 +82,9 @@ fun withSqlDatabase(block: SqlTestDatabases.() -> Unit) {
     // Test connections enforce foreign_keys + busy_timeout via JDBC connection PROPERTIES rather
     // than a one-time `driver.execute("PRAGMA …")` — JdbcSqliteDriver opens a connection per
     // operation, so a post-open PRAGMA configures only a transient connection and is silently lost
-    // (which left ON DELETE CASCADE not firing). Production DriverFactory is intentionally NOT
-    // changed here: enabling FK on every production connection currently breaks live-scan insert
-    // ordering (LibraryLessOnboardingE2ETest) — that is the separate step-3 follow-up (FK-clean
-    // scan + production FK enforcement, as part of optimizing the DB layer once we own it).
+    // (which left ON DELETE CASCADE not firing). This matches production on BOTH platforms now:
+    // the JVM DriverFactory sets enforceForeignKeys(true) and the native one has always passed
+    // foreignKeyConstraints = true, pinned together by ForeignKeyParityTest.
     val driver =
         JdbcSqliteDriver(
             "jdbc:sqlite:$path",

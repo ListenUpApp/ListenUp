@@ -8,16 +8,6 @@ import org.sqlite.SQLiteConfig
 private const val BUSY_TIMEOUT_MS = 5_000
 
 /**
- * TEMPORARY (plan 028). Enables `PRAGMA foreign_keys` on the JVM driver so the insert-ordering
- * divergence with the native driver — which has always enforced FK — can be surveyed and fixed.
- * Default off; deleted once the JVM lane is FK-clean.
- */
-private val ENFORCE_FOREIGN_KEYS: Boolean =
-    System.getProperty("listenup.jvm.enforceForeignKeys")?.toBoolean()
-        ?: System.getenv("LISTENUP_JVM_ENFORCE_FOREIGN_KEYS")?.toBoolean()
-        ?: false
-
-/**
  * JVM actual: opens the SQLite file at [dbPath] via [JdbcSqliteDriver] with the project-standard
  * PRAGMAs applied as JDBC connection PROPERTIES (via [SQLiteConfig.toProperties]) so they take
  * effect on EVERY connection. [JdbcSqliteDriver] opens a connection per operation, so a post-open
@@ -33,10 +23,14 @@ private val ENFORCE_FOREIGN_KEYS: Boolean =
  *   default `synchronous=FULL`'s per-commit `fsync` dominated the wall-clock of those bulk flows;
  *   NORMAL removes it. Safe for a self-hosted single-instance server.
  * - `busy_timeout=5000` — wait up to 5 s for a write-lock before SQLITE_BUSY.
- * - foreign_keys is intentionally LEFT OFF on JVM: enabling it changes live-scan insert ordering and
- *   breaks `LibraryLessOnboardingE2ETest` (202→404). The native actual ([DriverFactory] on linuxX64)
- *   enforces FK; closing that JVM/native divergence (FK-clean scan + production FK enforcement) is a
- *   separate follow-up. SQLITE_BUSY_SNAPSHOT is handled by the retry in [suspendTransaction], not here.
+ * - `foreign_keys=ON` — matches the native actual (`DriverFactory.linux.kt`, which has always passed
+ *   `foreignKeyConstraints = true`), so referential integrity is a property of the SCHEMA and not of
+ *   the platform: an insert-ordering bug now fails identically on a dev JVM and in the shipped
+ *   `server.kexe`. It has to ride in the connection properties for the same reason as the PRAGMAs
+ *   above — a post-open `PRAGMA foreign_keys=ON` would configure one transient connection and be
+ *   silently lost, which is how ON DELETE CASCADE once looked dead here. `ForeignKeyParityTest`
+ *   (commonTest, so it runs on the JVM and linuxX64 lanes alike) pins the two actuals together.
+ *   SQLITE_BUSY_SNAPSHOT is handled by the retry in [suspendTransaction], not here.
  *
  * `Schema.create` is intentionally NOT called — [com.calypsan.listenup.server.db.MigrationRunner] owns
  * the schema history and has already run all migrations before this driver is opened.
@@ -47,7 +41,7 @@ actual class DriverFactory {
             "jdbc:sqlite:$dbPath",
             SQLiteConfig()
                 .apply {
-                    enforceForeignKeys(ENFORCE_FOREIGN_KEYS)
+                    enforceForeignKeys(true)
                     busyTimeout = BUSY_TIMEOUT_MS
                     setJournalMode(SQLiteConfig.JournalMode.WAL)
                     setSynchronous(SQLiteConfig.SynchronousMode.NORMAL)
