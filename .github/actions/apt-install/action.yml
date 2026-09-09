@@ -34,6 +34,18 @@ runs:
         Acquire::https::Timeout "20";
         Acquire::Retries "2";
         CONF
+        # apt aborts the whole `update` when ANY configured source serves a bad index, and the
+        # runner image ships third-party sources we never install from — Google Chrome, Microsoft.
+        # On 2026-09-09 dl.google.com's chrome-stable index answered "Hash Sum mismatch" and took
+        # both web jobs down inside Playwright's own `--with-deps` apt call, on two PRs that never
+        # touched the web app. Every package we need is in Ubuntu's archive, so that is the only
+        # source left enabled; apt ignores files that end in neither `.list` nor `.sources`.
+        for extra in /etc/apt/sources.list.d/*; do
+          case "$(basename "$extra")" in
+            ubuntu.sources|*.disabled) ;;
+            *) sudo mv "$extra" "$extra.disabled" ;;
+          esac
+        done
 
     # `timeout` per attempt is the point of this loop: without it a single hang consumes the whole
     # step budget and the retries never run at all, which is exactly how the 2026-08-19 linuxX64
