@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverPayload
@@ -16,7 +17,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.Books
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 
 /** Keeps `id IN (?, ?, …)` under SQLite's variable-parameter ceiling. */
@@ -30,8 +31,8 @@ private const val SQLITE_IN_CHUNK = 900
  */
 private val fieldProvenanceJson = Json { ignoreUnknownKeys = true }
 
-private val fieldProvenanceSerializer =
-    MapSerializer(BookField.serializer(), FieldProvenance.serializer())
+private val fieldProvenanceSerializer: KSerializer<Map<BookField, FieldProvenance>> =
+    FieldProvenanceMapSerializer
 
 /**
  * Serializes a per-field provenance map to its `books.field_provenance` column form (a JSON object).

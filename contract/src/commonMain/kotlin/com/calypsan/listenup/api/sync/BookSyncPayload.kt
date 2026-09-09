@@ -2,6 +2,7 @@ package com.calypsan.listenup.api.sync
 
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import kotlinx.serialization.SerialName
@@ -76,6 +77,7 @@ data class BookSyncPayload(
      * to empty for forward-compat. Chapters and covers carry their own provenance
      * ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not keyed here.
      */
+    @Serializable(with = FieldProvenanceMapSerializer::class)
     val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
     /** Server-scanned loudness-tag gain in dB; null when the file carries no gain tag. */
     @SerialName("normalizationGainDb") val normalizationGainDb: Float? = null,
