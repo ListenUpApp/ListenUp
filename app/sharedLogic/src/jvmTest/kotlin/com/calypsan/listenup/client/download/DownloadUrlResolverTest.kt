@@ -91,4 +91,34 @@ class DownloadUrlResolverTest :
 
             result.shouldBeInstanceOf<AppResult.Failure>()
         }
+
+        test("resolves every file's URL in a single prepare() round-trip") {
+            val bookId = "book-4"
+
+            fun file(id: String) =
+                PreparedAudioFile(
+                    fileId = id,
+                    index = 0,
+                    url = "/api/v1/audio/$bookId/$id?u=user&exp=123&sig=abc",
+                    format = "mp3",
+                    durationMs = 1000L,
+                    sizeBytes = 1000L,
+                )
+            val factory =
+                FakePlaybackPrepareRepository(
+                    AppResult.Success(
+                        PreparedPlayback(
+                            bookId = bookId,
+                            audioFiles = listOf(file("f1"), file("f2"), file("f3")),
+                            resumePosition = null,
+                        ),
+                    ),
+                )
+
+            val result = resolveSignedDownloadUrls(bookId, factory)
+
+            result.shouldBeInstanceOf<AppResult.Success<Map<String, String>>>()
+            result.data.keys shouldBe setOf("f1", "f2", "f3")
+            factory.prepareCallCount shouldBe 1
+        }
     })

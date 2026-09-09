@@ -9,6 +9,31 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 /**
+ * Resolve the signed, **relative** download URLs for *every* audio file of [bookId] in ONE
+ * `prepare()` round-trip, keyed by `fileId`.
+ *
+ * One `prepare()` response already carries every file's signed URL, so a per-file call is pure
+ * waste: a 40-file book used to make 40 RPCs (and 40 token refreshes) against a self-hosted
+ * server to learn 40 facts it was told on the first call.
+ *
+ * @return [AppResult.Success] with `fileId -> signed relative URL`, or the `prepare()` failure.
+ */
+internal suspend fun resolveSignedDownloadUrls(
+    bookId: String,
+    prepareRepository: PlaybackPrepareRepository,
+): AppResult<Map<String, String>> =
+    when (val rpcResult = prepareRepository.prepare(BookId(bookId))) {
+        is AppResult.Failure -> {
+            logger.warn { "prepare() failed for book=$bookId: ${rpcResult.error.message}" }
+            rpcResult
+        }
+
+        is AppResult.Success -> {
+            AppResult.Success(rpcResult.data.audioFiles.associate { it.fileId to it.url })
+        }
+    }
+
+/**
  * Resolve the signed, **relative** download URL for [audioFileId] within [bookId] via
  * [com.calypsan.listenup.api.PlaybackService.prepare].
  *
@@ -32,24 +57,24 @@ internal suspend fun resolveSignedDownloadUrl(
     audioFileId: String,
     prepareRepository: PlaybackPrepareRepository,
 ): AppResult<String> =
-    when (val rpcResult = prepareRepository.prepare(BookId(bookId))) {
+    when (val urls = resolveSignedDownloadUrls(bookId, prepareRepository)) {
         is AppResult.Failure -> {
-            logger.warn { "prepare() failed for book=$bookId audioFile=$audioFileId: ${rpcResult.error.message}" }
-            rpcResult
+            urls
         }
 
         is AppResult.Success -> {
-            val audioFile = rpcResult.data.audioFiles.firstOrNull { it.fileId == audioFileId }
-            if (audioFile == null) {
-                logger.warn { "prepare() response for book=$bookId is missing audioFileId=$audioFileId" }
-                AppResult.Failure(
-                    DownloadError.DownloadFailed(
-                        debugInfo = "prepare() response for book=$bookId missing audioFileId=$audioFileId",
-                    ),
-                )
-            } else {
-                logger.debug { "Resolved signed download URL for $audioFileId: ${audioFile.url}" }
-                AppResult.Success(audioFile.url)
+            urls.data[audioFileId]?.let {
+                // The URL itself is a live credential (HMAC-signed query) — log the id, never the URL.
+                logger.debug { "Resolved signed download URL for $audioFileId" }
+                AppResult.Success(it)
             }
+                ?: run {
+                    logger.warn { "prepare() response for book=$bookId is missing audioFileId=$audioFileId" }
+                    AppResult.Failure(
+                        DownloadError.DownloadFailed(
+                            debugInfo = "prepare() response for book=$bookId missing audioFileId=$audioFileId",
+                        ),
+                    )
+                }
         }
     }

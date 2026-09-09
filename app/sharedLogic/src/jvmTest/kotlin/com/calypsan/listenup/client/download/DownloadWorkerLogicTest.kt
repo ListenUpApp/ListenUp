@@ -808,10 +808,17 @@ class DownloadWorkerLogicTest :
 internal class FakePlaybackPrepareRepository(
     private val prepareResult: AppResult<PreparedPlayback>,
 ) : PlaybackPrepareRepository {
+    /** How many times [prepare] has been called — pins the one-round-trip-per-book contract. */
+    var prepareCallCount: Int = 0
+        private set
+
     override suspend fun prepare(
         bookId: BookId,
         forceTranscode: Boolean,
-    ): AppResult<PreparedPlayback> = prepareResult
+    ): AppResult<PreparedPlayback> {
+        prepareCallCount++
+        return prepareResult
+    }
 
     override suspend fun getPosition(bookId: BookId) = AppResult.Success(null)
 }

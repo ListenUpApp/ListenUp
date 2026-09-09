@@ -182,6 +182,20 @@ class AppleDownloadService internal constructor(
                 return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "No server configured"))
             }
 
+        // ONE prepare() round-trip for the whole book — the response carries every file's signed
+        // URL. A per-file call would fire N RPCs (and N token refreshes) at a self-hosted server.
+        val signedUrls =
+            when (val resolved = resolveSignedDownloadUrls(bookId.value, prepareRepository)) {
+                is AppResult.Success -> {
+                    resolved.data
+                }
+
+                is AppResult.Failure -> {
+                    logger.error { "Failed to resolve download URLs for ${bookId.value}: ${resolved.error.message}" }
+                    return AppResult.Failure(resolved.error)
+                }
+            }
+
         // Create download entries
         val now = Clock.System.now().toEpochMilliseconds()
         val entities =
@@ -206,6 +220,12 @@ class AppleDownloadService internal constructor(
 
         // Download files concurrently in background
         for (file in toDownload) {
+            val signedRelativeUrl = signedUrls[file.id]
+            if (signedRelativeUrl == null) {
+                logger.error { "prepare() returned no URL for audioFile=${file.id}; skipping" }
+                downloadDao.updateError(file.id, "Server did not provide a download URL")
+                continue
+            }
             scope.launch {
                 // Refresh token per file to avoid 401 on long-running batches
                 tokenProvider.prepareForPlayback()
@@ -215,6 +235,7 @@ class AppleDownloadService internal constructor(
                     audioFile = file,
                     serverUrl = serverUrl,
                     token = fileToken,
+                    signedRelativeUrl = signedRelativeUrl,
                 )
             }
         }
@@ -224,36 +245,25 @@ class AppleDownloadService internal constructor(
     }
 
     /**
-     * Download a single file using NSURLSession download task.
+     * Download a single file using an NSURLSession download task.
      * Suspends until the download completes or fails.
+     *
+     * @param signedRelativeUrl the signed, server-relative audio URL for this file, resolved ONCE
+     *   per book by [resolveSignedDownloadUrls]. It is relative because NSURLSession has no base
+     *   URL, so [serverUrl] is prepended here.
      */
     private suspend fun downloadFile(
         bookId: String,
         audioFile: AudioFileResponse,
         serverUrl: String,
         token: String,
+        signedRelativeUrl: String,
     ) = withContext(IODispatcher) {
         val audioFileId = audioFile.id
         val filename = audioFile.filename
 
         downloadDao.updateState(audioFileId, DownloadState.DOWNLOADING, Clock.System.now().toEpochMilliseconds())
 
-        // Resolve the signed download URL via PlaybackService.prepare — the same server contract the
-        // streaming path and Android use (GET /api/v1/audio/{bookId}/{fileId}?u=&exp=&sig=). The old
-        // hardcoded /api/v1/books/{bookId}/audio/{fileId} route no longer exists and 404s. The signed
-        // URL is RELATIVE, so prepend the server URL (NSURLSession has no base URL).
-        val signedRelativeUrl =
-            when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, prepareRepository)) {
-                is AppResult.Success -> {
-                    resolved.data
-                }
-
-                is AppResult.Failure -> {
-                    logger.error { "Failed to resolve download URL for $filename: ${resolved.error.message}" }
-                    downloadDao.updateError(audioFileId, "Failed to resolve URL: ${resolved.error.message}")
-                    return@withContext
-                }
-            }
         val url = serverUrl.trimEnd('/') + signedRelativeUrl
         val nsUrl =
             NSURL.URLWithString(url) ?: run {
@@ -368,28 +378,52 @@ class AppleDownloadService internal constructor(
                 return
             }
 
-        for (download in incomplete) {
-            if (download.state != DownloadState.QUEUED) {
-                downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
-            }
+        // ONE prepare() round-trip per book, not per row: a foreground with 3 partly-downloaded
+        // books used to fire one RPC (and one token refresh) for every incomplete file.
+        for ((incompleteBookId, rows) in incomplete.groupBy { it.bookId }) {
+            val signedUrls =
+                when (val resolved = resolveSignedDownloadUrls(incompleteBookId, prepareRepository)) {
+                    is AppResult.Success -> {
+                        resolved.data
+                    }
 
-            scope.launch {
-                tokenProvider.prepareForPlayback()
-                val fileToken = tokenProvider.getToken() ?: token
-                downloadFile(
-                    bookId = download.bookId,
-                    audioFile =
-                        AudioFileResponse(
-                            id = download.audioFileId,
-                            filename = download.filename,
-                            format = "",
-                            codec = "",
-                            duration = 0,
-                            size = download.totalBytes,
-                        ),
-                    serverUrl = serverUrl,
-                    token = fileToken,
-                )
+                    is AppResult.Failure -> {
+                        logger.warn { "Skipping resume for $incompleteBookId: ${resolved.error.message}" }
+                        continue
+                    }
+                }
+
+            for (download in rows) {
+                // No updateError here (unlike downloadBook): that bumps retryCount, and burning the
+                // retry budget on every foreground would strand a row the server may sign next time.
+                val signedRelativeUrl = signedUrls[download.audioFileId]
+                if (signedRelativeUrl == null) {
+                    logger.warn { "prepare() returned no URL for audioFile=${download.audioFileId}; skipping" }
+                    continue
+                }
+                if (download.state != DownloadState.QUEUED) {
+                    downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
+                }
+
+                scope.launch {
+                    tokenProvider.prepareForPlayback()
+                    val fileToken = tokenProvider.getToken() ?: token
+                    downloadFile(
+                        bookId = download.bookId,
+                        audioFile =
+                            AudioFileResponse(
+                                id = download.audioFileId,
+                                filename = download.filename,
+                                format = "",
+                                codec = "",
+                                duration = 0,
+                                size = download.totalBytes,
+                            ),
+                        serverUrl = serverUrl,
+                        token = fileToken,
+                        signedRelativeUrl = signedRelativeUrl,
+                    )
+                }
             }
         }
 
