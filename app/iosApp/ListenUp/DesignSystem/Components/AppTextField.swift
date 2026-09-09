@@ -31,6 +31,9 @@ struct AppTextField: View {
     var error: String?
     var axis: Axis = .horizontal
     var isLast: Bool = true
+    /// A plain field that can be emptied with one tap — for a form where a typed value arms an
+    /// instruction and emptying it disarms. The button carries the field's name for VoiceOver.
+    var clearable: Bool = false
     var submitLabel: SubmitLabel?
     var onSubmit: () -> Void = {}
 
@@ -57,9 +60,10 @@ struct AppTextField: View {
         }
     }
 
-    /// The trailing clear button appears only for a search field with text to clear.
-    nonisolated static func showsClearButton(kind: Kind, text: String) -> Bool {
-        kind == .search && !text.isEmpty
+    /// The trailing clear button appears for a search field, or a field marked `clearable`, with
+    /// text to clear.
+    nonisolated static func showsClearButton(kind: Kind, text: String, clearable: Bool = false) -> Bool {
+        (kind == .search || (kind == .text && clearable)) && !text.isEmpty
     }
 
     /// A stable a11y/UI-test identifier derived from the placeholder.
@@ -158,16 +162,15 @@ struct AppTextField: View {
             .buttonStyle(.plain)
             .accessibilityLabel(isSecure ? "Show password" : "Hide password")
             .accessibilityHint("Double tap to \(isSecure ? "reveal" : "hide") password")
-        case .search:
-            if Self.showsClearButton(kind: kind, text: text) {
+        case .search, .text:
+            if Self.showsClearButton(kind: kind, text: text, clearable: clearable) {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(format: String(localized: "bulk_edit.clear_field"), label ?? placeholder))
             }
-        case .text:
-            EmptyView()
         }
     }
 
