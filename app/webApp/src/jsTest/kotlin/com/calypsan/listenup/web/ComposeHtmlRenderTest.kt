@@ -6,6 +6,8 @@ import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
 import com.calypsan.listenup.web.features.admin.fixedBackups
+import com.calypsan.listenup.web.features.admin.fixedImportFlow
+import com.calypsan.listenup.web.features.admin.fixedImports
 import com.calypsan.listenup.web.features.admin.fixedCollections
 import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
@@ -98,6 +100,8 @@ class ComposeHtmlRenderTest :
                         openCollectionDetail = fixedCollectionDetail(),
                         openBackups = fixedBackups(),
                         openRestore = fixedRestore(),
+                        openImports = fixedImports(),
+                        openImportFlow = fixedImportFlow(),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),
                         openLibrary = fakeLibrary(),
@@ -145,6 +149,8 @@ class ComposeHtmlRenderTest :
                         openCollectionDetail = fixedCollectionDetail(),
                         openBackups = fixedBackups(),
                         openRestore = fixedRestore(),
+                        openImports = fixedImports(),
+                        openImportFlow = fixedImportFlow(),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),
                         openLibrary = fakeLibrary(),

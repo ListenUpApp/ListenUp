@@ -12,6 +12,8 @@ import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
 import com.calypsan.listenup.web.features.admin.fixedBackups
+import com.calypsan.listenup.web.features.admin.fixedImportFlow
+import com.calypsan.listenup.web.features.admin.fixedImports
 import com.calypsan.listenup.web.features.admin.fixedCollections
 import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
@@ -21,6 +23,7 @@ import com.calypsan.listenup.web.features.admin.node
 import com.calypsan.listenup.web.features.admin.collection
 import com.calypsan.listenup.web.features.admin.readyCategories
 import com.calypsan.listenup.web.features.admin.readyBackups
+import com.calypsan.listenup.web.features.admin.readyImports
 import com.calypsan.listenup.web.features.admin.readyCollections
 import com.calypsan.listenup.web.features.admin.readyDetail
 import com.calypsan.listenup.web.features.admin.readyInbox
@@ -330,6 +333,62 @@ class AccountRoutesTest :
             try {
                 host.querySelector(".rst").shouldNotBeNull()
                 host.querySelector(".bkp-list") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/imports renders the list of past runs") {
+            val (host, router) =
+                mountAt("/admin/imports", openImports = fixedImports(readyImports()))
+
+            try {
+                host.querySelector(".imp-row").shouldNotBeNull()
+                host.querySelector(".iflow") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ `/admin/imports/new` is the flow, not an import with the id "new". The third segment
+        // is a literal here, unlike the collections and backups families beside it.
+        test("/admin/imports/new renders the flow, not the list") {
+            val (host, router) = mountAt("/admin/imports/new")
+
+            try {
+                host.querySelector(".iflow").shouldNotBeNull()
+                host.querySelector(".imp-list") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("New import reaches the flow from the list") {
+            val (host, router) =
+                mountAt("/admin/imports", openImports = fixedImports(readyImports()))
+
+            try {
+                (host.querySelector(".imp-new") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/admin/imports/new"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Admin offers a way to the imports") {
+            val (host, router) = mountAt("/admin")
+
+            try {
+                host
+                    .querySelectorAll(".adm-link")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Imports" }
+                    .click()
+
+                window.location.pathname shouldBe "/admin/imports"
             } finally {
                 router.dispose()
             }

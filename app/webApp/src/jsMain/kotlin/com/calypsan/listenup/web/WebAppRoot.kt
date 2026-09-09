@@ -85,6 +85,10 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.web.BrowserFileSource
 import com.calypsan.listenup.web.BufferingSink
 import com.calypsan.listenup.web.features.admin.BackupsPage
+import com.calypsan.listenup.web.features.admin.ImportFlowPage
+import com.calypsan.listenup.web.features.admin.ImportsPage
+import com.calypsan.listenup.web.features.admin.OpenImportFlow
+import com.calypsan.listenup.web.features.admin.OpenImports
 import com.calypsan.listenup.web.features.admin.CategoriesPage
 import com.calypsan.listenup.web.features.admin.OpenBackups
 import com.calypsan.listenup.web.features.admin.OpenRestore
@@ -170,6 +174,8 @@ fun WebAppRoot(
     openCollectionDetail: OpenCollectionDetail,
     openBackups: OpenBackups,
     openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -268,6 +274,8 @@ fun WebAppRoot(
             openCollectionDetail = openCollectionDetail,
             openBackups = openBackups,
             openRestore = openRestore,
+            openImports = openImports,
+            openImportFlow = openImportFlow,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -353,6 +361,8 @@ private fun RouteContent(
     openCollectionDetail: OpenCollectionDetail,
     openBackups: OpenBackups,
     openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -470,6 +480,8 @@ private fun RouteContent(
             openCollectionDetail = openCollectionDetail,
             openBackups = openBackups,
             openRestore = openRestore,
+            openImports = openImports,
+            openImportFlow = openImportFlow,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -1188,6 +1200,64 @@ private fun EditProfileRoute(
 }
 
 /**
+ * `/admin/imports` — what has been brought over before.
+ */
+@Composable
+private fun ImportsRoute(
+    router: Router,
+    openImports: OpenImports,
+) {
+    val session = remember { openImports() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    ImportsPage(
+        state = session.state.collectAsState().value,
+        onDelete = { summary -> session.onDelete(summary.id) },
+        onClearError = session.onClearError,
+        onRetry = session.onRetry,
+        onNewImport = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY, NEW_KEY))) },
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
+ * `/admin/imports/new` — one import run.
+ *
+ * The picked file is read here and wrapped as the shared `FileSource`, the same bridge the backup
+ * upload uses. A read failure is a browser-local dead end: it logs and drops the pick, and the page
+ * stays on Idle so the reader can simply pick again.
+ */
+@Composable
+private fun ImportFlowRoute(
+    router: Router,
+    openImportFlow: OpenImportFlow,
+) {
+    val session = remember { openImportFlow() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val scope = rememberCoroutineScope()
+
+    ImportFlowPage(
+        state = session.state.collectAsState().value,
+        onStart = { file ->
+            scope.launch {
+                val bytes = file.readByteArray() ?: return@launch
+                session.onStart(BrowserFileSource(file, bytes))
+            }
+        },
+        onMapUser = { match, userId -> session.onMapUser(match.absUserId, userId) },
+        onSkipUser = { match -> session.onSkipUser(match.absUserId) },
+        onOpenBookSearch = session.onOpenBookSearch,
+        onCloseBookSearch = session.onCloseBookSearch,
+        onBookSearchQuery = session.onBookSearchQuery,
+        onSelectBook = session.onSelectBook,
+        onSkipBook = session.onSkipBook,
+        onApply = session.onApply,
+        onReset = session.onReset,
+        onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
+    )
+}
+
+/**
  * `/admin/backups` — take one, take one away, take one off the server, or put one back.
  *
  * ⛔ **This route is where the browser's two file seams live**, and neither belongs in the page.
@@ -1251,7 +1321,7 @@ private fun BackupsRoute(
 
 /** What a downloaded archive is called on the reader's machine. */
 private fun backupFilename(createdAt: Timestamp): String =
-    "listenup-" + formatWhen(createdAt).replace(Regex("[^0-9A-Za-z]+"), "-").trim('-') + ".listenup.zip"
+    "listenup-" + formatWhen(createdAt.epochMillis).replace(Regex("[^0-9A-Za-z]+"), "-").trim('-') + ".listenup.zip"
 
 /**
  * `/admin/backups/{id}` — the restore confirmation and the narration.
@@ -1639,6 +1709,9 @@ private val PRIMARY_NAV =
 
 private const val ADMIN_KEY = "admin"
 
+/** The path segment that opens the Audiobookshelf imports — `/admin/imports`. */
+private const val IMPORTS_KEY = "imports"
+
 /** The path segment that opens the archives — `/admin/backups`. */
 private const val BACKUPS_KEY = "backups"
 
@@ -1873,6 +1946,7 @@ private fun AdminRoute(
     onOpenCategories: () -> Unit,
     onOpenCollections: () -> Unit,
     onOpenBackups: () -> Unit,
+    onOpenImports: () -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1896,6 +1970,7 @@ private fun AdminRoute(
         onOpenCategories = onOpenCategories,
         onOpenCollections = onOpenCollections,
         onOpenBackups = onOpenBackups,
+        onOpenImports = onOpenImports,
     )
 }
 
@@ -1934,6 +2009,8 @@ private fun AdminRouteContent(
     openCollectionDetail: OpenCollectionDetail,
     openBackups: OpenBackups,
     openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
 ) {
     when (sub) {
         LIBRARY_KEY -> {
@@ -1970,6 +2047,16 @@ private fun AdminRouteContent(
             }
         }
 
+        // `/admin/imports/new` is the flow; the bare path is the list of past runs. The third
+        // segment carries a literal here rather than an id, which is why it reads as a comparison.
+        IMPORTS_KEY -> {
+            if (id == NEW_KEY) {
+                ImportFlowRoute(router = router, openImportFlow = openImportFlow)
+            } else {
+                ImportsRoute(router = router, openImports = openImports)
+            }
+        }
+
         // An `/admin/*` path nobody routed. The shell's own not-found, not Admin — the same
         // resolution the `size <= 1` guard reaches for `/admin/nonsense`, stated here as the
         // absence of a branch rather than as a length test.
@@ -1997,6 +2084,8 @@ private fun AccountRouteContent(
     openCollectionDetail: OpenCollectionDetail,
     openBackups: OpenBackups,
     openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
 ) {
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.size > 1 -> {
@@ -2012,6 +2101,8 @@ private fun AccountRouteContent(
                 openCollectionDetail = openCollectionDetail,
                 openBackups = openBackups,
                 openRestore = openRestore,
+                openImports = openImports,
+                openImportFlow = openImportFlow,
             )
         }
 
@@ -2034,6 +2125,7 @@ private fun AccountRouteContent(
                 onOpenCategories = { router.navigate(Route(listOf(ADMIN_KEY, CATEGORIES_KEY))) },
                 onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
                 onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
+                onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
             )
         }
 

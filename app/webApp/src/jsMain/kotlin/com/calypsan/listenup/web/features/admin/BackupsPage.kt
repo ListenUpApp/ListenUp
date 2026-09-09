@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BackupInfo
-import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
 import com.calypsan.listenup.web.design.CheckboxField
@@ -172,7 +171,7 @@ private fun ReadyContent(
         open = pending != null,
         title = "Delete this backup?",
         body =
-            "The archive from ${pending?.createdAt?.let(::formatWhen) ?: "this date"} will be removed " +
+            "The archive from ${pending?.createdAt?.epochMillis?.let(::formatWhen) ?: "this date"} will be removed " +
                 "from the server. Your library is untouched — this deletes the copy, not the books.",
         confirmLabel = "Delete",
         onConfirm = { pending?.let(onDelete) },
@@ -228,13 +227,13 @@ private fun BackupRow(
 ) {
     Div(attrs = { classes("bkp-row") }) {
         Div(attrs = { classes("bkp-row-t") }) {
-            Span(attrs = { classes("bkp-when") }) { Text(formatWhen(backup.createdAt)) }
+            Span(attrs = { classes("bkp-when") }) { Text(formatWhen(backup.createdAt.epochMillis)) }
             Span(attrs = { classes("bkp-size") }) { Text(backup.sizeFormatted) }
         }
         Button(attrs = {
             classes("iconbtn", "bkp-act")
             attr("type", VALUE_BUTTON)
-            attr("aria-label", "Download the backup from ${formatWhen(backup.createdAt)}")
+            attr("aria-label", "Download the backup from ${formatWhen(backup.createdAt.epochMillis)}")
             attr("title", "Download")
             onClick { onDownload() }
         }) { Icon(WebIcon.Download, size = SMALL_ICON) }
@@ -246,7 +245,7 @@ private fun BackupRow(
         Button(attrs = {
             classes("iconbtn", "bkp-act")
             attr("type", VALUE_BUTTON)
-            attr("aria-label", "Delete the backup from ${formatWhen(backup.createdAt)}")
+            attr("aria-label", "Delete the backup from ${formatWhen(backup.createdAt.epochMillis)}")
             attr("title", "Delete")
             disabledWhen(isDeleting)
             onClick { onAskDelete() }
@@ -280,7 +279,7 @@ private fun BackupNotice(
  * Backups are routinely taken several times a day, so the date alone cannot tell two apart — which
  * is the whole job of this label on a row you are about to delete or restore from.
  */
-internal fun formatWhen(timestamp: Timestamp): String = localeDateTime(timestamp.epochMillis.toDouble())
+internal fun formatWhen(epochMillis: Long): String = localeDateTime(epochMillis.toDouble())
 
 /** `Date#toLocaleString`, which Kotlin/JS's own `Date` facade does not expose. */
 private fun localeDateTime(epochMillis: Double): String =

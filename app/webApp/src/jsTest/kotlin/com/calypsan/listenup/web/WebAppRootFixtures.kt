@@ -7,6 +7,8 @@ import com.calypsan.listenup.web.features.admin.OpenAdminInbox
 import com.calypsan.listenup.web.features.admin.OpenCategories
 import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
 import com.calypsan.listenup.web.features.admin.OpenBackups
+import com.calypsan.listenup.web.features.admin.OpenImportFlow
+import com.calypsan.listenup.web.features.admin.OpenImports
 import com.calypsan.listenup.web.features.admin.OpenCollections
 import com.calypsan.listenup.web.features.admin.OpenRestore
 import com.calypsan.listenup.web.features.admin.OpenServerSettings
@@ -14,6 +16,8 @@ import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
 import com.calypsan.listenup.web.features.admin.fixedBackups
+import com.calypsan.listenup.web.features.admin.fixedImportFlow
+import com.calypsan.listenup.web.features.admin.fixedImports
 import com.calypsan.listenup.web.features.admin.fixedCollections
 import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
@@ -126,6 +130,8 @@ internal fun mountAt(
     openCollectionDetail: OpenCollectionDetail = fixedCollectionDetail(),
     openBackups: OpenBackups = fixedBackups(),
     openRestore: OpenRestore = fixedRestore(),
+    openImports: OpenImports = fixedImports(),
+    openImportFlow: OpenImportFlow = fixedImportFlow(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -158,6 +164,8 @@ internal fun mountAt(
                 openCollectionDetail = openCollectionDetail,
                 openBackups = openBackups,
                 openRestore = openRestore,
+                openImports = openImports,
+                openImportFlow = openImportFlow,
                 openShelfDetail = fixedShelfDetail(),
                 openShelfEdit = fixedShelfEdit(),
                 openLibrary = openLibrary,
