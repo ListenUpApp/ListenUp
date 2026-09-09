@@ -87,6 +87,7 @@ class Mp4ParserAdversarialTest :
             sttsPayload: ByteArray,
             stszPayload: ByteArray,
             stcoPayload: ByteArray,
+            chunkOffsetType: String = "stco",
         ): ByteArray {
             // mvhd v0: version+flags(4) + creation(4) + modification(4) + timescale(4) + duration(4).
             val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(90_000))
@@ -102,7 +103,7 @@ class Mp4ParserAdversarialTest :
             val mdhd = atom("mdhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000))
             val stts = atom("stts", sttsPayload)
             val stsz = atom("stsz", stszPayload)
-            val stco = atom("stco", stcoPayload)
+            val stco = atom(chunkOffsetType, stcoPayload)
             val stbl = atom("stbl", stts + stsz + stco)
             val minf = atom("minf", stbl)
             val mdia = atom("mdia", mdhd + minf)
@@ -334,6 +335,29 @@ class Mp4ParserAdversarialTest :
                     sttsPayload = benignSttsPayload(),
                     stszPayload = benignStszPayload(),
                     stcoPayload = maliciousStcoPayload(),
+                )
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            when (result) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
+            }
+        }
+
+        test("chapter text-track co64 count near Int.MAX_VALUE returns in bounded memory") {
+            // `parseChunkOffsets` serves BOTH chunk-offset box types from one cap, but the divisor
+            // differs: a `co64` entry is 8 bytes wide where an `stco` entry is 4. That second arm
+            // of the formula has no other coverage, so an entry count declared far beyond what the
+            // box holds is fed to the 64-bit variant specifically. Same proof shape as the `stco`
+            // case above: green means the count was reconciled with the bytes present before the
+            // `LongArray` was sized.
+            val bytes =
+                buildChapterTrackMoov(
+                    sttsPayload = benignSttsPayload(),
+                    stszPayload = benignStszPayload(),
+                    stcoPayload = maliciousStcoPayload(),
+                    chunkOffsetType = "co64",
                 )
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
