@@ -24,5 +24,8 @@
     "typescript": "^5.9.3",
     "vite": "^7.1.7"
   },
-  "packageManager": "pnpm@11.13.1"
+  "packageManager": "pnpm@11.13.1",
+  "engines": {
+    "node": ">=24"
+  }
 }

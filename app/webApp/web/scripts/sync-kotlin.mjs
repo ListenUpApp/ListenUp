@@ -8,8 +8,7 @@
 //
 // The worker lands at kotlin/sqlite-wasm-worker/worker.js specifically so that the specifier
 // Kotlin emits — new URL("sqlite-wasm-worker/worker.js", import.meta.url) — resolves relative
-// to the Kotlin module that emits it. That is what lets the SAME Kotlin source drive both the
-// webpack/karma lane and this one while the migration is in flight.
+// to the Kotlin module that emits it, with no bundler configuration on either side.
 
 import { cp, rm, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'

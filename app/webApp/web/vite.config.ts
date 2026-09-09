@@ -8,9 +8,8 @@ import { resolve } from 'node:path'
 // load the synced modules by path.
 
 // OPFS needs SharedArrayBuffer, which the browser exposes only under cross-origin isolation,
-// which requires these two headers. This replaces BOTH webpack.config.d/coop-coep.js and
-// karma.config.d/coop-coep.js — one place instead of two, and the same object feeds the dev
-// server, the preview server and the Vitest browser provider.
+// which requires these two headers. This is the single place that sets them: one object feeds
+// the dev server, the preview server and the Kotest page.
 //
 // Production hosting must send these too. When the built assets are served by Ktor, that
 // route needs the same pair or the browser store silently loses OPFS.
