@@ -76,13 +76,23 @@ struct BulkEditView: View {
                 .frame(minHeight: 220)
         } else {
             VStack(spacing: 22) {
+                BulkEditHero(
+                    covers: observer.selectionCovers,
+                    bookCount: observer.bookCount,
+                    selectedCount: observer.requestedCount
+                )
                 if let notice = BulkEditFormatting.notLoadedNotice(
                     bookCount: observer.bookCount,
                     requestedCount: observer.requestedCount
                 ) {
                     notLoadedNotice(notice)
                 }
-                fields(observer)
+                card(
+                    title: String(localized: "bulk_edit.card_publishing"),
+                    note: String(localized: "bulk_edit.card_publishing_note")
+                ) {
+                    fields(observer)
+                }
 
                 card(
                     title: String(localized: "bulk_edit.card_credits"),
@@ -122,14 +132,16 @@ struct BulkEditView: View {
     @ViewBuilder
     private func card(
         title: String,
-        note: String,
+        note: String?,
         @ViewBuilder content: () -> some View
     ) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title).font(.headline)
-            Text(note)
-                .font(.caption)
-                .foregroundStyle(Color.luLabel2)
+            if let note {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(Color.luLabel2)
+            }
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -147,58 +159,167 @@ struct BulkEditView: View {
     @ViewBuilder
     private func fields(_ observer: BulkEditObserver) -> some View {
         VStack(spacing: 14) {
-            AppTextField(
+            publishingField(
                 placeholder: observer.publisherPlaceholder,
                 text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
                 entry: .words,
-                label: String(localized: "bulk_edit.publisher")
+                label: String(localized: "bulk_edit.publisher"),
+                consequence: observer.consequences[.publisher]
             )
-            .fieldCard()
-
-            AppTextField(
+            publishingField(
                 placeholder: observer.yearPlaceholder,
                 text: Binding(get: { observer.year }, set: { observer.setYear($0) }),
                 entry: .number,
-                label: String(localized: "bulk_edit.year")
+                label: String(localized: "bulk_edit.year"),
+                consequence: observer.consequences[.year]
             )
-            .fieldCard()
-
-            AppTextField(
+            publishingField(
                 placeholder: observer.languagePlaceholder,
                 text: Binding(get: { observer.language }, set: { observer.setLanguage($0) }),
                 entry: .words,
-                label: String(localized: "bulk_edit.language")
+                label: String(localized: "bulk_edit.language"),
+                consequence: observer.consequences[.language]
             )
-            .fieldCard()
+        }
+    }
+
+    /// One publishing field and, under it, the sentence saying what Apply would do to it. Clearable,
+    /// because a typed value arms an instruction and emptying the field is how it is disarmed.
+    private func publishingField(
+        placeholder: String,
+        text: Binding<String>,
+        entry: TextEntry,
+        label: String,
+        consequence: FieldConsequence?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            AppTextField(placeholder: placeholder, text: text, entry: entry, label: label, clearable: true)
+                .fieldCard()
+            BulkEditConsequenceLine(consequence: consequence)
         }
     }
 
     /// What applying would actually do, per instruction.
     ///
     /// Each row is named as well as counted: three bare counts are honest and unusable, because the
-    /// one instruction the user wants to reconsider is not identifiable among them. An untouched
-    /// form says so in words — an empty panel would read as a broken preview.
+    /// one instruction the user wants to reconsider is not identifiable among them. The bar is the
+    /// count again in a form nobody has to count. An untouched form says so in words — an empty
+    /// panel would read as a broken preview.
     @ViewBuilder
     private func previewPanel(_ observer: BulkEditObserver) -> some View {
-        if observer.preview.isEmpty {
-            Text(String(localized: "bulk_edit.nothing_to_do"))
-                .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
+        card(title: String(localized: "bulk_edit.card_preview"), note: nil) {
+            if observer.preview.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "bulk_edit.nothing_to_do"))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.primary)
+                    Text(String(localized: "bulk_edit.nothing_to_do_hint"))
+                        .font(.footnote)
+                        .foregroundStyle(Color.luLabel2)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            VStack(spacing: 8) {
-                ForEach(observer.preview) { line in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(line.label)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(line.detail)
+            } else {
+                VStack(spacing: 14) {
+                    ForEach(observer.preview) { line in
+                        BulkEditPreviewRow(line: line)
                     }
-                    .font(.subheadline)
-                    .foregroundStyle(line.changesNothing ? Color.luLabel2 : Color.primary)
                 }
             }
-            .padding(14)
-            .fieldCard()
+        }
+    }
+}
+
+/// One instruction in the preview: what it changes, how much of the selection that is, and what it
+/// leaves behind. A row that changes nothing is dimmed rather than hidden.
+private struct BulkEditPreviewRow: View {
+    let line: BulkEditPreviewLine
+
+    var body: some View {
+        let accent = line.changesNothing ? Color.luLabel2 : Color.luTint
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: line.symbol)
+                .font(.body)
+                .foregroundStyle(accent)
+                .frame(width: 28, height: 28)
+                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(line.label)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(line.changesNothing ? Color.luLabel2 : Color.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(line.detail)
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(accent)
+                }
+                // A proportion of a whole, not a job in flight — no animation, no stop mark.
+                ProgressView(value: line.fraction)
+                    .progressViewStyle(.linear)
+                    .tint(accent)
+                if let note = line.note {
+                    Text(note)
+                        .font(.footnote)
+                        .foregroundStyle(Color.luLabel2)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The sentence under a field that says what Apply would do to it. Loud only when something will
+/// actually be written; nothing is rendered at all when the field has no consequence to state.
+struct BulkEditConsequenceLine: View {
+    let consequence: FieldConsequence?
+
+    var body: some View {
+        if let consequence {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: consequence.symbol)
+                    .font(.caption2.weight(.semibold))
+                Text(consequence.text)
+                    .font(.caption.weight(consequence.writes ? .bold : .medium))
+            }
+            .foregroundStyle(consequence.writes ? Color.luTint : Color.luLabel2)
+            .padding(.horizontal, 4)
+            .padding(.top, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+/// The selection's covers, overlapped like a hand of cards, with the remainder as a chip and where
+/// the selection came from above. The covers are a sample; the chip names the rest.
+private struct BulkEditHero: View {
+    let covers: [CoverArt]
+    let bookCount: Int
+    let selectedCount: Int
+
+    private let shown = 4
+
+    var body: some View {
+        if !covers.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(BulkEditFormatting.heroEyebrow(selectedCount: selectedCount))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.luLabel2)
+                    .textCase(.uppercase)
+                HStack(spacing: 12) {
+                    CoverStack(covers: covers, size: 64, peek: 16, maxCovers: shown)
+                    if let more = BulkEditFormatting.heroMore(bookCount: bookCount, shown: min(covers.count, shown)) {
+                        Text(more)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.luLabel2)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.luFill, in: Capsule())
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
         }
     }
 }

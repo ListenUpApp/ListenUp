@@ -16,6 +16,9 @@ struct AppTextFieldTests {
         #expect(AppTextField.showsClearButton(kind: .search, text: "") == false)
         #expect(AppTextField.showsClearButton(kind: .text, text: "dune") == false)
         #expect(AppTextField.showsClearButton(kind: .secure, text: "dune") == false)
+        #expect(AppTextField.showsClearButton(kind: .text, text: "dune", clearable: true) == true)
+        #expect(AppTextField.showsClearButton(kind: .text, text: "", clearable: true) == false)
+        #expect(AppTextField.showsClearButton(kind: .secure, text: "dune", clearable: true) == false)
     }
     @Test func accessibilityIdentifierFromPlaceholder() {
         #expect(AppTextField.accessibilityIdentifier(placeholder: "Email Address") == "email_address_field")

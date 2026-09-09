@@ -203,3 +203,78 @@ struct BulkEditObserverTests {
         }
     }
 }
+
+/// The consequence line is the sentence under every field that says what Apply would do to it. Its
+/// three states mirror the Compose editor decision for decision, so they are pinned the same way.
+@Suite("BulkEditConsequence")
+struct BulkEditConsequenceTests {
+    @Test func anUntouchedFieldNamesTheValueTheBooksAgreeOn() {
+        let one = BulkEditFormatting.consequence(armedAffectedCount: nil, bookCount: 1, sharedValue: "Macmillan")
+        #expect(one.text == String(format: String(localized: "bulk_edit.consequence_agreed_one"), "Macmillan"))
+        let many = BulkEditFormatting.consequence(armedAffectedCount: nil, bookCount: 4, sharedValue: "Macmillan")
+        #expect(many.text == String(format: String(localized: "bulk_edit.consequence_agreed_plural"), 4, "Macmillan"))
+        #expect(!many.writes)
+        #expect(many.symbol == "lock.open")
+    }
+
+    @Test func anUntouchedFieldTheBooksDisagreeOnSaysSo() {
+        let one = BulkEditFormatting.consequence(armedAffectedCount: nil, bookCount: 1, sharedValue: nil)
+        #expect(one.text == String(localized: "bulk_edit.consequence_differs_one"))
+        let many = BulkEditFormatting.consequence(armedAffectedCount: nil, bookCount: 7, sharedValue: nil)
+        #expect(many.text == String(format: String(localized: "bulk_edit.consequence_differs_plural"), 7))
+        #expect(!many.writes)
+    }
+
+    @Test func anArmedFieldCountsTheBooksItWouldWrite() {
+        let some = BulkEditFormatting.consequence(armedAffectedCount: 12, bookCount: 40, sharedValue: nil)
+        #expect(some.text == String(format: String(localized: "bulk_edit.consequence_written_plural"), 12, 40))
+        #expect(some.writes)
+        #expect(some.symbol == "arrow.right")
+        let one = BulkEditFormatting.consequence(armedAffectedCount: 1, bookCount: 40, sharedValue: nil)
+        #expect(one.text == String(format: String(localized: "bulk_edit.consequence_written_one"), 40))
+        let single = BulkEditFormatting.consequence(armedAffectedCount: 1, bookCount: 1, sharedValue: "x")
+        #expect(single.text == String(localized: "bulk_edit.consequence_written_single_book"))
+    }
+
+    @Test func aTypedValueEveryBookAlreadyHoldsWritesNothingAndSaysSo() {
+        let none = BulkEditFormatting.consequence(armedAffectedCount: 0, bookCount: 40, sharedValue: "Macmillan")
+        #expect(none.text == String(localized: "bulk_edit.consequence_written_none"))
+        #expect(!none.writes)
+        #expect(none.symbol == "minus")
+    }
+
+    @Test func theLeftAloneNoteNamesTheRestOnlyWhenThereIsARestAndAValue() {
+        #expect(BulkEditFormatting.leftAloneNote(value: "2019", affectedCount: 40, bookCount: 40) == nil)
+        #expect(BulkEditFormatting.leftAloneNote(value: nil, affectedCount: 3, bookCount: 40) == nil)
+        #expect(
+            BulkEditFormatting.leftAloneNote(value: "2019", affectedCount: 39, bookCount: 40)
+                == String(format: String(localized: "bulk_edit.preview_note_one"), "2019")
+        )
+        #expect(
+            BulkEditFormatting.leftAloneNote(value: "2019", affectedCount: 12, bookCount: 40)
+                == String(format: String(localized: "bulk_edit.preview_note_plural"), 28, "2019")
+        )
+    }
+
+    @Test func thePreviewLineCarriesItsProportionAndNote() {
+        let line = BulkEditMapping.previewLine(field: .year, affectedCount: 10, bookCount: 40, value: "2019")
+        #expect(line.fraction == 0.25)
+        #expect(line.note != nil)
+        #expect(line.symbol == BulkEditField.year.symbol)
+        let whole = BulkEditMapping.previewLine(field: .genres, affectedCount: 40, bookCount: 40)
+        #expect(whole.fraction == 1)
+        #expect(whole.note == nil)
+    }
+
+    @Test func theHeroNamesTheOverflowOnlyWhenThereIsOne() {
+        #expect(BulkEditFormatting.heroMore(bookCount: 4, shown: 4) == nil)
+        #expect(
+            BulkEditFormatting.heroMore(bookCount: 40, shown: 4)
+                == String(format: String(localized: "bulk_edit.hero_more"), 36)
+        )
+        #expect(
+            BulkEditFormatting.heroEyebrow(selectedCount: 40)
+                == String(format: String(localized: "bulk_edit.hero_eyebrow"), 40)
+        )
+    }
+}

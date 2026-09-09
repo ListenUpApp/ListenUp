@@ -24,6 +24,7 @@ struct BulkEditCredits: View {
                     onCreate: { observer.createSeries(named: $0) }
                 )
                 RelationChipRow(chips: observer.seriesChips) { _ in observer.removeSeries() }
+                BulkEditConsequenceLine(consequence: observer.consequences[.series])
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -40,6 +41,7 @@ struct BulkEditCredits: View {
                     onCreate: { observer.createContributor(named: $0) }
                 )
                 RelationChipRow(chips: observer.contributorChips) { observer.removeContributor($0) }
+                BulkEditConsequenceLine(consequence: observer.consequences[.contributors])
             }
         }
     }
@@ -59,6 +61,7 @@ struct BulkEditClassification: View {
             section(
                 LocalRelationField(
                     label: String(localized: "bulk_edit.genres"),
+                    consequence: observer.consequences[.genres],
                     placeholder: String(localized: "bulk_edit.search_genres"),
                     query: observer.genreQuery,
                     setQuery: { observer.genreQuery = $0 },
@@ -71,6 +74,7 @@ struct BulkEditClassification: View {
             section(
                 LocalRelationField(
                     label: String(localized: "bulk_edit.tags"),
+                    consequence: observer.consequences[.tags],
                     placeholder: String(localized: "bulk_edit.search_tags"),
                     query: observer.tagQuery,
                     setQuery: { observer.tagQuery = $0 },
@@ -83,6 +87,7 @@ struct BulkEditClassification: View {
             section(
                 LocalRelationField(
                     label: String(localized: "bulk_edit.moods"),
+                    consequence: observer.consequences[.moods],
                     placeholder: String(localized: "bulk_edit.search_moods"),
                     query: observer.moodQuery,
                     setQuery: { observer.moodQuery = $0 },
@@ -113,6 +118,7 @@ struct BulkEditClassification: View {
                 onCreate: nil
             )
             RelationChipRow(chips: field.chips, onRemove: field.onRemove)
+            BulkEditConsequenceLine(consequence: field.consequence)
         }
     }
 }
@@ -121,6 +127,7 @@ struct BulkEditClassification: View {
 /// thing rather than three long argument lists.
 private struct LocalRelationField {
     let label: String
+    let consequence: FieldConsequence?
     let placeholder: String
     let query: String
     let setQuery: (String) -> Void
