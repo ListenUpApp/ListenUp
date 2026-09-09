@@ -17,29 +17,29 @@ import io.kotest.matchers.shouldBe
 class RelativeOrMonthYearTest :
     FunSpec({
 
-        val nowMs = 1780315200000L // 2026-06-01T12:00:00 UTC
+        val nowMs = 1_780_315_200_000L // 2026-06-01T12:00:00 UTC
 
         test("same instant returns today") {
             relativeOrMonthYear(finishedAtMs = nowMs, nowMs = nowMs) shouldBe "today"
         }
 
         test("~26 hours ago returns yesterday") {
-            val yesterdayMs = 1780221600000L // 2026-05-31T10:00:00 UTC, 26h before nowMs
+            val yesterdayMs = 1_780_221_600_000L // 2026-05-31T10:00:00 UTC, 26h before nowMs
             relativeOrMonthYear(finishedAtMs = yesterdayMs, nowMs = nowMs) shouldBe "yesterday"
         }
 
         test("7 days ago returns 1 week ago") {
-            val oneWeekMs = 1779710400000L // 2026-05-25T12:00:00 UTC, exactly 7 days before nowMs
+            val oneWeekMs = 1_779_710_400_000L // 2026-05-25T12:00:00 UTC, exactly 7 days before nowMs
             relativeOrMonthYear(finishedAtMs = oneWeekMs, nowMs = nowMs) shouldBe "1 week ago"
         }
 
         test("21 days ago returns 3 weeks ago") {
-            val threeWeeksMs = 1778500800000L // 2026-05-11T12:00:00 UTC, exactly 21 days before nowMs
+            val threeWeeksMs = 1_778_500_800_000L // 2026-05-11T12:00:00 UTC, exactly 21 days before nowMs
             relativeOrMonthYear(finishedAtMs = threeWeeksMs, nowMs = nowMs) shouldBe "3 weeks ago"
         }
 
         test("60 days ago returns Month Year") {
-            val sixtyDaysMs = 1775131200000L // 2026-04-02T12:00:00 UTC, 60 days before nowMs
+            val sixtyDaysMs = 1_775_131_200_000L // 2026-04-02T12:00:00 UTC, 60 days before nowMs
             relativeOrMonthYear(finishedAtMs = sixtyDaysMs, nowMs = nowMs) shouldBe "April 2026"
         }
     })

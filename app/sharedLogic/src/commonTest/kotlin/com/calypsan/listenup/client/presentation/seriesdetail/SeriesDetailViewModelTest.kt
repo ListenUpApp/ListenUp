@@ -90,7 +90,7 @@ class SeriesDetailViewModelTest :
                         .SeriesId(id),
                 name = name,
                 description = description,
-                createdAt = Timestamp(1704067200000L),
+                createdAt = Timestamp(1_704_067_200_000L),
             )
 
         fun createBook(
@@ -110,8 +110,8 @@ class SeriesDetailViewModelTest :
                 narrators = emptyList(),
                 duration = 3_600_000L,
                 coverPath = null,
-                addedAt = Timestamp(1704067200000L),
-                updatedAt = Timestamp(1704067200000L),
+                addedAt = Timestamp(1_704_067_200_000L),
+                updatedAt = Timestamp(1_704_067_200_000L),
                 series = listOf(BookSeries(seriesId = seriesId, seriesName = seriesName, sequence = seriesSequence)),
             )
 
@@ -270,7 +270,7 @@ class SeriesDetailViewModelTest :
 
                 val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
                 state.seriesName shouldBe "Empty Series"
-                (state.books.isEmpty()) shouldBe true
+                state.books.isEmpty() shouldBe true
             }
         }
 

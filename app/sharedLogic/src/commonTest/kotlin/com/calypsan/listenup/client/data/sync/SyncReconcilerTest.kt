@@ -81,7 +81,18 @@ class SyncReconcilerTest :
                         if (current == null || revision > current) cursors[domainName] = revision
                     }
 
-                    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+                    override suspend fun all(): List<SyncCursorEntity> =
+                        cursors.map {
+                            (
+                                domain,
+                                rev,
+                            ),
+                            ->
+                            SyncCursorEntity(
+                                domainName = domain,
+                                revision = rev,
+                            )
+                        }
 
                     override suspend fun deleteAll() {
                         cursors.clear()
@@ -309,6 +320,6 @@ private fun accessGatedHandler(
             accessibleIds: Set<String>,
             now: Long,
         ) {
-            prunedTo += (candidateIds intersect accessibleIds)
+            prunedTo += candidateIds intersect accessibleIds
         }
     }

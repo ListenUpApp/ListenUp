@@ -117,8 +117,38 @@ class MetadataLookupContractTest :
                 MetadataSearchResults(
                     hits =
                         listOf(
-                            MetadataBook("B001", "Book A", null, null, null, null, 600, null, emptyList(), emptyList(), emptyList(), emptyList(), coverUrl = null, coverUrlMaxSize = null),
-                            MetadataBook("B002", "Book B", "Sub B", null, "Pub B", "2020-01-01", 720, "en-US", emptyList(), emptyList(), emptyList(), emptyList(), coverUrl = "http://cover.jpg", coverUrlMaxSize = null),
+                            MetadataBook(
+                                "B001",
+                                "Book A",
+                                null,
+                                null,
+                                null,
+                                null,
+                                600,
+                                null,
+                                emptyList(),
+                                emptyList(),
+                                emptyList(),
+                                emptyList(),
+                                coverUrl = null,
+                                coverUrlMaxSize = null,
+                            ),
+                            MetadataBook(
+                                "B002",
+                                "Book B",
+                                "Sub B",
+                                null,
+                                "Pub B",
+                                "2020-01-01",
+                                720,
+                                "en-US",
+                                emptyList(),
+                                emptyList(),
+                                emptyList(),
+                                emptyList(),
+                                coverUrl = "http://cover.jpg",
+                                coverUrlMaxSize = null,
+                            ),
                         ),
                 )
             roundTrip<MetadataSearchResults>(results) shouldBe results

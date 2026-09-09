@@ -41,8 +41,8 @@ class ShelfUseCasesTest :
             ownerDisplayName = "Test User",
             bookCount = 0,
             totalDurationSeconds = 0,
-            createdAtMs = 1736208000000L,
-            updatedAtMs = 1736208000000L,
+            createdAtMs = 1_736_208_000_000L,
+            updatedAtMs = 1_736_208_000_000L,
         )
 
         // ========== CreateShelfUseCase Tests ==========

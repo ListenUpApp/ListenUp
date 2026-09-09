@@ -252,7 +252,10 @@ class AdminBackupViewModelTest :
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminBackupUiState.Ready>()
-                (ready.backups[0].sizeFormatted.contains("GB")).shouldBe(true)
+                ready.backups[0]
+                    .sizeFormatted
+                    .contains("GB")
+                    .shouldBe(true)
             }
         }
 
@@ -306,14 +309,16 @@ private class FakeBackupRepository(
     private val restoreResult: AppResult<RestoreResult> = AppResult.Failure(stubError),
     private val downloadResult: AppResult<Unit> = AppResult.Success(Unit),
 ) : BackupRepository {
-    private val listQueue = listResults.also { if (listResult != null) it.addFirst(listResult) }
+    private val queued = listResults.also { if (listResult != null) it.addFirst(listResult) }
 
     var createImagesArg: Boolean? = null
         private set
     var deletedId: BackupId? = null
         private set
 
-    override suspend fun uploadBackup(fileSource: com.calypsan.listenup.core.FileSource): AppResult<BackupSummary> = AppResult.Failure(stubError)
+    override suspend fun uploadBackup(
+        fileSource: com.calypsan.listenup.core.FileSource,
+    ): AppResult<BackupSummary> = AppResult.Failure(stubError)
 
     override suspend fun downloadBackup(
         id: BackupId,
@@ -325,7 +330,7 @@ private class FakeBackupRepository(
         return createResult
     }
 
-    override suspend fun listBackups(): AppResult<List<BackupSummary>> = if (listQueue.size > 1) listQueue.removeFirst() else listQueue.first()
+    override suspend fun listBackups(): AppResult<List<BackupSummary>> = if (queued.size > 1) queued.removeFirst() else queued.first()
 
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> {
         deletedId = id

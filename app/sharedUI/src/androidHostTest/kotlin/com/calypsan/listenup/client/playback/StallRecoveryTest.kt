@@ -73,6 +73,6 @@ class StallRecoveryTest :
             // Firing while a legitimate retry is still in flight would turn a recoverable blip
             // into a user-visible error, so the backstop must clear one full read timeout and the
             // retry/backoff window that follows it — not merely exceed the read timeout itself.
-            STUCK_BUFFERING_TIMEOUT_MS shouldBeGreaterThan (STREAM_READ_TIMEOUT_MS * 2)
+            STUCK_BUFFERING_TIMEOUT_MS shouldBeGreaterThan STREAM_READ_TIMEOUT_MS * 2
         }
     })

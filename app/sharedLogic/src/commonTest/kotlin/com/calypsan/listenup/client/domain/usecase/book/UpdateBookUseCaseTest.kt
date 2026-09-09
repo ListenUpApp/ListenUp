@@ -86,7 +86,14 @@ class UpdateBookUseCaseTest :
             everySuspend { fixture.moodRepository.addMoodToBook(any(), any()) } returns AppResult.Success(TestData.mood())
             everySuspend { fixture.moodRepository.removeMoodFromBook(any(), any()) } returns AppResult.Success(Unit)
             everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns AppResult.Success(Unit)
-            everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns AppResult.Success("https://example.com/cover.jpg")
+            everySuspend {
+                fixture.imageRepository.uploadBookCover(
+                    any(),
+                    any(),
+                    any(),
+                )
+            } returns
+                AppResult.Success("https://example.com/cover.jpg")
 
             return fixture
         }
@@ -768,7 +775,7 @@ class UpdateBookUseCaseTest :
 
                 // Then
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                (failure.message.contains("Update failed")) shouldBe true
+                failure.message.contains("Update failed") shouldBe true
             }
         }
 
@@ -814,7 +821,7 @@ class UpdateBookUseCaseTest :
 
                 // Then
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                (failure.message.contains("Contributor update failed")) shouldBe true
+                failure.message.contains("Contributor update failed") shouldBe true
             }
         }
 
@@ -834,7 +841,7 @@ class UpdateBookUseCaseTest :
 
                 // Then
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                (failure.message.contains("Series update failed")) shouldBe true
+                failure.message.contains("Series update failed") shouldBe true
             }
         }
 

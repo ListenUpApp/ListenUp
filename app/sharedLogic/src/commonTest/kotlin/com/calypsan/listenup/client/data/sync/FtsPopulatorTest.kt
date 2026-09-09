@@ -104,8 +104,8 @@ class FtsPopulatorTest :
                 totalDuration = 3_600_000L,
                 description = description,
                 publishYear = 2024,
-                createdAt = Timestamp(1704067200000L),
-                updatedAt = Timestamp(1704067200000L),
+                createdAt = Timestamp(1_704_067_200_000L),
+                updatedAt = Timestamp(1_704_067_200_000L),
             )
 
         fun createContributorEntity(
@@ -120,8 +120,8 @@ class FtsPopulatorTest :
                 name = name,
                 description = description,
                 imagePath = null,
-                createdAt = Timestamp(1704067200000L),
-                updatedAt = Timestamp(1704067200000L),
+                createdAt = Timestamp(1_704_067_200_000L),
+                updatedAt = Timestamp(1_704_067_200_000L),
             )
 
         fun createSeriesEntity(
@@ -135,8 +135,8 @@ class FtsPopulatorTest :
                         .SeriesId(id),
                 name = name,
                 description = description,
-                createdAt = Timestamp(1704067200000L),
-                updatedAt = Timestamp(1704067200000L),
+                createdAt = Timestamp(1_704_067_200_000L),
+                updatedAt = Timestamp(1_704_067_200_000L),
             )
 
         // ========== Rebuild All Tests ==========

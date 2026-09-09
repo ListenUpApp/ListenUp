@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
@@ -87,7 +88,7 @@ class BookReadersViewModelTest :
 
         test("upstream flow failure maps to Error(isRetryable = true)") {
             runTest {
-                val failingFlow: Flow<BookReaders> = flow { throw RuntimeException("room blew up") }
+                val failingFlow: Flow<BookReaders> = flow { throw SimulatedFailure("room blew up") }
                 val viewModel = BookReadersViewModel(fakeRepo(failingFlow), bookId = "b1")
 
                 viewModel.uiState.test {

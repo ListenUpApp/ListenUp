@@ -95,8 +95,8 @@ class AppStartupViewModelTest :
                 lastName = null,
                 isAdmin = isAdmin,
                 tagline = null,
-                createdAtMs = 1704067200000L,
-                updatedAtMs = 1704153600000L,
+                createdAtMs = 1_704_067_200_000L,
+                updatedAtMs = 1_704_153_600_000L,
             )
 
         // ========== Threshold Constant Tests ==========

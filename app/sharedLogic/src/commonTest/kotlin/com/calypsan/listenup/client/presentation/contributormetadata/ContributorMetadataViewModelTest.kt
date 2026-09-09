@@ -497,7 +497,8 @@ class ContributorMetadataViewModelTest :
         }
 
         test(
-            "apply racing against selectCandidate: stale apply outcome fires no event and does not overlay onto the newly selected candidate",
+            "apply racing against selectCandidate: stale apply outcome fires no event " +
+                "and does not overlay onto the newly selected candidate",
         ) {
             runTest {
                 val applyDeferred = CompletableDeferred<AppResult<Unit>>()

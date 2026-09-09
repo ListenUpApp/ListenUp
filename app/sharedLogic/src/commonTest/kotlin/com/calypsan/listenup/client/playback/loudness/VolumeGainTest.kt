@@ -37,8 +37,8 @@ class VolumeGainTest :
             // touched by the saturator at all.
             val g = VolumeGain.dbToLinear(12f)
             VolumeGain.applySample(0.1f, g) shouldBe (0.398f plusOrMinus 0.01f)
-            VolumeGain.applySample(0.1f, g) shouldBe (0.1f * g)
-            VolumeGain.applySample(-0.1f, g) shouldBe (-0.1f * g)
+            VolumeGain.applySample(0.1f, g) shouldBe 0.1f * g
+            VolumeGain.applySample(-0.1f, g) shouldBe -0.1f * g
         }
 
         test("applySample: above the knee it saturates smoothly instead of squaring off") {
@@ -90,7 +90,7 @@ class VolumeGainTest :
                 louder shouldBeGreaterThan quieter
             }
             // And it is a real increase, not a rounding artefact: +12 dB is audibly louder than off.
-            (levels.last() / levels.first()) shouldBeGreaterThan 2.0
+            levels.last() / levels.first() shouldBeGreaterThan 2.0
         }
 
         test("the curve never decreases, at any drive") {
@@ -129,7 +129,7 @@ class VolumeGainTest :
             // The new one leaves the great majority of it intact...
             saturated shouldBeLessThan 0.35
             // ...and is a large improvement, not a rounding difference.
-            (hardClamped / saturated) shouldBeGreaterThan 2.0
+            hardClamped / saturated shouldBeGreaterThan 2.0
         }
 
         test("boost range constants") {
