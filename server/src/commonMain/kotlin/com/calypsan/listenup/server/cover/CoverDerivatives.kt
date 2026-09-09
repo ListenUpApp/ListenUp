@@ -170,6 +170,10 @@ class CoverDerivatives(
      * Decodes [source] at the cheapest scale that still covers [width], resizes precisely, and
      * re-encodes. Runs on [Dispatchers.Default]: this is the only CPU-bound work the request path
      * does, and it must not sit on a thread that is meant to be serving other requests.
+     *
+     * Catches [Throwable], not [Exception]: a render that runs out of memory on a hostile image is
+     * an `Error`, and "declining is normal" has to hold for it too — one bad cover must serve its
+     * original bytes, not fail the request. Cancellation is re-thrown first, as everywhere.
      */
     private suspend fun render(
         source: ByteArray,
@@ -180,7 +184,7 @@ class CoverDerivatives(
                 decodeImage(source, width)?.resizedTo(width)?.let { encodeJpeg(it, QUALITY) }
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 log.warn(e) { "Cover derivative render failed at ${width}px — serving the original" }
                 null
             }

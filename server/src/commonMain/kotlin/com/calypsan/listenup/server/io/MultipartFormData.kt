@@ -16,6 +16,28 @@ internal class MultipartPartTooLargeException(
 ) : RuntimeException("Multipart file part exceeded the $limit-byte limit.")
 
 private const val DEFAULT_BUFFER_BYTES = 64 * 1024
+
+/**
+ * Largest single multipart header line. Real `Content-Disposition` / `Content-Type` lines are well
+ * under 1 KiB even with a long UTF-8 filename; 8 KiB matches the conventional HTTP header-line limit
+ * and is the point past which a line is not a header.
+ */
+private const val MAX_HEADER_LINE_BYTES = 8 * 1024
+
+/**
+ * Largest whole header block for one part. Bounds the *number* of lines as well as their length —
+ * [MultipartBodyReader.readHeaderBlock] loops until a blank line, so a body that never sends one
+ * would otherwise loop forever accumulating lines.
+ */
+private const val MAX_HEADER_BLOCK_BYTES = 16 * 1024
+
+/**
+ * Hard ceiling on the scan buffer. The header caps above mean the buffer never *needs* to grow past
+ * [DEFAULT_BUFFER_BYTES] — an unterminated line is refused at 8 KiB, and body scanning consumes as it
+ * goes — so this sits at four times the default and sixteen times the block cap: a backstop that a
+ * future change to the scanner would hit, never a limit a real request meets.
+ */
+private const val MAX_BUFFER_BYTES = 4 * DEFAULT_BUFFER_BYTES
 private val CRLF = byteArrayOf('\r'.code.toByte(), '\n'.code.toByte())
 
 /**
@@ -33,7 +55,8 @@ private val CRLF = byteArrayOf('\r'.code.toByte(), '\n'.code.toByte())
  * two reads is still detected.
  *
  * @param boundary the `boundary` parameter from the request's `Content-Type` header.
- * @throws MalformedMultipartException if the body is truncated or not valid multipart/form-data.
+ * @throws MalformedMultipartException if the body is truncated, not valid multipart/form-data, or
+ *   carries a part header line or block past the header caps.
  * @throws MultipartPartTooLargeException if the file part exceeds [formFieldLimit].
  */
 internal suspend fun streamFirstFilePart(
@@ -68,10 +91,17 @@ private fun isFilePartDisposition(headerLine: String): Boolean {
 
 private enum class BoundaryTrailer { More, End }
 
+/** One CRLF-terminated header line, and the bytes it occupied on the wire including the terminator. */
+private class HeaderLine(
+    val text: String,
+    val byteCount: Int,
+)
+
 /**
  * Buffered, holdback-aware reader over a [ByteReadChannel] for one multipart body. All positions are
  * indices into [buf]; [fill] compacts and refills from the channel, growing the buffer only if a
- * single delimiter cannot fit (so a pathological boundary never deadlocks the scan).
+ * single token cannot fit and never past [MAX_BUFFER_BYTES] — a boundary too long to fit under that
+ * ceiling is refused at construction rather than left to deadlock the scan.
  */
 private class MultipartBodyReader(
     private val channel: ByteReadChannel,
@@ -81,6 +111,13 @@ private class MultipartBodyReader(
     // Inter-part delimiter is CRLF + "--boundary"; the very first boundary has no leading CRLF.
     private val dashBoundary = "--$boundary".encodeToByteArray()
     private val delimiter = CRLF + dashBoundary
+
+    init {
+        // The buffer must always hold two delimiters plus a CRLF for the holdback scan to make
+        // progress. Now that it cannot grow without limit, a delimiter that would not fit under the
+        // ceiling could never be matched — the reader would stall — so it is refused here instead.
+        require(delimiter.size * 2 + 2 <= MAX_BUFFER_BYTES) { "Multipart boundary is too long to scan for." }
+    }
 
     private var buf = ByteArray(maxOf(capacity, delimiter.size * 2 + 2))
     private var pos = 0
@@ -121,13 +158,22 @@ private class MultipartBodyReader(
         return BoundaryTrailer.More
     }
 
-    /** Reads part headers up to (and consuming) the blank line that ends the header block. */
+    /**
+     * Reads part headers up to (and consuming) the blank line that ends the header block. The block
+     * as a whole is capped at [MAX_HEADER_BLOCK_BYTES]: a part that never sends the blank line cannot
+     * keep the reader collecting lines.
+     */
     suspend fun readHeaderBlock(): List<String> {
         val headers = mutableListOf<String>()
+        var blockBytes = 0
         while (true) {
             val line = readLine()
-            if (line.isEmpty()) return headers
-            headers += line
+            blockBytes += line.byteCount
+            if (blockBytes > MAX_HEADER_BLOCK_BYTES) {
+                throw MalformedMultipartException("Multipart header block exceeded $MAX_HEADER_BLOCK_BYTES bytes.")
+            }
+            if (line.text.isEmpty()) return headers
+            headers += line.text
         }
     }
 
@@ -170,13 +216,18 @@ private class MultipartBodyReader(
         return total
     }
 
-    private suspend fun readLine(): String {
+    private suspend fun readLine(): HeaderLine {
         while (true) {
             val idx = indexOf(CRLF, pos)
             if (idx >= 0) {
-                val line = buf.decodeToString(pos, idx)
+                val line = HeaderLine(buf.decodeToString(pos, idx), byteCount = idx - pos + CRLF.size)
                 pos = idx + CRLF.size
                 return line
+            }
+            // Everything from pos to limit is one still-unterminated line. Refuse it before fetching
+            // more — this is the check that keeps [fill] from ever needing to grow for a header.
+            if (limit - pos > MAX_HEADER_LINE_BYTES) {
+                throw MalformedMultipartException("Multipart header line exceeded $MAX_HEADER_LINE_BYTES bytes.")
             }
             if (!fill()) throw MalformedMultipartException("Multipart header line was not terminated.")
         }
@@ -208,14 +259,24 @@ private class MultipartBodyReader(
         }
     }
 
-    /** Compacts consumed bytes, then reads one more chunk. Returns false at end of channel. */
+    /**
+     * Compacts consumed bytes, then reads one more chunk. Returns false at end of channel. Grows the
+     * buffer only when it is entirely unconsumed, and never past [MAX_BUFFER_BYTES]: reaching that
+     * ceiling means the scanner is holding bytes it should have consumed or refused, so it fails
+     * loudly rather than allocating on.
+     */
     private suspend fun fill(): Boolean {
         if (pos > 0) {
             buf.copyInto(buf, 0, pos, limit)
             limit -= pos
             pos = 0
         }
-        if (limit == buf.size) buf = buf.copyOf(buf.size * 2)
+        if (limit == buf.size) {
+            if (buf.size >= MAX_BUFFER_BYTES) {
+                throw MalformedMultipartException("Multipart buffer exceeded $MAX_BUFFER_BYTES bytes.")
+            }
+            buf = buf.copyOf(minOf(buf.size * 2, MAX_BUFFER_BYTES))
+        }
         if (eof) return false
         val chunk = channel.readRemaining((buf.size - limit).toLong()).readByteArray()
         if (chunk.isEmpty()) {

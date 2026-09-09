@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.backup
 
 import com.calypsan.listenup.api.dto.backup.BackupEvent
+import com.calypsan.listenup.server.compression.MalformedDeflateException
+import com.calypsan.listenup.server.compression.zip.ZipEntryInfo
 import com.calypsan.listenup.server.compression.zip.ZipMethod
 import com.calypsan.listenup.server.compression.zip.ZipReader
 import com.calypsan.listenup.server.compression.zip.ZipWriter
@@ -23,6 +25,14 @@ import kotlinx.io.readByteArray
 import kotlin.time.Clock
 
 private const val CHUNK = 64 * 1024L
+
+/**
+ * Ceiling on the decompressed `manifest.json`. A backup manifest is a JSON index of a library —
+ * kilobytes for a small one, low megabytes for a very large one. The entry is read whole into
+ * memory on the *upload* path, before the archive is trusted, so it needs its own ceiling
+ * independent of the 5 GiB compressed cap on the upload itself.
+ */
+private const val MAX_MANIFEST_BYTES: Long = 64L * 1024 * 1024
 
 /**
  * Creates, opens, validates, and extracts `.listenup.zip` backup archives.
@@ -126,19 +136,49 @@ class BackupArchive(
 
     /**
      * Opens an archive and returns its manifest without verifying checksums.
-     * @throws CorruptArchiveException if `manifest.json` is absent or unparseable.
+     * @throws CorruptArchiveException if `manifest.json` is absent, unparseable, or larger than
+     *   [MAX_MANIFEST_BYTES].
      */
     fun open(archive: Path): BackupManifest =
         ZipReader(archive).use { zr ->
             val entry =
                 zr.entry(MANIFEST_ENTRY)
                     ?: throw CorruptArchiveException("$MANIFEST_ENTRY missing from $archive")
-            val bytes = zr.openEntry(entry).buffered().use { it.readByteArray() }
+            val bytes = readManifestWithinBudget(zr, entry, archive)
             runCatching { BackupManifest.fromJson(bytes.decodeToString()) }
                 .getOrElse { e ->
                     throw CorruptArchiveException("$MANIFEST_ENTRY unparseable in $archive: ${e.message}", e)
                 }
         }
+
+    /**
+     * Reads the manifest entry whole, within [MAX_MANIFEST_BYTES].
+     *
+     * The directory's declared sizes are a cheap early decline, never the bound — the archive wrote
+     * them about itself. The inflate budget is what holds when they lie. `compressedSize` counts
+     * too: a STORED entry streams exactly that many bytes whatever the directory says its
+     * uncompressed size is, and the reader has already pinned it to the file length.
+     */
+    private fun readManifestWithinBudget(
+        zr: ZipReader,
+        entry: ZipEntryInfo,
+        archive: Path,
+    ): ByteArray {
+        val declared = maxOf(entry.uncompressedSize, entry.compressedSize)
+        if (declared > MAX_MANIFEST_BYTES) {
+            throw CorruptArchiveException(
+                "$MANIFEST_ENTRY declares $declared bytes, over the $MAX_MANIFEST_BYTES-byte limit, in $archive",
+            )
+        }
+        return try {
+            zr.openEntry(entry, maxOutputBytes = MAX_MANIFEST_BYTES).buffered().use { it.readByteArray() }
+        } catch (e: MalformedDeflateException) {
+            throw CorruptArchiveException(
+                "$MANIFEST_ENTRY is corrupt or exceeded its limit in $archive: ${e.message}",
+                e,
+            )
+        }
+    }
 
     /**
      * Opens the archive and verifies the `listenup.db` checksum against the manifest.

@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.absimport.AbsSchema
 import com.calypsan.listenup.server.absimport.buildSyntheticAbsBackupZip
 import com.calypsan.listenup.server.absimport.zipOf
+import com.calypsan.listenup.server.compression.zip.withDeclaredUncompressedSize
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -124,6 +125,32 @@ class ImportRoutesTest :
                     val importsDir = homeDir.resolve("imports")
                     val leftover = importsDir.listImportSubdirs()
                     leftover shouldBe emptyList()
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("a zip whose directory declares an oversized database returns 422 and extracts nothing") {
+            val homeDir = Files.createTempDirectory("listenup-import-routes-oversize-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, _) = setupRoot()
+
+                    // The entry's content is tiny; only the directory's claim about it is oversized.
+                    // Extraction streams to disk, so the declared size is what must be refused up front.
+                    val oversized =
+                        zipOf(AbsSchema.DB_FILENAME to "not a database".encodeToByteArray())
+                            .withDeclaredUncompressedSize(AbsSchema.DB_FILENAME, OVER_DB_BUDGET)
+                    val response = client.uploadAbsBackup(token, oversized)
+
+                    response.status shouldBe HttpStatusCode.UnprocessableEntity
+                    val error = contractJson.decodeFromString<AppError>(response.readRawBytes().decodeToString())
+                    error.shouldBeInstanceOf<ImportError.UploadFailed>()
+                    homeDir.resolve("imports").listImportSubdirs() shouldBe emptyList()
                 }
             } finally {
                 homeDir.toFile().deleteRecursively()
@@ -239,6 +266,9 @@ private class ZeroInputStream(
         return n
     }
 }
+
+/** One byte past the 2 GiB ceiling `ImportRoutes` places on a decompressed Audiobookshelf database. */
+private const val OVER_DB_BUDGET = 2L * 1024 * 1024 * 1024 + 1
 
 /** Lists `imports/` subdirectories that are real import jobs (excludes the `.tmp` scratch dir). */
 private fun Path.listImportSubdirs(): List<String> {
