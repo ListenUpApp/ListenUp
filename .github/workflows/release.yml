@@ -289,9 +289,10 @@ jobs:
 
   server:
     name: Server → GHCR
-    # Pin to 24.04 so the builder's glibc matches the ubuntu:24.04 runtime image
-    # (Dockerfile.native). The dynamically-linked server.kexe would fail to start on an
-    # older-glibc base with a "GLIBC_x.y not found" error.
+    # Pin to 24.04 so the builder's glibc matches what the runtime image provides:
+    # Dockerfile.native builds against debian:12-slim and runs on
+    # gcr.io/distroless/cc-debian12:nonroot (glibc 2.36). The dynamically-linked
+    # server.kexe would fail to start on an older-glibc base with "GLIBC_x.y not found".
     runs-on: ubuntu-24.04
     needs: set-version
     if: ${{ inputs.server }}
