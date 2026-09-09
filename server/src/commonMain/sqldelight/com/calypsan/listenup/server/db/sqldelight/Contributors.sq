@@ -71,10 +71,15 @@ SELECT * FROM contributors WHERE normalized_name = :normalized_name;
 selectByNormalizedNames:
 SELECT normalized_name, id, deleted_at, merged_into FROM contributors WHERE normalized_name IN :normalized_names;
 
--- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
--- images whose contributor still exists.
+-- Live (non-tombstoned) id strings.
 selectLiveIds:
 SELECT id FROM contributors WHERE deleted_at IS NULL;
+
+-- The image_path of every live contributor that has one — OrphanImageCleanupTask keeps
+-- exactly the files these point at. Photos are content-addressed (contributors/<sha>.jpg),
+-- so an id is no use for deciding whether a file is still referenced.
+selectLiveImagePaths:
+SELECT image_path FROM contributors WHERE deleted_at IS NULL AND image_path IS NOT NULL;
 
 insert:
 INSERT INTO contributors (

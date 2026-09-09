@@ -22,6 +22,9 @@ import platform.linux.getifaddrs
 import platform.linux.ifaddrs
 import platform.linux.inet_addr
 import platform.posix.AF_INET
+import platform.posix.EAGAIN
+import platform.posix.EINTR
+import platform.posix.EWOULDBLOCK
 import platform.posix.IFF_LOOPBACK
 import platform.posix.IFF_MULTICAST
 import platform.posix.IFF_POINTOPOINT
@@ -195,7 +198,21 @@ private class NativeMdnsSocket(
             buffer.usePinned { pinned ->
                 recvfrom(fd, pinned.addressOf(0), RECEIVE_BUFFER_SIZE.convert(), 0, null, null)
             }
-        return if (received <= 0) null else buffer.copyOf(received.toInt())
+        return when {
+            received > 0 -> buffer.copyOf(received.toInt())
+
+            // A zero-length datagram is a legitimate empty packet, not a closed socket — the JVM
+            // actual returns an empty array here, and so must this one, or one stray packet ends
+            // discovery for the life of the process.
+            received == 0L -> ByteArray(0)
+
+            // Interrupted / would-block reads are retryable; the loop skips the empty array and
+            // reads again. Anything else — EBADF after leaveAndClose, a dead interface — is the
+            // close signal.
+            errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK -> ByteArray(0)
+
+            else -> null
+        }
     }
 
     override fun leaveAndClose() {

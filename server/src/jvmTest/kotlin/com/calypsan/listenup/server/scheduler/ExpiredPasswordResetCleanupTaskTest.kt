@@ -2,16 +2,26 @@
 
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 
 class ExpiredPasswordResetCleanupTaskTest :
@@ -82,6 +92,39 @@ class ExpiredPasswordResetCleanupTaskTest :
                 runTest {
                     task.runOnce() shouldBe 0
                     sql.passwordResetRequestsQueries.selectById("still-pending").executeAsOneOrNull() shouldNotBe null
+                }
+            }
+        }
+
+        // A server restarted more often than the interval used to never sweep at all. The interval
+        // here is a year, so the only sweep that can land inside this test is the boot sweep.
+        // runBlocking rather than runTest: the sweep crosses the real SQL dispatcher, which virtual
+        // time cannot follow.
+        test("start runs a sweep immediately rather than waiting a full interval") {
+            withSqlDatabase {
+                sql.seedTestUser("u-1")
+                sql.insertRequest("old", "u-1", expiresAt = (now - 2.days).toEpochMilliseconds())
+                val settings = ServerSettingsRepository(sql, RegistrationPolicy.OPEN)
+                val task =
+                    ExpiredPasswordResetCleanupTask(
+                        db = sql,
+                        clock = FixedClock(now),
+                        interval = 365.days,
+                        settings = settings,
+                        startJitter = Duration.ZERO,
+                    )
+
+                runBlocking {
+                    val job = task.start(CoroutineScope(Dispatchers.Default + SupervisorJob()))
+                    try {
+                        eventually(5.seconds) {
+                            sql.passwordResetRequestsQueries.selectById("old").executeAsOneOrNull() shouldBe null
+                            settings.getValue(ExpiredPasswordResetCleanupTask.LAST_RUN_KEY) shouldBe
+                                now.toEpochMilliseconds().toString()
+                        }
+                    } finally {
+                        job.cancelAndJoin()
+                    }
                 }
             }
         }

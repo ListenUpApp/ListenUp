@@ -497,12 +497,8 @@ class ContributorRepository(
     suspend fun findById(idStr: String): ContributorSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
 
     /**
-     * Returns the raw id strings of all non-tombstoned contributors.
-     *
-     * Used by [com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask] to
-     * determine which contributor image files on disk still have a live entity.
-     * Tombstoned rows (`deletedAt IS NOT NULL`) are excluded — their images are
-     * eligible for cleanup.
+     * Returns the raw id strings of all non-tombstoned contributors. Tombstoned rows
+     * (`deletedAt IS NOT NULL`) are excluded.
      */
     suspend fun listLiveIds(): Set<String> =
         suspendTransaction(db) {
@@ -510,6 +506,22 @@ class ContributorRepository(
                 .selectLiveIds()
                 .executeAsList()
                 .toHashSet()
+        }
+
+    /**
+     * Returns the stored `imagePath` of every non-tombstoned contributor that has one — the set
+     * of photo files still in use.
+     *
+     * Used by [com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask]. Photos are
+     * content-addressed (`contributors/<sha>.jpg`), so liveness is "a live row points at this
+     * file", never "the filename is a live id".
+     */
+    suspend fun listLiveImagePaths(): Set<String> =
+        suspendTransaction(db) {
+            db.contributorsQueries
+                .selectLiveImagePaths()
+                .executeAsList()
+                .filterNotNullTo(HashSet())
         }
 
     /** Test-only accessor for the protected [idAsString]. */

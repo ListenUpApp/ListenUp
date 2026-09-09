@@ -269,12 +269,13 @@ internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
  * budget.
  */
 private fun Module.metadataCleanupBindings(imageHome: Path) {
-    single { MetadataCacheCleanupTask(cache = get()) }
+    single { MetadataCacheCleanupTask(cache = get(), settings = get()) }
     single {
         OrphanImageCleanupTask(
             contributorRepository = get(),
             seriesRepository = get(),
             imageHome = imageHome,
+            settings = get(),
         )
     }
 }

@@ -94,9 +94,16 @@ class MulticastMdnsResponder(
         }
     }
 
-    private suspend fun receiveLoop(socket: MdnsSocket) {
+    /**
+     * Answers browse queries on [socket] until [MdnsSocket.receive] returns `null` (closed). An empty
+     * datagram — a zero-length packet, or a retryable read the actual folded into one — is skipped,
+     * never taken as the end. Internal so the loop's side of that contract is testable with a
+     * scripted socket.
+     */
+    internal suspend fun receiveLoop(socket: MdnsSocket) {
         while (currentCoroutineContext().isActive) {
             val query = socket.receive() ?: break
+            if (query.isEmpty()) continue
             if (DnsCodec.isQueryForUs(query)) {
                 socket.send(DnsCodec.encodeResponse(service, socket.ipv4, ttlSeconds = TTL_SECONDS))
             }

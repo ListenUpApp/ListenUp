@@ -48,10 +48,15 @@ SELECT * FROM book_series WHERE normalized_name = :normalized_name;
 selectByNormalizedNames:
 SELECT normalized_name, id, deleted_at FROM book_series WHERE normalized_name IN :normalized_names;
 
--- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
--- cover images whose series still exists.
+-- Live (non-tombstoned) id strings.
 selectLiveIds:
 SELECT id FROM book_series WHERE deleted_at IS NULL;
+
+-- The cover_path of every live series that has one — OrphanImageCleanupTask keeps exactly
+-- the files these point at. Covers are content-addressed (series/<sha>.jpg), so an id is no
+-- use for deciding whether a file is still referenced.
+selectLiveCoverPaths:
+SELECT cover_path FROM book_series WHERE deleted_at IS NULL AND cover_path IS NOT NULL;
 
 -- (id, revision) for ALL rows, soft-deleted included, no filter — feeds the
 -- cross-stack digest parity test (allIdRevisionsForTest).

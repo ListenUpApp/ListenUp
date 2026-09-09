@@ -5,9 +5,10 @@ package com.calypsan.listenup.server.transcode
  *
  * ⚠️ **[cacheCapBytes] is a working set, not a high-water mark.** The design sized 10 GB on the
  * premise that only a format-mismatched slice of a library is ever transcoded; on a library that is
- * mostly xHE-AAC, played in a browser, that slice is most of it. The cap still holds — eviction is
- * what absorbs the difference — but expect it to churn rather than fill once. Revisit with real
- * usage; do not raise it speculatively.
+ * mostly xHE-AAC, played in a browser, that slice is most of it. The cap still holds —
+ * [TranscodeSessionEngine.sweepCache] evicts least-recently-written files back under it, on a timer
+ * and once at boot — but expect it to churn rather than fill once. Revisit with real usage; do not
+ * raise it speculatively.
  *
  * @param cacheCapBytes total bytes the segment cache may occupy; **0 disables transcoding**.
  * @param maxConcurrentSessions admission gate, not a queue — over-cap requests get a retryable busy.

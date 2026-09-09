@@ -253,12 +253,8 @@ class SeriesRepository(
     suspend fun findById(idStr: String): SeriesSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
 
     /**
-     * Returns the raw id strings of all non-tombstoned series.
-     *
-     * Used by [com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask] to
-     * determine which series cover image files on disk still have a live entity.
-     * Tombstoned rows (`deletedAt IS NOT NULL`) are excluded — their images are
-     * eligible for cleanup.
+     * Returns the raw id strings of all non-tombstoned series. Tombstoned rows
+     * (`deletedAt IS NOT NULL`) are excluded.
      */
     suspend fun listLiveIds(): Set<String> =
         suspendTransaction(db) {
@@ -266,6 +262,22 @@ class SeriesRepository(
                 .selectLiveIds()
                 .executeAsList()
                 .toHashSet()
+        }
+
+    /**
+     * Returns the stored `coverPath` of every non-tombstoned series that has one — the set of
+     * cover files still in use.
+     *
+     * Used by [com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask]. Covers are
+     * content-addressed (`series/<sha>.jpg`), so liveness is "a live row points at this file",
+     * never "the filename is a live id".
+     */
+    suspend fun listLiveCoverPaths(): Set<String> =
+        suspendTransaction(db) {
+            db.seriesQueries
+                .selectLiveCoverPaths()
+                .executeAsList()
+                .filterNotNullTo(HashSet())
         }
 
     /** Test-only accessor for the protected [idAsString]. */

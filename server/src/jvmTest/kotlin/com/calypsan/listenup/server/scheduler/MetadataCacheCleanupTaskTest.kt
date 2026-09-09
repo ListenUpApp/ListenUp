@@ -2,15 +2,26 @@
 
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.MetadataCacheRepository
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 
 class MetadataCacheCleanupTaskTest :
@@ -77,6 +88,40 @@ class MetadataCacheCleanupTaskTest :
 
                     val removed = MetadataCacheCleanupTask(repo, clock = FixedClock(now)).runOnce()
                     removed shouldBe 3
+                }
+            }
+        }
+
+        // A server restarted more often than the interval used to never sweep at all. The interval
+        // here is a year, so the only sweep that can land inside this test is the boot sweep.
+        // runBlocking rather than runTest: the sweep crosses the real SQL dispatcher, which virtual
+        // time cannot follow.
+        test("start runs a sweep immediately rather than waiting a full interval") {
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
+                val settings = ServerSettingsRepository(sql, RegistrationPolicy.OPEN)
+                val task =
+                    MetadataCacheCleanupTask(
+                        repo,
+                        clock = FixedClock(now),
+                        interval = 365.days,
+                        settings = settings,
+                        startJitter = Duration.ZERO,
+                    )
+
+                runBlocking {
+                    repo.put(MetadataProviderId.AUDIBLE, "us", "expired-key", "{}", now.toEpochMilliseconds() - 1_000L)
+                    val job = task.start(CoroutineScope(Dispatchers.Default + SupervisorJob()))
+                    try {
+                        eventually(5.seconds) {
+                            settings.getValue(MetadataCacheCleanupTask.LAST_RUN_KEY) shouldBe
+                                now.toEpochMilliseconds().toString()
+                        }
+                        // The recorded run proves the sweep completed; a second pass finds nothing left.
+                        repo.deleteExpired(now.toEpochMilliseconds()) shouldBe 0
+                    } finally {
+                        job.cancelAndJoin()
+                    }
                 }
             }
         }
