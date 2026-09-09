@@ -177,6 +177,7 @@ struct AdminCollectionsView: View {
                 AppTextField(
                     placeholder: String(localized: "admin.collection_name"),
                     text: $createName,
+                    entry: .words,
                     label: String(localized: "admin.collection_name"),
                     icon: "folder.badge.plus"
                 )

@@ -126,12 +126,14 @@ struct CreateEditShelfView: View {
                 AppTextField(
                     placeholder: String(localized: "common.shelf_name_hint"),
                     text: $name,
+                    entry: .words,
                     label: String(localized: "shelf.form_name"),
                     isLast: false
                 )
                 AppTextField(
                     placeholder: String(localized: "shelf.whats_this_shelf_for"),
                     text: $description,
+                    entry: .sentences,
                     label: String(localized: "shelf.description_optional"),
                     axis: .vertical,
                     isLast: true

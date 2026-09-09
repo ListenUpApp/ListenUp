@@ -93,6 +93,7 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.title }, set: { observer.setTitle($0) }),
+                entry: .words,
                 label: String(localized: "book.edit_title_field")
             )
             .fieldCard()
@@ -100,6 +101,7 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: String(localized: "book.edit_add_subtitle"),
                 text: Binding(get: { observer.subtitle }, set: { observer.setSubtitle($0) }),
+                entry: .words,
                 label: String(localized: "book.edit_subtitle")
             )
             .fieldCard()
@@ -107,6 +109,7 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: String(localized: "book.edit_eg_lord_of_the_rings"),
                 text: Binding(get: { observer.sortTitle }, set: { observer.setSortTitle($0) }),
+                entry: .words,
                 label: String(localized: "book.edit_sort_title")
             )
             .fieldCard()
@@ -114,6 +117,7 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: String(localized: "book.edit_description_placeholder"),
                 text: Binding(get: { observer.bookDescription }, set: { observer.setDescription($0) }),
+                entry: .sentences,
                 label: String(localized: "book.edit_description_label"),
                 axis: .vertical
             )
@@ -129,6 +133,7 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
+                entry: .words,
                 label: String(localized: "book.edit_publisher")
             )
             .fieldCard()
@@ -136,8 +141,8 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.publishYear }, set: { observer.setPublishYear($0) }),
-                label: String(localized: "book.edit_year"),
-                keyboardType: .numberPad
+                entry: .number,
+                label: String(localized: "book.edit_year")
             )
             .fieldCard()
 
@@ -146,6 +151,7 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.isbn }, set: { observer.setIsbn($0) }),
+                entry: .identifier,
                 label: String(localized: "book.edit_isbn")
             )
             .fieldCard()
@@ -153,6 +159,7 @@ struct BookEditView: View {
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.asin }, set: { observer.setAsin($0) }),
+                entry: .identifier,
                 label: String(localized: "book.edit_asin")
             )
             .fieldCard()

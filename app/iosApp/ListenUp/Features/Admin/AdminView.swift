@@ -184,6 +184,7 @@ struct AdminView: View {
             AppTextField(
                 placeholder: String(localized: "admin.server_name"),
                 text: serverNameBinding(settings: settings, model: model),
+                entry: .words,
                 label: String(localized: "admin.server_name"),
                 icon: "tag",
                 isLast: false
@@ -191,9 +192,9 @@ struct AdminView: View {
             AppTextField(
                 placeholder: String(localized: "admin.remote_url_placeholder"),
                 text: remoteUrlBinding(settings: settings, model: model),
+                entry: .url,
                 label: String(localized: "admin.remote_url"),
-                icon: "globe",
-                keyboardType: .URL
+                icon: "globe"
             )
         }
         .fieldCard()

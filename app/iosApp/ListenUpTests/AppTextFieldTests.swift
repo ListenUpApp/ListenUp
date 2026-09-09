@@ -28,3 +28,54 @@ struct AppTextFieldTests {
         #expect(AppTextField.defaultsToSearchSubmitLabel(explicit: .done, kind: .search) == false)
     }
 }
+
+/// `TextEntry` is the one place a field's keyboard is decided, so its mapping is pinned here
+/// case by case: what each content kind types on, what the system may autofill, how it
+/// capitalizes, and whether the keyboard is allowed to correct it.
+struct TextEntryTests {
+    @Test func proseAndNamesOfThingsAreCorrectedAndCapitalized() {
+        #expect(TextEntry.sentences.capitalization == .sentences)
+        #expect(TextEntry.sentences.autocorrects == true)
+        #expect(TextEntry.words.capitalization == .words)
+        #expect(TextEntry.words.autocorrects == true)
+        #expect(TextEntry.words.keyboardType == .default)
+        #expect(TextEntry.words.contentType == nil)
+    }
+
+    @Test func personNamesCapitalizeWordsButAreNeverCorrected() {
+        #expect(TextEntry.givenName.capitalization == .words)
+        #expect(TextEntry.givenName.autocorrects == false)
+        #expect(TextEntry.givenName.contentType == .givenName)
+        #expect(TextEntry.familyName.contentType == .familyName)
+    }
+
+    @Test func machineShapedEntriesGetTheirKeyboardAndNoCorrection() {
+        #expect(TextEntry.email.keyboardType == .emailAddress)
+        #expect(TextEntry.email.contentType == .emailAddress)
+        #expect(TextEntry.url.keyboardType == .URL)
+        #expect(TextEntry.url.contentType == .URL)
+        #expect(TextEntry.number.keyboardType == .numberPad)
+        #expect(TextEntry.decimal.keyboardType == .decimalPad)
+        for entry in [TextEntry.email, .url, .number, .decimal, .search, .password, .newPassword] {
+            #expect(entry.capitalization == .never)
+            #expect(entry.autocorrects == false)
+        }
+    }
+
+    @Test func aSignUpEmailIsTheUsernameAutoFillPairsWithTheNewPassword() {
+        #expect(TextEntry.accountEmail.keyboardType == .emailAddress)
+        #expect(TextEntry.accountEmail.contentType == .username)
+        #expect(TextEntry.accountEmail.autocorrects == false)
+    }
+
+    @Test func passwordsDistinguishExistingFromChosen() {
+        #expect(TextEntry.password.contentType == .password)
+        #expect(TextEntry.newPassword.contentType == .newPassword)
+    }
+
+    @Test func identifiersAreAsciiCapitals() {
+        #expect(TextEntry.identifier.keyboardType == .asciiCapable)
+        #expect(TextEntry.identifier.capitalization == .characters)
+        #expect(TextEntry.identifier.autocorrects == false)
+    }
+}

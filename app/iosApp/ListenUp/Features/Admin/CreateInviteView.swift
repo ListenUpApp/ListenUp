@@ -84,11 +84,10 @@ struct CreateInviteView: View {
                 AppTextField(
                     placeholder: String(localized: "common.email"),
                     text: $email,
+                    entry: .email,
                     label: String(localized: "common.email"),
                     icon: "envelope",
-                    error: validationField == .email ? String(localized: "admin.valid_email_is_required") : nil,
-                    keyboardType: .emailAddress,
-                    textContentType: .emailAddress
+                    error: validationField == .email ? String(localized: "admin.valid_email_is_required") : nil
                 )
             }
             .fieldCard()

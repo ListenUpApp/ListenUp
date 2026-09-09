@@ -77,11 +77,11 @@ struct RegisterView: View {
     private var nameFields: some View {
         AuthFieldGroup {
             AppTextField(placeholder: String(localized: "auth.first_name"),
-                         text: $firstName, icon: "person", isLast: false,
-                         textContentType: .givenName, autocapitalization: .words)
+                         text: $firstName,
+                         entry: .givenName, icon: "person", isLast: false)
             AppTextField(placeholder: String(localized: "auth.last_name"),
-                         text: $lastName, icon: "person", textContentType: .familyName,
-                         autocapitalization: .words)
+                         text: $lastName,
+                         entry: .familyName, icon: "person")
         }
     }
 
@@ -91,20 +91,19 @@ struct RegisterView: View {
             // AutoFill pairs with the `.newPassword` fields below, so a tapped credential suggestion
             // actually fills; the `.emailAddress` keyboard still gives the right key layout.
             AppTextField(placeholder: String(localized: "common.email"),
-                         text: $email, icon: "envelope", keyboardType: .emailAddress,
-                         textContentType: .username)
+                         text: $email, entry: .accountEmail, icon: "envelope")
         }
     }
 
     private var passwordFields: some View {
         AuthFieldGroup {
             AppTextField(placeholder: String(localized: "auth.password_label"),
-                         text: $password, kind: .secure, isLast: false,
-                         textContentType: .newPassword)
+                         text: $password,
+                         entry: .newPassword, kind: .secure, isLast: false)
             AppTextField(placeholder: String(localized: "auth.confirm_password"),
-                         text: $confirmPassword, kind: .secure,
-                         error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil,
-                         textContentType: .newPassword)
+                         text: $confirmPassword,
+                         entry: .newPassword, kind: .secure,
+                         error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil)
         }
         .onChange(of: confirmPassword) { _, new in
             passwordMismatch = !new.isEmpty && new != password

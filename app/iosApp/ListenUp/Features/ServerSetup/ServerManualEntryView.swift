@@ -38,10 +38,9 @@ struct ServerManualEntryView: View {
                             placeholder: String(localized: "connect.server_url_placeholder"),
                             text: Binding(get: { viewModel.serverUrl },
                                           set: { viewModel.onUrlChanged($0) }),
+                            entry: .url,
                             icon: "globe",
                             error: viewModel.error,
-                            keyboardType: .URL,
-                            textContentType: .URL,
                             onSubmit: { if viewModel.isConnectEnabled { viewModel.onConnectClicked() } }
                         )
                     }

@@ -139,6 +139,7 @@ struct EditProfileView: View {
                 AppTextField(
                     placeholder: String(localized: "profile.tagline_placeholder"),
                     text: binding(observer.tagline, observer.setTagline),
+                    entry: .sentences,
                     label: String(localized: "profile.tagline")
                 )
                 .fieldCard()
@@ -161,17 +162,15 @@ struct EditProfileView: View {
                 AppTextField(
                     placeholder: String(localized: "auth.first_name_placeholder"),
                     text: binding(observer.firstName, observer.setFirstName),
+                    entry: .givenName,
                     label: String(localized: "auth.first_name"),
-                    isLast: false,
-                    textContentType: .givenName,
-                    autocapitalization: .words
+                    isLast: false
                 )
                 AppTextField(
                     placeholder: String(localized: "auth.last_name_placeholder"),
                     text: binding(observer.lastName, observer.setLastName),
-                    label: String(localized: "auth.last_name"),
-                    textContentType: .familyName,
-                    autocapitalization: .words
+                    entry: .familyName,
+                    label: String(localized: "auth.last_name")
                 )
             }
             .fieldCard()
@@ -188,25 +187,25 @@ struct EditProfileView: View {
                 AppTextField(
                     placeholder: String(localized: "profile.current_password"),
                     text: binding(observer.currentPassword, observer.setCurrentPassword),
+                    entry: .password,
                     label: String(localized: "profile.current_password"),
                     kind: .secure,
-                    isLast: false,
-                    textContentType: .password
+                    isLast: false
                 )
                 AppTextField(
                     placeholder: String(localized: "profile.new_password"),
                     text: binding(observer.newPassword, observer.setNewPassword),
+                    entry: .newPassword,
                     label: String(localized: "profile.new_password"),
                     kind: .secure,
-                    isLast: false,
-                    textContentType: .newPassword
+                    isLast: false
                 )
                 AppTextField(
                     placeholder: String(localized: "auth.confirm_password"),
                     text: binding(observer.confirmPassword, observer.setConfirmPassword),
+                    entry: .newPassword,
                     label: String(localized: "auth.confirm_password"),
-                    kind: .secure,
-                    textContentType: .newPassword
+                    kind: .secure
                 )
             }
             .fieldCard()

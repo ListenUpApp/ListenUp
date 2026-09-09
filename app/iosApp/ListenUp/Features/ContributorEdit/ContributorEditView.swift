@@ -50,12 +50,14 @@ struct ContributorEditView: View {
                             AppTextField(
                                 placeholder: "",
                                 text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
+                                entry: .words,
                                 label: String(localized: "contributor.edit_name")
                             )
                             .fieldCard()
                             AppTextField(
                                 placeholder: String(localized: "contributor.edit_bio_placeholder"),
                                 text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
+                                entry: .sentences,
                                 label: String(localized: "contributor.edit_bio"),
                                 axis: .vertical
                             )
@@ -63,9 +65,8 @@ struct ContributorEditView: View {
                             AppTextField(
                                 placeholder: "",
                                 text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }),
-                                label: String(localized: "contributor.edit_website"),
-                                keyboardType: .URL,
-                                textContentType: .URL
+                                entry: .url,
+                                label: String(localized: "contributor.edit_website")
                             )
                             .fieldCard()
                             EditDateField(

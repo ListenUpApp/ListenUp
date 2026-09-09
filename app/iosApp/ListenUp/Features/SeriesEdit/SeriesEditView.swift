@@ -39,6 +39,7 @@ struct SeriesEditView: View {
                         AppTextField(
                             placeholder: "",
                             text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
+                            entry: .words,
                             label: String(localized: "series.edit_name")
                         )
                         .fieldCard()
@@ -50,6 +51,7 @@ struct SeriesEditView: View {
                                 get: { observer.seriesDescription },
                                 set: { observer.onDescriptionChanged($0) }
                             ),
+                            entry: .sentences,
                             label: String(localized: "series.edit_description"),
                             axis: .vertical
                         )
