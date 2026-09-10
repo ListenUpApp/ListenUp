@@ -12,6 +12,9 @@ import com.calypsan.listenup.web.design.TableColumn
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.I
 import org.jetbrains.compose.web.dom.P
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -28,16 +31,23 @@ internal fun ChaptersPane(
     chapters: List<WebChapter>,
     selection: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
+    onEditChapters: () -> Unit = {},
 ) {
+    // ⛔ Offered on an unchaptered book too, and pointing at the editor's own empty state rather
+    // than at nothing. A book with no marks is exactly the one that most needs the editor, and a
+    // pane that only says "no chapter marks" leaves the reader with no way to add any.
     if (chapters.isEmpty()) {
         Panel(title = "Chapters") {
             InspectorHint("This book has no chapter marks.")
+            EditChaptersButton(onEditChapters)
         }
         return
     }
 
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
+            EditChaptersButton(onEditChapters)
+
             ChapterMap(chapters, selection) { number ->
                 onSelectionChange(selection.toggled(number))
             }
@@ -152,3 +162,20 @@ private val CHAPTER_COLUMNS =
             Text(formatClock(it.durationSec))
         },
     )
+
+/** The way from reading the chapters to changing them. */
+@Composable
+private fun EditChaptersButton(onEditChapters: () -> Unit) {
+    Div(attrs = { classes("bd-chapters-edit") }) {
+        Button(attrs = {
+            classes("btn-o")
+            attr("type", "button")
+            onClick { onEditChapters() }
+        }) {
+            Icon(WebIcon.Pencil, size = EDIT_ICON)
+            Text("Edit chapters")
+        }
+    }
+}
+
+private const val EDIT_ICON = 16

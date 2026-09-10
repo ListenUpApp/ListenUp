@@ -20,7 +20,9 @@ import com.calypsan.listenup.web.features.discover.fixedDiscover
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
+import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -88,6 +90,7 @@ class BookDetailPanesTest :
                     router = router,
                     openBookDetail = source,
                     openBookEdit = fixedBookEdit(BookEditUiState()),
+                    openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
                     openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                     openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
                     openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),

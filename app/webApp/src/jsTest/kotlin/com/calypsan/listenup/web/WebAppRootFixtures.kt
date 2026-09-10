@@ -32,6 +32,7 @@ import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.search.SearchUiState
@@ -39,6 +40,11 @@ import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
+import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorSession
+import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
+import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.home.OpenHome
@@ -125,6 +131,7 @@ internal fun mountAt(
     openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+    openChapterEditor: OpenChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
     openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
     openProfile: OpenProfile = fixedProfile(UserProfileUiState.Loading),
@@ -157,6 +164,7 @@ internal fun mountAt(
                 router = router,
                 openBookDetail = openBookDetail,
                 openBookEdit = fixedBookEdit(BookEditUiState()),
+                openChapterEditor = openChapterEditor,
                 openContributorDetail = openContributorDetail,
                 openContributorEdit = openContributorEdit,
                 openSeriesDetail = openSeriesDetail,
@@ -349,6 +357,48 @@ internal class RecordingSeriesDetail {
         requestedIds += id
         SeriesDetailSession(
             state = MutableStateFlow(readySeries(seriesId = id, seriesName = "Series $id")),
+            close = {},
+        )
+    }
+}
+
+/**
+ * A Chapter Editor session that remembers which books were asked for, and lets a spec push a
+ * save outcome through the same channel the ViewModel uses.
+ */
+internal class RecordingChapterEditor(
+    private val events: Flow<ChapterEditorEvent> = emptyFlow(),
+    private val chapters: List<Chapter> = emptyList(),
+) {
+    val requestedIds = mutableListOf<String>()
+    val resets = mutableListOf<Unit>()
+    val open: OpenChapterEditor = { id ->
+        requestedIds += id
+        ChapterEditorSession(
+            state =
+                MutableStateFlow(
+                    ChapterEditorUiState.Editing(
+                        bookTitle = "Book $id",
+                        chapters = chapters,
+                        bookDurationMs = 180_000L,
+                        isDirty = chapters.isNotEmpty(),
+                    ),
+                ),
+            events = events,
+            onSelect = {},
+            onNudge = { _, _ -> },
+            onSnapToPlayhead = { _, _ -> },
+            onRetitle = { _, _ -> },
+            onRemove = {},
+            onAddAt = { _, _ -> },
+            onToggleLock = {},
+            onBeginDrift = {},
+            onPinAnchor = { _, _ -> },
+            onApplyDrift = {},
+            onCancelDrift = {},
+            onUndo = {},
+            onResetToSource = { resets += Unit },
+            onSave = {},
             close = {},
         )
     }

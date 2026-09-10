@@ -29,8 +29,10 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
+import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
@@ -111,6 +113,7 @@ private fun mountGate(
             openLibrarySetup = openLibrarySetup,
             openBookDetail = fixedBookDetail(readyBook()),
             openBookEdit = fixedBookEdit(BookEditUiState()),
+            openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),

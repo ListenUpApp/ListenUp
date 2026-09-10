@@ -133,6 +133,14 @@ import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPag
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.candidate
 import com.calypsan.listenup.web.features.contributoredit.editingContributor
+import com.calypsan.listenup.client.domain.chapter.ChapterAnchor
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
+import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
+import com.calypsan.listenup.client.presentation.chaptereditor.DriftProposal
+import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
+import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
+import com.calypsan.listenup.web.features.chaptereditor.editingChapters
+import com.calypsan.listenup.web.features.chaptereditor.threeChapters
 import com.calypsan.listenup.web.features.seriesedit.SeriesEditPage
 import com.calypsan.listenup.web.features.seriesedit.editingSeries
 import com.calypsan.listenup.web.features.seriesedit.seriesCandidate
@@ -464,6 +472,129 @@ class ClassContractTest :
                             mergeCandidates = emptyList(),
                             onEvent = {},
                             onMergeQuery = {},
+                        )
+                        // Chapter Editor: the list with a locked row, an unsaved draft, a
+                        // changed-elsewhere banner and a refused save; the drift panel in each of
+                        // its three shapes (nothing pinned, ready, refused); and the two states
+                        // with no list — the empty book and the skeleton.
+                        ChapterEditorPage(
+                            state =
+                                editingChapters(
+                                    selectedChapterId = "c2",
+                                    isDirty = true,
+                                    canUndo = true,
+                                    changedElsewhere = true,
+                                    lockedChapterIds = setOf("c1"),
+                                ),
+                            playheadMs = 61_500L,
+                            onSelect = {},
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = { _, _ -> },
+                            onRetitle = { _, _ -> },
+                            onRemove = {},
+                            onAddAt = { _, _ -> },
+                            onToggleLock = {},
+                            onBeginDrift = {},
+                            onPinAnchor = { _, _ -> },
+                            onApplyDrift = {},
+                            onCancelDrift = {},
+                            onUndo = {},
+                            onSave = {},
+                            onLeave = {},
+                            problem = "Chapter 2 needs a title.",
+                        )
+                        ChapterEditorPage(
+                            state =
+                                editingChapters(
+                                    selectedChapterId = "c1",
+                                    drift =
+                                        ChapterEditorUiState.DriftState(
+                                            proposal = DriftProposal(first = ChapterAnchor("c1", 0L)),
+                                            preview =
+                                                DriftPreview.Ready(
+                                                    corrected = threeChapters(),
+                                                    affectedCount = 3,
+                                                    firstOffsetMs = 0L,
+                                                    lastOffsetMs = 1_000L,
+                                                ),
+                                        ),
+                                ),
+                            playheadMs = 1_000L,
+                            onSelect = {},
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = { _, _ -> },
+                            onRetitle = { _, _ -> },
+                            onRemove = {},
+                            onAddAt = { _, _ -> },
+                            onToggleLock = {},
+                            onBeginDrift = {},
+                            onPinAnchor = { _, _ -> },
+                            onApplyDrift = {},
+                            onCancelDrift = {},
+                            onUndo = {},
+                            onSave = {},
+                            onLeave = {},
+                        )
+                        ChapterEditorPage(
+                            state =
+                                editingChapters(
+                                    drift =
+                                        ChapterEditorUiState.DriftState(
+                                            proposal = DriftProposal(first = ChapterAnchor("c1", 0L)),
+                                            preview = DriftPreview.Refused(DriftRefusal.InvertedAnchors),
+                                        ),
+                                ),
+                            playheadMs = null,
+                            onSelect = {},
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = { _, _ -> },
+                            onRetitle = { _, _ -> },
+                            onRemove = {},
+                            onAddAt = { _, _ -> },
+                            onToggleLock = {},
+                            onBeginDrift = {},
+                            onPinAnchor = { _, _ -> },
+                            onApplyDrift = {},
+                            onCancelDrift = {},
+                            onUndo = {},
+                            onSave = {},
+                            onLeave = {},
+                        )
+                        ChapterEditorPage(
+                            state = editingChapters(chapters = emptyList()),
+                            playheadMs = 1_000L,
+                            onSelect = {},
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = { _, _ -> },
+                            onRetitle = { _, _ -> },
+                            onRemove = {},
+                            onAddAt = { _, _ -> },
+                            onToggleLock = {},
+                            onBeginDrift = {},
+                            onPinAnchor = { _, _ -> },
+                            onApplyDrift = {},
+                            onCancelDrift = {},
+                            onUndo = {},
+                            onSave = {},
+                            onLeave = {},
+                        )
+                        ChapterEditorPage(
+                            state = ChapterEditorUiState.Loading,
+                            playheadMs = null,
+                            onSelect = {},
+                            onNudge = { _, _ -> },
+                            onSnapToPlayhead = { _, _ -> },
+                            onRetitle = { _, _ -> },
+                            onRemove = {},
+                            onAddAt = { _, _ -> },
+                            onToggleLock = {},
+                            onBeginDrift = {},
+                            onPinAnchor = { _, _ -> },
+                            onApplyDrift = {},
+                            onCancelDrift = {},
+                            onUndo = {},
+                            onSave = {},
+                            onLeave = {},
                         )
                         // Series Edit: the loaded form with an error banner and its own artwork,
                         // the same form with a staged pick (which swaps the art for a preview and
