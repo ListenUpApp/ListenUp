@@ -15,6 +15,10 @@ import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
 import com.calypsan.listenup.web.features.chaptereditor.chapter
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.web.features.bulkedit.editing
+import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
 import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -555,7 +559,7 @@ class WebAppRootTest :
                     .querySelectorAll(".bulk-b")
                     .asList()
                     .map { it.textContent } shouldBe
-                    listOf("Add to shelf")
+                    listOf("Edit", "Add to shelf")
             } finally {
                 member.second.dispose()
             }
@@ -572,7 +576,7 @@ class WebAppRootTest :
                     .querySelectorAll(".bulk-b")
                     .asList()
                     .map { it.textContent } shouldBe
-                    listOf("Add to shelf", "Add to collection")
+                    listOf("Edit", "Add to shelf", "Add to collection")
             } finally {
                 admin.second.dispose()
             }
@@ -719,6 +723,118 @@ class WebAppRootTest :
                 awaitFrame()
 
                 said shouldBe listOf("Added 12 books to the shelf.")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // MARK: the bulk editor
+
+        test("Edit on the bulk bar carries the selection into the editor's URL") {
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect = fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1", "b2"))),
+                )
+
+            try {
+                host
+                    .querySelectorAll(".bulk-b")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent == "Edit" }
+                    .click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/books/edit"
+                // ⛔ The ids ride the query, and all of them do: an editor opened over a subset of
+                // what was picked would write to fewer books than the reader chose.
+                window.location.search shouldContain "ids=b1,b2"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/books/edit?ids=… opens the editor over exactly those books") {
+            val (host, router) =
+                mountAt(
+                    "/books/edit?ids=b1,b2,b3",
+                    openBulkEdit = fixedBulkEdit(editing(bookCount = 3)),
+                )
+
+            try {
+                (host.querySelector(".bke-t") as HTMLElement).textContent shouldBe "Edit 3 books"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ No ids is not an empty editor — it is not this route at all. A bulk editor over nothing
+        // would offer a Change button with no books behind it.
+        //
+        // ⛔ Asserts on `.bke`, the editor's own container, NOT on `.bke-t`. The default session is
+        // Loading, which draws a skeleton and no title — so a `.bke-t` assertion passed even when
+        // the route DID match, which sabotage proved.
+        test("/books/edit with no ids is not the editor") {
+            val (host, router) = mountAt("/books/edit")
+
+            try {
+                host.querySelector(".bke") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a finished bulk edit says what it changed and lands back on the library") {
+            val said = mutableListOf<String>()
+            val (_, router) =
+                mountAt(
+                    "/books/edit?ids=b1,b2",
+                    openBulkEdit =
+                        fixedBulkEdit(
+                            state = editing(bookCount = 2),
+                            events = flowOf(BulkEditEvent.Applied(changedCount = 2)),
+                        ),
+                    onToast = { said += it },
+                )
+
+            try {
+                awaitFrame()
+
+                said shouldBe listOf("2 books updated")
+                window.location.pathname shouldBe "/library"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ There is no rollback, so a failure that does not name how many books were already
+        // committed leaves the reader unable to tell what state their library is in.
+        test("a bulk edit that stopped partway says how far it got") {
+            val said = mutableListOf<String>()
+            val (_, router) =
+                mountAt(
+                    "/books/edit?ids=b1,b2",
+                    openBulkEdit =
+                        fixedBulkEdit(
+                            state = editing(bookCount = 2),
+                            events =
+                                flowOf(
+                                    BulkEditEvent.Failed(
+                                        error = InternalError(debugInfo = "nope"),
+                                        appliedCount = 7,
+                                    ),
+                                ),
+                        ),
+                    onToast = { said += it },
+                )
+
+            try {
+                awaitFrame()
+
+                said.single() shouldContain "Stopped after 7 books"
+                window.location.pathname shouldBe "/library"
             } finally {
                 router.dispose()
             }

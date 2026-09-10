@@ -46,7 +46,14 @@ import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
+import com.calypsan.listenup.web.features.bulkedit.BulkEditActions
+import com.calypsan.listenup.web.features.bulkedit.BulkEditCatalog
+import com.calypsan.listenup.web.features.bulkedit.BulkEditPage
+import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
+import com.calypsan.listenup.web.features.bulkedit.appliedLabel
+import com.calypsan.listenup.web.features.bulkedit.failedLabel
 import com.calypsan.listenup.web.features.books.PickerTarget
 import com.calypsan.listenup.web.features.books.SelectionPicker
 import com.calypsan.listenup.web.features.books.bookCountLabel
@@ -215,6 +222,7 @@ fun WebAppRoot(
     openLibrary: OpenLibrary,
     openSearch: OpenSearch,
     openMultiSelect: OpenMultiSelect,
+    openBulkEdit: OpenBulkEdit,
     onToast: (String) -> Unit,
     openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
@@ -321,6 +329,7 @@ fun WebAppRoot(
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
             openMultiSelect = openMultiSelect,
+            openBulkEdit = openBulkEdit,
             onToast = onToast,
             librarySession = librarySession,
             playback = playback,
@@ -368,6 +377,20 @@ fun WebAppRoot(
         // Last of all: the palette overlays everything above it, including the transport bar.
         CommandPaletteHost(router = router, openSearch = openSearch)
     }
+}
+
+/**
+ * `/books/edit?ids=…` — the books the bulk editor is open over, or empty when this is not that route.
+ *
+ * The ids ride the query rather than the path: a path segment of forty uuids is not a URL anyone
+ * can read, and unlike a grid selection this one is worth keeping across a reload.
+ */
+private fun Route.bulkEditIds(): List<String> {
+    if (segments.firstOrNull() != BOOKS_KEY || segments.getOrNull(1) != EDIT_KEY) return emptyList()
+    return query[IDS_QUERY_KEY]
+        .orEmpty()
+        .split(",")
+        .filter { it.isNotBlank() }
 }
 
 /**
@@ -428,6 +451,7 @@ private fun RouteContent(
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
     openMultiSelect: OpenMultiSelect,
+    openBulkEdit: OpenBulkEdit,
     onToast: (String) -> Unit,
     librarySession: LibrarySession,
     playback: PlaybackSession,
@@ -435,6 +459,7 @@ private fun RouteContent(
     onHeroBookIdChange: (String) -> Unit,
 ) {
     val shelfRoute = shelfRouteOf(route.segments)
+    val bulkEditIds = route.bulkEditIds()
     val bookId = route.idUnder(BOOK_KEY)
     val editingBookId = route.editTargetOf(bookId)
     // `/book/{id}/chapters` — a route of its own, for the reason `/book/{id}/edit` is one, and
@@ -466,7 +491,14 @@ private fun RouteContent(
     // `/book/{id}/edit` sets this too, and never reaches anything that looks at it.
     val editingProfile = route.segments.getOrNull(2) == EDIT_KEY
 
-    if (bookId != null) {
+    if (bulkEditIds.isNotEmpty()) {
+        BulkEditRoute(
+            router = router,
+            openBulkEdit = openBulkEdit,
+            bookIds = bulkEditIds,
+            onToast = onToast,
+        )
+    } else if (bookId != null) {
         BookRouteContent(
             bookId = bookId,
             editingBookId = editingBookId,
@@ -1445,6 +1477,67 @@ private fun ChapterEditorRoute(
 }
 
 /**
+ * Opens a Bulk Edit session over exactly [bookIds] and collects it.
+ *
+ * ⛔ Keyed on the ids. A bulk editor that could switch the books it edits is one keystroke away
+ * from writing a publisher onto the wrong forty.
+ *
+ * Both outcomes navigate back to the library, and both say what happened — including the failure,
+ * which names how many books were already committed. There is no rollback, so "it failed" without
+ * that number leaves the reader unable to tell what state their library is in.
+ */
+@Composable
+private fun BulkEditRoute(
+    router: Router,
+    openBulkEdit: OpenBulkEdit,
+    bookIds: List<String>,
+    onToast: (String) -> Unit,
+) {
+    val key = bookIds.joinToString(",")
+    val session = remember(key) { openBulkEdit(bookIds) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    val library = Route(listOf(LIBRARY_KEY))
+
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                is BulkEditEvent.Applied -> onToast(appliedLabel(event.changedCount))
+                is BulkEditEvent.Failed -> onToast(failedLabel(event.appliedCount))
+            }
+            router.navigate(library)
+        }
+    }
+
+    BulkEditPage(
+        state = session.state.collectAsState().value,
+        catalog =
+            BulkEditCatalog(
+                genres = session.genres.collectAsState().value,
+                tags = session.tags.collectAsState().value,
+                moods = session.moods.collectAsState().value,
+                seriesMatches = session.seriesMatches.collectAsState().value,
+                contributorMatches = session.contributorMatches.collectAsState().value,
+            ),
+        actions =
+            BulkEditActions(
+                onSeriesQuery = session.onSeriesQuery,
+                onContributorQuery = session.onContributorQuery,
+                onPublisher = session.onPublisher,
+                onYear = session.onYear,
+                onLanguage = session.onLanguage,
+                onSeries = session.onSeries,
+                onContributors = session.onContributors,
+                onGenres = session.onGenres,
+                onTags = session.onTags,
+                onMoods = session.onMoods,
+                onApply = session.onApply,
+                onLeave = { router.navigate(library) },
+            ),
+    )
+}
+
+/**
  * The library grid, and picking books out of it.
  *
  * ⛔ Selection is page state, not a route. It is a *mode* the reader is in for a few seconds, and
@@ -1506,6 +1599,17 @@ private fun LibraryRouteContent(
             Unit
         }
 
+        // Not a picker: the editor is a page, because forty books' worth of fields and a
+        // "what will change" panel do not belong in a dialog over the grid.
+        SelectionDestination.Edit -> {
+            LaunchedEffect(selected) {
+                picking = null
+                router.navigate(
+                    Route(listOf(BOOKS_KEY, EDIT_KEY), mapOf(IDS_QUERY_KEY to selected.joinToString(","))),
+                )
+            }
+        }
+
         SelectionDestination.Shelf -> {
             SelectionPicker(
                 title = "Add to shelf",
@@ -1544,7 +1648,7 @@ private fun LibraryRouteContent(
 }
 
 /** Where a selection can be sent. */
-private enum class SelectionDestination { Shelf, Collection }
+private enum class SelectionDestination { Edit, Shelf, Collection }
 
 /**
  * The actions the bar offers.
@@ -1560,6 +1664,7 @@ private fun bulkActions(
 ): List<BulkAction> {
     if (!hasSelection) return emptyList()
     return buildList {
+        add(BulkAction("Edit", WebIcon.Pencil) { onPick(SelectionDestination.Edit) })
         add(BulkAction("Add to shelf", WebIcon.Bookmark) { onPick(SelectionDestination.Shelf) })
         if (isAdmin) {
             add(BulkAction("Add to collection", WebIcon.Layers) { onPick(SelectionDestination.Collection) })
@@ -2277,6 +2382,12 @@ private const val EDIT_KEY = "edit"
 
 /** `/book/{id}/chapters` — the chapter editor over one book. */
 private const val CHAPTERS_KEY = "chapters"
+
+/** `/books/edit?ids=…` — the bulk editor over a selection. */
+private const val BOOKS_KEY = "books"
+
+/** The selection the bulk editor edits, comma-separated. */
+private const val IDS_QUERY_KEY = "ids"
 
 /** `/book/{id}/match` — the Audible metadata wizard over one book. */
 private const val MATCH_KEY = "match"

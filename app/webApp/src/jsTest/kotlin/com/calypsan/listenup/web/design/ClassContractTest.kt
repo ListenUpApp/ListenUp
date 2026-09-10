@@ -146,6 +146,13 @@ import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
+import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
+import com.calypsan.listenup.web.features.bulkedit.BulkEditActions
+import com.calypsan.listenup.web.features.bulkedit.BulkEditCatalog
+import com.calypsan.listenup.web.features.bulkedit.BulkEditPage
+import com.calypsan.listenup.web.features.bulkedit.editing
 import com.calypsan.listenup.web.features.contributormetadata.ContributorMetadataPage
 import com.calypsan.listenup.web.features.contributormetadata.contributorPreviewState
 import com.calypsan.listenup.web.features.contributormetadata.contributorProfile
@@ -491,6 +498,36 @@ class ClassContractTest :
                             mergeCandidates = emptyList(),
                             onEvent = {},
                             onMergeQuery = {},
+                        )
+                        // Bulk edit: a form with an armed field, a preview carrying a full row, a
+                        // dimmed row, a not-loaded warning and a notice — plus the resting panel.
+                        BulkEditPage(
+                            state =
+                                editing(
+                                    bookCount = 39,
+                                    requestedCount = 40,
+                                    edits = listOf(BulkEdit.SetPublisher("Tor")),
+                                    preview =
+                                        listOf(
+                                            BulkEditPreviewRow(BulkEdit.SetPublisher("Tor"), affectedCount = 12),
+                                            BulkEditPreviewRow(BulkEdit.AddTags(listOf("Grimdark")), affectedCount = 0),
+                                        ),
+                                    changedBookCount = 12,
+                                    sharedPublishYear = 2010,
+                                ),
+                            catalog = contractCatalog,
+                            actions = contractBulkActions,
+                            notice = "Stopped after 7 books. The rest were not changed.",
+                        )
+                        BulkEditPage(
+                            state = editing(bookCount = 40),
+                            catalog = contractCatalog,
+                            actions = contractBulkActions,
+                        )
+                        BulkEditPage(
+                            state = BulkEditUiState.Loading,
+                            catalog = contractCatalog,
+                            actions = contractBulkActions,
                         )
                         // Match contributor: candidates, the ready compare (both sides drawn),
                         // the empty-catalogue miss, and a failed apply.
@@ -2056,3 +2093,29 @@ private fun adminShapes(): List<@Composable () -> Unit> {
  * normal 126, two transport specs failing) with nothing in the failure pointing back here.
  */
 private val stagedCoverSeries = editingSeries(pendingCoverData = byteArrayOf(1, 2, 3))
+
+/** Nothing to offer: the contract renders the fields' shapes, not their pickers' contents. */
+private val contractCatalog =
+    BulkEditCatalog(
+        genres = emptyList(),
+        tags = emptyList(),
+        moods = emptyList(),
+        seriesMatches = emptyList(),
+        contributorMatches = emptyList(),
+    )
+
+private val contractBulkActions =
+    BulkEditActions(
+        onSeriesQuery = {},
+        onContributorQuery = {},
+        onPublisher = {},
+        onYear = {},
+        onLanguage = {},
+        onSeries = {},
+        onContributors = {},
+        onGenres = {},
+        onTags = {},
+        onMoods = {},
+        onApply = {},
+        onLeave = {},
+    )
