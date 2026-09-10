@@ -52,9 +52,7 @@ private fun sine16(
 }
 
 /** `configure` only stages a format; `flush` is what makes it current, so tests always do both. */
-private fun GainAudioProcessor.configureAndFlush(
-    format: AudioFormat,
-): AudioFormat =
+private fun GainAudioProcessor.configureAndFlush(format: AudioFormat): AudioFormat =
     configure(format).also {
         flush(AudioProcessor.StreamMetadata.DEFAULT)
     }

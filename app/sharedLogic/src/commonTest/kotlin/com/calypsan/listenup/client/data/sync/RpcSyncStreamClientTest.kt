@@ -188,9 +188,7 @@ class RpcSyncStreamClientTest :
                         block: suspend (SyncStreamService) -> R,
                     ): R = block(service)
 
-                    override fun <R> streaming(
-                        subscribe: suspend (SyncStreamService) -> Flow<R>,
-                    ): Flow<R> =
+                    override fun <R> streaming(subscribe: suspend (SyncStreamService) -> Flow<R>): Flow<R> =
                         flow {
                             emitAll(subscribe(service))
                         }

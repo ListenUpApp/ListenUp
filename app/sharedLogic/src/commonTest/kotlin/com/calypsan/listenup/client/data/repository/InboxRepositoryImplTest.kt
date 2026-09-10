@@ -30,9 +30,7 @@ import kotlinx.coroutines.test.runTest
 class InboxRepositoryImplTest :
     FunSpec({
 
-        fun buildRepo(
-            service: CollectionService,
-        ): InboxRepositoryImpl =
+        fun buildRepo(service: CollectionService): InboxRepositoryImpl =
             InboxRepositoryImpl(
                 RpcChannel.forTest(service),
                 RpcChannel.forTest(mock<ScannerService>()),

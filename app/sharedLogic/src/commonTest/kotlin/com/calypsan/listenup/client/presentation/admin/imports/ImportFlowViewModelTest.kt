@@ -1109,9 +1109,8 @@ private class FakeAdminRepository(
 
     override fun observeRoster(): Flow<List<AdminUserInfo>> = flowOf(emptyList())
 
-    override suspend fun approveUser(
-        userId: String,
-    ): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+    override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
+        AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 
     override suspend fun denyUser(userId: String): AppResult<Unit> = AppResult.Success(Unit)
 
@@ -1176,19 +1175,14 @@ private class FakeAdminRepository(
 
     override suspend fun getLibrary(): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
-    override suspend fun addScanPath(
-        path: String,
-    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun addScanPath(path: String): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
-    override suspend fun removeFolder(
-        folderId: String,
-    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun removeFolder(folderId: String): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
     override suspend fun triggerScan(): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun browseFilesystem(
-        path: String,
-    ): AppResult<BrowseFilesystemResponse> = AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
+        AppResult.Failure(TransportError.NetworkUnavailable())
 }
 
 /**

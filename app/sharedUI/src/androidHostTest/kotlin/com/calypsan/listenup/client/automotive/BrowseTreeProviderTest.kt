@@ -573,9 +573,7 @@ private class FakeHomeRepository(
             AppResult.Success(books.take(limit))
         }
 
-    override fun observeContinueListening(
-        limit: Int,
-    ): Flow<List<ContinueListeningItem>> =
+    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
         flowOf(
             books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) },
         )

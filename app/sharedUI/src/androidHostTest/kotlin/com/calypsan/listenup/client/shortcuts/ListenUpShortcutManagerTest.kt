@@ -41,9 +41,8 @@ class ListenUpShortcutManagerTest {
             context = RuntimeEnvironment.getApplication(),
             homeRepository =
                 object : HomeRepository {
-                    override suspend fun getContinueListening(
-                        limit: Int,
-                    ): AppResult<List<ContinueListeningBook>> = AppResult.Success(emptyList())
+                    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
+                        AppResult.Success(emptyList())
 
                     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                 },
@@ -61,9 +60,8 @@ class ListenUpShortcutManagerTest {
                     context = RuntimeEnvironment.getApplication(),
                     homeRepository =
                         object : HomeRepository {
-                            override suspend fun getContinueListening(
-                                limit: Int,
-                            ): AppResult<List<ContinueListeningBook>> = throw CancellationException("shortcut refresh cancelled")
+                            override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
+                                throw CancellationException("shortcut refresh cancelled")
 
                             override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                         },
