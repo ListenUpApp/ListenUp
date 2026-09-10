@@ -29,6 +29,7 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
@@ -54,6 +55,7 @@ import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
+import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.search.fixedSearch
@@ -96,6 +98,7 @@ class BookDetailPanesTest :
                     openMetadata = fixedMetadata(MetadataUiState.Idle()),
                     openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                     openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                    openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
                     openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
                     openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
                     openNotifications = fixedNotifications(NotificationsUiState.Empty),

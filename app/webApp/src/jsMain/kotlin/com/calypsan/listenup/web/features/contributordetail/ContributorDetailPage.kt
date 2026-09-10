@@ -52,6 +52,7 @@ fun ContributorDetailPage(
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit = {},
     onEdit: () -> Unit = {},
+    onMatchMetadata: () -> Unit = {},
 ) {
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page
@@ -63,7 +64,7 @@ fun ContributorDetailPage(
 
         when (state) {
             is ContributorDetailUiState.Ready -> {
-                ReadyContent(state, onOpenBook, onOpenSeries, onEdit)
+                ReadyContent(state, onOpenBook, onOpenSeries, onEdit, onMatchMetadata)
             }
 
             is ContributorDetailUiState.Error -> {
@@ -123,8 +124,9 @@ private fun ReadyContent(
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
     onEdit: () -> Unit,
+    onMatchMetadata: () -> Unit,
 ) {
-    Hero(state, onEdit)
+    Hero(state, onEdit, onMatchMetadata)
 
     state.roleSections.forEach { section ->
         Div(attrs = { classes("cd-role-section") }) {
@@ -162,6 +164,7 @@ private fun ReadyContent(
 private fun Hero(
     state: ContributorDetailUiState.Ready,
     onEdit: () -> Unit,
+    onMatchMetadata: () -> Unit,
 ) {
     Div(attrs = { classes("cd-hero") }) {
         Div(attrs = {
@@ -203,6 +206,16 @@ private fun Hero(
             attr("title", "Edit contributor")
             onClick { onEdit() }
         }) { Icon(WebIcon.Pencil) }
+
+        // Beside Edit, for the reason Book Detail's is: editing changes what the reader believes;
+        // matching asks a catalogue and offers its answer.
+        Button(attrs = {
+            classes("btn-sq", "cd-match")
+            attr("type", BUTTON_VALUE)
+            attr("aria-label", "Match contributor")
+            attr("title", "Match contributor")
+            onClick { onMatchMetadata() }
+        }) { Icon(WebIcon.Sparkles) }
     }
 }
 

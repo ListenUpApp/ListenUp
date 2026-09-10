@@ -143,6 +143,14 @@ import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.CoverEntry
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
+import com.calypsan.listenup.api.dto.MetadataContributorHit
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
+import com.calypsan.listenup.web.features.contributormetadata.ContributorMetadataPage
+import com.calypsan.listenup.web.features.contributormetadata.contributorPreviewState
+import com.calypsan.listenup.web.features.contributormetadata.contributorProfile
+import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
+import com.calypsan.listenup.web.features.contributormetadata.localContributor
 import com.calypsan.listenup.web.features.metadata.MetadataPage
 import com.calypsan.listenup.web.features.metadata.availableChapters
 import com.calypsan.listenup.web.features.metadata.metadataBook
@@ -483,6 +491,74 @@ class ClassContractTest :
                             mergeCandidates = emptyList(),
                             onEvent = {},
                             onMergeQuery = {},
+                        )
+                        // Match contributor: candidates, the ready compare (both sides drawn),
+                        // the empty-catalogue miss, and a failed apply.
+                        ContributorMetadataPage(
+                            state =
+                                contributorSearchState(
+                                    loadState =
+                                        ContributorSearchLoadState.Loaded(
+                                            listOf(MetadataContributorHit(asin = "B1", name = "Patrick Rothfuss")),
+                                        ),
+                                ),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectCandidate = {},
+                            onClearSelection = {},
+                            onApply = {},
+                            onLeave = {},
+                        )
+                        ContributorMetadataPage(
+                            state =
+                                contributorPreviewState(
+                                    ContributorPreviewLoadState.Ready(
+                                        profile =
+                                            contributorProfile(
+                                                description = "Wrote Kvothe.",
+                                                imageUrl = "https://example.invalid/p.jpg",
+                                            ),
+                                        isApplying = false,
+                                        applyError = "The server refused that.",
+                                    ),
+                                    current = localContributor(description = "A writer.", imagePath = "contributors/c1.jpg"),
+                                ),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectCandidate = {},
+                            onClearSelection = {},
+                            onApply = {},
+                            onLeave = {},
+                        )
+                        ContributorMetadataPage(
+                            state =
+                                contributorPreviewState(
+                                    ContributorPreviewLoadState.Ready(
+                                        profile = contributorProfile(description = null, imageUrl = null),
+                                        isApplying = false,
+                                        applyError = null,
+                                    ),
+                                    current = localContributor(description = null, imagePath = null),
+                                ),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectCandidate = {},
+                            onClearSelection = {},
+                            onApply = {},
+                            onLeave = {},
+                        )
+                        ContributorMetadataPage(
+                            state = contributorPreviewState(ContributorPreviewLoadState.Missing),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectCandidate = {},
+                            onClearSelection = {},
+                            onApply = {},
+                            onLeave = {},
                         )
                         // Match metadata: the search phase with results, the preview with every
                         // field shape it can draw (provenance, cover options, contributor and

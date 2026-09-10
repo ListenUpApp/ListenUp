@@ -270,6 +270,7 @@ body { margin: 0; }
 .luw .sed-merge:active,
 .luw .ched-add:active,
 .luw .mdx-review:active,
+.luw .cmx-hit:active,
 .luw .drift-pin:active,
 .luw .chr-a:active,
 .luw .cover-undo:active,
@@ -2573,6 +2574,45 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 .luw .mdx-apply { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 6px; }
 .luw .mdx-merged { flex: 1; font-size: 0.76rem; color: var(--ink-3); }
+
+/* Match contributor — the same wizard shape as the book one, over a person. Narrower, because the
+   server applies the profile as a unit: the decision is which person, not which fields. */
+.luw .cmx { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .cmx-head { display: flex; align-items: center; gap: 16px; }
+.luw .cmx-t { flex: 1; margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .cmx-skel { height: 18rem; border-radius: 16px; }
+.luw .cmx-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .cmx-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .cmx-ctx { display: flex; align-items: baseline; gap: 8px; }
+.luw .cmx-ctx-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.luw .cmx-ctx-n { font-size: 1rem; font-weight: 700; color: var(--ink); }
+.luw .cmx-search { display: flex; align-items: flex-end; gap: 12px; }
+.luw .cmx-search .f-wrap { flex: 1; min-width: 12rem; }
+.luw .cmx-hits { display: flex; flex-direction: column; gap: 4px; }
+.luw .cmx-hit { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 1.5px solid transparent; border-radius: 12px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; font-family: inherit; }
+@media (hover: hover) { .luw .cmx-hit:hover { border-color: var(--coral); background: var(--surface); } }
+.luw .cmx-hit-n { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 650; }
+.luw .cmx-asin { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); }
+.luw .cmx-empty { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: 16px; background: var(--surface-2); }
+.luw .cmx-empty h2 { margin: 0; font-size: 1.05rem; font-weight: 750; color: var(--ink); }
+.luw .cmx-empty p { margin: 0; font-size: 0.88rem; color: var(--ink-3); }
+/* Which person was matched. NOT a before-and-after: Apply never renames anybody. */
+.luw .cmx-who { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.luw .cmx-who-n { font-size: 1.15rem; font-weight: 750; color: var(--ink); }
+.luw .cmx-src { padding: 2px 9px; border-radius: 999px; background: var(--surface-3); font-size: 0.72rem; font-weight: 700; color: var(--ink-2); }
+.luw .cmx-cmp { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: var(--surface-2); }
+.luw .cmx-cmp-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.luw .cmx-side { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+/* The incoming side is the one that will win, so it carries the accent. */
+.luw .cmx-side.on { color: var(--coral); }
+.luw .cmx-side-v { display: flex; flex-direction: column; gap: 2px; }
+.luw .cmx-bio { margin: 0; font-size: 0.88rem; color: var(--ink-2); line-height: 1.5; }
+.luw .cmx-photos { display: flex; gap: 16px; }
+.luw .cmx-photo { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.luw .cmx-photo-i { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: var(--surface-3); display: block; }
+.luw .cmx-photo-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 0.72rem; font-weight: 600; text-align: center; }
+.luw .cmx-apply { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.luw .cd-match { flex: none; align-self: flex-start; }
 
 .luw .bd-chapters-edit { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 /* The pencil sits at the top-right of the hero, out of the title's flow — the same placement

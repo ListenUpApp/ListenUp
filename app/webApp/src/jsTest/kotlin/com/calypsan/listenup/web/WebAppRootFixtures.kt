@@ -78,11 +78,14 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditSession
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
+import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
+import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
@@ -133,6 +136,8 @@ internal fun mountAt(
     openBookDetail: OpenBookDetail = fixedBookDetail(readyBook()),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+    openContributorMetadata: OpenContributorMetadata =
+        fixedContributorMetadata(ContributorMetadataUiState.Idle()),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
     openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
     openChapterEditor: OpenChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
@@ -173,6 +178,7 @@ internal fun mountAt(
                 openMetadata = openMetadata,
                 openContributorDetail = openContributorDetail,
                 openContributorEdit = openContributorEdit,
+                openContributorMetadata = openContributorMetadata,
                 openSeriesDetail = openSeriesDetail,
                 openSeriesEdit = openSeriesEdit,
                 openNotifications = openNotifications,

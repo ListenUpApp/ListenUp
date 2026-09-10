@@ -55,6 +55,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
@@ -80,6 +81,7 @@ import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
+import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
@@ -119,6 +121,7 @@ private fun mountGate(
             openMetadata = fixedMetadata(MetadataUiState.Idle()),
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+            openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
             openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
             openNotifications = fixedNotifications(NotificationsUiState.Empty),
