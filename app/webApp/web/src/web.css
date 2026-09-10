@@ -255,6 +255,29 @@ body { margin: 0; }
 .luw .lset-x:active,
 .luw .lset-up:active,
 .luw .lset-brow-add:active,
+.luw .inbox-selall:active,
+.luw .inbox-issue-x:active,
+.luw .inbox-notice-x:active,
+.luw .srv-err-x:active,
+.luw .cat-err-x:active,
+.luw .coll-err-x:active,
+.luw .bkp-err-x:active,
+.luw .imp-err-x:active,
+.luw .ced-err-x:active,
+.luw .ced-split:active,
+.luw .ced-merge:active,
+.luw .sed-err-x:active,
+.luw .sed-merge:active,
+.luw .cover-undo:active,
+.luw .imp-new:active,
+.luw .iflow-skip:active,
+.luw .iflow-find:active,
+.luw .bkp-restore:active,
+.luw .coll-new:active,
+.luw .cdet-add:active,
+.luw .cdet-share:active,
+.luw .cat-twist:active,
+.luw .cat-bar-b:active,
 .bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
@@ -280,6 +303,13 @@ body { margin: 0; }
 .luw .lsetup-open:active,
 .luw .prof-shelf:active,
 .luw .lset-brow-open:active,
+.luw .coll-open:active,
+.luw .cdet-result:active,
+.luw .ced-result:active,
+.luw .sed-result:active,
+.luw .iflow-result:active,
+.luw .cdet-person:active,
+.luw .inbox-book:active,
 .sd-book:active { background: var(--surface-3); }
 
 /* The library card is the one place a press has something to undo rather than add: the cover is
@@ -333,6 +363,8 @@ body { margin: 0; }
 /* A channel the server declared ineligible. Dimmed AND `disabled` on the input — the look alone
    would leave it reachable by keyboard and silent to a screen reader. */
 .sw.off { cursor: default; opacity: .45; }
+.f-box.off { opacity: .55; }
+.f-box.off .f-input { cursor: default; }
 .sw.off .sw-in { cursor: default; }
 
 /* ---- server connection chip (self-hosted indicator) ---- */
@@ -999,6 +1031,8 @@ body { margin: 0; }
 .cover-art { width:132px; height:132px; border-radius:10px; overflow:hidden; flex-shrink:0; box-shadow:var(--shadow-card); }
 .cover-art img { width:100%; height:100%; object-fit:cover; display:block; }
 .cover-preview { width:100%; height:100%; object-fit:cover; display:block; }
+.cover-pick-col { flex:1; display:flex; flex-direction:column; gap:10px; }
+.cover-undo { align-self:flex-start; }
 .cover-pick {
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
   padding:18px; cursor:pointer; font-family:inherit;
@@ -1697,6 +1731,23 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .prof-shelf:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .luw .prof-shelf-n { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
 .luw .prof-shelf-c { flex: none; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* The pencil. `.iconbtn` carries its look, hover and press; this only keeps it out of the
+   hero's vertical centring, so it sits level with the name rather than with the stats. */
+.luw .prof-edit { flex: none; align-self: flex-start; margin-top: 6px; }
+
+/* ---- edit profile. Your picture, name, tagline and password — one form, one Save. Shares the
+   .edit-* rhythm with Book Edit, because a form is a form; only the photo row is its own. */
+.luw .pedit { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .pedit-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .pedit-skel { height: 20rem; border-radius: 16px; }
+.luw .pedit-hint { margin: 0; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .pedit-photo { display: flex; align-items: center; gap: 20px; }
+/* Fixed to the avatar's own size so a tall picture cannot stretch the row while it is staged. */
+.luw .pedit-preview { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; display: block; }
+.luw .pedit-photo-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.luw .pedit-photo-hint { font-size: 0.78rem; color: var(--ink-3); font-weight: 600; }
+/* Right-aligned under the field it counts, where a counter is read only when it is nearly full. */
+.luw .pedit-count { align-self: flex-end; font-size: 0.75rem; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-top: -12px; }
 
 /* ---- library folders (admin). The other half of library management: the setup wizard picks
    folders once, before the app exists; this is where they change afterwards. */
@@ -1732,6 +1783,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    that accumulates — the opposite of the setup wizard, where several are ticked before Continue. */
 .luw .lset-brow-add { flex: none; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font: inherit; font-size: 0.76rem; font-weight: 700; color: var(--ink-2); cursor: pointer; }
 @media (hover: hover) { .luw .lset-brow-add:hover { border-color: var(--coral); color: var(--coral); } }
+.luw .adm-links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .luw .adm-link { align-self: flex-start; }
 
 /* ---- notifications — what happened while you were away. Narrower than the entity pages: every
@@ -2109,3 +2161,279 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   width: 2.4rem; text-align: right; font-size: 0.78rem; font-weight: 700; color: var(--ink-2);
   font-family: var(--mono);
 }
+
+/* ---- admin inbox. Two independent halves: what the scan brought in and is holding for review,
+   and what it walked past because it could not make a book from it. */
+.luw .inbox { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .inbox-back { align-self: flex-start; }
+.luw .inbox-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .inbox-sub { margin: -6px 0 4px; font-size: 0.92rem; color: var(--ink-2); }
+.luw .inbox-skel { height: 16rem; border-radius: 16px; }
+.luw .inbox-hint { margin: 0 0 12px; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .inbox-selall { padding: 4px 10px; font-size: 0.78rem; }
+
+/* Rows, not cards: the reader is scanning a queue for the one that looks wrong, and a grid of
+   covers makes that a hunt. */
+.luw .inbox-books { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .inbox-book {
+  display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left;
+  padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface-2); cursor: pointer; transition: border-color .15s, background .15s;
+}
+@media (hover: hover) { .luw .inbox-book:hover { border-color: var(--coral); } }
+.luw .inbox-book:focus { outline: none; }
+.luw .inbox-book:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.luw .inbox-book.is-sel { border-color: var(--coral); background: var(--coral-soft); }
+.luw .inbox-book-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.luw .inbox-book-title { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .inbox-book-by { font-size: 0.82rem; color: var(--ink-2); }
+.luw .inbox-book-dur { flex: none; font-size: 0.8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* Always present, so selecting a row never changes its height and the queue never reflows. */
+.luw .inbox-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--coral); }
+.luw .inbox-book.is-sel .inbox-tick { background: var(--coral); color: var(--on-coral, #fff); }
+
+.luw .inbox-issues { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .inbox-issue { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .inbox-issue-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.luw .inbox-issue-what { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.luw .inbox-issue-path { font-size: 0.82rem; color: var(--ink-2); font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); word-break: break-all; }
+.luw .inbox-issue-fix { font-size: 0.82rem; color: var(--ink-3); line-height: 1.45; }
+.luw .inbox-issue-detail { font-size: 0.78rem; color: var(--ink-3); font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); word-break: break-all; }
+.luw .inbox-issue-x { flex: none; padding: 4px 10px; font-size: 0.78rem; }
+
+.luw .inbox-err, .luw .inbox-note { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; font-size: 0.88rem; font-weight: 600; }
+.luw .inbox-err { background: var(--coral-soft); color: var(--coral); }
+.luw .inbox-note { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
+.luw .inbox-notice-t { flex: 1; min-width: 0; }
+.luw .inbox-notice-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .inbox-notice-x:hover { background: var(--surface-3); } }
+
+/* ---- server settings. Two text fields that batch behind Save, and two switches that write on
+   the flick — the layout has to make that difference visible, so they never share a section. */
+.luw .srv { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .srv-back { align-self: flex-start; }
+.luw .srv-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .srv-skel { height: 18rem; border-radius: 16px; }
+.luw .srv-body { display: flex; flex-direction: column; gap: 16px; }
+.luw .srv-hint { margin: 0; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+/* The description leads and the switch trails, so a column of switches lines up down the right
+   edge and the eye can run the settings without reading every sentence. */
+.luw .srv-toggle { display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; }
+.luw .srv-toggle-d { flex: 1; min-width: 0; font-size: 0.86rem; color: var(--ink-2); line-height: 1.45; }
+.luw .srv-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .srv-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .srv-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .srv-err-x:hover { background: var(--surface-3); } }
+
+/* ---- admin categories. A genre tree: one flat list of rows indented by depth, so keyboard order
+   equals reading order and a parent's buttons are not inside every descendant's tab stop. */
+.luw .cat { width: 100%; max-width: 820px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .cat-back { align-self: flex-start; }
+.luw .cat-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .cat-skel { height: 18rem; border-radius: 16px; }
+.luw .cat-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.luw .cat-count { flex: 1; min-width: 8rem; font-size: 0.82rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .cat-bar-b { padding: 5px 12px; font-size: 0.8rem; }
+.luw .cat-tree { display: flex; flex-direction: column; gap: 2px; }
+.luw .cat-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 10px; }
+.luw .cat-twist { width: 24px; height: 24px; flex: none; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .cat-twist:hover { color: var(--coral); } }
+/* Same width as the twisty, so a leaf's name lines up with its siblings' instead of shifting
+   left by exactly one control. */
+.luw .cat-twist-gap { width: 24px; height: 24px; flex: none; }
+.luw .cat-name { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .cat-books { flex: none; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* Always visible, never revealed on hover. A reveal would hide five controls per row from every
+   touch reader, since a finger has no hover to reveal them with — and the press contract exists to
+   catch exactly that. Restraint comes from the icons being small and `--ink-3` instead. */
+.luw .cat-acts { flex: none; display: flex; gap: 1px; }
+.luw .cat-act { width: 26px; height: 26px; }
+.luw .cat-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .cat-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .cat-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .cat-err-x:hover { background: var(--surface-3); } }
+
+/* ---- admin collections. The list, then one collection's books and the people who can see it. */
+.luw .coll { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .coll-back, .luw .cdet-back { align-self: flex-start; }
+.luw .coll-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .coll-skel, .luw .cdet-skel { height: 16rem; border-radius: 16px; }
+.luw .coll-bar { display: flex; align-items: center; gap: 0.6rem; }
+.luw .coll-count { flex: 1; min-width: 6rem; font-size: 0.82rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .coll-new { padding: 5px 12px; font-size: 0.8rem; }
+.luw .coll-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .coll-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.15rem 0.6rem 0.15rem 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .coll-open { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 0.7rem; padding: 0.6rem 0.8rem; border: none; background: none; text-align: left; cursor: pointer; border-radius: 12px; }
+@media (hover: hover) { .luw .coll-open:hover .coll-name { color: var(--coral); } }
+.luw .coll-open:focus { outline: none; }
+.luw .coll-open:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .coll-name { font-size: 0.95rem; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .coll-books { flex: none; font-size: 0.8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* A padlock, not a missing button: a row simply lacking its Delete reads as a rendering fault. */
+.luw .coll-lock { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--surface-3); color: var(--ink-3); }
+.luw .coll-lock-t { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.luw .coll-del { flex: none; }
+.luw .coll-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .coll-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .coll-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .coll-err-x:hover { background: var(--surface-3); } }
+
+.luw .cdet { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .cdet-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .cdet-hint { margin: 0; font-size: 0.84rem; color: var(--ink-3); line-height: 1.5; }
+.luw .cdet-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .cdet-sec-act { display: flex; justify-content: flex-end; }
+.luw .cdet-add, .luw .cdet-share { padding: 4px 11px; font-size: 0.78rem; }
+.luw .cdet-books, .luw .cdet-shares { display: flex; flex-direction: column; gap: 0.4rem; }
+.luw .cdet-book { display: flex; align-items: center; gap: 0.7rem; }
+.luw .cdet-book-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.luw .cdet-book-title { font-size: 0.9rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .cdet-book-by { font-size: 0.79rem; color: var(--ink-2); }
+.luw .cdet-share-row { display: flex; align-items: center; gap: 0.7rem; }
+.luw .cdet-share-n { flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.luw .cdet-share-p { flex: none; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3); }
+.luw .cdet-x { flex: none; }
+/* Capped and scrollable: a library search can return far more rows than a dialog can hold. */
+.luw .cdet-results, .luw .cdet-people { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
+.luw .cdet-result, .luw .cdet-person { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .cdet-result:hover, .luw .cdet-person:hover { background: var(--surface-3); } }
+.luw .cdet-result-t, .luw .cdet-person-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- admin backups. Take one, take one away, take one off the server, or put one back. */
+.luw .bkp { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .bkp-back, .luw .rst-back { align-self: flex-start; }
+.luw .bkp-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .bkp-skel { height: 16rem; border-radius: 16px; }
+.luw .bkp-make { display: flex; flex-direction: column; gap: 0.7rem; padding: 16px; border: 1px solid var(--line); border-radius: var(--rad); background: var(--surface); }
+.luw .bkp-hint { margin: 0; font-size: 0.84rem; color: var(--ink-3); line-height: 1.5; }
+.luw .bkp-make-acts { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.luw .bkp-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .bkp-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .bkp-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.luw .bkp-when { font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.luw .bkp-size { font-size: 0.79rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .bkp-act { flex: none; }
+.luw .bkp-restore { flex: none; padding: 4px 11px; font-size: 0.78rem; }
+.luw .bkp-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .bkp-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .bkp-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .bkp-err-x:hover { background: var(--surface-3); } }
+
+/* ---- restore. Narrow and quiet: the most destructive page in the app should not look busy. */
+.luw .rst { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .rst-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .rst-body { margin: 0; font-size: 0.95rem; color: var(--ink-2); line-height: 1.6; }
+.luw .rst-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .rst-schema { margin: 0; font-size: 0.82rem; color: var(--ink-3); }
+.luw .rst-live { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .rst-bar { height: 6px; border-radius: 999px; }
+.luw .rst-phase { margin: 0; font-size: 0.92rem; font-weight: 650; color: var(--ink); }
+
+/* ---- admin imports. The list of past runs, then the linear flow that makes one. */
+.luw .imp { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .imp-back, .luw .iflow-back { align-self: flex-start; }
+.luw .imp-title, .luw .iflow-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .imp-sub { margin: -6px 0 4px; font-size: 0.92rem; color: var(--ink-2); }
+.luw .imp-skel { height: 14rem; border-radius: 16px; }
+.luw .imp-bar { display: flex; align-items: center; gap: 0.6rem; }
+.luw .imp-count { flex: 1; min-width: 6rem; font-size: 0.82rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .imp-new { padding: 5px 12px; font-size: 0.8rem; }
+.luw .imp-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.luw .imp-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .imp-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.luw .imp-when { font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.luw .imp-what { font-size: 0.79rem; color: var(--ink-3); }
+.luw .imp-status { flex: none; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3); }
+.luw .imp-del { flex: none; }
+.luw .imp-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .imp-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .imp-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .imp-err-x:hover { background: var(--surface-3); } }
+
+/* The flow. Wider than the restore page because Review is a working surface, not a decision. */
+.luw .iflow { width: 100%; max-width: 820px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .iflow-idle { display: flex; flex-direction: column; align-items: flex-start; gap: 0.9rem; }
+.luw .iflow-body { margin: 0; font-size: 0.95rem; color: var(--ink-2); line-height: 1.6; max-width: 60ch; }
+.luw .iflow-hint { margin: 0 0 12px; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .iflow-note { margin: 0; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .iflow-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .iflow-live { display: flex; flex-direction: column; gap: 0.6rem; }
+.luw .iflow-bar { height: 6px; border-radius: 999px; }
+.luw .iflow-phase { margin: 0; font-size: 0.95rem; font-weight: 650; color: var(--ink); }
+.luw .iflow-row { display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem 0; }
+.luw .iflow-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.luw .iflow-row-n { font-size: 0.9rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .iflow-row-s { font-size: 0.78rem; color: var(--ink-3); font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .iflow-decision { flex: none; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3); }
+.luw .iflow-skip, .luw .iflow-find { flex: none; padding: 4px 11px; font-size: 0.78rem; }
+/* The tally sits with the button it explains, so the count and the commit are read together. */
+.luw .iflow-apply { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; padding-top: 4px; }
+.luw .iflow-tally { flex: 1; min-width: 14rem; font-size: 0.84rem; color: var(--ink-2); }
+.luw .iflow-results { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
+.luw .iflow-result { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .iflow-result:hover { background: var(--surface-3); } }
+.luw .iflow-result-t { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .iflow-result-b { flex: none; font-size: 0.78rem; color: var(--ink-3); }
+
+/* ---- contributor edit. The person's own details, and who they are really. */
+.luw .ced { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .ced-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .ced-skel { height: 22rem; border-radius: 16px; }
+.luw .ced-hint { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .ced-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .ced-portrait { display: flex; align-items: center; gap: 20px; }
+/* Fixed to the frame's own size so a tall photo cannot stretch the row while it is staged. */
+.luw .ced-photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; display: block; background: var(--surface-3); }
+.luw .ced-photo-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); }
+.luw .ced-portrait-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.luw .ced-portrait-hint { font-size: 0.78rem; color: var(--ink-3); font-weight: 600; }
+.luw .ced-aliases { display: flex; flex-direction: column; gap: 0.4rem; }
+.luw .ced-alias { display: flex; align-items: center; gap: 0.7rem; }
+.luw .ced-alias-n { flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.luw .ced-split, .luw .ced-merge { flex: none; padding: 4px 11px; font-size: 0.78rem; }
+.luw .ced-alias-act { display: flex; justify-content: flex-end; margin-top: 10px; }
+/* Capped and scrollable: a contributor search can return far more rows than a dialog can hold. */
+.luw .ced-results { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
+.luw .ced-result { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .ced-result:hover { background: var(--surface-3); } }
+.luw .ced-result-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .ced-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .ced-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .ced-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .ced-err-x:hover { background: var(--surface-3); } }
+
+/* Series Edit — the same form skeleton Contributor Edit uses, plus a cover picker and a merge
+   picker that selects before it commits. */
+.luw .sed { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+.luw .sed-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .sed-skel { height: 22rem; border-radius: 16px; }
+.luw .sed-hint { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; }
+.luw .sed-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .sed-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+.luw .sed-cover-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--surface-3); color: var(--ink-3); font-size: 0.72rem; font-weight: 600; text-align: center; }
+.luw .sed-merge-act { display: flex; justify-content: flex-end; }
+.luw .sed-merge { flex: none; }
+/* The one irreversible thing this page does says so in the colour the rest of the app reserves
+   for it, above the list rather than beside the button — it is a fact about the operation, not a
+   label on a control. */
+.luw .sed-warn { margin: 0 0 12px; font-size: 0.86rem; font-weight: 700; color: var(--coral); }
+.luw .sed-trunc { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-3); }
+.luw .sed-results { display: flex; flex-direction: column; gap: 2px; max-height: 15rem; overflow-y: auto; margin: 12px 0; }
+.luw .sed-result { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 0.6rem; border: 1.5px solid transparent; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .sed-result:hover { background: var(--surface-3); } }
+/* Selection is a border and a tint, not colour alone: the confirm button's enabled state is the
+   other half of the same signal, and one of the two has to survive a reader who cannot see it. */
+.luw .sed-result.on { border-color: var(--coral); background: var(--coral-soft); }
+.luw .sed-result-n { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .sed-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .sed-err-t { flex: 1; min-width: 0; margin: 0; }
+.luw .sed-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .sed-err-x:hover { background: var(--surface-3); } }
+/* The pencil sits at the top-right of the hero, out of the title's flow — the same placement
+   Contributor Detail gives its own. */
+.luw .sd-edit { flex: none; align-self: flex-start; margin-left: auto; }
+/* The truncation notice Contributor Edit's picker was missing: its list is capped at 30 too, and
+   a silently truncated list reads as a complete one. */
+.luw .ced-trunc { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-3); }
+/* Pushed to the hero's trailing edge, clear of the name block. */
+.luw .cd-edit { flex: none; align-self: flex-start; margin-left: auto; }

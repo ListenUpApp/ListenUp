@@ -88,6 +88,7 @@ import listenup.composeapp.generated.resources.profile_upload_photo
 import listenup.composeapp.generated.resources.auth_confirm_password
 import listenup.composeapp.generated.resources.auth_first_name
 import listenup.composeapp.generated.resources.auth_last_name
+import androidx.compose.ui.text.input.KeyboardCapitalization
 
 private val CARD_CONTENT_PADDING = 20.dp
 private val SECTION_GAP = 16.dp
@@ -512,6 +513,7 @@ private fun TaglineCard(
                     ready.tagline.length,
                     EditProfileViewModel.MAX_TAGLINE_LENGTH,
                 ),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         )
     }
 }
@@ -535,12 +537,14 @@ private fun NameCard(
                 onValueChange = viewModel::setFirstName,
                 label = stringResource(Res.string.auth_first_name),
                 enabled = !ready.isSaving,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
             ListenUpTextField(
                 value = ready.lastName,
                 onValueChange = viewModel::setLastName,
                 label = stringResource(Res.string.auth_last_name),
                 enabled = !ready.isSaving,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
         }
     }

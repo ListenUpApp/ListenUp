@@ -58,10 +58,11 @@ final class UserProfileObserver {
     func refresh() { viewModel.refresh() }
 
     private func apply(_ state: UserProfileUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle, .loading:
             phase = .loading
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             phase = .ready
             displayName = r.displayName
             tagline = r.tagline
@@ -70,11 +71,9 @@ final class UserProfileObserver {
             booksFinished = Int(r.booksFinished)
             currentStreak = Int(r.currentStreak)
             longestStreak = Int(r.longestStreak)
-        case .error(let errorState):
+        case .error(let errorStateType):
+            let errorState = errorStateType.value
             phase = .error(errorState.message)
-        case .unknown:
-            Log.error("Unexpected UserProfileUiState case")
-            phase = .error(String(localized: "common.error"))
         }
     }
 }

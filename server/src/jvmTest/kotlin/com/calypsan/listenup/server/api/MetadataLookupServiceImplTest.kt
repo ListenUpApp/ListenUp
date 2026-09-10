@@ -408,9 +408,7 @@ class MetadataLookupServiceImplTest :
         }
     })
 
-private fun audibleBook(
-    genres: List<String> = emptyList(),
-): AudibleBook =
+private fun audibleBook(genres: List<String> = emptyList()): AudibleBook =
     AudibleBook(
         asin = "B0TESTASIN",
         title = "The Way of Kings",

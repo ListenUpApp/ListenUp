@@ -24,7 +24,10 @@ import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
+import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
@@ -63,6 +66,9 @@ import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
+import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
+import com.calypsan.listenup.web.features.seriesedit.SeriesEditPage
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
@@ -71,11 +77,39 @@ import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
 import com.calypsan.listenup.web.features.notifications.NotificationPrefsPage
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
+import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.EditProfilePage
+import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
+import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.web.BrowserFileSource
+import com.calypsan.listenup.web.BufferingSink
+import com.calypsan.listenup.web.features.admin.BackupsPage
+import com.calypsan.listenup.web.features.admin.ImportFlowPage
+import com.calypsan.listenup.web.features.admin.ImportsPage
+import com.calypsan.listenup.web.features.admin.OpenImportFlow
+import com.calypsan.listenup.web.features.admin.OpenImports
+import com.calypsan.listenup.web.features.admin.CategoriesPage
+import com.calypsan.listenup.web.features.admin.OpenBackups
+import com.calypsan.listenup.web.features.admin.OpenRestore
+import com.calypsan.listenup.web.features.admin.RestorePage
+import com.calypsan.listenup.web.features.admin.formatWhen
+import com.calypsan.listenup.web.readByteArray
+import com.calypsan.listenup.web.saveToDisk
+import com.calypsan.listenup.web.features.admin.CollectionDetailPage
+import com.calypsan.listenup.web.features.admin.CollectionsPage
+import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
+import com.calypsan.listenup.web.features.admin.OpenCollections
+import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.OpenCategories
+import com.calypsan.listenup.web.features.admin.OpenServerSettings
+import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -90,6 +124,7 @@ import com.calypsan.listenup.web.playback.browserMediaSession
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
@@ -128,10 +163,13 @@ fun WebAppRoot(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
+    openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
+    openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -139,6 +177,15 @@ fun WebAppRoot(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -217,10 +264,14 @@ fun WebAppRoot(
             openBookDetail = openBookDetail,
             openBookEdit = openBookEdit,
             openContributorDetail = openContributorDetail,
+            openContributorEdit = openContributorEdit,
             openSeriesDetail = openSeriesDetail,
+            openSeriesEdit = openSeriesEdit,
             openNotifications = openNotifications,
             openNotificationPrefs = openNotificationPrefs,
             openProfile = openProfile,
+            openEditProfile = openEditProfile,
+            currentUserId = currentUserId,
             openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
@@ -228,6 +279,15 @@ fun WebAppRoot(
             openDevices = openDevices,
             openAdmin = openAdmin,
             openLibrarySettings = openLibrarySettings,
+            openAdminInbox = openAdminInbox,
+            openServerSettings = openServerSettings,
+            openCategories = openCategories,
+            openCollections = openCollections,
+            openCollectionDetail = openCollectionDetail,
+            openBackups = openBackups,
+            openRestore = openRestore,
+            openImports = openImports,
+            openImportFlow = openImportFlow,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -280,6 +340,19 @@ fun WebAppRoot(
 }
 
 /**
+ * `/{key}/{id}` — the thing this route names, or null when the route isn't about one at all.
+ */
+private fun Route.idUnder(key: String): String? = if (segments.firstOrNull() == key) segments.getOrNull(1) else null
+
+/**
+ * `/{key}/{id}/edit` — the same [id] again, but only when the route asks for the form over it.
+ *
+ * The form is a route of its own rather than a mode of the page beneath it, so it is linkable,
+ * Back leaves it, and a half-finished edit can never be mistaken for the thing it will become.
+ */
+private fun Route.editTargetOf(id: String?): String? = if (id != null && segments.getOrNull(2) == EDIT_KEY) id else null
+
+/**
  * The one page the current route actually shows — Book Edit, Book Detail, Contributors, Library
  * or the placeholder — pulled out of [WebAppRoot] itself purely to keep that function's branching
  * readable as a single glance rather than one long `if`/`else if` chain.
@@ -293,10 +366,14 @@ private fun RouteContent(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
+    openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
+    openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
+    currentUserId: String?,
     openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -304,6 +381,15 @@ private fun RouteContent(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -313,22 +399,28 @@ private fun RouteContent(
     onHeroBookIdChange: (String) -> Unit,
 ) {
     val shelfRoute = shelfRouteOf(route.segments)
-    val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
-    // `/book/{id}/edit` — a route of its own rather than a mode of Book Detail, so the form is
-    // linkable, Back leaves it, and a half-finished edit cannot be mistaken for the book.
-    val editingBookId = if (bookId != null && route.segments.getOrNull(2) == EDIT_KEY) bookId else null
+    val bookId = route.idUnder(BOOK_KEY)
+    val editingBookId = route.editTargetOf(bookId)
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
     val isContributors = active == LIBRARY_KEY && route.segments.getOrNull(1) == CONTRIBUTORS_KEY
     // `/contributor/{id}` — the person behind the books, a route of its own (unlike the list, one
     // book's worth of detail is not a facet of anything else).
-    val contributorId = if (page == CONTRIBUTOR_KEY) route.segments.getOrNull(1) else null
+    val contributorId = route.idUnder(CONTRIBUTOR_KEY)
+    val editingContributorId = route.editTargetOf(contributorId)
     // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
     // series is something you arrive at and link to, not a filter over the library grid.
-    val seriesId = if (page == SERIES_KEY) route.segments.getOrNull(1) else null
+    val seriesId = route.idUnder(SERIES_KEY)
+    val editingSeriesId = route.editTargetOf(seriesId)
     // `/profile/{id}` — a listener's own page, reached from a notification, the account menu,
     // or a link someone sent. A route of its own for the same reason a contributor's is.
-    val profileId = if (page == PROFILE_KEY) route.segments.getOrNull(1) else null
+    val profileId = route.idUnder(PROFILE_KEY)
+    // `/profile/{id}/edit` — a route of its own rather than a mode of the profile, for the same
+    // reason `/book/{id}/edit` is one: the form is linkable, Back leaves it, and a half-finished
+    // edit cannot be mistaken for the profile it will become.
+    // Read only inside the profile branch below, so it does not re-test `profileId != null` —
+    // `/book/{id}/edit` sets this too, and never reaches anything that looks at it.
+    val editingProfile = route.segments.getOrNull(2) == EDIT_KEY
 
     if (bookId != null) {
         BookRouteContent(
@@ -340,30 +432,36 @@ private fun RouteContent(
             openBookEdit = openBookEdit,
             playback = playback,
         )
-    } else if (isContributors) {
-        val role = parseContributorRole(route.query[ROLE_QUERY_KEY])
-        val contributorsSession = contributorsState(role, openContributors)
-        ContributorsPage(
-            state = contributorsSession.state.collectAsState().value,
-            role = role,
-            onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
-            onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
-        )
-    } else if (contributorId != null) {
-        ContributorDetailPage(
-            state = contributorDetailState(contributorId, openContributorDetail),
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-            onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
-            onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-            onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+    } else if (isContributors || contributorId != null) {
+        ContributorRouteContent(
+            isList = isContributors,
+            contributorId = contributorId,
+            editingContributorId = editingContributorId,
+            role = parseContributorRole(route.query[ROLE_QUERY_KEY]),
+            router = router,
+            openContributors = openContributors,
+            openContributorDetail = openContributorDetail,
+            openContributorEdit = openContributorEdit,
         )
     } else if (profileId != null) {
-        ProfileRoute(router = router, openProfile = openProfile, userId = profileId)
+        ProfileRouteContent(
+            userId = profileId,
+            editing = editingProfile,
+            currentUserId = currentUserId,
+            router = router,
+            openProfile = openProfile,
+            openEditProfile = openEditProfile,
+        )
     } else if (page == NOTIFICATIONS_KEY) {
         NotificationsRoute(router = router, openNotifications = openNotifications)
+    } else if (editingSeriesId != null) {
+        // ⛔ Before the detail branch: `/series/{id}` is a prefix of this route, and a branch order
+        // that tests it first makes the form unreachable by link.
+        SeriesEditRoute(router = router, openSeriesEdit = openSeriesEdit, seriesId = editingSeriesId)
     } else if (seriesId != null) {
         SeriesDetailPage(
             state = seriesDetailState(seriesId, openSeriesDetail),
+            onEdit = { router.navigate(Route(listOf(SERIES_KEY, seriesId, EDIT_KEY))) },
             onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
             onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
             onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
@@ -401,6 +499,15 @@ private fun RouteContent(
             openAdmin = openAdmin,
             openNotificationPrefs = openNotificationPrefs,
             openLibrarySettings = openLibrarySettings,
+            openAdminInbox = openAdminInbox,
+            openServerSettings = openServerSettings,
+            openCategories = openCategories,
+            openCollections = openCollections,
+            openCollectionDetail = openCollectionDetail,
+            openBackups = openBackups,
+            openRestore = openRestore,
+            openImports = openImports,
+            openImportFlow = openImportFlow,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -862,6 +969,104 @@ private fun contributorsState(
 }
 
 /**
+ * `/contributor/{id}/edit` — the person's own details, and who they are really.
+ *
+ * Keyed on [contributorId] for the reason Contributor Detail is: `loadContributor` returns early
+ * for a repeat of the id it already holds, so a session reused across two people would keep
+ * showing the first.
+ *
+ * ⛔ **A merge can delete the contributor being edited.** The rename-collision path folds this one
+ * into an existing contributor, so popping back would land on a detail page for someone who no
+ * longer exists. `NavigateToMerged` carries the survivor's id precisely so the route can land
+ * there instead — and it REPLACES rather than pushes, so Back does not return to the editor of a
+ * contributor that is gone.
+ */
+@Composable
+private fun ContributorEditRoute(
+    router: Router,
+    openContributorEdit: OpenContributorEdit,
+    contributorId: String,
+) {
+    val session = remember(contributorId) { openContributorEdit(contributorId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    LaunchedEffect(session) {
+        session.navActions.collect { action ->
+            when (action) {
+                ContributorEditNavAction.NavigateBack,
+                ContributorEditNavAction.SaveSuccess,
+                -> {
+                    router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId)))
+                }
+
+                is ContributorEditNavAction.NavigateToMerged -> {
+                    router.replace(Route(listOf(CONTRIBUTOR_KEY, action.contributorId.value)))
+                }
+            }
+        }
+    }
+
+    ContributorEditPage(
+        state = session.state.collectAsState().value,
+        mergeCandidates = session.mergeCandidates.collectAsState().value,
+        onEvent = session.onEvent,
+        onMergeQuery = session.onMergeQuery,
+    )
+}
+
+/**
+ * The contributor family: the people list, one person's page, and the form over it.
+ *
+ * Split out of [RouteContent] for the same reason `BookRouteContent` and `AdminRouteContent` were —
+ * a family of three branches was pushing that function past the branching the build allows. The
+ * line is the one the URLs already draw.
+ */
+@Composable
+private fun ContributorRouteContent(
+    isList: Boolean,
+    contributorId: String?,
+    editingContributorId: String?,
+    role: ContributorRole,
+    router: Router,
+    openContributors: OpenContributors,
+    openContributorDetail: OpenContributorDetail,
+    openContributorEdit: OpenContributorEdit,
+) {
+    when {
+        isList -> {
+            val contributorsSession = contributorsState(role, openContributors)
+            ContributorsPage(
+                state = contributorsSession.state.collectAsState().value,
+                role = role,
+                onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+                onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+            )
+        }
+
+        // ⛔ The edit branch first: without it the detail branch matches `/contributor/{id}/edit`
+        // too and the form is unreachable by link.
+        editingContributorId != null -> {
+            ContributorEditRoute(
+                router = router,
+                openContributorEdit = openContributorEdit,
+                contributorId = editingContributorId,
+            )
+        }
+
+        contributorId != null -> {
+            ContributorDetailPage(
+                state = contributorDetailState(contributorId, openContributorDetail),
+                onEdit = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
+                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+                onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
+                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+                onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+            )
+        }
+    }
+}
+
+/**
  * Opens a Contributor Detail session for [contributorId] and collects it, closing the previous one
  * whenever the person changes or the page goes away. Keyed on [contributorId] for the same reason
  * [bookDetailState] keys on `bookId` — a bare `remember { }` would keep showing the first person
@@ -1005,6 +1210,39 @@ private fun NotificationPrefsRoute(
 }
 
 /**
+ * The profile family: a listener's page, and — if it is your own — the form over it.
+ *
+ * Pulled out of [RouteContent] for the same reason `BookRouteContent` was: a page and the editor
+ * for that page are one family, and folding both into the routing chain pushed it past the
+ * branching the build allows.
+ */
+@Composable
+private fun ProfileRouteContent(
+    userId: String,
+    editing: Boolean,
+    currentUserId: String?,
+    router: Router,
+    openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
+) {
+    if (editing) {
+        EditProfileRoute(
+            router = router,
+            openEditProfile = openEditProfile,
+            userId = userId,
+            currentUserId = currentUserId,
+        )
+    } else {
+        ProfileRoute(
+            router = router,
+            openProfile = openProfile,
+            userId = userId,
+            onEditProfile = { router.navigate(Route(listOf(PROFILE_KEY, userId, EDIT_KEY))) },
+        )
+    }
+}
+
+/**
  * `/profile/{userId}` — a listener's page.
  *
  * Keyed on [userId], for the reason `UserProfileViewModel.loadProfile` makes necessary: it returns
@@ -1016,6 +1254,7 @@ private fun ProfileRoute(
     router: Router,
     openProfile: OpenProfile,
     userId: String,
+    onEditProfile: () -> Unit,
 ) {
     val session = remember(userId) { openProfile(userId) }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1025,6 +1264,360 @@ private fun ProfileRoute(
         onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
         onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
         onRetry = session.onRetry,
+        onEditProfile = onEditProfile,
+    )
+}
+
+/**
+ * `/profile/{userId}/edit` — your own profile, in a form.
+ *
+ * ⛔ **The id in the URL is not what gets edited.** [com.calypsan.listenup.client.presentation.profile.EditProfileViewModel]
+ * reads `observeCurrentUser()`, so it always edits whoever holds the session — which means an
+ * unguarded route would put YOUR name, tagline and password fields under SOMEONE ELSE'S URL, and a
+ * save from that page would look like it had edited them. So a [userId] that is not [currentUserId]
+ * is sent to that person's read-only page instead, which is the thing the URL actually named.
+ *
+ * A null [currentUserId] is "not known yet", not "not you": the flow behind it answers a moment
+ * after mount, and redirecting on it would bounce every reader off their own form on arrival.
+ *
+ * `saveError` is held here rather than in the page because it arrives as a one-shot event. It is
+ * cleared on the next Save rather than on the next keystroke — the reader needs it still on screen
+ * while they fix the field it is about.
+ */
+@Composable
+private fun EditProfileRoute(
+    router: Router,
+    openEditProfile: OpenEditProfile,
+    userId: String,
+    currentUserId: String?,
+) {
+    if (currentUserId != null && currentUserId != userId) {
+        LaunchedEffect(userId) { router.replace(Route(listOf(PROFILE_KEY, userId))) }
+        return
+    }
+
+    val session = remember { openEditProfile() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    var saveError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                is EditProfileEvent.SaveFailed -> saveError = event.message
+
+                // The refreshed profile is the confirmation, exactly as on Android — a notice here
+                // would be read on a page the reader has already left.
+                EditProfileEvent.SaveSucceeded -> router.navigate(Route(listOf(PROFILE_KEY, userId)))
+            }
+        }
+    }
+
+    EditProfilePage(
+        state = session.state.collectAsState().value,
+        onFirstName = session.onFirstName,
+        onLastName = session.onLastName,
+        onTagline = session.onTagline,
+        onCurrentPassword = session.onCurrentPassword,
+        onNewPassword = session.onNewPassword,
+        onConfirmPassword = session.onConfirmPassword,
+        onPickAvatar = session.onPickAvatar,
+        onRemoveAvatar = session.onRemoveAvatar,
+        onSave = {
+            saveError = null
+            session.onSave()
+        },
+        onCancel = { router.navigate(Route(listOf(PROFILE_KEY, userId))) },
+        saveError = saveError,
+    )
+}
+
+/**
+ * `/admin/imports` — what has been brought over before.
+ */
+@Composable
+private fun ImportsRoute(
+    router: Router,
+    openImports: OpenImports,
+) {
+    val session = remember { openImports() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    ImportsPage(
+        state = session.state.collectAsState().value,
+        onDelete = { summary -> session.onDelete(summary.id) },
+        onClearError = session.onClearError,
+        onRetry = session.onRetry,
+        onNewImport = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY, NEW_KEY))) },
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
+ * `/admin/imports/new` — one import run.
+ *
+ * The picked file is read here and wrapped as the shared `FileSource`, the same bridge the backup
+ * upload uses. A read failure is a browser-local dead end: it logs and drops the pick, and the page
+ * stays on Idle so the reader can simply pick again.
+ */
+@Composable
+private fun ImportFlowRoute(
+    router: Router,
+    openImportFlow: OpenImportFlow,
+) {
+    val session = remember { openImportFlow() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val scope = rememberCoroutineScope()
+
+    ImportFlowPage(
+        state = session.state.collectAsState().value,
+        onStart = { file ->
+            scope.launch {
+                val bytes = file.readByteArray() ?: return@launch
+                session.onStart(BrowserFileSource(file, bytes))
+            }
+        },
+        onMapUser = { match, userId -> session.onMapUser(match.absUserId, userId) },
+        onSkipUser = { match -> session.onSkipUser(match.absUserId) },
+        onOpenBookSearch = session.onOpenBookSearch,
+        onCloseBookSearch = session.onCloseBookSearch,
+        onBookSearchQuery = session.onBookSearchQuery,
+        onSelectBook = session.onSelectBook,
+        onSkipBook = session.onSkipBook,
+        onApply = session.onApply,
+        onReset = session.onReset,
+        onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
+    )
+}
+
+/**
+ * `/admin/backups` — take one, take one away, take one off the server, or put one back.
+ *
+ * ⛔ **This route is where the browser's two file seams live**, and neither belongs in the page.
+ * A download writes into a [BufferingSink] and reaches the browser only when the ViewModel says the
+ * transfer succeeded — the ViewModel closes the sink in a `finally`, before it knows, so saving on
+ * close would deliver a truncated archive named as though it were whole. An upload reads the picked
+ * file once and wraps it as the shared `FileSource` the repository speaks.
+ */
+@Composable
+private fun BackupsRoute(
+    router: Router,
+    openBackups: OpenBackups,
+) {
+    val session = remember { openBackups() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val scope = rememberCoroutineScope()
+
+    // The sink and the name it will be saved under, held between starting a download and hearing
+    // that it finished. Null whenever no download is in flight.
+    var pending by remember { mutableStateOf<Pair<String, BufferingSink>?>(null) }
+
+    LaunchedEffect(session) {
+        session.downloadSaved.collect {
+            pending?.let { (filename, sink) -> saveToDisk(filename, sink.bytes()) }
+            pending = null
+        }
+    }
+    LaunchedEffect(session) {
+        session.uploaded.collect { backupId ->
+            router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY, backupId.value)))
+        }
+    }
+
+    BackupsPage(
+        state = session.state.collectAsState().value,
+        uploadState = session.uploadState.collectAsState().value,
+        onCreate = session.onCreate,
+        onDownload = { backup ->
+            val sink = BufferingSink()
+            pending = backupFilename(backup.createdAt) to sink
+            session.onDownload(BackupId(backup.id), sink)
+        },
+        onAskDelete = session.onAskDelete,
+        onDismissDelete = session.onDismissDelete,
+        onDelete = session.onDelete,
+        onPickFile = { file ->
+            scope.launch {
+                // A read failure is a browser-local dead end: it logs and drops the pick, and the
+                // screen is untouched so the reader can simply pick again.
+                val bytes = file.readByteArray() ?: return@launch
+                session.onPickFile(BrowserFileSource(file, bytes))
+            }
+        },
+        onResetUpload = session.onResetUpload,
+        onClearError = session.onClearError,
+        onRetry = session.onRetry,
+        onRestore = { backup -> router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY, backup.id))) },
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/** What a downloaded archive is called on the reader's machine. */
+private fun backupFilename(createdAt: Timestamp): String =
+    "listenup-" + formatWhen(createdAt.epochMillis).replace(Regex("[^0-9A-Za-z]+"), "-").trim('-') + ".listenup.zip"
+
+/**
+ * `/admin/backups/{id}` — the restore confirmation and the narration.
+ *
+ * Keyed on [backupId] for the same reason a collection's detail is: `RestoreBackupViewModel` takes
+ * the id as a constructor parameter, so a session cannot be repointed.
+ */
+@Composable
+private fun RestoreRoute(
+    router: Router,
+    openRestore: OpenRestore,
+    backupId: String,
+) {
+    val session = remember(backupId) { openRestore(backupId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    RestorePage(
+        state = session.state.collectAsState().value,
+        progress = session.progress.collectAsState().value,
+        onRequest = session.onRequest,
+        onCancel = session.onCancel,
+        onConfirm = session.onConfirm,
+        onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
+    )
+}
+
+/**
+ * `/admin/collections` — the groups an admin curates.
+ */
+@Composable
+private fun CollectionsRoute(
+    router: Router,
+    openCollections: OpenCollections,
+) {
+    val session = remember { openCollections() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    CollectionsPage(
+        state = session.state.collectAsState().value,
+        onCreate = session.onCreate,
+        onDelete = session.onDelete,
+        onClearError = session.onClearError,
+        onOpenCollection = { id -> router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY, id))) },
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
+ * `/admin/collections/{id}` — one collection's books and the people who can see it.
+ *
+ * ⛔ Keyed on [collectionId], and it has to be: `AdminCollectionDetailViewModel` takes the id as a
+ * CONSTRUCTOR parameter and builds its observe pipeline around it in `init`, so a session cannot be
+ * repointed. An unkeyed `remember` would keep showing the first collection visited.
+ */
+@Composable
+private fun CollectionDetailRoute(
+    router: Router,
+    openCollectionDetail: OpenCollectionDetail,
+    collectionId: String,
+) {
+    val session = remember(collectionId) { openCollectionDetail(collectionId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    CollectionDetailPage(
+        state = session.state.collectAsState().value,
+        onNameChange = session.onNameChange,
+        onSaveName = session.onSaveName,
+        onRemoveBook = session.onRemoveBook,
+        onOpenAddBooks = session.onOpenAddBooks,
+        onCloseAddBooks = session.onCloseAddBooks,
+        onBookQuery = session.onBookQuery,
+        onAddBook = session.onAddBook,
+        onShowAddMember = session.onShowAddMember,
+        onHideAddMember = session.onHideAddMember,
+        onShare = session.onShare,
+        onRevokeShare = session.onRevokeShare,
+        onClearError = session.onClearError,
+        onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
+    )
+}
+
+/**
+ * `/admin/categories` — the genre tree, and the five things an admin does to it.
+ *
+ * Unkeyed and opened once for the route's life: the ViewModel observes the genre repository, so the
+ * tree refreshes itself after every mutation rather than being re-fetched here.
+ */
+@Composable
+private fun CategoriesRoute(
+    router: Router,
+    openCategories: OpenCategories,
+) {
+    val session = remember { openCategories() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    CategoriesPage(
+        state = session.state.collectAsState().value,
+        onToggleExpanded = session.onToggleExpanded,
+        onExpandAll = session.onExpandAll,
+        onCollapseAll = session.onCollapseAll,
+        onCreate = session.onCreate,
+        onRename = session.onRename,
+        onDelete = session.onDelete,
+        onMove = session.onMove,
+        onMerge = session.onMerge,
+        onClearError = session.onClearError,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
+ * `/admin/settings` — what the server calls itself, and the two switches every listener feels.
+ *
+ * `SETTINGS_KEY` is reused as the second segment rather than given a name of its own: the URL reads
+ * `/admin/settings`, and a listener's own `/settings` is a different first segment entirely, so the
+ * two never collide.
+ */
+@Composable
+private fun ServerSettingsRoute(
+    router: Router,
+    openServerSettings: OpenServerSettings,
+) {
+    val session = remember { openServerSettings() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    ServerSettingsPage(
+        state = session.state.collectAsState().value,
+        onServerName = session.onServerName,
+        onRemoteUrl = session.onRemoteUrl,
+        onHoldNewBooks = session.onHoldNewBooks,
+        onPushNotifications = session.onPushNotifications,
+        onSave = session.onSave,
+        onClearError = session.onClearError,
+        onRetry = session.onRetry,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/**
+ * `/admin/inbox` — what the scanner brought in, and what it could not.
+ *
+ * Unkeyed and opened once for the route's life: the ViewModel loads both halves and subscribes to
+ * the admin event stream from its own `init`, so a book that finishes scanning while the page is
+ * open arrives on its own. Closing the session is what ends that subscription.
+ */
+@Composable
+private fun AdminInboxRoute(
+    router: Router,
+    openAdminInbox: OpenAdminInbox,
+) {
+    val session = remember { openAdminInbox() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    AdminInboxPage(
+        state = session.state.collectAsState().value,
+        onToggleBook = session.onToggleBook,
+        onSelectAll = session.onSelectAll,
+        onClearSelection = session.onClearSelection,
+        onRelease = session.onRelease,
+        onDismissIssue = session.onDismissIssue,
+        onClearError = session.onClearError,
+        onClearReleaseResult = session.onClearReleaseResult,
+        onRetry = session.onRetry,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
     )
 }
 
@@ -1080,6 +1673,44 @@ private fun notificationBadge(openNotificationBell: OpenNotificationBell): Int {
     val session = remember { openNotificationBell() }
     DisposableEffect(session) { onDispose { session.close() } }
     return session.unreadCount.collectAsState().value
+}
+
+/**
+ * Opens a Series Edit session for [seriesId], collects it, and answers the navigation it asks for.
+ */
+@Composable
+private fun SeriesEditRoute(
+    router: Router,
+    openSeriesEdit: OpenSeriesEdit,
+    seriesId: String,
+) {
+    val session = remember(seriesId) { openSeriesEdit(seriesId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    LaunchedEffect(session) {
+        session.navActions.collect { action ->
+            when (action) {
+                // A saved form and a cancelled one both leave the same way — this ViewModel has no
+                // separate SaveSuccess, so the series' own page is where both land.
+                SeriesEditNavAction.NavigateBack -> {
+                    router.navigate(Route(listOf(SERIES_KEY, seriesId)))
+                }
+
+                // ⛔ `replace`, not `navigate`. The merge deletes the series being edited, so a
+                // pushed entry would send Back to the editor of a series that no longer exists.
+                is SeriesEditNavAction.NavigateToMerged -> {
+                    router.replace(Route(listOf(SERIES_KEY, action.seriesId.value)))
+                }
+            }
+        }
+    }
+
+    SeriesEditPage(
+        state = session.state.collectAsState().value,
+        mergeCandidates = session.mergeCandidates.collectAsState().value,
+        onEvent = session.onEvent,
+        onMergeQuery = session.onMergeQuery,
+    )
 }
 
 /**
@@ -1247,6 +1878,21 @@ private val PRIMARY_NAV =
     )
 
 private const val ADMIN_KEY = "admin"
+
+/** The path segment that opens the Audiobookshelf imports — `/admin/imports`. */
+private const val IMPORTS_KEY = "imports"
+
+/** The path segment that opens the archives — `/admin/backups`. */
+private const val BACKUPS_KEY = "backups"
+
+/** The path segment that opens the curated groups — `/admin/collections`. */
+private const val COLLECTIONS_KEY = "collections"
+
+/** The path segment that opens the genre tree — `/admin/categories`. */
+private const val CATEGORIES_KEY = "categories"
+
+/** The path segment that opens the scanner's triage queue — `/admin/inbox`. */
+private const val INBOX_KEY = "inbox"
 
 private const val SETTINGS_KEY = "settings"
 
@@ -1465,6 +2111,12 @@ private fun DevicesRoute(openDevices: OpenDevices) {
 private fun AdminRoute(
     openAdmin: OpenAdmin,
     onOpenLibrarySettings: () -> Unit,
+    onOpenInbox: () -> Unit,
+    onOpenServerSettings: () -> Unit,
+    onOpenCategories: () -> Unit,
+    onOpenCollections: () -> Unit,
+    onOpenBackups: () -> Unit,
+    onOpenImports: () -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -1483,6 +2135,12 @@ private fun AdminRoute(
         onClearError = session.onClearError,
         onRetry = session.onRetry,
         onOpenLibrarySettings = onOpenLibrarySettings,
+        onOpenInbox = onOpenInbox,
+        onOpenServerSettings = onOpenServerSettings,
+        onOpenCategories = onOpenCategories,
+        onOpenCollections = onOpenCollections,
+        onOpenBackups = onOpenBackups,
+        onOpenImports = onOpenImports,
     )
 }
 
@@ -1498,6 +2156,86 @@ private fun isAccountRoute(
     active: String,
 ): Boolean = active == SETTINGS_KEY || active == ADMIN_KEY || segments.firstOrNull() == SETTINGS_KEY
 
+/**
+ * Everything under `/admin/…` that is not the Admin page itself.
+ *
+ * Split out of [AccountRouteContent] when the eighth admin surface pushed that function past the
+ * branching the build allows. The line drawn here is the one the URLs already draw: every branch
+ * below used to re-test `segments.firstOrNull() == ADMIN_KEY`, and testing it once in the caller is
+ * what turns eight compound conditions into eight `==`.
+ *
+ * [sub] is the segment after `admin`; [id] the one after that, where a sub-path has one.
+ */
+@Composable
+private fun AdminRouteContent(
+    sub: String,
+    id: String?,
+    router: Router,
+    openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
+) {
+    when (sub) {
+        LIBRARY_KEY -> {
+            LibrarySettingsRoute(router = router, openLibrarySettings = openLibrarySettings)
+        }
+
+        INBOX_KEY -> {
+            AdminInboxRoute(router = router, openAdminInbox = openAdminInbox)
+        }
+
+        SETTINGS_KEY -> {
+            ServerSettingsRoute(router = router, openServerSettings = openServerSettings)
+        }
+
+        CATEGORIES_KEY -> {
+            CategoriesRoute(router = router, openCategories = openCategories)
+        }
+
+        // ⛔ The id case first, in both families below. Without it the bare list matches every URL
+        // beneath it and the detail page becomes unreachable by link.
+        COLLECTIONS_KEY -> {
+            if (id != null) {
+                CollectionDetailRoute(router = router, openCollectionDetail = openCollectionDetail, collectionId = id)
+            } else {
+                CollectionsRoute(router = router, openCollections = openCollections)
+            }
+        }
+
+        BACKUPS_KEY -> {
+            if (id != null) {
+                RestoreRoute(router = router, openRestore = openRestore, backupId = id)
+            } else {
+                BackupsRoute(router = router, openBackups = openBackups)
+            }
+        }
+
+        // `/admin/imports/new` is the flow; the bare path is the list of past runs. The third
+        // segment carries a literal here rather than an id, which is why it reads as a comparison.
+        IMPORTS_KEY -> {
+            if (id == NEW_KEY) {
+                ImportFlowRoute(router = router, openImportFlow = openImportFlow)
+            } else {
+                ImportsRoute(router = router, openImports = openImports)
+            }
+        }
+
+        // An `/admin/*` path nobody routed. The shell's own not-found, not Admin — the same
+        // resolution the `size <= 1` guard reaches for `/admin/nonsense`, stated here as the
+        // absence of a branch rather than as a length test.
+        else -> {
+            PagePlaceholder(ADMIN_KEY)
+        }
+    }
+}
+
 /** The account family: settings, the devices beneath it, and admin. */
 @Composable
 private fun AccountRouteContent(
@@ -1509,10 +2247,33 @@ private fun AccountRouteContent(
     openAdmin: OpenAdmin,
     openNotificationPrefs: OpenNotificationPrefs,
     openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
 ) {
     when {
-        segments.firstOrNull() == ADMIN_KEY && segments.getOrNull(1) == LIBRARY_KEY -> {
-            LibrarySettingsRoute(router = router, openLibrarySettings = openLibrarySettings)
+        segments.firstOrNull() == ADMIN_KEY && segments.size > 1 -> {
+            AdminRouteContent(
+                sub = segments[1],
+                id = segments.getOrNull(2),
+                router = router,
+                openLibrarySettings = openLibrarySettings,
+                openAdminInbox = openAdminInbox,
+                openServerSettings = openServerSettings,
+                openCategories = openCategories,
+                openCollections = openCollections,
+                openCollectionDetail = openCollectionDetail,
+                openBackups = openBackups,
+                openRestore = openRestore,
+                openImports = openImports,
+                openImportFlow = openImportFlow,
+            )
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == DEVICES_KEY -> {
@@ -1529,6 +2290,12 @@ private fun AccountRouteContent(
             AdminRoute(
                 openAdmin = openAdmin,
                 onOpenLibrarySettings = { router.navigate(Route(listOf(ADMIN_KEY, LIBRARY_KEY))) },
+                onOpenInbox = { router.navigate(Route(listOf(ADMIN_KEY, INBOX_KEY))) },
+                onOpenServerSettings = { router.navigate(Route(listOf(ADMIN_KEY, SETTINGS_KEY))) },
+                onOpenCategories = { router.navigate(Route(listOf(ADMIN_KEY, CATEGORIES_KEY))) },
+                onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
+                onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
+                onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
             )
         }
 

@@ -68,21 +68,20 @@ final class LeaderboardObserver {
 
     private func apply(_ state: LeaderboardUiState) {
         latestState = state
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
         case .empty:
             phase = .empty
-        case .data(let data):
+        case .data(let dataType):
+            let data = dataType.value
             // The KMP state is `.data` when ANY category has entries; the selected metric's list
             // can still be empty (e.g. Books/Streak for a bounded period), so fall to `.empty`.
             let rows = Self.rows(from: data.snapshot, currentUserId: currentUserId, metric: selectedMetric)
             phase = rows.isEmpty ? .empty : .data(rows)
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(isRetryable: error.isRetryable)
-        case .unknown:
-            Log.error("Unexpected LeaderboardUiState case")
-            phase = .error(isRetryable: false)
         }
     }
 

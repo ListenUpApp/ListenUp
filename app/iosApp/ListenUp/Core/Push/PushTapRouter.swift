@@ -25,17 +25,18 @@ final class PushTapRouter {
 
     /// THE target switch. `.unknown` degrades to nil-route (open app) with a log, per house rule.
     nonisolated static func outcome(for target: NotificationTarget) -> NotificationTapOutcome {
-        switch onEnum(of: target) {
-        case .book(let book): return .book(id: book.bookId)
-        case .profile(let profile): return .profile(userId: profile.userId)
+        switch target.sealedType() {
+        case .book(let bookType):
+            let book = bookType.value
+            return .book(id: book.bookId)
+        case .profile(let profileType):
+            let profile = profileType.value
+            return .profile(userId: profile.userId)
         // The approvals list is a SECTION of AdminView — AdminInboxDestination is the book-triage
         // inbox. Easy mis-map; the test pins this.
         case .adminInbox: return .adminApprovals
         case .campfire: return .none      // #1065 — no campfire surface yet
         case .none: return .none
-        case .unknown:
-            Log.error("Unexpected NotificationTarget case")
-            return .none
         }
     }
 

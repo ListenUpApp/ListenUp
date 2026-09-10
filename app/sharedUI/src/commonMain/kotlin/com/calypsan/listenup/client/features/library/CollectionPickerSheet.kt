@@ -54,6 +54,8 @@ import listenup.composeapp.generated.resources.library_create_add
 import listenup.composeapp.generated.resources.library_create_a_collection_in_the
 import listenup.composeapp.generated.resources.library_create_new_collection
 import listenup.composeapp.generated.resources.common_no_items_yet
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Bottom sheet for selecting a collection to add books to.
@@ -401,6 +403,7 @@ private fun CreateCollectionDialog(
                 label = stringResource(Res.string.library_collection_name),
                 placeholder = stringResource(Res.string.common_collection_name_hint),
                 modifier = Modifier.focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
         },
         confirmButton = {

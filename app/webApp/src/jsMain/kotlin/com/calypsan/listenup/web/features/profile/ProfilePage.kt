@@ -6,8 +6,10 @@ import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -29,8 +31,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * page that re-derived that rule would be a second opinion about privacy, which is the last thing
  * that should have two.
  *
- * ⛔ **No edit control.** `EditProfileViewModel` exists and web has no form over it yet; a pencil
- * that goes nowhere is the lie this arc keeps refusing to ship.
+ * The pencil shows only on your own profile, and only ever opens your own form — both native
+ * clients reach Edit Profile from here, and neither offers it on someone else's page.
  */
 @Composable
 fun ProfilePage(
@@ -38,11 +40,12 @@ fun ProfilePage(
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
     onRetry: () -> Unit,
+    onEditProfile: () -> Unit,
 ) {
     Div(attrs = { classes("prof") }) {
         when (state) {
             is UserProfileUiState.Ready -> {
-                ReadyContent(state, onOpenBook, onOpenShelf)
+                ReadyContent(state, onOpenBook, onOpenShelf, onEditProfile)
             }
 
             is UserProfileUiState.Error -> {
@@ -51,7 +54,7 @@ fun ProfilePage(
                     P { Text(state.message) }
                     Button(attrs = {
                         classes("btn-c")
-                        attr("type", "button")
+                        attr("type", VALUE_BUTTON)
                         onClick { onRetry() }
                     }) { Text("Try again") }
                 }
@@ -69,8 +72,9 @@ private fun ReadyContent(
     state: UserProfileUiState.Ready,
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
+    onEditProfile: () -> Unit,
 ) {
-    Hero(state)
+    Hero(state, onEditProfile)
 
     if (state.recentBooks.isNotEmpty()) {
         Panel(title = if (state.isOwnProfile) "What you've been listening to" else "Recently listened") {
@@ -95,9 +99,12 @@ private fun ReadyContent(
     }
 }
 
-/** Who this is, and the four numbers that describe how they listen. */
+/** Who this is, the four numbers that describe how they listen, and — if it is you — the pencil. */
 @Composable
-private fun Hero(state: UserProfileUiState.Ready) {
+private fun Hero(
+    state: UserProfileUiState.Ready,
+    onEditProfile: () -> Unit,
+) {
     Div(attrs = { classes("prof-hero") }) {
         UserAvatar(
             userId = state.userId,
@@ -130,6 +137,15 @@ private fun Hero(state: UserProfileUiState.Ready) {
                 if (state.currentStreak > 0) Stat(state.currentStreak.toString(), "day streak")
                 if (state.longestStreak > 0) Stat(state.longestStreak.toString(), "day record")
             }
+        }
+        if (state.isOwnProfile) {
+            Button(attrs = {
+                classes("iconbtn", "prof-edit")
+                attr("type", VALUE_BUTTON)
+                attr("aria-label", "Edit profile")
+                attr("title", "Edit profile")
+                onClick { onEditProfile() }
+            }) { Icon(WebIcon.Pencil, size = EDIT_ICON_SIZE) }
         }
     }
 }
@@ -169,7 +185,7 @@ private fun RecentBook(
 ) {
     Button(attrs = {
         classes("prof-book")
-        attr("type", "button")
+        attr("type", VALUE_BUTTON)
         attr("aria-label", book.title)
         onClick { onOpenBook(book.bookId) }
     }) {
@@ -193,7 +209,7 @@ private fun ShelfRow(
 ) {
     Button(attrs = {
         classes("prof-shelf")
-        attr("type", "button")
+        attr("type", VALUE_BUTTON)
         onClick { onOpenShelf(shelf.id) }
     }) {
         Span(attrs = { classes("prof-shelf-n") }) { Text(shelf.name) }
@@ -214,3 +230,10 @@ private const val BOOK_SIZE = 104
 private const val BOOK_RADIUS = 12
 
 private const val BOOK_RUNG = 300
+
+/** The pencil reads as an action, not a heading, so it sits below the name's weight. */
+private const val EDIT_ICON_SIZE = 18
+
+/** Every button here is an action, never a form submit. Named for the reason `TransportBar`
+ *  names its own: four identical literals in one file is what the duplication rule is about. */
+private const val VALUE_BUTTON = "button"

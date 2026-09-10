@@ -168,6 +168,7 @@ final class Dependencies {
         KoinHelper.shared.getRestoreBackupViewModel(backupId: backupId)
     }
     func createAdminCollectionsViewModel() -> AdminCollectionsViewModel { KoinHelper.shared.getAdminCollectionsViewModel() }
+    func createAdminCategoriesViewModel() -> AdminCategoriesViewModel { KoinHelper.shared.getAdminCategoriesViewModel() }
     func createAdminCollectionDetailViewModel(collectionId: String) -> AdminCollectionDetailViewModel {
         KoinHelper.shared.getAdminCollectionDetailViewModel(collectionId: collectionId)
     }

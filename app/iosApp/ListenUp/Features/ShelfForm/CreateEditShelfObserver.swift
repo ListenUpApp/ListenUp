@@ -40,29 +40,26 @@ final class CreateEditShelfObserver {
     func dismissError() { viewModel.dismissError() }
 
     private func apply(_ state: CreateEditShelfUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             phase = .idle
         case .loadingExisting:
             phase = .loadingExisting
-        case .loaded(let state):
-            phase = .loaded(name: state.name, description: state.description_, isPrivate: state.isPrivate)
+        case .loaded(let stateType):
+            let state = stateType.value
+            phase = .loaded(name: state.name, description: state.descriptionText, isPrivate: state.isPrivate)
         case .saving:
             phase = .saving
-        case .error(let errorState):
+        case .error(let errorStateType):
+            let errorState = errorStateType.value
             phase = .error(errorState.message)
-        case .unknown:
-            Log.error("Unexpected CreateEditShelfUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 
     private func applyNav(_ action: CreateEditShelfNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .navigateBack:
             onClose?()
-        case .unknown:
-            Log.error("Unexpected CreateEditShelfNavAction case")
         }
     }
 }

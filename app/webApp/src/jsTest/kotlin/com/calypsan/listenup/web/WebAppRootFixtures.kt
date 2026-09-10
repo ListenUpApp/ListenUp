@@ -3,6 +3,24 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
+import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.OpenCategories
+import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
+import com.calypsan.listenup.web.features.admin.OpenBackups
+import com.calypsan.listenup.web.features.admin.OpenImportFlow
+import com.calypsan.listenup.web.features.admin.OpenImports
+import com.calypsan.listenup.web.features.admin.OpenCollections
+import com.calypsan.listenup.web.features.admin.OpenRestore
+import com.calypsan.listenup.web.features.admin.OpenServerSettings
+import com.calypsan.listenup.web.features.admin.fixedAdminInbox
+import com.calypsan.listenup.web.features.admin.fixedCategories
+import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedBackups
+import com.calypsan.listenup.web.features.admin.fixedImportFlow
+import com.calypsan.listenup.web.features.admin.fixedImports
+import com.calypsan.listenup.web.features.admin.fixedCollections
+import com.calypsan.listenup.web.features.admin.fixedRestore
+import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.settings.OpenSettings
@@ -49,16 +67,26 @@ import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
+import com.calypsan.listenup.web.features.contributoredit.ContributorEditSession
+import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
+import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailSession
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
+import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
+import com.calypsan.listenup.web.features.seriesedit.SeriesEditSession
+import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
@@ -68,8 +96,11 @@ import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.web.features.profile.OpenProfile
+import com.calypsan.listenup.web.features.profile.OpenEditProfile
+import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 
 /**
@@ -91,10 +122,13 @@ internal fun mountAt(
     isAdmin: Flow<Boolean> = flowOf(false),
     openBookDetail: OpenBookDetail = fixedBookDetail(readyBook()),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+    openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+    openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
     openNotificationPrefs: OpenNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
     openProfile: OpenProfile = fixedProfile(UserProfileUiState.Loading),
+    openEditProfile: OpenEditProfile = fixedEditProfile(EditProfileUiState.Loading),
     currentUserId: Flow<String?> = flowOf(null),
     openNotificationBell: OpenNotificationBell = fixedNotificationBell(),
     openContributors: OpenContributors = fixedContributors(emptyList()),
@@ -102,6 +136,15 @@ internal fun mountAt(
     openLibrary: OpenLibrary = fakeLibrary(),
     openSettings: OpenSettings = fixedSettings(),
     openLibrarySettings: OpenLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+    openAdminInbox: OpenAdminInbox = fixedAdminInbox(),
+    openServerSettings: OpenServerSettings = fixedServerSettings(),
+    openCategories: OpenCategories = fixedCategories(),
+    openCollections: OpenCollections = fixedCollections(),
+    openCollectionDetail: OpenCollectionDetail = fixedCollectionDetail(),
+    openBackups: OpenBackups = fixedBackups(),
+    openRestore: OpenRestore = fixedRestore(),
+    openImports: OpenImports = fixedImports(),
+    openImportFlow: OpenImportFlow = fixedImportFlow(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -111,27 +154,39 @@ internal fun mountAt(
     val composition =
         renderComposable(root = host) {
             WebAppRoot(
-                router,
-                openBookDetail,
-                fixedBookEdit(BookEditUiState()),
-                openContributorDetail,
-                openSeriesDetail,
-                openNotifications,
-                openNotificationPrefs,
-                openProfile,
-                openContributors,
-                openHome,
-                fixedDiscover(),
-                openSettings,
-                fixedDevices(),
-                fixedAdmin(),
-                openLibrarySettings,
-                fixedShelfDetail(),
-                fixedShelfEdit(),
-                openLibrary,
-                openSearch,
-                openNotificationBell,
-                fixedPlayback(),
+                router = router,
+                openBookDetail = openBookDetail,
+                openBookEdit = fixedBookEdit(BookEditUiState()),
+                openContributorDetail = openContributorDetail,
+                openContributorEdit = openContributorEdit,
+                openSeriesDetail = openSeriesDetail,
+                openSeriesEdit = openSeriesEdit,
+                openNotifications = openNotifications,
+                openNotificationPrefs = openNotificationPrefs,
+                openProfile = openProfile,
+                openEditProfile = openEditProfile,
+                openContributors = openContributors,
+                openHome = openHome,
+                openDiscover = fixedDiscover(),
+                openSettings = openSettings,
+                openDevices = fixedDevices(),
+                openAdmin = fixedAdmin(),
+                openLibrarySettings = openLibrarySettings,
+                openAdminInbox = openAdminInbox,
+                openServerSettings = openServerSettings,
+                openCategories = openCategories,
+                openCollections = openCollections,
+                openCollectionDetail = openCollectionDetail,
+                openBackups = openBackups,
+                openRestore = openRestore,
+                openImports = openImports,
+                openImportFlow = openImportFlow,
+                openShelfDetail = fixedShelfDetail(),
+                openShelfEdit = fixedShelfEdit(),
+                openLibrary = openLibrary,
+                openSearch = openSearch,
+                openNotificationBell = openNotificationBell,
+                openPlayback = fixedPlayback(),
                 observeIsAdmin = { isAdmin },
                 observeCurrentUserId = { currentUserId },
             )
@@ -258,6 +313,24 @@ internal suspend fun awaitGone(
     }
 }
 
+/**
+ * Waits until [selector] matches something under [host].
+ *
+ * The mirror of [awaitGone], and wanted for the same reason: a redirect decided in a
+ * `LaunchedEffect` lands a composition AFTER the route flips, so a spec that waits one frame and
+ * then queries for the destination page is querying one frame early — green here, red on a
+ * two-core runner.
+ */
+internal suspend fun awaitPresent(
+    host: HTMLElement,
+    selector: String,
+): HTMLElement {
+    withTimeout(RECOMPOSE_TIMEOUT_MS) {
+        while (host.querySelector(selector) == null) delay(FRAME_POLL_MS)
+    }
+    return host.querySelector(selector) as HTMLElement
+}
+
 private const val FRAME_POLL_MS = 10L
 
 /** An [OpenContributors] that records every role it was asked to open, in the order asked. */
@@ -276,6 +349,51 @@ internal class RecordingSeriesDetail {
         requestedIds += id
         SeriesDetailSession(
             state = MutableStateFlow(readySeries(seriesId = id, seriesName = "Series $id")),
+            close = {},
+        )
+    }
+}
+
+/**
+ * A Series Edit session that remembers which series were asked for, and lets a spec push a
+ * navigation action through the same channel the ViewModel uses.
+ */
+internal class RecordingSeriesEdit(
+    private val navActions: Flow<SeriesEditNavAction> = emptyFlow(),
+) {
+    val requestedIds = mutableListOf<String>()
+    val open: OpenSeriesEdit = { id ->
+        requestedIds += id
+        SeriesEditSession(
+            state = MutableStateFlow(SeriesEditUiState(isLoading = false, seriesId = id, name = "Series $id")),
+            mergeCandidates = MutableStateFlow(emptyList()),
+            navActions = navActions,
+            onEvent = {},
+            onMergeQuery = {},
+            close = {},
+        )
+    }
+}
+
+/**
+ * A Contributor Edit session that remembers which people were asked for, and lets a spec push a
+ * navigation action through the same channel the ViewModel uses.
+ */
+internal class RecordingContributorEdit(
+    private val navActions: Flow<ContributorEditNavAction> = emptyFlow(),
+) {
+    val requestedIds = mutableListOf<String>()
+    val open: OpenContributorEdit = { id ->
+        requestedIds += id
+        ContributorEditSession(
+            state =
+                MutableStateFlow(
+                    ContributorEditUiState(isLoading = false, contributorId = id, name = "Person $id"),
+                ),
+            mergeCandidates = MutableStateFlow(emptyList()),
+            navActions = navActions,
+            onEvent = {},
+            onMergeQuery = {},
             close = {},
         )
     }

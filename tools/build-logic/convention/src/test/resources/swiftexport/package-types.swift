@@ -10,3 +10,7 @@ extension ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.Book 
     public final class Companion: KotlinRuntime.KotlinBase {
     }
 }
+extension ExportedKotlinPackages.com.calypsan.listenup.client.domain.model {
+    public protocol __Book: KotlinRuntimeSupport._KotlinBridgeable {
+    }
+}

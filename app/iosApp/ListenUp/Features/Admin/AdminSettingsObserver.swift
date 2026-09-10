@@ -45,16 +45,15 @@ final class AdminSettingsObserver {
     // MARK: - State mapping
 
     private func apply(_ state: AdminSettingsUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(AdminSettingsReadyModel.from(ready))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(message: error.error.message)
-        case .unknown:
-            Log.error("Unexpected AdminSettingsUiState case")
-            phase = .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

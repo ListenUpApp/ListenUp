@@ -153,6 +153,9 @@ data class BookEditUiState(
     // Staging cover path for preview (separate from main cover)
     val stagingCoverPath: String? = null,
 ) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String get() = description
+
     /**
      * Returns the cover path to display - staging if available, otherwise original.
      */

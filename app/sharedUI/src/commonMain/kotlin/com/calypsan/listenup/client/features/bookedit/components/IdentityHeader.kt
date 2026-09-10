@@ -60,6 +60,8 @@ import listenup.composeapp.generated.resources.book_edit_change_cover
 import listenup.composeapp.generated.resources.book_edit_sort_title
 import listenup.composeapp.generated.resources.book_edit_subtitle
 import listenup.composeapp.generated.resources.common_title
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Color-blocked identity header for the book edit screen: a [MaterialTheme.colorScheme.primaryContainer]
@@ -208,6 +210,7 @@ fun IdentityHeader(
                         shape = RoundedCornerShape(12.dp),
                         singleLine = false,
                         modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     )
 
                     // Subtitle - collapsed when empty, expandable via "Add subtitle" link
@@ -238,6 +241,7 @@ fun IdentityHeader(
                                 Modifier
                                     .fillMaxWidth()
                                     .focusRequester(subtitleFocusRequester),
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         )
                     }
 
@@ -274,6 +278,7 @@ fun IdentityHeader(
                         colors = heroTextFieldColors(),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     )
                 }
             }

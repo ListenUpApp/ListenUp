@@ -119,6 +119,8 @@ import listenup.composeapp.generated.resources.import_book_search_no_results
 import listenup.composeapp.generated.resources.library_collection
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 private const val HERO_BADGE_SIZE_DP = 64
 private const val HERO_BADGE_ICON_RATIO = 0.5f
@@ -537,6 +539,7 @@ private fun NameSection(
                     } else {
                         stringResource(Res.string.admin_the_display_name_for_this)
                     },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
             if (state.isDirty && !state.collection.isSystem) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

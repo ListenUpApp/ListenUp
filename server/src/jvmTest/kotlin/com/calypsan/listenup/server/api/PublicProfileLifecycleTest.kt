@@ -70,9 +70,7 @@ class PublicProfileLifecycleTest :
                 UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
             }
 
-        fun ListenUpDatabase.makeAdminUserService(
-            maintainer: PublicProfileMaintainer,
-        ): AdminUserServiceImpl {
+        fun ListenUpDatabase.makeAdminUserService(maintainer: PublicProfileMaintainer): AdminUserServiceImpl {
             val sessions =
                 SessionService(this, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(this, default = RegistrationPolicy.OPEN)

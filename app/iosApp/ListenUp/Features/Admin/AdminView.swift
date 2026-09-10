@@ -184,6 +184,7 @@ struct AdminView: View {
             AppTextField(
                 placeholder: String(localized: "admin.server_name"),
                 text: serverNameBinding(settings: settings, model: model),
+                entry: .words,
                 label: String(localized: "admin.server_name"),
                 icon: "tag",
                 isLast: false
@@ -191,9 +192,9 @@ struct AdminView: View {
             AppTextField(
                 placeholder: String(localized: "admin.remote_url_placeholder"),
                 text: remoteUrlBinding(settings: settings, model: model),
+                entry: .url,
                 label: String(localized: "admin.remote_url"),
-                icon: "globe",
-                keyboardType: .URL
+                icon: "globe"
             )
         }
         .fieldCard()
@@ -374,8 +375,18 @@ struct AdminView: View {
                 }
                 .buttonStyle(.plain)
                 rowSeparator
+                NavigationLink(value: AdminCategoriesDestination()) {
+                    NavigationActionRow(
+                        systemImage: "tag.fill",
+                        tint: .luTint,
+                        title: String(localized: "common.categories"),
+                        subtitle: String(localized: "admin.view_the_genre_hierarchy_tree")
+                    )
+                }
+                .buttonStyle(.plain)
+                rowSeparator
                 // Pushes the ABS import hub, which launches the import wizard. The mockup's
-                // Categories / Unmapped Genres rows are still omitted (no iOS screen yet).
+                // Unmapped Genres row is still omitted (no iOS screen yet).
                 NavigationLink(value: ABSImportDestination()) {
                     NavigationActionRow(
                         systemImage: "square.and.arrow.down.on.square.fill",

@@ -10,7 +10,7 @@ import kotlinx.serialization.SerializationException
  * The shade-tap half of the one tap mapping, callable from Swift. iOS cannot decode the push
  * payload itself ([PushPayload] and contractJson are off the Swift Export surface — deliberately:
  * the fold-in-Kotlin rule), so this object does the decode+projection in Kotlin and hands Swift a
- * [NotificationTarget], which IS exported and onEnum-switchable. Swift's single target switch
+ * [NotificationTarget], which IS exported and `sealedType()`-switchable. Swift's single target switch
  * (PushTapRouter) then maps targets to destinations — the same switch the in-app inbox list uses,
  * which is what keeps the two entry points agreeing. Mirrors [com.calypsan.listenup.client.share.ShareLinkCodec]'s
  * object-member seam shape (Swift calls members, never Kotlin extension functions).

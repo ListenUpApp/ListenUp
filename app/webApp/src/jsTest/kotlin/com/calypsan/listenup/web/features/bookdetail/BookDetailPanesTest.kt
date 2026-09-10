@@ -2,6 +2,15 @@ package com.calypsan.listenup.web.features.bookdetail
 
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.features.admin.fixedAdminInbox
+import com.calypsan.listenup.web.features.admin.fixedCategories
+import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedBackups
+import com.calypsan.listenup.web.features.admin.fixedImportFlow
+import com.calypsan.listenup.web.features.admin.fixedImports
+import com.calypsan.listenup.web.features.admin.fixedCollections
+import com.calypsan.listenup.web.features.admin.fixedRestore
+import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import com.calypsan.listenup.web.features.settings.fixedSettings
@@ -15,15 +24,20 @@ import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
+import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
 import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
@@ -35,6 +49,7 @@ import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.search.fixedSearch
@@ -70,27 +85,39 @@ class BookDetailPanesTest :
             document.body!!.appendChild(host)
             renderComposable(root = host) {
                 WebAppRoot(
-                    router,
-                    source,
-                    fixedBookEdit(BookEditUiState()),
-                    fixedContributorDetail(ContributorDetailUiState.Loading),
-                    fixedSeriesDetail(SeriesDetailUiState.Loading),
-                    fixedNotifications(NotificationsUiState.Empty),
-                    fixedNotificationPrefs(NotificationPrefsUiState.Loading),
-                    fixedProfile(UserProfileUiState.Loading),
-                    fixedContributors(emptyList()),
-                    fixedHome(HomeUiState.Loading),
-                    fixedDiscover(),
-                    fixedSettings(),
-                    fixedDevices(),
-                    fixedAdmin(),
-                    fixedLibrarySettings(LibrarySettingsUiState.Loading),
-                    fixedShelfDetail(),
-                    fixedShelfEdit(),
-                    fakeLibrary(),
-                    fixedSearch(SearchUiState.Idle()),
-                    fixedNotificationBell(),
-                    fixedPlayback(),
+                    router = router,
+                    openBookDetail = source,
+                    openBookEdit = fixedBookEdit(BookEditUiState()),
+                    openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                    openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                    openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+                    openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+                    openNotifications = fixedNotifications(NotificationsUiState.Empty),
+                    openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
+                    openProfile = fixedProfile(UserProfileUiState.Loading),
+                    openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
+                    openContributors = fixedContributors(emptyList()),
+                    openHome = fixedHome(HomeUiState.Loading),
+                    openDiscover = fixedDiscover(),
+                    openSettings = fixedSettings(),
+                    openDevices = fixedDevices(),
+                    openAdmin = fixedAdmin(),
+                    openLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                    openAdminInbox = fixedAdminInbox(),
+                    openServerSettings = fixedServerSettings(),
+                    openCategories = fixedCategories(),
+                    openCollections = fixedCollections(),
+                    openCollectionDetail = fixedCollectionDetail(),
+                    openBackups = fixedBackups(),
+                    openRestore = fixedRestore(),
+                    openImports = fixedImports(),
+                    openImportFlow = fixedImportFlow(),
+                    openShelfDetail = fixedShelfDetail(),
+                    openShelfEdit = fixedShelfEdit(),
+                    openLibrary = fakeLibrary(),
+                    openSearch = fixedSearch(SearchUiState.Idle()),
+                    openNotificationBell = fixedNotificationBell(),
+                    openPlayback = fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },
                     observeCurrentUserId = { flowOf(null) },
                 )

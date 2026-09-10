@@ -33,7 +33,7 @@ class MetadataLookupContractTest :
         test("MetadataLocale serializes its region under the stable key") {
             // @SerialName("region") pins the wire key; a null language is omitted (encodeDefaults = false).
             val json = contractJson.encodeToString(MetadataLocale("uk"))
-            json shouldBe "{\"region\":\"uk\"}"
+            json shouldBe """{"region":"uk"}"""
         }
 
         // ── MetadataContributorRef ─────────────────────────────────────────────

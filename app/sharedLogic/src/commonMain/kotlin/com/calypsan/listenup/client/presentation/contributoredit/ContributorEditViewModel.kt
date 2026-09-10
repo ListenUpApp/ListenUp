@@ -99,6 +99,9 @@ data class ContributorEditUiState(
     // the rename is held back (not saved) until the user picks merge or keep-separate.
     val renameCollisionCandidate: ContributorCandidate? = null,
 ) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String get() = description
+
     /**
      * Returns the image path to display - staging if available, otherwise the original.
      */

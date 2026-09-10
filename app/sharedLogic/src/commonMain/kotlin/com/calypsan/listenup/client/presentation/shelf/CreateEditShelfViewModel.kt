@@ -172,7 +172,10 @@ sealed interface CreateEditShelfUiState {
         val name: String,
         val description: String,
         val isPrivate: Boolean,
-    ) : CreateEditShelfUiState
+    ) : CreateEditShelfUiState {
+        /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+        val descriptionText: String get() = description
+    }
 
     /** A save or delete operation is in flight. */
     data object Saving : CreateEditShelfUiState

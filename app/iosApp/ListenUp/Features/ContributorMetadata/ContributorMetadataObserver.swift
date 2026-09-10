@@ -13,9 +13,9 @@ struct ContributorHitRow: Identifiable, Hashable {
 }
 
 /// The fetched Audible contributor profile, flattened from the Swift Export-bridged
-/// `MetadataContributorProfile` into native Swift values. The Kotlin `description` property is
-/// exported as `description_` (Swift Export renames it to dodge the `description` clash); we expose
-/// it as `bio` to match the rest of the app.
+/// `MetadataContributorProfile` into native Swift values. The Kotlin `description` property is read
+/// through its `descriptionText` alias (Swift Export never exports a member named `description`);
+/// we expose it as `bio` to match the rest of the app.
 struct ContributorProfilePreview: Equatable {
     let asin: String
     let name: String
@@ -127,14 +127,15 @@ final class ContributorMetadataObserver {
     private func apply(_ state: ContributorMetadataUiState) {
         region = MetadataRegionOption(state.region)
 
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             results = []
             rawHits = [:]
             previewPhase = nil
             profile = nil
 
-        case .search(let search):
+        case .search(let searchType):
+            let search = searchType.value
             applyContext(search.context)
             query = search.query
 
@@ -150,7 +151,8 @@ final class ContributorMetadataObserver {
             isApplying = false
             applyError = nil
 
-        case .preview(let preview):
+        case .preview(let previewType):
+            let preview = previewType.value
             applyContext(preview.context)
             query = preview.query
             isSearching = false
@@ -163,14 +165,12 @@ final class ContributorMetadataObserver {
             isApplying = mapped.isApplying
             applyError = mapped.applyError
 
-        case .unknown:
-            Log.error("Unexpected ContributorMetadataUiState case")
         }
     }
 
     private func applyContext(_ context: ContributorContext) {
         contributorName = context.current?.name ?? ""
         currentImagePath = context.current?.imagePath
-        currentBio = context.current?.description_
+        currentBio = context.current?.descriptionText
     }
 }

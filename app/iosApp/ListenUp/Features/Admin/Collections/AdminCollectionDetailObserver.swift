@@ -49,16 +49,15 @@ final class AdminCollectionDetailObserver {
     // MARK: - State mapping
 
     private func apply(_ state: AdminCollectionDetailUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(AdminCollectionDetailReadyModel(from: ready))
-        case .error(let err):
+        case .error(let errType):
+            let err = errType.value
             phase = .error(err.message)
-        case .unknown:
-            Log.error("Unexpected AdminCollectionDetailUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }
@@ -77,6 +76,9 @@ enum AdminCollectionDetailPhase {
 struct AdminCollectionDetailReadyModel {
     let collectionId: String
     let collectionName: String
+    /// The server owns this collection. It refuses to rename it or change what is in it,
+    /// so neither is offered — see `AdminCollectionDetailView`.
+    let isSystem: Bool
     let editedName: String
     let isDirty: Bool
     let isSaving: Bool
@@ -98,6 +100,7 @@ struct AdminCollectionDetailReadyModel {
     init(from ready: AdminCollectionDetailUiStateReady) {
         self.collectionId = ready.collection.id
         self.collectionName = ready.collection.name
+        self.isSystem = ready.collection.isSystem
         self.editedName = ready.editedName
         self.isDirty = ready.isDirty
         self.isSaving = ready.isSaving

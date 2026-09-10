@@ -59,7 +59,8 @@ final class AdminBackupsObserver {
     // MARK: - State mapping
 
     private func apply(_ state: AdminBackupUiState) {
-        if case .ready(let ready) = onEnum(of: state) {
+        if case .ready(let readyType) = state.sealedType() {
+            let ready = readyType.value
             backupsById = Dictionary(ready.backups.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         } else {
             backupsById = [:]
@@ -70,16 +71,15 @@ final class AdminBackupsObserver {
     /// Pure: project the sealed `AdminBackupUiState` onto the backups screen's phase.
     /// `nonisolated` so tests can exercise it off the main actor.
     nonisolated static func phase(from state: AdminBackupUiState) -> BackupsPhase {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             return .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             return .ready(BackupsReadyModel(from: ready))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             return .error(message: error.error.message)
-        case .unknown:
-            Log.error("Unexpected AdminBackupUiState case")
-            return .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

@@ -8,8 +8,8 @@ import Shared
 final class ContributorEditObserver {
     private(set) var isLoading: Bool = true
     private(set) var name: String = ""
-    /// The contributor biography — stored as `bio` because Swift Export renames the Kotlin
-    /// `description` property to `description_` (dodging the Swift `description` clash).
+    /// The contributor biography — stored as `bio` and read from Kotlin's `descriptionText` alias:
+    /// Swift Export never exports a member named `description` (the `NSObject` clash).
     private(set) var bio: String = ""
     private(set) var website: String = ""
     private(set) var birthDate: String = ""
@@ -90,7 +90,7 @@ final class ContributorEditObserver {
     private func apply(_ state: ContributorEditUiState) {
         isLoading = state.isLoading
         name = state.name
-        bio = state.description_
+        bio = state.descriptionText
         website = state.website
         birthDate = state.birthDate
         deathDate = state.deathDate
@@ -106,15 +106,15 @@ final class ContributorEditObserver {
     }
 
     private func applyNav(_ action: ContributorEditNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .navigateBack, .saveSuccess: didFinish = true
-        case .navigateToMerged(let merged):
+        case .navigateToMerged(let mergedType):
+            let merged = mergedType.value
             // A merge can soft-delete the contributor being edited (the rename-collision path), so
             // dismissing would return to a detail page for something that no longer exists. Surface
             // the survivor so the presenting detail view can re-target itself in place.
             mergedIntoContributorId = merged.contributorId.value
             didFinish = true
-        case .unknown: Log.error("Unexpected ContributorEditNavAction case")
         }
     }
 }

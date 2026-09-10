@@ -81,16 +81,15 @@ final class NotificationPrefsObserver {
     // MARK: - State mapping
 
     private func apply(_ state: NotificationPrefsUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .data(let data):
+        case .data(let dataType):
+            let data = dataType.value
             phase = .ready(data.prefs.compactMap { NotificationPrefRowModel(from: $0) })
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(error.error.message)
-        case .unknown:
-            Log.error("Unexpected NotificationPrefsUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 

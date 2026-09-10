@@ -1,6 +1,46 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.features.admin.AdminInboxPage
+import com.calypsan.listenup.web.features.admin.BackupsPage
+import com.calypsan.listenup.web.features.admin.ImportFlowPage
+import com.calypsan.listenup.web.features.admin.ImportsPage
+import com.calypsan.listenup.web.features.admin.absItem
+import com.calypsan.listenup.web.features.admin.importResult
+import com.calypsan.listenup.web.features.admin.readyImports
+import com.calypsan.listenup.web.features.admin.review
+import com.calypsan.listenup.web.features.admin.CategoriesPage
+import com.calypsan.listenup.web.features.admin.RestorePage
+import com.calypsan.listenup.web.features.admin.backup
+import com.calypsan.listenup.web.features.admin.readyBackups
+import com.calypsan.listenup.web.features.admin.restoreResult
+import com.calypsan.listenup.web.features.admin.CollectionDetailPage
+import com.calypsan.listenup.web.features.admin.CollectionsPage
+import com.calypsan.listenup.web.features.admin.collection
+import com.calypsan.listenup.web.features.admin.personFixture
+import com.calypsan.listenup.web.features.admin.shareFixture
+import com.calypsan.listenup.web.features.admin.readyCollections
+import com.calypsan.listenup.web.features.admin.readyDetail
+import com.calypsan.listenup.web.features.admin.genre
+import com.calypsan.listenup.web.features.admin.node
+import com.calypsan.listenup.web.features.admin.readyCategories
+import com.calypsan.listenup.web.features.admin.ServerSettingsPage
+import com.calypsan.listenup.web.features.admin.readyServerSettings
 import com.calypsan.listenup.web.features.admin.AdminPage
+import com.calypsan.listenup.web.features.admin.inboxBook
+import com.calypsan.listenup.web.features.admin.readyInbox
+import com.calypsan.listenup.web.features.admin.scanIssue
+import com.calypsan.listenup.api.dto.backup.BackupEvent
+import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
+import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
+import com.calypsan.listenup.client.presentation.admin.imports.BookSearchState
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState
+import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
+import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
+import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
+import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
+import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
+import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
+import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -75,8 +115,12 @@ import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
 import com.calypsan.listenup.web.features.admin.readyLibrary
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
 import com.calypsan.listenup.web.features.setup.setupState
+import com.calypsan.listenup.client.presentation.profile.AvatarChange
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.features.profile.EditProfilePage
 import com.calypsan.listenup.web.features.profile.ProfilePage
+import com.calypsan.listenup.web.features.profile.editing
 import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -86,6 +130,14 @@ import com.calypsan.listenup.web.features.nowplaying.PlayerLink
 import com.calypsan.listenup.web.features.nowplaying.PlayerSeriesLink
 import com.calypsan.listenup.web.features.nowplaying.TransportChapter
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
+import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
+import com.calypsan.listenup.web.features.contributoredit.candidate
+import com.calypsan.listenup.web.features.contributoredit.editingContributor
+import com.calypsan.listenup.web.features.seriesedit.SeriesEditPage
+import com.calypsan.listenup.web.features.seriesedit.editingSeries
+import com.calypsan.listenup.web.features.seriesedit.seriesCandidate
+import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
+import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES as CONTRIBUTOR_MERGE_CAP
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.roleSection
@@ -380,6 +432,86 @@ class ClassContractTest :
                             onOpenContributors = {},
                             onOpenBook = {},
                         )
+                        // Contributor Edit: the loaded form with everything on it (an error banner,
+                        // a portrait, aliases), the skeleton, and each dialog — three dialogs that
+                        // never appear together, so each needs its own render or its classes are
+                        // invented in a file nothing renders.
+                        ContributorEditPage(
+                            state =
+                                editingContributor(
+                                    error = "That name is already taken.",
+                                    aliases = listOf("Richard Bachman"),
+                                    imagePath = "contributors/c-king.jpg",
+                                ),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        ContributorEditPage(
+                            state = editingContributor(isLoading = true),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        ContributorEditPage(
+                            state = editingContributor(mergeDialogVisible = true, mergeQuery = "Bach"),
+                            mergeCandidates = listOf(candidate()),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        ContributorEditPage(
+                            state = editingContributor(renameCollisionCandidate = candidate()),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        // Series Edit: the loaded form with an error banner and its own artwork,
+                        // the same form with a staged pick (which swaps the art for a preview and
+                        // adds the discard control), the skeleton, and the picker in each of its
+                        // three shapes — nothing matched, a selectable list, and a capped one.
+                        SeriesEditPage(
+                            state = editingSeries(error = "That name is taken.", coverPath = "series/s.jpg"),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = stagedCoverSeries,
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = editingSeries(isLoading = true),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = editingSeries(mergeDialogVisible = true, mergeQuery = "Nothing"),
+                            mergeCandidates = emptyList(),
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        SeriesEditPage(
+                            state = editingSeries(mergeDialogVisible = true, mergeQuery = "Mist"),
+                            mergeCandidates =
+                                (1..MAX_MERGE_CANDIDATES).map {
+                                    seriesCandidate(id = "s$it", displayName = "Series $it")
+                                },
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
+                        // And the contributor picker with a full page, for the truncation notice.
+                        ContributorEditPage(
+                            state = editingContributor(mergeDialogVisible = true, mergeQuery = "B"),
+                            mergeCandidates =
+                                (1..CONTRIBUTOR_MERGE_CAP).map {
+                                    candidate(id = "c$it", displayName = "Person $it")
+                                },
+                            onEvent = {},
+                            onMergeQuery = {},
+                        )
                         // Series Detail: a fully loaded page — hero stats, the reading order with a
                         // progress bar and a finished mark, and the About panel — plus the two
                         // states with no series, which draw classes of their own.
@@ -413,7 +545,14 @@ class ClassContractTest :
                         notificationPrefShapes().forEach { it() }
                         librarySetupShapes().forEach { it() }
                         librarySettingsShapes().forEach { it() }
+                        inboxShapes().forEach { it() }
+                        serverSettingsShapes().forEach { it() }
+                        categoryShapes().forEach { it() }
+                        collectionShapes().forEach { it() }
+                        backupShapes().forEach { it() }
+                        importShapes().forEach { it() }
                         profileShapes().forEach { it() }
+                        editProfileShapes().forEach { it() }
                         // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
                         // zero-hit Results and a populated one. The page joins this contract by
                         // hand, same as ContributorsPage above — a state nobody adds here is a
@@ -864,20 +1003,226 @@ private fun librarySettingsShapes(): List<@Composable () -> Unit> {
  * A listener's page: a full profile, an empty one (whose "nothing yet" copy is the only thing that
  * renders), and the two states with no profile at all.
  */
+private fun inboxShapes(): List<@Composable () -> Unit> {
+    fun page(state: AdminInboxUiState): @Composable () -> Unit =
+        {
+            AdminInboxPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    return listOf(
+        // Both halves populated, a row selected (so the bulk bar and the tick render), and both
+        // notices up. Selection is what draws `.is-sel` and `.bulk` — a contract that only listed
+        // the resting state would leave every one of those unchecked.
+        page(
+            readyInbox(
+                books = listOf(inboxBook(id = "b1"), inboxBook(id = "b2", author = null)),
+                selectedBookIds = setOf("b1"),
+                lastReleasedCount = 2,
+                error = "No library available",
+                scanIssues = listOf(scanIssue(), scanIssue(id = "i2", detail = "ffprobe: EBML")),
+            ),
+        ),
+        // Issues with no books, and books with no issues — each half renders alone.
+        page(readyInbox(books = emptyList(), scanIssues = listOf(scanIssue()))),
+        page(readyInbox()),
+        // Both empty, which is the only shape that draws the empty block.
+        page(readyInbox(books = emptyList(), scanIssues = emptyList())),
+        page(AdminInboxUiState.Error("Server said no.")),
+        page(AdminInboxUiState.Loading),
+    )
+}
+
+private fun serverSettingsShapes(): List<@Composable () -> Unit> {
+    fun page(state: AdminSettingsUiState): @Composable () -> Unit =
+        {
+            ServerSettingsPage(state, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    return listOf(
+        // Dirty and wearing a failed write — `.srv-err` renders nowhere else.
+        page(readyServerSettings(isDirty = true, error = InternalError(debugInfo = "boom"))),
+        page(readyServerSettings(isSaving = true, isDirty = true)),
+        page(AdminSettingsUiState.Error(InternalError(debugInfo = "boom"))),
+        page(AdminSettingsUiState.Loading),
+    )
+}
+
+private fun categoryShapes(): List<@Composable () -> Unit> {
+    fun page(state: AdminCategoriesUiState): @Composable () -> Unit =
+        {
+            CategoriesPage(state, {}, {}, {}, { _, _ -> }, { _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {})
+        }
+
+    val child = genre(id = "g2", name = "Fantasy", path = "/fiction/fantasy", bookCount = 3)
+    val parent = genre(id = "g1", name = "Fiction", path = "/fiction", bookCount = 10)
+    // Expanded, so both a parent row (with a twisty) and a leaf row (with the gap that stands in
+    // for one) render — they draw different classes and only an expanded tree has both.
+    val tree = listOf(node(parent, children = listOf(node(child, depth = 1))))
+
+    return listOf(
+        page(readyCategories(tree = tree, expandedIds = setOf("g1"), totalBookCount = 13)),
+        page(readyCategories(tree = tree, error = InternalError(debugInfo = "boom"))),
+        // The only shape that draws the empty block.
+        page(readyCategories(tree = emptyList(), genres = emptyList())),
+        page(AdminCategoriesUiState.Error(InternalError(debugInfo = "boom"))),
+        page(AdminCategoriesUiState.Loading),
+    )
+}
+
+private fun bookHit() =
+    com.calypsan.listenup.client.domain.model.SearchHit(
+        id = "b9",
+        type = com.calypsan.listenup.client.domain.model.SearchHitType.BOOK,
+        name = "The Way of Kings",
+    )
+
+private fun collectionShapes(): List<@Composable () -> Unit> {
+    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}) }
+
+    fun detail(state: AdminCollectionDetailUiState): @Composable () -> Unit =
+        {
+            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    return listOf(
+        // An ordinary collection and a managed one side by side — the padlock renders only on the
+        // second, and Delete only on the first.
+        list(
+            readyCollections(
+                collections = listOf(collection(), collection(id = "c2", name = "All books", isSystem = true)),
+                error = "No library available",
+            ),
+        ),
+        list(readyCollections(collections = emptyList())),
+        list(AdminCollectionsUiState.Error("nope")),
+        list(AdminCollectionsUiState.Loading),
+        // Dirty, so the Save row renders; erroring, so the notice does.
+        detail(readyDetail(editedName = "Changed", error = "nope", shares = listOf(shareFixture()))),
+        // Both panels open — each draws classes that render nowhere else.
+        detail(readyDetail(showAddBooks = true, bookQuery = "kings", bookResults = listOf(bookHit()))),
+        detail(readyDetail(showAddMemberSheet = true, availableUsers = listOf(personFixture()))),
+        detail(readyDetail(isSystem = true, books = emptyList())),
+        detail(AdminCollectionDetailUiState.Error("nope")),
+        detail(AdminCollectionDetailUiState.Loading),
+    )
+}
+
+private fun backupShapes(): List<@Composable () -> Unit> {
+    fun list(
+        state: AdminBackupUiState,
+        uploadState: RestoreFromFileUiState = RestoreFromFileUiState.Idle,
+    ): @Composable () -> Unit =
+        {
+            BackupsPage(state, uploadState, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+
+    fun restore(
+        state: RestoreBackupUiState,
+        progress: BackupEvent? = null,
+    ): @Composable () -> Unit = { RestorePage(state, progress, {}, {}, {}, {}) }
+
+    return listOf(
+        // A list wearing its error, with a row to draw the row classes.
+        list(readyBackups(error = InternalError(debugInfo = "boom"))),
+        list(readyBackups(backups = emptyList())),
+        list(AdminBackupUiState.Error(InternalError(debugInfo = "boom"))),
+        list(AdminBackupUiState.Loading),
+        // Idle wearing a prior failure — `.rst-err` renders nowhere else.
+        restore(RestoreBackupUiState.Idle(error = InternalError(debugInfo = "boom"))),
+        restore(RestoreBackupUiState.Confirming),
+        restore(RestoreBackupUiState.Restoring, progress = BackupEvent.Swapping),
+        // Migrated, so `.rst-schema` renders.
+        restore(RestoreBackupUiState.Completed(restoreResult(from = "6", to = "7"))),
+    )
+}
+
+private fun importShapes(): List<@Composable () -> Unit> {
+    fun list(state: ABSImportListUiState): @Composable () -> Unit = { ImportsPage(state, {}, {}, {}, {}, {}) }
+
+    fun flow(state: ImportFlowUiState): @Composable () -> Unit =
+        {
+            ImportFlowPage(state, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
+        }
+
+    return listOf(
+        list(readyImports(error = InternalError(debugInfo = "boom"))),
+        list(readyImports(imports = emptyList())),
+        list(ABSImportListUiState.Error(InternalError(debugInfo = "boom"))),
+        list(ABSImportListUiState.Loading),
+        flow(ImportFlowUiState.Idle),
+        flow(ImportFlowUiState.Analyzing(3, 10, "Elantris", 1, 4)),
+        // Review with a book needing a decision AND the search panel open — several classes
+        // render only in one of those two.
+        flow(
+            review(
+                ambiguous = listOf(absItem()),
+                bookSearch =
+                    BookSearchState(
+                        com.calypsan.listenup.core
+                            .AbsItemId("ai1"),
+                        query = "elantris",
+                        results =
+                            listOf(
+                                com.calypsan.listenup.client.presentation.admin.imports.BookSearchHit(
+                                    com.calypsan.listenup.core
+                                        .BookId("b1"),
+                                    "Elantris",
+                                    "Brandon Sanderson",
+                                ),
+                            ),
+                        isSearching = false,
+                    ),
+            ),
+        ),
+        // Done carrying books it could not place — `.iflow-note` renders nowhere else.
+        flow(ImportFlowUiState.Done(importResult(booksNotInLibrary = 3))),
+        flow(ImportFlowUiState.Error(InternalError(debugInfo = "boom"))),
+    )
+}
+
 private fun profileShapes(): List<@Composable () -> Unit> =
     listOf(
-        { ProfilePage(readyProfile(), onOpenBook = {}, onOpenShelf = {}, onRetry = {}) },
+        { ProfilePage(readyProfile(), onOpenBook = {}, onOpenShelf = {}, onRetry = {}, onEditProfile = {}) },
+        // Own profile, for `.prof-edit` — it renders nowhere else.
+        { ProfilePage(readyProfile(isOwnProfile = true), {}, {}, {}, {}) },
         {
             ProfilePage(
                 state = readyProfile(recentBooks = emptyList(), publicShelves = emptyList()),
                 onOpenBook = {},
                 onOpenShelf = {},
                 onRetry = {},
+                onEditProfile = {},
             )
         },
-        { ProfilePage(UserProfileUiState.Error("No such listener."), {}, {}, {}) },
-        { ProfilePage(UserProfileUiState.Loading, {}, {}, {}) },
+        { ProfilePage(UserProfileUiState.Error("No such listener."), {}, {}, {}, {}) },
+        { ProfilePage(UserProfileUiState.Loading, {}, {}, {}, {}) },
     )
+
+/**
+ * Edit Profile in every shape that draws a class of its own.
+ *
+ * The photo row alone has three: the saved avatar, a staged upload previewing from its own bytes,
+ * and a staged removal previewing as the monogram. A contract that only rendered the happy path
+ * would leave two of the three unchecked, and they are exactly the ones a reader sees mid-edit.
+ */
+private fun editProfileShapes(): List<@Composable () -> Unit> {
+    fun form(
+        state: EditProfileUiState,
+        saveError: String? = null,
+    ): @Composable () -> Unit =
+        {
+            EditProfilePage(state, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, saveError)
+        }
+
+    return listOf(
+        // A dirty form with a photo to remove and a failed save on it — most of the classes.
+        form(editing(tagline = "Counting on it.", hasImageAvatar = true, isDirty = true), saveError = "Nope."),
+        form(editing(avatarChange = AvatarChange.Upload(byteArrayOf(1), "image/png"), hasImageAvatar = true)),
+        form(editing(avatarChange = AvatarChange.RevertToAuto, hasImageAvatar = true)),
+        form(EditProfileUiState.Error("No user data available")),
+        form(EditProfileUiState.Loading),
+    )
+}
 
 /**
  * The notification inbox in every state it has, plus the sidebar wearing a badge.
@@ -1326,3 +1671,16 @@ private fun adminShapes(): List<@Composable () -> Unit> {
         ),
     )
 }
+
+/**
+ * The staged-cover shape, hoisted so its bytes keep ONE identity for the life of this spec.
+ *
+ * ⛔ Not inline. `CoverPickerField` remembers its object URL keyed on the byte array, and a
+ * `ByteArray` compares by identity — so a caller that builds a fresh array in the composable's
+ * argument list invalidates that key on every recomposition, and the field creates and revokes a
+ * blob URL every frame. Every real caller passes the array the ViewModel is holding, so this is a
+ * fixture hazard rather than a product one; inline, it burned enough of the browser's event loop
+ * to push `webAuthKotest`'s WebSocket handshakes past their timeout (247 RPC sockets against a
+ * normal 126, two transport specs failing) with nothing in the failure pointing back here.
+ */
+private val stagedCoverSeries = editingSeries(pendingCoverData = byteArrayOf(1, 2, 3))

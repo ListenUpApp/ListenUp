@@ -39,6 +39,12 @@ final class BulkEditObserver {
     private(set) var canApply = false
     private(set) var isApplying = false
     private(set) var preview: [BulkEditPreviewLine] = []
+    /// The sentence under each field saying what Apply would do to it. Every publishing field has
+    /// one; a relation field only while it is armed.
+    private(set) var consequences: [BulkEditField: FieldConsequence] = [:]
+    /// The first few selected books' covers, for the hero — a sample, deliberately (see the shared
+    /// state's `selectionSample`); the remainder is named from `bookCount`.
+    private(set) var selectionCovers: [CoverArt] = []
 
     // MARK: - Relation state
 
@@ -277,10 +283,11 @@ final class BulkEditObserver {
     // MARK: - State mapping
 
     private func applyState(_ state: BulkEditUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             isLoading = true
-        case .editing(let editing):
+        case .editing(let editingType):
+            let editing = editingType.value
             isLoading = false
             bookCount = Int(editing.bookCount)
             requestedCount = Int(editing.requestedCount)
@@ -295,7 +302,20 @@ final class BulkEditObserver {
             changedBookCount = Int(editing.changedBookCount)
             canApply = editing.canApply
             isApplying = editing.isApplying
-            preview = BulkEditMapping.previewLines(Array(editing.preview), bookCount: Int(editing.bookCount))
+            let rows = Array(editing.preview)
+            preview = BulkEditMapping.previewLines(rows, bookCount: Int(editing.bookCount))
+            let affectedByField = Dictionary(
+                rows.compactMap { row in BulkEditMapping.field(of: row.edit).map { ($0, Int(row.affectedCount)) } },
+                uniquingKeysWith: max
+            )
+            consequences = BulkEditMapping.consequences(
+                affectedByField: affectedByField,
+                bookCount: Int(editing.bookCount),
+                sharedPublisher: editing.sharedPublisher,
+                sharedYear: editing.sharedPublishYear.map { String(Int($0)) },
+                sharedLanguage: editing.sharedLanguage
+            )
+            selectionCovers = Array(editing.selectionSample).map(CoverArt.init(book:))
 
             chosenSeries = editing.seriesInput
             chosenContributors = Array(editing.contributorInput)
@@ -312,27 +332,22 @@ final class BulkEditObserver {
             }
             tagChips = chosenTags.map(BulkEditMapping.nameChip)
             moodChips = chosenMoods.map(BulkEditMapping.nameChip)
-        case .unknown:
-            // Swift cannot switch a Kotlin sealed interface exhaustively, so this branch is real
-            // rather than unreachable: a state this build does not know about leaves the form as it
-            // was instead of blanking it, and says so in the log.
-            Log.error("Unexpected BulkEditUiState case")
         }
     }
 
     private func applyEvent(_ event: BulkEditEvent) {
-        switch onEnum(of: event) {
-        case .applied(let applied):
+        switch event.sealedType() {
+        case .applied(let appliedType):
+            let applied = appliedType.value
             appliedCount = Int(applied.changedCount)
             didFinish = true
-        case .failed(let failed):
+        case .failed(let failedType):
+            let failed = failedType.value
             appliedCount = Int(failed.appliedCount)
             error = BulkEditFormatting.failureMessage(
                 reason: failed.error.message,
                 appliedCount: Int(failed.appliedCount)
             )
-        case .unknown:
-            Log.error("Unexpected BulkEditEvent case")
         }
     }
 

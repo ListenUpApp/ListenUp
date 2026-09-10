@@ -38,16 +38,15 @@ final class AdminCollectionsObserver {
     // MARK: - State mapping
 
     private func apply(_ state: AdminCollectionsUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(AdminCollectionsReadyModel(from: ready))
-        case .error(let err):
+        case .error(let errType):
+            let err = errType.value
             phase = .error(err.message)
-        case .unknown:
-            Log.error("Unexpected AdminCollectionsUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }
@@ -85,10 +84,14 @@ struct CollectionRowModel: Identifiable {
     let id: String
     let name: String
     let bookCount: Int
+    /// The server owns this collection — the library's inbox, or its all-books collection. It
+    /// refuses to rename or delete one, so the UI must not offer to.
+    let isSystem: Bool
 
     init(from collection: Collection) {
         self.id = collection.id
         self.name = collection.name
         self.bookCount = Int(collection.bookCount)
+        self.isSystem = collection.isSystem
     }
 }

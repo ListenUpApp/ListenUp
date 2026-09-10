@@ -862,15 +862,11 @@ private class FakePlaybackService(
         return getPositionResult
     }
 
-    override suspend fun recordPosition(
-        request: RecordPositionRequest,
-    ): AppResult<PlaybackPositionSyncPayload> = stubFailure
+    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> = stubFailure
 
     override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = stubFailure
 
-    override suspend fun recordListeningEvent(
-        request: RecordListeningEventRequest,
-    ): AppResult<ListeningEventSyncPayload> = stubFailure
+    override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> = stubFailure
 }
 
 /**

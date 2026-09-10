@@ -162,6 +162,9 @@ import listenup.composeapp.generated.resources.common_no_items_found
 import listenup.composeapp.generated.resources.common_revoke
 import listenup.composeapp.generated.resources.common_users
 import listenup.composeapp.generated.resources.connect_listenup_server
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Combined admin screen showing server settings, users, pending registrations & invites, and the
@@ -644,6 +647,7 @@ private fun ServerSettingsSection(
                 label = stringResource(Res.string.admin_server_name),
                 placeholder = stringResource(Res.string.connect_listenup_server),
                 leadingIcon = Icons.Outlined.Badge,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
             ListenUpTextField(
                 value = remoteUrl,
@@ -651,6 +655,7 @@ private fun ServerSettingsSection(
                 label = stringResource(Res.string.admin_remote_url),
                 placeholder = stringResource(Res.string.admin_remote_url_placeholder),
                 leadingIcon = Icons.Outlined.CloudDownload,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
         }
         RegistrationPolicyControl(

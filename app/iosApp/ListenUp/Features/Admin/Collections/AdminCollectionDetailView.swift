@@ -167,11 +167,22 @@ struct AdminCollectionDetailView: View {
                     get: { ready.editedName },
                     set: { observer.updateName($0) }
                 ),
+                entry: .words,
                 label: String(localized: "admin.collection_name"),
                 icon: "folder"
             )
             .fieldCard()
-            if ready.isDirty {
+            .disabled(ready.isSystem)
+            // ⛔ Not merely un-saveable: a field the server will refuse to change must be
+            // unreachable, and must say why. Rendering it editable and rejecting the save
+            // afterwards teaches the reader that the app lies about what it will accept.
+            if ready.isSystem {
+                Text(String(localized: "admin.system_collection_locked"))
+                    .font(.footnote)
+                    .foregroundStyle(Color.luLabel2)
+                    .padding(.top, 6)
+            }
+            if ready.isDirty && !ready.isSystem {
                 Button {
                     observer.saveName()
                 } label: {
@@ -197,12 +208,15 @@ struct AdminCollectionDetailView: View {
     private func booksSection(observer: AdminCollectionDetailObserver, ready: AdminCollectionDetailReadyModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             AdminSectionHeader(String(localized: "admin.books_in_collection")) {
-                Button {
-                    observer.openAddBooks()
-                } label: {
-                    Label(String(localized: "admin.add_books"), systemImage: "plus")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.luTint)
+                // The server owns what is in a system collection, so there is nothing to add.
+                if !ready.isSystem {
+                    Button {
+                        observer.openAddBooks()
+                    } label: {
+                        Label(String(localized: "admin.add_books"), systemImage: "plus")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Color.luTint)
+                    }
                 }
             }
             if ready.books.isEmpty {
@@ -218,7 +232,12 @@ struct AdminCollectionDetailView: View {
                     spacing: 8
                 ) {
                     ForEach(ready.books) { book in
-                        bookCoverCell(observer: observer, book: book, isRemoving: ready.removingBookId == book.id)
+                        bookCoverCell(
+                            observer: observer,
+                            book: book,
+                            isRemoving: ready.removingBookId == book.id,
+                            canRemove: !ready.isSystem
+                        )
                     }
                 }
                 .padding(8)
@@ -232,7 +251,8 @@ struct AdminCollectionDetailView: View {
     private func bookCoverCell(
         observer: AdminCollectionDetailObserver,
         book: CollectionBookRowModel,
-        isRemoving: Bool
+        isRemoving: Bool,
+        canRemove: Bool
     ) -> some View {
         ZStack(alignment: .topTrailing) {
             BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
@@ -243,7 +263,7 @@ struct AdminCollectionDetailView: View {
             if isRemoving {
                 ProgressView()
                     .frame(width: 80, height: 80)
-            } else {
+            } else if canRemove {
                 Button {
                     pendingRemoveBookId = book.id
                 } label: {

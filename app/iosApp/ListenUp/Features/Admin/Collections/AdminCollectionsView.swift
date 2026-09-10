@@ -90,10 +90,16 @@ struct AdminCollectionsView: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
-                        Button(role: .destructive) {
-                            pendingDeleteId = collection.id
-                        } label: {
-                            Label(String(localized: "common.delete"), systemImage: "trash")
+                        // ⛔ The server refuses to delete its own collections, so Delete is not
+                        // offered for one. A context menu is invisible until long-pressed, which
+                        // is why the tile also wears a padlock — otherwise the only signal would
+                        // be an option that silently is not there.
+                        if !collection.isSystem {
+                            Button(role: .destructive) {
+                                pendingDeleteId = collection.id
+                            } label: {
+                                Label(String(localized: "common.delete"), systemImage: "trash")
+                            }
                         }
                     }
                 }
@@ -171,6 +177,7 @@ struct AdminCollectionsView: View {
                 AppTextField(
                     placeholder: String(localized: "admin.collection_name"),
                     text: $createName,
+                    entry: .words,
                     label: String(localized: "admin.collection_name"),
                     icon: "folder.badge.plus"
                 )
@@ -224,16 +231,25 @@ private struct CollectionTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack {
+            ZStack(alignment: .topTrailing) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.luFill)
                     .aspectRatio(1, contentMode: .fit)
                 if isDeleting {
                     ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Image(systemName: "folder.fill")
                         .font(.system(size: 36))
                         .foregroundStyle(Color.luTint)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                if collection.isSystem {
+                    Image(systemName: "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.luLabel2)
+                        .padding(8)
+                        .accessibilityLabel(Text(String(localized: "admin.system_collection_locked")))
                 }
             }
 

@@ -47,18 +47,28 @@ fun AdminPage(
     onClearError: () -> Unit,
     onRetry: () -> Unit,
     onOpenLibrarySettings: () -> Unit = {},
+    onOpenInbox: () -> Unit = {},
+    onOpenServerSettings: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
+    onOpenCollections: () -> Unit = {},
+    onOpenBackups: () -> Unit = {},
+    onOpenImports: () -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
 
-        // The one other admin surface web has. A link rather than a section: library folders are
-        // their own screen with their own loading and failure states, and this page's own KDoc
-        // already says why it is deliberately only the people.
-        Button(attrs = {
-            classes("btn-o", "adm-link")
-            attr("type", "button")
-            onClick { onOpenLibrarySettings() }
-        }) { Text("Library folders") }
+        // The other admin surfaces web has. Links rather than sections: each is its own screen
+        // with its own loading and failure states, and this page's own KDoc already says why it
+        // is deliberately only the people.
+        Div(attrs = { classes("adm-links") }) {
+            AdminLink("Library folders", onOpenLibrarySettings)
+            AdminLink("Inbox", onOpenInbox)
+            AdminLink("Server settings", onOpenServerSettings)
+            AdminLink("Categories", onOpenCategories)
+            AdminLink("Collections", onOpenCollections)
+            AdminLink("Backups", onOpenBackups)
+            AdminLink("Imports", onOpenImports)
+        }
 
         when (state) {
             is AdminUiState.Loading -> {
@@ -82,6 +92,24 @@ fun AdminPage(
             }
         }
     }
+}
+
+/**
+ * One way out of here, to an admin surface that is its own page.
+ *
+ * Three of these differing only in label and destination was three copies of the same five lines —
+ * the shape that drifts the moment one of them gains a class the others do not.
+ */
+@Composable
+private fun AdminLink(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Button(attrs = {
+        classes("btn-o", "adm-link")
+        attr("type", "button")
+        onClick { onClick() }
+    }) { Text(label) }
 }
 
 /**

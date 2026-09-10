@@ -1,21 +1,13 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
-import org.jetbrains.compose.web.dom.Button
-import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.P
-import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.HTMLDialogElement
-import org.w3c.dom.events.Event
 
 /**
  * Asks before something irreversible happens.
  *
- * Built on the real `<dialog>` element and opened with `showModal()`, which is what buys the three
- * behaviours a hand-rolled modal has to reimplement: focus is trapped inside it, the page behind
- * goes inert, and Escape closes it. A `div` with `role="dialog"` looks the same and does none of
- * that unless someone writes it — and the someone is always in a hurry.
+ * Built on [ModalDialog], which owns the real `<dialog>` and its `showModal()` — the focus trap,
+ * the inert background and Escape-to-close all come from there. What this adds is the shape of a
+ * yes-or-no question: a sentence, a Cancel, and a verb.
  *
  * ## Why this exists
  *
@@ -43,48 +35,8 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!open) return
-
-    Dialog(attrs = {
-        classes("dlg")
-        attr("aria-labelledby", TITLE_ID)
-        ref { element ->
-            val dialog = element as HTMLDialogElement
-            // showModal(), not the `open` attribute: only the method gives the top layer, the
-            // inert background and the focus trap. Setting `open` renders it non-modally.
-            if (!dialog.open) dialog.showModal()
-            // Escape and the backdrop both fire `cancel`/`close` without touching our buttons, so
-            // the caller has to hear about it or its `open` flag drifts out of step with reality.
-            val onClose: (Event) -> Unit = { onDismiss() }
-            dialog.addEventListener("close", onClose)
-            onDispose {
-                dialog.removeEventListener("close", onClose)
-                if (dialog.open) dialog.close()
-            }
-        }
-    }) {
-        Div(attrs = { classes("dlg-body") }) {
-            H2(attrs = {
-                classes("dlg-t")
-                attr("id", TITLE_ID)
-            }) { Text(title) }
-            P(attrs = { classes("dlg-p") }) { Text(body) }
-            Div(attrs = { classes("dlg-actions") }) {
-                // Cancel first in the DOM so it takes initial focus: the safe choice should be the
-                // one a hurried Return keypress lands on.
-                Button(attrs = {
-                    classes("btn-o")
-                    attr("type", "button")
-                    onClick { onDismiss() }
-                }) { Text("Cancel") }
-                Button(attrs = {
-                    classes("btn")
-                    attr("type", "button")
-                    onClick { onConfirm() }
-                }) { Text(confirmLabel) }
-            }
-        }
+    ModalDialog(open = open, title = title, onDismiss = onDismiss) {
+        DialogText(body)
+        DialogActions(confirmLabel = confirmLabel, onConfirm = onConfirm, onDismiss = onDismiss)
     }
 }
-
-private const val TITLE_ID = "lu-dialog-title"

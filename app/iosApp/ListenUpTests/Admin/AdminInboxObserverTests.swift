@@ -150,3 +150,95 @@ private func inboxItem(
         coverHash: coverHash
     )
 }
+
+// MARK: - Scan issues
+
+/// The gap these cover: the observer dropped `scanIssues` entirely, and the view asked `hasBooks`
+/// where the shared ViewModel means `isEmpty` — so an inbox holding nothing but failed imports told
+/// the admin it was empty. A scan issue is the only place a failed import is visible at all.
+@Suite("Admin inbox scan issues")
+struct AdminInboxScanIssueTests {
+    @Test func issuesWithNoBooksIsNotAnEmptyInbox() {
+        // The bug, exactly: zero held books plus issues must NOT read as empty.
+        let state = AdminInboxUiStateReady(
+            bookIds: [],
+            books: [],
+            selectedBookIds: [],
+            isReleasing: false,
+            lastReleasedCount: nil,
+            error: nil,
+            scanIssues: [scanIssue(id: "i1"), scanIssue(id: "i2")]
+        )
+        guard case .ready(let model) = AdminInboxObserver.phase(from: state) else {
+            Issue.record("expected .ready")
+            return
+        }
+        #expect(model.hasBooks == false)
+        #expect(model.hasIssues == true)
+        #expect(model.isEmpty == false, "issues with no books is a populated inbox")
+        #expect(model.scanIssues.map(\.id) == ["i1", "i2"])
+    }
+
+    @Test func emptyOnlyWhenBothHalvesAreEmpty() {
+        let state = AdminInboxUiStateReady(
+            bookIds: [],
+            books: [],
+            selectedBookIds: [],
+            isReleasing: false,
+            lastReleasedCount: nil,
+            error: nil,
+            scanIssues: []
+        )
+        guard case .ready(let model) = AdminInboxObserver.phase(from: state) else {
+            Issue.record("expected .ready")
+            return
+        }
+        #expect(model.isEmpty == true)
+        #expect(model.hasIssues == false)
+    }
+
+    @Test func everyReasonGetsItsOwnHeadlineAndFix() {
+        // A switch collapsing to one shared string would still render five rows, so counting rows
+        // proves nothing — distinctness is the property that matters.
+        let reasons: [ScanIssueReason] = [
+            .noRecognizedAudio, .fileUnreadable, .metadataParseFailed, .titleInferenceFailed, .unknown
+        ]
+        let models = reasons.map { ScanIssueRowModel(from: scanIssue(id: "i", reason: $0)) }
+
+        #expect(Set(models.map(\.headline)).count == reasons.count, "each reason needs its own headline")
+        #expect(Set(models.map(\.fix)).count == reasons.count, "a notice the user cannot act on is just an apology")
+        #expect(models.allSatisfy { !$0.headline.isEmpty && !$0.fix.isEmpty })
+        // A missing catalog key resolves to the key itself — that would pass the distinctness check
+        // above while shipping "admin.inbox_issue_no_audio" to the user.
+        #expect(models.allSatisfy { !$0.headline.hasPrefix("admin.inbox_") && !$0.fix.hasPrefix("admin.inbox_") })
+    }
+
+    @Test func rowModelCarriesFolderAndDetail() {
+        let issue = scanIssue(id: "i9", rootRelPath: "Sanderson/Mistborn", detail: "no readable tracks")
+        let model = ScanIssueRowModel(from: issue)
+
+        #expect(model.id == "i9")
+        #expect(model.rootRelPath == "Sanderson/Mistborn")
+        #expect(model.detail == "no readable tracks")
+    }
+
+    @Test func nilDetailSurvives() {
+        #expect(ScanIssueRowModel(from: scanIssue(id: "i1", detail: nil)).detail == nil)
+    }
+}
+
+private func scanIssue(
+    id: String,
+    rootRelPath: String = "Some/Folder",
+    reason: ScanIssueReason = .noRecognizedAudio,
+    detail: String? = nil
+) -> ScanIssue {
+    ScanIssue(
+        id: id,
+        rootRelPath: rootRelPath,
+        reason: reason,
+        detail: detail,
+        firstSeenAt: 0,
+        lastSeenAt: 0
+    )
+}

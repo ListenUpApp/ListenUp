@@ -84,6 +84,8 @@ import listenup.composeapp.generated.resources.shelf_visible_to_anyone
 import listenup.composeapp.generated.resources.shelf_whats_this_shelf_for
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Bundles the mutable form state and callbacks passed between the screen and layout
@@ -559,6 +561,7 @@ private fun ShelfDetailsSection(
                 label = stringResource(Res.string.shelf_form_name),
                 placeholder = stringResource(Res.string.common_shelf_name_hint),
                 leadingIcon = Icons.Outlined.Label,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
 
             ListenUpTextArea(

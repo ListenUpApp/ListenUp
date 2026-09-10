@@ -29,9 +29,14 @@ compose-material3 = "1.12.0-alpha03"
 # Swift Export bridge upgrade UNIT — bump together, never piecemeal:
 #   kotlin  +  the Swift Export patcher (build-logic `SwiftExportSourcePatcher`, validated against
 #   THIS Kotlin)  +  kotlinx-rpc.
-kotlin = "2.4.10"
+# NOTE on kotlinx-rpc: its VALUE does not move on a Kotlin bump. The library publishes one codegen
+# artifact per Kotlin version, named `<kotlin>-<library>` (here `2.4.20-0.11.0-grpc-189`), and the
+# Gradle plugin selects it from the Kotlin version. So a Kotlin bump silently needs a matching
+# artifact to EXIST on the dev channel — check before bumping, because a miss surfaces as an
+# unresolved dependency, not as a version conflict.
+kotlin = "2.4.20"
 ksp = "2.3.10"
-mokkery = "3.4.2"
+mokkery = "3.5.0"
 ktor = "3.5.2"
 # DEV CHANNEL — resolved from the `kxrpc-grpc` redirector (see settings.gradle.kts). Migrate to
 # kotlinx-rpc 0.11.x stable on Maven Central once it ships with the KRPC-560 fix, then delete the

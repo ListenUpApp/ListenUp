@@ -9,8 +9,8 @@ import Shared
 final class SeriesEditObserver {
     private(set) var isLoading: Bool = true
     private(set) var name: String = ""
-    /// The series description — stored as `seriesDescription` because Swift Export renames the
-    /// Kotlin `description` property to `description_` (dodging the Swift `description` clash).
+    /// The series description — stored as `seriesDescription` and read from Kotlin's
+    /// `descriptionText` alias: Swift Export never exports a member named `description`.
     private(set) var seriesDescription: String = ""
     private(set) var displayCoverPath: String?
     private(set) var hasChanges: Bool = false
@@ -58,7 +58,7 @@ final class SeriesEditObserver {
     private func apply(_ state: SeriesEditUiState) {
         isLoading = state.isLoading
         name = state.name
-        seriesDescription = state.description_
+        seriesDescription = state.descriptionText
         displayCoverPath = state.displayCoverPath
         hasChanges = state.hasChanges
         isSaving = state.isSaving
@@ -67,9 +67,10 @@ final class SeriesEditObserver {
     }
 
     private func applyNav(_ action: SeriesEditNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .navigateBack: didFinish = true
-        case .navigateToMerged(let merged):
+        case .navigateToMerged(let mergedType):
+            let merged = mergedType.value
             // A merge soft-deletes the series being edited, so dismissing returns to a detail page
             // for something that no longer exists. Android lands on the survivor instead; iOS
             // cannot yet, because this screen is a sheet whose presenter owns navigation and has no
@@ -77,8 +78,6 @@ final class SeriesEditObserver {
             // one does, iOS keeps the old dismiss behaviour rather than silently doing nothing.
             mergedIntoSeriesId = merged.seriesId.value
             didFinish = true
-        case .unknown:
-            Log.error("Unexpected SeriesEditNavAction case")
         }
     }
 }

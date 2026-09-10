@@ -1,6 +1,15 @@
 package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.OpenAdmin
+import com.calypsan.listenup.web.features.admin.OpenAdminInbox
+import com.calypsan.listenup.web.features.admin.OpenCategories
+import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
+import com.calypsan.listenup.web.features.admin.OpenBackups
+import com.calypsan.listenup.web.features.admin.OpenImportFlow
+import com.calypsan.listenup.web.features.admin.OpenImports
+import com.calypsan.listenup.web.features.admin.OpenCollections
+import com.calypsan.listenup.web.features.admin.OpenRestore
+import com.calypsan.listenup.web.features.admin.OpenServerSettings
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.settings.OpenSettings
@@ -29,13 +38,16 @@ import com.calypsan.listenup.web.design.toastText
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
 import com.calypsan.listenup.web.features.setup.OpenLibrarySetup
+import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
+import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
@@ -71,11 +83,14 @@ fun AuthGate(
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
     openContributorDetail: OpenContributorDetail,
+    openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
+    openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
     openLibrarySetup: OpenLibrarySetup,
     openProfile: OpenProfile,
+    openEditProfile: OpenEditProfile,
     openNotificationBell: OpenNotificationBell,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
@@ -85,6 +100,15 @@ fun AuthGate(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openLibrarySettings: OpenLibrarySettings,
+    openAdminInbox: OpenAdminInbox,
+    openServerSettings: OpenServerSettings,
+    openCategories: OpenCategories,
+    openCollections: OpenCollections,
+    openCollectionDetail: OpenCollectionDetail,
+    openBackups: OpenBackups,
+    openRestore: OpenRestore,
+    openImports: OpenImports,
+    openImportFlow: OpenImportFlow,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -171,10 +195,13 @@ fun AuthGate(
                         openBookDetail = openBookDetail,
                         openBookEdit = openBookEdit,
                         openContributorDetail = openContributorDetail,
+                        openContributorEdit = openContributorEdit,
                         openSeriesDetail = openSeriesDetail,
+                        openSeriesEdit = openSeriesEdit,
                         openNotifications = openNotifications,
                         openNotificationPrefs = openNotificationPrefs,
                         openProfile = openProfile,
+                        openEditProfile = openEditProfile,
                         openNotificationBell = openNotificationBell,
                         openContributors = openContributors,
                         openLibrary = openLibrary,
@@ -184,6 +211,15 @@ fun AuthGate(
                         openDevices = openDevices,
                         openAdmin = openAdmin,
                         openLibrarySettings = openLibrarySettings,
+                        openAdminInbox = openAdminInbox,
+                        openServerSettings = openServerSettings,
+                        openCategories = openCategories,
+                        openCollections = openCollections,
+                        openCollectionDetail = openCollectionDetail,
+                        openBackups = openBackups,
+                        openRestore = openRestore,
+                        openImports = openImports,
+                        openImportFlow = openImportFlow,
                         openShelfDetail = openShelfDetail,
                         openShelfEdit = openShelfEdit,
                         openSearch = openSearch,

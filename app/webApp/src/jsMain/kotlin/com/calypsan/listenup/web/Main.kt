@@ -24,12 +24,22 @@ import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.bookedit.graphBookEdit
 import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
 import com.calypsan.listenup.web.features.contributors.graphContributors
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
 import com.calypsan.listenup.web.features.discover.graphDiscover
 import com.calypsan.listenup.web.features.home.graphHome
 import com.calypsan.listenup.web.features.admin.graphAdmin
+import com.calypsan.listenup.web.features.admin.graphAdminInbox
+import com.calypsan.listenup.web.features.admin.graphBackups
+import com.calypsan.listenup.web.features.admin.graphImportFlow
+import com.calypsan.listenup.web.features.admin.graphImports
+import com.calypsan.listenup.web.features.admin.graphCategories
+import com.calypsan.listenup.web.features.admin.graphRestore
+import com.calypsan.listenup.web.features.admin.graphCollectionDetail
+import com.calypsan.listenup.web.features.admin.graphCollections
+import com.calypsan.listenup.web.features.admin.graphServerSettings
 import com.calypsan.listenup.web.features.admin.graphLibrarySettings
 import com.calypsan.listenup.web.features.devices.graphDevices
 import com.calypsan.listenup.web.features.settings.graphSettings
@@ -40,8 +50,10 @@ import com.calypsan.listenup.web.features.notifications.graphNotificationBell
 import com.calypsan.listenup.web.features.notifications.graphNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.graphNotifications
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
+import com.calypsan.listenup.web.features.profile.graphEditProfile
 import com.calypsan.listenup.web.features.profile.graphProfile
 import com.calypsan.listenup.web.features.seriesdetail.graphSeriesDetail
+import com.calypsan.listenup.web.features.seriesedit.graphSeriesEdit
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -139,11 +151,14 @@ fun main() {
                 openBookDetail = graphBookDetail(koin),
                 openBookEdit = graphBookEdit(koin),
                 openContributorDetail = graphContributorDetail(koin),
+                openContributorEdit = graphContributorEdit(koin),
                 openSeriesDetail = graphSeriesDetail(koin),
+                openSeriesEdit = graphSeriesEdit(koin),
                 openNotifications = graphNotifications(koin),
                 openNotificationPrefs = graphNotificationPrefs(koin),
                 openLibrarySetup = graphLibrarySetup(koin),
                 openProfile = graphProfile(koin),
+                openEditProfile = graphEditProfile(koin),
                 openNotificationBell = graphNotificationBell(koin),
                 openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
@@ -153,6 +168,15 @@ fun main() {
                 openDevices = graphDevices(koin),
                 openAdmin = graphAdmin(koin),
                 openLibrarySettings = graphLibrarySettings(koin),
+                openAdminInbox = graphAdminInbox(koin),
+                openServerSettings = graphServerSettings(koin),
+                openCategories = graphCategories(koin),
+                openCollections = graphCollections(koin),
+                openCollectionDetail = graphCollectionDetail(koin),
+                openBackups = graphBackups(koin),
+                openRestore = graphRestore(koin),
+                openImports = graphImports(koin),
+                openImportFlow = graphImportFlow(koin),
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),
                 openSearch = graphSearch(koin),

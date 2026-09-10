@@ -357,6 +357,9 @@ private extension View {
             .pushedDestination(for: AdminCollectionsDestination.self) { _ in
                 AdminCollectionsView()
             }
+            .pushedDestination(for: AdminCategoriesDestination.self) { _ in
+                AdminCategoriesView()
+            }
             .pushedDestination(for: AdminCollectionDetailDestination.self) { destination in
                 AdminCollectionDetailView(collectionId: destination.collectionId)
             }

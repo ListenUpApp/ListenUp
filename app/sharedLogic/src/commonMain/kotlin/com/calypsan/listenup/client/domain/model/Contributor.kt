@@ -27,6 +27,9 @@ data class Contributor(
     /** Audible ASIN for this contributor, set when metadata has been applied. */
     val asin: String? = null,
 ) {
+    /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
+    val descriptionText: String? get() = description
+
     /** The contributor id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
     val idString: String get() = id.value
 

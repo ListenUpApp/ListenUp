@@ -140,6 +140,8 @@ import listenup.composeapp.generated.resources.import_writing_history_subtitle
 import listenup.composeapp.generated.resources.import_writing_history_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
 
 private val CONTENT_MAX_WIDTH = 560.dp
 
@@ -953,6 +955,7 @@ private fun BookSearchPanel(
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     }
                 },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             )
             Spacer(Modifier.width(4.dp))
             IconButton(

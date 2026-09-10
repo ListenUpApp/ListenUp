@@ -17,20 +17,19 @@ enum ContributorMetadataMapping {
     }
 
     static func search(from loadState: ContributorSearchLoadState) -> SearchMapping {
-        switch onEnum(of: loadState) {
+        switch loadState.sealedType() {
         case .idle:
             return SearchMapping(results: [], rawHits: [:], isSearching: false, searchError: nil)
         case .inFlight:
             return SearchMapping(results: [], rawHits: [:], isSearching: true, searchError: nil)
-        case .loaded(let loaded):
+        case .loaded(let loadedType):
+            let loaded = loadedType.value
             let rawHits = Dictionary(loaded.results.map { ($0.asin, $0) }) { first, _ in first }
             let results = loaded.results.map { ContributorHitRow(asin: $0.asin, name: $0.name) }
             return SearchMapping(results: results, rawHits: rawHits, isSearching: false, searchError: nil)
-        case .failed(let failed):
+        case .failed(let failedType):
+            let failed = failedType.value
             return SearchMapping(results: [], rawHits: [:], isSearching: false, searchError: failed.message)
-        case .unknown:
-            Log.error("Unexpected ContributorSearchLoadState case")
-            return SearchMapping(results: [], rawHits: [:], isSearching: false, searchError: nil)
         }
     }
 
@@ -45,23 +44,22 @@ enum ContributorMetadataMapping {
     }
 
     static func preview(from loadState: ContributorPreviewLoadState) -> PreviewMapping {
-        switch onEnum(of: loadState) {
+        switch loadState.sealedType() {
         case .loading:
             return PreviewMapping(phase: .loading, profile: nil, isApplying: false, applyError: nil)
         case .missing:
             return PreviewMapping(phase: .missing, profile: nil, isApplying: false, applyError: nil)
-        case .failed(let failed):
+        case .failed(let failedType):
+            let failed = failedType.value
             return PreviewMapping(phase: .failed(failed.message), profile: nil, isApplying: false, applyError: nil)
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             return PreviewMapping(
                 phase: .ready,
                 profile: profile(from: ready.profile),
                 isApplying: ready.isApplying,
                 applyError: ready.applyError
             )
-        case .unknown:
-            Log.error("Unexpected ContributorPreviewLoadState case")
-            return PreviewMapping(phase: .loading, profile: nil, isApplying: false, applyError: nil)
         }
     }
 
@@ -69,7 +67,7 @@ enum ContributorMetadataMapping {
         ContributorProfilePreview(
             asin: profile.asin,
             name: profile.name,
-            bio: profile.description_,
+            bio: profile.descriptionText,
             imageURL: profile.imageUrl,
             birthDate: profile.birthDate,
             deathDate: profile.deathDate,
@@ -80,15 +78,12 @@ enum ContributorMetadataMapping {
     // MARK: - Events
 
     /// Whether the one-shot event is the apply-succeeded outcome. `ContributorMetadataEvent`
-    /// currently has a single case, but this stays exhaustive over `onEnum` so a future case
+    /// currently has a single case, but this stays exhaustive over `sealedType()` so a future case
     /// added on the Kotlin side fails loudly here instead of silently flipping `didApply`.
     static func isApplySuccess(_ event: ContributorMetadataEvent) -> Bool {
-        switch onEnum(of: event) {
+        switch event.sealedType() {
         case .metadataApplied:
             return true
-        case .unknown:
-            Log.error("Unexpected ContributorMetadataEvent case")
-            return false
         }
     }
 }

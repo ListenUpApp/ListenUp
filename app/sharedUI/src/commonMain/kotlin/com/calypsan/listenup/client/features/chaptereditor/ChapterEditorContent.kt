@@ -51,6 +51,8 @@ import listenup.composeapp.generated.resources.chapter_editor_minimap_descriptio
 import listenup.composeapp.generated.resources.chapter_editor_whole_book
 import listenup.composeapp.generated.resources.chapter_editor_zoom_hint
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
 
 private val PANE_SHAPE = RoundedCornerShape(24.dp)
 private val LIST_PANE_WIDTH = 480.dp
@@ -342,6 +344,7 @@ private fun ChapterListPane(
             onTrailingClick = { onQueryChange("") },
             trailingIconContentDescription = stringResource(Res.string.chapter_editor_clear_search),
             modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         )
 
         if (visible.isEmpty()) {

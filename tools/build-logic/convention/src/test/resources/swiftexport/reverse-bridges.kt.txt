@@ -1,0 +1,62 @@
+@file:kotlin.Suppress("DEPRECATION_ERROR")
+
+import kotlin.native.internal.objc.BindReverseBridgeToMethod
+import kotlin.native.internal.ImportedBridge
+import kotlin.native.internal.ExportedBridge
+
+@ImportedBridge("androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable____reverse_swift")
+internal external fun androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable____reverse_swift(self: kotlin.native.internal.NativePtr, closeable: kotlin.native.internal.NativePtr): Boolean
+
+@BindReverseBridgeToMethod(androidx.lifecycle.ViewModel::class, "addCloseable")
+public fun androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable____reverse(self: androidx.lifecycle.ViewModel, closeable: kotlin.AutoCloseable): Unit {
+    val __self = kotlin.native.internal.ref.createRetainedExternalRCRef(self)
+    val __closeable = kotlin.native.internal.ref.createRetainedExternalRCRef(closeable)
+    val _result = androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable____reverse_swift(__self, __closeable)
+    return run<Unit> { _result }
+}
+
+@ExportedBridge("androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__Swift_String_anyU20ExportedKotlinPackages_kotlin_AutoCloseable__")
+public fun androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__Swift_String_anyU20ExportedKotlinPackages_kotlin_AutoCloseable__(self: kotlin.native.internal.NativePtr, key: kotlin.native.internal.NativePtr, closeable: kotlin.native.internal.NativePtr): Boolean {
+    val __self = kotlin.native.internal.ref.dereferenceExternalRCRef(self) as androidx.lifecycle.ViewModel
+    val _result = run { __self.addCloseable(__key, __closeable) }
+    return run { _result; true }
+}
+
+@ExportedBridge("androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable__")
+public fun androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable__(self: kotlin.native.internal.NativePtr, closeable: kotlin.native.internal.NativePtr): Boolean {
+    val __self = kotlin.native.internal.ref.dereferenceExternalRCRef(self) as androidx.lifecycle.ViewModel
+    val _result = run { __self.addCloseable(__closeable) }
+    return run { _result; true }
+}
+
+@ExportedBridge("androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable___direct", nonVirtualTargetMethod = "addCloseable")
+public fun androidx_lifecycle_ViewModel_addCloseable__TypesOfArguments__anyU20ExportedKotlinPackages_kotlin_AutoCloseable___direct(self: kotlin.native.internal.NativePtr, closeable: kotlin.native.internal.NativePtr): Boolean {
+    val __self = kotlin.native.internal.ref.dereferenceExternalRCRef(self) as androidx.lifecycle.ViewModel
+    val _result = run { __self.addCloseable(__closeable) }
+    return run { _result; true }
+}
+
+@ImportedBridge("com_example_Base_greet__TypesOfArguments__Swift_String____reverse_swift")
+internal external fun com_example_Base_greet__TypesOfArguments__Swift_String____reverse_swift(self: kotlin.native.internal.NativePtr, name: kotlin.native.internal.NativePtr): kotlin.native.internal.NativePtr
+
+@BindReverseBridgeToMethod(com.example.Base::class, "greet")
+public fun com_example_Base_greet__TypesOfArguments__Swift_String____reverse(self: com.example.Base, name: kotlin.String): kotlin.String {
+    val __self = kotlin.native.internal.ref.createRetainedExternalRCRef(self)
+    val __name = name.objcPtr()
+    val _result = com_example_Base_greet__TypesOfArguments__Swift_String____reverse_swift(__self, __name)
+    return interpretObjCPointer<kotlin.String>(_result)
+}
+
+@ExportedBridge("com_example_Base_greet__TypesOfArguments__Swift_String__")
+public fun com_example_Base_greet__TypesOfArguments__Swift_String__(self: kotlin.native.internal.NativePtr, name: kotlin.native.internal.NativePtr): kotlin.native.internal.NativePtr {
+    val __self = kotlin.native.internal.ref.dereferenceExternalRCRef(self) as com.example.Base
+    val __name = interpretObjCPointer<kotlin.String>(name)
+    val _result = __self.greet(__name)
+    return _result.objcPtr()
+}
+
+@ExportedBridge("com_example_Base_greet__TypesOfArguments__Swift_String___direct", nonVirtualTargetMethod = "greet")
+public fun com_example_Base_greet__TypesOfArguments__Swift_String___direct(self: kotlin.native.internal.NativePtr, name: kotlin.native.internal.NativePtr): kotlin.native.internal.NativePtr {
+    val __self = kotlin.native.internal.ref.dereferenceExternalRCRef(self) as com.example.Base
+    return __self.greet(interpretObjCPointer<kotlin.String>(name)).objcPtr()
+}

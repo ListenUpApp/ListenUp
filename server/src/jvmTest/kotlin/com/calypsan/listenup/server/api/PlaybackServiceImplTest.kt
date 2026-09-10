@@ -701,9 +701,33 @@ internal fun bookWithThreeFiles(bookId: String): BookSyncPayload =
         series = emptyList(),
         audioFiles =
             listOf(
-                BookAudioFilePayload(id = "af-0", index = 0, filename = "01.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L),
-                BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L),
-                BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L),
+                BookAudioFilePayload(
+                    id = "af-0",
+                    index = 0,
+                    filename = "01.m4b",
+                    format = "m4b",
+                    codec = "aac",
+                    duration = 1_000_000L,
+                    size = 100_000_000L,
+                ),
+                BookAudioFilePayload(
+                    id = "af-1",
+                    index = 1,
+                    filename = "02.m4b",
+                    format = "m4b",
+                    codec = "aac",
+                    duration = 1_000_000L,
+                    size = 100_000_000L,
+                ),
+                BookAudioFilePayload(
+                    id = "af-2",
+                    index = 2,
+                    filename = "03.m4b",
+                    format = "m4b",
+                    codec = "aac",
+                    duration = 1_000_000L,
+                    size = 100_000_000L,
+                ),
             ),
         chapters =
             listOf(

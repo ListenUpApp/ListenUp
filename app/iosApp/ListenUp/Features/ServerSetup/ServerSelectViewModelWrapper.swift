@@ -90,31 +90,27 @@ final class ServerSelectViewModelWrapper {
                 isOnline: item.isOnline
             )
         }
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .discovering:
             isDiscovering = true; isConnecting = false; selectedServerId = nil; error = nil
         case .ready:
             isDiscovering = false; isConnecting = false; selectedServerId = nil; error = nil
-        case .connecting(let s):
+        case .connecting(let sType):
+            let s = sType.value
             isDiscovering = false; isConnecting = true; selectedServerId = s.selectedServerId; error = nil
-        case .error(let s):
+        case .error(let sType):
+            let s = sType.value
             isDiscovering = false; isConnecting = false
             selectedServerId = s.selectedServerId; error = s.message
-        case .unknown:
-            Log.error("Unexpected ServerSelectUiState case")
-            isDiscovering = false; isConnecting = false
-            error = String(localized: "common.something_went_wrong")
         }
     }
 
     private func applyNavigation(_ event: ServerSelectViewModel.NavigationEvent) {
-        switch onEnum(of: event) {
+        switch event.sealedType() {
         case .serverActivated:
             onServerActivated?()
         case .goToManualEntry:
             onManualEntryRequested?()
-        case .unknown:
-            Log.error("Unexpected ServerSelectViewModel.NavigationEvent case")
         }
     }
 

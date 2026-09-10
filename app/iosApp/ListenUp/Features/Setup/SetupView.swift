@@ -61,21 +61,19 @@ struct SetupView: View {
             AppTextField(
                 placeholder: String(localized: "auth.first_name"),
                 text: $firstName,
+                entry: .givenName,
                 icon: "person",
                 error: viewModel.validationField == .firstName
                     ? String(localized: "setup.error_first_name_required") : nil,
-                isLast: false,
-                textContentType: .givenName,
-                autocapitalization: .words
+                isLast: false
             )
             AppTextField(
                 placeholder: String(localized: "auth.last_name"),
                 text: $lastName,
+                entry: .familyName,
                 icon: "person",
                 error: viewModel.validationField == .lastName
-                    ? String(localized: "setup.error_last_name_required") : nil,
-                textContentType: .familyName,
-                autocapitalization: .words
+                    ? String(localized: "setup.error_last_name_required") : nil
             )
         }
     }
@@ -85,11 +83,10 @@ struct SetupView: View {
             AppTextField(
                 placeholder: String(localized: "common.email"),
                 text: $email,
+                entry: .email,
                 icon: "envelope",
                 error: viewModel.validationField == .email
-                    ? String(localized: "auth.invalid_email") : nil,
-                keyboardType: .emailAddress,
-                textContentType: .emailAddress
+                    ? String(localized: "auth.invalid_email") : nil
             )
         }
     }
@@ -99,18 +96,18 @@ struct SetupView: View {
             AppTextField(
                 placeholder: String(localized: "auth.password_label"),
                 text: $password,
+                entry: .newPassword,
                 kind: .secure,
                 error: viewModel.validationField == .password
                     ? String(localized: "setup.error_weak_password") : nil,
-                isLast: false,
-                textContentType: .newPassword
+                isLast: false
             )
             AppTextField(
                 placeholder: String(localized: "auth.confirm_password"),
                 text: $confirm,
+                entry: .newPassword,
                 kind: .secure,
-                error: confirmError,
-                textContentType: .newPassword
+                error: confirmError
             )
         }
     }

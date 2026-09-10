@@ -150,11 +150,9 @@ final class LibrarySetupViewModelWrapper {
     }
 
     private func applyNav(_ action: LibrarySetupNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .finished:
             onFinished?()
-        case .unknown:
-            Log.error("Unexpected LibrarySetupNavAction case")
         }
     }
 }

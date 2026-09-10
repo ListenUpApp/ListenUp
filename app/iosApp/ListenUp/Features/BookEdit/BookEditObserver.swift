@@ -51,8 +51,8 @@ final class BookEditObserver {
     private(set) var title: String = ""
     private(set) var sortTitle: String = ""
     private(set) var subtitle: String = ""
-    /// The book description — stored as `bookDescription` because Swift Export renames the Kotlin
-    /// `description` property to `description_` (dodging the Swift `description` clash).
+    /// The book description — stored as `bookDescription` and read from Kotlin's `descriptionText`
+    /// alias: Swift Export never exports a member named `description` (the `NSObject` clash).
     private(set) var bookDescription: String = ""
     private(set) var publisher: String = ""
     private(set) var publishYear: String = ""
@@ -320,7 +320,7 @@ final class BookEditObserver {
         title = state.title
         sortTitle = state.sortTitle
         subtitle = state.subtitle
-        bookDescription = state.description_
+        bookDescription = state.descriptionText
         publisher = state.publisher
         publishYear = state.publishYear
         language = state.language ?? ""
@@ -502,10 +502,9 @@ final class BookEditObserver {
     }
 
     private func applyNav(_ action: BookEditNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .navigateBack: didFinish = true
         case .showSaveSuccess: didFinish = true
-        case .unknown: Log.error("Unexpected BookEditNavAction case")
         }
     }
 }

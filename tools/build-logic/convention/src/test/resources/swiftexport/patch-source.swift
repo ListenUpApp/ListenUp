@@ -14,10 +14,83 @@ public static func Format(
     return _Format(block: block)
 }
 
-public final class Note: KotlinRuntime.KotlinBase {
-    public var description: Swift.String {
+extension ExportedKotlinPackages.kotlinx.serialization.encoding.CompositeDecoder {
+    @_spi(kotlinx$serialization$ExperimentalSerializationApi)
+    public func decodeSequentially() -> Swift.Bool {
+        fatalError("'decodeSequentially' is an @_spi requirement that must be implemented by Swift conformers")
+    }
+    @_spi(kotlinx$serialization$ExperimentalSerializationApi)
+    public func decodeSequentially() -> Swift.Bool {
+        return kotlinx_serialization_encoding_CompositeDecoder_decodeSequentially_direct(self.__externalRCRef())
+    }
+}
+extension ExportedKotlinPackages.kotlinx.coroutines.flow.MutableSharedFlow {
+    @_spi(kotlinx$coroutines$ExperimentalCoroutinesApi)
+    public func resetReplayCache() -> Swift.Void {
+        fatalError("'resetReplayCache' is an @_spi requirement that must be implemented by Swift conformers")
+    }
+}
+
+public enum WithDateTimeComponents_SealedType: KotlinRuntimeSupport.SealedType {
+    case builder(ExportedKotlinPackages.kotlinx.datetime.format.DateTimeComponentsFormat.Builder_SealedType)
+    public var value: Shared._ExportedKotlinPackages_kotlinx_datetime_format_DateTimeFormatBuilder_WithDateTimeComponents {
         get {
-            return self._description_get()
+            switch self {
+            case let .builder(type): type.value
+            }
         }
+    }
+}
+public enum DateTimeFormat_SealedType: KotlinRuntimeSupport.SealedType {
+    case builder(ExportedKotlinPackages.kotlinx.datetime.format.DateTimeFormat.Builder_SealedType)
+    public var value: Swift.Int32 {
+        get {
+            switch self {
+            case let .builder(type): type.value
+            }
+        }
+    }
+}
+extension ExportedKotlinPackages.kotlinx.datetime.format {
+    public final class DateTimeFormat: KotlinRuntime.KotlinBase {
+    }
+}
+
+public final class _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure: KotlinRuntime.KotlinBase {
+}
+public struct _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure_SealedType: KotlinRuntimeSupport.SealedType {
+    public let value: ListenupContract._ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure
+}
+extension ExportedKotlinPackages.com.calypsan.listenup.api.result {
+    public enum AppResult_SealedType: KotlinRuntimeSupport.SealedType {
+        case failure(ListenupContract._ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure_SealedType)
+        public var value: ExportedKotlinPackages.com.calypsan.listenup.api.result.AppResult {
+            get {
+                switch self {
+                case let .failure(type): type.value
+                }
+            }
+        }
+    }
+    public protocol AppResult: KotlinRuntime.KotlinBase {
+    }
+}
+public final class _ExportedKotlinPackages_x_Bar_Baz: KotlinRuntime.KotlinBase, ExportedKotlinPackages.x.Bar {
+}
+public struct _ExportedKotlinPackages_x_Bar_Baz_SealedType: KotlinRuntimeSupport.SealedType {
+    public let value: ListenupContract._ExportedKotlinPackages_x_Bar_Baz
+}
+extension ExportedKotlinPackages.x {
+    public enum Bar_SealedType: KotlinRuntimeSupport.SealedType {
+        case baz(ListenupContract._ExportedKotlinPackages_x_Bar_Baz_SealedType)
+        public var value: ExportedKotlinPackages.x.Bar {
+            get {
+                switch self {
+                case let .baz(type): type.value
+                }
+            }
+        }
+    }
+    public protocol Bar: KotlinRuntime.KotlinBase {
     }
 }

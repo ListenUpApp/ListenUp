@@ -54,9 +54,8 @@ struct ForgotPasswordView: View {
                     AppTextField(
                         placeholder: String(localized: "common.email"),
                         text: $email,
-                        icon: "envelope",
-                        keyboardType: .emailAddress,
-                        textContentType: .emailAddress
+                        entry: .email,
+                        icon: "envelope"
                     )
                 }
                 ForgotPasswordHowItWorks(steps: [
@@ -111,8 +110,8 @@ struct ForgotPasswordView: View {
                 AppTextField(
                     placeholder: String(localized: "auth.password_label"),
                     text: $newPassword,
-                    kind: .secure,
-                    textContentType: .newPassword
+                    entry: .newPassword,
+                    kind: .secure
                 )
             }
             Text(String(localized: "auth.forgot_password_reveal_hint"))

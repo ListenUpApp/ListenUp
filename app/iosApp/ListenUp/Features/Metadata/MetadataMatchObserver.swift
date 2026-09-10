@@ -107,33 +107,29 @@ final class MetadataMatchObserver {
 
     private func apply(_ state: MetadataUiState) {
         region = MetadataRegionOption(state.region)
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             phase = .idle
             rawResults = [:]
-        case .search(let searchState):
+        case .search(let searchStateType):
+            let searchState = searchStateType.value
             query = searchState.query
             rawResults = Dictionary(searchState.searchResultsForMapping.map { ($0.asin, $0) }) { first, _ in first }
             phase = .search(MetadataMatchMapping.searchPhase(from: searchState))
-        case .preview(let previewState):
+        case .preview(let previewStateType):
+            let previewState = previewStateType.value
             query = previewState.query
             rawResults = Dictionary(previewState.searchResults.map { ($0.asin, $0) }) { first, _ in first }
             phase = .preview(MetadataMatchMapping.previewPhase(from: previewState))
-        case .unknown:
-            Log.error("Unexpected MetadataUiState case")
-            phase = .idle
-            rawResults = [:]
         }
     }
 
     private func applyEvent(_ event: MetadataEvent) {
-        switch onEnum(of: event) {
+        switch event.sealedType() {
         case .matchApplied:
             appliedToken += 1
         case .chapterNamesApplied:
             chapterAppliedToken += 1
-        case .unknown:
-            Log.error("Unexpected MetadataEvent case")
         }
     }
 }

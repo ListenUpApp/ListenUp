@@ -63,7 +63,7 @@ echo "== Export-surface inventory: $SHARED =="
 # names declared in it (one public exported type each). If the markers are absent the
 # Shared.swift wasn't patched — that's a build problem, fail loudly.
 FLAT_MARKER='swift-export flat typealias layer'
-SEALED_MARKER='swift-export sealed-enum support'
+SEALED_MARKER='swift-export sealed subtype aliases'
 if ! grep -qF "$FLAT_MARKER" "$SHARED"; then
   echo "ERROR: '$FLAT_MARKER' marker not found in $SHARED — the Swift-Export patcher did not run."
   echo "       (SwiftExportSourcePatcher.appendFlatTypealiases appends it; see build-logic.)"

@@ -42,43 +42,37 @@ final class DiscoverObserver {
     // MARK: - State mapping
 
     private func applyBooks(_ state: DiscoverBooksUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             newForYou = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             newForYou = .ready(ready.books.map(DiscoverBook.init(from:)))
         case .error:
-            newForYou = .error
-        case .unknown:
-            Log.error("Unexpected DiscoverBooksUiState case")
             newForYou = .error
         }
     }
 
     private func applyRecent(_ state: RecentlyAddedUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             recentlyAdded = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             recentlyAdded = .ready(ready.books.map(RecentlyAddedBook.init(from:)))
         case .error:
-            recentlyAdded = .error
-        case .unknown:
-            Log.error("Unexpected RecentlyAddedUiState case")
             recentlyAdded = .error
         }
     }
 
     private func applyCurrentlyListening(_ state: CurrentlyListeningUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             currentlyListening = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             currentlyListening = .ready(Self.currentlyListeningRows(from: ready.sessions))
         case .error:
-            currentlyListening = .error
-        case .unknown:
-            Log.error("Unexpected CurrentlyListeningUiState case")
             currentlyListening = .error
         }
     }

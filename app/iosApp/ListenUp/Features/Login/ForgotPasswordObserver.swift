@@ -64,14 +64,16 @@ final class ForgotPasswordObserver {
     // MARK: - State mapping
 
     private func apply(_ state: ForgotPasswordUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .enterEmail:
             phase = .enterEmail
         case .submitting:
             phase = .submitting
-        case .awaitingApproval(let awaiting):
+        case .awaitingApproval(let awaitingType):
+            let awaiting = awaitingType.value
             phase = .awaitingApproval(ticketId: awaiting.ticketId)
-        case .enterCode(let enterCode):
+        case .enterCode(let enterCodeType):
+            let enterCode = enterCodeType.value
             phase = .enterCode(
                 attemptsRemaining: enterCode.attemptsRemaining.map { Int($0) },
                 error: enterCode.error
@@ -80,11 +82,9 @@ final class ForgotPasswordObserver {
             phase = .denied
         case .complete:
             phase = .complete
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(message: error.message)
-        case .unknown:
-            Log.error("Unexpected ForgotPasswordUiState case")
-            phase = .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

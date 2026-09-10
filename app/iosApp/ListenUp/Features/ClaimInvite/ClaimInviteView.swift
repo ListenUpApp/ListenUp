@@ -88,8 +88,8 @@ struct ClaimInviteView: View {
                 AppTextField(
                     placeholder: String(localized: "invite.code_placeholder"),
                     text: $code,
-                    icon: "ticket",
-                    autocapitalization: .characters
+                    entry: .identifier,
+                    icon: "ticket"
                 )
             }
         } footer: {
@@ -167,24 +167,22 @@ struct ClaimInviteView: View {
                     AppTextField(
                         placeholder: String(localized: "auth.first_name"),
                         text: $firstName,
+                        entry: .givenName,
                         icon: "person",
-                        isLast: false,
-                        textContentType: .givenName,
-                        autocapitalization: .words
+                        isLast: false
                     )
                     AppTextField(
                         placeholder: String(localized: "auth.last_name"),
                         text: $lastName,
+                        entry: .familyName,
                         icon: "person",
-                        isLast: false,
-                        textContentType: .familyName,
-                        autocapitalization: .words
+                        isLast: false
                     )
                     AppTextField(
                         placeholder: String(localized: "auth.password_label"),
                         text: $password,
-                        kind: .secure,
-                        textContentType: .newPassword
+                        entry: .newPassword,
+                        kind: .secure
                     )
                 }
             } footer: {

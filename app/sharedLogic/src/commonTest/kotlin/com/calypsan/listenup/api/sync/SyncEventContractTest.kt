@@ -55,12 +55,12 @@ class SyncEventContractTest :
             val deleted: SyncEvent<String> = SyncEvent.Deleted("a", 1, 10, null)
             contractJson
                 .encodeToString(SyncEvent.serializer(String.serializer()), created)
-                .contains("\"type\":\"SyncEvent.Created\"") shouldBe true
+                .contains(""""type":"SyncEvent.Created"""") shouldBe true
             contractJson
                 .encodeToString(SyncEvent.serializer(String.serializer()), updated)
-                .contains("\"type\":\"SyncEvent.Updated\"") shouldBe true
+                .contains(""""type":"SyncEvent.Updated"""") shouldBe true
             contractJson
                 .encodeToString(SyncEvent.serializer(String.serializer()), deleted)
-                .contains("\"type\":\"SyncEvent.Deleted\"") shouldBe true
+                .contains(""""type":"SyncEvent.Deleted"""") shouldBe true
         }
     })

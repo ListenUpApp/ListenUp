@@ -104,28 +104,26 @@ detekt {
         "$rootDir/app/sharedLogic/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsMain/kotlin",
         "$rootDir/app/webApp/src/jsTest/kotlin",
-        // The client test source sets. Same reasoning as the js block above: detekt already
-        // scanned the SERVER's tests but none of the client's, so 561 .kt files sat outside a
-        // gate that reported green regardless.
-        //
-        // Six of the ten are in. Still absent, and deliberately so rather than forgotten:
-        // `app/sharedUI/src/androidHostTest` (127 findings) and `app/sharedLogic/src/commonTest`
-        // (305) — dominated by rules that do not belong in test code at all
-        // (NotImplementedDeclaration on fakes, StringLiteralDuplication and NoHardcodedUiString
-        // on fixtures). Those want a test-path exclusion like the seven rules in detekt.yml
-        // already carry, not 400 edits or a baseline that reads like coverage. Also absent:
-        // `tools/build-logic/convention/src`, whose findings are complexity limits in the
-        // Swift-export patcher — a real signal, and a refactor of its own.
-        "$rootDir/app/baselineprofile/src/main",
-        "$rootDir/app/sharedLogic/src/appleTest/kotlin",
-        "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
-        "$rootDir/contract/src/jvmTest/kotlin",
-        "$rootDir/tools/build-logic/detekt-rules/src",
-        "$rootDir/contract/src/commonTest/kotlin",
-        "$rootDir/app/sharedUI/src/androidHostTest/kotlin",
+        // The test source sets that were never here. commonTest alone is 360 files — the client's
+        // largest test source set — and sharedUI's androidHostTest another 119, none of it ever
+        // analysed. Found the same way as jsMain above: moving files out of commonTest dragged
+        // pre-existing violations into scope, which is the only way an unlisted directory ever
+        // announces itself. Every source set on disk with a .kt file is now listed.
         "$rootDir/app/sharedLogic/src/commonTest/kotlin",
-        "$rootDir/tools/build-logic/convention/src",
+        "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
+        "$rootDir/app/sharedLogic/src/appleTest/kotlin",
+        "$rootDir/app/sharedUI/src/androidHostTest/kotlin",
         "$rootDir/app/sharedUI/src/desktopTest/kotlin",
+        "$rootDir/contract/src/commonTest/kotlin",
+        "$rootDir/contract/src/jvmTest/kotlin",
+        "$rootDir/app/baselineprofile/src/main/kotlin",
+        // tools/build-logic is an included build, so its own `detekt` task never runs from here;
+        // listing its four source dirs is the only way the convention plugins and the custom
+        // detekt rules get the same rules as the code they gate.
+        "$rootDir/tools/build-logic/convention/src/main/kotlin",
+        "$rootDir/tools/build-logic/convention/src/test/kotlin",
+        "$rootDir/tools/build-logic/detekt-rules/src/main/kotlin",
+        "$rootDir/tools/build-logic/detekt-rules/src/test/kotlin",
     )
 }
 

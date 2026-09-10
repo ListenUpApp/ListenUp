@@ -62,9 +62,8 @@ class CatchUpSingleFlightTest :
                                 return AppResult.Success(Unit)
                             }
 
-                            override suspend fun <T : Any> catchUpTransient(
-                                handler: SyncDomainHandler<T>,
-                            ) = AppResult.Success(emptySet<String>())
+                            override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>) =
+                                AppResult.Success(emptySet<String>())
 
                             override suspend fun domains() = AppResult.Success(emptyList<String>())
                         }

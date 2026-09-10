@@ -79,7 +79,7 @@ final class ContributorDetailObserver {
     // MARK: - State mapping
 
     private func apply(_ state: ContributorDetailUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle, .loading:
             isLoading = true
             error = nil
@@ -88,13 +88,14 @@ final class ContributorDetailObserver {
             isLoading = false
             error = nil
             notFound = true
-        case .ready(let r):
+        case .ready(let rType):
+            let r = rType.value
             isLoading = false
             error = nil
             notFound = false
             let contributor = r.contributor
             name = contributor.name
-            bio = contributor.description_
+            bio = contributor.descriptionText
             imagePath = contributor.imagePath
             aliases = Array(contributor.aliases)
             birthDate = contributor.birthDate
@@ -107,24 +108,18 @@ final class ContributorDetailObserver {
             totalDuration = r.formatTotalDuration()
             bookCount = Int(r.bookCount)
             roles = r.roleSections.map { roleKind(for: $0.role) }
-        case .error(let err):
+        case .error(let errType):
+            let err = errType.value
             isLoading = false
             error = err.message
-            notFound = false
-        case .unknown:
-            Log.error("Unexpected ContributorDetailUiState case")
-            isLoading = false
-            error = String(localized: "common.something_went_wrong")
             notFound = false
         }
     }
 
     private func applyNavAction(_ action: ContributorDetailNavAction) {
-        switch onEnum(of: action) {
+        switch action.sealedType() {
         case .deleted:
             onDeletedCallback?()
-        case .unknown:
-            Log.error("Unexpected ContributorDetailNavAction case")
         }
     }
 

@@ -18,7 +18,7 @@ class QueryUtilsTest :
         }
 
         test("multiple tokens each get their own quoted prefix term, ANDed by a space") {
-            QueryUtils.toFtsQuery("brandon sanderson") shouldBe "\"brandon\"* \"sanderson\"*"
+            QueryUtils.toFtsQuery("brandon sanderson") shouldBe """"brandon"* "sanderson"*"""
         }
 
         test("punctuation inside a token is preserved literally, not stripped") {
@@ -28,7 +28,7 @@ class QueryUtilsTest :
         }
 
         test("an embedded double quote is doubled per FTS5's escaping rule") {
-            QueryUtils.toFtsQuery("6\" record") shouldBe "\"6\"\"\"* \"record\"*"
+            QueryUtils.toFtsQuery("6\" record") shouldBe """"6${'"'}""* "record"*"""
         }
 
         test("a lone asterisk typed by the user lands inside the quotes as literal text") {
@@ -36,7 +36,7 @@ class QueryUtilsTest :
         }
 
         test("multiple interior spaces collapse to one token boundary, matching prior behaviour") {
-            QueryUtils.toFtsQuery("brandon   sanderson") shouldBe "\"brandon\"* \"sanderson\"*"
+            QueryUtils.toFtsQuery("brandon   sanderson") shouldBe """"brandon"* "sanderson"*"""
         }
 
         test("blank input produces an empty query") {

@@ -49,14 +49,12 @@ final class AdminObserver {
     // MARK: - State mapping
 
     private func apply(_ state: AdminUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(AdminReadyModel(from: ready))
-        case .unknown:
-            Log.error("Unexpected AdminUiState case")
-            phase = .loading
         }
     }
 }

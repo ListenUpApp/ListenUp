@@ -11,6 +11,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.LanguageDropdown
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import androidx.compose.ui.text.input.KeyboardCapitalization
 
 /**
  * Publishing information section: Publisher, Year, Language.
@@ -29,6 +30,7 @@ fun PublishingSection(
             value = publisher,
             onValueChange = onPublisherChange,
             label = "Publisher",
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
         )
 
         Row(

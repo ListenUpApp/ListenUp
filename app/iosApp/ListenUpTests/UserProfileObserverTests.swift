@@ -5,7 +5,7 @@ import Testing
 ///
 /// The sealed-state → `@Observable` flatten in `UserProfileObserver.apply` can't be
 /// exercised here: SKIE bridges `UserProfileUiState` as a sealed *protocol* whose
-/// cases aren't constructible from Swift, so the `onEnum` mapping is proven at the
+/// cases aren't constructible from Swift, so the `sealedType()` mapping is proven at the
 /// green-build pass. What *is* pure and constructible is the stat-strip listen-time
 /// formatter, so that seam is pinned here.
 @Suite("ProfileStatFormat")

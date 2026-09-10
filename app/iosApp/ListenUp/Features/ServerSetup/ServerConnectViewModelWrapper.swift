@@ -48,18 +48,16 @@ final class ServerConnectViewModelWrapper {
     // MARK: - State mapping
 
     private func apply(_ state: ServerConnectUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .idle:
             isLoading = false; isVerified = false; error = nil
         case .verifying:
             isLoading = true; isVerified = false; error = nil
         case .verified:
             isLoading = false; isVerified = true; error = nil
-        case .error(let errorState):
+        case .error(let errorStateType):
+            let errorState = errorStateType.value
             isLoading = false; isVerified = false; error = errorState.error.message
-        case .unknown:
-            Log.error("Unexpected ServerConnectUiState case")
-            isLoading = false; isVerified = false; error = String(localized: "common.something_went_wrong")
         }
     }
 }

@@ -71,18 +71,17 @@ struct LoginView: View {
             AppTextField(
                 placeholder: String(localized: "common.email"),
                 text: $email,
+                entry: .email,
                 icon: "envelope",
                 error: viewModel.emailError,
-                isLast: false,
-                keyboardType: .emailAddress,
-                textContentType: .emailAddress
+                isLast: false
             )
             AppTextField(
                 placeholder: String(localized: "auth.password_label"),
                 text: $password,
+                entry: .password,
                 kind: .secure,
-                error: viewModel.passwordError,
-                textContentType: .password
+                error: viewModel.passwordError
             )
         }
     }

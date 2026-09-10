@@ -2,6 +2,15 @@ package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.features.admin.fixedAdminInbox
+import com.calypsan.listenup.web.features.admin.fixedCategories
+import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
+import com.calypsan.listenup.web.features.admin.fixedBackups
+import com.calypsan.listenup.web.features.admin.fixedImportFlow
+import com.calypsan.listenup.web.features.admin.fixedImports
+import com.calypsan.listenup.web.features.admin.fixedCollections
+import com.calypsan.listenup.web.features.admin.fixedRestore
+import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,8 +50,11 @@ import org.w3c.dom.events.Event
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
 import com.calypsan.listenup.web.features.notifications.fixedNotifications
@@ -59,8 +71,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withTimeout
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
+import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
@@ -97,11 +112,14 @@ private fun mountGate(
             openBookDetail = fixedBookDetail(readyBook()),
             openBookEdit = fixedBookEdit(BookEditUiState()),
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+            openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
+            openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
             openNotifications = fixedNotifications(NotificationsUiState.Empty),
             openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
             openProfile = fixedProfile(UserProfileUiState.Loading),
             openNotificationBell = fixedNotificationBell(),
+            openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
             openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
             openDiscover = fixedDiscover(),
@@ -109,6 +127,15 @@ private fun mountGate(
             openDevices = fixedDevices(),
             openAdmin = fixedAdmin(),
             openLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+            openAdminInbox = fixedAdminInbox(),
+            openServerSettings = fixedServerSettings(),
+            openCategories = fixedCategories(),
+            openCollections = fixedCollections(),
+            openCollectionDetail = fixedCollectionDetail(),
+            openBackups = fixedBackups(),
+            openRestore = fixedRestore(),
+            openImports = fixedImports(),
+            openImportFlow = fixedImportFlow(),
             openShelfDetail = fixedShelfDetail(),
             openShelfEdit = fixedShelfEdit(),
             openLibrary = fakeLibrary(),

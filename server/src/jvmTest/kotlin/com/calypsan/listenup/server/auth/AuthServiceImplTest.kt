@@ -93,9 +93,7 @@ class AuthServiceImplTest :
 
         // Builds a service wired to a real ActivityRecorder over the same DB, returning the
         // ActivityRepository so the test can read the recorded activities back.
-        fun newSvcWithRecorder(
-            policy: RegistrationPolicy = RegistrationPolicy.OPEN,
-        ): Pair<AuthServiceImpl, ActivityRepository> {
+        fun newSvcWithRecorder(policy: RegistrationPolicy = RegistrationPolicy.OPEN): Pair<AuthServiceImpl, ActivityRepository> {
             val (db, driver) = migratedTestDatabase()
             val hasher = PasswordHasher()
             val sessions =

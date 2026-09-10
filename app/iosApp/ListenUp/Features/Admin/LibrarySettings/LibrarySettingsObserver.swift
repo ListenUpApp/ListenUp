@@ -53,16 +53,15 @@ final class LibrarySettingsObserver {
 
     /// Internal (not private) so observer-level tests can drive the mapping directly.
     func apply(_ state: LibrarySettingsUiState) {
-        switch onEnum(of: state) {
+        switch state.sealedType() {
         case .loading:
             phase = .loading
-        case .ready(let ready):
+        case .ready(let readyType):
+            let ready = readyType.value
             phase = .ready(LibrarySettingsReadyModel(from: ready))
-        case .error(let error):
+        case .error(let errorType):
+            let error = errorType.value
             phase = .error(error.error.message)
-        case .unknown:
-            Log.error("Unexpected LibrarySettingsUiState case")
-            phase = .loading
         }
     }
 }
