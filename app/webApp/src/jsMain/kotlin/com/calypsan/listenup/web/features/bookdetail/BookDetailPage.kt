@@ -60,6 +60,7 @@ fun BookDetailPage(
     onPlay: () -> Unit,
     onEdit: () -> Unit = {},
     onEditChapters: () -> Unit = {},
+    onMatchMetadata: () -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     selection: Set<Int> = emptySet(),
@@ -76,6 +77,7 @@ fun BookDetailPage(
             bookId = bookId,
             onPlay = onPlay,
             onEdit = onEdit,
+            onMatchMetadata = onMatchMetadata,
             onOpenContributor = onOpenContributor,
             onOpenSeries = onOpenSeries,
         )
@@ -167,6 +169,7 @@ private fun SharedHeader(
     bookId: String?,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
+    onMatchMetadata: () -> Unit,
     onOpenContributor: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
 ) {
@@ -225,6 +228,15 @@ private fun SharedHeader(
                         attr("title", "Edit book")
                         onClick { onEdit() }
                     }) { Icon(WebIcon.Pencil) }
+                    // Beside Edit, not inside it: matching is a different act. Edit changes what
+                    // the reader believes; matching asks a catalogue and offers its answer.
+                    Button(attrs = {
+                        classes("btn-sq")
+                        attr("type", BUTTON_VALUE)
+                        attr("aria-label", "Match metadata")
+                        attr("title", "Match metadata")
+                        onClick { onMatchMetadata() }
+                    }) { Icon(WebIcon.Sparkles) }
                 }
             }
         }

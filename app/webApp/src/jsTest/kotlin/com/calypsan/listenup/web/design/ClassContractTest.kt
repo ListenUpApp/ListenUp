@@ -138,6 +138,17 @@ import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiSt
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftProposal
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
+import com.calypsan.listenup.client.presentation.metadata.CoverEntry
+import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
+import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
+import com.calypsan.listenup.web.features.metadata.MetadataPage
+import com.calypsan.listenup.web.features.metadata.availableChapters
+import com.calypsan.listenup.web.features.metadata.metadataBook
+import com.calypsan.listenup.web.features.metadata.previewState
+import com.calypsan.listenup.web.features.metadata.readyPreview
+import com.calypsan.listenup.web.features.metadata.searchState
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
 import com.calypsan.listenup.web.features.chaptereditor.editingChapters
 import com.calypsan.listenup.web.features.chaptereditor.threeChapters
@@ -472,6 +483,160 @@ class ClassContractTest :
                             mergeCandidates = emptyList(),
                             onEvent = {},
                             onMergeQuery = {},
+                        )
+                        // Match metadata: the search phase with results, the preview with every
+                        // field shape it can draw (provenance, cover options, contributor and
+                        // classification rows, a merged footer), the chapter-name sheet, and the
+                        // three states that draw no form at all.
+                        MetadataPage(
+                            state =
+                                searchState(
+                                    loadState =
+                                        SearchLoadState.Loaded(
+                                            listOf(
+                                                metadataBook(
+                                                    authors = listOf("Brandon Sanderson"),
+                                                    narrators = listOf("Kate Reading"),
+                                                    runtimeMinutes = 2735,
+                                                    releaseDate = "2010-08-31",
+                                                    coverUrl = "https://example.invalid/cover.jpg",
+                                                ),
+                                                metadataBook(asin = "B2", title = "Prime"),
+                                            ),
+                                        ),
+                                ),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectMatch = {},
+                            onClearSelection = {},
+                            onToggleField = {},
+                            onToggleAuthor = {},
+                            onToggleNarrator = {},
+                            onToggleSeries = {},
+                            onToggleGenre = {},
+                            onToggleMood = {},
+                            onToggleTag = {},
+                            onSelectCover = {},
+                            onToggleChapter = {},
+                            onApplyChapterNames = {},
+                            onApply = {},
+                            onLeave = {},
+                        )
+                        MetadataPage(
+                            state = searchState(loadState = SearchLoadState.Loaded(emptyList())),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectMatch = {},
+                            onClearSelection = {},
+                            onToggleField = {},
+                            onToggleAuthor = {},
+                            onToggleNarrator = {},
+                            onToggleSeries = {},
+                            onToggleGenre = {},
+                            onToggleMood = {},
+                            onToggleTag = {},
+                            onSelectCover = {},
+                            onToggleChapter = {},
+                            onApplyChapterNames = {},
+                            onApply = {},
+                            onLeave = {},
+                        )
+                        MetadataPage(
+                            state =
+                                previewState(
+                                    readyPreview(
+                                        preview =
+                                            metadataBook(
+                                                subtitle = "Book One",
+                                                description = "Ash falls from the sky.",
+                                                publisher = "Macmillan Audio",
+                                                releaseDate = "2010-08-31",
+                                                language = "en-US",
+                                                authors = listOf("Brandon Sanderson"),
+                                                narrators = listOf("Kate Reading"),
+                                                series = listOf(Triple("s1", "The Stormlight Archive", "1")),
+                                                coverUrl = "https://example.invalid/cover.jpg",
+                                            ),
+                                        coverEntries =
+                                            listOf(
+                                                CoverEntry("https://example.invalid/1.jpg", "Audible", "500×500"),
+                                            ),
+                                        selectedCoverUrl = "https://example.invalid/1.jpg",
+                                        applyError = "The server refused that.",
+                                        chapterSuggestion = availableChapters(count = 3),
+                                        genreCandidates = listOf("Epic Fantasy"),
+                                        moodCandidates = listOf("Sweeping"),
+                                        tagCandidates = listOf("Found Family"),
+                                        fallbackSources = mapOf(BookField.TITLE to "iTunes"),
+                                        contributingSources = listOf("Audible", "iTunes"),
+                                    ),
+                                ),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectMatch = {},
+                            onClearSelection = {},
+                            onToggleField = {},
+                            onToggleAuthor = {},
+                            onToggleNarrator = {},
+                            onToggleSeries = {},
+                            onToggleGenre = {},
+                            onToggleMood = {},
+                            onToggleTag = {},
+                            onSelectCover = {},
+                            onToggleChapter = {},
+                            onApplyChapterNames = {},
+                            onApply = {},
+                            onLeave = {},
+                            reviewingChapters = true,
+                        )
+                        MetadataPage(
+                            state =
+                                previewState(
+                                    readyPreview(
+                                        chapterSuggestion =
+                                            ChapterSuggestion.CountMismatch(localCount = 31, audibleCount = 34),
+                                    ),
+                                ),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectMatch = {},
+                            onClearSelection = {},
+                            onToggleField = {},
+                            onToggleAuthor = {},
+                            onToggleNarrator = {},
+                            onToggleSeries = {},
+                            onToggleGenre = {},
+                            onToggleMood = {},
+                            onToggleTag = {},
+                            onSelectCover = {},
+                            onToggleChapter = {},
+                            onApplyChapterNames = {},
+                            onApply = {},
+                            onLeave = {},
+                        )
+                        MetadataPage(
+                            state = previewState(PreviewLoadState.Failed("Loading the match timed out.")),
+                            onQuery = {},
+                            onRegion = {},
+                            onSearch = {},
+                            onSelectMatch = {},
+                            onClearSelection = {},
+                            onToggleField = {},
+                            onToggleAuthor = {},
+                            onToggleNarrator = {},
+                            onToggleSeries = {},
+                            onToggleGenre = {},
+                            onToggleMood = {},
+                            onToggleTag = {},
+                            onSelectCover = {},
+                            onToggleChapter = {},
+                            onApplyChapterNames = {},
+                            onApply = {},
+                            onLeave = {},
                         )
                         // Chapter Editor: the list with a locked row, an unsaved draft, a
                         // changed-elsewhere banner and a refused save; the drift panel in each of

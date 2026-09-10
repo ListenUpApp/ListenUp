@@ -24,6 +24,7 @@ import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.bookedit.graphBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.graphChapterEditor
+import com.calypsan.listenup.web.features.metadata.graphMetadata
 import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
 import com.calypsan.listenup.web.features.contributors.graphContributors
@@ -152,6 +153,7 @@ fun main() {
                 openBookDetail = graphBookDetail(koin),
                 openBookEdit = graphBookEdit(koin),
                 openChapterEditor = graphChapterEditor(koin),
+                openMetadata = graphMetadata(koin),
                 openContributorDetail = graphContributorDetail(koin),
                 openContributorEdit = graphContributorEdit(koin),
                 openSeriesDetail = graphSeriesDetail(koin),

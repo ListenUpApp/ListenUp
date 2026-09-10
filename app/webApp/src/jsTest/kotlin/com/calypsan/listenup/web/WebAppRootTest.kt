@@ -10,6 +10,8 @@ import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
 import com.calypsan.listenup.web.features.chaptereditor.chapter
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
@@ -398,6 +400,80 @@ class WebAppRootTest :
 
                 host.querySelector(".ched-problem")?.textContent shouldBe "Chapter 2 needs a title."
                 window.location.pathname shouldBe "/book/b-stormlight/chapters"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ The seed comes from the BOOK, and the book has to have loaded first. A session opened
+        // before Book Detail's state arrives seeds an empty query, and the reader lands on a search
+        // that finds nothing on a book the wizard could have found immediately.
+        test("/book/{id}/match seeds the search from the book it was opened on") {
+            val recorder = RecordingMetadata()
+            val (host, router) =
+                mountAt(
+                    "/book/b-kings/match",
+                    openBookDetail = fixedBookDetail(readyBook()),
+                    openMetadata = recorder.open,
+                )
+
+            try {
+                awaitFrame()
+
+                recorder.seeds.size shouldBe 1
+                recorder.seeds.single() shouldContain "b-kings|"
+                (host.querySelector(".mdx-t") as HTMLElement).textContent shouldBe "Match metadata"
+                // ⛔ The book's own page must not also be up.
+                host.querySelector(".bd-t") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the wizard waits for the book rather than seeding an empty search") {
+            val recorder = RecordingMetadata()
+            val (_, router) =
+                mountAt(
+                    "/book/b-kings/match",
+                    openBookDetail = fixedBookDetail(BookDetailUiState.Loading),
+                    openMetadata = recorder.open,
+                )
+
+            try {
+                awaitFrame()
+
+                recorder.seeds shouldBe emptyList()
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Match metadata on a book's page opens the wizard") {
+            val (host, router) = mountAt("/book/b-kings", openBookDetail = fixedBookDetail(readyBook()))
+
+            try {
+                (host.querySelector("button[aria-label=\"Match metadata\"]") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/book/b-kings/match"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("an applied match lands back on the book it changed") {
+            val recorder = RecordingMetadata(events = flowOf(MetadataEvent.MatchApplied))
+            val (_, router) =
+                mountAt(
+                    "/book/b-kings/match",
+                    openBookDetail = fixedBookDetail(readyBook()),
+                    openMetadata = recorder.open,
+                )
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/book/b-kings"
             } finally {
                 router.dispose()
             }
