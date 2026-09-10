@@ -64,7 +64,11 @@ final class ClaimInviteViewModelWrapper {
         case .idle:
             phase = .codeEntry
             preview = nil
-        case .confirmServer(let confirm):
+        case .confirmServer(let confirmStateType):
+            // Native `sealedType()` hands back a wrapper; the payload is behind `.value`, exactly
+            // as the `.preview` case below does. The flat-typealias layer this replaced exposed the
+            // members directly, which is why this case predated the unwrap.
+            let confirm = confirmStateType.value
             phase = .confirmServer(host: confirm.host, signedInElsewhere: confirm.signedInElsewhere)
         case .lookingUp:
             phase = .lookingUp
