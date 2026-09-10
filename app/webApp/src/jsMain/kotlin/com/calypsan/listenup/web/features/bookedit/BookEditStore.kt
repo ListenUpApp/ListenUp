@@ -59,8 +59,10 @@ fun graphBookEdit(koin: Koin): OpenBookEdit =
 fun fixedBookEdit(
     state: BookEditUiState,
     onEvent: (BookEditUiEvent) -> Unit = {},
+    onOpen: (String) -> Unit = {},
 ): OpenBookEdit =
-    {
+    { bookId ->
+        onOpen(bookId)
         BookEditSession(
             state = MutableStateFlow(state),
             navActions = emptyFlow(),

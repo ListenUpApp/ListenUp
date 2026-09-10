@@ -66,6 +66,10 @@ import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
+import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
+import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
+import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
+import com.calypsan.listenup.web.features.browse.fixedGenreDestination
 
 /**
  * The chapters workbench through its URL contract: `?tab=chapters&sel=9,10` names the selection,
@@ -127,6 +131,8 @@ class ChaptersPaneTest :
                     openSearch = fixedSearch(SearchUiState.Idle()),
                     openMultiSelect = fixedMultiSelect(),
                     openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
+                    openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
+                    openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                     onToast = {},
                     openNotificationBell = fixedNotificationBell(),
                     openPlayback = fixedPlayback(),

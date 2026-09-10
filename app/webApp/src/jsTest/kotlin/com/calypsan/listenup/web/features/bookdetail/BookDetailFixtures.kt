@@ -5,6 +5,8 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.core.BookId
@@ -25,6 +27,8 @@ internal fun readyBook(
     authors: List<BookContributor> = listOf(BookContributor(id = "c1", name = "Stephen King")),
     narrators: List<BookContributor> = listOf(BookContributor(id = "c2", name = "Santino Fontana")),
     series: List<BookSeries> = emptyList(),
+    tags: List<Tag> = emptyList(),
+    moods: List<Mood> = emptyList(),
 ): BookDetailUiState.Ready =
     BookDetailUiState.Ready(
         book =
@@ -51,6 +55,8 @@ internal fun readyBook(
         year = 2019,
         chapters = chapters,
         genres = listOf(Genre(id = "g1", name = "Horror", slug = "horror", path = "/horror")),
+        tags = tags,
+        moods = moods,
     )
 
 /**

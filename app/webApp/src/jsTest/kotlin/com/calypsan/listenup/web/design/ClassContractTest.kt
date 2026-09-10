@@ -217,6 +217,18 @@ import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.css.CSSStyleSheet
+import com.calypsan.listenup.client.domain.model.FacetKind
+import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
+import com.calypsan.listenup.client.presentation.genredestination.GenreCrumb
+import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
+import com.calypsan.listenup.client.presentation.genredestination.SubGenre
+import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.web.features.browse.BrowseFacetPage
+import com.calypsan.listenup.web.features.browse.GenreDestinationPage
+import com.calypsan.listenup.web.features.browse.facetReady
+import com.calypsan.listenup.web.features.browse.genreReady
 
 /**
  * Guards the seam between Kotlin and `web.css`.
@@ -348,6 +360,10 @@ class ClassContractTest :
                                         listOf(
                                             BookSeries(seriesId = "s1", seriesName = "The Stormlight Archive", sequence = 1.0),
                                         ),
+                                    // The chips are the only thing that draws `.bd-facets`, and a
+                                    // book with genres alone would leave two thirds of them unseen.
+                                    tags = listOf(Tag(id = "t1", name = "Grimdark", slug = "grimdark")),
+                                    moods = listOf(Mood(id = "m1", name = "Cosy", slug = "cosy")),
                                 ),
                             tab = "overview",
                             onSelectTab = {},
@@ -1283,6 +1299,7 @@ class ClassContractTest :
                         AccountMenu(onSignOut = {})
                         PlaybackNotice(message = "Couldn't start this book.", onDismiss = {})
                         playerShapes().forEach { it() }
+                        browseShapes().forEach { it() }
                     }
                 }
 
@@ -1475,6 +1492,44 @@ private fun categoryShapes(): List<@Composable () -> Unit> {
         page(readyCategories(tree = emptyList(), genres = emptyList())),
         page(AdminCategoriesUiState.Error(InternalError(debugInfo = "boom"))),
         page(AdminCategoriesUiState.Loading),
+    )
+}
+
+/**
+ * The three browse destinations, in the states that each draw something of their own: a loaded
+ * facet, an empty one (the only shape that draws `.brw-none`), a loaded genre with a blurb and
+ * sub-genre pills, and each page's Loading and NotFound.
+ */
+private fun browseShapes(): List<@Composable () -> Unit> {
+    fun facet(state: BrowseFacetUiState): @Composable () -> Unit = { BrowseFacetPage(state = state, onOpenBook = {}, onOpenLibrary = {}) }
+
+    fun genre(state: GenreDestinationUiState): @Composable () -> Unit =
+        {
+            GenreDestinationPage(
+                state = state,
+                onOpenBook = {},
+                onOpenGenre = {},
+                onOpenLibrary = {},
+                onToggleSubGenres = {},
+            )
+        }
+
+    return listOf(
+        facet(facetReady(kind = FacetKind.Mood, facetName = "Cosy")),
+        facet(facetReady(books = emptyList(), bookCount = 0)),
+        facet(BrowseFacetUiState.Loading),
+        facet(BrowseFacetUiState.NotFound(FacetKind.Tag)),
+        genre(
+            genreReady(
+                blurb = "Fantasy with the shine taken off.",
+                breadcrumb = listOf(GenreCrumb(GenreId("g-fantasy"), "Fantasy")),
+                subGenres = listOf(SubGenre(GenreId("g-heroic"), "Heroic", 4)),
+                includeSubGenres = true,
+            ),
+        ),
+        genre(genreReady(books = emptyList(), bookCount = 0)),
+        genre(GenreDestinationUiState.Loading),
+        genre(GenreDestinationUiState.NotFound),
     )
 }
 

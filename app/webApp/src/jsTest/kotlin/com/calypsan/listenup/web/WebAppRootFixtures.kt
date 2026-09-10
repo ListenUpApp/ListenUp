@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
+import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
@@ -58,7 +59,13 @@ import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchSession
+import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
+import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
+import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
+import com.calypsan.listenup.web.features.browse.OpenGenreDestination
+import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
+import com.calypsan.listenup.web.features.browse.fixedGenreDestination
 import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
@@ -168,8 +175,11 @@ internal fun mountAt(
     openImports: OpenImports = fixedImports(),
     openImportFlow: OpenImportFlow = fixedImportFlow(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
+    openBookEdit: OpenBookEdit = fixedBookEdit(BookEditUiState()),
     openMultiSelect: OpenMultiSelect = fixedMultiSelect(),
     openBulkEdit: OpenBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
+    openBrowseFacet: OpenBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
+    openGenreDestination: OpenGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
     onToast: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -181,7 +191,7 @@ internal fun mountAt(
             WebAppRoot(
                 router = router,
                 openBookDetail = openBookDetail,
-                openBookEdit = fixedBookEdit(BookEditUiState()),
+                openBookEdit = openBookEdit,
                 openChapterEditor = openChapterEditor,
                 openMetadata = openMetadata,
                 openContributorDetail = openContributorDetail,
@@ -215,6 +225,8 @@ internal fun mountAt(
                 openSearch = openSearch,
                 openMultiSelect = openMultiSelect,
                 openBulkEdit = openBulkEdit,
+                openBrowseFacet = openBrowseFacet,
+                openGenreDestination = openGenreDestination,
                 onToast = onToast,
                 openNotificationBell = openNotificationBell,
                 openPlayback = fixedPlayback(),

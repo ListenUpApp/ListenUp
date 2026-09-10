@@ -92,7 +92,18 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.client.domain.model.FacetKind
+import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.presentation.genredestination.SubGenre
+import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.web.features.browse.facetReady
+import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
+import com.calypsan.listenup.web.features.browse.fixedGenreDestination
+import com.calypsan.listenup.web.features.browse.genreReady
 import com.calypsan.listenup.web.features.search.seriesHit
+import com.calypsan.listenup.web.features.search.tagHit
+import org.w3c.dom.asList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.emptyFlow
 import org.w3c.dom.HTMLInputElement
@@ -313,6 +324,32 @@ class WebAppRootTest :
                 labels shouldBe listOf("Books", "Authors", "Narrators")
             } finally {
                 composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/book/{id}/edit renders the form over that book, not its page") {
+            // ⛔ The oldest editing route on the web client, and until this spec the only one of
+            // the five `/{thing}/{id}/edit`-shaped routes with nothing proving it resolves —
+            // sabotage stubbed `editingBookId` to null and every suite stayed green.
+            val asked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/book/b-stormlight/edit",
+                    openBookEdit =
+                        fixedBookEdit(
+                            BookEditUiState(isLoading = false, title = "The Way of Kings"),
+                            onOpen = { asked += it },
+                        ),
+                )
+
+            try {
+                asked shouldBe listOf("b-stormlight")
+                host.querySelector(".edit-body").shouldNotBeNull()
+                // ⛔ The book's own page must not also be up. `/book/{id}` is a prefix of this
+                // route, and a branch order that tests it first makes the form unreachable.
+                host.querySelector(".bd-title") shouldBe null
+            } finally {
                 router.dispose()
             }
         }
@@ -1384,23 +1421,132 @@ class WebAppRootTest :
             }
         }
 
-        test("a hit type with no destination is not clickable and never navigates") {
-            // SERIES has no route at all — its row must carry no button semantics, and
-            // clicking it must leave the reader exactly where they were. (CONTRIBUTOR used to
-            // sit here; it became openable the moment /contributor/{id} landed.)
+        test("clicking a series hit opens that series") {
+            // This row was the last inert one on the page: `/series/{id}` had existed for a while,
+            // and search was still rendering series as data shaped like a control.
             val result = searchResult(query = "dune", hits = listOf(seriesHit("s1", "Dune")))
-            val (host, router, composition) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
 
             try {
                 val row = host.querySelector(".search-row") as HTMLElement
-                row.getAttribute("role") shouldBe null
+                row.getAttribute("role") shouldBe "button"
 
                 row.click()
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/series/s1") delay(NAV_POLL)
+                }
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("clicking a tag hit opens that tag's shelf") {
+            val result = searchResult(query = "grim", hits = listOf(tagHit("t1", "Grimdark")))
+            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+
+            try {
+                (host.querySelector(".search-row") as HTMLElement).click()
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/tag/t1") delay(NAV_POLL)
+                }
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/tag/{id} opens that tag's shelf, and /mood/{id} opens it as a mood") {
+            // ⛔ The two paths share a page and a store; only the FacetKind separates them. A
+            // route that passed Tag for both would render a mood titled "Tag" and nobody would
+            // notice from the DOM alone.
+            val asked = mutableListOf<Pair<FacetKind, String>>()
+            val (host, router) =
+                mountAt(
+                    "/tag/t-grimdark",
+                    openBrowseFacet =
+                        fixedBrowseFacet(facetReady(kind = FacetKind.Tag, facetName = "Grimdark")) { kind, id ->
+                            asked += kind to id
+                        },
+                )
+
+            try {
+                asked shouldBe listOf(FacetKind.Tag to "t-grimdark")
+                (host.querySelector(".brw-t") as HTMLElement).textContent shouldBe "Grimdark"
+            } finally {
+                router.dispose()
+            }
+
+            val moodAsked = mutableListOf<Pair<FacetKind, String>>()
+            val (_, moodRouter) =
+                mountAt(
+                    "/mood/m-cosy",
+                    openBrowseFacet =
+                        fixedBrowseFacet(facetReady(kind = FacetKind.Mood, facetName = "Cosy")) { kind, id ->
+                            moodAsked += kind to id
+                        },
+                )
+
+            try {
+                moodAsked shouldBe listOf(FacetKind.Mood to "m-cosy")
+            } finally {
+                moodRouter.dispose()
+            }
+        }
+
+        test("/genre/{id} opens that genre, and its sub-genre pills lead to siblings") {
+            val asked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/genre/g-fantasy",
+                    openGenreDestination =
+                        fixedGenreDestination(
+                            genreReady(name = "Fantasy", subGenres = listOf(SubGenre(GenreId("g-grimdark"), "Grimdark", 8))),
+                            onOpen = { asked += it },
+                        ),
+                )
+
+            try {
+                asked shouldBe listOf("g-fantasy")
+                (host.querySelector(".brw-t") as HTMLElement).textContent shouldBe "Fantasy"
+
+                (host.querySelector(".brw-sub") as HTMLElement).click()
                 awaitFrame()
 
-                window.location.pathname shouldBe "/search"
+                window.location.pathname shouldBe "/genre/g-grimdark"
             } finally {
-                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("a book's chips are the way into every shelf it belongs to") {
+            // ⛔ The genre chips were inert text shaped like controls before this — the worst of
+            // both, because they look pressable and answer nothing. Tags and moods were not shown
+            // at all, so a book's own facets were invisible from the book.
+            val (host, router) =
+                mountAt(
+                    "/book/b1",
+                    openBookDetail =
+                        fixedBookDetail(
+                            readyBook(
+                                tags = listOf(Tag(id = "t1", name = "Grimdark", slug = "grimdark")),
+                                moods = listOf(Mood(id = "m1", name = "Cosy", slug = "cosy")),
+                            ),
+                        ),
+                )
+
+            try {
+                val chips =
+                    (host.querySelector(".bd-facets") as HTMLElement)
+                        .querySelectorAll(".pill")
+                        .asList()
+                        .filterIsInstance<HTMLElement>()
+                chips.map { it.textContent?.trim() } shouldBe listOf("Horror", "Grimdark", "Cosy")
+                // A chip that navigates owes a reader without a mouse the same affordance.
+                chips.forEach { it.getAttribute("role") shouldBe "button" }
+
+                chips[1].click()
+                awaitFrame()
+                window.location.pathname shouldBe "/tag/t1"
+            } finally {
                 router.dispose()
             }
         }
@@ -1426,6 +1572,8 @@ class WebAppRootTest :
     })
 
 /** How long `history.back()` takes to become a popstate the router has actually seen. */
+private const val NAV_POLL = 10L
+
 private const val POPSTATE_SETTLE_MS = 120L
 
 /** The entry a merge redirect must leave behind it — anything else means it pushed one. */
