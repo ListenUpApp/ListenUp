@@ -13,6 +13,8 @@ import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.FacetRow
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.motion.CoverSurface
@@ -22,6 +24,7 @@ import org.w3c.dom.Element
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Img
@@ -51,12 +54,17 @@ private val BOOK_SORT_CATEGORIES =
  * facet row it shares with [com.calypsan.listenup.web.features.contributors.ContributorsPage].
  */
 @Composable
+@Suppress("LongParameterList")
 fun LibraryPage(
     state: LibraryUiState,
     onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
     onSelectFacet: (LibraryFacet) -> Unit,
     heroBookId: String? = null,
+    selecting: Boolean = false,
+    selectedIds: Set<String> = emptySet(),
+    onToggleSelect: (String) -> Unit = {},
+    onStartSelecting: (() -> Unit)? = null,
 ) {
     // Header and facet row render in EVERY state, because they are navigation rather than data: a
     // first sync can run for minutes, and hiding the row until the books land would strand a reader
@@ -65,22 +73,51 @@ fun LibraryPage(
     // reorder nothing is an affordance whose only outcome is nothing.
     Div(attrs = { classes("lib-header") }) {
         H3 { Text("Library") }
+        // Offered only once there is something to select. Arming selection over an empty grid is
+        // an affordance whose only outcome is nothing — the same reason Sort stays with the
+        // loaded branch.
+        if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
+            Button(attrs = {
+                classes("btn-o", "lib-select")
+                attr("type", "button")
+                onClick { onStartSelecting() }
+            }) { Text("Select") }
+        }
         if (state is LibraryUiState.Loaded) SortControl(state, onEvent)
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
 
     when (state) {
-        is LibraryUiState.Loading -> Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
-        is LibraryUiState.Error -> Div(attrs = { classes("empty") }) { P { Text(state.message) } }
-        is LibraryUiState.Loaded -> LoadedLibrary(state, onOpenBook, heroBookId)
+        is LibraryUiState.Loading -> {
+            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+        }
+
+        is LibraryUiState.Error -> {
+            Div(attrs = { classes("empty") }) { P { Text(state.message) } }
+        }
+
+        is LibraryUiState.Loaded -> {
+            LoadedLibrary(
+                state = state,
+                onOpenBook = onOpenBook,
+                heroBookId = heroBookId,
+                selecting = selecting,
+                selectedIds = selectedIds,
+                onToggleSelect = onToggleSelect,
+            )
+        }
     }
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun LoadedLibrary(
     state: LibraryUiState.Loaded,
     onOpenBook: (String) -> Unit,
     heroBookId: String?,
+    selecting: Boolean,
+    selectedIds: Set<String>,
+    onToggleSelect: (String) -> Unit,
 ) {
     if (state.books.isEmpty()) {
         EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
@@ -91,8 +128,12 @@ private fun LoadedLibrary(
         books = state.books,
         letterOf = { it.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles) },
         progressOf = { state.bookProgress[it.id] ?: 0f },
-        onOpenBook = onOpenBook,
+        // ⛔ While selecting, a press picks the book instead of opening it. One gesture, two jobs,
+        // decided by the mode — not a second target on every tile in a 1200-book grid.
+        onOpenBook = { id -> if (selecting) onToggleSelect(id) else onOpenBook(id) },
         heroBookId = heroBookId,
+        selecting = selecting,
+        isSelected = { it in selectedIds },
     )
 }
 
@@ -158,6 +199,8 @@ internal fun BookCard(
     progress: Float,
     onOpen: () -> Unit,
     isHero: Boolean = false,
+    selecting: Boolean = false,
+    isSelected: Boolean = false,
 ) {
     // A library of any size has books the server holds no artwork for, and a bare <img> renders
     // those as a broken-image icon. The book detail page already falls back to a titled tile; this
@@ -166,11 +209,16 @@ internal fun BookCard(
 
     Div(attrs = {
         classes("lib-card")
+        if (selecting && isSelected) classes("on")
         // A click target owes the same affordance to a reader who is not using a mouse. A bare
         // Div is not focusable, so before this the library could not be reached by keyboard at
         // all — and a focus ring had nothing to attach to.
         tabIndex(0)
-        attr("role", "button")
+        // ⛔ While selecting, the card IS a checkbox — same element, different job. Announcing it
+        // as a button would tell a screen-reader user the card opens the book, which is exactly
+        // what it stops doing.
+        attr("role", if (selecting) "checkbox" else "button")
+        if (selecting) attr("aria-checked", isSelected.toString())
         onKeyDown { event ->
             if (event.key == "Enter" || event.key == " ") {
                 // Space scrolls the page by default, which on a grid means the card the reader
@@ -183,6 +231,7 @@ internal fun BookCard(
             openWithOrigin(book.id.value, event.currentTarget as? Element, onOpen)
         }
     }) {
+        if (selecting) SelectionTick(isSelected)
         // The return leg of the flight: this is the tile the reader last opened, so when it mounts
         // it flies in from wherever the detail hero was standing. The outbound leg is recorded in
         // the click handler above; the two are symmetric.
@@ -194,30 +243,7 @@ internal fun BookCard(
                 }
             }
         }
-        if (coverFailed) {
-            Div(attrs = {
-                classes("lib-cover", "lib-cover-fallback")
-                flyBack(this)
-            }) { Text(book.title) }
-        } else {
-            Img(
-                src = coverUrl(book.id.value, book.coverHash, GRID_RUNG),
-                attrs = {
-                    classes("lib-cover")
-                    flyBack(this)
-                    alt(book.title)
-                    // Which rung a display needs is the browser's call, not ours — it knows the
-                    // device pixel ratio and we do not. Stating both lets a 1x screen take 300px
-                    // and a Retina one take 600px from the same markup.
-                    attr("srcset", coverSrcset(book.id.value, book.coverHash))
-                    // The browser fetches only what the reader approaches, and decodes off the main
-                    // thread. Without these a 1200-book library pulls 1200 covers on first paint.
-                    attr("loading", "lazy")
-                    attr("decoding", "async")
-                    addEventListener("error") { coverFailed = true }
-                },
-            )
-        }
+        CardCover(book, coverFailed, flyBack) { coverFailed = true }
         Div(attrs = { classes("lib-title") }) { Text(book.title) }
         // Rendered even when empty, and likewise the progress rail below: the grid is virtualised,
         // and that only works because every card is exactly the same height. A card that dropped
@@ -237,6 +263,60 @@ internal fun BookCard(
             }
         }
     }
+}
+
+/**
+ * The selection tick on a card.
+ *
+ * It rides the card rather than sitting beside it: a 1200-book grid has no room for a second
+ * target per tile, and a card that is a checkbox should look like one.
+ */
+@Composable
+private fun SelectionTick(isSelected: Boolean) {
+    Div(attrs = {
+        classes("lib-tick")
+        if (isSelected) classes("on")
+    }) { if (isSelected) Icon(WebIcon.Check, size = TICK_ICON) }
+}
+
+/**
+ * The card's artwork, or a titled tile when the server holds none.
+ *
+ * Split out of [BookCard] to keep that function inside the build's branching limit once selection
+ * gave it a second job. A library of any size has books with no cover, and a bare `<img>` renders
+ * those as a broken-image icon — the same treatment Book Detail gives them.
+ */
+@Composable
+private fun CardCover(
+    book: BookListItem,
+    coverFailed: Boolean,
+    flyBack: (org.jetbrains.compose.web.attributes.AttrsScope<*>) -> Unit,
+    onCoverFailed: () -> Unit,
+) {
+    if (coverFailed) {
+        Div(attrs = {
+            classes("lib-cover", "lib-cover-fallback")
+            flyBack(this)
+        }) { Text(book.title) }
+        return
+    }
+    Img(
+        src = coverUrl(book.id.value, book.coverHash, GRID_RUNG),
+        attrs = {
+            classes("lib-cover")
+            flyBack(this)
+            alt(book.title)
+            // Which rung a display needs is the browser's call, not ours — it knows the device
+            // pixel ratio and we do not. Stating both lets a 1x screen take 300px and a Retina one
+            // take 600px from the same markup.
+            attr("srcset", coverSrcset(book.id.value, book.coverHash))
+            // The browser fetches only what the reader approaches, and decodes off the main
+            // thread. Without these a 1200-book library pulls 1200 covers on first paint.
+            attr("loading", "lazy")
+            attr("decoding", "async")
+            addEventListener("error") { onCoverFailed() }
+        },
+    )
 }
 
 /**
@@ -274,6 +354,8 @@ private fun coverSrcset(
         "${coverUrl(bookId, coverHash, GRID_RUNG_DENSE)} 2x"
 
 private const val PERCENT = 100
+
+private const val TICK_ICON = 14
 
 /** The grid's tiles are `minmax(190px, 1fr)`; 300 is the smallest rung that covers one at 1x. */
 private const val GRID_RUNG = 300

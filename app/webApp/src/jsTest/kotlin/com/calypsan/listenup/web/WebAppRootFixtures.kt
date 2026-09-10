@@ -58,6 +58,8 @@ import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchSession
+import com.calypsan.listenup.web.features.books.OpenMultiSelect
+import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.web.nav.Router
 import androidx.compose.runtime.Composable
@@ -163,6 +165,8 @@ internal fun mountAt(
     openImports: OpenImports = fixedImports(),
     openImportFlow: OpenImportFlow = fixedImportFlow(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
+    openMultiSelect: OpenMultiSelect = fixedMultiSelect(),
+    onToast: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
     val router = Router()
@@ -205,6 +209,8 @@ internal fun mountAt(
                 openShelfEdit = fixedShelfEdit(),
                 openLibrary = openLibrary,
                 openSearch = openSearch,
+                openMultiSelect = openMultiSelect,
+                onToast = onToast,
                 openNotificationBell = openNotificationBell,
                 openPlayback = fixedPlayback(),
                 observeIsAdmin = { isAdmin },

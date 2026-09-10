@@ -56,6 +56,7 @@ import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.flow.flowOf
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
@@ -116,6 +117,8 @@ class ComposeHtmlRenderTest :
                         openShelfEdit = fixedShelfEdit(),
                         openLibrary = fakeLibrary(),
                         openSearch = fixedSearch(SearchUiState.Idle()),
+                        openMultiSelect = fixedMultiSelect(),
+                        onToast = {},
                         openNotificationBell = fixedNotificationBell(),
                         openPlayback = fixedPlayback(),
                         observeIsAdmin = { flowOf(false) },
@@ -170,6 +173,8 @@ class ComposeHtmlRenderTest :
                         openShelfEdit = fixedShelfEdit(),
                         openLibrary = fakeLibrary(),
                         openSearch = fixedSearch(SearchUiState.Idle()),
+                        openMultiSelect = fixedMultiSelect(),
+                        onToast = {},
                         openNotificationBell = fixedNotificationBell(),
                         openPlayback = fixedPlayback(),
                         observeIsAdmin = { flowOf(false) },

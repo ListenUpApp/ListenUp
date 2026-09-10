@@ -57,6 +57,10 @@ enum class WebIcon(
     Hash("M5 9h14 M5 15h14 M10 4l-2 16 M16 4l-2 16"),
     Grip("M5 9h14 M5 15h14"),
     Home("M4 11.4L12 4l8 7.4 M5.6 10v9.6h12.8V10 M9.6 19.6v-5.2h4.8v5.2"),
+
+    // Not mirrored from the design project — it carries no stack glyph. Three offset rectangles is
+    // the standard "a set of things" shape; reconcile if the design project grows one.
+    Layers("M12 3l8 4.5-8 4.5-8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8 4.5 8-4.5"),
     Lock("M6 10.5h12v9.5H6z M8.75 10.5V7.5a3.25 3.25 0 0 1 6.5 0v3"),
 
     // Not mirrored from the design project — it carries a lock but no open one. This is

@@ -86,6 +86,7 @@ import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
+import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.web.features.search.fixedSearch
 
 /** A signed-in session. The ids are arbitrary — the gate only ever branches on the state's type. */
@@ -149,6 +150,7 @@ private fun mountGate(
             openShelfEdit = fixedShelfEdit(),
             openLibrary = fakeLibrary(),
             openSearch = fixedSearch(SearchUiState.Idle()),
+            openMultiSelect = fixedMultiSelect(),
             openPlayback = fixedPlayback(),
             observeIsAdmin = { flowOf(false) },
             observeCurrentUserId = { flowOf(null) },

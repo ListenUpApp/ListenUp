@@ -271,6 +271,7 @@ body { margin: 0; }
 .luw .ched-add:active,
 .luw .mdx-review:active,
 .luw .cmx-hit:active,
+.luw .sel-target:active,
 .luw .drift-pin:active,
 .luw .chr-a:active,
 .luw .cover-undo:active,
@@ -314,6 +315,7 @@ body { margin: 0; }
 .luw .sed-result:active,
 .luw .chr:active,
 .luw .mdx-result:active,
+.lib-card.on:active,
 .luw .mdx-cover:active,
 .luw .iflow-result:active,
 .luw .cdet-person:active,
@@ -1194,6 +1196,9 @@ body { margin: 0; }
    lazy covers never entered the viewport calculation to load at all. Don't reintroduce it on
    `.lib-card`; if more is needed, contain a section wrapper, not the grid items. */
 .lib-card {
+  /* `relative` so the selection tick can sit on the cover. It changes nothing about the card's
+     size, which the virtualised grid depends on. */
+  position: relative;
   cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem;
   border-radius: 8px;
 }
@@ -2613,6 +2618,20 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cmx-photo-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 0.72rem; font-weight: 600; text-align: center; }
 .luw .cmx-apply { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .luw .cd-match { flex: none; align-self: flex-start; }
+/* Multi-select over the library grid, and where a selection can go. */
+.luw .lib-select { flex: none; margin-left: auto; }
+/* ⛔ An outline, never a border or padding. The grid is virtualised on the assumption that every
+   card is exactly the same height, and an outline is drawn outside the box without changing it. */
+.lib-card.on { outline: 2px solid var(--coral); outline-offset: 2px; }
+.lib-tick { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--shadow-card); }
+.lib-tick.on { background: var(--coral); border-color: var(--coral); }
+.luw .sel-none { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-3); }
+.luw .sel-targets { display: flex; flex-direction: column; gap: 3px; max-height: 15rem; overflow-y: auto; margin: 10px 0; }
+.luw .sel-target { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 8px 10px; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; font-family: inherit; }
+@media (hover: hover) { .luw .sel-target:hover { background: var(--surface-3); } }
+.luw .sel-target[disabled] { opacity: .55; cursor: default; }
+.luw .sel-target-n { flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 650; }
+.luw .sel-target-s { font-size: 0.74rem; color: var(--ink-3); }
 
 .luw .bd-chapters-edit { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 /* The pencil sits at the top-right of the hero, out of the title's flow — the same placement

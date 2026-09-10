@@ -60,6 +60,7 @@ import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
@@ -122,6 +123,8 @@ class ChaptersPaneTest :
                     openShelfEdit = fixedShelfEdit(),
                     openLibrary = fakeLibrary(),
                     openSearch = fixedSearch(SearchUiState.Idle()),
+                    openMultiSelect = fixedMultiSelect(),
+                    onToast = {},
                     openNotificationBell = fixedNotificationBell(),
                     openPlayback = fixedPlayback(),
                     observeIsAdmin = { flowOf(false) },

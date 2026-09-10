@@ -43,6 +43,15 @@ import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.web.design.BulkAction
+import com.calypsan.listenup.web.design.BulkBar
+import com.calypsan.listenup.web.features.books.OpenMultiSelect
+import com.calypsan.listenup.web.features.books.PickerTarget
+import com.calypsan.listenup.web.features.books.SelectionPicker
+import com.calypsan.listenup.web.features.books.bookCountLabel
+import com.calypsan.listenup.web.features.books.isActive
+import com.calypsan.listenup.web.features.books.selectedIds
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.LibrarySession
 import com.calypsan.listenup.web.features.library.OpenLibrary
@@ -205,6 +214,8 @@ fun WebAppRoot(
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
     openSearch: OpenSearch,
+    openMultiSelect: OpenMultiSelect,
+    onToast: (String) -> Unit,
     openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
@@ -309,6 +320,8 @@ fun WebAppRoot(
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
+            openMultiSelect = openMultiSelect,
+            onToast = onToast,
             librarySession = librarySession,
             playback = playback,
             heroBookId = heroBookId,
@@ -414,6 +427,8 @@ private fun RouteContent(
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
+    openMultiSelect: OpenMultiSelect,
+    onToast: (String) -> Unit,
     librarySession: LibrarySession,
     playback: PlaybackSession,
     heroBookId: String?,
@@ -502,15 +517,13 @@ private fun RouteContent(
             onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
         )
     } else if (active == LIBRARY_KEY) {
-        LibraryPage(
-            state = animatedLibrary(librarySession),
-            onEvent = librarySession.onEvent,
-            onOpenBook = { id ->
-                onHeroBookIdChange(id)
-                router.navigate(Route(listOf(BOOK_KEY, id)))
-            },
-            onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+        LibraryRouteContent(
+            librarySession = librarySession,
+            openMultiSelect = openMultiSelect,
+            router = router,
             heroBookId = heroBookId,
+            onHeroBookIdChange = onHeroBookIdChange,
+            onToast = onToast,
         )
     } else if (page == SEARCH_KEY) {
         SearchRoute(router = router, route = route, openSearch = openSearch)
@@ -1430,6 +1443,149 @@ private fun ChapterEditorRoute(
         )
     }
 }
+
+/**
+ * The library grid, and picking books out of it.
+ *
+ * ⛔ Selection is page state, not a route. It is a *mode* the reader is in for a few seconds, and
+ * putting it in the URL would make Back un-pick books one at a time and make a shared link carry
+ * somebody else's selection. Book Detail's chapter selection rides the URL for the opposite reason:
+ * it survives a reload and is worth linking to.
+ */
+@Composable
+private fun LibraryRouteContent(
+    librarySession: LibrarySession,
+    openMultiSelect: OpenMultiSelect,
+    router: Router,
+    heroBookId: String?,
+    onHeroBookIdChange: (String) -> Unit,
+    onToast: (String) -> Unit,
+) {
+    val session = remember { openMultiSelect() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    val mode = session.selectionMode.collectAsState().value
+    val selected = mode.selectedIds()
+    val isAdmin = session.isAdmin.collectAsState().value
+    var picking by remember { mutableStateOf<SelectionDestination?>(null) }
+
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            // The picker closes on success, never on failure: a failed add keeps the selection so
+            // the reader can try a different destination rather than rebuild it.
+            picking = null
+            onToast(confirmationFor(event))
+        }
+    }
+
+    LibraryPage(
+        state = animatedLibrary(librarySession),
+        onEvent = librarySession.onEvent,
+        onOpenBook = { id ->
+            onHeroBookIdChange(id)
+            router.navigate(Route(listOf(BOOK_KEY, id)))
+        },
+        onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+        heroBookId = heroBookId,
+        selecting = mode.isActive(),
+        selectedIds = selected,
+        onToggleSelect = session.onToggle,
+        onStartSelecting = session.onEnter,
+    )
+
+    if (mode.isActive()) {
+        BulkBar(
+            count = selected.size,
+            actions = bulkActions(selected.isNotEmpty(), isAdmin) { picking = it },
+            onClear = session.onExit,
+        )
+    }
+
+    when (picking) {
+        null -> {
+            Unit
+        }
+
+        SelectionDestination.Shelf -> {
+            SelectionPicker(
+                title = "Add to shelf",
+                count = selected.size,
+                targets =
+                    session.myShelves
+                        .collectAsState()
+                        .value
+                        .map { PickerTarget(it.id.value, it.name, null) },
+                emptyMessage = "You have no shelves yet.",
+                createLabel = "Or make a new shelf",
+                isBusy = session.isAddingToShelf.collectAsState().value,
+                onPick = session.onAddToShelf,
+                onCreate = session.onCreateShelfAndAdd,
+                onDismiss = { picking = null },
+            )
+        }
+
+        SelectionDestination.Collection -> {
+            SelectionPicker(
+                title = "Add to collection",
+                count = selected.size,
+                targets =
+                    session.collections.collectAsState().value.map {
+                        PickerTarget(it.id, it.name, bookCountLabel(it.bookCount))
+                    },
+                emptyMessage = "There are no collections yet.",
+                createLabel = "Or make a new collection",
+                isBusy = session.isAddingToCollection.collectAsState().value,
+                onPick = session.onAddToCollection,
+                onCreate = session.onCreateCollectionAndAdd,
+                onDismiss = { picking = null },
+            )
+        }
+    }
+}
+
+/** Where a selection can be sent. */
+private enum class SelectionDestination { Shelf, Collection }
+
+/**
+ * The actions the bar offers.
+ *
+ * ⛔ Nothing selected means no actions, not disabled ones: the bar is already saying "0 selected",
+ * and a row of greyed-out verbs under that says nothing the count has not. Collections are
+ * admin-only, which is the same rule Book Detail's own collection picker follows.
+ */
+private fun bulkActions(
+    hasSelection: Boolean,
+    isAdmin: Boolean,
+    onPick: (SelectionDestination) -> Unit,
+): List<BulkAction> {
+    if (!hasSelection) return emptyList()
+    return buildList {
+        add(BulkAction("Add to shelf", WebIcon.Bookmark) { onPick(SelectionDestination.Shelf) })
+        if (isAdmin) {
+            add(BulkAction("Add to collection", WebIcon.Layers) { onPick(SelectionDestination.Collection) })
+        }
+    }
+}
+
+/** What a completed bulk action says. The number is the point — it is what the reader cannot see. */
+private fun confirmationFor(event: BookMultiSelectEvent): String =
+    when (event) {
+        is BookMultiSelectEvent.BooksAddedToShelf -> {
+            "Added ${bookCountLabel(event.count)} to the shelf."
+        }
+
+        is BookMultiSelectEvent.BooksAddedToCollection -> {
+            "Added ${bookCountLabel(event.count)} to the collection."
+        }
+
+        is BookMultiSelectEvent.ShelfCreatedAndBooksAdded -> {
+            "Created ${event.shelfName} with ${bookCountLabel(event.bookCount)}."
+        }
+
+        is BookMultiSelectEvent.CollectionCreatedAndBooksAdded -> {
+            "Created ${event.collectionName} with ${bookCountLabel(event.bookCount)}."
+        }
+    }
 
 /**
  * The `/notifications` branch — the inbox, and where a tap on one of its rows lands.
