@@ -272,6 +272,7 @@ body { margin: 0; }
 .luw .mdx-review:active,
 .luw .cmx-hit:active,
 .luw .sel-target:active,
+.luw .bke-clear:active,
 .luw .drift-pin:active,
 .luw .chr-a:active,
 .luw .cover-undo:active,
@@ -2632,6 +2633,47 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .sel-target[disabled] { opacity: .55; cursor: default; }
 .luw .sel-target-n { flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 650; }
 .luw .sel-target-s { font-size: 0.74rem; color: var(--ink-3); }
+
+/* Bulk edit. A bulk edit has no undo, so this screen's whole job is to be understood BEFORE Apply
+   rather than after: every field says what it will do, and a panel says what the whole form will. */
+.luw .bke { width: 100%; max-width: 820px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .bke-skel { height: 26rem; border-radius: 16px; }
+.luw .bke-head { display: flex; align-items: flex-start; gap: 16px; }
+.luw .bke-titles { flex: 1; min-width: 0; }
+.luw .bke-eyebrow { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.luw .bke-t { margin: 2px 0 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .bke-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--ink-3); line-height: 1.5; }
+.luw .bke-warn { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-3); font-size: 0.86rem; color: var(--ink-2); }
+.luw .bke-notice { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+
+/* ⛔ An armed field and a resting one differ on more than one signal: the rail's colour, the
+   sentence's colour, and the presence of a clear button. One signal can be missed. */
+.luw .bke-field { padding: 10px 0 10px 12px; border-left: 3px solid var(--line); }
+.luw .bke-field.armed { border-left-color: var(--coral); }
+.luw .bke-field-row { display: flex; align-items: flex-end; gap: 8px; }
+.luw .bke-field-row .f-wrap { flex: 1; min-width: 0; }
+.luw .bke-clear { flex: none; width: 30px; height: 30px; margin-bottom: 5px; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .bke-clear:hover { background: var(--surface-3); color: var(--ink); } }
+.luw .bke-consequence { margin: 6px 0 0; font-size: 0.78rem; color: var(--ink-3); }
+.luw .bke-field.armed .bke-consequence { color: var(--coral); font-weight: 650; }
+
+.luw .bke-empty { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: 14px; background: var(--surface-2); }
+.luw .bke-empty h2 { margin: 0; font-size: 1.05rem; font-weight: 750; color: var(--ink); }
+.luw .bke-empty p { margin: 0; font-size: 0.88rem; color: var(--ink-3); }
+.luw .bke-rows { display: flex; flex-direction: column; gap: 16px; }
+/* A row that changes nothing is dimmed, never hidden — a vanished row reads as a lost edit. */
+.luw .bke-row.off { opacity: 0.6; }
+.luw .bke-row-head { display: flex; align-items: baseline; gap: 12px; }
+.luw .bke-row-l { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.luw .bke-row-c { font-size: 0.8rem; font-weight: 700; color: var(--coral); font-variant-numeric: tabular-nums; }
+.luw .bke-row.off .bke-row-c { color: var(--ink-3); }
+/* The count again, in a form nobody has to count. `role=presentation` because the number beside it
+   already says this — a screen reader should not hear it twice. */
+.luw .bke-bar { height: 6px; margin-top: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.luw .bke-bar-fill { height: 100%; border-radius: 999px; background: var(--coral); }
+.luw .bke-row.off .bke-bar-fill { background: var(--ink-3); }
+.luw .bke-row-note { margin: 6px 0 0; font-size: 0.78rem; color: var(--ink-3); }
+.luw .bke-apply { display: flex; justify-content: flex-end; padding-top: 6px; }
 
 .luw .bd-chapters-edit { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 /* The pencil sits at the top-right of the hero, out of the title's flow — the same placement

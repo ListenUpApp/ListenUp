@@ -60,6 +60,9 @@ import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchSession
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.books.fixedMultiSelect
+import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
+import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.web.nav.Router
 import androidx.compose.runtime.Composable
@@ -166,6 +169,7 @@ internal fun mountAt(
     openImportFlow: OpenImportFlow = fixedImportFlow(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
     openMultiSelect: OpenMultiSelect = fixedMultiSelect(),
+    openBulkEdit: OpenBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
     onToast: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -210,6 +214,7 @@ internal fun mountAt(
                 openLibrary = openLibrary,
                 openSearch = openSearch,
                 openMultiSelect = openMultiSelect,
+                openBulkEdit = openBulkEdit,
                 onToast = onToast,
                 openNotificationBell = openNotificationBell,
                 openPlayback = fixedPlayback(),
