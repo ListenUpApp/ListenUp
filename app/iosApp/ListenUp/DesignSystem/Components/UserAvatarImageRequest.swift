@@ -24,15 +24,25 @@ enum UserAvatarImageRequest {
         let repository = KoinHelper.shared.getImageRepository()
 
         // Content-addressed server URL when the version is known — NOT the id-stable local file.
+        //
+        // Preferring the server is not the same as *requiring* it: `authenticated` returns nil when no
+        // access token can be minted (offline, or a refresh that failed), so this branch only returns
+        // when it actually has a request — otherwise it falls through to the durable local file below
+        // rather than showing nothing. Both branches use the same `key`, so the fallback serves the
+        // same cache identity.
         if version > 0 {
             repository.ensureUserAvatarCached(userId: userId)
             let base = try? await KoinHelper.shared.activeServerUrl()
-            if let base, let url = avatarURL(base: base, userId: userId, version: version) {
-                return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
+            if let base,
+               let url = avatarURL(base: base, userId: userId, version: version),
+               let request = await AuthenticatedImageRequest.authenticated(
+                   url: url, processors: processors, cacheKey: key
+               ) {
+                return request
             }
         }
 
-        // No known version (or no server URL): the durable local file is the best source.
+        // No reachable content-addressed source: the durable local file is the best source.
         if repository.userAvatarExists(userId: userId) {
             let path = repository.getUserAvatarPath(userId: userId)
             return AuthenticatedImageRequest.localFile(path, processors: processors, cacheKey: key)
