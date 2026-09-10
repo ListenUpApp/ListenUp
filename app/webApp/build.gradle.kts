@@ -40,6 +40,14 @@ kotlin {
             // `hls.js`, and the SQLite worker's `sqlite-wasm-worker/worker.js` — are resolved by
             // the bundler in `web/`, out of web/node_modules and the copy sync-kotlin.mjs makes.
             // KGP owns the compiler, not the module graph, so it declares neither.
+            // Backups are the one feature whose shared seams are IO types rather than domain types:
+            // the web module implements `FileSource` (ktor's ByteReadChannel) for an upload and a
+            // `RawSink` (kotlinx.io) for a download, so both have to be on this module's own
+            // classpath — :app:sharedLogic keeps them `implementation` and they don't arrive
+            // transitively. Carried over from main; the npm declarations that sat beside them are
+            // deliberately NOT carried over, since the bundler in web/ resolves those specifiers now.
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.ktor.io)
         }
         jsTest.dependencies {
             implementation(libs.kotest.framework.engine)
