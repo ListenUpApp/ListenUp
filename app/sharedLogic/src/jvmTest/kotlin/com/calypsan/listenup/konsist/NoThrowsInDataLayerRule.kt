@@ -33,7 +33,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class NoThrowsInDataLayerRule :
     FunSpec({
         test("data/remote/ functions don't throw outside the documented allowlist") {
-            val offenders =
+            val remoteFunctions =
                 productionScope()
                     .functions()
                     .filter { it.path.contains("/data/remote/") }
@@ -41,6 +41,15 @@ class NoThrowsInDataLayerRule :
                     // Those are utility functions, not API-call boundaries — the
                     // AppResult contract applies to API methods, not parser utilities.
                     .filter { !it.path.contains("/data/remote/model/") }
+
+            assertScopeNotEmpty(
+                remoteFunctions,
+                expectedMin = 45,
+                why = "data/remote functions outside model/ — the API-boundary surface the AppResult contract binds",
+            )
+
+            val offenders =
+                remoteFunctions
                     .filter { fn -> fn.containsDisallowedThrow() }
                     .filter { fn -> RESIDUAL_THROWS_ALLOWLIST.none { allowed -> fn.path.endsWith(allowed) } }
                     .map { "${it.name} in ${it.path}" }
@@ -49,10 +58,19 @@ class NoThrowsInDataLayerRule :
         }
 
         test("data/repository/*Impl functions don't throw outside the documented allowlist") {
-            val offenders =
+            val repositoryImplFunctions =
                 productionScope()
                     .functions()
                     .filter { it.path.contains("/data/repository/") && it.path.endsWith("Impl.kt") }
+
+            assertScopeNotEmpty(
+                repositoryImplFunctions,
+                expectedMin = 240,
+                why = "functions in data/repository/*Impl.kt — the other half of the surface this contract binds",
+            )
+
+            val offenders =
+                repositoryImplFunctions
                     .filter { fn -> fn.containsDisallowedThrow() }
                     .filter { fn -> RESIDUAL_THROWS_ALLOWLIST.none { allowed -> fn.path.endsWith(allowed) } }
                     .map { "${it.name} in ${it.path}" }

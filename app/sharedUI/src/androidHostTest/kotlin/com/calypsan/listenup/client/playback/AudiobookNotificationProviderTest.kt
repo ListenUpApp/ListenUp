@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.playback
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.media3.common.util.UnstableApi
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -14,7 +15,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
 /**
  * Tests for the pure formatting helpers in [AudiobookNotificationProvider]:
@@ -216,6 +220,19 @@ class AudiobookNotificationProviderTest {
     @Test
     fun `formatDuration returns 10h 30m for large values`() {
         provider.formatDuration((10 * 60 + 30) * 60_000L) shouldBe "10h 30m"
+    }
+
+    // ── decodeDownsampled — the artwork the cache actually holds ──────────────
+
+    @Test
+    fun `decodeDownsampled brings a provider-sized cover under the notification cap`() {
+        val cover = Bitmap.createBitmap(2400, 2400, Bitmap.Config.ARGB_8888)
+        val encoded =
+            ByteArrayOutputStream().also { cover.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+
+        val decoded = decodeDownsampled(openStream = { ByteArrayInputStream(encoded) })
+
+        decoded!!.width shouldBeLessThanOrEqual NOTIFICATION_ARTWORK_MAX_EDGE_PX
     }
 }
 

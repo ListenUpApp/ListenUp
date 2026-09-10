@@ -88,6 +88,7 @@ class PlaybackManagerPositionTransitionTest :
             val downloadService: DownloadService = mock()
             every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(any()) } returns null
+            everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns AppResult.Success(DownloadOutcome.AlreadyDownloaded)
 
@@ -355,6 +356,133 @@ class PlaybackManagerPositionTransitionTest :
                         positionRepository.savePlaybackState(
                             any(),
                             matches<PlaybackUpdate>({ "PeriodicUpdate" }) { it is PlaybackUpdate.PeriodicUpdate },
+                        )
+                    }
+
+                    managerScope.coroutineContext[Job]?.cancel()
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Position integrity — a player RESET must never be persisted as progress,
+        // and a persist must never be filed under a book the session does not own.
+        //
+        // `AudioPlayer.load` zeroes `positionMs` synchronously on the web element, so a
+        // still-live collector from the previous session reads 0 and — under
+        // ConflictPolicy.NewerWins, which keys on lastPlayedAt — that zero becomes the
+        // globally newest truth on every device.
+        // ---------------------------------------------------------------------
+
+        // Builds a manager on a real player, already playing from position 0 on a single-file book.
+        suspend fun TestScope.playingManager(
+            db: ListenUpDatabase,
+            managerScope: CoroutineScope,
+            positionRepository: PlaybackPositionRepository,
+        ): Pair<PlaybackManager, FakePlayer> {
+            seedBook(db, fileCount = 1, fileDurationMs = 1_800_000L)
+            val manager =
+                createManager(
+                    db = db,
+                    scope = managerScope,
+                    progressTracker = buildProgressTracker(scope = managerScope, positionRepository = positionRepository),
+                    persistTransitionsViaReporter = true,
+                )
+            val prepared = manager.prepareForPlayback(BookId("book-1"))
+            checkNotNull(prepared) { "prepareForPlayback must succeed" }
+            manager.activateBook(BookId("book-1"))
+
+            val player = FakePlayer()
+            manager.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
+            advanceUntilIdle() // player.play() → Playing → isPlaying = true
+            return manager to player
+        }
+
+        test("a backwards jump to zero is never persisted as progress") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val positionRepository = defaultPositionRepository()
+                    val (_, player) = playingManager(db, managerScope, positionRepository)
+
+                    player.advancePosition(600_000L)
+                    advanceUntilIdle()
+
+                    // The player resets — exactly what HtmlAudioPlayer.load does at its line 200.
+                    player.advancePosition(0L)
+                    advanceUntilIdle()
+
+                    verifySuspend(VerifyMode.exactly(0)) {
+                        positionRepository.savePlaybackState(
+                            any(),
+                            matches<PlaybackUpdate>({ "PeriodicUpdate(0)" }) {
+                                it is PlaybackUpdate.PeriodicUpdate && it.positionMs == 0L
+                            },
+                        )
+                    }
+
+                    managerScope.coroutineContext[Job]?.cancel()
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a genuine backwards seek is still durable once playback moves forward again") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val positionRepository = defaultPositionRepository()
+                    val (_, player) = playingManager(db, managerScope, positionRepository)
+
+                    player.advancePosition(600_000L)
+                    advanceUntilIdle()
+
+                    // A real backwards seek by the listener.
+                    player.advancePosition(60_000L)
+                    advanceUntilIdle()
+
+                    // Playback carries on from there; the new position must reach the store.
+                    player.advancePosition(70_000L)
+                    advanceUntilIdle()
+
+                    verifySuspend(VerifyMode.exactly(1)) {
+                        positionRepository.savePlaybackState(
+                            any(),
+                            matches<PlaybackUpdate>({ "PeriodicUpdate(70_000)" }) {
+                                it is PlaybackUpdate.PeriodicUpdate && it.positionMs == 70_000L
+                            },
+                        )
+                    }
+
+                    managerScope.coroutineContext[Job]?.cancel()
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a periodic persist never files a position under a different book") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val positionRepository = defaultPositionRepository()
+                    val (manager, player) = playingManager(db, managerScope, positionRepository)
+
+                    // The position moves, and the listener switches book before the collector runs.
+                    player.advancePosition(600_000L)
+                    manager.activateBook(BookId("book-2"))
+                    advanceUntilIdle()
+
+                    verifySuspend(VerifyMode.exactly(0)) {
+                        positionRepository.savePlaybackState(
+                            matches<BookId>({ "BookId(book-2)" }) { it == BookId("book-2") },
+                            any(),
                         )
                     }
 

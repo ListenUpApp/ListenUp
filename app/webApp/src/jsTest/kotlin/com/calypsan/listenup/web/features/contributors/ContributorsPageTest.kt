@@ -2,37 +2,17 @@ package com.calypsan.listenup.web.features.contributors
 
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.LibraryFacet
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
-
-private fun contributorsPage(
-    state: List<ContributorWithBookCount>?,
-    role: ContributorRole = ContributorRole.AUTHOR,
-    onSelectFacet: (LibraryFacet) -> Unit = {},
-    onOpenContributor: (String) -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        ContributorsPage(
-            state = state,
-            role = role,
-            onSelectFacet = onSelectFacet,
-            onOpenContributor = onOpenContributor,
-        )
-    }
-    return root
-}
 
 private fun EventTarget.press(key: String) {
     dispatchEvent(
@@ -51,6 +31,23 @@ private fun EventTarget.press(key: String) {
  */
 class ContributorsPageTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun contributorsPage(
+            state: List<ContributorWithBookCount>?,
+            role: ContributorRole = ContributorRole.AUTHOR,
+            onSelectFacet: (LibraryFacet) -> Unit = {},
+            onOpenContributor: (String) -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                ContributorsPage(
+                    state = state,
+                    role = role,
+                    onSelectFacet = onSelectFacet,
+                    onOpenContributor = onOpenContributor,
+                )
+            }
 
         test("rows render the contributor's name, role chip, and book count") {
             val root =

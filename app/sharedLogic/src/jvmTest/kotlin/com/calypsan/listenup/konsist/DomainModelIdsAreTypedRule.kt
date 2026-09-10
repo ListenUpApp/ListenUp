@@ -21,10 +21,21 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class DomainModelIdsAreTypedRule :
     FunSpec({
         test("migrated domain models use value-class ids, not String") {
-            val offenders =
+            val migratedModels =
                 productionScope()
                     .classes()
                     .filter { cls -> MIGRATED_DOMAIN_MODELS.any { cls.path.endsWith(it) } }
+
+            assertScopeNotEmpty(
+                migratedModels,
+                expectedMin = 1,
+                why =
+                    "classes in MIGRATED_DOMAIN_MODELS. That set is a small fixed list (2 files, 3 classes " +
+                        "today), so this floor is a pure collapse detector — do not raise it toward the count.",
+            )
+
+            val offenders =
+                migratedModels
                     .flatMap { cls ->
                         cls
                             .properties()

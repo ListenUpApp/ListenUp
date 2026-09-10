@@ -2,13 +2,12 @@ package com.calypsan.listenup.web.features.bookedit
 
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLFormElement
@@ -18,25 +17,6 @@ import org.w3c.dom.EventInit
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
 
-private fun page(onEvent: (BookEditUiEvent) -> Unit): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        BookEditPage(
-            state =
-                BookEditUiState(
-                    isLoading = false,
-                    bookId = "b1",
-                    title = "The Institute",
-                ),
-            onEvent = onEvent,
-            onOpenLibrary = {},
-            onOpenBook = {},
-        )
-    }
-    return root
-}
-
 /**
  * Book Edit as a real form: Enter saves, and the two controls that must NOT save don't.
  *
@@ -45,6 +25,23 @@ private fun page(onEvent: (BookEditUiEvent) -> Unit): HTMLElement {
  */
 class BookEditSubmitTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun page(onEvent: (BookEditUiEvent) -> Unit): HTMLElement =
+            mounts.mount {
+                BookEditPage(
+                    state =
+                        BookEditUiState(
+                            isLoading = false,
+                            bookId = "b1",
+                            title = "The Institute",
+                        ),
+                    onEvent = onEvent,
+                    onOpenLibrary = {},
+                    onOpenBook = {},
+                )
+            }
 
         fun formOf(host: HTMLElement): HTMLFormElement {
             val form = host.querySelector("form")

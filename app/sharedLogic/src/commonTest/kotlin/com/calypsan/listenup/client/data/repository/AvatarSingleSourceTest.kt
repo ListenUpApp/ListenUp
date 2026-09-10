@@ -121,15 +121,7 @@ class AvatarSingleSourceTest :
             runTest {
                 val dao =
                     RecordingPublicProfileDao(
-                        MutableStateFlow(
-                            mapOf(
-                                selfId to
-                                    publicRow(
-                                        avatarType = "image",
-                                        avatarUpdatedAt = 1_000L,
-                                    ),
-                            ),
-                        ),
+                        MutableStateFlow(mapOf(selfId to publicRow(avatarType = "image", avatarUpdatedAt = 1_000L))),
                     )
                 val serverTs = 9_000L
                 val service =
@@ -155,16 +147,7 @@ class AvatarSingleSourceTest :
                 // A pre-existing synced row: auto avatar, version 0, revision 1.
                 val dao =
                     RecordingPublicProfileDao(
-                        MutableStateFlow(
-                            mapOf(
-                                selfId to
-                                    publicRow(
-                                        avatarType = "auto",
-                                        avatarUpdatedAt = 0L,
-                                        revision = 1,
-                                    ),
-                            ),
-                        ),
+                        MutableStateFlow(mapOf(selfId to publicRow(avatarType = "auto", avatarUpdatedAt = 0L, revision = 1))),
                     )
                 val serverTs = 5_000L
                 val repo = repoWith(dao, uploadResult = AppResult.Success(serverTs))

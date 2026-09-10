@@ -112,14 +112,15 @@ class PlaybackPositionsDomainTest :
 
         test("applied event preserves local-only columns from the existing row") {
             withHandler { handler, db ->
-                // Seed a row with local-only columns set to non-default values
+                // Seed a row with local-only columns set to non-default values. `hasCustomSpeed` is
+                // deliberately NOT among them any more — it is a synced field, so an inbound payload
+                // is authoritative for it. See the dedicated cross-device tests below.
                 db.playbackPositionDao().save(
                     localRow(
                         bookId = "book-1",
                         positionMs = 1_000L,
                         lastPlayedAt = 100L,
                         revision = 1L,
-                        hasCustomSpeed = true,
                         syncedAt = 999L,
                         finishedAt = null,
                         startedAt = 500L,
@@ -145,9 +146,96 @@ class PlaybackPositionsDomainTest :
                 row.lastPlayedAt shouldBe 9000L
                 row.revision shouldBe 10L
                 // Local-only columns preserved
-                row.hasCustomSpeed shouldBe true
                 row.syncedAt shouldBe 999L
                 row.startedAt shouldBe 500L
+            }
+        }
+
+        test("an inbound payload with a null measuredGainDb keeps the local measurement") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 10_000L, lastPlayedAt = 1_000L, revision = 1L)
+                        .copy(measuredGainDb = -3.5f),
+                )
+
+                handler.onEvent(
+                    updated(payload("pos-1", "book-1", positionMs = 20_000L, lastPlayedAt = 2_000L, revision = 2L)),
+                )
+
+                db.playbackPositionDao().get(BookId("book-1"))!!.measuredGainDb shouldBe -3.5f
+            }
+        }
+
+        test("an inbound payload with a measuredGainDb overwrites the local one") {
+            // Anti-overfit: a real remote measurement must still win.
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 10_000L, lastPlayedAt = 1_000L, revision = 1L)
+                        .copy(measuredGainDb = -3.5f),
+                )
+                handler.onEvent(
+                    updated(
+                        payload("pos-1", "book-1", positionMs = 20_000L, lastPlayedAt = 2_000L, revision = 2L)
+                            .copy(measuredGainDb = -8.0f),
+                    ),
+                )
+                db.playbackPositionDao().get(BookId("book-1"))!!.measuredGainDb shouldBe -8.0f
+            }
+        }
+
+        test("a first-sight payload carrying a finish date stores it") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    updated(
+                        payload("pos-1", "book-1", positionMs = 20_000L, lastPlayedAt = 2_000L, revision = 2L)
+                            .copy(finished = true, finishedAt = 1_730_000_000_000L),
+                    ),
+                )
+
+                val row = db.playbackPositionDao().get(BookId("book-1"))!!
+                row.finishedAt shouldBe 1_730_000_000_000L
+                row.isFinished shouldBe true
+            }
+        }
+
+        test("a payload with no finish date does not erase a local one") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(
+                        bookId = "book-1",
+                        positionMs = 10_000L,
+                        lastPlayedAt = 1_000L,
+                        revision = 1L,
+                        finishedAt = 900L,
+                    ),
+                )
+
+                handler.onEvent(
+                    updated(payload("pos-1", "book-1", positionMs = 20_000L, lastPlayedAt = 2_000L, revision = 2L)),
+                )
+
+                db.playbackPositionDao().get(BookId("book-1"))!!.finishedAt shouldBe 900L
+            }
+        }
+
+        test("a first-sight payload carrying hasCustomSpeed stores the flag and the speed") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    updated(
+                        payload(
+                            "pos-1",
+                            "book-1",
+                            positionMs = 20_000L,
+                            lastPlayedAt = 2_000L,
+                            revision = 2L,
+                            playbackSpeed = 1.5f,
+                        ).copy(hasCustomSpeed = true),
+                    ),
+                )
+
+                val row = db.playbackPositionDao().get(BookId("book-1"))!!
+                row.hasCustomSpeed shouldBe true
+                row.playbackSpeed shouldBe 1.5f
             }
         }
 

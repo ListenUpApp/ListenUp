@@ -33,11 +33,20 @@ class UiStateIsSealedRule :
 
         test("every *UiState type in client/presentation/ is sealed (excluding legacy backlog)") {
             val scope = productionScope()
-            val offenders =
+            val uiStateTypes =
                 (scope.classes() + scope.interfaces())
                     .filter { it.path.contains("/sharedLogic/") }
                     .filter { it.path.contains("/client/presentation/") }
                     .filter { it.name.endsWith("UiState") }
+
+            assertScopeNotEmpty(
+                uiStateTypes,
+                expectedMin = 30,
+                why = "*UiState types under client/presentation/ — an empty set means the rule policed nothing",
+            )
+
+            val offenders =
+                uiStateTypes
                     .filterNot { it.name in legacyExclusions }
                     .filterNot { it.hasSealedModifier }
                     .map { "${it.name} @ ${it.path}" }

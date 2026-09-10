@@ -36,11 +36,18 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.deleteNotificationRowsForUser
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+
+private val log = loggerFor<AdminUserServiceImpl>()
 
 /**
  * [AdminUserService] implementation — the administrative lifecycle of an account.
@@ -94,6 +101,13 @@ class AdminUserServiceImpl(
      */
     private val notifications: com.calypsan.listenup.server.notifications.NotificationEmitter? = null,
     /**
+     * Background scope the decision push is fired on — [PushNotifier.notifyWatch] must never be
+     * awaited inline on the RPC path (an unreachable relay was hanging "Approve" for ~30s). The
+     * default is a throwaway detached scope for tests/direct construction; the Koin wiring in
+     * `authModule` passes the server's real long-lived application scope.
+     */
+    private val appScope: CoroutineScope = CoroutineScope(SupervisorJob()),
+    /**
      * Nullable so the auth module assembles independently of the admin-roster module (test
      * environments, phased startup). A null value means admin-roster changes here are not
      * published — the roster self-heals via [AdminUserRosterMaintainer.backfillAll] at startup.
@@ -127,6 +141,7 @@ class AdminUserServiceImpl(
             pushNotifier = pushNotifier,
             pushWatchTokens = pushWatchTokens,
             notifications = notifications,
+            appScope = appScope,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             passwordResetService = passwordResetService,
         )
@@ -328,20 +343,17 @@ class AdminUserServiceImpl(
                 request.userId.value,
                 if (request.approved) RegistrationDecision.Approved else RegistrationDecision.Denied(null),
             )
-            // Background counterpart of the broadcaster (#1068): wake the devices that
-            // registered a pre-auth watch, then evict their rows — eviction is unconditional
-            // (a decided watch has nothing left to say), delivery is best-effort.
-            pushNotifier?.notifyWatch(
-                com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
-                request.userId.value,
-                com.calypsan.listenup.api.push
-                    .PushPayload
-                    .RegistrationDecision(userId = request.userId.value, approved = request.approved),
-            )
+            // Background counterpart of the broadcaster (#1068): eviction of the pre-auth watch
+            // rows is UNCONDITIONAL — a decided watch has nothing left to say — so it runs
+            // synchronously here, before the push. The push itself is fire-and-forget on the
+            // application scope: it must never be awaited on this RPC path (an unreachable relay
+            // was hanging "Approve" for ~30s when it was awaited inline here), and a notifier that
+            // violates its "MUST NOT throw" contract must not be able to skip eviction either.
             pushWatchTokens?.evict(
                 com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
                 request.userId.value,
             )
+            launchDecisionPush(request.userId.value, request.approved)
             // The inbox row: unreadable until the user can sign in, then it syncs like any other.
             notifications?.emit(
                 NotificationEvent.RegistrationDecision(
@@ -401,6 +413,33 @@ class AdminUserServiceImpl(
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
+
+    /**
+     * Fires the registration-decision push (#1068) fire-and-forget on [appScope] — never awaited
+     * on the RPC path. Defense in depth: [PushNotifier]'s contract forbids throwing, but this
+     * launch must never crash the application scope even if an implementation violates it. Never
+     * logs token/payload contents — error class name only.
+     */
+    private fun launchDecisionPush(
+        userId: String,
+        approved: Boolean,
+    ) {
+        appScope.launch {
+            try {
+                pushNotifier?.notifyWatch(
+                    com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
+                    userId,
+                    com.calypsan.listenup.api.push
+                        .PushPayload
+                        .RegistrationDecision(userId = userId, approved = approved),
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                log.warn { "decision push failed: ${e::class.simpleName}" }
+            }
+        }
+    }
 
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {

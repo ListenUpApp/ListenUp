@@ -75,10 +75,16 @@ class PlaybackStartAwaitsAreBudgetedRule :
                 .joinToString("\n")
 
         test("RPC awaits on the playback-start path declare an explicit timeout") {
+            val playbackStartFunctions = productionScope().functions().filter { onPlaybackStartPath(it.path) }
+
+            assertScopeNotEmpty(
+                playbackStartFunctions,
+                expectedMin = 35,
+                why = "functions on the five tap-to-audio files — a renamed file would silently empty this",
+            )
+
             val offenders =
-                productionScope()
-                    .functions()
-                    .filter { onPlaybackStartPath(it.path) }
+                playbackStartFunctions
                     .filter { fn ->
                         val body = codeOf(fn.text)
                         rpcCall.containsMatchIn(body) && !body.contains("timeout =")
@@ -91,10 +97,16 @@ class PlaybackStartAwaitsAreBudgetedRule :
             // `idempotent = true` licenses one automatic retry re-applying the SAME timeout, so a
             // declared budget silently becomes double. That is exactly how getPosition's 15s became
             // 30s, and fetchBookFromServer's after it.
+            val playbackStartFunctions = productionScope().functions().filter { onPlaybackStartPath(it.path) }
+
+            assertScopeNotEmpty(
+                playbackStartFunctions,
+                expectedMin = 35,
+                why = "functions on the five tap-to-audio files — a renamed file would silently empty this",
+            )
+
             val offenders =
-                productionScope()
-                    .functions()
-                    .filter { onPlaybackStartPath(it.path) }
+                playbackStartFunctions
                     .filter { fn ->
                         val body = codeOf(fn.text)
                         rpcCall.containsMatchIn(body) && body.contains("idempotent = true")

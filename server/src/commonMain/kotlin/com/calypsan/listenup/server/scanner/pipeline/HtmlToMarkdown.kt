@@ -34,13 +34,33 @@ object HtmlToMarkdown {
     private val REMAINING_TAGS = Regex("""<[^>]+>""")
     private val EXCESS_BLANK_LINES = Regex("""\n{3,}""")
 
+    /**
+     * Longest description this converter will look at. A book description is prose — the most
+     * indulgent publisher blurb runs a few thousand characters — so 32 KB is already an order of
+     * magnitude past anything real. The bound matters because [ANCHOR] is dot-matches-all with a
+     * lazy body: every opening anchor with no matching close makes the engine scan to the end of
+     * the input, so the work grows with the square of the length, and the length is whatever a
+     * scanned file happened to contain.
+     */
+    private const val MAX_INPUT_CHARS = 32_768
+
     fun convert(input: String): String {
-        if (input.isBlank() || !HTML_TAG.containsMatchIn(input)) return input
+        val bounded = capped(input)
+        if (bounded.isBlank() || !HTML_TAG.containsMatchIn(bounded)) return bounded
         return try {
-            convertHtml(input)
+            convertHtml(bounded)
         } catch (_: Exception) {
-            stripTags(decodeEntities(input)).collapse()
+            stripTags(decodeEntities(bounded)).collapse()
         }
+    }
+
+    private fun capped(input: String): String {
+        if (input.length <= MAX_INPUT_CHARS) return input
+        val head = input.substring(0, MAX_INPUT_CHARS)
+        // Cutting mid-tag would strand a `<…` fragment the tag stripper cannot match, and this
+        // class promises never to return markup. Retreat to the last complete tag instead.
+        val lastOpen = head.lastIndexOf('<')
+        return if (lastOpen > head.lastIndexOf('>')) head.substring(0, lastOpen) else head
     }
 
     private fun convertHtml(html: String): String {

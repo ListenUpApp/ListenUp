@@ -4,24 +4,16 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.auth.SetupErrorType
 import com.calypsan.listenup.client.presentation.auth.SetupField
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.EventInit
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
 
 private fun HTMLElement.typeInto(
     selector: String,
@@ -34,6 +26,10 @@ private fun HTMLElement.typeInto(
 
 class SetupFormTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
         test("submitting forwards all five values in the ViewModel's order") {
             // onSetupSubmit is (first, last, email, password, confirm) while onRegisterSubmit is

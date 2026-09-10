@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.backup
 
 import com.calypsan.listenup.api.dto.backup.BackupEvent
+import com.calypsan.listenup.server.compression.zip.withDeclaredUncompressedSize
+import com.calypsan.listenup.server.compression.zip.zipWithZeroFilledEntry
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -124,4 +126,48 @@ class BackupArchiveTest :
                 }
             }
         }
+
+        // The manifest is read whole into memory on the upload path, before the archive is trusted.
+        // An honest directory lets the reader decline before a byte is inflated.
+        test("open declines a manifest whose directory declares more than the manifest budget") {
+            backupTestFixture().use { fixture ->
+                val archive = writeTempArchive(zipWithZeroFilledEntry("manifest.json", OVER_MANIFEST_BUDGET))
+                try {
+                    val exception =
+                        shouldThrow<BackupArchive.CorruptArchiveException> { fixture.archive.open(archive) }
+
+                    exception.message shouldContain "declares"
+                } finally {
+                    SystemFileSystem.delete(archive, mustExist = false)
+                }
+            }
+        }
+
+        // The directory is a claim, not a bound. When it under-declares, the inflate budget is what
+        // holds — the reader must decline at the ceiling rather than believe the archive.
+        test("open declines a manifest whose content runs past the budget when its directory says otherwise") {
+            backupTestFixture().use { fixture ->
+                val lying =
+                    zipWithZeroFilledEntry("manifest.json", OVER_MANIFEST_BUDGET)
+                        .withDeclaredUncompressedSize("manifest.json", declared = 16)
+                val archive = writeTempArchive(lying)
+                try {
+                    val exception =
+                        shouldThrow<BackupArchive.CorruptArchiveException> { fixture.archive.open(archive) }
+
+                    exception.message shouldContain "exceeded"
+                } finally {
+                    SystemFileSystem.delete(archive, mustExist = false)
+                }
+            }
+        }
     })
+
+/** One byte past the 64 MiB manifest ceiling in `BackupArchive`. */
+private const val OVER_MANIFEST_BUDGET = 64L * 1024 * 1024 + 1
+
+private fun writeTempArchive(bytes: ByteArray): IoPath {
+    val path = IoPath(SystemTemporaryDirectory, "manifest-budget-${System.nanoTime()}.zip")
+    SystemFileSystem.sink(path).buffered().use { it.write(bytes) }
+    return path
+}

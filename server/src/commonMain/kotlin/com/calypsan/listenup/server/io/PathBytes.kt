@@ -8,6 +8,16 @@ import kotlinx.io.readByteArray
 /** Reads the whole file at [this] as a byte array. */
 internal fun Path.readBytes(): ByteArray = SystemFileSystem.source(this).buffered().use { it.readByteArray() }
 
+/**
+ * Byte twin of [readTextCapped]: reads [this] whole, or returns null when the file is larger than
+ * [maxBytes] or its size cannot be determined. The size is checked before a byte is read.
+ */
+internal fun Path.readBytesCapped(maxBytes: Long): ByteArray? {
+    val size = SystemFileSystem.metadataOrNull(this)?.size ?: return null
+    if (size > maxBytes) return null
+    return readBytes()
+}
+
 /** Writes [bytes] to [this], replacing any existing content. */
 internal fun Path.writeBytes(bytes: ByteArray) {
     SystemFileSystem.sink(this).buffered().use { it.write(bytes) }

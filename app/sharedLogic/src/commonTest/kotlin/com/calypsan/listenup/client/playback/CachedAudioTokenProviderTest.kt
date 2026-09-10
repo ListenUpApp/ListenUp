@@ -208,8 +208,8 @@ class CachedAudioTokenProviderTest :
         // it is queued behind another refresh's mutex hold or running its own — to a playback-start
         // budget, falling back to stored on expiry instead of continuing to wait.
         test(
-            "prepareForPlayback bounds a coalesced wait to the playback-start budget instead of inheriting an in-flight refresh's full " +
-                "RPC timeout",
+            "prepareForPlayback bounds a coalesced wait to the playback-start budget " +
+                "instead of inheriting an in-flight refresh's full RPC timeout",
         ) {
             runTest {
                 val clock = VirtualClock(testScheduler)

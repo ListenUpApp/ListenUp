@@ -83,8 +83,12 @@ data class CollectionShareSyncPayload(
     @SerialName("sharedWithUserId") val sharedWithUserId: String,
     /** The user who granted access (typically the collection owner). */
     @SerialName("sharedByUserId") val sharedByUserId: String,
-    /** The level of access granted. */
-    @SerialName("permission") val permission: SharePermission,
+    /**
+     * The level of access granted. Defaults to [SharePermission.Read] so a permission level this
+     * build does not know (an additive member on a newer server) falls back to least privilege
+     * rather than throwing — a share is never widened by a decode it did not understand.
+     */
+    @SerialName("permission") val permission: SharePermission = SharePermission.Read,
     /** Sync revision counter — bumped on every write. */
     @SerialName("revision") override val revision: Long,
     /** Epoch millis of the last server-side write. */

@@ -85,11 +85,12 @@ import org.koin.dsl.module
 fun playbackModule(
     homeDir: Path,
     applicationScope: CoroutineScope,
+    transcodeSettings: TranscodeSettings,
 ): Module =
     module {
         single { AudioFileLocator(get()) }
 
-        transcodeBindings(homeDir, applicationScope)
+        transcodeBindings(homeDir, applicationScope, transcodeSettings)
         single {
             AudioUrlSigner(
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
@@ -220,12 +221,17 @@ private fun unscopedSocialPlaceholder(): PrincipalProvider =
  *
  * ⚠️ The segment cache lives in its own `$LISTENUP_HOME/transcode` root, **not** under `covers/` or
  * anywhere `BackupArchive` walks: transcoded audio is derivable bytes and must never inflate a backup.
+ *
+ * [transcodeSettings] arrives resolved from configuration (`ApplicationConfig.transcodeSettings()`)
+ * rather than being constructed here, so the documented `LISTENUP_TRANSCODE_*` overrides reach the
+ * engine — the module signature is the seam, not a global.
  */
 private fun Module.transcodeBindings(
     homeDir: Path,
     applicationScope: CoroutineScope,
+    transcodeSettings: TranscodeSettings,
 ) {
-    single { TranscodeSettings() }
+    single { transcodeSettings }
     single { TranscodePolicy() }
     single { TranscoderAvailability() }
     single { SegmentCache(Path(homeDir, "transcode")) }

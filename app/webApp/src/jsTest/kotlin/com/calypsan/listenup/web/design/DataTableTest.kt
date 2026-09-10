@@ -1,11 +1,9 @@
 package com.calypsan.listenup.web.design
 
-import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 
 private data class Chapter(
@@ -28,13 +26,6 @@ private val COLUMNS =
         TableColumn<Chapter>("s", "Starts", width = 96, align = ColumnAlign.End, mono = true) { Text(it.start) },
     )
 
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { content() }
-    return host
-}
-
 /**
  * The table is the component the rest of the web client leans on — chapters, files, readers and
  * the whole library browse are all this one thing. The class contract matters as much as the
@@ -43,9 +34,11 @@ private fun mount(content: @Composable () -> Unit): HTMLElement {
  */
 class DataTableTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("every row and column reaches the DOM") {
-            val host = mount { DataTable(columns = COLUMNS, rows = CHAPTERS) }
+            val host = mounts.mount { DataTable(columns = COLUMNS, rows = CHAPTERS) }
 
             host.querySelectorAll("tbody tr").length shouldBe CHAPTERS.size
             host.querySelectorAll("thead th").length shouldBe COLUMNS.size
@@ -55,7 +48,7 @@ class DataTableTest :
             // `.num` is what applies the mono face and tabular figures. Without it a column of
             // durations renders proportionally and stops being scannable — the exact thing a
             // table is for.
-            val host = mount { DataTable(columns = COLUMNS, rows = CHAPTERS) }
+            val host = mounts.mount { DataTable(columns = COLUMNS, rows = CHAPTERS) }
 
             val firstRowCells = host.querySelectorAll("tbody tr td")
             (firstRowCells.item(0) as HTMLElement).className shouldBe "num"
@@ -64,7 +57,7 @@ class DataTableTest :
 
         test("a selected row carries the selection class") {
             val host =
-                mount {
+                mounts.mount {
                     DataTable(columns = COLUMNS, rows = CHAPTERS, isSelected = { it.number == "2" })
                 }
 
@@ -75,7 +68,7 @@ class DataTableTest :
             // Selection owns the filled background; playing takes coral text. They are different
             // states and a row can be both, so they must not share a class.
             val host =
-                mount {
+                mounts.mount {
                     DataTable(
                         columns = COLUMNS,
                         rows = CHAPTERS,
@@ -89,14 +82,14 @@ class DataTableTest :
         }
 
         test("the sorted column is flagged and shows its direction") {
-            val host = mount { DataTable(columns = COLUMNS, rows = CHAPTERS, sortKey = "s") }
+            val host = mounts.mount { DataTable(columns = COLUMNS, rows = CHAPTERS, sortKey = "s") }
 
             host.querySelectorAll("thead th.srt").length shouldBe 1
             host.querySelectorAll("thead th.srt svg").length shouldBe 1
         }
 
         test("selection adds a checkbox column to header and rows") {
-            val host = mount { DataTable(columns = COLUMNS, rows = CHAPTERS, selectable = true) }
+            val host = mounts.mount { DataTable(columns = COLUMNS, rows = CHAPTERS, selectable = true) }
 
             host.querySelectorAll("thead th").length shouldBe COLUMNS.size + 1
             host.querySelectorAll("tbody tr td .cbx").length shouldBe CHAPTERS.size
@@ -104,7 +97,7 @@ class DataTableTest :
 
         test("a partial selection renders the indeterminate mark, not a tick") {
             val host =
-                mount {
+                mounts.mount {
                     DataTable(
                         columns = COLUMNS,
                         rows = CHAPTERS,
@@ -121,7 +114,7 @@ class DataTableTest :
 
         test("row actions render one button per action") {
             val host =
-                mount {
+                mounts.mount {
                     DataTable(
                         columns = COLUMNS,
                         rows = CHAPTERS,
@@ -135,7 +128,7 @@ class DataTableTest :
         test("clicking a row reports the row it was given") {
             var clicked: Chapter? = null
             val host =
-                mount {
+                mounts.mount {
                     DataTable(columns = COLUMNS, rows = CHAPTERS, onRowClick = { clicked = it })
                 }
 

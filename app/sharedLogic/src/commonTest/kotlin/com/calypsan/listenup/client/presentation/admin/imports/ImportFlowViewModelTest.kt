@@ -777,14 +777,7 @@ class ImportFlowViewModelTest :
             runTest(testDispatcher) {
                 val searchRepo =
                     FakeSearchRepository(
-                        results =
-                            listOf(
-                                SearchHit(
-                                    id = "book-1",
-                                    type = SearchHitType.BOOK,
-                                    name = "Something",
-                                ),
-                            ),
+                        results = listOf(SearchHit(id = "book-1", type = SearchHitType.BOOK, name = "Something")),
                     )
                 val repo =
                     FakeImportRepository(
@@ -1117,12 +1110,7 @@ private class FakeAdminRepository(
     override fun observeRoster(): Flow<List<AdminUserInfo>> = flowOf(emptyList())
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
-        AppResult.Success(
-            fakeAdminUser(
-                userId,
-                "stub@example.com",
-            ),
-        )
+        AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 
     override suspend fun denyUser(userId: String): AppResult<Unit> = AppResult.Success(Unit)
 
@@ -1175,10 +1163,7 @@ private class FakeAdminRepository(
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> =
         AppResult.Success(
-            ServerSettings(
-                serverName = "Test",
-                remoteUrl = null,
-            ),
+            ServerSettings(serverName = "Test", remoteUrl = null),
         )
 
     override suspend fun updateServerSettings(

@@ -14,12 +14,26 @@ import kotlinx.io.buffered
  * Decoding is incremental: each [readAtMostTo] decodes whole blocks into an internal buffer only as
  * far as the caller's request demands. Memory is the 32 KiB window plus one block's worth of
  * decoded-but-undelivered bytes; for well-formed `java.util.zip` output a block decodes to at most
- * a few hundred KB, but a crafted block's decoded size is not RFC-bounded. A truncated or otherwise
- * malformed stream raises [MalformedDeflateException].
+ * a few hundred KB, but a crafted block's decoded size is not RFC-bounded — which is what
+ * [maxOutputBytes] exists for. The ceiling is enforced **per produced byte**, in [emit], not per
+ * block: a single block can decode to any length, so a check that ran after it would already have
+ * buffered everything it wanted. It is unbounded by default. A truncated or otherwise malformed
+ * stream, or one that runs past its budget, raises [MalformedDeflateException].
  */
 public class InflateRawSource(
     source: RawSource,
+    /**
+     * Ceiling on total decompressed output, in bytes. A DEFLATE block's decoded size is not
+     * RFC-bounded, so a small compressed stream can declare an arbitrarily large expansion — the
+     * budget is what turns that into a decline instead of an allocation. [Long.MAX_VALUE] (the
+     * default) preserves the previous unbounded behaviour for callers that have their own bound.
+     */
+    private val maxOutputBytes: Long = Long.MAX_VALUE,
 ) : RawSource {
+    init {
+        require(maxOutputBytes >= 0) { "maxOutputBytes < 0: $maxOutputBytes" }
+    }
+
     private val bufferedSource = source.buffered()
     private val reader = BitReader(bufferedSource)
 
@@ -179,8 +193,15 @@ public class InflateRawSource(
         repeat(length) { emit(window[(windowPos - distance) and WINDOW_MASK]) }
     }
 
-    /** Appends [b] to the pending output and records it in the sliding window. */
+    /**
+     * Appends [b] to the pending output and records it in the sliding window — unless doing so would
+     * take total output past [maxOutputBytes], in which case the stream is declined right here, before
+     * the byte lands in [pending]. Per byte, because this is the only place a block's size is bounded.
+     */
     private fun emit(b: Byte) {
+        if (produced == maxOutputBytes) {
+            throw MalformedDeflateException("inflated output exceeded the $maxOutputBytes-byte budget")
+        }
         pending.writeByte(b)
         window[windowPos] = b
         windowPos = (windowPos + 1) and WINDOW_MASK
@@ -205,5 +226,8 @@ public class InflateRawSource(
     }
 }
 
-/** Wraps this raw-DEFLATE byte stream in an [InflateRawSource] that yields the decompressed bytes. */
-public fun RawSource.inflated(): RawSource = InflateRawSource(this)
+/**
+ * Wraps this raw-DEFLATE byte stream in an [InflateRawSource] that yields the decompressed bytes,
+ * declining past [maxOutputBytes] — see [InflateRawSource.maxOutputBytes]. Unbounded by default.
+ */
+public fun RawSource.inflated(maxOutputBytes: Long = Long.MAX_VALUE): RawSource = InflateRawSource(this, maxOutputBytes)

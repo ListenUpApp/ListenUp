@@ -17,6 +17,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
  */
 class NoLegacySyncReferencesRule :
     FunSpec({
+        // A ban rule: the population is the whole production file set, with no narrowing before the
+        // violation predicate. Its only vacuity failure mode is a collapsed scope, which
+        // KonsistScopeTest's scope-sanity case covers centrally.
         test("no production code references deleted legacy sync types") {
             // Banned outright in every production source set: the Ktor CLIENT SSE plugin —
             // the retired transport cannot return under a new class name.

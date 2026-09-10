@@ -48,6 +48,7 @@ import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.MeterSegment
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.licenses_count_suffix
 import listenup.composeapp.generated.resources.licenses_families_subtitle
 import listenup.composeapp.generated.resources.licenses_footer
@@ -347,7 +348,7 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = null,
+                    contentDescription = stringResource(Res.string.common_back),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
             }

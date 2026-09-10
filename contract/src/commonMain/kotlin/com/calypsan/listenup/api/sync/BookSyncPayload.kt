@@ -2,6 +2,7 @@ package com.calypsan.listenup.api.sync
 
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldProvenanceMapSerializer
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import kotlinx.serialization.SerialName
@@ -76,6 +77,7 @@ data class BookSyncPayload(
      * to empty for forward-compat. Chapters and covers carry their own provenance
      * ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not keyed here.
      */
+    @Serializable(with = FieldProvenanceMapSerializer::class)
     val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
     /** Server-scanned loudness-tag gain in dB; null when the file carries no gain tag. */
     @SerialName("normalizationGainDb") val normalizationGainDb: Float? = null,
@@ -216,7 +218,13 @@ data class BookChapterPayload(
 @Serializable
 @SerialName("CoverPayload")
 data class CoverPayload(
-    val source: CoverSource,
+    /**
+     * Where the bytes live on the server, or `null` when the server named a source this build does
+     * not know (an additive [CoverSource] member on a newer server). Clients render every source
+     * identically via the cover route, so a null source costs nothing but a diagnostic label — and
+     * [CoverSource] has no honest catch-all member to fall back to instead.
+     */
+    @SerialName("source") val source: CoverSource? = null,
     val hash: String,
 )
 

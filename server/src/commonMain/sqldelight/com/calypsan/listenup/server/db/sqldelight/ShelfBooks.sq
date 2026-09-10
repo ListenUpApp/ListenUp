@@ -82,6 +82,15 @@ SELECT * FROM shelf_books
 WHERE shelf_id = :shelf_id AND deleted_at IS NULL
 ORDER BY sort_order ASC;
 
+-- Live junction row COUNT per shelf, batched across many shelves in one round trip — same
+-- predicate as selectByShelf (deleted_at IS NULL), just COUNT(*) instead of materializing every
+-- row. Shelves with zero live rows are absent from the result (GROUP BY only emits rows that
+-- exist); callers default the missing shelves to 0.
+countLiveForShelves:
+SELECT shelf_id, COUNT(*) AS live_count FROM shelf_books
+WHERE shelf_id IN :shelf_ids AND deleted_at IS NULL
+GROUP BY shelf_id;
+
 -- Live junction row for a (shelf, book) pair, or none.
 selectLiveByShelfAndBook:
 SELECT * FROM shelf_books

@@ -85,7 +85,13 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// measurement persistence live in `PlayerCoordinator+Gain.swift`; only the stored state
     /// stays here, because Swift extensions cannot declare stored properties.
     var gain = GainState()
+    /// Bridged Kotlin chapters — read only by `ChapterMath` (via `refreshChapterIndex()` and the lock-screen
+    /// window in `remoteSeek`) and by `updateNowPlaying()` in `PlayerCoordinator+NowPlaying.swift`. Never
+    /// feed it to a `ForEach`/`List` (rule 8): Swift's file-scoped `private` can't enforce that across the
+    /// extension file, so the done-criterion grep (no view reads `.chapters`) plus review is the guard.
     private(set) var chapters: [Chapter] = []
+    /// The native projection every chapter surface renders from (rule 8) — see `ChapterRowModel`.
+    private(set) var chapterRows: [ChapterRowModel] = []
 
     // MARK: - Preserved UI surface — skip intervals (observed from Settings)
 
@@ -110,50 +116,15 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bookDurationMs > 0 ? Float(displayPositionMs) / Float(bookDurationMs) : 0
     }
 
-    // MARK: - Preserved UI surface — chapter (computed from chapters + position)
+    // MARK: - Preserved UI surface — chapter (memoized from chapters + position)
 
-    /// Chapter identity tracks the COARSE position: chapter transitions at 1 s
-    /// granularity are imperceptible, and this keeps chapter-derived reads
-    /// (title, "Chapter X of Y", duration) off the per-frame invalidation path.
-    var chapterIndex: Int { ChapterMath.index(forPositionMs: displayPositionMs, in: chapters) ?? 0 }
-    var totalChapters: Int { chapters.count }
-
-    var chapterTitle: String? {
-        guard !chapters.isEmpty else { return nil }
-        return chapters[chapterIndex].title
-    }
-
-    var chapterPositionMs: Int64 {
-        guard !chapters.isEmpty else { return 0 }
-        return max(0, bookPositionMs - chapters[chapterIndex].startTime)
-    }
-
-    var chapterDurationMs: Int64 {
-        guard !chapters.isEmpty else { return 0 }
-        return chapters[chapterIndex].duration
-    }
-
-    func chapterTitleForIndex(_ index: Int) -> String? {
-        guard index >= 0, index < chapters.count else { return nil }
-        return chapters[index].title
-    }
-
-    /// Chapter info for the seeking UI — rebuilt from the Swift-side chapter math.
-    var currentChapterInfoForSeeking: PlaybackManagerChapterInfo? {
-        guard !chapters.isEmpty else { return nil }
-        let index = chapterIndex
-        let chapter = chapters[index]
-        let endMs = chapter.startTime + chapter.duration
-        return PlaybackManagerChapterInfo(
-            index: Int32(index),
-            title: chapter.title,
-            startMs: chapter.startTime,
-            endMs: endMs,
-            remainingMs: max(0, endMs - bookPositionMs),
-            totalChapters: Int32(chapters.count),
-            isGenericTitle: false
-        )
-    }
+    /// Chapter identity tracks the COARSE position: chapter transitions at 1 s granularity are
+    /// imperceptible, and this keeps chapter-derived reads off the per-frame invalidation path.
+    /// Stored rather than computed: the linear `ChapterMath` index scan used to run once per
+    /// `ForEach` row per diff. Recomputed only where `positionTracker` or `chapters` is written —
+    /// see `refreshChapterIndex()`. The read surface built on it (`totalChapters`, `chapterTitle`,
+    /// `selectChapter`, …) lives in `PlayerCoordinator+Chapters.swift`.
+    private(set) var chapterIndex: Int = 0
 
     // MARK: - Preserved UI surface — sleep timer (observed from KMP)
 
@@ -433,12 +404,22 @@ final class PlayerCoordinator: RemoteCommandHandler {
         coverPath = nil
         coverHash = nil
         chapters = []
+        chapterRows = []
         gain.clearMeasurements()
         firstPdfDocId = nil
         documentToOpen = nil
         positionTracker.reset()
+        refreshChapterIndex()
         lastReportedPositionMs = 0
         lastSyncedChapterIndex = -1
+    }
+
+    /// Recompute the memoized chapter index from `chapters` and the tracker's coarse position. Called
+    /// wherever `positionTracker` or `chapters` is written. The tracker's display-link tick can still
+    /// move `displayPositionMs` between engine samples, so the index may trail a boundary by at most
+    /// one engine tick (~250 ms) — under the 1 s granularity the coarse position already accepts.
+    private func refreshChapterIndex() {
+        chapterIndex = ChapterMath.index(forPositionMs: displayPositionMs, in: chapters) ?? 0
     }
 
     /// Toggle between play and pause. In `.error`, retries the errored book so the user is
@@ -518,12 +499,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         seekTo(positionMs: max(bookPositionMs - Int64(interval) * 1000, 0))
     }
 
-    /// Jump to a chapter by index.
-    func selectChapter(index: Int) {
-        guard index >= 0, index < chapters.count else { return }
-        seekTo(positionMs: chapters[index].startTime)
-    }
-
     func setSleepTimer(minutes: Int) { sleep.setDurationTimer(minutes: minutes) }
     func setSleepTimerEndOfChapter() { sleep.setEndOfChapterTimer() }
     func cancelSleepTimer() { sleep.cancelTimer() }
@@ -551,14 +526,17 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await progress.savePositionNow(bookId: id, positionMs: bookPositionMs)
     }
 
-    /// Tear down all observation and release the engine. `async` so teardown is
-    /// deterministic: the audio session is deactivated and the engine released
-    /// *before* the call returns.
+    /// Unload the current book — the "Close book" and sign-out teardown. `async` so it is
+    /// deterministic: the audio session is deactivated and the engine unloaded *before* the call
+    /// returns. Deliberately NOT terminal: the coordinator is an app-lifetime singleton
+    /// (`Dependencies.playerCoordinator`), so it must stay able to play the next book. Its
+    /// subscriptions (sleep timer, skip intervals, interruptions, route changes) stay bound;
+    /// stale engine events are dropped by the `.idle` guard in `handleEngineEvent`.
     func stop() async {
         pausedByInterruption = false
         // Supersede any in-flight `prepareAndStart`: `Task.cancel()` alone does not interrupt its
         // non-cancellation-checking `await`s (prepare, engine.load), so without bumping the epoch a
-        // load that resolves after teardown would call `engine.play()` on the released engine and
+        // load that resolves after teardown would call `engine.play()` on the unloaded engine and
         // resurrect `.playing`. Bumping `loadGeneration` makes it bail at its next `!isSuperseded`.
         prepareTask?.cancel()
         loadGeneration &+= 1
@@ -567,10 +545,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // stop while `.buffering` would leave a streaming book "buffering" forever and pin
         // `shouldYield` true, suspending iOS downloads indefinitely.
         phase = .idle
-        bridge.cancelAll()
-        positionTracker.reset()
+        resetMetadataForSwitch()
         await engine.deactivateSession()
-        await engine.release()
+        await engine.unload()
     }
 
     // MARK: - RemoteCommandHandler
@@ -615,10 +592,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
         coverPath = prepared.coverPath
         coverHash = prepared.coverHash
         chapters = prepared.chapters
+        // The single boundary crossing per book load: bridge each Kotlin `Chapter` once into the
+        // native row the list surfaces render from (rule 8).
+        chapterRows = prepared.chapters.map {
+            ChapterRowModel(id: $0.id, title: $0.title, startMs: $0.startTime, durationMs: $0.duration)
+        }
         playbackSpeed = prepared.resumeSpeed
         // RC-2: seed the tracker with the resume position (paused) so the UI shows the right
         // chapter/time immediately — before the engine's first real sample lands.
         positionTracker.update(positionMs: prepared.resumePositionMs, rate: 0)
+        refreshChapterIndex()
         lastReportedPositionMs = prepared.resumePositionMs
 
         let segments = AudioSegment.resolve(prepared.timeline.files)
@@ -691,6 +674,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // event. Gated on the flag, not the `.preparing` phase, so the honest `.buffering(duration)`
         // state can be shown *during* the load while these events stay suppressed.
         if isEngineLoading { return }
+        // Nothing is loaded — a late event belongs to the book we just unloaded. Drop it. Without
+        // this, `.failed` would raise a phantom error bar over an empty player after "Close book".
+        if case .idle = phase { return }
         switch event {
         case .position(let ms, let rate):
             // Only a loaded book has a place to report to (guards `.idle`/`.error` too).
@@ -703,6 +689,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 updateNowPlaying()
             }
             positionTracker.update(positionMs: ms, rate: rate)
+            refreshChapterIndex()
             reportPositionIfNeeded(ms)
             if chapterIndex != lastSyncedChapterIndex {
                 lastSyncedChapterIndex = chapterIndex

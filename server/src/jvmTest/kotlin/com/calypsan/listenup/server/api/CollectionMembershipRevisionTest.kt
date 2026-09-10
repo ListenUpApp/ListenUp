@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -86,6 +87,7 @@ class CollectionMembershipRevisionTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
+                bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
                 permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
                 sql = db.sql,
@@ -112,6 +114,7 @@ class CollectionMembershipRevisionTest :
                     val owner = service.actAs("u1")
                     val created = owner.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
+                    db.makeBooksVisibleTo("u1", "b1")
 
                     owner.addBookToCollection(created.data.id, BookId("b1")).let {
                         require(it is AppResult.Success)
@@ -134,6 +137,7 @@ class CollectionMembershipRevisionTest :
                     val owner = service.actAs("u1")
                     val created = owner.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
+                    db.makeBooksVisibleTo("u1", "b1")
                     owner.addBookToCollection(created.data.id, BookId("b1")).let {
                         require(it is AppResult.Success)
                     }
@@ -246,6 +250,7 @@ class CollectionMembershipRevisionTest :
                     val owner = service.actAs("u1")
                     val created = owner.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
+                    db.makeBooksVisibleTo("u1", "b1", "b2", "b3")
                     listOf("b1", "b2", "b3").forEach { bookId ->
                         owner.addBookToCollection(created.data.id, BookId(bookId)).let {
                             require(it is AppResult.Success)

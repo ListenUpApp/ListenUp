@@ -28,6 +28,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
+import com.calypsan.listenup.server.api.MAX_PUSH_TOKEN_LENGTH
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -42,6 +43,7 @@ import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.notifications.NotificationAudience
+import com.calypsan.listenup.server.push.isValidPushToken
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -320,6 +322,7 @@ class AuthServiceImpl(
     }
 
     override suspend fun setupRoot(request: RegisterRequest): AppResult<AuthSession> {
+        enforceRate(AuthRateBucket.SETUP)?.let { return AppResult.Failure(it) }
         if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val empty =
@@ -492,10 +495,13 @@ class AuthServiceImpl(
 
     /**
      * Pre-auth watch-token registration (#1068). Deliberately oracle-free: push disabled, an
-     * unknown [userId], or a registration that is no longer pending all return the same
-     * [AppResult.Success] as the stored case — the reply reveals nothing about account
+     * invalid token, an unknown [userId], or a registration that is no longer pending all return
+     * the same [AppResult.Success] as the stored case — the reply reveals nothing about account
      * existence or state. The trust model matches [observeRegistrationStatus]: possession of
-     * the unguessable [userId] handle.
+     * the unguessable [userId] handle. [token] is validated with the same shape
+     * [isValidPushToken] check as the authenticated path (SEC-05) — the relay rejects an entire
+     * send batch when any token in it is oversized, so an invalid token must never reach the
+     * store.
      */
     override suspend fun registerRegistrationWatchToken(
         userId: String,
@@ -503,8 +509,14 @@ class AuthServiceImpl(
         platform: com.calypsan.listenup.api.push.PushPlatform,
     ): AppResult<Unit> {
         enforceRate(AuthRateBucket.REGISTER_WATCH_TOKEN)?.let { return AppResult.Failure(it) }
+        // Same ceiling PushService applies to an authenticated registration: past this a value
+        // is not a device token. This path is pre-auth, so the bound matters more, not less — and
+        // it answers Success, not a failure: the method is deliberately oracle-free (see KDoc), and
+        // a distinguishable rejection would break that property.
+        if (token.isBlank() || token.length > MAX_PUSH_TOKEN_LENGTH) return AppResult.Success(Unit)
         val store = pushWatchTokens ?: return AppResult.Success(Unit)
         if (!settings.pushNotificationsEnabled()) return AppResult.Success(Unit)
+        if (!isValidPushToken(token)) return AppResult.Success(Unit)
         val pending =
             suspendTransaction(db) {
                 db.usersQueries.selectById(userId).executeAsOneOrNull()
@@ -528,9 +540,18 @@ class AuthServiceImpl(
         return passwordResetService.request(email, deviceClaim)
     }
 
-    /** Delegates to [PasswordResetService.observeStatus]. */
+    /** Delegates to [PasswordResetService.observeStatus], behind the same per-IP subscription throttle. */
     override fun observePasswordResetStatus(ticketId: String): Flow<RpcEvent<PasswordResetStatusEvent>> =
-        passwordResetService.observeStatus(ticketId).map { RpcEvent.Data(it) }
+        flow {
+            // Same C3-style per-IP throttle as observeRegistrationStatus/Policy: each open
+            // subscription holds a poll loop that never completes while the ticket is pending, so
+            // an unbounded stream of subscribe attempts is a resource-exhaustion vector of its own.
+            enforceRate(AuthRateBucket.OBSERVE_PASSWORD_RESET_STATUS)?.let {
+                emit(RpcEvent.Error(it))
+                return@flow
+            }
+            emitAll(passwordResetService.observeStatus(ticketId).map { RpcEvent.Data(it) })
+        }
 
     /** Delegates to [PasswordResetService.complete]. */
     override suspend fun completePasswordReset(

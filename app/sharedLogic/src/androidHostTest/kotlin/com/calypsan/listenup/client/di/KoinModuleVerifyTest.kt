@@ -54,9 +54,9 @@ class KoinModuleVerifyTest :
         // Verify voiceModule — the voice intent resolver and its four repository dependencies.
         //
         // Narrow module; the extraTypes list is correspondingly small. Part of the
-        // "every leaf module is verified" expansion. PresentationModule
-        // verification is deferred until the DI layout is rewritten, which
-        // would immediately invalidate any extraTypes enumerated today.
+        // "every leaf module is verified" expansion. All 13 presentation modules now carry
+        // their own leaf verify test under jvmTest/.../client/di/; this file keeps only the
+        // Android-platform modules, which cannot be constructed on the JVM lane.
         test("verifyVoiceModule") {
             voiceModule.verify(
                 extraTypes =
@@ -120,9 +120,11 @@ class KoinModuleVerifyTest :
         }
 
         // Verify [androidDownloadModule] — wires DownloadFileManager, DownloadManager (bound
-        // to DownloadService), and AndroidDownloadEnqueuer (bound to DownloadEnqueuer).
+        // to DownloadService), DownloadConstraintObserver (createdAtStart, watches the Wi-Fi-only
+        // preference), and AndroidDownloadEnqueuer (bound to DownloadEnqueuer).
         // WorkManager is constructed inline via WorkManager.getInstance(get<Context>()) — it is
-        // not a get() target itself, but Context is.
+        // not a get() target itself, but Context is. CoroutineScope is the app scope, declared in
+        // appCoreModule, which this verification does not load.
         test("verifyAndroidDownloadModule") {
             androidDownloadModule.verify(
                 extraTypes =
@@ -136,6 +138,7 @@ class KoinModuleVerifyTest :
                         DownloadRepository::class,
                         TransactionRunner::class,
                         ErrorBus::class,
+                        CoroutineScope::class,
                     ),
             )
         }

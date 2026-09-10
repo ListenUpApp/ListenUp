@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import com.calypsan.listenup.core.BookId
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
@@ -333,7 +334,7 @@ private class ThrowOnceBookReadershipDao(
     ) {
         if (!thrown) {
             thrown = true
-            throw IllegalStateException("simulated storage failure")
+            throw SimulatedFailure("simulated storage failure")
         }
         delegate.replaceForBook(bookId, rows)
     }

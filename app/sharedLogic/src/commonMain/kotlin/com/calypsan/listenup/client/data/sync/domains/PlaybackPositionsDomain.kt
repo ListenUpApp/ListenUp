@@ -46,9 +46,19 @@ internal fun playbackPositionsDomain(database: ListenUpDatabase): MirroredDomain
     )
 
 /**
- * Room mapping for position payloads. Local-only columns (`hasCustomSpeed`,
- * `hasCustomBoost`, `syncedAt`, `finishedAt`, `startedAt`) are copied from the
- * existing row so a sync event never nulls client-only data.
+ * Room mapping for position payloads.
+ *
+ * `syncedAt` and `startedAt` stay genuinely client-local — they are copied from the existing row,
+ * so a sync event never nulls them.
+ *
+ * `hasCustomSpeed` and `hasCustomBoost` are authoritative from the payload: they are synced
+ * fields, and a listener who resets a book to the account default sends `false` deliberately.
+ * Preserving the local value would make that reset unable to cross devices.
+ *
+ * `finishedAt` and `measuredGainDb` are *null-preserving* rather than verbatim: a null means
+ * "this device doesn't know", not "erase it", so an echo from a device that never finished the
+ * book — or never measured its loudness — cannot wipe what another device recorded. This mirrors
+ * the server's own COALESCE on both columns (`PlaybackPositions.sq` `update`).
  */
 internal class PlaybackPositionMirrorApply(
     private val database: ListenUpDatabase,
@@ -63,15 +73,18 @@ internal class PlaybackPositionMirrorApply(
                 bookId = BookId(payload.bookId),
                 positionMs = payload.positionMs,
                 playbackSpeed = payload.playbackSpeed,
-                hasCustomSpeed = existing?.hasCustomSpeed ?: false,
+                hasCustomSpeed = payload.hasCustomSpeed,
                 volumeBoostDb = payload.volumeBoostDb,
-                hasCustomBoost = existing?.hasCustomBoost ?: false,
-                measuredGainDb = payload.measuredGainDb,
+                hasCustomBoost = payload.hasCustomBoost,
+                // A null in the payload means "this device never measured", not "erase the
+                // measurement". Mirrors the server's own COALESCE on `measured_gain_db`
+                // (PlaybackPositions.sq `update`).
+                measuredGainDb = payload.measuredGainDb ?: existing?.measuredGainDb,
                 updatedAt = payload.updatedAt,
                 syncedAt = existing?.syncedAt,
                 lastPlayedAt = payload.lastPlayedAt,
                 isFinished = payload.finished,
-                finishedAt = existing?.finishedAt,
+                finishedAt = payload.finishedAt ?: existing?.finishedAt,
                 startedAt = existing?.startedAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,

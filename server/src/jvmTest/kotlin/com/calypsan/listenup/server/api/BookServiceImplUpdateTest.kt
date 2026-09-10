@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.SqlTestDatabases
@@ -121,6 +122,8 @@ class BookServiceImplUpdateTest :
                 val (service, repo) = bookServiceFor(db, "m2", UserRole.MEMBER)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    // canEdit is only half the gate: the member must also be able to see the book.
+                    db.makeBooksVisibleTo("m2", "b1")
 
                     service
                         .updateBook(BookId("b1"), BookUpdate(title = "Words of Radiance"))

@@ -1,50 +1,33 @@
 package com.calypsan.listenup.server.metadata
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.writeBytesAtomically
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsBytes
 import kotlinx.io.files.Path
 
 /**
- * Downloads an image from an external URL to a local path. Writes to a sibling
- * temp file first, then atomic-renames into place — readers never see a
- * half-written file. The destination directory must already exist.
+ * Fetches images from external URLs and writes them to local paths.
  *
- * Returns the raw bytes so the caller can reuse them without re-reading from
- * disk. The temp file is always cleaned up on failure.
+ * Every fetch goes through [BoundedImageFetch], which owns the whole untrusted-URL policy: the
+ * destination check, per-hop redirect re-validation, the declared-type check, and the streaming
+ * byte ceiling. This class adds only the disk half — an atomic write, so readers never see a
+ * half-written file and a failed write leaves no temp behind.
  */
 class ImageStorage(
-    private val httpClient: HttpClient,
+    httpClient: HttpClient,
+    maxBytes: Long = DEFAULT_MAX_DOWNLOAD_BYTES,
 ) {
-    /**
-     * Fetches [url] and returns the raw bytes without writing to disk.
-     *
-     * Used by [com.calypsan.listenup.server.api.BookMetadataApplier] to feed
-     * enriched-cover bytes through [com.calypsan.listenup.server.cover.CoverImageStore],
-     * which handles validation, placement, and the managed-path record.
-     *
-     * @throws Exception on network failure
-     */
-    suspend fun downloadBytes(url: String): ByteArray = httpClient.get(url).bodyAsBytes()
+    private val boundedFetch = BoundedImageFetch(httpClient = httpClient, maxBytes = maxBytes)
 
     /**
-     * Downloads [url] and writes the bytes to [destination].
+     * Fetches [url] and returns the raw bytes without writing to disk, or a typed failure when the
+     * URL, a redirect hop, the declared content type, or the response size fails the policy.
      *
-     * @param url the remote image URL
-     * @param destination absolute [Path] to the target file
-     * @return the image bytes
-     * @throws Exception on download or filesystem failure (after deleting the
-     *   temp file if one was created)
+     * The bytes are still *unvalidated image data* at this point — the magic-number sniff belongs
+     * to [com.calypsan.listenup.server.media.ImageStore], which every caller routes them through
+     * before anything reaches the filesystem.
      */
-    suspend fun download(
-        url: String,
-        destination: Path,
-    ): ByteArray {
-        val bytes = httpClient.get(url).bodyAsBytes()
-        writeBytes(bytes, destination)
-        return bytes
-    }
+    suspend fun downloadBytes(url: String): AppResult<ByteArray> = boundedFetch.fetch(url)
 
     /**
      * Writes [bytes] to [destination] via a sibling temp file + atomic rename — readers never see a
@@ -54,4 +37,12 @@ class ImageStorage(
         bytes: ByteArray,
         destination: Path,
     ) = destination.writeBytesAtomically(bytes)
+
+    companion object {
+        /**
+         * The ceiling this storage applies to a download. The value is [BoundedImageFetch]'s —
+         * kept under this name because it is the one callers and specs already reach for.
+         */
+        const val DEFAULT_MAX_DOWNLOAD_BYTES: Long = BoundedImageFetch.DEFAULT_MAX_IMAGE_BYTES
+    }
 }

@@ -10,6 +10,8 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.server.absimport.AbsSchema
 import com.calypsan.listenup.server.absimport.ImportPaths
+import com.calypsan.listenup.server.compression.MalformedDeflateException
+import com.calypsan.listenup.server.compression.zip.ZipEntryInfo
 import com.calypsan.listenup.server.compression.zip.ZipReader
 import com.calypsan.listenup.server.io.createTempFileIn
 import com.calypsan.listenup.server.io.deleteRecursively
@@ -45,6 +47,15 @@ import kotlin.uuid.Uuid
  * is 50 MiB (52_428_800 bytes), which rejected real backups before they could be streamed.
  */
 private const val MAX_BACKUP_UPLOAD_BYTES: Long = 5L * 1024 * 1024 * 1024 // 5 GiB
+
+/**
+ * Ceiling on the decompressed Audiobookshelf database. The extraction streams to a temp file, so
+ * the bound is disk, not heap — but an unbounded stream fills the data volume, which takes the
+ * server down for every user. Whole ABS backups run to hundreds of MB for large libraries (see
+ * [MAX_BACKUP_UPLOAD_BYTES]) and the database is only part of one, so 2 GiB is headroom over
+ * anything real rather than a fitted number.
+ */
+private const val MAX_ABS_DB_BYTES: Long = 2L * 1024 * 1024 * 1024 // 2 GiB
 
 /**
  * REST route for binary Audiobookshelf-backup upload (staging only).
@@ -119,6 +130,9 @@ private suspend fun ApplicationCall.handleImportUpload(
         } catch (e: AbsDatabaseMissingException) {
             deleteRecursively(importDir)
             respondAppError(ImportError.UploadFailed(debugInfo = e.message))
+        } catch (e: AbsDatabaseUnextractableException) {
+            deleteRecursively(importDir)
+            respondAppError(ImportError.UploadFailed(debugInfo = e.message))
         } catch (e: CancellationException) {
             deleteRecursively(importDir)
             throw e
@@ -136,9 +150,19 @@ private class AbsDatabaseMissingException :
     Exception("The uploaded file is not an Audiobookshelf backup (no ${AbsSchema.DB_FILENAME}).")
 
 /**
+ * Signals that the `absdatabase.sqlite` entry could not be extracted within [MAX_ABS_DB_BYTES]: it
+ * declares more, inflates to more, or its stream is corrupt — [detail] says which.
+ */
+private class AbsDatabaseUnextractableException(
+    detail: String,
+    cause: Throwable? = null,
+) : Exception("The Audiobookshelf database in the uploaded file could not be extracted: $detail", cause)
+
+/**
  * Extracts exactly the `absdatabase.sqlite` entry from [zip] to [dest]. Zip-slip-safe: only the
  * entry whose leaf name matches [AbsSchema.DB_FILENAME] is written, and only to [dest], which is
- * asserted to live under [importDir]. Throws [AbsDatabaseMissingException] when no entry matches.
+ * asserted to live under [importDir]. Throws [AbsDatabaseMissingException] when no entry matches
+ * and [AbsDatabaseUnextractableException] when the entry cannot be written within [MAX_ABS_DB_BYTES].
  */
 private fun extractAbsDatabase(
     zip: Path,
@@ -158,13 +182,37 @@ private fun extractAbsDatabase(
             if (entry == null) {
                 false
             } else {
-                reader.openEntry(entry).use { source ->
-                    SystemFileSystem.sink(dest).buffered().use { it.transferFrom(source) }
-                }
+                extractWithinBudget(reader, entry, dest)
                 true
             }
         }
     if (!extracted) throw AbsDatabaseMissingException()
+}
+
+/**
+ * Streams [entry] to [dest] within [MAX_ABS_DB_BYTES].
+ *
+ * The directory's declared sizes are a cheap early decline, never the bound — the archive wrote
+ * them about itself. The inflate budget is what holds when they lie. `compressedSize` counts too: a
+ * STORED entry streams exactly that many bytes whatever it declares, and the reader has already
+ * pinned it to the file length.
+ */
+private fun extractWithinBudget(
+    reader: ZipReader,
+    entry: ZipEntryInfo,
+    dest: Path,
+) {
+    val declared = maxOf(entry.uncompressedSize, entry.compressedSize)
+    if (declared > MAX_ABS_DB_BYTES) {
+        throw AbsDatabaseUnextractableException("it declares $declared bytes, over the $MAX_ABS_DB_BYTES-byte limit")
+    }
+    try {
+        reader.openEntry(entry, maxOutputBytes = MAX_ABS_DB_BYTES).use { source ->
+            SystemFileSystem.sink(dest).buffered().use { it.transferFrom(source) }
+        }
+    } catch (e: MalformedDeflateException) {
+        throw AbsDatabaseUnextractableException(e.message ?: "its stream is corrupt", e)
+    }
 }
 
 /** The final path segment of a zip entry name (slash- or backslash-separated). */

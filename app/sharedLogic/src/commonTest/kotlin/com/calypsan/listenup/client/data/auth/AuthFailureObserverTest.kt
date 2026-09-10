@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.test.SimulatedFailure
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
@@ -171,7 +172,7 @@ class AuthFailureObserverTest :
                             authState = AuthState.Authenticated(UserId("u1"), SessionId("session")),
                             onClearSessionCredentials = {
                                 clearCalls++
-                                if (clearCalls == 1) throw IllegalStateException("Keychain locked on first attempt")
+                                if (clearCalls == 1) throw SimulatedFailure("Keychain locked on first attempt")
                             },
                         )
 

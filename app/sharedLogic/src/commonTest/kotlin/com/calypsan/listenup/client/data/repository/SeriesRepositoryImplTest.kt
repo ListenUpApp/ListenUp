@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.test.SimulatedFailure
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -329,7 +330,7 @@ class SeriesRepositoryImplTest :
                 everySuspend { service.getSeries(any()) } returns AppResult.Success(payload)
                 val handler = mock<SyncDomainHandler<SeriesSyncPayload>>()
                 everySuspend { handler.onCatchUpItem(any(), any()) } calls {
-                    throw IllegalStateException("Room write blew up")
+                    throw SimulatedFailure("Room write blew up")
                 }
 
                 val dao = createMockDao()

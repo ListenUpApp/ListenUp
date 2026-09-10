@@ -86,10 +86,14 @@ class UpdateBookUseCaseTest :
             everySuspend { fixture.moodRepository.addMoodToBook(any(), any()) } returns AppResult.Success(TestData.mood())
             everySuspend { fixture.moodRepository.removeMoodFromBook(any(), any()) } returns AppResult.Success(Unit)
             everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns AppResult.Success(Unit)
-            everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns
-                AppResult.Success(
-                    "https://example.com/cover.jpg",
+            everySuspend {
+                fixture.imageRepository.uploadBookCover(
+                    any(),
+                    any(),
+                    any(),
                 )
+            } returns
+                AppResult.Success("https://example.com/cover.jpg")
 
             return fixture
         }

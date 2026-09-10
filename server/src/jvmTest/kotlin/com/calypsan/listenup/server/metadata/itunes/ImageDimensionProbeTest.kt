@@ -1,7 +1,15 @@
 package com.calypsan.listenup.server.metadata.itunes
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 
 class ImageDimensionProbeTest :
     FunSpec({
@@ -63,4 +71,44 @@ class ImageDimensionProbeTest :
             parseImageDimensions(byteArrayOf(0x00, 0x01, 0x02)) shouldBe null
             parseImageDimensions(ByteArray(0)) shouldBe null
         }
+
+        test("a probe of a URL the policy rejects makes no request at all") {
+            var requests = 0
+            val probe =
+                ImageDimensionProbe(
+                    HttpClient(
+                        MockEngine {
+                            requests++
+                            respond(pngHeader, HttpStatusCode.OK)
+                        },
+                    ),
+                )
+
+            probe.probe("http://cdn.example.com/cover.png") shouldBe null
+            requests shouldBe 0
+        }
+
+        test("a probe still reads dimensions when the remote ignores the Range hint") {
+            // The remote answers with far more than the probe asked for. Behaviour must be
+            // unchanged — the header still parses — while the read stays bounded by the seam.
+            var rangeHeader: String? = null
+            val probe =
+                ImageDimensionProbe(
+                    HttpClient(
+                        MockEngine { request ->
+                            rangeHeader = request.headers[HttpHeaders.Range]
+                            respond(
+                                content = pngHeader + ByteArray(OVERSIZED_TAIL_BYTES),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, ContentType.Image.PNG.toString()),
+                            )
+                        },
+                    ),
+                )
+
+            probe.probe("https://cdn.example.com/cover.png") shouldBe (800 to 600)
+            rangeHeader.shouldNotBeNull()
+        }
     })
+
+private const val OVERSIZED_TAIL_BYTES = 200_000

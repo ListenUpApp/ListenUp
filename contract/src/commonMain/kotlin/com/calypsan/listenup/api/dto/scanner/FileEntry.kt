@@ -22,7 +22,11 @@ data class FileEntry(
     val size: Long,
     val mtimeMs: Long,
     val inode: Long? = null,
-    val fileType: FileType,
+    /**
+     * Extension-derived classification. Defaults to [FileType.UNKNOWN] so a type this build does not
+     * know (an additive member on a newer server) is carried for diagnostics rather than throwing.
+     */
+    val fileType: FileType = FileType.UNKNOWN,
 )
 
 /**

@@ -21,10 +21,7 @@ class EmbeddedScanCountersWireRoundTripTest :
             val decoded =
                 json.decodeFromString(
                     UnsupportedFormatCount.serializer(),
-                    json.encodeToString(
-                        UnsupportedFormatCount.serializer(),
-                        count,
-                    ),
+                    json.encodeToString(UnsupportedFormatCount.serializer(), count),
                 )
             decoded shouldBe count
         }
@@ -34,10 +31,7 @@ class EmbeddedScanCountersWireRoundTripTest :
             val decoded =
                 json.decodeFromString(
                     EmbeddedScanCounters.serializer(),
-                    json.encodeToString(
-                        EmbeddedScanCounters.serializer(),
-                        counters,
-                    ),
+                    json.encodeToString(EmbeddedScanCounters.serializer(), counters),
                 )
             decoded shouldBe counters
         }
@@ -60,10 +54,7 @@ class EmbeddedScanCountersWireRoundTripTest :
             val decoded =
                 json.decodeFromString(
                     EmbeddedScanCounters.serializer(),
-                    json.encodeToString(
-                        EmbeddedScanCounters.serializer(),
-                        counters,
-                    ),
+                    json.encodeToString(EmbeddedScanCounters.serializer(), counters),
                 )
             decoded shouldBe counters
         }
@@ -94,10 +85,7 @@ class EmbeddedScanCountersWireRoundTripTest :
             val decoded =
                 json.decodeFromString(
                     ScanResultSummary.serializer(),
-                    json.encodeToString(
-                        ScanResultSummary.serializer(),
-                        summary,
-                    ),
+                    json.encodeToString(ScanResultSummary.serializer(), summary),
                 )
             decoded shouldBe summary
         }

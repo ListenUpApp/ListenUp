@@ -1,9 +1,11 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
+import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
@@ -44,6 +46,8 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import kotlin.time.Clock
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.io.files.Path
@@ -52,6 +56,9 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
+
+private const val METADATA_REQUEST_TIMEOUT_MS = 10_000L
+private const val METADATA_CONNECT_TIMEOUT_MS = 5_000L
 
 /**
  * Koin module for the metadata enrichment slice. Wires:
@@ -93,18 +100,7 @@ private val metadataModuleLogger = loggerFor<EnrichmentRoutes>()
 
 fun metadataModule(imageHome: Path): Module =
     module {
-        single(named(METADATA_HTTP_CLIENT)) {
-            metadataHttpClient {
-                install(ContentNegotiation) {
-                    json(
-                        Json {
-                            ignoreUnknownKeys = true
-                            isLenient = true
-                        },
-                    )
-                }
-            }
-        }
+        single(named(METADATA_HTTP_CLIENT)) { metadataHttpClient { installMetadataClientDefaults() } }
 
         single { AudibleRateLimiter() }
 
@@ -198,6 +194,10 @@ fun metadataModule(imageHome: Path): Module =
 
         metadataEnrichmentBindings()
 
+        // Per-user throttle in front of the process-wide, *blocking* provider limiters above, so one
+        // member's lookup burst cannot queue ahead of everyone else's metadata work.
+        single { MetadataRateLimiter(clock = get()) }
+
         single<MetadataLookupService> {
             MetadataLookupServiceImpl(
                 metadataService = get(),
@@ -214,6 +214,7 @@ fun metadataModule(imageHome: Path): Module =
                     ),
                 enrichmentDeps = get<MetadataEnrichmentDeps>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
+                bookAccessPolicy = get<BookAccessPolicy>(),
                 sqlDb = get<ListenUpDatabase>(),
                 genreRepository = get<GenreRepository>(),
                 probeDimensions = { url -> get<ImageDimensionProbe>().probe(url) },
@@ -221,6 +222,7 @@ fun metadataModule(imageHome: Path): Module =
                     PrincipalProvider {
                         error("Unscoped MetadataLookupService — call copyWith(PrincipalProvider) at the route")
                     },
+                rateLimiter = get<MetadataRateLimiter>(),
             )
         }
 
@@ -228,17 +230,54 @@ fun metadataModule(imageHome: Path): Module =
     }
 
 /**
+ * The configuration every outbound metadata request runs under: lenient JSON, and a bounded time
+ * budget so a hung or slow-drip remote can't pin a coroutine — and its provider rate-limiter slot —
+ * indefinitely. Mirrors the relay client in `PushModule`.
+ *
+ * **This is Tier 1, and it must stay Tier 1.** Transport bounds only: a connect timeout and a
+ * request timeout, nothing else. Redirects stay followed and no host policy is applied here,
+ * because three shipped behaviours depend on exactly that:
+ *
+ *  1. Audnexus is open-source and self-hostable, and its base URL is an operator override
+ *     (`LISTENUP_AUDNEXUS_URL`) — an operator's own mirror is very likely on a private LAN address.
+ *  2. Operator-declared custom providers are documented as endpoints the operator fronts with a
+ *     network ACL, i.e. internal hosts.
+ *  3. [com.calypsan.listenup.server.metadata.audible.AudibleClient] detects a storefront
+ *     geo-redirect by inspecting the *final* request host, which needs redirects followed.
+ *
+ * A host allowlist or a redirect ban added here would fail all three closed, and the failure would
+ * surface to operators only as "metadata unavailable". Untrusted, provider-*returned* image URLs
+ * are Tier 2 and go through [com.calypsan.listenup.server.metadata.BoundedImageFetch] instead,
+ * which layers the host policy, per-hop redirect re-validation, and a byte ceiling on top of this.
+ */
+internal fun HttpClientConfig<*>.installMetadataClientDefaults() {
+    install(ContentNegotiation) {
+        json(
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            },
+        )
+    }
+    install(HttpTimeout) {
+        requestTimeoutMillis = METADATA_REQUEST_TIMEOUT_MS
+        connectTimeoutMillis = METADATA_CONNECT_TIMEOUT_MS
+    }
+}
+
+/**
  * Scheduled-maintenance bindings for the metadata slice — the metadata-cache TTL sweep and the
  * orphan-image reaper. Split out of [metadataModule] to keep that module body under the length
  * budget.
  */
 private fun Module.metadataCleanupBindings(imageHome: Path) {
-    single { MetadataCacheCleanupTask(cache = get()) }
+    single { MetadataCacheCleanupTask(cache = get(), settings = get()) }
     single {
         OrphanImageCleanupTask(
             contributorRepository = get(),
             seriesRepository = get(),
             imageHome = imageHome,
+            settings = get(),
         )
     }
 }

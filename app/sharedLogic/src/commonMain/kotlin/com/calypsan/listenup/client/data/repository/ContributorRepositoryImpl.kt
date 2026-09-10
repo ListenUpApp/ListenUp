@@ -12,7 +12,6 @@ import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.api.ContributorService
-import com.calypsan.listenup.api.dto.ContributorHit
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
@@ -288,13 +287,6 @@ private fun ContributorEntity.toSearchResult(): ContributorSearchResult =
         id = id.value,
         name = name,
         bookCount = 0, // Not available in offline mode
-    )
-
-private fun ContributorHit.toDomain(): ContributorSearchResult =
-    ContributorSearchResult(
-        id = id.value,
-        name = name,
-        bookCount = bookCount,
     )
 
 // ========== Domain to Entity Mappers ==========

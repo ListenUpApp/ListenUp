@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -253,7 +254,7 @@ class DiscoverViewModelTest :
                 // Given - observeActiveSessions throws on collection
                 val fixture = createFixture()
                 every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
-                    flow { throw IllegalStateException("boom") }
+                    flow { throw SimulatedFailure("boom") }
 
                 // When
                 val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
@@ -306,7 +307,7 @@ class DiscoverViewModelTest :
                 // Given
                 val fixture = createFixture()
                 every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
-                    flow { throw IllegalStateException("boom") }
+                    flow { throw SimulatedFailure("boom") }
 
                 // When
                 val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }

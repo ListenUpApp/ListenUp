@@ -14,40 +14,11 @@ plugins {
 
 kotlin {
     js {
-        // Emit ES modules rather than the webpack-oriented UMD/CommonJS bundle. This is the
-        // hinge of the toolchain decoupling: KGP stops owning the bundler and simply hands a
-        // standard ESM artifact to the Vite project in `web/`, which owns dev server, build
-        // and tests from there. Note useEsModules() and webpack do not coexist
-        // (JetBrains/compose-multiplatform#3724) — that is intended, webpack is what we are
-        // removing.
+        // Emit ES modules rather than a UMD/CommonJS bundle. This is the hinge of the toolchain
+        // decoupling: KGP stops owning the bundler and simply hands a standard ESM artifact to
+        // the Vite project in `web/`, which owns dev server, build and tests from there.
         useEsModules()
-        browser {
-            testTask {
-                // karma-chrome-launcher resolves the browser binary from CHROME_BIN, and its
-                // own auto-detect searches only for google-chrome/google-chrome-stable on
-                // Linux — never chromium. So honour whatever the environment already provides
-                // (CI images export it themselves, e.g. browser-actions/setup-chrome) and
-                // otherwise fall back to a Chromium binary, which is what many Linux dev boxes
-                // and slim CI images ship instead of Chrome.
-                //
-                // Deliberately NOT useChromiumHeadless(): that DSL reads CHROMIUM_BIN and never
-                // CHROME_BIN, so it would look simpler and silently break CI, where Chrome is
-                // installed and CHROME_BIN is the variable that gets set.
-                //
-                // If the lane fails locally with a browser-not-found error on a distro that
-                // packages chromium elsewhere (Flatpak, Nix, Snap), export CHROME_BIN yourself.
-                val chromeBin =
-                    System.getenv("CHROME_BIN")
-                        ?: listOf("/usr/bin/chromium", "/usr/bin/chromium-browser")
-                            .firstOrNull { file(it).exists() }
-                if (chromeBin != null) {
-                    environment("CHROME_BIN", chromeBin)
-                }
-                useKarma {
-                    useChromeHeadless()
-                }
-            }
-        }
+        browser()
         binaries.executable()
     }
 
@@ -65,23 +36,16 @@ kotlin {
             // their enum constants (Admin's registration policy) needs the serialization runtime on
             // this module's own compile classpath — the generated companion's supertype lives there.
             implementation(libs.kotlinx.serialization.json)
-            // The sqlite-web driver ships NO worker script — it only speaks a documented
-            // message protocol (see WebWorkerSQLiteDriver's KDoc). The worker is a local npm
-            // module we supply (webApp/worker), wrapping @sqlite.org/sqlite-wasm; webpack
-            // resolves `new URL("sqlite-wasm-worker/worker.js", import.meta.url)` into a
-            // separate worker chunk. Pattern from danysantiago/room-web-demo.
-            implementation(npm("sqlite-wasm-worker", layout.projectDirectory.dir("worker").asFile))
-            // hls.js is declared TWICE on purpose — here and in web/package.json — because the two
-            // browser lanes resolve bare specifiers through different node_modules: KGP's yarn tree
-            // feeds webpack/karma, web/node_modules feeds Vite. Drop either and that lane dies with
-            // "Can't resolve 'hls.js'". The version is pinned exactly rather than caret-ranged so
-            // the two trees cannot drift onto different builds of the decoder.
-            implementation(npm("hls.js", "1.7.1"))
-            // Same reason as koin-core and the lifecycle artifact above. Backups are the one
-            // feature whose shared seams are IO types rather than domain types: the web module
-            // implements `FileSource` (ktor's ByteReadChannel) for an upload and a `RawSink`
-            // (kotlinx.io) for a download, so both have to be on this module's own classpath —
-            // :app:sharedLogic keeps them `implementation` and they don't arrive transitively.
+            // No npm dependency declarations here on purpose. The bare specifiers this emits —
+            // `hls.js`, and the SQLite worker's `sqlite-wasm-worker/worker.js` — are resolved by
+            // the bundler in `web/`, out of web/node_modules and the copy sync-kotlin.mjs makes.
+            // KGP owns the compiler, not the module graph, so it declares neither.
+            // Backups are the one feature whose shared seams are IO types rather than domain types:
+            // the web module implements `FileSource` (ktor's ByteReadChannel) for an upload and a
+            // `RawSink` (kotlinx.io) for a download, so both have to be on this module's own
+            // classpath — :app:sharedLogic keeps them `implementation` and they don't arrive
+            // transitively. Carried over from main; the npm declarations that sat beside them are
+            // deliberately NOT carried over, since the bundler in web/ resolves those specifiers now.
             implementation(libs.kotlinx.io.core)
             implementation(libs.ktor.io)
         }
@@ -100,14 +64,14 @@ kotlin {
 // THE VITE/PLAYWRIGHT BROWSER LANE
 // =============================================================================
 // Runs the compiled Kotest bundle in Chromium via `app/webApp/web`, where Vite and Playwright
-// own the browser instead of KGP's webpack + karma.
+// own the browser instead of KGP.
 //
-// It runs ALONGSIDE jsBrowserTest rather than replacing it: both lanes execute the same specs,
-// so while the migration is in flight a disagreement between them is a signal, not a puzzle.
-// jsBrowserTest goes when this lane has earned CI's trust.
+// This is the only browser lane: it replaced jsBrowserTest, which is gone along with the karma
+// and webpack configuration it needed. CI runs both halves of it — `webKotest` (ci.yml, the
+// test-web-browser job) and `webAuthKotest` (test-web-browser-server).
 //
-// Not wired into `check` yet — it needs pnpm and a Playwright browser download, which is a
-// bigger ask of a contributor's machine than the rest of the build makes.
+// Not wired into `check` — it needs pnpm and a Playwright browser download, which is a bigger
+// ask of a contributor's machine than the rest of the build makes.
 val webRoot = layout.projectDirectory.dir("web")
 
 val pnpmInstall =
@@ -123,7 +87,7 @@ val pnpmInstall =
 
 tasks.register<Exec>("webKotest") {
     group = "verification"
-    description = "Runs the Kotest specs in Chromium via Vite + Playwright (the post-karma lane)."
+    description = "Runs the Kotest specs in Chromium via Vite + Playwright."
     dependsOn(pnpmInstall, "jsTestTestDevelopmentExecutableCompileSync")
     workingDir = webRoot.asFile
     commandLine("pnpm", "test")

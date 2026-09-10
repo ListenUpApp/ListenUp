@@ -50,6 +50,8 @@ struct ClaimInviteView: View {
             switch wrapper.phase {
             case .codeEntry:
                 codeEntryScreen
+            case .confirmServer(let host, let signedInElsewhere):
+                confirmServerScreen(host: host, signedInElsewhere: signedInElsewhere)
             case .lookingUp, .submitting, .claimed:
                 loadingScreen
             case .preview:
@@ -98,6 +100,40 @@ struct ClaimInviteView: View {
                 wrapper.lookUp(code: code)
             }
             .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    /// The link named a server this device is not already pointed at. The address is rendered in
+    /// full — in the subtitle and again on its own row — before anything is persisted; that
+    /// visibility is the whole point of the step. Declining falls back to manual code entry.
+    private func confirmServerScreen(host: String, signedInElsewhere: Bool) -> some View {
+        AuthScaffold {
+            AuthLargeHeader(
+                title: String(localized: "invite.confirm_server_title"),
+                subtitle: String(format: String(localized: "invite.confirm_server_body"), host)
+            )
+            AuthFieldGroup {
+                Label(host, systemImage: "server.rack")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
+            if signedInElsewhere {
+                ErrorBanner(message: String(localized: "invite.confirm_server_signed_out_warning"))
+            }
+        } footer: {
+            AuthPrimaryButton(
+                title: String(localized: "invite.confirm_server_continue"),
+                isLoading: false
+            ) {
+                wrapper.confirmServer()
+            }
+            Button(String(localized: "invite.confirm_server_cancel")) { wrapper.cancelServer() }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.listenUpOrange)
+                .buttonStyle(.plain)
         }
     }
 

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.presentation.auth.RegisterUiState
@@ -299,6 +300,7 @@ internal fun CreateAccountFields(
         leadingIcon = Icons.Outlined.Lock,
         trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
         onTrailingClick = { passwordVisible = !passwordVisible },
+        trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -314,6 +316,7 @@ internal fun CreateAccountFields(
         leadingIcon = Icons.Outlined.Lock,
         trailingIcon = if (confirmVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
         onTrailingClick = { confirmVisible = !confirmVisible },
+        trailingIconContentDescription = passwordVisibilityDescription(confirmVisible),
         visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { submit() }),

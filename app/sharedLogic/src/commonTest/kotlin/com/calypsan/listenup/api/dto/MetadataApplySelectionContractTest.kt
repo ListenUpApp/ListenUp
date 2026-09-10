@@ -25,12 +25,8 @@ class MetadataApplySelectionContractTest :
                 )
             json.decodeFromString(
                 MetadataApplySelection.serializer(),
-                json.encodeToString(
-                    MetadataApplySelection.serializer(),
-                    selection,
-                ),
-            ) shouldBe
-                selection
+                json.encodeToString(MetadataApplySelection.serializer(), selection),
+            ) shouldBe selection
         }
 
         test("MetadataApplySelection round-trips with selected genres") {
@@ -51,12 +47,8 @@ class MetadataApplySelectionContractTest :
                 )
             json.decodeFromString(
                 MetadataApplySelection.serializer(),
-                json.encodeToString(
-                    MetadataApplySelection.serializer(),
-                    selection,
-                ),
-            ) shouldBe
-                selection
+                json.encodeToString(MetadataApplySelection.serializer(), selection),
+            ) shouldBe selection
         }
 
         test("MetadataApplySelection round-trips with selected moods and tags") {
@@ -79,12 +71,8 @@ class MetadataApplySelectionContractTest :
                 )
             json.decodeFromString(
                 MetadataApplySelection.serializer(),
-                json.encodeToString(
-                    MetadataApplySelection.serializer(),
-                    selection,
-                ),
-            ) shouldBe
-                selection
+                json.encodeToString(MetadataApplySelection.serializer(), selection),
+            ) shouldBe selection
         }
 
         test("MetadataApplySelection survives a JSON round-trip") {

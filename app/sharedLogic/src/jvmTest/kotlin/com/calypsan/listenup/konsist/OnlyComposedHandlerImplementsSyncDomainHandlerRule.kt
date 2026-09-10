@@ -15,14 +15,12 @@ class OnlyComposedHandlerImplementsSyncDomainHandlerRule :
     FunSpec({
         test("only the composed factory implements SyncDomainHandler in production") {
             val allowlist = setOf("ComposedSyncDomainHandler", "AccessFilteredComposedSyncDomainHandler")
-            // A parent's `name` carries its type arguments (e.g. "SyncDomainHandler<T>"),
-            // so compare on the bare type name before the angle bracket.
             val syncHandlerParents = setOf("SyncDomainHandler", "ComposedSyncDomainHandler")
             val implementors =
                 productionScope()
                     .classes()
                     .filter { cls ->
-                        cls.parents().any { it.name.substringBefore("<") in syncHandlerParents }
+                        cls.parents().any { it.name.bareTypeName() in syncHandlerParents }
                     }
 
             implementors.shouldNotBeEmpty()

@@ -5,7 +5,9 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
@@ -97,6 +99,7 @@ internal fun SqlTestDatabases.collectionAccessHarness(
             collectionBookRepo = collectionBookRepo,
             grantRepo = grantRepo,
             accessPolicy = accessPolicy,
+            bookAccessPolicy = BookAccessPolicy(sql, driver),
             bus = bus,
             sql = sql,
             clock = harnessFixedClock,
@@ -148,6 +151,60 @@ internal suspend fun CollectionAccessHarness.grantAllBooks(
             collectionId = allBooksId,
             sharedWithUserId = userId,
             sharedByUserId = "system",
+            permission = SharePermission.Read,
+            revision = 0L,
+            updatedAt = 0L,
+            deletedAt = null,
+        ),
+    )
+}
+
+/**
+ * Makes [bookIds] visible to [userId] before a test drives `addBookToCollection` as that member.
+ *
+ * `addBookToCollection` gates on book visibility — a member can only curate a book they can already
+ * see — and a bare `seedTestBook` row is in no collection, so under the pure-union rule it is invisible
+ * to every non-admin. This seeds the lightest real access path: a live collection owned by someone
+ * else that holds the books, read-shared with [userId]. Deliberately **not** the `ALL_BOOKS` substrate:
+ * curating a book out of `ALL_BOOKS` flips its system membership, which nudges every grant-holder and
+ * re-bumps the book's revision — side effects that would change what an emission or revision test
+ * observes. A plain share confers visibility with none of that.
+ */
+internal suspend fun SqlTestDatabases.makeBooksVisibleTo(
+    userId: String,
+    vararg bookIds: String,
+) {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val sharedId = "visible-to-$userId"
+    CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver).upsert(
+        CollectionSyncPayload(
+            id = sharedId,
+            libraryId = "test-library",
+            ownerId = "sharer",
+            name = "Shared with $userId",
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+    val junctions = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
+    bookIds.forEach { bookId ->
+        junctions.upsert(
+            CollectionBookSyncPayload(
+                id = "$sharedId:$bookId",
+                collectionId = sharedId,
+                bookId = bookId,
+                createdAt = 0L,
+                revision = 0L,
+            ),
+        )
+    }
+    CollectionGrantRepository(db = sql, bus = bus, registry = registry, driver = driver).upsert(
+        CollectionShareSyncPayload(
+            id = "grant-$sharedId",
+            collectionId = sharedId,
+            sharedWithUserId = userId,
+            sharedByUserId = "sharer",
             permission = SharePermission.Read,
             revision = 0L,
             updatedAt = 0L,

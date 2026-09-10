@@ -31,6 +31,30 @@ import kotlinx.io.IOException
 @Suppress("MagicNumber")
 internal object Mp4ChapterExtractor {
     /**
+     * Absolute ceiling on chapter text-track sample-table entries this extractor will
+     * materialise (`stts` starts, `stsz` sizes, `stco`/`co64` offsets). A real audiobook
+     * chapter track carries thousands of samples, not millions — this exists purely to
+     * cap an untrusted 32-bit count from driving a multi-GB allocation or an unbounded
+     * append loop. Mirrors [Mp4Parser]'s `MOOV_SOFT_LIMIT_BYTES`.
+     */
+    private const val MAX_SAMPLE_ENTRIES = 2_000_000
+
+    /**
+     * Smallest `tkhd` payload that can carry a track id: version(1) + flags(3) + creation(4) +
+     * modification(4) + track_id(4). The version-1 layout is larger still, so a box below this
+     * size cannot answer the question under either layout — including the version byte itself,
+     * which is why the check runs *before* that byte is read.
+     */
+    private const val TKHD_MIN_PAYLOAD_BYTES = 16
+
+    /**
+     * Smallest `mdhd` payload that can carry a timescale: version(1) + flags(3) + creation(4) +
+     * modification(4) + timescale(4). Same reasoning as [TKHD_MIN_PAYLOAD_BYTES] — the guard
+     * precedes the version byte read because a payload-free box has no version byte either.
+     */
+    private const val MDHD_MIN_PAYLOAD_BYTES = 16
+
+    /**
      * Read Nero `chpl` chapters. Returns an empty list if `moov.udta.chpl`
      * is absent or contains zero entries.
      */
@@ -128,6 +152,10 @@ internal object Mp4ChapterExtractor {
             val tkhd = AtomWalker.findChild(bytes, atom.dataOffset, atom.end, "tkhd") ?: return@forEachChild
             // tkhd v0: version(1) + flags(3) + creation(4) + modification(4) + track_id(4)
             // tkhd v1: version(1) + flags(3) + creation(8) + modification(8) + track_id(4)
+            // A box too short to hold even the v0 layout carries no readable track id — skip this
+            // trak rather than index its (absent) version byte. Losing one unresolvable chapter
+            // track must not cost the file its tags and duration.
+            if (tkhd.dataOffset + TKHD_MIN_PAYLOAD_BYTES > tkhd.end) return@forEachChild
             val version = bytes[tkhd.dataOffset].toInt() and 0xFF
             val trackIdOffset = if (version == 1) tkhd.dataOffset + 20 else tkhd.dataOffset + 12
             if (trackIdOffset + 4 > tkhd.end) return@forEachChild
@@ -204,6 +232,9 @@ internal object Mp4ChapterExtractor {
         mdiaAtom: Atom,
     ): Int {
         val mdhd = AtomWalker.findChild(bytes, mdiaAtom.dataOffset, mdiaAtom.end, "mdhd") ?: return 1000
+        // Too short to hold even the v0 layout — fall back to the default timescale exactly as a
+        // missing mdhd does, rather than indexing a version byte the box does not carry.
+        if (mdhd.dataOffset + MDHD_MIN_PAYLOAD_BYTES > mdhd.end) return 1000
         val version = bytes[mdhd.dataOffset].toInt() and 0xFF
         val tsOffset = if (version == 1) mdhd.dataOffset + 20 else mdhd.dataOffset + 12
         if (tsOffset + 4 > mdhd.end) return 1000
@@ -225,12 +256,17 @@ internal object Mp4ChapterExtractor {
         p += 4
         val starts = mutableListOf<Long>()
         var cursorTimescaleUnits = 0L
-        for (i in 0 until entryCount) {
+        // `sampleCount` is an untrusted 32-bit field read as an unsigned Long (up to
+        // ~4.3 billion) and doesn't consume any buffer bytes per unit — cap the TOTAL
+        // number of starts produced across every entry against MAX_SAMPLE_ENTRIES so a
+        // corrupt/malicious entry can't drive an unbounded `MutableList<Long>` append loop.
+        entryLoop@ for (i in 0 until entryCount) {
             if (p + 8 > end) break
             val sampleCount = AtomWalker.readBeUInt32(bytes, p)
             val sampleDelta = AtomWalker.readBeUInt32(bytes, p + 4)
             p += 8
             for (j in 0 until sampleCount) {
+                if (starts.size >= MAX_SAMPLE_ENTRIES) break@entryLoop
                 starts += (cursorTimescaleUnits * 1000L) / timescale.toLong()
                 cursorTimescaleUnits += sampleDelta
             }
@@ -251,12 +287,22 @@ internal object Mp4ChapterExtractor {
         val count = AtomWalker.readBeInt32(bytes, p)
         p += 4
         if (count <= 0) return IntArray(0)
-        val out = IntArray(count)
+        // `count` is an untrusted 32-bit field — cap it against the bytes actually
+        // remaining before allocating. Per-entry sizes cost 4 bytes each when
+        // defaultSize == 0; when non-zero there are no per-entry bytes to bound
+        // against, so fall back to the absolute MAX_SAMPLE_ENTRIES ceiling.
+        val safeCount =
+            if (defaultSize != 0) {
+                count.coerceAtMost(MAX_SAMPLE_ENTRIES)
+            } else {
+                count.coerceAtMost((end - p) / 4)
+            }
+        val out = IntArray(safeCount)
         if (defaultSize != 0) {
-            for (i in 0 until count) out[i] = defaultSize
+            for (i in 0 until safeCount) out[i] = defaultSize
             return out
         }
-        for (i in 0 until count) {
+        for (i in 0 until safeCount) {
             if (p + 4 > end) return out.copyOf(i)
             out[i] = AtomWalker.readBeInt32(bytes, p)
             p += 4
@@ -282,8 +328,12 @@ internal object Mp4ChapterExtractor {
         val count = AtomWalker.readBeInt32(bytes, p)
         p += 4
         if (count <= 0) return LongArray(0)
-        val out = LongArray(count)
-        for (i in 0 until count) {
+        // `count` is an untrusted 32-bit field — cap it against the bytes actually
+        // remaining before allocating (stco entries are 4 bytes each, co64 entries are 8).
+        val entryWidth = if (is64) 8 else 4
+        val safeCount = count.coerceAtMost((end - p) / entryWidth)
+        val out = LongArray(safeCount)
+        for (i in 0 until safeCount) {
             if (is64) {
                 if (p + 8 > end) return out.copyOf(i)
                 out[i] = AtomWalker.readBeInt64(bytes, p)

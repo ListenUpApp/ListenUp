@@ -61,23 +61,20 @@ class SyncCatchUpFromZeroTest :
                             limit: Int,
                         ): AppResult<SyncPage> {
                             sinceValues += since
-                            return if (since == 0L) {
-                                AppResult.Success(
-                                    syncPageOf(
-                                        domain = "tags",
-                                        serializer = Tag.serializer(),
-                                        items =
-                                            listOf(
-                                                Tag("x", "ex", "ex", 1L, 10L),
-                                                Tag("y", "why", "why", 2L, 20L),
-                                            ),
-                                        nextCursor = 2L,
-                                        hasMore = false,
-                                    ),
-                                )
-                            } else {
-                                error("unexpected since=$since")
-                            }
+                            if (since != 0L) error("unexpected since=$since")
+                            return AppResult.Success(
+                                syncPageOf(
+                                    domain = "tags",
+                                    serializer = Tag.serializer(),
+                                    items =
+                                        listOf(
+                                            Tag("x", "ex", "ex", 1L, 10L),
+                                            Tag("y", "why", "why", 2L, 20L),
+                                        ),
+                                    nextCursor = 2L,
+                                    hasMore = false,
+                                ),
+                            )
                         }
                     }
 
@@ -120,7 +117,17 @@ private class InMemoryDao : SyncCursorDao {
     }
 
     override suspend fun all(): List<SyncCursorEntity> =
-        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+        cursors.map {
+            (
+                domain,
+                rev,
+            ),
+            ->
+            SyncCursorEntity(
+                domainName = domain,
+                revision = rev,
+            )
+        }
 
     override suspend fun deleteAll() {
         cursors.clear()

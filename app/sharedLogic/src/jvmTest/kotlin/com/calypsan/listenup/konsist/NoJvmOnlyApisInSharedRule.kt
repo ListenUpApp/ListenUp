@@ -21,10 +21,19 @@ class NoJvmOnlyApisInSharedRule :
         test("no commonMain or Apple/Native source set imports java.* or javax.*") {
             val sharedSourceSetMarkers =
                 listOf("/commonMain/", "/appleMain/", "/iosMain/", "/nativeMain/", "/macosMain/")
-            val offenders =
+            val sharedFiles =
                 productionScope()
                     .files
                     .filter { file -> sharedSourceSetMarkers.any { file.path.contains(it) } }
+
+            assertScopeNotEmpty(
+                sharedFiles,
+                expectedMin = 800,
+                why = "commonMain + Apple/Native files — a marker that stops matching would silently disarm this",
+            )
+
+            val offenders =
+                sharedFiles
                     .flatMap { file ->
                         file.imports
                             .filter { it.name.startsWith("java.") || it.name.startsWith("javax.") }

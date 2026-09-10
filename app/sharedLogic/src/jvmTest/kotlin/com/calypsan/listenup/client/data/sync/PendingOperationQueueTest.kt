@@ -5,7 +5,9 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
@@ -13,6 +15,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
@@ -519,7 +522,48 @@ class PendingOperationQueueTest :
                 }
             }
         }
+
+        test("a coalescing enqueue that fails on insert leaves the previously queued op intact") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val realDao = db.pendingOperationV2Dao()
+                    val ok =
+                        PendingOperationQueue(
+                            dao = realDao,
+                            sender = PendingOperationSender { AppResult.Success(Unit) },
+                            transactionRunner = RoomTransactionRunner(db),
+                        )
+                    ok.enqueue(upsertOnlyChannel, "e1", OpKind.Upsert, """{"v":1}""", "u1", coalesce = true)
+                    db.pendingOperationV2Dao().observePending().first() shouldHaveSize 1
+
+                    val failing =
+                        PendingOperationQueue(
+                            dao = InsertFailingDao(realDao),
+                            sender = PendingOperationSender { AppResult.Success(Unit) },
+                            transactionRunner = RoomTransactionRunner(db),
+                        )
+                    shouldThrow<IllegalStateException> {
+                        failing.enqueue(upsertOnlyChannel, "e1", OpKind.Upsert, """{"v":2}""", "u1", coalesce = true)
+                    }
+
+                    // The delete must have rolled back with the failed insert.
+                    db.pendingOperationV2Dao().observePending().first() shouldHaveSize 1
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })
+
+// Kotlin interface delegation forwards every other member to the real Room DAO, so the
+// delete really happens against the database and only the insert blows up — which is the
+// only way to observe whether the two are in one transaction.
+private class InsertFailingDao(
+    delegate: PendingOperationV2Dao,
+) : PendingOperationV2Dao by delegate {
+    override suspend fun insert(op: PendingOperationV2Entity): Unit = error("insert boom")
+}
 
 private fun deadLetterFixture(
     clientOpId: String,

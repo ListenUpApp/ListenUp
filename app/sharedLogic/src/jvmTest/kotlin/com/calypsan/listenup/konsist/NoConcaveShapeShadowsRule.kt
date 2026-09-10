@@ -17,6 +17,10 @@ import io.kotest.matchers.shouldBe
  */
 class NoConcaveShapeShadowsRule :
     FunSpec({
+        // A ban rule: the population is the whole production file set, with no narrowing before the
+        // violation predicate. Its only vacuity failure mode is a collapsed scope, which
+        // KonsistScopeTest's scope-sanity case covers centrally — a per-rule assertScopeNotEmpty
+        // here would be the same assertion repeated.
         test("no Modifier.shadow call uses a concave shape") {
             // `.shadow(` argument lists may span lines and contain one level of nested
             // parens (e.g. `cookieScallopShape()`, `if (x) 8.dp else 4.dp`).

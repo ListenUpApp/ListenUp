@@ -16,10 +16,19 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class NoResourcesInContractRule :
     FunSpec({
         test("no :contract type is annotated @Resource (REST surface lives in :server)") {
-            val offenders =
+            val contractClasses =
                 productionScope()
                     .classes(includeNested = true)
                     .filter { "/contract/src/" in it.path }
+
+            assertScopeNotEmpty(
+                contractClasses,
+                expectedMin = 200,
+                why = "every :contract class — an empty set means the module dropped out and @Resource went unchecked",
+            )
+
+            val offenders =
+                contractClasses
                     .filter { cls -> cls.annotations.any { it.name == "Resource" } }
                     .map { it.name }
             offenders.shouldBeEmpty()

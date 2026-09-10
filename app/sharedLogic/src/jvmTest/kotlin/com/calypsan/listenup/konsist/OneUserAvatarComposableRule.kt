@@ -13,10 +13,19 @@ class OneUserAvatarComposableRule :
     FunSpec({
         test("no feature code imports ProfileAvatar or ClickableUserAvatar") {
             val banned = listOf("ProfileAvatar", "ClickableUserAvatar")
-            val offenders =
+            val clientFiles =
                 productionScope()
                     .files
                     .filter { it.path.contains("/sharedUI/") || it.path.contains("/sharedLogic/") }
+
+            assertScopeNotEmpty(
+                clientFiles,
+                expectedMin = 500,
+                why = "sharedUI + sharedLogic files — where a deleted avatar composable could be re-imported",
+            )
+
+            val offenders =
+                clientFiles
                     .flatMap { file ->
                         banned
                             .filter { ban -> file.imports.any { imp -> imp.name.endsWith(".$ban") } }

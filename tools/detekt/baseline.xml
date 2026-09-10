@@ -183,5 +183,28 @@
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:StatsRepositoryImpl.kt:StatsRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
+    <!--
+      tools/build-logic/convention/src/main — 13 findings, added by plan 019 on 2026-09-09 — fix and remove.
+
+      This source set had never been linted. Adding it to detekt's `source.setFrom` is what surfaced
+      these; they are pre-existing debt, not new code. They are baselined rather than fixed because
+      all 13 are in `src/main` (the build machinery itself, not a test source set), and 7 of them are
+      complexity limits inside SwiftExportSourcePatcher — the generator whose output the iOS
+      export-surface gate pins. Refactoring it is a change with its own blast radius and its own
+      review, not a side effect of a linting step. New code in this source set IS gated from now on.
+    -->
+    <ID>CognitiveComplexMethod:SealedHierarchyScanner.kt:SealedHierarchyScanner$fun scan: Map&lt;String, Set&lt;String&gt;&gt;</ID>
+    <ID>CognitiveComplexMethod:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$fun appendFlatTypealiases: PatchOutcome</ID>
+    <ID>CognitiveComplexMethod:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$fun camelCaseEnumCases: PatchOutcome</ID>
+    <ID>CognitiveComplexMethod:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$fun patchSource: PatchOutcome</ID>
+    <ID>CyclomaticComplexMethod:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$fun patchSource: PatchOutcome</ID>
+    <ID>MagicNumber:listenup.jvm.gradle.kts:21</ID>
+    <ID>MagicNumber:listenup.kmp.library.gradle.kts:21</ID>
+    <ID>MagicNumber:listenup.kmp.server.gradle.kts:21</ID>
+    <ID>MaxLineLength:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$"""^public final class (_ExportedKotlinPackages_\w+): KotlinRuntime\.KotlinBase, ExportedKotlinPackages\.([\w.]+)\.(\w+), ExportedKotlinPackages\.[\w.]+\._\3\b"""</ID>
+    <ID>NestedBlockDepth:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$fun appendFlatTypealiases: PatchOutcome</ID>
+    <ID>NestedBlockDepth:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$fun patchSource: PatchOutcome</ID>
+    <ID>UseIfInsteadOfWhen:LocalizationGenerator.kt:LocalizationGenerator$when (value) { is JsonObject -&gt; flatten(value, path, out) else -&gt; out[path] = value.jsonPrimitive.content }</ID>
+    <ID>UseIfInsteadOfWhen:SwiftExportSourcePatcher.kt:SwiftExportSourcePatcher$when { namespaces.size == 1 -&gt; { namespaces.first() } else -&gt; { namespaces.firstOrNull { it.contains(".client.domain.model") } ?: namespaces.firstOrNull { it.contains(".client.domain") } ?: continue } }</ID>
   </CurrentIssues>
 </SmellBaseline>

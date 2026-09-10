@@ -325,24 +325,23 @@ class SyncCatchUpClientTest :
                             limit: Int,
                         ): AppResult<SyncPage> {
                             requestedSince += since
-                            return if (since == 0L) {
-                                AppResult.Success(
-                                    syncPageOf(
-                                        domain = "tags",
-                                        serializer = Tag.serializer(),
-                                        items =
-                                            listOf(
-                                                Tag("a", "alpha", "alpha", 1L, 100L),
-                                                Tag("fail", "beta", "beta", 2L, 200L),
-                                                Tag("c", "gamma", "gamma", 3L, 300L),
-                                            ),
-                                        nextCursor = 3L,
-                                        hasMore = true,
-                                    ),
-                                )
-                            } else {
+                            if (since != 0L) {
                                 error("OptOut domain must NOT page past the hole (requested since=$since)")
                             }
+                            return AppResult.Success(
+                                syncPageOf(
+                                    domain = "tags",
+                                    serializer = Tag.serializer(),
+                                    items =
+                                        listOf(
+                                            Tag("a", "alpha", "alpha", 1L, 100L),
+                                            Tag("fail", "beta", "beta", 2L, 200L),
+                                            Tag("c", "gamma", "gamma", 3L, 300L),
+                                        ),
+                                    nextCursor = 3L,
+                                    hasMore = true,
+                                ),
+                            )
                         }
                     }
                 val store = SyncCursorStore(InMemorySyncCursorDao())
@@ -369,25 +368,23 @@ class SyncCatchUpClientTest :
                             domain: String,
                             since: Long,
                             limit: Int,
-                        ): AppResult<SyncPage> =
-                            if (since == 0L) {
-                                AppResult.Success(
-                                    syncPageOf(
-                                        domain = "tags",
-                                        serializer = Tag.serializer(),
-                                        items =
-                                            listOf(
-                                                Tag("a", "alpha", "alpha", 1L, 100L),
-                                                Tag("fail", "beta", "beta", 2L, 200L),
-                                                Tag("c", "gamma", "gamma", 3L, 300L),
-                                            ),
-                                        nextCursor = 3L,
-                                        hasMore = false,
-                                    ),
-                                )
-                            } else {
-                                error("unexpected since=$since")
-                            }
+                        ): AppResult<SyncPage> {
+                            if (since != 0L) error("unexpected since=$since")
+                            return AppResult.Success(
+                                syncPageOf(
+                                    domain = "tags",
+                                    serializer = Tag.serializer(),
+                                    items =
+                                        listOf(
+                                            Tag("a", "alpha", "alpha", 1L, 100L),
+                                            Tag("fail", "beta", "beta", 2L, 200L),
+                                            Tag("c", "gamma", "gamma", 3L, 300L),
+                                        ),
+                                    nextCursor = 3L,
+                                    hasMore = false,
+                                ),
+                            )
+                        }
                     }
                 val store = SyncCursorStore(InMemorySyncCursorDao())
                 val catchUp =
@@ -475,7 +472,17 @@ private class InMemorySyncCursorDao : SyncCursorDao {
     }
 
     override suspend fun all(): List<SyncCursorEntity> =
-        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+        cursors.map {
+            (
+                domain,
+                rev,
+            ),
+            ->
+            SyncCursorEntity(
+                domainName = domain,
+                revision = rev,
+            )
+        }
 
     override suspend fun deleteAll() {
         cursors.clear()

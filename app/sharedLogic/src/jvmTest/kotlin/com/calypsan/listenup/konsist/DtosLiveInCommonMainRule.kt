@@ -20,10 +20,16 @@ import kotlinx.serialization.Serializable
 class DtosLiveInCommonMainRule :
     FunSpec({
         test("every wire-borne @Serializable data class lives in a commonMain source set") {
+            val serializableClasses = productionScope().classes().withAnnotationOf(Serializable::class)
+
+            assertScopeNotEmpty(
+                serializableClasses,
+                expectedMin = 250,
+                why = "every @Serializable class — if annotation resolution breaks, the rule polices nothing",
+            )
+
             val offenders =
-                productionScope()
-                    .classes()
-                    .withAnnotationOf(Serializable::class)
+                serializableClasses
                     .filter { !it.path.contains("/commonMain/") }
                     // Allowlist: see KDoc on this rule for justification.
                     .filter { !it.path.contains("/server/src/jvmMain/") }

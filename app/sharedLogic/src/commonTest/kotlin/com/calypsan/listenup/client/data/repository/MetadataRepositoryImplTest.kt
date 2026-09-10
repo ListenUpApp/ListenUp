@@ -106,10 +106,18 @@ class MetadataRepositoryImplTest :
 
         test("getContributorMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
-            everySuspend { service.getContributorMetadata("A001", MetadataLocale.DEFAULT) } returns
+            everySuspend {
+                service.getContributorMetadata(
+                    "A001",
+                    MetadataLocale.DEFAULT,
+                )
+            } returns
                 WireAppResult.Success<MetadataContributorProfile?>(null)
 
-            buildRepo(service).getContributorMetadata("A001", MetadataLocale.DEFAULT) shouldBe
+            buildRepo(service).getContributorMetadata(
+                "A001",
+                MetadataLocale.DEFAULT,
+            ) shouldBe
                 AppResult.Success<MetadataContributorProfile?>(null)
         }
 

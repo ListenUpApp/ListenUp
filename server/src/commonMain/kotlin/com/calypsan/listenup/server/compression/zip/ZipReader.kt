@@ -69,9 +69,15 @@ public class ZipReader(
      * bytes for [ZipMethod.DEFLATE]. The stream reads exactly the entry's compressed bytes from disk and
      * does not verify the CRC-32 (a partial read is legitimate; CRC checking is the consumer's choice).
      * Throws [MalformedZipException] if the local file header is missing or the entry's data would run
-     * past the end of the file.
+     * past the end of the file. [maxOutputBytes] caps the inflated output of a DEFLATE entry — the
+     * inflater raises [com.calypsan.listenup.server.compression.MalformedDeflateException] past it; a
+     * STORED entry is already bounded by its on-disk size, which the directory validation pinned to
+     * the file length.
      */
-    public fun openEntry(entry: ZipEntryInfo): RawSource {
+    public fun openEntry(
+        entry: ZipEntryInfo,
+        maxOutputBytes: Long = Long.MAX_VALUE,
+    ): RawSource {
         // Range-check the offset against the live file length first: the directory was validated at
         // construction, but the file may have been truncated since (disk rot, partial write), and a
         // crafted ZIP64 offset must never reach a raw read. `source.length - LFH_FIXED_SIZE` can't
@@ -103,7 +109,7 @@ public class ZipReader(
             throw MalformedZipException("entry '${entry.name}' data runs past end of file")
         }
         val bounded = BoundedEntrySource(entry.name, dataStart, entry.compressedSize)
-        return if (entry.method == ZipMethod.DEFLATE) bounded.inflated() else bounded
+        return if (entry.method == ZipMethod.DEFLATE) bounded.inflated(maxOutputBytes) else bounded
     }
 
     override fun close() {

@@ -20,11 +20,20 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class AppResultSurfaceIsMustUseRule :
     FunSpec({
         test("every domain/repository interface returning AppResult is @file:MustUseReturnValues") {
-            val offenders =
+            val appResultRepositoryFiles =
                 productionScope()
                     .files
                     .filter { "/sharedLogic/" in it.path && "/domain/repository/" in it.path }
                     .filter { it.text.contains(": AppResult<") }
+
+            assertScopeNotEmpty(
+                appResultRepositoryFiles,
+                expectedMin = 15,
+                why = "domain/repository files declaring an AppResult-returning function — the set this rule arms over",
+            )
+
+            val offenders =
+                appResultRepositoryFiles
                     .filter { !it.text.contains("@file:MustUseReturnValues") }
                     .map { it.path }
 

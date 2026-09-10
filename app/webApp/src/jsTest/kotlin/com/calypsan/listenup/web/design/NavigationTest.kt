@@ -1,18 +1,9 @@
 package com.calypsan.listenup.web.design
 
-import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { content() }
-    return host
-}
 
 private val TABS =
     listOf(
@@ -23,9 +14,11 @@ private val TABS =
 
 class NavigationTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("exactly one tab is active") {
-            val host = mount { Tabs(TABS, active = "chapters") }
+            val host = mounts.mount { Tabs(TABS, active = "chapters") }
 
             host.querySelectorAll(".tab").length shouldBe TABS.size
             host.querySelectorAll(".tab.on").length shouldBe 1
@@ -35,7 +28,7 @@ class NavigationTest :
             // The key is what goes in the URL (?tab=chapters), so an index here would make the
             // page contract depend on tab order.
             var selected: String? = null
-            val host = mount { Tabs(TABS, active = "overview") { selected = it } }
+            val host = mounts.mount { Tabs(TABS, active = "overview") { selected = it } }
 
             (host.querySelectorAll(".tab").item(2) as HTMLElement).click()
 
@@ -43,14 +36,14 @@ class NavigationTest :
         }
 
         test("only counted tabs carry a badge") {
-            val host = mount { Tabs(TABS, active = "overview") }
+            val host = mounts.mount { Tabs(TABS, active = "overview") }
 
             host.querySelectorAll(".tab .ct").length shouldBe 2
         }
 
         test("a segmented control marks its active choice") {
             val host =
-                mount {
+                mounts.mount {
                     SegmentedControl(
                         listOf(SegmentItem("all", "All 44"), SegmentItem("unheard", "Unheard 35")),
                         active = "unheard",
@@ -62,7 +55,7 @@ class NavigationTest :
         }
 
         test("a plain pill has no dismiss affordance") {
-            val host = mount { Pill("Horror") }
+            val host = mounts.mount { Pill("Horror") }
 
             host.querySelectorAll(".pill .x").length shouldBe 0
         }
@@ -73,7 +66,7 @@ class NavigationTest :
             var toggled = 0
             var removed = 0
             val host =
-                mount {
+                mounts.mount {
                     Pill("Horror", selected = true, onClick = { toggled++ }, onRemove = { removed++ })
                 }
 
@@ -85,7 +78,7 @@ class NavigationTest :
 
         test("clicking the pill body still toggles it") {
             var toggled = 0
-            val host = mount { Pill("Horror", onClick = { toggled++ }, onRemove = {}) }
+            val host = mounts.mount { Pill("Horror", onClick = { toggled++ }, onRemove = {}) }
 
             (host.querySelector(".pill") as HTMLElement).click()
 

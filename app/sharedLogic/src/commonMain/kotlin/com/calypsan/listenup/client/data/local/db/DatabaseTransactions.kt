@@ -34,3 +34,13 @@ internal class RoomTransactionRunner(
             transactor.immediateTransaction { block() }
         }
 }
+
+/**
+ * [TransactionRunner] that runs the block with no transaction of its own — the default for
+ * constructions that supply no runner (tests, fixtures). Production wires
+ * [RoomTransactionRunner] explicitly; a pass-through here keeps a fixture from needing a
+ * database it does not otherwise use.
+ */
+internal object PassThroughTransactionRunner : TransactionRunner {
+    override suspend fun <R> atomically(block: suspend () -> R): R = block()
+}

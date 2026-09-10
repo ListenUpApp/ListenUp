@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
@@ -59,7 +60,28 @@ private const val STORAGE_HEADROOM_FACTOR = 1.1
 private const val BYTES_PER_MEGABYTE = 1_000_000
 
 /**
- * iOS implementation of [DownloadService] using NSURLSession background downloads.
+ * How many audio files may download at once.
+ *
+ * ListenUp servers are self-hosted — very often a single-board computer on a home LAN — so an
+ * unbounded fan-out is a self-inflicted denial of service on the user's own hardware. Three keeps
+ * a fat pipe busy while leaving headroom for the streaming player, which shares the same link.
+ * The yield (`PlaybackBandwidthCoordinator.shouldYield`) still governs whatever is registered —
+ * `registerDownload` holds a task suspended when yielding is already active — but a cap means far
+ * fewer sockets exist to contend for the link in the first place.
+ */
+private const val MAX_CONCURRENT_FILE_DOWNLOADS = 3
+
+/**
+ * iOS implementation of [DownloadService] using NSURLSession **foreground** download tasks.
+ *
+ * **Not a background session (known gap).** [downloadSessionConfiguration] returns
+ * `defaultSessionConfiguration`, so transfers stop when iOS suspends the app and there is no
+ * resume data to pick them up again — a long download restarts from zero on the next foreground
+ * ([resumeIncompleteDownloads]). Migrating to `backgroundSessionConfigurationWithIdentifier`
+ * requires `application(_:handleEventsForBackgroundURLSession:completionHandler:)` in the iOS app
+ * delegate, delegate re-attachment after a relaunch, and persisting the data from
+ * `cancelByProducingResumeData`. Tracked as a follow-up; do not half-migrate — the wifi-only
+ * guarantee pinned by `DownloadNetworkPolicyTest` rides on this configuration.
  *
  * **Direct-DAO carveout:** this class still writes directly to
  * [com.calypsan.listenup.client.data.local.db.DownloadDao] via the `downloadDao` constructor
@@ -104,6 +126,9 @@ class AppleDownloadService internal constructor(
      */
     private val sessionDelegate = DownloadSessionDelegate(downloadDao, scope)
 
+    /** Caps in-flight file downloads at [MAX_CONCURRENT_FILE_DOWNLOADS]. */
+    private val downloadSlots = Semaphore(MAX_CONCURRENT_FILE_DOWNLOADS)
+
     init {
         // "Playback preempts downloads": while a stream is buffering, suspend in-flight download
         // tasks so the stream gets the bandwidth; resume them when playback is flowing again.
@@ -125,6 +150,26 @@ class AppleDownloadService internal constructor(
         logger.warn { "Downloaded file missing, cleaning up: $audioFileId" }
         downloadDao.updateError(audioFileId, "File missing - deleted externally")
         return null
+    }
+
+    /**
+     * Batched [getLocalPath]: one DB round trip via [DownloadRepository.getLocalPaths] instead of
+     * one per file, then the same on-disk existence check + externally-deleted cleanup per
+     * candidate as [getLocalPath].
+     */
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
+        if (audioFileIds.isEmpty()) return emptyMap()
+        val completed = downloadRepository.getLocalPaths(audioFileIds)
+        return buildMap {
+            for ((audioFileId, path) in completed) {
+                if (fileManager.fileExists(path)) {
+                    put(audioFileId, path)
+                } else {
+                    logger.warn { "Downloaded file missing, cleaning up: $audioFileId" }
+                    downloadDao.updateError(audioFileId, "File missing - deleted externally")
+                }
+            }
+        }
     }
 
     override suspend fun wasExplicitlyDeleted(bookId: BookId): Boolean = downloadDao.hasDeletedRecords(bookId.value)
@@ -182,6 +227,20 @@ class AppleDownloadService internal constructor(
                 return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "No server configured"))
             }
 
+        // ONE prepare() round-trip for the whole book — the response carries every file's signed
+        // URL. A per-file call would fire N RPCs (and N token refreshes) at a self-hosted server.
+        val signedUrls =
+            when (val resolved = resolveSignedDownloadUrls(bookId.value, prepareRepository)) {
+                is AppResult.Success -> {
+                    resolved.data
+                }
+
+                is AppResult.Failure -> {
+                    logger.error { "Failed to resolve download URLs for ${bookId.value}: ${resolved.error.message}" }
+                    return AppResult.Failure(resolved.error)
+                }
+            }
+
         // Create download entries
         val now = Clock.System.now().toEpochMilliseconds()
         val entities =
@@ -204,56 +263,58 @@ class AppleDownloadService internal constructor(
             }
         downloadDao.insertAll(entities)
 
-        // Download files concurrently in background
-        for (file in toDownload) {
-            scope.launch {
-                // Refresh token per file to avoid 401 on long-running batches
-                tokenProvider.prepareForPlayback()
-                val fileToken = tokenProvider.getToken() ?: token
-                downloadFile(
-                    bookId = bookId.value,
-                    audioFile = file,
-                    serverUrl = serverUrl,
-                    token = fileToken,
-                )
+        // A file the server did not sign cannot be fetched at all, so it fails here rather than
+        // being launched into a request that would 404.
+        val launchable =
+            toDownload.mapNotNull { file ->
+                val signedRelativeUrl = signedUrls[file.id]
+                if (signedRelativeUrl == null) {
+                    logger.error { "prepare() returned no URL for audioFile=${file.id}; skipping" }
+                    downloadDao.updateError(file.id, "Server did not provide a download URL")
+                    null
+                } else {
+                    file to signedRelativeUrl
+                }
             }
+
+        // Download files in the background, at most MAX_CONCURRENT_FILE_DOWNLOADS at a time.
+        scope.launchEachBounded(launchable, downloadSlots) { (file, signedRelativeUrl) ->
+            // Refresh token per file to avoid 401 on long-running batches
+            tokenProvider.prepareForPlayback()
+            val fileToken = tokenProvider.getToken() ?: token
+            downloadFile(
+                bookId = bookId.value,
+                audioFile = file,
+                serverUrl = serverUrl,
+                token = fileToken,
+                signedRelativeUrl = signedRelativeUrl,
+            )
         }
 
-        logger.info { "Queued ${toDownload.size} files for download: ${bookId.value}" }
+        logger.info { "Queued ${launchable.size} files for download: ${bookId.value}" }
         return AppResult.Success(DownloadOutcome.Started)
     }
 
     /**
-     * Download a single file using NSURLSession download task.
+     * Download a single file using an NSURLSession download task.
      * Suspends until the download completes or fails.
+     *
+     * @param signedRelativeUrl the signed, server-relative audio URL for this file, resolved ONCE
+     *   per book by [resolveSignedDownloadUrls]. It is relative because NSURLSession has no base
+     *   URL, so [serverUrl] is prepended here.
      */
     private suspend fun downloadFile(
         bookId: String,
         audioFile: AudioFileResponse,
         serverUrl: String,
         token: String,
+        signedRelativeUrl: String,
     ) = withContext(IODispatcher) {
         val audioFileId = audioFile.id
         val filename = audioFile.filename
 
         downloadDao.updateState(audioFileId, DownloadState.DOWNLOADING, Clock.System.now().toEpochMilliseconds())
 
-        // Resolve the signed download URL via PlaybackService.prepare — the same server contract the
-        // streaming path and Android use (GET /api/v1/audio/{bookId}/{fileId}?u=&exp=&sig=). The old
-        // hardcoded /api/v1/books/{bookId}/audio/{fileId} route no longer exists and 404s. The signed
-        // URL is RELATIVE, so prepend the server URL (NSURLSession has no base URL).
-        val signedRelativeUrl =
-            when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, prepareRepository)) {
-                is AppResult.Success -> {
-                    resolved.data
-                }
-
-                is AppResult.Failure -> {
-                    logger.error { "Failed to resolve download URL for $filename: ${resolved.error.message}" }
-                    downloadDao.updateError(audioFileId, "Failed to resolve URL: ${resolved.error.message}")
-                    return@withContext
-                }
-            }
         val url = serverUrl.trimEnd('/') + signedRelativeUrl
         val nsUrl =
             NSURL.URLWithString(url) ?: run {
@@ -368,12 +429,39 @@ class AppleDownloadService internal constructor(
                 return
             }
 
-        for (download in incomplete) {
-            if (download.state != DownloadState.QUEUED) {
-                downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
-            }
+        // ONE prepare() round-trip per book, not per row: a foreground with 3 partly-downloaded
+        // books used to fire one RPC (and one token refresh) for every incomplete file.
+        for ((incompleteBookId, rows) in incomplete.groupBy { it.bookId }) {
+            val signedUrls =
+                when (val resolved = resolveSignedDownloadUrls(incompleteBookId, prepareRepository)) {
+                    is AppResult.Success -> {
+                        resolved.data
+                    }
 
-            scope.launch {
+                    is AppResult.Failure -> {
+                        logger.warn { "Skipping resume for $incompleteBookId: ${resolved.error.message}" }
+                        continue
+                    }
+                }
+
+            val launchable =
+                rows.mapNotNull { download ->
+                    // No updateError here (unlike downloadBook): that bumps retryCount, and burning
+                    // the retry budget on every foreground would strand a row the server may well
+                    // sign on the next attempt.
+                    val signedRelativeUrl = signedUrls[download.audioFileId]
+                    if (signedRelativeUrl == null) {
+                        logger.warn { "prepare() returned no URL for audioFile=${download.audioFileId}; skipping" }
+                        null
+                    } else {
+                        if (download.state != DownloadState.QUEUED) {
+                            downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
+                        }
+                        download to signedRelativeUrl
+                    }
+                }
+
+            scope.launchEachBounded(launchable, downloadSlots) { (download, signedRelativeUrl) ->
                 tokenProvider.prepareForPlayback()
                 val fileToken = tokenProvider.getToken() ?: token
                 downloadFile(
@@ -389,6 +477,7 @@ class AppleDownloadService internal constructor(
                         ),
                     serverUrl = serverUrl,
                     token = fileToken,
+                    signedRelativeUrl = signedRelativeUrl,
                 )
             }
         }
@@ -418,7 +507,7 @@ class AppleDownloadService internal constructor(
  * Handles progress updates and completion. Each download task has a registered
  * continuation that is resumed when the task finishes.
  */
-private class DownloadSessionDelegate(
+internal class DownloadSessionDelegate(
     private val downloadDao: DownloadDao,
     private val scope: CoroutineScope,
 ) : NSObject(),
@@ -550,6 +639,19 @@ private class DownloadSessionDelegate(
         }
     }
 
+    /**
+     * Fail a task exactly once: remove its pending state and resume its continuation with `false`.
+     *
+     * This is the unconditional tail of EVERY exit path in both delegate callbacks. The previous
+     * shape dropped the continuation on a nil/short `taskDescription` — the caller's
+     * `suspendCancellableCoroutine` then suspended forever and its DB row stayed DOWNLOADING with
+     * nothing behind it. [removePending] returning null means some other path already finished it,
+     * so a second call is a safe no-op.
+     */
+    private fun failTask(taskId: ULong) {
+        removePending(taskId)?.let { safeResume(it.continuation, false) }
+    }
+
     override fun URLSession(
         session: NSURLSession,
         downloadTask: NSURLSessionDownloadTask,
@@ -557,8 +659,13 @@ private class DownloadSessionDelegate(
     ) {
         val taskId = downloadTask.taskIdentifier
         val pending = lock.withLock { pendingDownloads[taskId] } ?: return
-        val parts = downloadTask.taskDescription?.split("|") ?: return
-        val audioFileId = parts.getOrNull(1) ?: return
+        val parts = downloadTask.taskDescription?.split("|")
+        val audioFileId = parts?.getOrNull(1)
+        if (audioFileId == null) {
+            logger.error { "Finished download task $taskId carries no usable tag; failing it" }
+            failTask(taskId)
+            return
+        }
         val filename = parts.getOrNull(2) ?: "unknown"
 
         // Check HTTP status
@@ -567,7 +674,7 @@ private class DownloadSessionDelegate(
         if (statusCode !in 200L..299L && statusCode != 0L) {
             logger.error { "Download HTTP $statusCode for $filename" }
             scope.launch { downloadDao.updateError(audioFileId, "HTTP error: $statusCode") }
-            removePending(taskId)?.let { safeResume(it.continuation, false) }
+            failTask(taskId)
             return
         }
 
@@ -579,7 +686,7 @@ private class DownloadSessionDelegate(
         if (!moved) {
             logger.error { "Failed to move downloaded file: $filename" }
             scope.launch { downloadDao.updateError(audioFileId, "Failed to save file") }
-            removePending(taskId)?.let { safeResume(it.continuation, false) }
+            failTask(taskId)
             return
         }
 
@@ -591,7 +698,7 @@ private class DownloadSessionDelegate(
         if (fileSize == 0L) {
             logger.error { "Downloaded file is empty: $filename" }
             scope.launch { downloadDao.updateError(audioFileId, "Downloaded file is empty") }
-            removePending(taskId)?.let { safeResume(it.continuation, false) }
+            failTask(taskId)
             return
         }
 
@@ -643,15 +750,19 @@ private class DownloadSessionDelegate(
         task: NSURLSessionTask,
         didCompleteWithError: NSError?,
     ) {
+        // A nil error means the download succeeded; `didFinishDownloadingToURL` already resumed it.
         if (didCompleteWithError == null) return
         val taskId = task.taskIdentifier
-        val pending = removePending(taskId) ?: return
-        val parts = task.taskDescription?.split("|") ?: return
-        val audioFileId = parts.getOrNull(1) ?: return
+        val audioFileId = task.taskDescription?.split("|")?.getOrNull(1)
 
         logger.error { "Download error: ${didCompleteWithError.localizedDescription}" }
-        scope.launch { downloadDao.updateError(audioFileId, didCompleteWithError.localizedDescription) }
-        safeResume(pending.continuation, false)
+        if (audioFileId != null) {
+            scope.launch { downloadDao.updateError(audioFileId, didCompleteWithError.localizedDescription) }
+        } else {
+            logger.error { "Failed download task $taskId carries no usable tag; no row to mark" }
+        }
+        // Unconditional tail: the continuation is resumed even when the tag is unusable.
+        failTask(taskId)
     }
 }
 

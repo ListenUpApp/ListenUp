@@ -12,6 +12,26 @@
    until we are sure nothing wants it, then it goes.
    ============================================================ */
 
+/* Self-hosted, not fetched from fonts.googleapis.com. Two reasons, both hard:
+   the app is served under Cross-Origin-Embedder-Policy: require-corp, which is designed to
+   block exactly this kind of un-CORP'd third-party subresource; and a self-hosted server
+   that phones Google to render its own type is not self-hosted. Variable weight axis, so
+   one file covers 400-800. Licence: SIL OFL 1.1 — see public/fonts/OFL-*.txt. */
+@font-face {
+  font-family: "Hanken Grotesk";
+  src: url("/fonts/hanken-grotesk-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* The one thing the browser draws that this sheet cannot: the open list of a <select>, and the
      scrollbars. Left unset they follow the OS, so a reader on a dark desktop who chooses Light

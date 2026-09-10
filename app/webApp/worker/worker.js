@@ -1,10 +1,30 @@
 // The web worker side of androidx.sqlite:sqlite-web's WebWorkerSQLiteDriver
 // (2.7.0). The artifact ships only the driver half — the protocol is documented
 // on WebWorkerSQLiteDriver's KDoc (open/prepare/step/close), and consumers
-// supply the worker. This implementation is taken verbatim from the Room team's
-// reference at github.com/danysantiago/room-web-demo (Apache-2.0),
+// supply the worker. This implementation started as the Room team's reference at
+// github.com/danysantiago/room-web-demo (Apache-2.0),
 // sqliteWasmWorker/worker/worker.js, backed by @sqlite.org/sqlite-wasm with
 // OPFS persistence (sqlite3.oo1.OpfsDb — requires COOP/COEP headers).
+//
+// NO LONGER VERBATIM. Local divergences, to be preserved across any upstream
+// reconciliation:
+//   1. `close` null-checks its ids instead of testing them for truthiness — the
+//      counters start at 0, so the first database and the first statement were
+//      never closed.
+//   2. No per-message logging — it printed every prepared statement's SQL and
+//      every step's bindings to the production console.
+//   3. A rejected `sqlite3InitModule()` fails the queued and every subsequent
+//      request instead of leaving them unanswered forever.
+//
+// NOT a divergence, and must never become one: `close` answers only on failure.
+// It is the one command the driver sends fire-and-forget — CoroutineWebWorker.
+// sendRequest(request) posts the message and registers NO pending entry — so a
+// success reply is an id onMessage never expected, and it throws
+// `IllegalStateException: ... was not expected.` straight out of the Worker's
+// onmessage, once per finalized statement and closed database. Nothing in Kotlin
+// can catch that. An ERROR reply is different and stays: onMessage routes an
+// unknown id that carries `error` to onError(), which fails every in-flight
+// request instead of throwing. See SqliteWorkerProtocolTest.
 // Sunset: replace with official packaging if/when androidx ships the worker.
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -85,7 +105,10 @@ function stepRequest(id, requestData) {
 }
 
 function closeRequest(id, requestData) {
-    if (requestData.statementId) {
+    // `!= null` rather than truthiness: the id counters start at 0, so `if (requestData.databaseId)`
+    // was false for the first database and the first statement ever opened — in practice the only
+    // ones the app has — and their OPFS handles were held for the life of the worker.
+    if (requestData.statementId != null) {
         const statement = statements.get(requestData.statementId);
         if (!statement) {
             postMessage({'id': id, error: "Invalid statement ID: " + requestData.statementId});
@@ -99,7 +122,7 @@ function closeRequest(id, requestData) {
         }
     }
 
-    if (requestData.databaseId) {
+    if (requestData.databaseId != null) {
         const database = databases.get(requestData.databaseId);
         if (!database) {
             postMessage({'id': id, error: "Invalid database ID: " + requestData.databaseId});
@@ -112,6 +135,9 @@ function closeRequest(id, requestData) {
             postMessage({'id': id, error: error.message});
         }
     }
+
+    // Deliberately silent on success — see the header note. The driver holds no pending entry for
+    // a `close`, so the only correct answer to one that worked is no answer at all.
 }
 
 // A map that links command names (strings) to their respective handler functions.
@@ -124,7 +150,6 @@ const commandMap = {
 
 function handleMessage(e) {
     const requestMsg = e.data;
-    console.log("handleMessage: " + JSON.stringify(requestMsg));
     if (!Object.hasOwn(requestMsg, 'data') && requestMsg.data == null) {
         postMessage(
             {'id': requestMsg.id, 'error': "Invalid request, missing 'data'."}
@@ -149,17 +174,35 @@ function handleMessage(e) {
 }
 
 const messageQueue = [];
+// A rejected init is permanent: every already-queued and every future request must be
+// answered with the reason, or the driver's CompletableDeferred never completes and the
+// tab spins forever with nothing in the console to act on.
+let initError = null;
+
+function failRequest(requestMsg, reason) {
+    postMessage({'id': requestMsg.id, 'error': "SQLite worker failed to start: " + reason});
+}
+
 onmessage = (e) => {
-    if (!sqlite3) {
+    if (initError !== null) {
+        failRequest(e.data, initError);
+    } else if (!sqlite3) {
         messageQueue.push(e);
     } else {
         handleMessage(e);
     }
 };
 
-sqlite3InitModule().then(instance => {
-    sqlite3 = instance;
-    while (messageQueue.length > 0) {
-        handleMessage(messageQueue.shift());
-    }
-});
+sqlite3InitModule()
+    .then(instance => {
+        sqlite3 = instance;
+        while (messageQueue.length > 0) {
+            handleMessage(messageQueue.shift());
+        }
+    })
+    .catch(error => {
+        initError = String(error && error.message ? error.message : error);
+        while (messageQueue.length > 0) {
+            failRequest(messageQueue.shift().data, initError);
+        }
+    });

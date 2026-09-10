@@ -288,7 +288,14 @@ class Mp4ParserPropertyTest :
                 // that path. The v1 path is covered by [Mp4ParserTest].
                 val timescale = Arb.element(1, 100, 1000, 44_100, 48_000)
                 val durationUnits = Arb.long(1L..100_000_000L)
-                checkAll(PropTestConfig(iterations = 30), timescale, durationUnits) { ts, du ->
+                checkAll(PropTestConfig(iterations = 30), timescale, durationUnits) { ts, rawUnits ->
+                    // This property is about the decode arithmetic across timescales, not about
+                    // which durations the parser is willing to believe: a decoded duration past
+                    // the plausibility band is reported as unknown, by design. The raw generator
+                    // crosses timescales down to 1 with counts up to 100,000,000, which reaches
+                    // some 27,000 hours, so the pair is brought inside the band before use. Only
+                    // the smallest timescales are narrowed at all; 1000 and above are untouched.
+                    val du = rawUnits.coerceAtMost(MAX_PLAUSIBLE_SECONDS * ts)
                     val expected = (du * 1000L) / ts.toLong()
                     val bytes =
                         buildMp4File {
@@ -348,3 +355,6 @@ class Mp4ParserPropertyTest :
             }
         }
     })
+
+/** Seconds in the parser's plausibility band (200 hours) — mirrors `Mp4Parser`'s own ceiling. */
+private const val MAX_PLAUSIBLE_SECONDS = 200L * 60 * 60

@@ -385,7 +385,10 @@ internal class SyncEngine(
      * [SyncEngineState] and drives the reachability indicator.
      */
     suspend fun reconnect() {
-        syncStreamClient.disconnect()
+        // Join, don't just cancel: connect()'s guard reads Job.isActive, which is already false for a
+        // cancelled-but-unfinished loop — so a fire-and-forget disconnect lets two subscription loops
+        // run at once, sharing one resume cursor and one frame bus.
+        syncStreamClient.disconnectAndJoin()
         syncStreamClient.connect()
     }
 
@@ -598,8 +601,19 @@ internal class SyncEngine(
                 // Snapshot the waiters registered BEFORE this pass starts. They are satisfied the
                 // moment this pass ends — it began after their request, so it covers it.
                 val satisfiedByThisPass = cursorStaleMutex.withLock { drainWaiters() }
-                runCursorStaleRecovery()
-                satisfiedByThisPass.forEach { it.complete(Unit) }
+                var passSucceeded = false
+                try {
+                    runCursorStaleRecovery()
+                    passSucceeded = true
+                } finally {
+                    // The snapshot is already OUT of cursorStaleWaiters, so the outer finally can
+                    // never see it — resolving it here is the only thing standing between a failed
+                    // pass and a coalesced caller suspended for the life of the process. Complete on
+                    // a served request; cancel when the pass threw or was cancelled, matching the
+                    // outer cleanup's "cancelled, not completed" contract (join() returns normally
+                    // either way, so the caller is released without observing an exception).
+                    releaseWaiters(satisfiedByThisPass, served = passSucceeded)
+                }
                 more =
                     cursorStaleMutex.withLock {
                         if (cursorStalePending) {
@@ -641,9 +655,23 @@ internal class SyncEngine(
         return snapshot
     }
 
+    /**
+     * Release [waiters] without suspending: complete them when the pass that covered them [served]
+     * the request, cancel them when it threw or was cancelled. Neither call can throw, so a caller's
+     * `finally` can rely on every waiter being resolved.
+     */
+    private fun releaseWaiters(
+        waiters: List<CompletableDeferred<Unit>>,
+        served: Boolean,
+    ) {
+        for (waiter in waiters) {
+            if (served) waiter.complete(Unit) else waiter.cancel()
+        }
+    }
+
     private suspend fun runCursorStaleRecovery() {
         logger.info { "CursorStale recovery — disconnect → catchUp → reseed → reconnect" }
-        syncStreamClient.disconnect()
+        syncStreamClient.disconnectAndJoin()
         when (val result = catchUpMutex.withLock { catchUp.catchUpAll(registry) }) {
             is AppResult.Success -> {}
 
@@ -819,7 +847,7 @@ internal class SyncEngine(
             reconnectRefresh?.cancelAndJoin()
             authGate?.cancelAndJoin()
             healDrain?.cancelAndJoin()
-            syncStreamClient.disconnect()
+            syncStreamClient.disconnectAndJoin()
         }
     }
 
@@ -937,7 +965,20 @@ internal class SyncEngine(
         if (healDrainJob?.isActive == true) return
         healDrainJob =
             scope.launch {
-                queue.observeHealRequests().collect { ref -> drainReconciler.healEntity(ref) }
+                queue.observeHealRequests().collect { ref ->
+                    // Guard per request so one failed heal logs and the collector KEEPS COLLECTING —
+                    // an uncaught throw in an appScope collector kills the process on Kotlin/Native,
+                    // and here it would also strand every later heal behind an UNLIMITED channel that
+                    // nothing drains (ensureHealDrain is only re-entered from runStart, which no-ops
+                    // for an already-started user).
+                    try {
+                        drainReconciler.healEntity(ref)
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Heal request handling failed; heal collector continues" }
+                    }
+                }
             }
     }
 
@@ -1002,7 +1043,7 @@ internal class SyncEngine(
                         when {
                             current is AuthState.SessionLapsed -> {
                                 logger.info { "Session lapsed — parking the sync firehose" }
-                                syncStreamClient.disconnect()
+                                syncStreamClient.disconnectAndJoin()
                             }
 
                             current is AuthState.Authenticated && before is AuthState.SessionLapsed -> {

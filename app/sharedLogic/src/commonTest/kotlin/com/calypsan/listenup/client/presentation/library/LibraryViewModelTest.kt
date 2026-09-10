@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.library
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.client.test.SimulatedFailure
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -1089,7 +1090,7 @@ class LibraryViewModelTest :
             runTest {
                 // Given - book repository flow throws on first collect; per-upstream .catch emits empty list
                 val fixture = createFixture()
-                every { fixture.bookRepository.observeBookListItems() } returns flow { throw IllegalStateException("transient") }
+                every { fixture.bookRepository.observeBookListItems() } returns flow { throw SimulatedFailure("transient") }
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
                 advanceUntilIdle()
@@ -1104,7 +1105,7 @@ class LibraryViewModelTest :
             runTest {
                 // Given - playback position flow throws on first collect; per-upstream .catch emits empty map
                 val fixture = createFixture()
-                every { fixture.playbackPositionRepository.observeAll() } returns flow { throw IllegalStateException("transient") }
+                every { fixture.playbackPositionRepository.observeAll() } returns flow { throw SimulatedFailure("transient") }
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
                 advanceUntilIdle()

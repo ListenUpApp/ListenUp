@@ -686,6 +686,7 @@ One beautiful library.</string>
     <string name="common_error">Error</string>
     <string name="common_expand">Expand</string>
     <string name="common_genres">Genres</string>
+    <string name="common_hide_password">Hide password</string>
     <string name="common_home">Home</string>
     <string name="common_image">Image</string>
     <string name="common_inbox">Inbox</string>
@@ -742,6 +743,7 @@ One beautiful library.</string>
     <string name="common_share">Share</string>
     <string name="common_share_book_text">Check out %1$s on ListenUp!</string>
     <string name="common_shelf_name_hint">e.g., To Read, Favorites, Mystery...</string>
+    <string name="common_show_password">Show password</string>
     <string name="common_sign_out">Sign Out</string>
     <string name="common_something_went_wrong">Something went wrong</string>
     <string name="common_step_n">Step %1$d</string>
@@ -1055,6 +1057,11 @@ One beautiful library.</string>
     <string name="import_writing_history_subtitle">Merging sessions into the database</string>
     <string name="import_writing_history_title">Writing history</string>
     <string name="invite_code_placeholder">Invite code</string>
+    <string name="invite_confirm_server_body">This invite points at %1$s. Continue only if you recognise it.</string>
+    <string name="invite_confirm_server_cancel">Not now</string>
+    <string name="invite_confirm_server_continue">Continue</string>
+    <string name="invite_confirm_server_signed_out_warning">You're signed in to a different server. Continuing signs you out of it.</string>
+    <string name="invite_confirm_server_title">Connect to this server?</string>
     <string name="invite_enter_code">Enter code</string>
     <string name="invite_error_invalid">This invite isn't valid.</string>
     <string name="invite_get_started">Get started</string>

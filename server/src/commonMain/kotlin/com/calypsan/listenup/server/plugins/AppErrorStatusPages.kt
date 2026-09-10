@@ -375,6 +375,7 @@ private fun MetadataError.toHttpStatus(): HttpStatusCode =
         is MetadataError.NotFound -> HttpStatusCode.NotFound
         is MetadataError.Malformed -> HttpStatusCode.BadGateway
         is MetadataError.ChapterCountMismatch -> HttpStatusCode.UnprocessableEntity
+        is MetadataError.UnsafeUrl -> HttpStatusCode.BadRequest
     }
 
 /**

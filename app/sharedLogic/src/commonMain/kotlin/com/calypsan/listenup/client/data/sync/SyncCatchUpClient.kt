@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncPayload
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -40,8 +39,8 @@ private const val TARGETED_FETCH_LIMIT = 100
  * advance is observable, and only via the cursor store's normal Room reactivity.
  *
  * Wire shape: the server hands back a [com.calypsan.listenup.api.sync.SyncPage] whose envelope is
- * typed and whose rows are encoded strings, decoded here by `toPage` with the handler's payload
- * serializer. The domain selects its serializer at runtime, so the association is pinned by
+ * typed and whose rows are encoded strings, decoded here by `toDecodedPage` with the handler's
+ * payload serializer. The domain selects its serializer at runtime, so the association is pinned by
  * `SyncDomainRoundTripSpec` rather than by the compiler.
  *
  * Rides the same channel as the firehose ([RpcSyncStreamClient]) and drift detection
@@ -84,11 +83,11 @@ internal class SyncCatchUpClient(
         pullCatching {
             var since = startSince
             while (true) {
-                val page: Page<T> =
+                val page: DecodedPage<T> =
                     channel
                         .call(idempotent = true) { it.pullDomain(handler.domainName, since, PAGE_LIMIT) }
                         .getOrElse { error -> throw TypedAppErrorException(error) }
-                        .toPage(handler.payloadSerializer)
+                        .toDecodedPage(handler.payloadSerializer)
                 val outcome = applyPage(handler, page, since)
                 if (outcome.failures > 0 && !handler.hasDigestBackstop) {
                     // Digest OPT-OUT domain (positions): the reconciler never re-pulls it, so the
@@ -97,7 +96,7 @@ internal class SyncCatchUpClient(
                     // failed item on the next pass. Stop paging: advancing `since` past the hole to
                     // fetch the next page would strand the failed revision forever.
                     logger.warn {
-                        "catchUp(${handler.domainName}): ${outcome.failures}/${page.items.size} items failed; " +
+                        "catchUp(${handler.domainName}): ${outcome.failures}/${page.rows.size} items failed; " +
                             "holding cursor at ${outcome.lastSafeRevision} " +
                             "(no digest backstop, cannot advance past a failed item)"
                     }
@@ -109,7 +108,7 @@ internal class SyncCatchUpClient(
                     // the next reconcile re-pulls the drifted rows), but surface the loss rather than
                     // discarding it silently.
                     logger.warn {
-                        "catchUp(${handler.domainName}): ${outcome.failures}/${page.items.size} items failed to apply"
+                        "catchUp(${handler.domainName}): ${outcome.failures}/${page.rows.size} items failed to apply"
                     }
                 }
                 page.nextCursor?.let {
@@ -151,18 +150,31 @@ internal class SyncCatchUpClient(
      */
     private suspend fun <T : Any> applyPage(
         handler: SyncDomainHandler<T>,
-        page: Page<T>,
+        page: DecodedPage<T>,
         startSince: Long,
     ): PageApplyOutcome =
         transactionRunner.atomically {
             var failures = 0
             var lastSafeRevision = startSince
-            for (item in page.items) {
-                val isTomb = (item as? Tombstoned)?.deletedAt != null
-                if (handler.onCatchUpItem(item, isTomb) is AppResult.Failure) {
-                    failures++
-                } else if (failures == 0) {
-                    (item as? SyncPayload)?.revision?.let { lastSafeRevision = it }
+            for (row in page.rows) {
+                when (row) {
+                    // An undecodable row is functionally "apply did not happen": counting it as a
+                    // failure is what makes the OptOut cursor hold below the hole (so pullSince
+                    // redelivers it once the client understands it) and what makes a digest-backed
+                    // domain report the loss instead of discarding it silently.
+                    is DecodedRow.Undecodable -> {
+                        failures++
+                    }
+
+                    is DecodedRow.Decoded -> {
+                        val item = row.value
+                        val isTomb = (item as? Tombstoned)?.deletedAt != null
+                        if (handler.onCatchUpItem(item, isTomb) is AppResult.Failure) {
+                            failures++
+                        } else if (failures == 0) {
+                            (item as? SyncPayload)?.revision?.let { lastSafeRevision = it }
+                        }
+                    }
                 }
             }
             PageApplyOutcome(failures, lastSafeRevision)
@@ -196,16 +208,22 @@ internal class SyncCatchUpClient(
             val accessibleIds = mutableSetOf<String>()
             var since = 0L
             while (true) {
-                val page: Page<T> =
+                val page: DecodedPage<T> =
                     channel
                         .call(idempotent = true) { it.pullDomain(handler.domainName, since, PAGE_LIMIT) }
                         .getOrElse { error -> throw TypedAppErrorException(error) }
-                        .toPage(handler.payloadSerializer)
+                        .toDecodedPage(handler.payloadSerializer)
                 transactionRunner.atomically {
-                    for (item in page.items) {
+                    for (item in page.decoded) {
                         val isTomb = (item as? Tombstoned)?.deletedAt != null
                         handler.onCatchUpItem(item, isTomb)
                         if (!isTomb) accessibleIds += handler.syncId(item)
+                    }
+                }
+                if (page.undecodableCount > 0) {
+                    logger.warn {
+                        "${handler.domainName}: ${page.undecodableCount}/${page.rows.size} targeted rows " +
+                            "were undecodable and were skipped"
                     }
                 }
                 val next = page.nextCursor
@@ -236,16 +254,22 @@ internal class SyncCatchUpClient(
                 }
             val returnedIds = mutableSetOf<String>()
             for (chunk in values.distinct().chunked(TARGETED_FETCH_LIMIT)) {
-                val page: Page<T> =
+                val page: DecodedPage<T> =
                     channel
                         .call(idempotent = true) { it.pullByIds(handler.domainName, match, chunk) }
                         .getOrElse { error -> throw TypedAppErrorException(error) }
-                        .toPage(handler.payloadSerializer)
+                        .toDecodedPage(handler.payloadSerializer)
                 transactionRunner.atomically {
-                    for (item in page.items) {
+                    for (item in page.decoded) {
                         val isTomb = (item as? Tombstoned)?.deletedAt != null
                         handler.onCatchUpItem(item, isTomb)
                         if (!isTomb) returnedIds += handler.syncId(item)
+                    }
+                }
+                if (page.undecodableCount > 0) {
+                    logger.warn {
+                        "${handler.domainName}: ${page.undecodableCount}/${page.rows.size} targeted rows " +
+                            "were undecodable and were skipped"
                     }
                 }
             }

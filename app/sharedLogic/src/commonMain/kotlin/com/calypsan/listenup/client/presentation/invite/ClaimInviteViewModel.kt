@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.repository.hostOfUrl
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -26,6 +28,7 @@ class ClaimInviteViewModel(
     private val repository: InviteRepository,
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
+    private val authSession: AuthSession,
 ) : ViewModel() {
     private var closed = false
 
@@ -50,9 +53,13 @@ class ClaimInviteViewModel(
 
     private var code: String? = null
 
+    /** The link's reachable server address, parked while the user decides whether to move to it. */
+    private var pendingServerUrl: String? = null
+
     /**
-     * Entry point for the deep-link claim path: pick a reachable server URL from the link, persist
-     * it, then look up the invite — in that order, on one coroutine.
+     * Entry point for the deep-link claim path: pick a reachable server URL from the link, have the
+     * user confirm it if it is not the server this device already uses, persist it, then look up
+     * the invite — in that order.
      *
      * The link carries the admin's local [serverUrl] and, when the server advertises one, a
      * [remoteUrl] (WAN). We probe the local URL first and fall back to the remote, so an invitee off
@@ -60,11 +67,19 @@ class ClaimInviteViewModel(
      * ([InstanceRepository.findReachableUrl]) that `ServerSelectViewModel` uses. If neither probes as
      * reachable we still persist the local URL so the lookup surfaces a real connection error.
      *
-     * The single launch is load-bearing. The RPC factory resolves its base URL from [ServerConfig],
-     * so on a fresh install the lookup must not run until [ServerConfig.setServerUrl] has completed;
-     * sequencing the probe, the set, and the lookup on one coroutine keeps that order deterministic.
-     * A null [serverUrl] is the manual-entry path, where the user already selected a server via
-     * Connect, so the set step is skipped and we go straight to lookup.
+     * A link-supplied address is NEVER persisted without the user seeing it first. The link is
+     * untrusted input, and the persisted server URL is the host every subsequent authenticated
+     * request is sent to — so the flow parks on [ClaimInviteUiState.ConfirmServer] and waits for
+     * [onConfirmServer]. The confirmation lands BEFORE the persist, not instead of it: the lookup
+     * still runs after `setServerUrl` on one coroutine, because the RPC factory resolves its base
+     * URL from [ServerConfig]. A device already pointed at the link's host is not moving anywhere,
+     * so it skips the confirmation and goes straight through.
+     *
+     * The single launch per path is load-bearing. On a fresh install the lookup must not run until
+     * [ServerConfig.setServerUrl] has completed; sequencing the set and the lookup on one coroutine
+     * ([applyServerAndLookUp]) keeps that order deterministic. A null [serverUrl] is the manual-entry
+     * path, where the user already selected a server via Connect, so the set step is skipped and we
+     * go straight to lookup.
      */
     fun start(
         serverUrl: String?,
@@ -74,20 +89,50 @@ class ClaimInviteViewModel(
         this.code = code
         viewModelScope.launch {
             val candidates = listOfNotNull(serverUrl, remoteUrl).distinct()
-            if (candidates.isNotEmpty()) {
-                val reachable = instanceRepository.findReachableUrl(candidates) ?: candidates.first()
-                serverConfig.setServerUrl(ServerUrl(reachable))
-                // Arm IP-follow for invite-claimed servers too: persist the server's stable instance
-                // id (the same InstanceIdentity the mDNS relocation matches) so a later LAN address
-                // change is followed. Best-effort — a probe failure leaves relocation disarmed, as
-                // before, and never blocks the claim.
-                when (val verify = instanceRepository.verifyServer(reachable)) {
-                    is AppResult.Success -> serverConfig.setConnectedServerId(verify.data.serverInfo.instanceId)
-                    is AppResult.Failure -> Unit
-                }
+            if (candidates.isEmpty()) {
+                lookUp(code)
+                return@launch
             }
-            lookUp(code)
+            val reachable = instanceRepository.findReachableUrl(candidates) ?: candidates.first()
+            val currentHost = serverConfig.getServerUrl()?.value?.hostOfUrl()
+            if (currentHost != null && currentHost == reachable.hostOfUrl()) {
+                // Already pointed at this host — no move, nothing to confirm.
+                applyServerAndLookUp(reachable)
+                return@launch
+            }
+            pendingServerUrl = reachable
+            state.value =
+                ClaimInviteUiState.ConfirmServer(
+                    host = reachable.hostOfUrl(),
+                    signedInElsewhere = authSession.isAuthenticated(),
+                )
         }
+    }
+
+    /** The user agreed to point this device at the link's server. Persists it, then looks the invite up. */
+    fun onConfirmServer() {
+        val pending = pendingServerUrl ?: return
+        pendingServerUrl = null
+        viewModelScope.launch { applyServerAndLookUp(pending) }
+    }
+
+    /** The user declined the link's server. Falls back to manual code entry against the current server. */
+    fun onCancelServer() {
+        pendingServerUrl = null
+        state.value = ClaimInviteUiState.Idle
+    }
+
+    private suspend fun applyServerAndLookUp(reachable: String) {
+        serverConfig.setServerUrl(ServerUrl(reachable))
+        // Arm IP-follow for invite-claimed servers too: persist the server's stable instance
+        // id (the same InstanceIdentity the mDNS relocation matches) so a later LAN address
+        // change is followed. Best-effort — a probe failure leaves relocation disarmed, as
+        // before, and never blocks the claim.
+        when (val verify = instanceRepository.verifyServer(reachable)) {
+            is AppResult.Success -> serverConfig.setConnectedServerId(verify.data.serverInfo.instanceId)
+            is AppResult.Failure -> Unit
+        }
+        lookUp(code ?: return)
     }
 
     fun onCodeEntered(code: String) {

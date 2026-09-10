@@ -170,6 +170,7 @@ class PlaybackPreparerHlsTest :
             val downloadService: DownloadService = mock()
             every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(any()) } returns null
+            everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
                 AppResult.Success(DownloadOutcome.AlreadyDownloaded)
@@ -182,6 +183,8 @@ class PlaybackPreparerHlsTest :
             every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-hls-1.mp3"
             everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-prep-hls-2.mp3"
+            everySuspend { downloadService.getLocalPaths(any()) } returns
+                mapOf(audioFile1 to "/local/af-prep-hls-1.mp3", audioFile2 to "/local/af-prep-hls-2.mp3")
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
                 AppResult.Success(DownloadOutcome.AlreadyDownloaded)
@@ -281,6 +284,8 @@ class PlaybackPreparerHlsTest :
                 every { downloadService.supportsDownloads } returns true
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-hls-1.mp3"
                 everySuspend { downloadService.getLocalPath(audioFile2) } returns null // missing
+                everySuspend { downloadService.getLocalPaths(any()) } returns
+                    mapOf(audioFile1 to "/local/af-prep-hls-1.mp3") // audioFile2 missing — sparse map
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
                 everySuspend { downloadService.downloadBook(any()) } returns
                     AppResult.Success(DownloadOutcome.AlreadyDownloaded)

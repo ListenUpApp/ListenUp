@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.scanner.sidecar.xml
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -105,5 +106,46 @@ class XmlParserTest :
 
         test("throws on malformed XML (unclosed tag at EOF)") {
             shouldThrowAny { parseXml("<a><b>") }
+        }
+
+        // Nesting depth is the one dimension of a sidecar that costs stack rather than heap, and
+        // the callers catch `Exception` — which does not catch a `StackOverflowError`. On the JVM
+        // that ends the scan coroutine; on the native binary it ends the process. So the reader
+        // stops descending at a fixed depth and reports it as an ordinary parse failure, which
+        // the callers already know how to log and skip.
+
+        /** A document [levels] elements deep, every element named `a`, innermost one empty. */
+        fun nested(levels: Int): String =
+            buildString {
+                repeat(levels) { append("<a>") }
+                repeat(levels) { append("</a>") }
+            }
+
+        test("XML at the nesting-depth limit still parses") {
+            val root = parseXml(nested(100))
+
+            root.tag shouldBe "a"
+            root.getElementsByTagName("a") shouldHaveSize 99
+        }
+
+        test("XML one level past the nesting-depth limit is rejected") {
+            shouldThrow<IllegalStateException> { parseXml(nested(101)) }
+        }
+
+        test("XML nested far past the limit is rejected without descending to the stack's limit") {
+            // Green here is the proof: the reader must refuse at its own depth rather than
+            // recursing until the runtime stops it, so the answer is an ordinary exception the
+            // sidecar parsers already handle — not an Error that escapes them.
+            shouldThrow<IllegalStateException> { parseXml(nested(50_000)) }
+        }
+
+        test("traversal of a document at the depth limit returns, in document order") {
+            // The DOM helpers walk the same tree the reader just built. Both must terminate on
+            // the deepest document the reader will accept, and `getElementsByTagName` must still
+            // answer in document order — `firstText` depends on "first" meaning first.
+            val root = parseXml("<r><a>1</a><b><a>2</a></b>${nested(99)}<a>3</a></r>")
+
+            root.textContent shouldBe "123"
+            root.allText("a") shouldBe listOf("1", "2", "3")
         }
     })

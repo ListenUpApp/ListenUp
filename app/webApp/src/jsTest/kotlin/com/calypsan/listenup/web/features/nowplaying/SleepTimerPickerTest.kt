@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
@@ -18,48 +19,12 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.browser.document
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.url.URL
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
-
-/**
- * An open picker, with every parameter overridable.
- *
- * One shape for every case in this spec: a test that differs from its neighbour in one argument
- * says what it is about in that argument, rather than in seven lines of repeated wiring.
- */
-private fun picker(
-    state: SleepTimerState = SleepTimerState.Inactive,
-    hasChapters: Boolean = true,
-    open: Boolean = true,
-    onSet: (SleepTimerMode) -> Unit = {},
-    onCancel: () -> Unit = {},
-    onExtend: (Int) -> Unit = {},
-    onDismiss: () -> Unit = {},
-): HTMLElement =
-    mount {
-        SleepTimerPicker(
-            open = open,
-            state = state,
-            hasChapters = hasChapters,
-            onSet = onSet,
-            onCancel = onCancel,
-            onExtend = onExtend,
-            onDismiss = onDismiss,
-        )
-    }
 
 /** A duration timer with [remainingMs] left of [totalMs]. */
 private fun running(
@@ -86,6 +51,38 @@ private const val AN_EXTENSION_MIN = 10
 
 class SleepTimerPickerTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        /**
+         * An open picker, with every parameter overridable.
+         *
+         * One shape for every case in this spec: a test that differs from its neighbour in one
+         * argument says what it is about in that argument, rather than in seven lines of repeated
+         * wiring.
+         */
+        fun picker(
+            state: SleepTimerState = SleepTimerState.Inactive,
+            hasChapters: Boolean = true,
+            open: Boolean = true,
+            onSet: (SleepTimerMode) -> Unit = {},
+            onCancel: () -> Unit = {},
+            onExtend: (Int) -> Unit = {},
+            onDismiss: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                WebAppSurface {
+                    SleepTimerPicker(
+                        open = open,
+                        state = state,
+                        hasChapters = hasChapters,
+                        onSet = onSet,
+                        onCancel = onCancel,
+                        onExtend = onExtend,
+                        onDismiss = onDismiss,
+                    )
+                }
+            }
 
         test("a closed picker renders nothing at all") {
             val host = picker(open = false)
@@ -243,6 +240,10 @@ class SleepTimerPickerTest :
 
 class SleepTimerBarTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
 
         test("the sleep control is offered even for a book with no chapters") {
             // Unlike the chapters button: a duration timer needs nothing from the book.

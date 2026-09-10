@@ -40,6 +40,10 @@ class LocalPreferencesAreLoadedAtStartupRule :
                 "app/sharedLogic/src/iosMain/kotlin/com/calypsan/listenup/client/di/Koin.ios.kt" to "iOS",
             )
 
+        // No assertScopeNotEmpty guard in this file: both tests below are already collapse-proof,
+        // because each asserts that a set of MISSES is empty rather than that a set of hits is
+        // clean. An empty scope makes every `none { … }` true, so all four entry points land in
+        // `missing`/`offenders` and both tests go RED. That inversion is the guard.
         test("every client entry point still exists where this rule looks for it") {
             val missing =
                 entryPoints

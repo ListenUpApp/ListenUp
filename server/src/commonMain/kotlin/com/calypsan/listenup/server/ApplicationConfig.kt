@@ -9,9 +9,12 @@ import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
+import com.calypsan.listenup.server.transcode.TranscodeSettings
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
+import io.ktor.server.application.install
 import io.ktor.server.config.ApplicationConfig
+import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
@@ -87,6 +90,36 @@ internal fun Application.acquireDataDirLockIfEnabled(homeDir: Path) {
             "starting another instance, or point this one at a different LISTENUP_HOME."
     }
     monitor.subscribe(ApplicationStopped) { lock.close() }
+}
+
+/**
+ * Installs `XForwardedHeaders` when `server.trustProxy` is enabled, so the per-IP rate-limit
+ * buckets key on the real client address rather than the proxy's.
+ *
+ * Behind a reverse proxy every request arrives from one address, so a per-IP bucket degenerates
+ * into a single shared bucket: the throttle fires for everybody at once, or for nobody. This is the
+ * opt-in that fixes that.
+ *
+ * **Default off, and it must stay off.** With this on, any client can set the forwarded header
+ * itself, which turns the per-IP throttle into a per-claimed-IP throttle — i.e. no throttle at
+ * all. Turn it on ONLY when a trusted reverse proxy sets the header and the server is not
+ * otherwise reachable. Absent-means-off (rather than defaulting to the config file's value) is
+ * deliberate: the isolated test configs omit the key, and the safe reading of "unspecified" is the
+ * one that cannot be spoofed.
+ */
+internal fun Application.installForwardedHeadersIfTrusted() {
+    val trusted =
+        environment.config
+            .propertyOrNull("server.trustProxy")
+            ?.getString()
+            ?.toBooleanStrictOrNull() ?: false
+    if (!trusted) return
+    install(XForwardedHeaders)
+    logger.warn {
+        "server.trustProxy is ON — X-Forwarded-* headers are trusted. This is only safe when a " +
+            "reverse proxy sets them and the server is not directly reachable; otherwise any " +
+            "client can spoof its address and defeat the per-IP rate limits."
+    }
 }
 
 /**
@@ -202,6 +235,26 @@ internal fun ApplicationConfig.rescanOnStartup(): Boolean =
  */
 internal fun ApplicationConfig.transcodeProbeOnStartup(): Boolean =
     propertyOrNull("transcode.probeOnStartup")?.getString()?.toBoolean() ?: true
+
+/**
+ * The operator's transcoding limits — `transcode.cacheCapBytes`, `transcode.maxConcurrentSessions`,
+ * `transcode.bitrateKbps` — each falling back to its [TranscodeSettings] default when unset.
+ *
+ * Lenient parsing (`toLongOrNull` / `toIntOrNull`) is deliberate: a typo in an env var degrades to the
+ * default rather than taking the server down at boot.
+ */
+internal fun ApplicationConfig.transcodeSettings(): TranscodeSettings =
+    TranscodeSettings(
+        cacheCapBytes =
+            propertyOrNull("transcode.cacheCapBytes")?.getString()?.toLongOrNull()
+                ?: TranscodeSettings.DEFAULT_CACHE_CAP_BYTES,
+        maxConcurrentSessions =
+            propertyOrNull("transcode.maxConcurrentSessions")?.getString()?.toIntOrNull()
+                ?: TranscodeSettings.DEFAULT_MAX_CONCURRENT,
+        bitrateKbps =
+            propertyOrNull("transcode.bitrateKbps")?.getString()?.toIntOrNull()
+                ?: TranscodeSettings.DEFAULT_BITRATE_KBPS,
+    )
 
 /**
  * Reads `scanner.watchEnabled` — gates whether [ScanOrchestrator.onLibraryAdded]

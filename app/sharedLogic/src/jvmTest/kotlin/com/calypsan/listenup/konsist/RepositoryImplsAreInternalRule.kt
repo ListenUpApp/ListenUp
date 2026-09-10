@@ -13,10 +13,19 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class RepositoryImplsAreInternalRule :
     FunSpec({
         test("data/repository *Impl classes are internal") {
-            val offenders =
+            val repositoryImpls =
                 productionScope()
                     .classes()
                     .filter { "/data/repository/" in it.path && it.name.endsWith("Impl") }
+
+            assertScopeNotEmpty(
+                repositoryImpls,
+                expectedMin = 25,
+                why = "data/repository *Impl classes — the plumbing this rule keeps off every client export path",
+            )
+
+            val offenders =
+                repositoryImpls
                     .filterNot { it.hasModifier(KoModifier.INTERNAL) }
                     .map { it.name }
             offenders.shouldBeEmpty()

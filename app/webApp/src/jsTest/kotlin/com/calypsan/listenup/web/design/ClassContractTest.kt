@@ -161,7 +161,7 @@ import com.calypsan.listenup.web.features.home.scanning
 import com.calypsan.listenup.web.features.home.weekStats
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.contributor
-import org.jetbrains.compose.web.renderComposable
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.features.library.LibraryPage
@@ -196,6 +196,8 @@ import org.w3c.dom.css.CSSStyleSheet
  */
 class ClassContractTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         // Every class selector defined anywhere in the loaded sheets, including inside `@media`
         // and `@supports` blocks.
@@ -233,15 +235,12 @@ class ClassContractTest :
         }
 
         fun classesUsedIn(content: @Composable () -> Unit): Set<String> {
-            val host = document.createElement("div") as HTMLElement
-            document.body!!.appendChild(host)
-            renderComposable(root = host) { content() }
+            val host = mounts.mount { content() }
 
             // A modal <dialog> holds focus for the whole document and makes everything behind it
-            // inert. This harness renders and never disposes, so an open one would leak that state
-            // into every spec that ran afterwards — which it did, taking the command palette's
-            // focus tests with it. Closing leaves the element and its classes exactly where they
-            // are, which is all this contract reads.
+            // inert. Left open, it leaks that state into every spec that runs afterwards — which
+            // it did, taking the command palette's focus tests with it. Closing leaves the element
+            // and its classes exactly where they are, which is all this contract reads.
             val dialogs = host.querySelectorAll("dialog")
             for (i in 0 until dialogs.length) {
                 (dialogs.item(i) as? HTMLDialogElement)?.takeIf { it.open }?.close()

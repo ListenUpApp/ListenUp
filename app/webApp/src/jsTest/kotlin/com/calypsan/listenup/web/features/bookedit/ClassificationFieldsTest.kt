@@ -5,27 +5,14 @@ import com.calypsan.listenup.client.domain.model.EditableGenre
 import com.calypsan.listenup.client.domain.model.EditableTag
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
-
-private fun page(
-    state: BookEditUiState,
-    onEvent: (BookEditUiEvent) -> Unit = {},
-): HTMLElement {
-    val root = document.createElement("div") as HTMLElement
-    document.body?.appendChild(root)
-    renderComposable(root = root) {
-        BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
-    }
-    return root
-}
 
 private fun ready(): BookEditUiState = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune")
 
@@ -38,6 +25,16 @@ private fun ready(): BookEditUiState = BookEditUiState(isLoading = false, bookId
  */
 class ClassificationFieldsTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun page(
+            state: BookEditUiState,
+            onEvent: (BookEditUiEvent) -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
+            }
 
         test("attached genres render as removable chips") {
             val root = page(ready().copy(genres = listOf(EditableGenre("g1", "Science Fiction", "/sf"))))

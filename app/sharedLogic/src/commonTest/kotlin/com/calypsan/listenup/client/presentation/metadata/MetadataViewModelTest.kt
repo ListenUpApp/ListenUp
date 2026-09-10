@@ -115,16 +115,7 @@ class MetadataViewModelTest :
             everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
             everySuspend { repo.getBookChapters(any(), any()) } returns
                 AppResult.Success(
-                    MetadataChapters(
-                        listOf(
-                            MetadataChapter("Prologue", 0L, 1000L),
-                            MetadataChapter(
-                                "Chapter One",
-                                1000L,
-                                1000L,
-                            ),
-                        ),
-                    ),
+                    MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))),
                 )
             val bookRepo =
                 mock<BookRepository> {
@@ -864,30 +855,25 @@ class MetadataViewModelTest :
                 everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns
                     AppResult.Success(
-                        MetadataChapters(
-                            listOf(
-                                MetadataChapter("Prologue", 0L, 1000L),
-                                MetadataChapter(
-                                    "Chapter One",
-                                    1000L,
-                                    1000L,
-                                ),
-                            ),
-                        ),
+                        MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))),
                     )
-                everySuspend { repo.applyChapterNames(any(), any(), any(), any()) } returns
+                everySuspend {
+                    repo.applyChapterNames(
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                    )
+                } returns
                     AppResult.Failure(MetadataError.ChapterCountMismatch())
                 val bookRepo =
                     mock<BookRepository> {
-                        everySuspend { getChapters("b1") } returns
+                        everySuspend {
+                            getChapters("b1")
+                        } returns
                             listOf(
                                 Chapter("c0", "Track 1", 1000L, 0L),
-                                Chapter(
-                                    "c1",
-                                    "Track 2",
-                                    1000L,
-                                    1000L,
-                                ),
+                                Chapter("c1", "Track 2", 1000L, 1000L),
                             )
                     }
                 val vm = buildVm(repo, bookRepo)
@@ -931,16 +917,7 @@ class MetadataViewModelTest :
                 everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
                 everySuspend { repo.getBookChapters(any(), any()) } returns
                     AppResult.Success(
-                        MetadataChapters(
-                            listOf(
-                                MetadataChapter("Prologue", 0L, 1000L),
-                                MetadataChapter(
-                                    "Chapter One",
-                                    1000L,
-                                    1000L,
-                                ),
-                            ),
-                        ),
+                        MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))),
                     )
                 everySuspend { repo.applyChapterNames(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val bookRepo =

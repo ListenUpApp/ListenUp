@@ -2,7 +2,8 @@ package com.calypsan.listenup.server.scanner.sidecar
 
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.server.io.hashBytesSha256
-import com.calypsan.listenup.server.io.readBytes
+import com.calypsan.listenup.server.io.SIDECAR_MAX_BYTES
+import com.calypsan.listenup.server.io.readBytesCapped
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.sidecar.ListenUpSidecar
 import com.calypsan.listenup.server.sidecar.SidecarJson
@@ -79,7 +80,7 @@ internal class ListenUpSidecarReader(
 
     private fun readBytesOrNull(file: Path): ByteArray? =
         try {
-            file.readBytes()
+            file.readBytesCapped(SIDECAR_MAX_BYTES)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

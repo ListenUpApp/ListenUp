@@ -21,6 +21,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -805,6 +806,14 @@ internal class FakeBookIngest(
     /** The [AnalyzedBook.cover] each [resolveOrInsert] saw, keyed by rootRelPath. */
     val coverByPath = mutableMapOf<String, CoverSource?>()
 
+    /**
+     * The [PendingCover] each [resolveOrInsert] saw, keyed by rootRelPath — the extracted cover
+     * BYTES [BookPersister] built and threaded through, as opposed to [coverByPath]'s raw
+     * [AnalyzedBook.cover] source descriptor. Used by the PERF-01 multi-chunk test to prove every
+     * book's cover survives BookPersister's now-chunked extraction, not just the first slice.
+     */
+    val pendingCoverByPath = mutableMapOf<String, PendingCover?>()
+
     /** The [com.calypsan.listenup.core.FolderId] each [resolveOrInsert] saw, keyed by rootRelPath. */
     val folderIdByPath = mutableMapOf<String, com.calypsan.listenup.core.FolderId>()
 
@@ -843,6 +852,7 @@ internal class FakeBookIngest(
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath
         coverByPath[path] = analyzed.cover
+        pendingCoverByPath[path] = pendingCover
         folderIdByPath[path] = folderId
         if (path in oomForRootRelPath) {
             throw OutOfMemoryError("simulated OOM for $path")
@@ -886,6 +896,7 @@ internal suspend fun SqlTestDatabases.persister(
     scope: CoroutineScope,
     eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
     changeBus: ChangeBus = ChangeBus(),
+    coverImageStore: com.calypsan.listenup.server.cover.CoverImageStore? = null,
 ): BookPersister {
     // Seed a library_folders row at the default scanResult rootPath ("/lib") so folder resolution
     // finds a REAL folder rather than the "unknown" sentinel — which now (finding 5) skips the
@@ -914,6 +925,7 @@ internal suspend fun SqlTestDatabases.persister(
         eventBus = eventBus,
         changeBus = changeBus,
         scope = scope,
+        coverImageStore = coverImageStore,
     )
 }
 
@@ -931,6 +943,7 @@ internal fun SqlTestDatabases.inertCollectionService(): CollectionServiceImpl {
         collectionBookRepo = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver),
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
+        bookAccessPolicy = BookAccessPolicy(sql, driver),
         permissionPolicy = UserPermissionPolicy(sql),
         bus = bus,
         sql = sql,

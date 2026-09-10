@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.scheduler
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
@@ -10,14 +11,24 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 
 class ExpiredSessionCleanupTaskTest :
@@ -102,13 +113,13 @@ class ExpiredSessionCleanupTaskTest :
             }
         }
 
-        test("orphan sweep cleans push tokens even without FK enforcement (production runs FK-off)") {
-            // Production connections do NOT enforce foreign keys (see DriverFactory / the
-            // withSqlDatabase fixture comment), so push_tokens' ON DELETE CASCADE never fires
-            // there — the deleteOrphaned sweep inside SessionService.deleteExpired is the real
-            // cleanup path. The shared fixtures open FK-ON drivers, where the cascade masks the
-            // sweep; this test opens an FK-OFF driver (matching production) so only the sweep
-            // can remove the orphaned row.
+        test("the orphan sweep clears push tokens on its own, with no cascade to help it") {
+            // Every driver — production JVM, production native, and the shared withSqlDatabase
+            // fixture — now enforces foreign keys, so push_tokens' ON DELETE CASCADE fires and
+            // MASKS the deleteOrphaned sweep inside SessionService.deleteExpired. This test opens
+            // a bare FK-OFF driver purely to take the cascade away, leaving the sweep as the only
+            // thing that can remove the orphaned row — that is the behaviour under test, not a
+            // claim about how production is configured.
             val tmp =
                 Files.createTempFile("listenup-push-orphan-", ".db").toFile().apply { deleteOnExit() }
             DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
@@ -170,6 +181,47 @@ class ExpiredSessionCleanupTaskTest :
                     svc.createSession(UserId("u-2"))
 
                     makeTask(sql).runOnce() shouldBe 0
+                }
+            }
+        }
+
+        // A server restarted more often than the interval used to never sweep at all. The interval
+        // here is a year, so the only sweep that can land inside this test is the boot sweep.
+        // runBlocking rather than runTest: the sweep crosses the real SQL dispatcher, which virtual
+        // time cannot follow.
+        test("start runs a sweep immediately rather than waiting a full interval") {
+            withSqlDatabase {
+                sql.seedTestUser("u-1")
+                val expiredSvc =
+                    SessionService(
+                        sql,
+                        RefreshTokenHasher(pepper),
+                        RefreshTokenGenerator(),
+                        refreshTtl = (-1).milliseconds,
+                        clock = FixedClock(now),
+                    )
+                val settings = ServerSettingsRepository(sql, RegistrationPolicy.OPEN)
+                val task =
+                    ExpiredSessionCleanupTask(
+                        sessionService = expiredSvc,
+                        clock = FixedClock(now),
+                        interval = 365.days,
+                        settings = settings,
+                        startJitter = Duration.ZERO,
+                    )
+
+                runBlocking {
+                    val expired = expiredSvc.createSession(UserId("u-1"))
+                    val job = task.start(CoroutineScope(Dispatchers.Default + SupervisorJob()))
+                    try {
+                        eventually(5.seconds) {
+                            expiredSvc.isLive(expired.sessionId) shouldBe false
+                            settings.getValue(ExpiredSessionCleanupTask.LAST_RUN_KEY) shouldBe
+                                now.toEpochMilliseconds().toString()
+                        }
+                    } finally {
+                        job.cancelAndJoin()
+                    }
                 }
             }
         }

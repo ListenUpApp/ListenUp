@@ -1,8 +1,8 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
 import com.calypsan.listenup.web.playback.WebPlaybackController
@@ -14,10 +14,8 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
@@ -60,23 +58,6 @@ private const val HALF_SPEED = 0.5f
 private const val TRIPLE_SPEED = 3.0f
 
 /**
- * Every host this spec has mounted, so [TransportBarTest] can take them back out again.
- *
- * The page is shared by two hundred other specs, and a mount that is never removed leaves an
- * orphan subtree on it for the rest of the run — which a later `document.querySelector` will
- * happily find.
- */
-private val mountedHosts = mutableListOf<HTMLElement>()
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    mountedHosts += host
-    renderComposable(root = host) { content() }
-    return host
-}
-
-/**
  * The transport bar's own contract — and, more importantly, the one thing a DOM assertion cannot
  * see: whether pressing its play control makes any sound.
  *
@@ -88,15 +69,12 @@ private fun mount(content: @Composable () -> Unit): HTMLElement {
  */
 class TransportBarTest :
     FunSpec({
-
-        afterSpec {
-            mountedHosts.forEach { it.remove() }
-            mountedHosts.clear()
-        }
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("a paused book offers Play, and a playing one offers Pause") {
             val paused =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = TransportState("Dune", isPlaying = false, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
@@ -107,7 +85,7 @@ class TransportBarTest :
                     )
                 }
             val playing =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = TransportState("Dune", isPlaying = true, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
@@ -125,7 +103,7 @@ class TransportBarTest :
         test("the play control reports exactly one click") {
             var clicks = 0
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = TransportState("Dune", isPlaying = false, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = { clicks++ },
@@ -145,7 +123,7 @@ class TransportBarTest :
             // The number is the whole point of the control. A bar that says "30" to someone who set
             // 15 is worse than one that says nothing, because it looks authoritative.
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state =
                             TransportState(
@@ -178,7 +156,7 @@ class TransportBarTest :
             var back = 0
             var forward = 0
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = TransportState("Dune", isPlaying = true, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
@@ -203,7 +181,7 @@ class TransportBarTest :
 
         test("the speed control shows the current rate and offers to change it") {
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state =
                             TransportState(
@@ -231,7 +209,7 @@ class TransportBarTest :
             // and changes nothing until one is chosen.
             var set = 0
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = TransportState("Dune", isPlaying = true, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
@@ -273,7 +251,7 @@ class TransportBarTest :
         test("with no book loaded the bar renders nothing at all") {
             // An empty transport bar is chrome that lies about there being something to play.
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = null,
                         onPlayPause = {},
@@ -295,7 +273,7 @@ class TransportBarTest :
             var seeks = 0
             var seekedTo = -1L
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = TransportState("Dune", isPlaying = true, positionMs = 0, durationMs = SHORT_BOOK_MS),
                         onPlayPause = {},
@@ -368,7 +346,7 @@ class TransportBarTest :
 
             // …and the bar built from that state offers the way to stop it.
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state = state,
                         onPlayPause = playback::playPause,
@@ -391,7 +369,7 @@ class TransportBarTest :
             // them proves nothing: swapping `positionMs` and `durationMs` at the call site renders
             // two labels too, and would tell every listener their book was nearly over.
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state =
                             TransportState(
@@ -661,7 +639,7 @@ class TransportBarTest :
             playback.playBook(BookId("book-1"))
 
             val message = withTimeout(PLAYING_TIMEOUT_MS) { playback.error.first { it != null } }
-            val host = mount { PlaybackNotice(message = message, onDismiss = playback::dismissError) }
+            val host = mounts.mount { PlaybackNotice(message = message, onDismiss = playback::dismissError) }
             host.querySelector(".tport-note")!!.textContent.orEmpty() shouldContain "Couldn't start this book"
 
             playback.close()
@@ -669,7 +647,7 @@ class TransportBarTest :
         }
 
         test("a notice with nothing to report renders nothing") {
-            val host = mount { PlaybackNotice(message = null, onDismiss = {}) }
+            val host = mounts.mount { PlaybackNotice(message = null, onDismiss = {}) }
 
             host.querySelector(".tport-note") shouldBe null
         }
@@ -678,7 +656,7 @@ class TransportBarTest :
             // step defaults to 1 on a range input — one millisecond here, so an arrow key would
             // need thirty thousand presses to move half a minute. aria-valuenow is equally raw.
             val host =
-                mount {
+                mounts.mount {
                     TransportBar(
                         state =
                             TransportState("Dune", isPlaying = true, positionMs = SEEK_TARGET_MS, durationMs = SHORT_BOOK_MS),

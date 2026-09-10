@@ -1,9 +1,11 @@
 package com.calypsan.listenup.server.imaging
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Format dispatch — the seam every caller of this package goes through.
@@ -48,6 +50,18 @@ class ImageCodecTest :
         test("dispatch follows the bytes, not any label") {
             sniffFormat(PNG_FIXTURE) shouldBe ImageFormat.PNG
             sniffFormat(jpeg) shouldBe ImageFormat.JPEG
+        }
+
+        // An OutOfMemoryError cannot be forced portably, so the boundary's shape is pinned directly:
+        // an Error from a decoder is a decline, exactly like a malformed stream.
+        test("a resource fault inside a decoder is declined, not propagated") {
+            decliningOnFailure<PixelBuffer> { throw OutOfMemoryError("synthetic") }.shouldBeNull()
+        }
+
+        test("cancellation is never swallowed by the codec boundary") {
+            shouldThrow<CancellationException> {
+                decliningOnFailure<PixelBuffer> { throw CancellationException("cancelled") }
+            }
         }
     })
 

@@ -15,8 +15,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlin.time.TimeSource
 
 private val logger = KotlinLogging.logger {}
+
+// Anchor for elapsed-time math. MONOTONIC, not wall-clock: a duration timer measures "time since
+// the timer was armed", and on a wall clock an NTP step or a manual clock change (in either
+// direction) would fire it early or stall it indefinitely — while the listener is asleep and
+// cannot notice, let alone correct it. One module-level mark rather than one per timer keeps the
+// seam a plain `() -> Long`, which tests satisfy with the coroutines-test scheduler.
+private val processStartMark = TimeSource.Monotonic.markNow()
 
 /**
  * Manages the sleep timer for audiobook playback.
@@ -32,10 +40,17 @@ private val logger = KotlinLogging.logger {}
 class SleepTimerManager(
     private val scope: CoroutineScope,
     /**
-     * Wall-clock read seam. Defaults to the system clock; tests inject a virtual clock (e.g. the
-     * coroutines-test scheduler) so the fire-after-duration behaviour can be pinned deterministically.
+     * Wall-clock read seam. Its ONLY job is stamping the display-facing
+     * [SleepTimerState.Active.startedAt]; elapsed time comes from [elapsedMillis] instead, so a
+     * clock step can never move a deadline. Tests inject a virtual clock.
      */
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    /**
+     * Elapsed-time seam, read off a monotonic source (see [processStartMark]). Only differences
+     * between two reads are meaningful — the absolute value has no epoch. Tests inject the
+     * coroutines-test scheduler so the fire-after-duration behaviour is deterministic.
+     */
+    private val elapsedMillis: () -> Long = { processStartMark.elapsedNow().inWholeMilliseconds },
 ) {
     val state: StateFlow<SleepTimerState>
         field = MutableStateFlow<SleepTimerState>(SleepTimerState.Inactive)
@@ -56,8 +71,14 @@ class SleepTimerManager(
      * one is needed, so the next boundary is spent re-learning it and end-of-chapter fires a whole
      * chapter late: the listener asks to stop at the end of chapter 5 and wakes up in chapter 7.
      * That is the one failure this mode cannot have, because they are asleep when it happens.
+     *
+     * It IS reset on a book change ([onBookChanged]) — the baseline is where the listener is *in
+     * this book*, and it means nothing in the next one.
      */
     private var lastKnownChapterIndex: Int = -1
+
+    // The book the running timer belongs to. See [onBookChanged].
+    private var currentBookId: String? = null
 
     companion object {
         private const val TICK_INTERVAL_MS = 1000L
@@ -112,6 +133,20 @@ class SleepTimerManager(
     }
 
     /**
+     * Tell the timer which book the listener is on. A change of book cancels any running timer
+     * and clears the end-of-chapter baseline: a timer is a request about *this* book's chapters,
+     * and carrying it (or its baseline) into the next book fires the fade at a boundary nobody
+     * asked for — while the listener is asleep and cannot correct it. Re-reporting the same book
+     * is a no-op, so a re-emitting upstream flow never cancels a live timer.
+     */
+    fun onBookChanged(bookId: String?) {
+        if (bookId == currentBookId) return
+        currentBookId = bookId
+        lastKnownChapterIndex = -1
+        cancelTimer()
+    }
+
+    /**
      * Called by NowPlayingViewModel when chapter changes.
      * Used for end-of-chapter mode detection.
      */
@@ -142,6 +177,7 @@ class SleepTimerManager(
     private fun startDurationTimer(minutes: Int) {
         val totalMs = minutes * MS_PER_MINUTE
         val startedAt = nowMillis()
+        val startElapsedMs = elapsedMillis()
 
         state.value =
             SleepTimerState.Active(
@@ -161,7 +197,7 @@ class SleepTimerManager(
                     val current = state.value
                     if (current !is SleepTimerState.Active) break
 
-                    val elapsed = nowMillis() - current.startedAt
+                    val elapsed = elapsedMillis() - startElapsedMs
                     val remaining = (current.totalMs - elapsed).coerceAtLeast(0)
 
                     state.value = current.copy(remainingMs = remaining)

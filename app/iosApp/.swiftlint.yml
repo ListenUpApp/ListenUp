@@ -11,6 +11,7 @@ included:
   - ListenUpTests
   - ListenUpWidgets
   - ListenUpActivityKit
+  - ListenUpNotificationService
 
 excluded:
   - ListenUp/Preview Content

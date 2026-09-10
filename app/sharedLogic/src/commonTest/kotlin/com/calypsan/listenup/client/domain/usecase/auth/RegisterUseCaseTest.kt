@@ -50,13 +50,7 @@ private fun createFixture(): RegisterFixture {
 }
 
 private fun pendingResult(userId: String = "user-42"): AppResult<RegisterResult> =
-    AppResult.Success(
-        RegisterResult.PendingApproval(
-            UserId(
-                userId,
-            ),
-        ),
-    )
+    AppResult.Success(RegisterResult.PendingApproval(UserId(userId)))
 
 private fun authenticatedResult(
     userId: String = "user-7",

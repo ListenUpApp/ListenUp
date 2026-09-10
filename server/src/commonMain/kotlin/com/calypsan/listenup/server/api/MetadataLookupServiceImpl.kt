@@ -19,12 +19,16 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.auth.MetadataRateBucket
+import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RateDecision
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ComposedBook
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
+import com.calypsan.listenup.server.metadata.SafeCoverUrl
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ContributorHitRanker
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
@@ -40,7 +44,10 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.withCapturedFrames
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
+
+private val logger = loggerFor<MetadataLookupServiceImpl>()
 
 /**
  * Server-side implementation of [MetadataLookupService].
@@ -74,10 +81,17 @@ internal class MetadataLookupServiceImpl(
     private val imageDeps: MetadataImageDeps,
     private val enrichmentDeps: MetadataEnrichmentDeps,
     private val permissionPolicy: UserPermissionPolicy,
+    private val bookAccessPolicy: BookAccessPolicy,
     private val sqlDb: ListenUpDatabase,
     private val genreRepository: GenreRepository,
     private val probeDimensions: suspend (String) -> Pair<Int, Int>? = { _ -> null },
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    /**
+     * Per-user throttle for the open read methods. Nullable + defaulted on the same terms as
+     * `AuthServiceImpl.loginRateLimiter`: non-null in production, absent in the direct-construction
+     * unit tests, where it is a no-op.
+     */
+    private val rateLimiter: MetadataRateLimiter? = null,
 ) : MetadataLookupService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MetadataLookupServiceImpl =
@@ -91,10 +105,12 @@ internal class MetadataLookupServiceImpl(
             imageDeps = imageDeps,
             enrichmentDeps = enrichmentDeps,
             permissionPolicy = permissionPolicy,
+            bookAccessPolicy = bookAccessPolicy,
             sqlDb = sqlDb,
             genreRepository = genreRepository,
             probeDimensions = probeDimensions,
             principal = principal,
+            rateLimiter = rateLimiter,
         )
 
     /**
@@ -108,11 +124,50 @@ internal class MetadataLookupServiceImpl(
         return permissionPolicy.requireCanEdit(p.userId, p.role)
     }
 
+    /**
+     * Per-user throttle probe. A no-op (null) when no limiter or no principal is bound — the
+     * same "only live where it is wired" shape as `AuthServiceImpl.enforceRate`.
+     */
+    private suspend fun enforceRate(bucket: MetadataRateBucket): AppError? {
+        val limiter = rateLimiter ?: return null
+        val userId = principal.current()?.userId?.value ?: return null
+        return when (val decision = limiter.check(bucket, userId)) {
+            RateDecision.Allowed -> null
+            is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
+        }
+    }
+
+    /**
+     * Rejects a search string that is not a query: blank, or past [MAX_METADATA_QUERY_LENGTH].
+     * Returns null when the query is usable, the typed failure otherwise.
+     */
+    private fun rejectUnusableQuery(query: String): AppError? =
+        if (query.isBlank() || query.length > MAX_METADATA_QUERY_LENGTH) {
+            MetadataError.Malformed(debugInfo = UNUSABLE_QUERY_DEBUG)
+        } else {
+            null
+        }
+
+    /**
+     * `canEdit` plus visibility — the same gate [BookServiceImpl] runs. A denial is reported as
+     * [MetadataError.NotFound], matching the absent-book answer, so the two cannot be told apart.
+     */
+    private suspend fun requireEditableBook(bookId: BookId): AppError? {
+        requireCanEdit()?.let { return it }
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        if (!bookAccessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
+            return MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}")
+        }
+        return null
+    }
+
     override suspend fun searchBooks(
         query: String,
         region: MetadataLocale?,
         bookId: BookId?,
     ): AppResult<MetadataSearchResults> {
+        enforceRate(MetadataRateBucket.SEARCH)?.let { return AppResult.Failure(it) }
+        rejectUnusableQuery(query)?.let { return AppResult.Failure(it) }
         val locale = region ?: MetadataLocale.DEFAULT
         val local = bookId?.let { bookRepository.findById(it)?.toLocalIdentity() }
         val hits = coordinator.searchBooks(query, locale, local).map { it.toMetadataBook() }
@@ -137,17 +192,21 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getBookMetadata(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataBook?> =
-        when (val composed = composeBook(asin, region)) {
+    ): AppResult<MetadataBook?> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        return when (val composed = composeBook(asin, region)) {
             is AppResult.Success -> AppResult.Success(composed.data?.toMetadataBookWithProvenance())
             is AppResult.Failure -> composed
         }
+    }
 
     override suspend fun getBookChapters(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataChapters?> =
-        AppResult.Success(coordinator.composeChapters(bookIdentity(asin), region)?.toMetadataChapters())
+    ): AppResult<MetadataChapters?> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        return AppResult.Success(coordinator.composeChapters(bookIdentity(asin), region)?.toMetadataChapters())
+    }
 
     /**
      * Contributor auto-match — search + profile fetch — composed across the provider registry through
@@ -162,6 +221,8 @@ internal class MetadataLookupServiceImpl(
         query: String,
         region: MetadataLocale?,
     ): AppResult<List<MetadataContributorHit>> {
+        enforceRate(MetadataRateBucket.SEARCH)?.let { return AppResult.Failure(it) }
+        rejectUnusableQuery(query)?.let { return AppResult.Failure(it) }
         val locale = region ?: MetadataLocale.DEFAULT
         val ranked = ContributorHitRanker.rank(query, coordinator.searchContributors(query, locale))
         return AppResult.Success(ranked.map { MetadataContributorHit(asin = it.key, name = it.name) })
@@ -170,8 +231,10 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getContributorMetadata(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataContributorProfile?> =
-        AppResult.Success(coordinator.getContributor(asin, region)?.toMetadataContributorProfile())
+    ): AppResult<MetadataContributorProfile?> {
+        enforceRate(MetadataRateBucket.FETCH)?.let { return AppResult.Failure(it) }
+        return AppResult.Success(coordinator.getContributor(asin, region)?.toMetadataContributorProfile())
+    }
 
     override suspend fun refreshBookMetadata(
         asin: String,
@@ -214,7 +277,7 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale,
         selection: MetadataApplySelection,
     ): AppResult<Mutated<Unit>> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
         val genreAutoCreator = GenreAutoCreator(genreRepository)
         // Echo-in-response: withCapturedFrames collects EVERY frame the match emits — the book plus any
         // newly-created contributors/series/moods/tags/genres and the cover — so the originating device
@@ -246,7 +309,7 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale,
         ordinals: Set<Int>,
     ): AppResult<Mutated<Unit>> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
         // Echo-in-response: withCapturedFrames collects the book's own upsert frame so the chapter-name
         // change applies read-your-writes on the originating device, not only via the later firehose.
         return withCapturedFrames {
@@ -287,7 +350,11 @@ internal class MetadataLookupServiceImpl(
         bookId: BookId,
         url: String,
     ): AppResult<Mutated<Unit>> {
-        requireCanEdit()?.let { return AppResult.Failure(it) }
+        requireEditableBook(bookId)?.let { return AppResult.Failure(it) }
+        // Reject an unsafe URL (non-HTTPS, loopback/link-local/private host) before ever touching
+        // the network — SafeCoverUrl also re-runs on every redirect hop inside downloadBytes below,
+        // but failing fast here for the common case avoids entering withCapturedFrames at all.
+        SafeCoverUrl.validate(url)?.let { return AppResult.Failure(it) }
         // Validate the book exists before fetching/storing, so an unknown id can't leave an
         // orphaned cover file on disk (the store keys on bookId, but setManagedCover would fail).
         bookRepository.findById(bookId)
@@ -295,8 +362,14 @@ internal class MetadataLookupServiceImpl(
         // Echo-in-response: withCapturedFrames collects the book's own cover-update frame so the
         // originating device applies the new cover read-your-writes, not only via the firehose.
         return withCapturedFrames {
+            // The fetch already carries its own typed failure (unsafe URL or hop, oversize
+            // response, declared non-image type) — surface it as-is rather than re-deriving one.
+            val bytes =
+                when (val fetched = imageDeps.imageStorage.downloadBytes(url)) {
+                    is AppResult.Success -> fetched.data
+                    is AppResult.Failure -> return@withCapturedFrames fetched
+                }
             try {
-                val bytes = imageDeps.imageStorage.downloadBytes(url)
                 val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
                 val relPath = "covers/${stored.path.name}"
                 bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
@@ -304,16 +377,35 @@ internal class MetadataLookupServiceImpl(
                 throw e
             } catch (e: ImageStore.InvalidImageException) {
                 // The fetched bytes are not a usable image — user must pick a different URL.
-                // Non-retryable: re-firing the same call against the same URL can't succeed.
-                AppResult.Failure(MetadataError.Malformed(debugInfo = "cover bytes rejected: ${e.message}"))
+                // Non-retryable: re-firing the same call against the same URL can't succeed. The
+                // debugInfo below is a fixed string — echoing the caught exception's own message
+                // here would let a caller distinguish connected/refused/not-an-image outcomes for
+                // hosts it has no business probing (SEC-05). Logged server-side only.
+                logger.warn(e) { COVER_FETCH_FAILURE_LOG_MESSAGE }
+                AppResult.Failure(MetadataError.Malformed(debugInfo = COVER_REJECTED_DEBUG))
             } catch (e: Exception) {
-                AppResult.Failure(
-                    MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"),
-                )
+                // Same rationale as above: a constant debugInfo, no exception detail included.
+                // Logged server-side only.
+                logger.warn(e) { COVER_FETCH_FAILURE_LOG_MESSAGE }
+                AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = COVER_DOWNLOAD_FAILED_DEBUG))
             }
         }
     }
 }
+
+/**
+ * Longest metadata search query accepted. Real titles and author names sit far below this; past
+ * it the string is not a query, and the provider would reject or truncate it anyway. Clamped at
+ * the service boundary so no provider call, and no provider-limiter slot, is spent on it.
+ */
+private const val MAX_METADATA_QUERY_LENGTH = 200
+
+/** Constant [MetadataError.Malformed.debugInfo] for a blank or over-long search query. */
+private const val UNUSABLE_QUERY_DEBUG = "search query is blank or over the length bound"
+
+private const val COVER_FETCH_FAILURE_LOG_MESSAGE = "cover store failed"
+private const val COVER_REJECTED_DEBUG = "cover bytes rejected"
+private const val COVER_DOWNLOAD_FAILED_DEBUG = "cover download/store failed"
 
 // ─── Internal → wire DTO mappers ─────────────────────────────────────────────
 

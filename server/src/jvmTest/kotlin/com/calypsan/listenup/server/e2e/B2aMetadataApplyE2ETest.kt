@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -371,6 +372,7 @@ private fun buildService(
             ),
         enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, ChangeBus(), SyncRegistry()),
         permissionPolicy = UserPermissionPolicy(dbs.sql),
+        bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,
         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },

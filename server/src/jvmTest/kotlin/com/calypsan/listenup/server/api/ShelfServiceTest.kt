@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -279,6 +280,59 @@ class ShelfServiceTest :
             }
         }
 
+        test("reorderShelfBooks accepts an ordering at the cap") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
+                runTest {
+                    seedOwnedCollection(sql, driver, "u1-col-at-cap", "b1", "b2")
+                    val service = makeService(sql, driver).actAs("u1")
+                    val shelf = service.createShelf(name = "Reading").value()
+                    service.addBookToShelf(shelf.id, BookId("b1")).value()
+                    service.addBookToShelf(shelf.id, BookId("b2")).value()
+
+                    service.reorderShelfBooks(shelf.id, orderingOf(MAX_BOOKS_PER_SHELF_REORDER, "b2", "b1")).value()
+
+                    // The cap must not bite an ordering that is exactly at it — the flip was applied.
+                    service
+                        .getShelf(shelf.id)
+                        .value()
+                        .books
+                        .map { it.bookId } shouldContainExactly listOf("b2", "b1")
+                }
+            }
+        }
+
+        test("reorderShelfBooks rejects an ordering one past the cap and writes nothing") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
+                runTest {
+                    seedOwnedCollection(sql, driver, "u1-col-over-cap", "b1", "b2")
+                    val service = makeService(sql, driver).actAs("u1")
+                    val shelf = service.createShelf(name = "Reading").value()
+                    service.addBookToShelf(shelf.id, BookId("b1")).value()
+                    service.addBookToShelf(shelf.id, BookId("b2")).value()
+
+                    val result =
+                        service.reorderShelfBooks(shelf.id, orderingOf(MAX_BOOKS_PER_SHELF_REORDER + 1, "b2", "b1"))
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<BookError.InvalidInput>()
+
+                    // A bound that rejects after writing is not a bound: the stored ordering is untouched.
+                    service
+                        .getShelf(shelf.id)
+                        .value()
+                        .books
+                        .map { it.bookId } shouldContainExactly listOf("b1", "b2")
+                }
+            }
+        }
+
         test("addBookToShelf with a book the owner cannot access fails with NotFound") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -386,6 +440,64 @@ class ShelfServiceTest :
             }
         }
 
+        // PERF-06: listMyShelves batches its per-shelf book count via
+        // ShelfBookRepository.countLiveForShelves instead of one listByShelf-and-.size call per
+        // shelf — this proves the batched count matches the un-batched materialize-and-.size result
+        // per shelf, including a shelf with zero live rows.
+        test("listMyShelves reports correct per-shelf book counts, including an empty shelf") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
+                runTest {
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val collectionRepo = CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                    val collectionBookRepo = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                    collectionRepo.upsert(
+                        CollectionSyncPayload(
+                            id = "u1-col-counts",
+                            libraryId = "test-library",
+                            ownerId = "u1",
+                            name = "u1 Collection",
+                            isInbox = false,
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(
+                            id = "u1-col-counts:b1",
+                            collectionId = "u1-col-counts",
+                            bookId = "b1",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
+                    )
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(
+                            id = "u1-col-counts:b2",
+                            collectionId = "u1-col-counts",
+                            bookId = "b2",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
+                    )
+
+                    val service = makeService(sql, driver).actAs("u1")
+                    val twoBookShelf = service.createShelf(name = "Two Books").value()
+                    val emptyShelf = service.createShelf(name = "Empty").value()
+                    service.addBookToShelf(twoBookShelf.id, BookId("b1")).value()
+                    service.addBookToShelf(twoBookShelf.id, BookId("b2")).value()
+
+                    val mine = service.listMyShelves().value().associateBy { it.id }
+                    mine.getValue(twoBookShelf.id).bookCount shouldBe 2
+                    mine.getValue(emptyShelf.id).bookCount shouldBe 0
+                }
+            }
+        }
+
         // ── getShelf access basics (full matrix is ShelfAccessTest) ─────────────
 
         test("getShelf returns NotFound to a non-owner on a private shelf") {
@@ -404,6 +516,55 @@ class ShelfServiceTest :
             }
         }
     })
+
+/**
+ * An ordering of exactly [size] entries: [leading] first — the shelf's real members, whose relative
+ * order the reorder is expected to apply — then ids the shelf does not hold, which
+ * [com.calypsan.listenup.server.sync.ShelfBookRepository.reorder] skips. Lets a size-bound test reach
+ * the bound without seeding thousands of books, while still making the applied (or unapplied)
+ * ordering observable.
+ */
+private fun orderingOf(
+    size: Int,
+    vararg leading: String,
+): List<BookId> = List(size) { index -> BookId(leading.getOrNull(index) ?: "unshelved-$index") }
+
+/**
+ * Puts [bookIds] into a `u1`-owned collection [collectionId] so MEMBER `u1` can see them — the
+ * simplest reach under the pure-union access rule (owner branch: no grant, no system user needed).
+ */
+private suspend fun seedOwnedCollection(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+    collectionId: String,
+    vararg bookIds: String,
+) {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver).upsert(
+        CollectionSyncPayload(
+            id = collectionId,
+            libraryId = "test-library",
+            ownerId = "u1",
+            name = "u1 Collection",
+            isInbox = false,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+    val collectionBookRepo = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
+    for (bookId in bookIds) {
+        collectionBookRepo.upsert(
+            CollectionBookSyncPayload(
+                id = "$collectionId:$bookId",
+                collectionId = collectionId,
+                bookId = bookId,
+                createdAt = 0L,
+                revision = 0L,
+            ),
+        )
+    }
+}
 
 /** Asserts the result is a [ShelfError.Forbidden] failure. */
 private fun AppResult<*>.expectForbidden() {

@@ -15,7 +15,7 @@ importers:
         specifier: 3.50.1-build1
         version: 3.50.1-build1
       hls.js:
-        specifier: ^1.7.1
+        specifier: 1.7.1
         version: 1.7.1
       ws:
         specifier: ^8.21.3

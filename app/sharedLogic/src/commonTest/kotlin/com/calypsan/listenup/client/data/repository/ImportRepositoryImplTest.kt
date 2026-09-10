@@ -219,7 +219,12 @@ class ImportRepositoryImplTest :
                         emit(
                             RpcEvent.Data(
                                 ImportEvent.Applied(
-                                    ImportResult(importedCount = 8, sessionsImported = 5, booksNotInLibrary = 3, perUser = emptyMap()),
+                                    ImportResult(
+                                        importedCount = 8,
+                                        sessionsImported = 5,
+                                        booksNotInLibrary = 3,
+                                        perUser = emptyMap(),
+                                    ),
                                 ),
                             ),
                         )

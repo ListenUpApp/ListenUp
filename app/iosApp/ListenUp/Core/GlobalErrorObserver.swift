@@ -30,7 +30,7 @@ final class GlobalErrorObserver {
             // Logged as well as shown: the on-screen sentence is for the reader, the log line is for
             // whoever has to find out why. `debugInfo` carries the per-instance technical detail that
             // `message` deliberately does not.
-            Log.error("AppError [\(error.code)] \(error.message) — \(error.debugInfo ?? "no debug info")")
+            Log.error("AppError [\(error.code)] \(error.message)", detail: error.debugInfo)
             center?.post(.error(error.message))
         }
     }

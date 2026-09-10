@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.imaging
 
+import kotlin.coroutines.cancellation.CancellationException
+
 /**
  * The package's front door: bytes in, pixels out, whatever the format — or `null`.
  *
@@ -15,23 +17,46 @@ package com.calypsan.listenup.server.imaging
  *
  * **Null is a first-class answer**, as everywhere else here: an undecodable cover keeps serving its
  * original bytes, so declining is a normal outcome rather than an error.
+ *
+ * **Every decoder enforces [MAX_DECODABLE_PIXELS] in its own header reader.** The cap is per-format,
+ * not applied here, because each format learns its dimensions at a different point and must refuse
+ * *before* its first allocation — a future WebP or AVIF decoder takes on the same duty.
  */
 internal fun decodeImage(
     bytes: ByteArray,
     maxWidth: Int,
 ): PixelBuffer? {
     require(maxWidth > 0) { "maxWidth must be positive, got $maxWidth" }
-    return when (sniffFormat(bytes)) {
-        ImageFormat.JPEG -> decodeJpeg(bytes, maxWidth)
+    return decliningOnFailure {
+        when (sniffFormat(bytes)) {
+            ImageFormat.JPEG -> decodeJpeg(bytes, maxWidth)
 
-        // PNG has no reduced-scale decode — it is an entropy-coded raster, not a frequency
-        // decomposition — so it decodes whole and the caller downscales. Affordable because PNG
-        // covers are vanishingly rare: 2 of 1195 in a real library.
-        ImageFormat.PNG -> decodePng(bytes)
+            // PNG has no reduced-scale decode — it is an entropy-coded raster, not a frequency
+            // decomposition — so it decodes whole and the caller downscales. Affordable because PNG
+            // covers are vanishingly rare: 2 of 1195 in a real library.
+            ImageFormat.PNG -> decodePng(bytes)
 
-        null -> null
+            null -> null
+        }
     }
 }
+
+/**
+ * Runs [decode], returning `null` for **any** failure the codec cannot handle — including [Error]s.
+ *
+ * "Null is a first-class answer" is this package's contract, and an `OutOfMemoryError` is an `Error`,
+ * not an `Exception`: the decoders' own `catch (_: Exception)` never saw it, so a resource fault
+ * escaped as a request-level failure instead of a declined cover. [CancellationException] is
+ * re-thrown first so structured-concurrency cancellation is never eaten.
+ */
+internal inline fun <T> decliningOnFailure(decode: () -> T?): T? =
+    try {
+        decode()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Throwable) {
+        null
+    }
 
 /** The formats this package can decode. WebP is deliberately absent — see the arc's Phase 2. */
 internal enum class ImageFormat {
@@ -51,6 +76,18 @@ private fun startsWith(
     bytes: ByteArray,
     magic: ByteArray,
 ): Boolean = bytes.size >= magic.size && magic.indices.all { bytes[it] == magic[it] }
+
+/**
+ * Largest image, in pixels, this package will decode.
+ *
+ * Both decoders size their working memory from dimensions the file declares about itself, before a
+ * single byte of image data is read — so a few hundred header bytes can otherwise ask for gigabytes.
+ * The reference cover this pipeline was built around, the largest in a real 1195-cover library and
+ * the one the derivative ladder is sized to, is 2400×2400: 5.8 megapixels. 50 megapixels is nearly
+ * nine times that, and above a 24-megapixel camera frame or 300-dpi print artwork of a 12-inch
+ * sleeve — so the cap declines only files that were never covers.
+ */
+internal const val MAX_DECODABLE_PIXELS: Long = 50L * 1000 * 1000
 
 /** SOI. Two bytes is enough — no other format we might meet opens with them. */
 private val JPEG_MAGIC = byteArrayOf(0xFF.toByte(), 0xD8.toByte())

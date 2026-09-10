@@ -20,7 +20,12 @@ class SleepTimerManagerTest :
 
         test("a one-minute duration timer fires exactly once when the minute elapses") {
             runTest {
-                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+                val manager =
+                    SleepTimerManager(
+                        scope = backgroundScope,
+                        nowMillis = testScheduler::currentTime,
+                        elapsedMillis = testScheduler::currentTime,
+                    )
 
                 manager.sleepEvent.test {
                     manager.setTimer(SleepTimerMode.Duration(minutes = 1))
@@ -46,7 +51,12 @@ class SleepTimerManagerTest :
 
         test("cancelling before the deadline suppresses the fire and resets to Inactive") {
             runTest {
-                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+                val manager =
+                    SleepTimerManager(
+                        scope = backgroundScope,
+                        nowMillis = testScheduler::currentTime,
+                        elapsedMillis = testScheduler::currentTime,
+                    )
 
                 manager.sleepEvent.test {
                     manager.setTimer(SleepTimerMode.Duration(minutes = 1))
@@ -108,6 +118,77 @@ class SleepTimerManagerTest :
                     expectNoEvents()
                     manager.state.value shouldBe SleepTimerState.Inactive
 
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("an end-of-chapter timer set on one book does not fire on the next book's first boundary") {
+            runTest {
+                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+                manager.sleepEvent.test {
+                    manager.onBookChanged("book-a")
+                    manager.onChapterChanged(4)
+                    manager.setTimer(SleepTimerMode.EndOfChapter)
+
+                    // The listener starts a different book. The timer belonged to book A.
+                    manager.onBookChanged("book-b")
+                    manager.onChapterChanged(0)
+                    manager.onChapterChanged(1)
+                    runCurrent()
+
+                    expectNoEvents()
+                    manager.state.value shouldBe SleepTimerState.Inactive
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("re-reporting the same book does not disturb a running timer") {
+            runTest {
+                val manager = SleepTimerManager(scope = backgroundScope, nowMillis = testScheduler::currentTime)
+                manager.sleepEvent.test {
+                    manager.onBookChanged("book-a")
+                    manager.onChapterChanged(4)
+                    manager.setTimer(SleepTimerMode.EndOfChapter)
+                    manager.onBookChanged("book-a") // same book, e.g. a re-emit on resubscribe
+                    manager.onChapterChanged(5)
+                    runCurrent()
+
+                    awaitItem()
+                    manager.state.value shouldBe SleepTimerState.FadingOut
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a wall-clock jump forward does not fire the timer early") {
+            runTest {
+                // The wall clock is a separate, movable seam from elapsed time. An NTP step or a
+                // manual clock change must not shorten (or stretch) a sleep timer — the listener is
+                // asleep and cannot notice the book stopping an hour early.
+                var wallClockMs = 0L
+                val manager =
+                    SleepTimerManager(
+                        scope = backgroundScope,
+                        nowMillis = { wallClockMs },
+                        elapsedMillis = testScheduler::currentTime,
+                    )
+
+                manager.sleepEvent.test {
+                    manager.setTimer(SleepTimerMode.Duration(minutes = 30))
+
+                    advanceTimeBy(5_000)
+                    runCurrent()
+
+                    // The system clock jumps an hour forward, well past the 30-minute deadline.
+                    wallClockMs += 3_600_000
+
+                    advanceTimeBy(2_000)
+                    runCurrent()
+
+                    expectNoEvents()
+                    manager.state.value.shouldBeInstanceOf<SleepTimerState.Active>()
                     cancelAndIgnoreRemainingEvents()
                 }
             }

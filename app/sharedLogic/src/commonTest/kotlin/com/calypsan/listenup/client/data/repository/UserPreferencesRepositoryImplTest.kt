@@ -290,9 +290,7 @@ class UserPreferencesRepositoryImplTest :
             Triple(
                 "setDefaultSkipBackwardSec",
                 { setDefaultSkipBackwardSec(15) },
-                UpdateUserPreferencesRequest(
-                    defaultSkipBackwardSec = 15,
-                ),
+                UpdateUserPreferencesRequest(defaultSkipBackwardSec = 15),
             ),
             Triple("setDefaultSleepTimerMin", { setDefaultSleepTimerMin(20) }, UpdateUserPreferencesRequest(defaultSleepTimerMin = 20)),
         ).forEach { (name, call, expectedPatch) ->

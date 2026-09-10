@@ -309,7 +309,7 @@ private class FakeBackupRepository(
     private val restoreResult: AppResult<RestoreResult> = AppResult.Failure(stubError),
     private val downloadResult: AppResult<Unit> = AppResult.Success(Unit),
 ) : BackupRepository {
-    private val listQueue = listResults.also { if (listResult != null) it.addFirst(listResult) }
+    private val queued = listResults.also { if (listResult != null) it.addFirst(listResult) }
 
     var createImagesArg: Boolean? = null
         private set
@@ -317,9 +317,7 @@ private class FakeBackupRepository(
         private set
 
     override suspend fun uploadBackup(fileSource: com.calypsan.listenup.core.FileSource): AppResult<BackupSummary> =
-        AppResult.Failure(
-            stubError,
-        )
+        AppResult.Failure(stubError)
 
     override suspend fun downloadBackup(
         id: BackupId,
@@ -331,14 +329,7 @@ private class FakeBackupRepository(
         return createResult
     }
 
-    override suspend fun listBackups(): AppResult<List<BackupSummary>> =
-        if (listQueue.size >
-            1
-        ) {
-            listQueue.removeFirst()
-        } else {
-            listQueue.first()
-        }
+    override suspend fun listBackups(): AppResult<List<BackupSummary>> = if (queued.size > 1) queued.removeFirst() else queued.first()
 
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> {
         deletedId = id

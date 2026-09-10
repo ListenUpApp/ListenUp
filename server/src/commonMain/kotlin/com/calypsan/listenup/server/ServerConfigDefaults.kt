@@ -15,8 +15,12 @@ internal data class ServerConfigDefault(
 
 /**
  * The canonical server configuration defaults. Adding or changing a knob here is the *only* place a
- * default lives; `application.conf` must mirror it (pinned by the contract test) and the native config
- * is built straight from it.
+ * default lives; `application.conf` must mirror it and the native config is built straight from it.
+ *
+ * The contract test pins both directions: every default here must match `application.conf`, and every
+ * `${?LISTENUP_*}` override `application.conf` documents must be declared here (or carry a reasoned
+ * exemption in the test) — otherwise the knob is silently dead on the native binary, which never
+ * reads the HOCON file.
  */
 internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
     listOf(
@@ -43,7 +47,11 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
         ServerConfigDefault("scanner.embeddedCoverCacheSize", "1000", "LISTENUP_EMBEDDED_COVER_CACHE_SIZE"),
         ServerConfigDefault("seed.profile", "", "LISTENUP_SEED_PROFILE"),
         ServerConfigDefault("server.dataDirLock", "true", "LISTENUP_DATA_DIR_LOCK"),
+        ServerConfigDefault("server.trustProxy", "false", "LISTENUP_TRUST_PROXY"),
         ServerConfigDefault("scan.rescanOnStartup", "true", "LISTENUP_SCAN_RESCAN_ON_STARTUP"),
         ServerConfigDefault("transcode.probeOnStartup", "true", "LISTENUP_TRANSCODE_PROBE_ON_STARTUP"),
+        ServerConfigDefault("transcode.cacheCapBytes", "10737418240", "LISTENUP_TRANSCODE_CACHE_BYTES"),
+        ServerConfigDefault("transcode.maxConcurrentSessions", "2", "LISTENUP_TRANSCODE_MAX_SESSIONS"),
+        ServerConfigDefault("transcode.bitrateKbps", "64", "LISTENUP_TRANSCODE_BITRATE_KBPS"),
         ServerConfigDefault("scan.periodicRescanInterval", "6h", "LISTENUP_SCAN_PERIODIC_RESCAN_INTERVAL"),
     )

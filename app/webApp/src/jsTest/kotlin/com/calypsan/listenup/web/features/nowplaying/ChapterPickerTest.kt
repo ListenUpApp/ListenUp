@@ -1,24 +1,15 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
 
 /** An index no book in this spec has, to prove the rule holds well past the boundary too. */
 private const val WAY_PAST_THE_END = 99
@@ -31,31 +22,36 @@ internal fun chapterMarks(count: Int = 3): List<TransportChapter> =
         TransportChapter(title = "Chapter ${it + 1}", startMs = it * CHAPTER_LENGTH_MS)
     }
 
-/**
- * An open picker over [chapterMarks], with every parameter overridable.
- *
- * One shape for every case in this spec: a test that differs from its neighbour in one argument
- * says what it is about in that argument, rather than in six lines of repeated wiring.
- */
-private fun picker(
-    chapters: List<TransportChapter> = chapterMarks(),
-    currentIndex: Int? = 0,
-    open: Boolean = true,
-    onPick: (Int) -> Unit = {},
-    onDismiss: () -> Unit = {},
-): HTMLElement =
-    mount {
-        ChapterPicker(
-            open = open,
-            chapters = chapters,
-            currentIndex = currentIndex,
-            onPick = onPick,
-            onDismiss = onDismiss,
-        )
-    }
-
 class ChapterPickerTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        /**
+         * An open picker over [chapterMarks], with every parameter overridable.
+         *
+         * One shape for every case in this spec: a test that differs from its neighbour in one
+         * argument says what it is about in that argument, rather than in six lines of repeated
+         * wiring.
+         */
+        fun picker(
+            chapters: List<TransportChapter> = chapterMarks(),
+            currentIndex: Int? = 0,
+            open: Boolean = true,
+            onPick: (Int) -> Unit = {},
+            onDismiss: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                WebAppSurface {
+                    ChapterPicker(
+                        open = open,
+                        chapters = chapters,
+                        currentIndex = currentIndex,
+                        onPick = onPick,
+                        onDismiss = onDismiss,
+                    )
+                }
+            }
 
         test("a closed picker renders nothing at all") {
             val host = picker(open = false)

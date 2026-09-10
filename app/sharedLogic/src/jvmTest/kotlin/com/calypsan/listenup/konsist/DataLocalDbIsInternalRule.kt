@@ -20,6 +20,16 @@ class DataLocalDbIsInternalRule :
 
         test("no top-level declaration in data/local/db is public") {
             val scope = productionScope()
+
+            // The package itself is the population: if `/data/local/db/` stops matching any path
+            // (a move, a rename), every kind-specific filter below returns empty and the rule
+            // reports green over a Room layer it never looked at.
+            assertScopeNotEmpty(
+                scope.files.filter { "/data/local/db/" in it.path },
+                expectedMin = 30,
+                why = "files under data/local/db/ — the Room layer this rule keeps out of the export surface",
+            )
+
             val classes =
                 scope
                     .classes()

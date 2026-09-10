@@ -11,9 +11,10 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
 /**
- * The throttled auth operations reachable over the RPC public mount, with their per-IP, per-minute
- * ceilings. The values mirror the REST `RateLimitBuckets` limits so a first-party client gets the
- * same protection whether it logs in over REST or RPC.
+ * The throttled auth operations reachable over the RPC public mount, with their per-IP (or, for
+ * [PUSH_TEST], per-user) per-minute ceilings. This — not a Ktor route-level plugin — is the sole
+ * throttle for these operations: auth has no REST mirror, and the push-test send button is
+ * authenticated RPC only.
  */
 enum class AuthRateBucket(
     val perMinuteLimit: Int,
@@ -46,6 +47,14 @@ enum class AuthRateBucket(
     OBSERVE_REGISTRATION_POLICY(20),
 
     /**
+     * `observePasswordResetStatus` subscriptions. Each open subscription holds a poll loop that
+     * re-reads the ticket forever and never completes while it is PENDING — the same
+     * open-subscription exhaustion vector as [OBSERVE_REGISTRATION_STATUS], and the same ceiling:
+     * a legitimate client re-subscribes on every reconnect-with-backoff attempt.
+     */
+    OBSERVE_PASSWORD_RESET_STATUS(20),
+
+    /**
      * `requestPasswordReset`. Unauthenticated, and the known/unknown-account branches differ
      * measurably in cost (the known path runs an extra transaction plus an HMAC). That timing
      * delta is not a one-shot signal, but it is repeatable and free to sample — this bucket is
@@ -68,6 +77,21 @@ enum class AuthRateBucket(
      * an exception a reader has to go and verify, so it should not exist without a reason.
      */
     RESET_ROOT_PASSWORD(5),
+
+    /**
+     * `setupRoot` — the one-time bootstrap that creates the ROOT account. Unauthenticated (there
+     * is no account yet) and runs Argon2 on every attempt like [REGISTER], so it gets the same
+     * ceiling.
+     */
+    SETUP(3),
+
+    /**
+     * `PushService.sendTestNotification` — the push-test send button. Authenticated, but cheap to
+     * loop: an unthrottled caller could drain the server's per-IP relay budget and the operator's
+     * FCM/APNs quota. Keyed per-user (not per-IP, unlike every bucket above) since the caller is
+     * always authenticated by the time this bucket is consulted.
+     */
+    PUSH_TEST(3),
 }
 
 /** Outcome of a rate-limit probe: proceed, or reject with a client-surfaced `Retry-After`. */
@@ -124,13 +148,54 @@ class LoginRateLimiter(
             entry.tokens = (entry.tokens + elapsed * tokensPerMillis).coerceAtMost(capacity)
             entry.lastRefillMillis = now
 
-            if (entry.tokens >= 1.0) {
-                entry.tokens -= 1.0
-                RateDecision.Allowed
-            } else {
-                val deficit = 1.0 - entry.tokens
-                val retryAfter = ceil(deficit / tokensPerMillis / 1000.0).toInt().coerceAtLeast(1)
-                RateDecision.Throttled(retryAfterSeconds = retryAfter)
-            }
+            val decision =
+                if (entry.tokens >= 1.0) {
+                    entry.tokens -= 1.0
+                    RateDecision.Allowed
+                } else {
+                    val deficit = 1.0 - entry.tokens
+                    val retryAfter = ceil(deficit / tokensPerMillis / 1000.0).toInt().coerceAtLeast(1)
+                    RateDecision.Throttled(retryAfterSeconds = retryAfter)
+                }
+            // AFTER this call's token is spent, never before: sweeping first could drop the very
+            // entry the decision above is about, throwing the decrement away with it.
+            sweep(now)
+            decision
         }
+
+    /** Live (unswept) bucket count — for tests that pin the sweep. */
+    internal suspend fun liveBucketCount(): Int =
+        mutex.withLock {
+            sweep(clock.now().toEpochMilliseconds())
+            buckets.size
+        }
+
+    /**
+     * Drops entries that have refilled to capacity, so a long-lived process does not accumulate one
+     * map entry per remote host it has ever seen. A full bucket is indistinguishable from a host
+     * never seen before — [getOrPut] recreates it full — so removing it changes no decision.
+     *
+     * Only a *full* one. A partially drained entry still owes its host the tokens it has spent;
+     * dropping it would hand a caller a fresh full bucket mid-burst, which is an under-throttle that
+     * no burst test would catch.
+     */
+    private fun sweep(nowMillis: Long) {
+        buckets.entries.removeAll { (key, entry) -> refilledToCapacity(key.first, entry, nowMillis) }
+    }
+
+    /**
+     * Whether [entry] would refill to its bucket's full capacity by [nowMillis]. Capacity is read
+     * from the entry's OWN bucket rather than the caller's — the map mixes buckets with different
+     * ceilings, and reusing the caller's would sweep entries that are still in debt.
+     */
+    private fun refilledToCapacity(
+        bucket: AuthRateBucket,
+        entry: Bucket,
+        nowMillis: Long,
+    ): Boolean {
+        val capacity = bucket.perMinuteLimit.toDouble()
+        val tokensPerMillis = capacity / refillPeriod.inWholeMilliseconds
+        val elapsed = (nowMillis - entry.lastRefillMillis).coerceAtLeast(0)
+        return entry.tokens + elapsed * tokensPerMillis >= capacity
+    }
 }

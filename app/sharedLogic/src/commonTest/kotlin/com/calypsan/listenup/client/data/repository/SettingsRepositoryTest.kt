@@ -10,6 +10,7 @@ import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -106,6 +107,108 @@ class SettingsRepositoryTest :
                 verifySuspend { authSession.checkServerStatus() }
                 // authStateFlow is unused but kept to document the seam shape.
                 authStateFlow.value as? DomainAuthState.NeedsLogin shouldBe null
+            }
+        }
+
+        // ========== Host change clears the session ==========
+        //
+        // The tokens on this device were issued by the old host and mean nothing to a new one, yet
+        // the HTTP client attaches them to every request it rewrites onto the persisted URL. A change
+        // of HOST therefore wipes them first — the same response ReconnectionSupervisor gives to a
+        // changed instance id — and drops the connected-id / active / remote pairing that belonged
+        // to the old host. Same-host writes (port, scheme) keep the session: offline-first as before.
+
+        test("setServerUrl clears credentials and the stale URL pairing when the host changes while authenticated") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                everySuspend { storage.read("server_url") } returns "https://example.com"
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.read("server_remote_url") } returns null
+                everySuspend { storage.save(any(), any()) } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { authSession.isAuthenticated() } returns true
+                everySuspend { authSession.clearAuthTokens() } returns Unit
+                everySuspend { authSession.initializeAuthState() } returns Unit
+                everySuspend { authSession.checkServerStatus() } returns DomainAuthState.NeedsLogin()
+                val repository = createRepository(storage = storage, authSession = authSession)
+
+                repository.setServerUrl(ServerUrl("https://other.example.com"))
+
+                verifySuspend { authSession.clearAuthTokens() }
+                verifySuspend { storage.delete("connected_server_id") }
+                verifySuspend { storage.delete("active_url") }
+                verifySuspend { storage.delete("server_remote_url") }
+                verifySuspend { storage.save("server_url", "https://other.example.com") }
+            }
+        }
+
+        test("setServerUrl keeps the session when only the port or scheme changes on the same host") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                everySuspend { storage.read("server_url") } returns "http://example.com:8080"
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.save(any(), any()) } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { authSession.isAuthenticated() } returns true
+                everySuspend { authSession.clearAuthTokens() } returns Unit
+                everySuspend { authSession.initializeAuthState() } returns Unit
+                val repository = createRepository(storage = storage, authSession = authSession)
+
+                repository.setServerUrl(ServerUrl("https://example.com"))
+
+                verifySuspend(VerifyMode.not) { authSession.clearAuthTokens() }
+                verifySuspend(VerifyMode.not) { storage.delete(any()) }
+                verifySuspend { storage.save("server_url", "https://example.com") }
+                verifySuspend { authSession.initializeAuthState() }
+            }
+        }
+
+        test("setServerUrl on a fresh install with no stored URL clears nothing") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                everySuspend { storage.read("server_url") } returns null
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.read("server_remote_url") } returns null
+                everySuspend { storage.save(any(), any()) } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { authSession.isAuthenticated() } returns false
+                everySuspend { authSession.clearAuthTokens() } returns Unit
+                everySuspend { authSession.checkServerStatus() } returns DomainAuthState.NeedsLogin()
+                val repository = createRepository(storage = storage, authSession = authSession)
+
+                repository.setServerUrl(ServerUrl("https://example.com"))
+
+                verifySuspend(VerifyMode.not) { authSession.clearAuthTokens() }
+                verifySuspend(VerifyMode.not) { storage.delete(any()) }
+                verifySuspend { storage.save("server_url", "https://example.com") }
+                verifySuspend { authSession.checkServerStatus() }
+            }
+        }
+
+        test("setServerUrl on a host change while not authenticated drops the stale pairing but has no tokens to clear") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                everySuspend { storage.read("server_url") } returns "https://example.com"
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.read("server_remote_url") } returns null
+                everySuspend { storage.save(any(), any()) } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { authSession.isAuthenticated() } returns false
+                everySuspend { authSession.clearAuthTokens() } returns Unit
+                everySuspend { authSession.checkServerStatus() } returns DomainAuthState.NeedsLogin()
+                val repository = createRepository(storage = storage, authSession = authSession)
+
+                repository.setServerUrl(ServerUrl("https://other.example.com"))
+
+                verifySuspend(VerifyMode.not) { authSession.clearAuthTokens() }
+                verifySuspend { storage.delete("connected_server_id") }
+                verifySuspend { storage.delete("active_url") }
+                verifySuspend { storage.delete("server_remote_url") }
+                verifySuspend { authSession.checkServerStatus() }
             }
         }
 

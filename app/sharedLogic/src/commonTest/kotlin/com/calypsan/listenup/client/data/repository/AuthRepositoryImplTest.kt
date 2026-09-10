@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.RpcPolicy
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
+import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
@@ -293,7 +294,7 @@ class AuthRepositoryImplTest :
                 everySuspend { authSession.currentAuthEpoch() } returns 0L
                 everySuspend { authSession.getRefreshToken() } calls {
                     readGate.await()
-                    throw IllegalStateException("secure storage read failed")
+                    throw SimulatedFailure("secure storage read failed")
                 }
                 val repo =
                     AuthRepositoryImpl(

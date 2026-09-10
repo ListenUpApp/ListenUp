@@ -1,28 +1,19 @@
 package com.calypsan.listenup.web.features.auth
 
-import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.core.spec.style.FunSpec
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    renderComposable(root = host) { WebAppSurface { content() } }
-    return host
-}
 
 private fun HTMLElement.typeInto(
     selector: String,
@@ -46,23 +37,27 @@ internal fun invitePreview(
         invalidReason = invalidReason,
     )
 
-private fun panel(
-    state: ClaimInviteUiState,
-    onCodeEntered: (String) -> Unit = {},
-    onClaim: (String, String, String) -> Unit = { _, _, _ -> },
-    onBackToSignIn: () -> Unit = {},
-): HTMLElement =
-    mount {
-        ClaimInvitePanel(
-            state = state,
-            onCodeEntered = onCodeEntered,
-            onClaim = onClaim,
-            onBackToSignIn = onBackToSignIn,
-        )
-    }
-
 class ClaimInvitePanelTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
+
+        fun panel(
+            state: ClaimInviteUiState,
+            onCodeEntered: (String) -> Unit = {},
+            onClaim: (String, String, String) -> Unit = { _, _, _ -> },
+            onBackToSignIn: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                WebAppSurface {
+                    ClaimInvitePanel(
+                        state = state,
+                        onCodeEntered = onCodeEntered,
+                        onClaim = onClaim,
+                        onBackToSignIn = onBackToSignIn,
+                    )
+                }
+            }
 
         test("a typed code is looked up, trimmed") {
             // Codes get copied out of chat messages and emails, and a trailing space is the most

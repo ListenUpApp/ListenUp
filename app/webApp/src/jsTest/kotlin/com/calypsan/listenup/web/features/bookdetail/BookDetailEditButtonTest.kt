@@ -1,11 +1,10 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import kotlinx.browser.document
 import kotlinx.browser.window
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 
@@ -19,11 +18,11 @@ import org.w3c.dom.HTMLElement
  */
 class BookDetailEditButtonTest :
     FunSpec({
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
-        fun rendered(onEdit: () -> Unit = {}): HTMLElement {
-            val root = document.createElement("div") as HTMLElement
-            document.body?.appendChild(root)
-            renderComposable(root = root) {
+        fun rendered(onEdit: () -> Unit = {}): HTMLElement =
+            mounts.mount {
                 BookDetailPage(
                     state = readyBook(),
                     tab = "chapters",
@@ -33,8 +32,6 @@ class BookDetailEditButtonTest :
                     onEdit = onEdit,
                 )
             }
-            return root
-        }
 
         test("edit is a pencil icon button that still says what it does") {
             val root = rendered()

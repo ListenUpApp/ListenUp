@@ -60,6 +60,93 @@ class Mp3ParserAdversarialTest :
                 (declaredBodySize and 0x7F).toByte(),
             )
 
+        /**
+         * Same as [id3v2Header] but with the extended-header flag (0x40) set, for exercising the
+         * ID3v2.3 extended-header skip in [Id3v2Reader.read].
+         */
+        fun id3v2HeaderWithExtFlag(
+            version: Int,
+            declaredBodySize: Int,
+        ): ByteArray =
+            byteArrayOf(
+                0x49,
+                0x44,
+                0x33, // "ID3"
+                version.toByte(),
+                0x00, // minor
+                0x40, // flags: extended header present
+                ((declaredBodySize ushr 21) and 0x7F).toByte(),
+                ((declaredBodySize ushr 14) and 0x7F).toByte(),
+                ((declaredBodySize ushr 7) and 0x7F).toByte(),
+                (declaredBodySize and 0x7F).toByte(),
+            )
+
+        /** Build a well-formed ID3v2.3 `TIT2` (title) frame carrying [title] as ISO-8859-1 text. */
+        fun tit2Frame(title: String): ByteArray {
+            val text = title.toByteArray(Charsets.ISO_8859_1)
+            val frameData = byteArrayOf(0x00) + text // encoding 0 = ISO-8859-1
+            val size = frameData.size
+            val header =
+                byteArrayOf(
+                    'T'.code.toByte(),
+                    'I'.code.toByte(),
+                    'T'.code.toByte(),
+                    '2'.code.toByte(),
+                    ((size ushr 24) and 0xFF).toByte(),
+                    ((size ushr 16) and 0xFF).toByte(),
+                    ((size ushr 8) and 0xFF).toByte(),
+                    (size and 0xFF).toByte(),
+                    0x00,
+                    0x00, // frame flags
+                )
+            return header + frameData
+        }
+
+        /**
+         * A minimal MPEG-1 Layer III audio file whose first frame carries a Xing VBR header
+         * declaring [frameCount] frames. The frame header is a plain, valid one — 128 kbps,
+         * 44.1 kHz, stereo — so the only variable is the declared frame count the duration is
+         * derived from. Layout is fixed by the Xing specification: the header sits immediately
+         * after the frame's 32-byte side-information region.
+         */
+        fun xingFile(frameCount: Long): ByteArray {
+            val frameHeader = byteArrayOf(0xFF.toByte(), 0xFB.toByte(), 0x90.toByte(), 0x00)
+            val sideInfo = ByteArray(32)
+            val flagsFramesPresent = byteArrayOf(0x00, 0x00, 0x00, 0x01)
+            val count =
+                byteArrayOf(
+                    ((frameCount ushr 24) and 0xFF).toByte(),
+                    ((frameCount ushr 16) and 0xFF).toByte(),
+                    ((frameCount ushr 8) and 0xFF).toByte(),
+                    (frameCount and 0xFF).toByte(),
+                )
+            return frameHeader + sideInfo + "Xing".toByteArray(Charsets.US_ASCII) + flagsFramesPresent + count
+        }
+
+        test("a Xing frame count implying an implausible duration falls back to the CBR estimate") {
+            // The declared count is the file's own claim about how much audio follows; nothing
+            // cross-checks it against the bytes that are actually there. Near Int.MAX_VALUE it
+            // works out to some fifteen thousand hours. The honest answer is the CBR estimate
+            // derived from the file's real size — here a 48-byte file at 128 kbps, i.e. 3 ms.
+            val bytes = xingFile(frameCount = 0x7FFFFFFFL)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 3L
+        }
+
+        test("a Xing frame count implying a real book length is honoured") {
+            // Regression guard on the band: 137,812 frames at 44.1 kHz is almost exactly one
+            // hour, and must still come back as the exact VBR duration rather than the estimate.
+            val bytes = xingFile(frameCount = 137_812L)
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 137_812L * 1152 * 1000 / 44_100
+        }
+
         test("ID3v2 header declaring a tag far larger than the file does not OOM") {
             // Header claims the maximum a sync-safe int can encode (~256 MB body)
             // but the file is only the 10-byte header itself. A missing
@@ -256,6 +343,45 @@ class Mp3ParserAdversarialTest :
             // here through EmbeddedMetadataParser, but Mp3Parser called
             // directly must still not throw.
             result.shouldBeInstanceOf<AppResult<EmbeddedAudioMetadata>>()
+        }
+
+        // C-09: the ID3v2.3 extended-header skip (`offset += extSize + 4`, a plain non-sync-safe
+        // 32-bit field) is unchecked. Both scenarios below place a "bogus" 10-byte frame right
+        // after the header whose bytes double as the extSize field being decoded — frameSize = 0
+        // makes the bogus frame a harmless no-op once the reader stops trying to skip past it —
+        // followed immediately by a real, recoverable TIT2 frame. A tolerant parse must recover
+        // the title either way; only the buggy skip loses it.
+
+        test("ID3v2.3 extended-header size decoded as a large negative value does not lose the tag") {
+            // decodeBigEndian32(0x80,0x00,0x00,0x01) = a value near Int.MIN_VALUE. Pre-fix,
+            // `offset += extSize + 4` sends offset deeply negative; the frame loop's
+            // `bytes[offset]` then throws, and Mp3Parser's outer guard (A11) degrades the WHOLE
+            // file to CorruptHeader — losing the recoverable title along with it.
+            val extSizeBytes = byteArrayOf(0x80.toByte(), 0x00, 0x00, 0x01)
+            val bogusFrame = extSizeBytes + byteArrayOf(0x00, 0x00, 0x00, 0x00) + byteArrayOf(0x00, 0x00)
+            val body = bogusFrame + tit2Frame("Test Title")
+            val bytes = id3v2HeaderWithExtFlag(version = 3, declaredBodySize = body.size) + body
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.tags.title shouldBe "Test Title"
+        }
+
+        test("ID3v2.3 extended-header size declaring bytes past the tag body does not lose the tag") {
+            // decodeBigEndian32(0x7F,0xFF,0xFF,0xF0) ~= 2.1 billion — wildly past this tiny tag.
+            // Pre-fix, `offset += extSize + 4` jumps past tagEnd, so the frame loop's
+            // `while (offset + 10 <= tagEnd)` never runs even once and every frame — including
+            // the recoverable TIT2 — is silently dropped, not just skipped.
+            val extSizeBytes = byteArrayOf(0x7F, 0xFF.toByte(), 0xFF.toByte(), 0xF0.toByte())
+            val bogusFrame = extSizeBytes + byteArrayOf(0x00, 0x00, 0x00, 0x00) + byteArrayOf(0x00, 0x00)
+            val body = bogusFrame + tit2Frame("Test Title")
+            val bytes = id3v2HeaderWithExtFlag(version = 3, declaredBodySize = body.size) + body
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.tags.title shouldBe "Test Title"
         }
     })
 

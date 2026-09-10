@@ -110,35 +110,53 @@ internal class Mp4Parser : AudioFormatParser {
                     ),
                 )
 
-        val durationMs = readMvhdDurationMs(moovBytes, mvhd)
+        return try {
+            val durationMs = readMvhdDurationMs(moovBytes, mvhd)
 
-        val ilst = findIlst(moovBytes, moov)
-        val ilstResult = ilst?.let { IlstReader.read(moovBytes, it) }
-        val tags = ilstResult?.tags ?: emptyAudioTags()
-        val artwork = ilstResult?.artwork
+            val ilst = findIlst(moovBytes, moov)
+            val ilstResult = ilst?.let { IlstReader.read(moovBytes, it) }
+            val tags = ilstResult?.tags ?: emptyAudioTags()
+            val artwork = ilstResult?.artwork
 
-        val chapterResult = extractMp4Chapters(moovBytes, moov, durationMs, source)
+            val chapterResult = extractMp4Chapters(moovBytes, moov, durationMs, source)
 
-        val audioStream =
-            try {
-                Mp4CodecExtractor.extract(moovBytes, moov)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                null // codec extraction is best-effort; never fail the whole parse
-            }
+            val audioStream =
+                try {
+                    Mp4CodecExtractor.extract(moovBytes, moov)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null // codec extraction is best-effort; never fail the whole parse
+                }
 
-        return AppResult.Success(
-            EmbeddedAudioMetadata(
-                format = AudioFormat.Mp4,
-                durationMs = durationMs,
-                tags = tags,
-                chapters = chapterResult.chapters,
-                chaptersSource = if (chapterResult.chapters.isEmpty()) ChapterSource.None else chapterResult.source,
-                artwork = artwork,
-                audioStream = audioStream,
-            ),
-        )
+            AppResult.Success(
+                EmbeddedAudioMetadata(
+                    format = AudioFormat.Mp4,
+                    durationMs = durationMs,
+                    tags = tags,
+                    chapters = chapterResult.chapters,
+                    chaptersSource = if (chapterResult.chapters.isEmpty()) ChapterSource.None else chapterResult.source,
+                    artwork = artwork,
+                    audioStream = audioStream,
+                ),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // An unexpected fault in the atom-walking/tag/chapter readers (a malformed mvhd,
+            // ilst, or sample-table atom that trips index/format math) must degrade THIS file to
+            // a typed CorruptHeader so the book still ingests with a scan warning — never let it
+            // escape and drop the whole book from the library. Mirrors Mp3Parser's blanket guard.
+            AppResult.Failure(
+                AudioMetadataError.CorruptHeader(
+                    pathString = "<source>",
+                    format = AudioFormat.Mp4,
+                    offset = moov.offset.toLong(),
+                    expected = "readable moov structure",
+                    debugInfo = e.message ?: e::class.simpleName,
+                ),
+            )
+        }
     }
 
     private companion object {
@@ -149,6 +167,25 @@ internal class Mp4Parser : AudioFormatParser {
          * malformed atom-size header from triggering a multi-GB allocation.
          */
         private const val MOOV_SOFT_LIMIT_BYTES = 200L * 1024 * 1024
+
+        /**
+         * ISO/IEC 14496-12 spells "duration is not known" as an all-ones 32-bit field in a
+         * version-0 movie header. Decoded arithmetically it reads as roughly seven weeks of
+         * audio, so it is recognised as the sentinel it is and reported as unknown.
+         */
+        private const val UNKNOWN_DURATION_V0 = 0xFFFF_FFFFL
+
+        /** Milliseconds per second — the scale factor from timescale units to the reported value. */
+        private const val MILLIS_PER_SECOND = 1000L
+
+        /**
+         * Upper bound on a believable audiobook duration: 200 hours. The longest books in print
+         * run comfortably under 150, so a value past this did not come from a field that means
+         * what it says. A duration is not just displayed — it sizes the HLS segment timeline and
+         * the transcode plan — so an unbelievable one is reported as unknown (0) rather than
+         * passed on for the rest of the system to size work from.
+         */
+        private const val MAX_PLAUSIBLE_DURATION_MS = 200L * 60 * 60 * 1000
     }
 
     /** Locate `moov.udta.meta.ilst`, accounting for `meta`'s 4-byte version+flags prefix. */
@@ -178,9 +215,18 @@ internal class Mp4Parser : AudioFormatParser {
         mvhd: Atom,
     ): Long {
         var p = mvhd.dataOffset
+        // Need at least 1 byte for the version before we know which of the two (v0/v1) field
+        // layouts follows — a header-only mvhd (no payload) fails this check and returns 0
+        // rather than indexing past the atom (or the buffer).
+        if (p + 1 > mvhd.end) return 0
         val version = bytes[p].toInt() and 0xFF
         p += 1
         p += 3 // flags
+        // Remaining bytes this function reads: v0 = creation(4) + modification(4) +
+        // timescale(4) + duration(4) = 16; v1 = creation(8) + modification(8) +
+        // timescale(4) + duration(8) = 28.
+        val fieldsSize = if (version == 1) 28 else 16
+        if (p + fieldsSize > mvhd.end) return 0
         val (timescale, durationUnits) =
             if (version == 1) {
                 p += 16 // creation(8) + modification(8)
@@ -196,6 +242,12 @@ internal class Mp4Parser : AudioFormatParser {
                 ts to d
             }
         if (timescale <= 0) return 0
-        return (durationUnits * 1000L) / timescale.toLong()
+        if (version != 1 && durationUnits == UNKNOWN_DURATION_V0) return 0
+        // The version-1 field is signed 64-bit, so scaling it to milliseconds can wrap — and a
+        // wrapped product is a plausible-looking negative or small number, not an obvious one.
+        // Reject the operands that cannot survive the multiply before performing it.
+        if (durationUnits < 0 || durationUnits > Long.MAX_VALUE / MILLIS_PER_SECOND) return 0
+        val durationMs = durationUnits * MILLIS_PER_SECOND / timescale.toLong()
+        return if (durationMs in 0..MAX_PLAUSIBLE_DURATION_MS) durationMs else 0
     }
 }

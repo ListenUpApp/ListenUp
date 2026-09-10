@@ -55,6 +55,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.features.auth.components.AuthStepRow
@@ -372,6 +373,7 @@ private fun EnterCodeContent(
             label = stringResource(Res.string.auth_password_label),
             trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
             onTrailingClick = { passwordVisible = !passwordVisible },
+            trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),

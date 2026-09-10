@@ -70,7 +70,10 @@ internal class PlaybackPositionRepositoryImpl(
 
     override suspend fun get(bookId: BookId): AppResult<PlaybackPosition?> =
         suspendRunCatching {
-            dao.get(bookId)?.toDomain()
+            // getLive (not get): a resume read must never resurface a position the server
+            // tombstoned (C-C04) — see PlaybackPositionDao.get's KDoc for why the raw,
+            // unfiltered query is reserved for write-handler merges and the sync conflict check.
+            dao.getLive(bookId)?.toDomain()
         }
 
     override fun observeAll(): Flow<Map<BookId, PlaybackPosition>> =
@@ -185,7 +188,9 @@ internal class PlaybackPositionRepositoryImpl(
         val userId = authSession.getUserId() ?: return false
         // Post-transaction snapshot of the row handle() just wrote — requestFor reads the
         // wire fields the variant doesn't override (isFinished, speed, boost, measured gain)
-        // from it.
+        // from it. Deliberately unfiltered (dao.get, not dao.getLive): the snapshot must reflect
+        // the just-written row regardless of tombstone status, or a still-tombstoned row (a
+        // variant that doesn't heal it) would look absent here and push a blank-defaults request.
         val entity = dao.get(bookId)
         val request = requestFor(bookId, update, entity, now = currentEpochMilliseconds()) ?: return false
 
@@ -224,20 +229,51 @@ internal class PlaybackPositionRepositoryImpl(
                 snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
             }
 
+            // The four flag-changing variants state the flag explicitly rather than inheriting it
+            // from the entity: the flag IS what the update is about, so it must reach the server
+            // even if the row snapshot were read before the handler's write landed.
             is PlaybackUpdate.Speed -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    playbackSpeed = update.speed,
+                    hasCustomSpeed = update.custom,
+                )
             }
 
             is PlaybackUpdate.SpeedReset -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.defaultSpeed)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    playbackSpeed = update.defaultSpeed,
+                    hasCustomSpeed = false,
+                )
             }
 
             is PlaybackUpdate.VolumeBoost -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, volumeBoostDb = update.boostDb)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    volumeBoostDb = update.boostDb,
+                    hasCustomBoost = update.custom,
+                )
             }
 
             is PlaybackUpdate.BoostReset -> {
-                snapshotRequest(bookId, entity, update.positionMs, now, volumeBoostDb = update.defaultBoostDb)
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    now,
+                    volumeBoostDb = update.defaultBoostDb,
+                    hasCustomBoost = false,
+                )
             }
 
             is PlaybackUpdate.MeasuredGain -> {
@@ -309,6 +345,9 @@ internal class PlaybackPositionRepositoryImpl(
         playbackSpeed: Float = entity?.playbackSpeed ?: 1.0f,
         volumeBoostDb: Float = entity?.volumeBoostDb ?: 0f,
         measuredGainDb: Float? = entity?.measuredGainDb,
+        finishedAt: Long? = entity?.finishedAt,
+        hasCustomSpeed: Boolean = entity?.hasCustomSpeed ?: false,
+        hasCustomBoost: Boolean = entity?.hasCustomBoost ?: false,
     ): RecordPositionRequest =
         RecordPositionRequest(
             bookId = bookId.value,
@@ -319,6 +358,9 @@ internal class PlaybackPositionRepositoryImpl(
             currentChapterId = null,
             volumeBoostDb = volumeBoostDb,
             measuredGainDb = measuredGainDb,
+            finishedAt = finishedAt,
+            hasCustomSpeed = hasCustomSpeed,
+            hasCustomBoost = hasCustomBoost,
         )
 
     // ----- Per-variant handlers -------------------------------------------------------------
@@ -329,11 +371,24 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         // Periodic position save during playback. Use updatePositionOnly to preserve
         // hasCustomSpeed + playbackSpeed against concurrent speed-change writers
-        // (PlaybackPositionDao.updatePositionOnly contract).
+        // (PlaybackPositionDao.updatePositionOnly contract). A book with no prior row
+        // updates 0 rows — insert a fresh blank row in that case only, so the fallback
+        // can never race a concurrent speed/boost writer (C-C05).
         val now = currentEpochMilliseconds()
-        dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now)
+        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+            dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
+        }
     }
 
+    // The five preference handlers below (speed, speed reset, boost, boost reset, measured gain)
+    // all preserve `existing.lastPlayedAt` rather than stamping `now`, for exactly the reason
+    // spelled out in [handlePlaybackStarted]: lastPlayedAt is the NewerWins conflict key, and a
+    // preference change is not a claim about where the listener is. A brand-new row (the `blank`
+    // fallback) legitimately gets `now`.
+    //
+    // Note this is the LOCAL row only — [requestFor] still sends `lastPlayedAt = now` on the wire
+    // for these variants, deliberately (the server short-circuits an older stamp). Whether
+    // speed/boost should sync per book at all is plan 018's decision.
     private suspend fun handleSpeed(
         bookId: BookId,
         u: PlaybackUpdate.Speed,
@@ -346,7 +401,7 @@ internal class PlaybackPositionRepositoryImpl(
                 playbackSpeed = u.speed,
                 hasCustomSpeed = u.custom,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -368,7 +423,7 @@ internal class PlaybackPositionRepositoryImpl(
                 playbackSpeed = u.defaultSpeed,
                 hasCustomSpeed = false,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -390,7 +445,7 @@ internal class PlaybackPositionRepositoryImpl(
                 volumeBoostDb = u.boostDb,
                 hasCustomBoost = u.custom,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -412,7 +467,7 @@ internal class PlaybackPositionRepositoryImpl(
                 volumeBoostDb = u.defaultBoostDb,
                 hasCustomBoost = false,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -435,7 +490,7 @@ internal class PlaybackPositionRepositoryImpl(
                 positionMs = u.positionMs,
                 measuredGainDb = u.gainDb,
                 updatedAt = now,
-                lastPlayedAt = now,
+                lastPlayedAt = existing.lastPlayedAt,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
@@ -476,17 +531,23 @@ internal class PlaybackPositionRepositoryImpl(
         u: PlaybackUpdate.PlaybackPaused,
     ) {
         // Same shape as Position — periodic position flush; speed preserved via
-        // updatePositionOnly (per dao contract).
+        // updatePositionOnly (per dao contract). See handlePosition for the insert-if-zero
+        // fallback rationale (C-C05).
         val now = currentEpochMilliseconds()
-        dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now)
+        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+            dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
+        }
     }
 
     private suspend fun handlePeriodicUpdate(
         bookId: BookId,
         u: PlaybackUpdate.PeriodicUpdate,
     ) {
+        // See handlePosition for the insert-if-zero fallback rationale (C-C05).
         val now = currentEpochMilliseconds()
-        dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now)
+        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+            dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
+        }
     }
 
     private suspend fun handleBookFinished(
@@ -507,6 +568,10 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                // Finishing a book is an active local write — heal a position-only server
+                // tombstone rather than leaving it permanently excluded from resume/Continue-
+                // Listening reads and the streak (C-C04).
+                deletedAt = null,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.finalPositionMs,
                 isFinished = true,

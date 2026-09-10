@@ -364,13 +364,10 @@ class ContributorDetailViewModelTest :
                 every {
                     fixture.contributorRepository.observeBooksForContributorRole("contributor-1", ContributorRole.AUTHOR.apiValue)
                 } returns flowOf(listOf(createBookWithContributorRole(book)))
-                everySuspend { fixture.playbackPositionRepository.get(BookId("book-1")) } returns
-                    AppResult.Success(
-                        createPlaybackPosition(
-                            "book-1",
-                            0L,
-                        ),
-                    )
+                everySuspend {
+                    fixture.playbackPositionRepository.get(BookId("book-1"))
+                } returns
+                    AppResult.Success(createPlaybackPosition("book-1", 0L))
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 

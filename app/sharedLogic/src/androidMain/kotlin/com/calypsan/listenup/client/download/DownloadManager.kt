@@ -1,12 +1,8 @@
 package com.calypsan.listenup.client.download
 
-import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.await
-import androidx.work.workDataOf
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.BookId
@@ -166,7 +162,6 @@ class DownloadManager internal constructor(
         // Determine network constraint based on WiFi-only preference
         // UNMETERED = WiFi/ethernet only, CONNECTED = any network (including cellular)
         val wifiOnly = localPreferences.wifiOnlyDownloads.value
-        val requiredNetworkType = if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
 
         logger.info {
             "Queueing downloads with network constraint: " +
@@ -174,32 +169,14 @@ class DownloadManager internal constructor(
         }
 
         // Queue WorkManager jobs
-        toDownload.forEach { file ->
-            val workRequest =
-                OneTimeWorkRequestBuilder<DownloadWorker>()
-                    .setInputData(
-                        workDataOf(
-                            DownloadWorker.KEY_AUDIO_FILE_ID to file.id,
-                            DownloadWorker.KEY_BOOK_ID to bookId.value,
-                            DownloadWorker.KEY_FILENAME to file.filename,
-                            DownloadWorker.KEY_FILE_SIZE to file.size,
-                        ),
-                    ).setConstraints(
-                        Constraints
-                            .Builder()
-                            .setRequiredNetworkType(requiredNetworkType)
-                            .build(),
-                    ).addTag(bookTag(bookId))
-                    .addTag(fileCancelTag(file.id))
-                    .build()
-
+        entities.forEach { entity ->
             // KEEP (not REPLACE): never displace a worker already running for this file. toDownload
             // already excludes in-flight rows, so KEEP only ever affects retried FAILED/PAUSED files,
             // whose prior work has finished and won't block the fresh enqueue.
             workManager.enqueueUniqueWork(
-                fileWorkName(file.id),
+                fileWorkName(entity.audioFileId),
                 ExistingWorkPolicy.KEEP,
-                workRequest,
+                buildDownloadRequest(entity, wifiOnly),
             )
         }
 
@@ -226,7 +203,7 @@ class DownloadManager internal constructor(
         // Await WorkManager cancellation completion before updating DB state. Closes the race
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
         // but before the state update fires.
-        workManager.cancelAllWorkByTag(bookTag(bookId)).await()
+        workManager.cancelAllWorkByTag(bookTag(bookId.value)).await()
         downloadRepository
             .cancelForBook(bookId)
             .onFailure { logger.warn { "Failed to persist cancelled state: ${bookId.value}" } }
@@ -248,7 +225,7 @@ class DownloadManager internal constructor(
         // Await WorkManager cancellation completion before deleting files. Closes the race
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
         // but before the deletion fires.
-        workManager.cancelAllWorkByTag(bookTag(bookId)).await()
+        workManager.cancelAllWorkByTag(bookTag(bookId.value)).await()
 
         // Delete files from disk
         if (!fileManager.deleteBookFiles(bookId.value)) {
@@ -288,6 +265,26 @@ class DownloadManager internal constructor(
     }
 
     /**
+     * Batched [getLocalPath]: one DB round trip via [DownloadRepository.getLocalPaths] instead of
+     * one per file, then the same on-disk existence check + externally-deleted cleanup per
+     * candidate as [getLocalPath].
+     */
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
+        if (audioFileIds.isEmpty()) return emptyMap()
+        val completed = downloadRepository.getLocalPaths(audioFileIds)
+        return buildMap {
+            for ((audioFileId, path) in completed) {
+                if (fileManager.fileExists(path)) {
+                    put(audioFileId, path)
+                } else {
+                    logger.warn { "Downloaded file missing, cleaning up: $audioFileId" }
+                    downloadDao.updateError(audioFileId, "File missing - deleted externally")
+                }
+            }
+        }
+    }
+
+    /**
      * Resume any incomplete downloads (e.g. after re-authentication or app restart).
      * Resets stalled states to QUEUED and re-enqueues via WorkManager with KEEP policy
      * so already-running work is not restarted.
@@ -308,7 +305,6 @@ class DownloadManager internal constructor(
         logger.info { "Resuming ${incomplete.size} incomplete downloads" }
 
         val wifiOnly = localPreferences.wifiOnlyDownloads.value
-        val requiredNetworkType = if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
 
         for (download in incomplete) {
             // KEEP policy avoids displacing a worker that's already running for this row.
@@ -320,43 +316,36 @@ class DownloadManager internal constructor(
                 downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
             }
 
-            val workRequest =
-                OneTimeWorkRequestBuilder<DownloadWorker>()
-                    .setInputData(
-                        workDataOf(
-                            DownloadWorker.KEY_AUDIO_FILE_ID to download.audioFileId,
-                            DownloadWorker.KEY_BOOK_ID to download.bookId,
-                            DownloadWorker.KEY_FILENAME to download.filename,
-                            DownloadWorker.KEY_FILE_SIZE to download.totalBytes,
-                        ),
-                    ).setConstraints(
-                        Constraints
-                            .Builder()
-                            .setRequiredNetworkType(requiredNetworkType)
-                            .build(),
-                    ).addTag(bookTag(download.bookId))
-                    .addTag(fileCancelTag(download.audioFileId))
-                    .build()
-
             workManager.enqueueUniqueWork(
                 fileWorkName(download.audioFileId),
                 ExistingWorkPolicy.KEEP,
-                workRequest,
+                buildDownloadRequest(download, wifiOnly),
             )
         }
 
         logger.info { "Re-enqueued ${incomplete.size} incomplete downloads" }
     }
 
-    // --- WorkManager string identifiers ---
-    // fileWorkName is the unique-work name for enqueueUniqueWork; fileCancelTag is for
-    // addTag/cancelAllWorkByTag. They produce different strings on purpose — do not consolidate.
-
-    private fun bookTag(bookId: BookId): String = bookTag(bookId.value)
-
-    private fun bookTag(bookIdValue: String): String = "download_$bookIdValue"
-
-    private fun fileCancelTag(audioFileId: String): String = "download_file_$audioFileId"
-
-    private fun fileWorkName(audioFileId: String): String = "download_$audioFileId"
+    /**
+     * Re-enqueue every non-terminal download under the current Wi-Fi-only policy.
+     *
+     * WorkManager bakes `Constraints` into the work request at enqueue time and offers no way to
+     * amend them in place, so a preference change can only be honoured by replacing the work.
+     * `REPLACE` (not `KEEP`) is required and is safe: `KEEP` would discard the new request and
+     * leave the stale constraint, while cancelling a running worker routes through
+     * `persistDownloadCancellation`, which marks the row PAUSED and KEEPS its `.tmp` partial —
+     * the replacement worker resumes from those bytes via the `Range` header in
+     * `downloadAudioFile`. No progress is lost; the download simply moves onto the right network.
+     */
+    internal suspend fun reapplyNetworkConstraints(wifiOnly: Boolean) {
+        val rows = downloadDao.getIncomplete()
+        if (rows.isEmpty()) return
+        logger.info {
+            "Re-applying network constraint to ${rows.size} download(s): " +
+                if (wifiOnly) "UNMETERED (WiFi only)" else "CONNECTED (any network)"
+        }
+        constraintRefreshWork(rows, wifiOnly).forEach { (workName, request) ->
+            workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request)
+        }
+    }
 }

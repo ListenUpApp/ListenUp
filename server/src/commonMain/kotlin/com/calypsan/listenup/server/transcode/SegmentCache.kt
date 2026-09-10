@@ -4,9 +4,26 @@ import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.listRegularFilesRecursively
 import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.io.statFile
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+
+/**
+ * One `{bookId}/{fileId}` directory as the eviction sweep sees it: how many bytes it holds and when
+ * anything in it was last written.
+ *
+ * Recency is approximated by **write** time — the newest segment or run-list mtime, or the
+ * directory's own mtime for one just prepared and not yet written into. A listener replaying
+ * fully-cached segments does not refresh it; the sweep protects the files that matter most (a
+ * running session's) by name instead, not by timestamp.
+ */
+internal data class CachedFile(
+    val bookId: String,
+    val fileId: String,
+    val bytes: Long,
+    val lastTouchedMs: Long,
+)
 
 /**
  * On-disk home for transcoded segments, laid out so a whole file's worth can be evicted in one step:
@@ -125,6 +142,36 @@ class SegmentCache(
         withContext(fileIoDispatcher) {
             listRegularFilesRecursively(baseDir).sumOf { SystemFileSystem.metadataOrNull(it)?.size ?: 0L }
         }
+
+    /**
+     * Every `{bookId}/{fileId}` directory in the cache with its size and recency — the input to
+     * [TranscodeSessionEngine.sweepCache]. One recursive walk; the sweep runs on a minute-scale
+     * timer precisely because this is not cheap on a full cache.
+     */
+    internal suspend fun listCachedFiles(): List<CachedFile> =
+        withContext(fileIoDispatcher) {
+            if (!SystemFileSystem.exists(baseDir)) return@withContext emptyList()
+            subdirectories(baseDir).flatMap { bookDir ->
+                subdirectories(bookDir).map { fileDir -> cachedFile(bookDir.name, fileDir) }
+            }
+        }
+
+    private fun cachedFile(
+        bookId: String,
+        fileDir: Path,
+    ): CachedFile {
+        val files = listRegularFilesRecursively(fileDir).mapNotNull { statFile(it) }
+        val dirTouchedMs = statFile(fileDir)?.mtimeMs ?: 0L
+        return CachedFile(
+            bookId = bookId,
+            fileId = fileDir.name,
+            bytes = files.sumOf { it.size },
+            lastTouchedMs = maxOf(dirTouchedMs, files.maxOfOrNull { it.mtimeMs } ?: 0L),
+        )
+    }
+
+    private fun subdirectories(dir: Path): List<Path> =
+        SystemFileSystem.list(dir).filter { SystemFileSystem.metadataOrNull(it)?.isDirectory == true }
 
     /** Removes every segment for one file. Idempotent. */
     suspend fun evict(

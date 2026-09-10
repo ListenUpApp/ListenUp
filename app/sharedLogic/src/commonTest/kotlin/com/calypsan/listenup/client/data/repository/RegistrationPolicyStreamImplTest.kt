@@ -32,12 +32,7 @@ class RegistrationPolicyStreamImplTest :
     FunSpec({
 
         fun implFor(service: AuthServicePublic): RegistrationPolicyStreamImpl =
-            RegistrationPolicyStreamImpl(
-                channel =
-                    RpcChannel.forTest(
-                        service,
-                    ),
-            )
+            RegistrationPolicyStreamImpl(channel = RpcChannel.forTest(service))
 
         test("streamPolicy emits the current policy then each change, mirroring the server's Data events") {
             runTest {

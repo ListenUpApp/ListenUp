@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -568,7 +569,7 @@ class HomeViewModelTest :
             runTest {
                 val fixture = createFixture()
                 every { fixture.homeRepository.observeContinueListening(any()) } returns
-                    flow { throw IllegalStateException("boom") }
+                    flow { throw SimulatedFailure("boom") }
                 val viewModel = fixture.build()
 
                 val emitted = mutableListOf<String>()
@@ -619,7 +620,7 @@ class HomeViewModelTest :
                         userRepository = fixture.userRepository,
                         shelfRepository = fixture.shelfRepository,
                         syncRepository = fixture.syncRepository,
-                        currentHour = { throw IllegalStateException("upstream boom") },
+                        currentHour = { throw SimulatedFailure("upstream boom") },
                     )
                 // Emit a non-null user so the combine pipeline's transform actually runs.
                 fixture.userFlow.value = createUser()

@@ -231,4 +231,7 @@ private class FakeAudioPlayer : AudioPlayer {
 
 /** Constructs a [DesktopPlaybackController] with a never-invoked [PlaybackManager] mock. */
 private fun newController(player: AudioPlayer): DesktopPlaybackController =
-    DesktopPlaybackController(audioPlayer = player, playbackManager = mock())
+    DesktopPlaybackController(
+        audioPlayer = player,
+        playbackManager = mock(),
+    )

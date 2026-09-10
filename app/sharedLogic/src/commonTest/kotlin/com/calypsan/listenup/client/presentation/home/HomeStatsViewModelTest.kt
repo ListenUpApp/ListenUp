@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.WeeklyStats
 import com.calypsan.listenup.client.domain.repository.StatsRepository
+import com.calypsan.listenup.client.test.SimulatedFailure
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -152,7 +153,7 @@ class HomeStatsViewModelTest :
                     object : StatsRepository {
                         override fun observeWeeklyStats(): Flow<WeeklyStats> =
                             flow {
-                                throw IllegalStateException("boom")
+                                throw SimulatedFailure("boom")
                             }
                     }
                 val vm = HomeStatsViewModel(repo)

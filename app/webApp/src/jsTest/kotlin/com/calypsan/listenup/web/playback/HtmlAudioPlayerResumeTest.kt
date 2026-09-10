@@ -3,7 +3,7 @@ package com.calypsan.listenup.web.playback
 import com.calypsan.listenup.client.playback.PlaybackState
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeBetween
-import kotlinx.coroutines.delay
+import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
 import org.w3c.dom.url.URL
 
 private const val SEGMENT_DURATION_MS = 1_500L
@@ -11,9 +11,6 @@ private const val RESUME_MS = 750L
 
 /** A seek lands on a sample boundary, not a millisecond one; ±100 ms is far below the 750 ms gap. */
 private const val TOLERANCE_MS = 100L
-
-private const val SAMPLE_COUNT = 10
-private const val SAMPLE_INTERVAL_MS = 50L
 
 /**
  * Losing a listener's place is the one failure this app cannot afford, and `load()` followed by
@@ -41,11 +38,16 @@ class HtmlAudioPlayerResumeTest :
             player.awaitState(PlaybackState.Paused)
             player.positionMs.value.shouldBeBetween(RESUME_MS - TOLERANCE_MS, RESUME_MS + TOLERANCE_MS)
 
-            // Nothing may quietly move it afterwards either.
-            repeat(SAMPLE_COUNT) {
-                delay(SAMPLE_INTERVAL_MS)
-                player.positionMs.value.shouldBeBetween(RESUME_MS - TOLERANCE_MS, RESUME_MS + TOLERANCE_MS)
-            }
+            // Nothing may quietly move it afterwards either — proved by a state the element must
+            // actually reach, not by sampling a clock. Playing is strictly after `canplay`, and a
+            // rewind to zero would put the position BELOW the resume point.
+            player.play()
+            player.awaitState(PlaybackState.Playing)
+            player.positionMs.value shouldBeGreaterThanOrEqual RESUME_MS - TOLERANCE_MS
+
+            player.pause()
+            player.awaitState(PlaybackState.Paused)
+            player.positionMs.value shouldBeGreaterThanOrEqual RESUME_MS - TOLERANCE_MS
 
             player.releasePlayer()
             URL.revokeObjectURL(segment.url)

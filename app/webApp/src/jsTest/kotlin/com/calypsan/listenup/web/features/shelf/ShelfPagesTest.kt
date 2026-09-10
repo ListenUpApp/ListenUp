@@ -1,8 +1,8 @@
 package com.calypsan.listenup.web.features.shelf
 
 import io.kotest.matchers.nulls.shouldNotBeNull
+import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
-import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
@@ -13,24 +13,12 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.browser.document
-import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLTextAreaElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
-
-private val mountedHosts = mutableListOf<HTMLElement>()
-
-private fun mount(content: @Composable () -> Unit): HTMLElement {
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
-    mountedHosts += host
-    renderComposable(root = host) { content() }
-    return host
-}
 
 private fun book(
     id: String,
@@ -100,17 +88,14 @@ private fun pressKey(
  */
 class ShelfPagesTest :
     FunSpec({
-
-        afterSpec {
-            mountedHosts.forEach { it.remove() }
-            mountedHosts.clear()
-        }
+        val mounts = MountRegistry()
+        afterTest { mounts.disposeAll() }
 
         test("a visitor sees the books and none of the controls") {
             // Ownership is the server's answer. A visitor rendering disabled controls would be
             // advertising an ability they do not have.
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(ready(listOf(book("b1", "Dune")), isOwner = false), null, {}, {}, {}, {}, {}, {})
                 }
 
@@ -122,7 +107,7 @@ class ShelfPagesTest :
 
         test("an owner gets a grip and a remove control on every book") {
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(ready(listOf(book("b1", "Dune"), book("b2", "Piranesi"))), null, {}, {}, {}, {}, {}, {})
                 }
 
@@ -134,7 +119,7 @@ class ShelfPagesTest :
         test("dragging a book onto a later row sends the order it landed in") {
             var ordered: List<String>? = null
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"), book("c", "C"))),
                         null,
@@ -156,7 +141,7 @@ class ShelfPagesTest :
         test("dragging a book onto an earlier row sends the order it landed in") {
             var ordered: List<String>? = null
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"), book("c", "C"))),
                         null,
@@ -178,7 +163,7 @@ class ShelfPagesTest :
             // A reorder that changes nothing is still a write, a sync frame and a revision bump.
             var calls = 0
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"))),
                         null,
@@ -199,7 +184,7 @@ class ShelfPagesTest :
         test("the grip moves a book with the arrow keys, so a reorder is not mouse-only") {
             var ordered: List<String>? = null
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"), book("c", "C"))),
                         null,
@@ -225,7 +210,7 @@ class ShelfPagesTest :
             // holding the up arrow meant.
             var calls = 0
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "B"))),
                         null,
@@ -248,7 +233,7 @@ class ShelfPagesTest :
         test("removing a book names that book to a screen reader, and reports it") {
             var removed: String? = null
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"), book("b", "Piranesi"))),
                         null,
@@ -273,7 +258,7 @@ class ShelfPagesTest :
             // a channel on failure, and nothing on web read it — so a reorder the server rejected
             // reverted the list and explained nothing.
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"))),
                         "Could not reorder this shelf.",
@@ -290,7 +275,7 @@ class ShelfPagesTest :
         }
 
         test("a shelf with nothing to report renders no notice at all") {
-            val host = mount { ShelfDetailPage(ready(listOf(book("a", "A"))), null, {}, {}, {}, {}, {}, {}) }
+            val host = mounts.mount { ShelfDetailPage(ready(listOf(book("a", "A"))), null, {}, {}, {}, {}, {}, {}) }
 
             host.querySelector(".shelf-notice") shouldBe null
         }
@@ -298,7 +283,7 @@ class ShelfPagesTest :
         test("dismissing the notice reports it once") {
             var dismissed = 0
             val host =
-                mount {
+                mounts.mount {
                     ShelfDetailPage(
                         ready(listOf(book("a", "A"))),
                         "Could not reorder this shelf.",
@@ -317,7 +302,7 @@ class ShelfPagesTest :
         }
 
         test("an empty shelf explains itself rather than showing an empty frame") {
-            val host = mount { ShelfDetailPage(ready(emptyList()), null, {}, {}, {}, {}, {}, {}) }
+            val host = mounts.mount { ShelfDetailPage(ready(emptyList()), null, {}, {}, {}, {}, {}, {}) }
 
             host.textContent.orEmpty() shouldContain "This shelf is empty"
         }
@@ -326,9 +311,9 @@ class ShelfPagesTest :
             // Every shelf that is not private is shared, so labelling the common case spends a word
             // on every shelf to inform nobody.
             val privateHost =
-                mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = true), null, {}, {}, {}, {}, {}, {}) }
+                mounts.mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = true), null, {}, {}, {}, {}, {}, {}) }
             val sharedHost =
-                mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = false), null, {}, {}, {}, {}, {}, {}) }
+                mounts.mount { ShelfDetailPage(ready(listOf(book("a", "A")), isPrivate = false), null, {}, {}, {}, {}, {}, {}) }
 
             privateHost.textContent.orEmpty() shouldContain "Private"
             sharedHost.textContent.orEmpty() shouldNotContain "Private"
@@ -337,7 +322,7 @@ class ShelfPagesTest :
         // ── the create/edit form ─────────────────────────────────────────────────
 
         test("a shelf cannot be saved without a name") {
-            val host = mount { ShelfEditPage(CreateEditShelfUiState.Idle, false, { _, _, _ -> }, {}, {}, {}) }
+            val host = mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, false, { _, _, _ -> }, {}, {}, {}) }
 
             val save = host.querySelector("button[type=submit]") as HTMLElement
             save.getAttribute("disabled") shouldBe ""
@@ -345,7 +330,7 @@ class ShelfPagesTest :
 
         test("editing seeds the form from the shelf, once") {
             val host =
-                mount {
+                mounts.mount {
                     ShelfEditPage(
                         CreateEditShelfUiState.Loaded("Comfort reads", "Sleepy books", true),
                         true,
@@ -364,7 +349,7 @@ class ShelfPagesTest :
         }
 
         test("creating offers no way to delete something that does not exist yet") {
-            val host = mount { ShelfEditPage(CreateEditShelfUiState.Idle, false, { _, _, _ -> }, {}, {}, {}) }
+            val host = mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, false, { _, _, _ -> }, {}, {}, {}) }
 
             host.textContent.orEmpty() shouldNotContain "Delete shelf"
         }
@@ -372,7 +357,7 @@ class ShelfPagesTest :
         test("deleting asks first, in a dialog, and says what survives") {
             var deleted = 0
             val host =
-                mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
+                mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()
@@ -387,7 +372,7 @@ class ShelfPagesTest :
         test("confirming in the dialog is what deletes") {
             var deleted = 0
             val host =
-                mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
+                mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()
@@ -401,7 +386,7 @@ class ShelfPagesTest :
         test("cancelling the dialog leaves the shelf alone") {
             var deleted = 0
             val host =
-                mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
+                mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()

@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
-import java.util.concurrent.Executors
 
 private val logger = KotlinLogging.logger {}
 
@@ -34,6 +33,7 @@ internal class NsdDiscoveryService(
 
     private var discoveryListener: NsdManager.DiscoveryListener? = null
     private var isDiscovering = false
+    private val resolveExecutors = ResolveExecutorOwner()
 
     companion object {
         private const val SERVICE_TYPE = "_listenup._tcp."
@@ -59,6 +59,9 @@ internal class NsdDiscoveryService(
                 override fun onDiscoveryStopped(serviceType: String) {
                     logger.info { "mDNS discovery stopped for: '$serviceType'" }
                     isDiscovering = false
+                    // Mirrors stopDiscovery: the system can stop discovery without going through
+                    // it, and its guard would then never release the shared resolve executor.
+                    resolveExecutors.shutdown()
                 }
 
                 override fun onServiceFound(serviceInfo: NsdServiceInfo) {
@@ -122,6 +125,8 @@ internal class NsdDiscoveryService(
         }
         discoveryListener = null
         isDiscovering = false
+        // The resolve threads must not outlive the discovery that needed them.
+        resolveExecutors.shutdown()
         // Also drop the resolved-servers cache: a prior session's resolution of the server at its OLD
         // IP must not linger and short-circuit the next relocate with a stale localUrl. Leaving it is
         // why a relaunch (which starts with an empty map) recovered a moved server but a running
@@ -174,7 +179,7 @@ internal class NsdDiscoveryService(
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun resolveServiceModern(serviceInfo: NsdServiceInfo) {
-        val executor = Executors.newSingleThreadExecutor()
+        val executor = resolveExecutors.acquire()
         var callback: NsdManager.ServiceInfoCallback? = null
 
         callback =

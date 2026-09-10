@@ -25,6 +25,10 @@ protocol PlaybackEngine: Sendable {
     func currentMeasuredGainDb() async -> Float?
     /// Deactivate the shared audio session so other apps' audio can resume.
     func deactivateSession() async
+    /// Unload the current book: stop playback, drop every per-item observer, empty the queue.
+    /// The engine stays REUSABLE — a later `load` works. This is what "close book" and sign-out
+    /// need; `release()` is the terminal variant and has no production caller.
+    func unload() async
     /// Re-assert the shared audio session as active. Called before resuming
     /// after an interruption — some interruptions deactivate the session, and
     /// resuming into a dead session plays silence.
