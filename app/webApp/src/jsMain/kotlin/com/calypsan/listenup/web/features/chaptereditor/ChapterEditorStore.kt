@@ -131,3 +131,20 @@ class NumberedChapter(
 
 /** Pairs every chapter with its true number, before any filtering happens. */
 internal fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> NumberedChapter(c, i + 1) }
+
+/**
+ * Narrows an already-numbered list to what the reader typed.
+ *
+ * Matches a title substring, case-insensitively, **or the chapter's own number typed exactly**.
+ * The number is the reason search is worth having on a 311-chapter book: "213" should find chapter
+ * 213, not the two hundred rows whose titles happen to contain a 2.
+ *
+ * A blank query is not a filter — it returns everything rather than nothing.
+ */
+internal fun List<NumberedChapter>.matching(query: String): List<NumberedChapter> {
+    val trimmed = query.trim()
+    if (trimmed.isEmpty()) return this
+
+    val asNumber = trimmed.toIntOrNull()
+    return filter { it.chapter.title.contains(trimmed, ignoreCase = true) || it.number == asNumber }
+}

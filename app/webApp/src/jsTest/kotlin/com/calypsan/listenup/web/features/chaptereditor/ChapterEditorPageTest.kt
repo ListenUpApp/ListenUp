@@ -194,6 +194,38 @@ class ChapterEditorPageTest :
             rows(host).single().querySelector(".chr-n")?.textContent shouldBe "3"
         }
 
+        // ⛔ The number is the point of search on a 311-chapter book: "3" must find chapter 3, not
+        // every row whose title happens to contain a 3. Compose has matched on the number since the
+        // editor shipped; the browser did not, and a reader typing a number got nothing.
+        test("typing a chapter's number finds that chapter") {
+            // ⛔ Titles with no digits in them, for the reason the next spec spells out.
+            val many = (1..5).map { chapter("c$it", numberless(it), (it - 1) * 60_000L, 60_000L) }
+            val host = page(editingChapters(chapters = many, bookDurationMs = 300_000L))
+
+            val search = host.querySelector("#ched-search") as HTMLInputElement
+            search.value = "3"
+            search.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            rows(host).map { it.querySelector(".chr-n")?.textContent } shouldContainExactly listOf("3")
+        }
+
+        // ⛔ The titles carry NO digits. With "Chapter 13" as a title, a number match and a title
+        // match are indistinguishable, and this spec would pass on the title alone — proving
+        // nothing about the number path it exists to pin.
+        test("a number match is exact, not a substring of the number") {
+            val many = (1..20).map { chapter("c$it", numberless(it), (it - 1) * 60_000L, 60_000L) }
+            val host = page(editingChapters(chapters = many, bookDurationMs = 1_200_000L))
+
+            val search = host.querySelector("#ched-search") as HTMLInputElement
+            search.value = "1"
+            search.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            // Chapter 1 only — never 10 through 19, whose numbers merely start with a 1.
+            rows(host).map { it.querySelector(".chr-n")?.textContent } shouldContainExactly listOf("1")
+        }
+
         test("a search that matches nothing says so, and says what was searched for") {
             val host = page(editingChapters())
 
@@ -608,3 +640,28 @@ class ChapterEditorPageTest :
 private fun List<HTMLElement>.shouldBeEmptyList() {
     size shouldBe 0
 }
+
+/** A title with no digits anywhere in it, so a number search cannot match it by accident. */
+private fun numberless(n: Int): String =
+    listOf(
+        "The Boy Who Lived",
+        "The Vanishing Glass",
+        "The Letters from No One",
+        "Keeper of the Keys",
+        "Diagon Alley",
+        "The Journey from Platform",
+        "The Sorting Hat",
+        "The Potions Master",
+        "The Midnight Duel",
+        "Hallowe'en",
+        "Quidditch",
+        "The Mirror of Erised",
+        "Nicolas Flamel",
+        "Norbert the Ridgeback",
+        "The Forbidden Forest",
+        "Through the Trapdoor",
+        "The Man with Two Faces",
+        "Dobby's Warning",
+        "The Burrow",
+        "The Whomping Willow",
+    )[(n - 1) % 20]

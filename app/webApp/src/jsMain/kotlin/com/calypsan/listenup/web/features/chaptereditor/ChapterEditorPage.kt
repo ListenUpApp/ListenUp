@@ -166,7 +166,7 @@ private fun EditingContent(
 
     // Numbered against the FULL set, then filtered — see [numbered].
     val all = state.chapters.numbered()
-    val shown = if (query.isBlank()) all else all.filter { it.chapter.title.contains(query, ignoreCase = true) }
+    val shown = all.matching(query)
 
     Div(attrs = { classes("ched-tools") }) {
         Field(
