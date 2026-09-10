@@ -25,6 +25,7 @@ import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.bookedit.graphBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.graphChapterEditor
 import com.calypsan.listenup.web.features.contributormetadata.graphContributorMetadata
+import com.calypsan.listenup.web.features.books.graphMultiSelect
 import com.calypsan.listenup.web.features.metadata.graphMetadata
 import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
@@ -186,6 +187,7 @@ fun main() {
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),
                 openSearch = graphSearch(koin),
+                openMultiSelect = graphMultiSelect(koin),
                 openPlayback = graphPlayback(koin),
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
                 observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },

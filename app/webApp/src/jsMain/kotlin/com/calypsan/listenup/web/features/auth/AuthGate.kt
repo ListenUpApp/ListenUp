@@ -39,6 +39,7 @@ import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
 import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
+import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.metadata.OpenMetadata
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
@@ -118,6 +119,7 @@ fun AuthGate(
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
+    openMultiSelect: OpenMultiSelect,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
     observeCurrentUserId: () -> Flow<String?>,
@@ -232,6 +234,11 @@ fun AuthGate(
                         openShelfDetail = openShelfDetail,
                         openShelfEdit = openShelfEdit,
                         openSearch = openSearch,
+                        openMultiSelect = openMultiSelect,
+                        // A confirmed bulk action is exactly the kind of thing a toast is for:
+                        // the change is real, it happened off-screen, and the number is the
+                        // part the reader cannot check for themselves.
+                        onToast = { message -> toasts.show(message, ToastTone.Notice) },
                         onSignOut = { scope.launch { authGraph.signOut() } },
                         openPlayback = openPlayback,
                         observeIsAdmin = observeIsAdmin,

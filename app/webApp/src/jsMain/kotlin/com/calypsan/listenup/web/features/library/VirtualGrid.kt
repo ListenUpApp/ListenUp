@@ -58,12 +58,15 @@ private data class Metrics(
  * CSS's sizes would be a second source of truth that drifts the first time someone edits the sheet.
  */
 @Composable
+@Suppress("LongParameterList")
 internal fun VirtualBookGrid(
     books: List<BookListItem>,
     letterOf: (BookListItem) -> Char?,
     progressOf: (BookListItem) -> Float,
     onOpenBook: (String) -> Unit,
     heroBookId: String? = null,
+    selecting: Boolean = false,
+    isSelected: (String) -> Boolean = { false },
 ) {
     var metrics by remember { mutableStateOf(Metrics(columns = 0, rowHeight = 0.0, headerHeight = 0.0)) }
     var scrollTop by remember { mutableStateOf(0.0) }
@@ -89,7 +92,7 @@ internal fun VirtualBookGrid(
     // answer there: slower, but complete. Falling back to a *slice* would silently drop books and
     // their letter headers, which is what an earlier version of this did and what two specs caught.
     if (document.querySelector(SCROLLPORT) == null) {
-        FlatGrid(books, letterOf, progressOf, onOpenBook, heroBookId)
+        FlatGrid(books, letterOf, progressOf, onOpenBook, heroBookId, selecting, isSelected)
         return
     }
 
@@ -97,7 +100,15 @@ internal fun VirtualBookGrid(
     // measure. Deliberately not the whole library — mounting 1,204 cards even once is the cost
     // this exists to avoid.
     if (!metrics.known) {
-        FlatGrid(books.take(FIRST_PAINT_ROWS * ASSUMED_COLUMNS), letterOf, progressOf, onOpenBook, heroBookId)
+        FlatGrid(
+            books.take(FIRST_PAINT_ROWS * ASSUMED_COLUMNS),
+            letterOf,
+            progressOf,
+            onOpenBook,
+            heroBookId,
+            selecting,
+            isSelected,
+        )
         return
     }
 
@@ -122,6 +133,8 @@ internal fun VirtualBookGrid(
                             progress = progressOf(book),
                             onOpen = { onOpenBook(book.id.value) },
                             isHero = book.id.value == heroBookId,
+                            selecting = selecting,
+                            isSelected = isSelected(book.id.value),
                         )
                     }
                 }
@@ -133,12 +146,15 @@ internal fun VirtualBookGrid(
 
 /** The whole list, headers and all, with no windowing. See the call sites for when that is right. */
 @Composable
+@Suppress("LongParameterList")
 private fun FlatGrid(
     books: List<BookListItem>,
     letterOf: (BookListItem) -> Char?,
     progressOf: (BookListItem) -> Float,
     onOpenBook: (String) -> Unit,
     heroBookId: String?,
+    selecting: Boolean,
+    isSelected: (String) -> Boolean,
 ) {
     Div(attrs = { classes("lib-grid") }) {
         var letter: Char? = null
@@ -152,6 +168,8 @@ private fun FlatGrid(
                 book = book,
                 progress = progressOf(book),
                 onOpen = { onOpenBook(book.id.value) },
+                selecting = selecting,
+                isSelected = isSelected(book.id.value),
                 isHero = book.id.value == heroBookId,
             )
         }

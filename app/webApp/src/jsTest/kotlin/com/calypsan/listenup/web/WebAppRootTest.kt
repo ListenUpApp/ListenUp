@@ -14,6 +14,12 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
 import com.calypsan.listenup.web.features.chaptereditor.chapter
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.web.features.books.fixedMultiSelect
+import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
 import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
@@ -54,6 +60,7 @@ import com.calypsan.listenup.web.features.search.contributorHit
 import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -478,6 +485,240 @@ class WebAppRootTest :
                 awaitFrame()
 
                 window.location.pathname shouldBe "/book/b-kings"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // MARK: multi-select over the library
+
+        test("the bulk bar appears once selection is on, and counts what is picked") {
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect = fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1", "b2"))),
+                )
+
+            try {
+                host.querySelector(".bulk")?.textContent.shouldNotBeNull() shouldContain "2 selected"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("no bar while selection is off") {
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect = fixedMultiSelect(selectionMode = SelectionMode.None),
+                )
+
+            try {
+                host.querySelector(".bulk").shouldBeNull()
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ Nothing selected means no actions, not disabled ones. The bar is already saying
+        // "0 selected"; a row of greyed-out verbs under that says nothing the count has not.
+        test("an empty selection offers a count and a way out, and no verbs") {
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect = fixedMultiSelect(selectionMode = SelectionMode.Active(emptySet())),
+                )
+
+            try {
+                host.querySelector(".bulk").shouldNotBeNull()
+                host.querySelectorAll(".bulk-b").asList().size shouldBe 0
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // Collections are admin-managed, the same rule Book Detail's own collection picker follows.
+        test("only an admin is offered a collection") {
+            val books = listOf(contractBook("b1", "Kings"))
+            val member =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = books)),
+                    openMultiSelect =
+                        fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1")), isAdmin = false),
+                )
+            try {
+                member.first
+                    .querySelectorAll(".bulk-b")
+                    .asList()
+                    .map { it.textContent } shouldBe
+                    listOf("Add to shelf")
+            } finally {
+                member.second.dispose()
+            }
+
+            val admin =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = books)),
+                    openMultiSelect =
+                        fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1")), isAdmin = true),
+                )
+            try {
+                admin.first
+                    .querySelectorAll(".bulk-b")
+                    .asList()
+                    .map { it.textContent } shouldBe
+                    listOf("Add to shelf", "Add to collection")
+            } finally {
+                admin.second.dispose()
+            }
+        }
+
+        test("the shelf picker lists the reader's shelves and reports the one chosen") {
+            val picked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect =
+                        fixedMultiSelect(
+                            selectionMode = SelectionMode.Active(setOf("b1", "b2")),
+                            myShelves = listOf(testShelf("s1", "Winter reading")),
+                            onAddToShelf = { picked += it },
+                        ),
+                )
+
+            try {
+                host
+                    .querySelectorAll(".bulk-b")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent == "Add to shelf" }
+                    .click()
+                awaitFrame()
+
+                host.querySelector("dialog")?.textContent.shouldNotBeNull() shouldContain "2 books"
+                val target = host.querySelector(".sel-target") as HTMLButtonElement
+                target.textContent.shouldNotBeNull() shouldContain "Winter reading"
+                target.click()
+                awaitFrame()
+
+                picked shouldBe listOf("s1")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ A picker with no create path strands the reader whose first bulk action is exactly the
+        // reason they want a new shelf.
+        test("the shelf picker can make a new shelf and add to it in one step") {
+            val created = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect =
+                        fixedMultiSelect(
+                            selectionMode = SelectionMode.Active(setOf("b1")),
+                            onCreateShelfAndAdd = { created += it },
+                        ),
+                )
+
+            try {
+                host
+                    .querySelectorAll(".bulk-b")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent == "Add to shelf" }
+                    .click()
+                awaitFrame()
+
+                host.querySelector(".sel-none")?.textContent shouldBe "You have no shelves yet."
+
+                val field = host.querySelector("#sel-new-name") as HTMLInputElement
+                field.value = "Winter reading"
+                field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+                awaitFrame()
+
+                host
+                    .querySelectorAll("dialog button")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent == "Create and add" }
+                    .click()
+                awaitFrame()
+
+                created shouldBe listOf("Winter reading")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ A blank name cannot create anything. Sabotage proved the earlier spec never exercised
+        // this: it typed a name before pressing, so a Create that accepted "" passed it.
+        test("creating is refused until the new shelf has a name") {
+            val (host, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect = fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1"))),
+                )
+
+            try {
+                host
+                    .querySelectorAll(".bulk-b")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent == "Add to shelf" }
+                    .click()
+                awaitFrame()
+
+                val create =
+                    host
+                        .querySelectorAll("dialog button")
+                        .asList()
+                        .filterIsInstance<HTMLButtonElement>()
+                        .first { it.textContent == "Create and add" }
+                create.hasAttribute("disabled") shouldBe true
+
+                val field = host.querySelector("#sel-new-name") as HTMLInputElement
+                field.value = "   "
+                field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+                awaitFrame()
+
+                host
+                    .querySelectorAll("dialog button")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent == "Create and add" }
+                    .hasAttribute("disabled") shouldBe true
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a completed bulk action is confirmed with the number the reader cannot see") {
+            val said = mutableListOf<String>()
+            val (_, router) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "Kings")))),
+                    openMultiSelect =
+                        fixedMultiSelect(
+                            selectionMode = SelectionMode.Active(setOf("b1")),
+                            events = flowOf(BookMultiSelectEvent.BooksAddedToShelf(count = 12)),
+                        ),
+                    onToast = { said += it },
+                )
+
+            try {
+                awaitFrame()
+
+                said shouldBe listOf("Added 12 books to the shelf.")
             } finally {
                 router.dispose()
             }
@@ -1073,3 +1314,20 @@ private const val POPSTATE_SETTLE_MS = 120L
 
 /** The entry a merge redirect must leave behind it — anything else means it pushed one. */
 private const val MERGE_SENTINEL_PATH = "/before-the-editor"
+
+/** A shelf with only the fields the picker reads. */
+private fun testShelf(
+    id: String,
+    name: String,
+) = Shelf(
+    id = ShelfId(id),
+    name = name,
+    description = null,
+    isPrivate = false,
+    ownerId = "u1",
+    ownerDisplayName = "Simon",
+    bookCount = 0,
+    totalDurationSeconds = 0L,
+    createdAtMs = 0L,
+    updatedAtMs = 0L,
+)
