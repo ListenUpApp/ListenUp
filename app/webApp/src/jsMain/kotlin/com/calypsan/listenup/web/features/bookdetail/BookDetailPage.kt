@@ -59,6 +59,7 @@ fun BookDetailPage(
     onOpenLibrary: () -> Unit,
     onPlay: () -> Unit,
     onEdit: () -> Unit = {},
+    onEditChapters: () -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     selection: Set<Int> = emptySet(),
@@ -125,6 +126,7 @@ fun BookDetailPage(
                             chapters = state.chapters.toWebChapters(),
                             selection = selection,
                             onSelectionChange = onSelectionChange,
+                            onEditChapters = onEditChapters,
                         )
                     }
 

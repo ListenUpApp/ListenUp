@@ -248,6 +248,9 @@ body { margin: 0; }
 .luw .ced-merge:active,
 .luw .sed-err-x:active,
 .luw .sed-merge:active,
+.luw .ched-add:active,
+.luw .drift-pin:active,
+.luw .chr-a:active,
 .luw .cover-undo:active,
 .luw .imp-new:active,
 .luw .iflow-skip:active,
@@ -287,6 +290,7 @@ body { margin: 0; }
 .luw .cdet-result:active,
 .luw .ced-result:active,
 .luw .sed-result:active,
+.luw .chr:active,
 .luw .iflow-result:active,
 .luw .cdet-person:active,
 .luw .inbox-book:active,
@@ -2409,6 +2413,67 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .sed-err-t { flex: 1; min-width: 0; margin: 0; }
 .luw .sed-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .sed-err-x:hover { background: var(--surface-3); } }
+
+/* Chapter editor — the list, which the spec requires to be sufficient on its own. No timeline
+   lane here: that is the "optional spatial sugar" half, and it is not in this page. */
+.luw .ched { width: 100%; max-width: 940px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .ched-skel { height: 26rem; border-radius: 16px; }
+.luw .ched-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.luw .ched-titles { flex: 1; min-width: 12rem; }
+.luw .ched-t { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .ched-sub { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 0.86rem; color: var(--ink-3); }
+.luw .ched-status { padding: 2px 9px; border-radius: 999px; background: var(--surface-3); font-weight: 700; font-size: 0.74rem; }
+/* Unsaved is the one that has to catch the eye: it is the only state where leaving costs work. */
+.luw .ched-status.on { background: var(--coral-soft); color: var(--coral); }
+.luw .ched-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.luw .ched-elsewhere { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 12px; background: var(--surface-3); }
+.luw .ched-elsewhere-t { font-size: 0.88rem; font-weight: 700; color: var(--ink); }
+.luw .ched-elsewhere-b { font-size: 0.82rem; color: var(--ink-3); }
+.luw .ched-problem { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .ched-tools { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.luw .ched-tools .f-wrap { flex: 1; min-width: 12rem; }
+.luw .ched-add { flex: none; }
+.luw .ched-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .ched-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 28px; border-radius: 16px; background: var(--surface-2); }
+.luw .ched-empty h2 { margin: 0; font-size: 1.15rem; font-weight: 750; color: var(--ink); }
+.luw .ched-empty p { margin: 0; font-size: 0.88rem; color: var(--ink-3); max-width: 34rem; line-height: 1.5; }
+.luw .ched-list { display: flex; flex-direction: column; gap: 2px; }
+
+/* One boundary. The row is a container, not a control — it holds six buttons — so selection is a
+   tint and a border rather than anything that would fight them for the press. */
+.luw .chr { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1.5px solid transparent; border-radius: 12px; background: var(--surface-2); cursor: pointer; }
+@media (hover: hover) { .luw .chr:hover { background: var(--surface-3); } }
+.luw .chr.on { border-color: var(--coral); background: var(--coral-soft); }
+.luw .chr-n { flex: none; width: 2.5rem; font-size: 0.78rem; font-weight: 700; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; }
+.luw .chr-main { flex: 1; min-width: 0; }
+.luw .chr-t { font-size: 0.92rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Tabular numerals so a column of start times reads as a column rather than a ragged edge. */
+.luw .chr-at { display: flex; align-items: center; gap: 8px; margin-top: 1px; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .chr-now { padding: 1px 6px; border-radius: 999px; background: var(--coral); color: #fff; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; }
+/* ⛔ Always visible, never revealed on hover. A finger has no hover, so a dim-until-hover strip
+   would hide six controls per row from every touch reader — the same rule `.cat-row` learned. */
+.luw .chr-acts { flex: none; display: flex; align-items: center; gap: 2px; }
+.luw .chr-a { width: 30px; height: 30px; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .chr-a:hover { background: var(--surface); color: var(--ink); } }
+.luw .chr-a.on { background: var(--coral-soft); color: var(--coral); }
+.luw .chr-a[disabled] { opacity: .4; cursor: default; }
+
+/* The guided drift flow. A panel rather than a dialog: pinning an anchor needs the list and the
+   transport, and a modal over both would hide the two things the flow is about. */
+.luw .drift { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1.5px solid var(--coral); border-radius: 16px; background: var(--surface-2); }
+.luw .drift-h { margin: 0; font-size: 1.05rem; font-weight: 750; color: var(--ink); }
+.luw .drift-intro { margin: 0; font-size: 0.86rem; color: var(--ink-3); line-height: 1.5; max-width: 40rem; }
+.luw .drift-anchors { display: flex; gap: 10px; flex-wrap: wrap; }
+.luw .drift-slot { flex: 1; min-width: 10rem; display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 11px; background: var(--surface); }
+.luw .drift-slot-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.luw .drift-slot-v { font-size: 0.88rem; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+.luw .drift-need { margin: 0; font-size: 0.84rem; color: var(--ink-3); }
+.luw .drift-pin { align-self: flex-start; }
+.luw .drift-sum { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--ink); }
+.luw .drift-refused { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--coral); }
+.luw .drift-acts { display: flex; justify-content: flex-end; gap: 8px; }
+
+.luw .bd-chapters-edit { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 /* The pencil sits at the top-right of the hero, out of the title's flow — the same placement
    Contributor Detail gives its own. */
 .luw .sd-edit { flex: none; align-self: flex-start; margin-left: auto; }

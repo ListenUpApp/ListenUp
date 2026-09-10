@@ -21,6 +21,12 @@ import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.web.features.bookedit.BookEditSession
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
+import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
+import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
+import com.calypsan.listenup.web.features.chaptereditor.chapterProblemText
+import com.calypsan.listenup.web.features.chaptereditor.DiscardChapterEditsDialog
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
@@ -160,6 +166,7 @@ fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
+    openChapterEditor: OpenChapterEditor,
     openContributorDetail: OpenContributorDetail,
     openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
@@ -261,6 +268,7 @@ fun WebAppRoot(
             active = active,
             openBookDetail = openBookDetail,
             openBookEdit = openBookEdit,
+            openChapterEditor = openChapterEditor,
             openContributorDetail = openContributorDetail,
             openContributorEdit = openContributorEdit,
             openSeriesDetail = openSeriesDetail,
@@ -363,6 +371,7 @@ private fun RouteContent(
     active: String,
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
+    openChapterEditor: OpenChapterEditor,
     openContributorDetail: OpenContributorDetail,
     openContributorEdit: OpenContributorEdit,
     openSeriesDetail: OpenSeriesDetail,
@@ -399,6 +408,9 @@ private fun RouteContent(
     val shelfRoute = shelfRouteOf(route.segments)
     val bookId = route.idUnder(BOOK_KEY)
     val editingBookId = route.editTargetOf(bookId)
+    // `/book/{id}/chapters` — a route of its own, for the reason `/book/{id}/edit` is one, and
+    // one more: the editor holds unsaved work, so it has to be somewhere Back can leave.
+    val chapteringBookId = if (bookId != null && route.segments.getOrNull(2) == CHAPTERS_KEY) bookId else null
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
     val isContributors = active == LIBRARY_KEY && route.segments.getOrNull(1) == CONTRIBUTORS_KEY
@@ -424,10 +436,12 @@ private fun RouteContent(
         BookRouteContent(
             bookId = bookId,
             editingBookId = editingBookId,
+            chapteringBookId = chapteringBookId,
             router = router,
             route = route,
             openBookDetail = openBookDetail,
             openBookEdit = openBookEdit,
+            openChapterEditor = openChapterEditor,
             playback = playback,
         )
     } else if (isContributors || contributorId != null) {
@@ -1084,12 +1098,24 @@ private fun contributorDetailState(
 private fun BookRouteContent(
     bookId: String,
     editingBookId: String?,
+    chapteringBookId: String?,
     router: Router,
     route: Route,
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
+    openChapterEditor: OpenChapterEditor,
     playback: PlaybackSession,
 ) {
+    if (chapteringBookId != null) {
+        ChapterEditorRoute(
+            router = router,
+            openChapterEditor = openChapterEditor,
+            bookId = chapteringBookId,
+            playback = playback,
+        )
+        return
+    }
+
     if (editingBookId != null) {
         val editSession =
             bookEditState(
@@ -1130,9 +1156,104 @@ private fun BookRouteContent(
         },
         onPlay = { playback.onPlayBook(BookId(bookId)) },
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
+        onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
         onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
         onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
     )
+}
+
+/**
+ * Opens a Chapter Editor session for [bookId], collects it, and guards the way out.
+ *
+ * ⛔ **Leaving is not just navigation here.** This page holds the only copy of the reader's unsaved
+ * work, so both ways out — the Back control and the browser's own Back — pass through a
+ * confirmation while the draft is dirty. `onbeforeunload` covers the third: a closed tab.
+ *
+ * `Saved` navigates rather than replacing: the reader chose to come here, and the book's page is
+ * where they came from.
+ */
+@Composable
+private fun ChapterEditorRoute(
+    router: Router,
+    openChapterEditor: OpenChapterEditor,
+    bookId: String,
+    playback: PlaybackSession,
+) {
+    val session = remember(bookId) { openChapterEditor(bookId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    val state = session.state.collectAsState().value
+    val transport = playback.state.collectAsState().value
+    val nowPlaying = playback.nowPlaying.collectAsState().value
+    // Only this book's transport counts. Anything else and the playhead is not about what is on
+    // screen, so it is absent rather than misleading.
+    val playheadMs = if (nowPlaying?.bookId == bookId) transport?.positionMs else null
+
+    var problem by remember(bookId) { mutableStateOf<String?>(null) }
+    var pendingDiscard by remember(bookId) { mutableStateOf(false) }
+    val isDirty = (state as? ChapterEditorUiState.Editing)?.isDirty == true
+    val book = Route(listOf(BOOK_KEY, bookId))
+
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                ChapterEditorEvent.Saved -> {
+                    router.navigate(book)
+                }
+
+                // SaveFailed already reaches the reader through the global error bus; repeating it
+                // here would show the same failure twice.
+                is ChapterEditorEvent.SaveFailed -> {}
+
+                is ChapterEditorEvent.Invalid -> {
+                    val chapters = (session.state.value as? ChapterEditorUiState.Editing)?.chapters.orEmpty()
+                    problem = chapterProblemText(event.problems, chapters)
+                }
+            }
+        }
+    }
+
+    // The tab close, and anything else that leaves the page entirely. The browser shows its own
+    // wording; all it takes from us is that there is something to lose.
+    DisposableEffect(isDirty) {
+        val guard: (Event) -> Unit = { event -> if (isDirty) event.preventDefault() }
+        window.addEventListener(BEFORE_UNLOAD, guard)
+        onDispose { window.removeEventListener(BEFORE_UNLOAD, guard) }
+    }
+
+    ChapterEditorPage(
+        state = state,
+        playheadMs = playheadMs,
+        onSelect = session.onSelect,
+        onNudge = session.onNudge,
+        onSnapToPlayhead = session.onSnapToPlayhead,
+        onRetitle = session.onRetitle,
+        onRemove = session.onRemove,
+        onAddAt = session.onAddAt,
+        onToggleLock = session.onToggleLock,
+        onBeginDrift = session.onBeginDrift,
+        onPinAnchor = session.onPinAnchor,
+        onApplyDrift = session.onApplyDrift,
+        onCancelDrift = session.onCancelDrift,
+        onUndo = session.onUndo,
+        onSave = {
+            problem = null
+            session.onSave()
+        },
+        onLeave = { if (isDirty) pendingDiscard = true else router.navigate(book) },
+        problem = problem,
+    )
+
+    if (pendingDiscard) {
+        DiscardChapterEditsDialog(
+            onDiscard = {
+                pendingDiscard = false
+                session.onResetToSource()
+                router.navigate(book)
+            },
+            onDismiss = { pendingDiscard = false },
+        )
+    }
 }
 
 /**
@@ -1822,6 +1943,12 @@ private const val BOOK_KEY = "book"
 
 /** The trailing segment that turns a book route into its edit form. */
 private const val EDIT_KEY = "edit"
+
+/** `/book/{id}/chapters` — the chapter editor over one book. */
+private const val CHAPTERS_KEY = "chapters"
+
+/** The browser's own "you have unsaved work" prompt. */
+private const val BEFORE_UNLOAD = "beforeunload"
 
 private const val LIBRARY_KEY = "library"
 

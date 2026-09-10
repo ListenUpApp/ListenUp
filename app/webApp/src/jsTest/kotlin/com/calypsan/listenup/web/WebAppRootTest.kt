@@ -9,6 +9,9 @@ import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
+import com.calypsan.listenup.web.features.chaptereditor.chapter
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
 import com.calypsan.listenup.core.SeriesId
@@ -45,6 +48,7 @@ import com.calypsan.listenup.web.features.search.contributorHit
 import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
@@ -56,7 +60,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeout
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import org.jetbrains.compose.web.renderComposable
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -290,6 +296,109 @@ class WebAppRootTest :
                 labels shouldBe listOf("Books", "Authors", "Narrators")
             } finally {
                 composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/book/{id}/chapters renders the chapter editor, not the book's page") {
+            val recorder = RecordingChapterEditor()
+            val (host, router) = mountAt("/book/b-stormlight/chapters", openChapterEditor = recorder.open)
+
+            try {
+                recorder.requestedIds shouldBe listOf("b-stormlight")
+                (host.querySelector(".ched-t") as HTMLElement).textContent shouldBe "Edit chapters"
+                // ⛔ The book's own page must not also be up. `/book/{id}` is a prefix of this
+                // route, and a branch order that tests it first makes the editor unreachable.
+                host.querySelector(".bd-title") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Edit chapters on a book's chapters pane opens the editor") {
+            val (host, router) =
+                mountAt("/book/b-stormlight?tab=chapters", openBookDetail = fixedBookDetail(readyBook()))
+
+            try {
+                (host.querySelector(".bd-chapters-edit button") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/book/b-stormlight/chapters"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a saved chapter set lands back on the book it belongs to") {
+            val recorder = RecordingChapterEditor(flowOf(ChapterEditorEvent.Saved))
+            val (_, router) = mountAt("/book/b-stormlight/chapters", openChapterEditor = recorder.open)
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/book/b-stormlight"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ The editor holds the only copy of the reader's unsaved work, so Back is a question
+        // rather than a navigation while the draft is dirty.
+        test("leaving a dirty chapter draft asks before it is thrown away") {
+            val recorder = RecordingChapterEditor(chapters = listOf(chapter("c1", "One", 0L, 1_000L)))
+            val (host, router) = mountAt("/book/b-stormlight/chapters", openChapterEditor = recorder.open)
+
+            try {
+                awaitFrame()
+                host
+                    .querySelectorAll("button")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent?.trim() == "Back" }
+                    .click()
+                awaitFrame()
+
+                host
+                    .querySelector("dialog")
+                    .shouldNotBeNull()
+                    .textContent
+                    .shouldNotBeNull() shouldContain
+                    "The changes you made here will be lost."
+                window.location.pathname shouldBe "/book/b-stormlight/chapters"
+                recorder.resets shouldBe emptyList()
+
+                host
+                    .querySelectorAll("dialog button")
+                    .asList()
+                    .filterIsInstance<HTMLButtonElement>()
+                    .first { it.textContent?.trim() == "Discard" }
+                    .click()
+                awaitFrame()
+
+                recorder.resets.size shouldBe 1
+                window.location.pathname shouldBe "/book/b-stormlight"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ A refused save must SAY which row is wrong. The ViewModel reports the problems and
+        // nothing else on the page would: `SaveFailed` goes to the error bus, but `Invalid` means
+        // nothing ever left the device.
+        test("a chapter set refused before it is sent names the row responsible") {
+            val recorder =
+                RecordingChapterEditor(
+                    events = flowOf(ChapterEditorEvent.Invalid(listOf(ChapterSetProblem.BlankTitle("c2")))),
+                    chapters = listOf(chapter("c1", "One", 0L, 1_000L), chapter("c2", "", 1_000L, 1_000L)),
+                )
+            val (host, router) = mountAt("/book/b-stormlight/chapters", openChapterEditor = recorder.open)
+
+            try {
+                awaitFrame()
+
+                host.querySelector(".ched-problem")?.textContent shouldBe "Chapter 2 needs a title."
+                window.location.pathname shouldBe "/book/b-stormlight/chapters"
+            } finally {
                 router.dispose()
             }
         }

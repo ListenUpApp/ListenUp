@@ -58,10 +58,16 @@ enum class WebIcon(
     Grip("M5 9h14 M5 15h14"),
     Home("M4 11.4L12 4l8 7.4 M5.6 10v9.6h12.8V10 M9.6 19.6v-5.2h4.8v5.2"),
     Lock("M6 10.5h12v9.5H6z M8.75 10.5V7.5a3.25 3.25 0 0 1 6.5 0v3"),
+
+    // Not mirrored from the design project — it carries a lock but no open one. This is
+    // [Lock] with the shackle swung clear on the right, which is the standard pairing;
+    // reconcile if the design project grows one.
+    Unlock("M6 10.5h12v9.5H6z M8.75 10.5V7.5a3.25 3.25 0 0 1 6.5 0"),
     LogIn("M14 3h5v18h-5 M4 12h11 M11 8l4 4-4 4"),
     LogOut("M10 3H5v18h5 M9 12h11 M16 8l4 4-4 4"),
     Mail("M3 6h18v12H3z M3 6.5l9 6.5 9-6.5"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
+    Minus("M5 12h14"),
     PanelLeft("M4 5h16v14H4z M9.5 5v14"),
     Pause("M8 5h3.2v14H8z M12.8 5H16v14h-3.2z", solid = true),
     Pencil("M4 20h4L20 8l-4-4L4 16z M14.5 5.5l4 4"),
@@ -82,6 +88,10 @@ enum class WebIcon(
         "M6 6l12 12 M18 6L9.5 14.5 M5 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0 " +
             "M5 6.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",
     ),
+
+    // Not mirrored either — the design project carries no crosshair. Circle plus four
+    // ticks is the standard "put it exactly here" glyph; reconcile if one appears.
+    Target("M12 12m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M12 2v3 M12 19v3 M2 12h3 M19 12h3"),
     Trash("M4 6h16 M9 6V4h6v2 M6 6l1 14h10l1-14 M10 10v7 M14 10v7"),
     Upload("M12 14V3 M8 6.5l4-4 4 4 M4 20h16"),
     UserPlus(
