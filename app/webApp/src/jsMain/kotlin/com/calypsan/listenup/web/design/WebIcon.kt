@@ -78,6 +78,12 @@ enum class WebIcon(
     Play("M8 5l11 7-11 7z", solid = true),
     Search("M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M20 20l-3.6-3.6"),
 
+    // Not mirrored from the design project — it carries no sparkle. A four-point star with a small
+    // companion is the standard "matched from somewhere else" glyph; reconcile if one appears.
+    Sparkles(
+        "M11 4l1.8 4.2L17 10l-4.2 1.8L11 16l-1.8-4.2L5 10l4.2-1.8z M17.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z",
+    ),
+
     // The two below are the set's only entries NOT mirrored from the design project's icon
     // tables — it carries no skip glyphs, so these are the standard counter-clockwise/clockwise
     // rotation arrows the whole category uses. Reconcile them if the design project grows a pair.

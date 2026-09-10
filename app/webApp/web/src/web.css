@@ -269,6 +269,7 @@ body { margin: 0; }
 .luw .sed-err-x:active,
 .luw .sed-merge:active,
 .luw .ched-add:active,
+.luw .mdx-review:active,
 .luw .drift-pin:active,
 .luw .chr-a:active,
 .luw .cover-undo:active,
@@ -311,6 +312,8 @@ body { margin: 0; }
 .luw .ced-result:active,
 .luw .sed-result:active,
 .luw .chr:active,
+.luw .mdx-result:active,
+.luw .mdx-cover:active,
 .luw .iflow-result:active,
 .luw .cdet-person:active,
 .luw .inbox-book:active,
@@ -2492,6 +2495,84 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .drift-sum { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--ink); }
 .luw .drift-refused { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--coral); }
 .luw .drift-acts { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Match metadata — the Audible wizard. Two phases, one page: find the edition, then choose what
+   to take from it. Nothing here writes anything until Apply. */
+.luw .mdx { width: 100%; max-width: 820px; margin: 0 auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.luw .mdx-head { display: flex; align-items: center; gap: 16px; }
+.luw .mdx-t { flex: 1; margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .mdx-skel { height: 22rem; border-radius: 16px; }
+.luw .mdx-none { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .mdx-err { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--coral-soft); color: var(--coral); font-size: 0.88rem; font-weight: 600; }
+.luw .mdx-count { margin: 0; font-size: 0.82rem; color: var(--ink-3); }
+.luw .mdx-empty { display: flex; flex-direction: column; gap: 6px; padding: 24px; border-radius: 16px; background: var(--surface-2); }
+.luw .mdx-empty h2 { margin: 0; font-size: 1.1rem; font-weight: 750; color: var(--ink); }
+.luw .mdx-empty p { margin: 0; font-size: 0.88rem; color: var(--ink-3); }
+
+/* What we are matching — stated before the search box, so the reader can tell at a glance whether
+   they opened the wizard on the book they meant. */
+.luw .mdx-ctx { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.luw .mdx-ctx-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.luw .mdx-ctx-t { font-size: 1rem; font-weight: 700; color: var(--ink); }
+.luw .mdx-ctx-a { font-size: 0.86rem; color: var(--ink-3); }
+
+.luw .mdx-search { display: flex; align-items: flex-end; gap: 12px; }
+.luw .mdx-search .f-wrap { flex: 1; min-width: 12rem; }
+.luw .mdx-regions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.luw .mdx-regions-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+
+.luw .mdx-results { display: flex; flex-direction: column; gap: 6px; }
+.luw .mdx-result { display: flex; align-items: flex-start; gap: 14px; width: 100%; padding: 12px; border: 1.5px solid transparent; border-radius: 14px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; font-family: inherit; }
+@media (hover: hover) { .luw .mdx-result:hover { border-color: var(--coral); background: var(--surface); } }
+.luw .mdx-result-c { width: 64px; height: 64px; flex: none; border-radius: 8px; object-fit: cover; background: var(--surface-3); }
+.luw .mdx-result-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); }
+.luw .mdx-result-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.luw .mdx-result-t { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+.luw .mdx-result-s, .luw .mdx-result-by, .luw .mdx-result-n { font-size: 0.82rem; color: var(--ink-3); }
+.luw .mdx-result-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 3px; font-size: 0.74rem; color: var(--ink-3); }
+.luw .mdx-asin { font-family: var(--mono); }
+
+.luw .mdx-hero { display: flex; align-items: center; gap: 16px; padding: 14px; border-radius: 16px; background: var(--surface-2); }
+.luw .mdx-hero-c { width: 84px; height: 84px; flex: none; border-radius: 10px; object-fit: cover; background: var(--surface-3); }
+.luw .mdx-hero-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.luw .mdx-hero-t { font-size: 1.05rem; font-weight: 750; color: var(--ink); }
+.luw .mdx-hero-s { font-size: 0.86rem; color: var(--ink-3); }
+.luw .mdx-src { align-self: flex-start; padding: 2px 9px; border-radius: 999px; background: var(--surface-3); font-size: 0.72rem; font-weight: 700; color: var(--ink-2); }
+
+/* One field: the tick, what it would become, and where it came from. The value is muted against
+   the label because the decision is "take this or not", not "read this". */
+.luw .mdx-field { display: flex; align-items: baseline; gap: 12px; padding: 7px 0; flex-wrap: wrap; }
+.luw .mdx-field .f-check { flex: none; min-width: 8.5rem; font-weight: 650; }
+.luw .mdx-field-v { flex: 1; min-width: 10rem; font-size: 0.88rem; color: var(--ink-2); }
+.luw .mdx-field-v.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* Provenance. A field merged in from another provider is still worth taking — but the reader is
+   entitled to know it is not what the edition they picked says. */
+.luw .mdx-from { flex: none; padding: 1px 8px; border-radius: 999px; background: var(--surface-3); font-size: 0.7rem; font-weight: 700; color: var(--ink-3); }
+.luw .mdx-values { display: flex; align-items: baseline; gap: 12px; padding: 7px 0; flex-wrap: wrap; }
+.luw .mdx-values-l { min-width: 8.5rem; font-size: 0.88rem; font-weight: 650; color: var(--ink); }
+
+.luw .mdx-covers { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.luw .mdx-cover { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border: 1.5px solid transparent; border-radius: 12px; background: var(--surface-2); color: var(--ink); cursor: pointer; font-family: inherit; }
+@media (hover: hover) { .luw .mdx-cover:hover { background: var(--surface-3); } }
+.luw .mdx-cover.on { border-color: var(--coral); background: var(--coral-soft); }
+.luw .mdx-cover-i { width: 88px; height: 88px; border-radius: 8px; object-fit: cover; background: var(--surface-3); }
+.luw .mdx-cover-l { font-size: 0.74rem; font-weight: 700; }
+.luw .mdx-cover-r { font-size: 0.68rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+.luw .mdx-chapters { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); flex-wrap: wrap; }
+.luw .mdx-chapters p { margin: 0; font-size: 0.86rem; color: var(--ink-3); }
+.luw .mdx-chapters-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+/* A refused offer is dimmed but still readable: the numbers are the explanation. */
+.luw .mdx-chapters.off { opacity: 0.72; }
+.luw .mdx-review { margin-left: auto; }
+.luw .mdx-chsel { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-3); }
+.luw .mdx-chrows { display: flex; flex-direction: column; gap: 4px; max-height: 18rem; overflow-y: auto; margin: 8px 0; }
+.luw .mdx-chrow { display: flex; align-items: baseline; gap: 10px; }
+/* The name being replaced, struck through: the reader is approving a change, not reading a list. */
+.luw .mdx-chwas { font-size: 0.76rem; color: var(--ink-3); text-decoration: line-through; }
+
+.luw .mdx-apply { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 6px; }
+.luw .mdx-merged { flex: 1; font-size: 0.76rem; color: var(--ink-3); }
 
 .luw .bd-chapters-edit { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 /* The pencil sits at the top-right of the hero, out of the title's flow — the same placement
