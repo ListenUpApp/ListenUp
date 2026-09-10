@@ -63,6 +63,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
@@ -378,6 +379,9 @@ object KoinHelper {
     fun getCreateEditShelfViewModel(): CreateEditShelfViewModel = resolve(CreateEditShelfViewModel::class)
 
     fun getSeriesEditViewModel(): SeriesEditViewModel = resolve(SeriesEditViewModel::class)
+
+    fun getChapterEditorViewModel(bookId: String): ChapterEditorViewModel =
+        resolveWithParams(ChapterEditorViewModel::class, listOf(bookId))
 
     fun getContributorEditViewModel(): ContributorEditViewModel = resolve(ContributorEditViewModel::class)
 
