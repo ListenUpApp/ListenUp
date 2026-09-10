@@ -17,6 +17,10 @@ androidx-graphics-shapes = "1.1.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.12.0"
 androidx-core-splashscreen = "1.2.0"
+androidx-xr-compose = "1.0.0-alpha17"
+androidx-xr-compose-material3 = "1.0.0-alpha17"
+androidx-xr-runtime = "1.0.0-beta02"
+androidx-xr-scenecore = "1.0.0-beta02"
 robolectric = "4.16.1"
 # Compose Multiplatform upgrade UNIT — bump together, never piecemeal:
 #   composeMultiplatform  +  compose-material3 (versioned on its own alpha line, but built
@@ -105,6 +109,10 @@ android-kmpLibrary-gradlePlugin = { module = "com.android.kotlin.multiplatform.l
 atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidx-core-splashscreen" }
+androidx-xr-compose = { module = "androidx.xr.compose:compose", version.ref = "androidx-xr-compose" }
+androidx-xr-compose-material3 = { module = "androidx.xr.compose.material3:material3", version.ref = "androidx-xr-compose-material3" }
+androidx-xr-runtime = { module = "androidx.xr.runtime:runtime", version.ref = "androidx-xr-runtime" }
+androidx-xr-scenecore = { module = "androidx.xr.scenecore:scenecore", version.ref = "androidx-xr-scenecore" }
 # Plain lifecycle-viewmodel — the JetBrains multiplatform stream, same as the -compose variant
 # below. :app:sharedLogic uses only ViewModel and viewModelScope, both of which live here.
 androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }

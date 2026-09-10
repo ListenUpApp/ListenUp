@@ -108,7 +108,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PostureProvider {
-                ListenUpApp()
+                com.calypsan.listenup.client.xr.XrSpikeShell {
+                    ListenUpApp()
+                }
             }
         }
     }

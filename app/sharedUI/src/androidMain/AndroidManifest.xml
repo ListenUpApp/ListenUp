@@ -37,6 +37,10 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:enableOnBackInvokedCallback="true"
         android:banner="@drawable/tv_banner">
+        <property
+            android:name="android.window.PROPERTY_XR_ACTIVITY_START_MODE"
+            android:value="XR_ACTIVITY_START_MODE_HOME_SPACE" />
+
         <activity
             android:exported="true"
             android:name="com.calypsan.listenup.client.MainActivity"

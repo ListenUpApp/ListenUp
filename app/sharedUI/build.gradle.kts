@@ -156,6 +156,12 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.core.splashscreen)
 
+            // Jetpack XR spike
+            implementation(libs.androidx.xr.runtime)
+            implementation(libs.androidx.xr.scenecore)
+            implementation(libs.androidx.xr.compose)
+            implementation(libs.androidx.xr.compose.material3)
+
             // Koin Android-specific
             implementation(libs.koin.android)
 
