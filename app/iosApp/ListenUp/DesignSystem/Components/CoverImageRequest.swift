@@ -23,17 +23,28 @@ enum CoverImageRequest {
         // after a re-scrape it can hold STALE bytes (the "iOS cover doesn't update" bug); the delete
         // meant to clear it is unreliable on this platform. Nuke's content-scoped `"<id>:<hash>"`
         // cacheKey busts on re-scrape and serves offline from Nuke's disk cache once fetched.
+        //
+        // Preferring the server is not the same as *requiring* it: `authenticated` returns nil when no
+        // access token can be minted (offline, or a refresh that failed), so this branch only returns
+        // when it actually has a request. Otherwise it falls through to the durable local file below —
+        // a downloaded book must still show its cover with no network, and both branches key on the
+        // same `"<id>:<hash>"`, so the fallback can't mis-identify the bytes it serves.
         if let coverHash, !coverHash.isEmpty, let bookId, !bookId.isEmpty {
             KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
             let base = try? await KoinHelper.shared.activeServerUrl()
             if let base, !base.isEmpty,
-               let url = coverURL(base: base, bookId: bookId, coverHash: coverHash) {
-                let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
-                return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
+               let url = coverURL(base: base, bookId: bookId, coverHash: coverHash),
+               let request = await AuthenticatedImageRequest.authenticated(
+                   url: url,
+                   processors: processors,
+                   cacheKey: contentHashKey(identity: bookId, coverHash: coverHash)
+               ) {
+                return request
             }
         }
 
-        // No known content version: the durable local file the caller resolved is the best source.
+        // No reachable content-addressed source: the durable local file the caller resolved is the
+        // best source.
         if let coverPath, !coverPath.isEmpty {
             let cacheKey = localFileCacheKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash)
             return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)
