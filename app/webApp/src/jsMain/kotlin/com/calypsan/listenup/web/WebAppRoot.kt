@@ -26,6 +26,9 @@ import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiSt
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
 import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.web.features.metadata.MetadataPage
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
+import com.calypsan.listenup.web.features.contributormetadata.ContributorMetadataPage
+import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMetadata
 import com.calypsan.listenup.web.features.metadata.OpenMetadata
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
 import com.calypsan.listenup.web.features.chaptereditor.chapterProblemText
@@ -175,6 +178,7 @@ fun WebAppRoot(
     openMetadata: OpenMetadata,
     openContributorDetail: OpenContributorDetail,
     openContributorEdit: OpenContributorEdit,
+    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -278,6 +282,7 @@ fun WebAppRoot(
             openMetadata = openMetadata,
             openContributorDetail = openContributorDetail,
             openContributorEdit = openContributorEdit,
+            openContributorMetadata = openContributorMetadata,
             openSeriesDetail = openSeriesDetail,
             openSeriesEdit = openSeriesEdit,
             openNotifications = openNotifications,
@@ -382,6 +387,7 @@ private fun RouteContent(
     openMetadata: OpenMetadata,
     openContributorDetail: OpenContributorDetail,
     openContributorEdit: OpenContributorEdit,
+    openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
@@ -428,6 +434,9 @@ private fun RouteContent(
     // book's worth of detail is not a facet of anything else).
     val contributorId = route.idUnder(CONTRIBUTOR_KEY)
     val editingContributorId = route.editTargetOf(contributorId)
+    // `/contributor/{id}/match` — the Audible wizard over one person.
+    val matchingContributorId =
+        if (contributorId != null && route.segments.getOrNull(2) == MATCH_KEY) contributorId else null
     // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
     // series is something you arrive at and link to, not a filter over the library grid.
     val seriesId = route.idUnder(SERIES_KEY)
@@ -461,11 +470,13 @@ private fun RouteContent(
             isList = isContributors,
             contributorId = contributorId,
             editingContributorId = editingContributorId,
+            matchingContributorId = matchingContributorId,
             role = parseContributorRole(route.query[ROLE_QUERY_KEY]),
             router = router,
             openContributors = openContributors,
             openContributorDetail = openContributorDetail,
             openContributorEdit = openContributorEdit,
+            openContributorMetadata = openContributorMetadata,
         )
     } else if (profileId != null) {
         ProfileRouteContent(
@@ -1039,6 +1050,45 @@ private fun ContributorEditRoute(
 }
 
 /**
+ * Opens a Contributor Metadata session for [contributorId] and collects it.
+ *
+ * The ViewModel loads the person itself, seeds the query with their name and searches — so unlike
+ * the book wizard this route needs nothing but the id.
+ *
+ * `MetadataApplied` navigates back to the person, which is where the change will be visible.
+ */
+@Composable
+private fun ContributorMetadataRoute(
+    router: Router,
+    openContributorMetadata: OpenContributorMetadata,
+    contributorId: String,
+) {
+    val session = remember(contributorId) { openContributorMetadata(contributorId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    val target = Route(listOf(CONTRIBUTOR_KEY, contributorId))
+
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                ContributorMetadataEvent.MetadataApplied -> router.navigate(target)
+            }
+        }
+    }
+
+    ContributorMetadataPage(
+        state = session.state.collectAsState().value,
+        onQuery = session.onQuery,
+        onRegion = session.onRegion,
+        onSearch = session.onSearch,
+        onSelectCandidate = session.onSelectCandidate,
+        onClearSelection = session.onClearSelection,
+        onApply = session.onApply,
+        onLeave = { router.navigate(target) },
+    )
+}
+
+/**
  * The contributor family: the people list, one person's page, and the form over it.
  *
  * Split out of [RouteContent] for the same reason `BookRouteContent` and `AdminRouteContent` were —
@@ -1050,11 +1100,13 @@ private fun ContributorRouteContent(
     isList: Boolean,
     contributorId: String?,
     editingContributorId: String?,
+    matchingContributorId: String?,
     role: ContributorRole,
     router: Router,
     openContributors: OpenContributors,
     openContributorDetail: OpenContributorDetail,
     openContributorEdit: OpenContributorEdit,
+    openContributorMetadata: OpenContributorMetadata,
 ) {
     when {
         isList -> {
@@ -1067,8 +1119,17 @@ private fun ContributorRouteContent(
             )
         }
 
-        // ⛔ The edit branch first: without it the detail branch matches `/contributor/{id}/edit`
-        // too and the form is unreachable by link.
+        // ⛔ Both sub-routes before the detail branch, for the same reason: `/contributor/{id}` is
+        // a prefix of each, and a branch order that tests it first makes them unreachable by link.
+        matchingContributorId != null -> {
+            ContributorMetadataRoute(
+                router = router,
+                openContributorMetadata = openContributorMetadata,
+                contributorId = matchingContributorId,
+            )
+        }
+
+        // The edit form, likewise.
         editingContributorId != null -> {
             ContributorEditRoute(
                 router = router,
@@ -1081,6 +1142,7 @@ private fun ContributorRouteContent(
             ContributorDetailPage(
                 state = contributorDetailState(contributorId, openContributorDetail),
                 onEdit = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
+                onMatchMetadata = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, MATCH_KEY))) },
                 onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
                 onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
                 onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },

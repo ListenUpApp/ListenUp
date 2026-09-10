@@ -42,6 +42,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
@@ -57,6 +58,7 @@ import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
+import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.search.fixedSearch
@@ -98,6 +100,7 @@ class BookDetailTest :
                     openMetadata = fixedMetadata(MetadataUiState.Idle()),
                     openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                     openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                    openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
                     openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
                     openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
                     openNotifications = fixedNotifications(NotificationsUiState.Empty),

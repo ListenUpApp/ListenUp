@@ -15,6 +15,10 @@ import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
 import com.calypsan.listenup.web.features.chaptereditor.chapter
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
+import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
+import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
+import com.calypsan.listenup.web.features.contributormetadata.localContributor
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.ContributorId
@@ -502,6 +506,58 @@ class WebAppRootTest :
                 (host.querySelector(".contrib-row") as HTMLElement).click()
 
                 window.location.pathname shouldBe "/contributor/c1"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/contributor/{id}/match renders the wizard, not the contributor's page") {
+            val (host, router) =
+                mountAt(
+                    "/contributor/c-king/match",
+                    openContributorMetadata =
+                        fixedContributorMetadata(contributorSearchState(current = localContributor(name = "Pat"))),
+                )
+
+            try {
+                (host.querySelector(".cmx-t") as HTMLElement).textContent shouldBe "Match contributor"
+                // ⛔ `/contributor/{id}` is a prefix of this route; a branch order that tests it
+                // first makes the wizard unreachable by link.
+                host.querySelector(".cd-name") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the sparkle on a contributor's page opens the wizard") {
+            val (host, router) =
+                mountAt("/contributor/c-king", openContributorDetail = fixedContributorDetail(readyContributor()))
+
+            try {
+                (host.querySelector(".cd-match") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/contributor/c-king/match"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("an applied contributor profile lands back on the person it changed") {
+            val (_, router) =
+                mountAt(
+                    "/contributor/c-king/match",
+                    openContributorMetadata =
+                        fixedContributorMetadata(
+                            state = contributorSearchState(),
+                            events = flowOf(ContributorMetadataEvent.MetadataApplied),
+                        ),
+                )
+
+            try {
+                awaitFrame()
+
+                window.location.pathname shouldBe "/contributor/c-king"
             } finally {
                 router.dispose()
             }
