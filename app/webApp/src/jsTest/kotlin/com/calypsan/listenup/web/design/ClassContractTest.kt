@@ -229,6 +229,15 @@ import com.calypsan.listenup.web.features.browse.BrowseFacetPage
 import com.calypsan.listenup.web.features.browse.GenreDestinationPage
 import com.calypsan.listenup.web.features.browse.facetReady
 import com.calypsan.listenup.web.features.browse.genreReady
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
+import com.calypsan.listenup.web.features.readers.ReadersPage
+import com.calypsan.listenup.web.features.readers.ReadersPanel
+import com.calypsan.listenup.web.features.readers.reader
+import com.calypsan.listenup.web.features.readers.readersData
+import com.calypsan.listenup.web.features.search.ResultsList
+import com.calypsan.listenup.web.features.search.SeeAllPage
+import com.calypsan.listenup.web.features.search.searchResult
 
 /**
  * Guards the seam between Kotlin and `web.css`.
@@ -1300,6 +1309,8 @@ class ClassContractTest :
                         PlaybackNotice(message = "Couldn't start this book.", onDismiss = {})
                         playerShapes().forEach { it() }
                         browseShapes().forEach { it() }
+                        readerShapes().forEach { it() }
+                        seeAllShapes().forEach { it() }
                     }
                 }
 
@@ -1530,6 +1541,71 @@ private fun browseShapes(): List<@Composable () -> Unit> {
         genre(genreReady(books = emptyList(), bookCount = 0)),
         genre(GenreDestinationUiState.Loading),
         genre(GenreDestinationUiState.NotFound),
+    )
+}
+
+/**
+ * The Readers panel and page. The panel is included in its *populated* forms only — its Loading,
+ * Error and empty shapes deliberately draw nothing, so they carry no classes to contract.
+ */
+private fun readerShapes(): List<@Composable () -> Unit> {
+    val now = 1_800_000_000_000L
+    val reading = reader(userId = "u1", displayName = "Ada Lovelace", progressPct = 42)
+    val finished = reader(userId = "u2", displayName = "Grace Hopper", finishes = listOf(now - 86_400_000L))
+    // Seven, so the capped panel draws its "See all" — the only shape that does.
+    val many = (1..7).map { reader(userId = "u$it", displayName = "Reader $it", progressPct = it) }
+
+    fun panel(state: BookReadersUiState): @Composable () -> Unit =
+        { ReadersPanel(state = state, nowMs = now, onOpenProfile = {}, onSeeAll = {}) }
+
+    fun page(state: BookReadersUiState): @Composable () -> Unit =
+        {
+            ReadersPage(
+                state = state,
+                bookTitle = "The Way of Kings",
+                nowMs = now,
+                onOpenProfile = {},
+                onOpenBook = {},
+            )
+        }
+
+    return listOf(
+        panel(readersData(reading, finished)),
+        panel(readersData(*many.toTypedArray())),
+        page(readersData(reading, finished)),
+        page(BookReadersUiState.Loading),
+        page(BookReadersUiState.NoReaders),
+        page(BookReadersUiState.Error(isRetryable = true)),
+    )
+}
+
+/** The see-all page in every state, plus the capped group whose "See all" leads to it. */
+private fun seeAllShapes(): List<@Composable () -> Unit> {
+    fun page(state: SeeAllSearchUiState): @Composable () -> Unit =
+        {
+            SeeAllPage(
+                state = state,
+                openableTypes = SearchHitType.entries.toSet(),
+                onOpenHit = {},
+                onOpenSearch = {},
+            )
+        }
+
+    val hits = (1..9).map { bookHit("b$it", "Book $it") }
+    return listOf(
+        {
+            ResultsList(
+                result = searchResult(query = "book", hits = hits),
+                openableTypes = SearchHitType.entries.toSet(),
+                onOpenHit = {},
+                onSeeAll = {},
+            )
+        },
+        page(SeeAllSearchUiState.Results(SearchHitType.BOOK, "book", hits)),
+        page(SeeAllSearchUiState.Results(SearchHitType.BOOK, "zzz", emptyList())),
+        page(SeeAllSearchUiState.Loading),
+        page(SeeAllSearchUiState.TooShort),
+        page(SeeAllSearchUiState.Error("Search unavailable.")),
     )
 }
 

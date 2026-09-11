@@ -71,6 +71,10 @@ import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
 import com.calypsan.listenup.web.features.browse.fixedGenreDestination
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
+import com.calypsan.listenup.web.features.readers.fixedBookReaders
+import com.calypsan.listenup.web.features.search.fixedSeeAll
 
 /**
  * Book Detail through the URL contract: `/book/{id}?tab=…` names the book and the pane, pane
@@ -138,6 +142,8 @@ class BookDetailTest :
                     openBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
                     openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
                     openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
+                    openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+                    openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
                     onToast = {},
                     openNotificationBell = fixedNotificationBell(),
                     openPlayback = fixedPlayback(),

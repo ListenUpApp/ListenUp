@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
+import com.calypsan.listenup.client.presentation.search.SearchResultCaps
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
@@ -52,6 +53,7 @@ fun SearchPage(
     onOpenHit: (SearchHit) -> Unit,
     onRetry: () -> Unit,
     openableTypes: Set<SearchHitType>,
+    onSeeAll: (SearchHitType) -> Unit = {},
 ) {
     Div(attrs = { classes("search-page") }) {
         Div(attrs = { classes("search-header") }) { H3 { Text("Search") } }
@@ -90,7 +92,12 @@ fun SearchPage(
             }
 
             is SearchUiState.Results -> {
-                ResultsBody(result = state.result, openableTypes = openableTypes, onOpenHit = onOpenHit)
+                ResultsBody(
+                    result = state.result,
+                    openableTypes = openableTypes,
+                    onOpenHit = onOpenHit,
+                    onSeeAll = onSeeAll,
+                )
             }
         }
     }
@@ -134,13 +141,19 @@ private fun ResultsBody(
     result: SearchResult,
     openableTypes: Set<SearchHitType>,
     onOpenHit: (SearchHit) -> Unit,
+    onSeeAll: (SearchHitType) -> Unit,
 ) {
     if (result.hits.isEmpty()) {
         NoResultsPrompt(query = result.query)
         return
     }
     Div(attrs = { classes("search-summary") }) { Text(summaryText(result)) }
-    ResultsList(result = result, openableTypes = openableTypes, onOpenHit = onOpenHit)
+    ResultsList(
+        result = result,
+        openableTypes = openableTypes,
+        onOpenHit = onOpenHit,
+        onSeeAll = onSeeAll,
+    )
 }
 
 /**
@@ -162,6 +175,7 @@ internal fun ResultsList(
     result: SearchResult,
     openableTypes: Set<SearchHitType>,
     onOpenHit: (SearchHit) -> Unit,
+    onSeeAll: (SearchHitType) -> Unit,
     highlighted: SearchHit? = null,
 ) {
     Div(attrs = { classes("search-results") }) {
@@ -172,11 +186,22 @@ internal fun ResultsList(
             val hits = grouped[type].orEmpty()
             if (hits.isNotEmpty()) {
                 Div(attrs = { classes("search-group") }) {
+                    val cap = capFor(type)
+                    val shown = if (cap == null) hits else hits.take(cap)
                     Div(attrs = { classes("search-group-h") }) {
                         Span(attrs = { classes("search-group-label") }) { Text(type.label()) }
                         Span(attrs = { classes("search-group-count") }) { Text(hits.size.toString()) }
+                        // ⛔ Only when something is actually being withheld. An always-present
+                        // "See all" over a complete list is a promise of more that isn't there.
+                        if (shown.size < hits.size) {
+                            Button(attrs = {
+                                classes("search-seeall")
+                                attr("type", "button")
+                                onClick { onSeeAll(type) }
+                            }) { Text("See all") }
+                        }
                     }
-                    hits.forEach { hit ->
+                    shown.forEach { hit ->
                         SearchRow(
                             hit = hit,
                             isOpenable = type in openableTypes,
@@ -189,6 +214,22 @@ internal fun ResultsList(
         }
     }
 }
+
+/**
+ * How many hits of [type] a grouped list shows before it defers to the see-all page.
+ *
+ * ⛔ Read from [SearchResultCaps], never redeclared: it is the one place Android and iOS read
+ * theirs from, and three platforms disagreeing about how long a list is would be invisible on any
+ * one of them. Tags are uncapped by that same agreement — they are pills, not rows, and a dozen of
+ * them cost a line.
+ */
+internal fun capFor(type: SearchHitType): Int? =
+    when (type) {
+        SearchHitType.BOOK -> SearchResultCaps.BOOK
+        SearchHitType.CONTRIBUTOR -> SearchResultCaps.CONTRIBUTOR
+        SearchHitType.SERIES -> SearchResultCaps.SERIES
+        SearchHitType.TAG -> null
+    }
 
 /**
  * One search hit's row, shared with [com.calypsan.listenup.web.features.search.CommandPalette] —
@@ -340,7 +381,7 @@ private fun hitMeta(hit: SearchHit): String? =
 
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
 
-private fun SearchHitType.label(): String =
+internal fun SearchHitType.label(): String =
     when (this) {
         SearchHitType.BOOK -> "Books"
         SearchHitType.CONTRIBUTOR -> "Contributors"

@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.web.features.readers.ReadersPanel
 import com.calypsan.listenup.web.design.BookMarkdown
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
@@ -66,6 +68,10 @@ fun BookDetailPage(
     onOpenMood: (String) -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
+    readers: BookReadersUiState = BookReadersUiState.Loading,
+    nowMs: Long = 0L,
+    onOpenProfile: (String) -> Unit = {},
+    onSeeAllReaders: () -> Unit = {},
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
@@ -140,7 +146,16 @@ fun BookDetailPage(
                     }
 
                     else -> {
-                        OverviewPane(state, onOpenGenre, onOpenTag, onOpenMood)
+                        OverviewPane(
+                            state = state,
+                            onOpenGenre = onOpenGenre,
+                            onOpenTag = onOpenTag,
+                            onOpenMood = onOpenMood,
+                            readers = readers,
+                            nowMs = nowMs,
+                            onOpenProfile = onOpenProfile,
+                            onSeeAllReaders = onSeeAllReaders,
+                        )
                     }
                 }
             }
@@ -298,6 +313,10 @@ private fun OverviewPane(
     onOpenGenre: (String) -> Unit,
     onOpenTag: (String) -> Unit,
     onOpenMood: (String) -> Unit,
+    readers: BookReadersUiState,
+    nowMs: Long,
+    onOpenProfile: (String) -> Unit,
+    onSeeAllReaders: () -> Unit,
 ) {
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
@@ -321,6 +340,13 @@ private fun OverviewPane(
             Panel(title = "Details") {
                 MetaList(details(state))
             }
+            // Under Details, and silent when there is nothing to say — see [ReadersPanel].
+            ReadersPanel(
+                state = readers,
+                nowMs = nowMs,
+                onOpenProfile = onOpenProfile,
+                onSeeAll = onSeeAllReaders,
+            )
         }
     }
 }
