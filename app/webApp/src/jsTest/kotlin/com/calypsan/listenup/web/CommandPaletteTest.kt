@@ -3,6 +3,7 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.web.features.search.bookHit
 import com.calypsan.listenup.web.features.search.contributorHit
 import com.calypsan.listenup.web.features.search.seriesHit
+import com.calypsan.listenup.web.features.search.tagHit
 import com.calypsan.listenup.web.features.search.searchResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -228,22 +229,63 @@ class CommandPaletteTest :
             }
         }
 
-        test("a hit type with no destination is never reachable by Enter") {
-            // SERIES has no route at all. (CONTRIBUTOR sat here until /contributor/{id} landed
-            // and made people openable — the palette must never offer a hit it cannot open.)
+        test("Enter opens a CONTRIBUTOR hit — the palette offered this row and answered nothing") {
+            // ⛔ The regression this pins: the palette highlighted contributor rows (they were in
+            // SEARCH_OPENABLE_TYPES) while its own nav-action handler still dropped them into a
+            // `Unit` arm. Pressing Enter did nothing at all. Both halves read one table now.
+            val result = searchResult(query = "herbert", hits = listOf(contributorHit("c9", "Frank Herbert")))
+            val (host, router, composition) = mountAt("/", openSearch = hitNavigatingSearch(result))
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+                highlightedRowName(host) shouldBe "Frank Herbert"
+
+                press("Enter")
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname == "/") delay(NAV_POLL_MS)
+                }
+                window.location.pathname shouldBe "/contributor/c9"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("Enter opens a SERIES hit, now that a series has a page to open") {
             val result = searchResult(query = "dune", hits = listOf(seriesHit("s1", "Dune")))
             val (host, router, composition) = mountAt("/", openSearch = hitNavigatingSearch(result))
 
             try {
                 press("k", metaKey = true)
                 awaitFrame()
-                host.querySelector(".search-row.is-highlighted") shouldBe null
+                highlightedRowName(host) shouldBe "Dune"
 
                 press("Enter")
-                awaitFrame()
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname == "/") delay(NAV_POLL_MS)
+                }
+                window.location.pathname shouldBe "/series/s1"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
 
-                window.location.pathname shouldBe "/"
-                host.querySelector(".cmdk-panel") shouldNotBe null
+        test("Enter opens a TAG hit on the tag's own shelf") {
+            val result = searchResult(query = "grim", hits = listOf(tagHit("t1", "Grimdark")))
+            val (host, router, composition) = mountAt("/", openSearch = hitNavigatingSearch(result))
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+                highlightedRowName(host) shouldBe "Grimdark"
+
+                press("Enter")
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname == "/") delay(NAV_POLL_MS)
+                }
+                window.location.pathname shouldBe "/tag/t1"
             } finally {
                 composition.dispose()
                 router.dispose()

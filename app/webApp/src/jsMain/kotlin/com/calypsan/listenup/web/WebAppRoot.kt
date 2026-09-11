@@ -54,6 +54,11 @@ import com.calypsan.listenup.web.features.bulkedit.BulkEditPage
 import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.bulkedit.appliedLabel
 import com.calypsan.listenup.web.features.bulkedit.failedLabel
+import com.calypsan.listenup.client.domain.model.FacetKind
+import com.calypsan.listenup.web.features.browse.BrowseFacetPage
+import com.calypsan.listenup.web.features.browse.GenreDestinationPage
+import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
+import com.calypsan.listenup.web.features.browse.OpenGenreDestination
 import com.calypsan.listenup.web.features.books.PickerTarget
 import com.calypsan.listenup.web.features.books.SelectionPicker
 import com.calypsan.listenup.web.features.books.bookCountLabel
@@ -223,6 +228,8 @@ fun WebAppRoot(
     openSearch: OpenSearch,
     openMultiSelect: OpenMultiSelect,
     openBulkEdit: OpenBulkEdit,
+    openBrowseFacet: OpenBrowseFacet,
+    openGenreDestination: OpenGenreDestination,
     onToast: (String) -> Unit,
     openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
@@ -330,6 +337,8 @@ fun WebAppRoot(
             openSearch = openSearch,
             openMultiSelect = openMultiSelect,
             openBulkEdit = openBulkEdit,
+            openBrowseFacet = openBrowseFacet,
+            openGenreDestination = openGenreDestination,
             onToast = onToast,
             librarySession = librarySession,
             playback = playback,
@@ -407,6 +416,131 @@ private fun Route.idUnder(key: String): String? = if (segments.firstOrNull() == 
 private fun Route.editTargetOf(id: String?): String? = if (id != null && segments.getOrNull(2) == EDIT_KEY) id else null
 
 /**
+ * Which shelf a browse route names, or null when the route is about something else.
+ *
+ * One value rather than three nullable ids, and one branch in [RouteContent] rather than three:
+ * the three paths differ only in what the page reads, and [RouteContent] is meant to stay a single
+ * glance of routing.
+ */
+private sealed interface BrowseTarget {
+    data class Facet(
+        val kind: FacetKind,
+        val id: String,
+    ) : BrowseTarget
+
+    data class Genre(
+        val id: String,
+    ) : BrowseTarget
+}
+
+private fun Route.browseTarget(): BrowseTarget? =
+    idUnder(TAG_KEY)?.let { BrowseTarget.Facet(FacetKind.Tag, it) }
+        ?: idUnder(MOOD_KEY)?.let { BrowseTarget.Facet(FacetKind.Mood, it) }
+        ?: idUnder(GENRE_KEY)?.let { BrowseTarget.Genre(it) }
+
+/**
+ * The `/series/{id}` branch of [RouteContent], detail and form together.
+ *
+ * ⛔ The form is tested first. `/series/{id}` is a prefix of `/series/{id}/edit`, so a branch order
+ * that asks "is this a series?" before "is this the form over one?" makes the form unreachable by
+ * link — which is how it has to be ordered wherever these two live.
+ */
+@Composable
+private fun SeriesRouteContent(
+    seriesId: String,
+    editingSeriesId: String?,
+    router: Router,
+    openSeriesDetail: OpenSeriesDetail,
+    openSeriesEdit: OpenSeriesEdit,
+    playback: PlaybackSession,
+) {
+    if (editingSeriesId != null) {
+        SeriesEditRoute(router = router, openSeriesEdit = openSeriesEdit, seriesId = editingSeriesId)
+        return
+    }
+
+    SeriesDetailPage(
+        state = seriesDetailState(seriesId, openSeriesDetail),
+        onEdit = { router.navigate(Route(listOf(SERIES_KEY, seriesId, EDIT_KEY))) },
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+        onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
+    )
+}
+
+/** The `/tag`, `/mood` and `/genre` branch of [RouteContent]. */
+@Composable
+private fun BrowseRouteContent(
+    target: BrowseTarget,
+    router: Router,
+    openBrowseFacet: OpenBrowseFacet,
+    openGenreDestination: OpenGenreDestination,
+) {
+    when (target) {
+        is BrowseTarget.Facet -> {
+            BrowseFacetRoute(
+                router = router,
+                openBrowseFacet = openBrowseFacet,
+                kind = target.kind,
+                facetId = target.id,
+            )
+        }
+
+        is BrowseTarget.Genre -> {
+            GenreDestinationRoute(
+                router = router,
+                openGenreDestination = openGenreDestination,
+                genreId = target.id,
+            )
+        }
+    }
+}
+
+/**
+ * Opens a browse-by-facet session over one tag or mood, and collects it.
+ *
+ * ⛔ Keyed on the facet, not merely remembered: `/tag/grimdark` → `/tag/found-family` is a move a
+ * reader makes from the chips on a book, and a bare `remember { }` would strand them on the first
+ * one they opened.
+ */
+@Composable
+private fun BrowseFacetRoute(
+    router: Router,
+    openBrowseFacet: OpenBrowseFacet,
+    kind: FacetKind,
+    facetId: String,
+) {
+    val session = remember(kind, facetId) { openBrowseFacet(kind, facetId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    BrowseFacetPage(
+        state = session.state.collectAsState().value,
+        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+    )
+}
+
+/** Opens a genre destination and collects it. Keyed on the genre, as the facet route is — and for
+ * the sharper reason: this page's own sub-genre pills navigate to sibling genres. */
+@Composable
+private fun GenreDestinationRoute(
+    router: Router,
+    openGenreDestination: OpenGenreDestination,
+    genreId: String,
+) {
+    val session = remember(genreId) { openGenreDestination(genreId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    GenreDestinationPage(
+        state = session.state.collectAsState().value,
+        onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+        onOpenGenre = { id -> router.navigate(Route(listOf(GENRE_KEY, id))) },
+        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+        onToggleSubGenres = session.onToggleSubGenres,
+    )
+}
+
+/**
  * The one page the current route actually shows — Book Edit, Book Detail, Contributors, Library
  * or the placeholder — pulled out of [WebAppRoot] itself purely to keep that function's branching
  * readable as a single glance rather than one long `if`/`else if` chain.
@@ -452,6 +586,8 @@ private fun RouteContent(
     openSearch: OpenSearch,
     openMultiSelect: OpenMultiSelect,
     openBulkEdit: OpenBulkEdit,
+    openBrowseFacet: OpenBrowseFacet,
+    openGenreDestination: OpenGenreDestination,
     onToast: (String) -> Unit,
     librarySession: LibrarySession,
     playback: PlaybackSession,
@@ -461,12 +597,6 @@ private fun RouteContent(
     val shelfRoute = shelfRouteOf(route.segments)
     val bulkEditIds = route.bulkEditIds()
     val bookId = route.idUnder(BOOK_KEY)
-    val editingBookId = route.editTargetOf(bookId)
-    // `/book/{id}/chapters` — a route of its own, for the reason `/book/{id}/edit` is one, and
-    // one more: the editor holds unsaved work, so it has to be somewhere Back can leave.
-    val chapteringBookId = if (bookId != null && route.segments.getOrNull(2) == CHAPTERS_KEY) bookId else null
-    // `/book/{id}/match` — the Audible wizard over one book.
-    val matchingBookId = if (bookId != null && route.segments.getOrNull(2) == MATCH_KEY) bookId else null
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
     val isContributors = active == LIBRARY_KEY && route.segments.getOrNull(1) == CONTRIBUTORS_KEY
@@ -481,6 +611,10 @@ private fun RouteContent(
     // series is something you arrive at and link to, not a filter over the library grid.
     val seriesId = route.idUnder(SERIES_KEY)
     val editingSeriesId = route.editTargetOf(seriesId)
+    // `/tag/{id}`, `/mood/{id}`, `/genre/{id}` — the chips on a book lead somewhere. Each is a
+    // route of its own rather than a filter over the library grid, for the reason a series is:
+    // it is a place you arrive at and send someone a link to.
+    val browseTarget = route.browseTarget()
     // `/profile/{id}` — a listener's own page, reached from a notification, the account menu,
     // or a link someone sent. A route of its own for the same reason a contributor's is.
     val profileId = route.idUnder(PROFILE_KEY)
@@ -501,9 +635,6 @@ private fun RouteContent(
     } else if (bookId != null) {
         BookRouteContent(
             bookId = bookId,
-            editingBookId = editingBookId,
-            chapteringBookId = chapteringBookId,
-            matchingBookId = matchingBookId,
             router = router,
             route = route,
             openBookDetail = openBookDetail,
@@ -534,19 +665,23 @@ private fun RouteContent(
             openProfile = openProfile,
             openEditProfile = openEditProfile,
         )
+    } else if (browseTarget != null) {
+        BrowseRouteContent(
+            target = browseTarget,
+            router = router,
+            openBrowseFacet = openBrowseFacet,
+            openGenreDestination = openGenreDestination,
+        )
     } else if (page == NOTIFICATIONS_KEY) {
         NotificationsRoute(router = router, openNotifications = openNotifications)
-    } else if (editingSeriesId != null) {
-        // ⛔ Before the detail branch: `/series/{id}` is a prefix of this route, and a branch order
-        // that tests it first makes the form unreachable by link.
-        SeriesEditRoute(router = router, openSeriesEdit = openSeriesEdit, seriesId = editingSeriesId)
     } else if (seriesId != null) {
-        SeriesDetailPage(
-            state = seriesDetailState(seriesId, openSeriesDetail),
-            onEdit = { router.navigate(Route(listOf(SERIES_KEY, seriesId, EDIT_KEY))) },
-            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-            onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
-            onPlayBook = { id -> playback.onPlayBook(BookId(id)) },
+        SeriesRouteContent(
+            seriesId = seriesId,
+            editingSeriesId = editingSeriesId,
+            router = router,
+            openSeriesDetail = openSeriesDetail,
+            openSeriesEdit = openSeriesEdit,
+            playback = playback,
         )
     } else if (active == LIBRARY_KEY) {
         LibraryRouteContent(
@@ -684,9 +819,9 @@ private fun DiscoverRoute(
  * for the whole visit, not one per keystroke, so Back leaves the search rather than replaying it
  * letter by letter.
  *
- * Books and contributors have somewhere to go; Series and Tag detail routes don't exist yet.
- * [SearchPage] is told exactly which hit types are openable ([SEARCH_OPENABLE_TYPES]) so the rest
- * render their data honestly inert rather than as a click that silently does nothing.
+ * Every hit type has somewhere to go now — see [searchNavRoute]. [SearchPage] is still told which
+ * types are openable ([SEARCH_OPENABLE_TYPES]) rather than assuming all of them, because that set
+ * is what keeps a row's pressability and its destination the same fact.
  */
 @Composable
 private fun SearchRoute(
@@ -704,25 +839,7 @@ private fun SearchRoute(
     }
 
     LaunchedEffect(session) {
-        session.navActions.collect { action ->
-            when (action) {
-                is SearchNavAction.NavigateToBook -> {
-                    router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
-                }
-
-                is SearchNavAction.NavigateToContributor -> {
-                    router.navigate(Route(listOf(CONTRIBUTOR_KEY, action.contributorId)))
-                }
-
-                // No destination yet. SEARCH_OPENABLE_TYPES keeps these hit types' rows
-                // non-interactive, so a click never reaches here in practice.
-                is SearchNavAction.NavigateToSeries,
-                is SearchNavAction.NavigateToTag,
-                -> {
-                    Unit
-                }
-            }
-        }
+        session.navActions.collect { action -> router.navigate(searchNavRoute(action)) }
     }
 
     SearchPage(
@@ -846,7 +963,10 @@ private fun CommandPaletteHost(
     val activeSession = session
     if (isOpen && activeSession != null) {
         LaunchedEffect(activeSession) {
-            activeSession.navActions.collect { action -> handlePaletteNavAction(action, router, ::closePalette) }
+            activeSession.navActions.collect { action ->
+                closePalette()
+                router.navigate(searchNavRoute(action))
+            }
         }
 
         val uiState = activeSession.state.collectAsState().value
@@ -924,31 +1044,21 @@ private fun paletteKeyDownHandler(
     }
 
 /**
- * The palette's half of [SearchRoute]'s own nav-action handling — only [SearchNavAction.NavigateToBook]
- * has a destination on this branch yet, same reasoning as there. Pulled out for the same
- * complexity-budget reason as [paletteKeyDownHandler].
+ * Where a search hit leads — the one table both the `/search` page and the command palette read,
+ * so a hit type cannot be openable on one and inert on the other.
+ *
+ * ⛔ Every arm navigates now. While `NavigateToSeries`/`NavigateToTag` fell into a `Unit` arm here,
+ * [SEARCH_OPENABLE_TYPES] was the thing keeping their rows honestly non-interactive — and the
+ * palette's own contributor arm had quietly drifted out of that agreement, so a contributor hit
+ * there rendered pressable and answered nothing.
  */
-private fun handlePaletteNavAction(
-    action: SearchNavAction,
-    router: Router,
-    closePalette: () -> Unit,
-) {
+private fun searchNavRoute(action: SearchNavAction): Route =
     when (action) {
-        is SearchNavAction.NavigateToBook -> {
-            closePalette()
-            router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
-        }
-
-        // No destination on this branch yet. openableSearchHits keeps these types unreachable by
-        // keyboard, and their rows render inert, so this path is only ever exercised in theory.
-        is SearchNavAction.NavigateToContributor,
-        is SearchNavAction.NavigateToSeries,
-        is SearchNavAction.NavigateToTag,
-        -> {
-            Unit
-        }
+        is SearchNavAction.NavigateToBook -> Route(listOf(BOOK_KEY, action.bookId))
+        is SearchNavAction.NavigateToContributor -> Route(listOf(CONTRIBUTOR_KEY, action.contributorId))
+        is SearchNavAction.NavigateToSeries -> Route(listOf(SERIES_KEY, action.seriesId))
+        is SearchNavAction.NavigateToTag -> Route(listOf(TAG_KEY, action.tagId))
     }
-}
 
 /** Where the palette's Shift+Enter commits: `/search`, or `/search?q=…` for a non-blank query. */
 private fun paletteSearchRoute(query: String): Route =
@@ -1224,9 +1334,6 @@ private fun contributorDetailState(
 @Composable
 private fun BookRouteContent(
     bookId: String,
-    editingBookId: String?,
-    chapteringBookId: String?,
-    matchingBookId: String?,
     router: Router,
     route: Route,
     openBookDetail: OpenBookDetail,
@@ -1235,6 +1342,13 @@ private fun BookRouteContent(
     openMetadata: OpenMetadata,
     playback: PlaybackSession,
 ) {
+    val editingBookId = route.editTargetOf(bookId)
+    // `/book/{id}/chapters` — a route of its own, for the reason `/book/{id}/edit` is one, and one
+    // more: the editor holds unsaved work, so it has to be somewhere Back can leave.
+    val chapteringBookId = bookId.takeIf { route.segments.getOrNull(2) == CHAPTERS_KEY }
+    // `/book/{id}/match` — the Audible wizard over one book.
+    val matchingBookId = bookId.takeIf { route.segments.getOrNull(2) == MATCH_KEY }
+
     if (matchingBookId != null) {
         MetadataRoute(
             router = router,
@@ -1297,6 +1411,9 @@ private fun BookRouteContent(
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
         onMatchMetadata = { router.navigate(Route(listOf(BOOK_KEY, bookId, MATCH_KEY))) },
+        onOpenGenre = { id -> router.navigate(Route(listOf(GENRE_KEY, id))) },
+        onOpenTag = { id -> router.navigate(Route(listOf(TAG_KEY, id))) },
+        onOpenMood = { id -> router.navigate(Route(listOf(MOOD_KEY, id))) },
         onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
         onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
     )
@@ -2397,6 +2514,15 @@ private const val BEFORE_UNLOAD = "beforeunload"
 
 private const val LIBRARY_KEY = "library"
 
+/** `/tag/{id}` — one tag's shelf. */
+private const val TAG_KEY = "tag"
+
+/** `/mood/{id}` — one mood's shelf. */
+private const val MOOD_KEY = "mood"
+
+/** `/genre/{id}` — one genre, its sub-genres, and everything filed under it. */
+private const val GENRE_KEY = "genre"
+
 /** The trailing segment that turns the Library route into the Contributors list. */
 private const val CONTRIBUTORS_KEY = "contributors"
 
@@ -2423,10 +2549,12 @@ private const val SEARCH_KEY = "search"
 private const val SEARCH_QUERY_KEY = "q"
 
 /**
- * Hit types with a real place to navigate to. Series and Tag detail routes don't exist yet — see
- * [SearchRoute]'s KDoc.
+ * Hit types with a real place to navigate to — all of them, now that `/series/{id}` and `/tag/{id}`
+ * both exist. Kept as a named set rather than inlined as "everything": [searchNavRoute] is what
+ * makes the claim true, and the day a fifth hit type arrives without a route, this is where it is
+ * excluded from.
  */
-private val SEARCH_OPENABLE_TYPES = setOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR)
+private val SEARCH_OPENABLE_TYPES = SearchHitType.entries.toSet()
 
 private val PRIMARY_NAV =
     NavSection(

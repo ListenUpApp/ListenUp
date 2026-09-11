@@ -27,6 +27,8 @@ import com.calypsan.listenup.web.features.chaptereditor.graphChapterEditor
 import com.calypsan.listenup.web.features.contributormetadata.graphContributorMetadata
 import com.calypsan.listenup.web.features.books.graphMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.graphBulkEdit
+import com.calypsan.listenup.web.features.browse.graphBrowseFacet
+import com.calypsan.listenup.web.features.browse.graphGenreDestination
 import com.calypsan.listenup.web.features.metadata.graphMetadata
 import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
@@ -190,6 +192,8 @@ fun main() {
                 openSearch = graphSearch(koin),
                 openMultiSelect = graphMultiSelect(koin),
                 openBulkEdit = graphBulkEdit(koin),
+                openBrowseFacet = graphBrowseFacet(koin),
+                openGenreDestination = graphGenreDestination(koin),
                 openPlayback = graphPlayback(koin),
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
                 observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },

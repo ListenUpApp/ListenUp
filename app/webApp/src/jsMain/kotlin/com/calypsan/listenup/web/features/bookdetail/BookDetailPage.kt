@@ -61,6 +61,9 @@ fun BookDetailPage(
     onEdit: () -> Unit = {},
     onEditChapters: () -> Unit = {},
     onMatchMetadata: () -> Unit = {},
+    onOpenGenre: (String) -> Unit = {},
+    onOpenTag: (String) -> Unit = {},
+    onOpenMood: (String) -> Unit = {},
     onOpenContributor: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     selection: Set<Int> = emptySet(),
@@ -137,7 +140,7 @@ fun BookDetailPage(
                     }
 
                     else -> {
-                        OverviewPane(state)
+                        OverviewPane(state, onOpenGenre, onOpenTag, onOpenMood)
                     }
                 }
             }
@@ -290,7 +293,12 @@ private fun BookHeader(
 }
 
 @Composable
-private fun OverviewPane(state: BookDetailUiState.Ready) {
+private fun OverviewPane(
+    state: BookDetailUiState.Ready,
+    onOpenGenre: (String) -> Unit,
+    onOpenTag: (String) -> Unit,
+    onOpenMood: (String) -> Unit,
+) {
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
             Panel(title = "About") {
@@ -301,18 +309,10 @@ private fun OverviewPane(state: BookDetailUiState.Ready) {
                         BookMarkdown(state.descriptionText)
                     }
                 }
-                if (state.genres.isNotEmpty()) {
-                    Div(attrs = {
-                        style {
-                            property("display", "flex")
-                            property("flex-wrap", "wrap")
-                            property("gap", "8px")
-                        }
-                    }) {
-                        state.genres.forEach { genre -> Pill(genre.name) }
-                    }
-                }
-                if (state.descriptionText.isBlank() && state.genres.isEmpty()) {
+                // ⛔ Every chip goes somewhere now. Before this they were inert text shaped like
+                // controls, which is the worst of both — it looks pressable and answers nothing.
+                FacetChips(state, onOpenGenre, onOpenTag, onOpenMood)
+                if (state.descriptionText.isBlank() && !state.hasFacets()) {
                     PaneHint("No description has been written for this book.")
                 }
             }
@@ -517,3 +517,34 @@ private const val COVER_RADIUS = 16
 private const val ICON_SIZE = 24
 
 private const val PLAY_ICON_SIZE = 16
+
+/**
+ * Every genre, tag and mood on the book, each a way into the shelf of everything else like it.
+ *
+ * ⛔ Genres, then tags, then moods, in that order and in one row. They are three different kinds of
+ * fact about a book, but a reader browsing sideways does not care which junction table a word came
+ * from — they care that "Grimdark" is a door.
+ */
+@Composable
+private fun FacetChips(
+    state: BookDetailUiState.Ready,
+    onOpenGenre: (String) -> Unit,
+    onOpenTag: (String) -> Unit,
+    onOpenMood: (String) -> Unit,
+) {
+    if (!state.hasFacets()) return
+    Div(attrs = { classes("bd-facets") }) {
+        // ⛔ Named, never a trailing lambda: [Pill]'s last parameter is `onRemove`, so a trailing
+        // block hangs an X on the chip and leaves it un-pressable — which is the exact opposite of
+        // the point of this row.
+        state.genres.forEach { genre ->
+            Pill(genre.name, icon = WebIcon.Layers, onClick = { onOpenGenre(genre.id) })
+        }
+        state.tags.forEach { tag -> Pill(tag.name, icon = WebIcon.Hash, onClick = { onOpenTag(tag.id) }) }
+        state.moods.forEach { mood -> Pill(mood.name, icon = WebIcon.Sparkles, onClick = { onOpenMood(mood.id) }) }
+    }
+}
+
+/** Whether the book carries anything to browse sideways from. */
+private fun BookDetailUiState.Ready.hasFacets(): Boolean =
+    genres.isNotEmpty() || tags.isNotEmpty() || moods.isNotEmpty()
