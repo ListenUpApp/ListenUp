@@ -3,6 +3,7 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.core.FileSource
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.browser.document
+import kotlinx.browser.window
 import kotlinx.io.Buffer
 import kotlinx.io.RawSink
 import kotlinx.io.readByteArray
@@ -90,4 +91,27 @@ internal class BrowserFileSource(
     override val size: Long get() = bytes.size.toLong()
 
     override fun openChannel(): ByteReadChannel = ByteReadChannel(bytes)
+}
+
+/**
+ * Puts [text] on the clipboard, reporting whether it actually got there.
+ *
+ * ⛔ `navigator.clipboard` exists only in a secure context, and a self-hosted server reached over
+ * plain http on a LAN is exactly the case where it is missing — which is most of this app's
+ * deployments. It is also asynchronous, so the answer arrives after this returns. Every call site
+ * must therefore keep the text visible and selectable regardless, and treat the callback's `false`
+ * as "tell them to copy it themselves", never as an error.
+ */
+internal fun copyToClipboard(
+    text: String,
+    onResult: (Boolean) -> Unit,
+) {
+    val clipboard = window.navigator.asDynamic().clipboard
+    if (clipboard == null || clipboard == undefined) {
+        onResult(false)
+        return
+    }
+    clipboard
+        .writeText(text)
+        .then({ onResult(true) }, { onResult(false) })
 }

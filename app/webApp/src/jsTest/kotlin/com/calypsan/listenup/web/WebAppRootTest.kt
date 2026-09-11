@@ -122,6 +122,11 @@ import com.calypsan.listenup.web.features.readers.reader
 import com.calypsan.listenup.web.features.readers.readersData
 import com.calypsan.listenup.web.features.search.bookHit
 import com.calypsan.listenup.web.features.search.fixedSeeAll
+import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.web.features.admin.adminUser
+import com.calypsan.listenup.web.features.admin.fixedAdmin
+import com.calypsan.listenup.web.features.admin.fixedUserDetail
+import com.calypsan.listenup.web.features.admin.readyUser
 
 /**
  * The root wiring: the sidebar drives the URL and the URL drives the sidebar. This is where the
@@ -501,6 +506,111 @@ class WebAppRootTest :
                 awaitFrame()
 
                 window.location.pathname shouldBe "/profile/u-ada"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/invite renders the invite form") {
+            val (host, router) = mountAt("/admin/invite", isAdmin = flowOf(true))
+
+            try {
+                (host.querySelector(".inv-t") as HTMLElement).textContent shouldBe "Invite someone"
+                // The People page must not also be up — `/admin` is a prefix of this route.
+                host.querySelector(".adm-title") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/user/{id} renders that member's page") {
+            val asked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/admin/user/u-ada",
+                    isAdmin = flowOf(true),
+                    openUserDetail =
+                        fixedUserDetail(readyUser(adminUser(displayName = "Ada Lovelace")), onOpen = { asked += it }),
+                )
+
+            try {
+                asked shouldBe listOf("u-ada")
+                (host.querySelector(".usr-t") as HTMLElement).textContent shouldBe "Ada Lovelace"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/user with nobody named opens nobody") {
+            // ⛔ Asserted on the session, not on the markup: a member page that rendered with an
+            // empty id would sit in Loading forever and draw nothing a spec could see missing.
+            // What matters is that no session was opened at all.
+            val asked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/admin/user",
+                    isAdmin = flowOf(true),
+                    openUserDetail = fixedUserDetail(readyUser(), onOpen = { asked += it }),
+                )
+
+            try {
+                asked shouldBe emptyList()
+                host.querySelector(".usr-t") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Invite someone on the People page opens the form") {
+            val (host, router) = mountAt("/admin", isAdmin = flowOf(true), openAdmin = fixedAdmin(readyAdmin()))
+
+            try {
+                host
+                    .querySelectorAll(".adm-link")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Invite someone" }
+                    .click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/admin/invite"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a member's name on the People page opens their page") {
+            // ⛔ The name, not the row: the row carries Remove, and a destructive button inside a
+            // link is a click away from the wrong outcome.
+            val (host, router) =
+                mountAt(
+                    "/admin",
+                    isAdmin = flowOf(true),
+                    openAdmin = fixedAdmin(readyAdmin(users = listOf(adminUser(id = "u-ada")))),
+                )
+
+            try {
+                (host.querySelector(".adm-row-open") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/admin/user/u-ada"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("somebody who has not joined yet has no page to open") {
+            val (host, router) =
+                mountAt(
+                    "/admin",
+                    isAdmin = flowOf(true),
+                    openAdmin = fixedAdmin(readyAdmin(pendingUsers = listOf(adminUser(id = "u-pending")))),
+                )
+
+            try {
+                // The pending row renders, and its name is plain text rather than a control.
+                host.textContent.orEmpty() shouldContain "Ada Lovelace"
+                host.querySelector(".adm-row-open") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -1747,3 +1857,9 @@ private fun testShelf(
     createdAtMs = 0L,
     updatedAtMs = 0L,
 )
+
+/** An Admin page with people on it — the shape the two People-page specs above need. */
+private fun readyAdmin(
+    users: List<com.calypsan.listenup.client.domain.model.AdminUserInfo> = emptyList(),
+    pendingUsers: List<com.calypsan.listenup.client.domain.model.AdminUserInfo> = emptyList(),
+) = AdminUiState.Ready(users = users, pendingUsers = pendingUsers)

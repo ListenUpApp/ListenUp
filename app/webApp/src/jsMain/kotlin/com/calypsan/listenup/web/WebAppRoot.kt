@@ -83,6 +83,11 @@ import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.admin.AdminPage
+import com.calypsan.listenup.web.features.admin.AdminSessions
+import com.calypsan.listenup.web.features.admin.CreateInvitePage
+import com.calypsan.listenup.web.features.admin.OpenCreateInvite
+import com.calypsan.listenup.web.features.admin.OpenUserDetail
+import com.calypsan.listenup.web.features.admin.UserDetailPage
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.features.devices.OpenDevices
@@ -219,16 +224,7 @@ fun WebAppRoot(
     openSettings: OpenSettings,
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
-    openLibrarySettings: OpenLibrarySettings,
-    openAdminInbox: OpenAdminInbox,
-    openServerSettings: OpenServerSettings,
-    openCategories: OpenCategories,
-    openCollections: OpenCollections,
-    openCollectionDetail: OpenCollectionDetail,
-    openBackups: OpenBackups,
-    openRestore: OpenRestore,
-    openImports: OpenImports,
-    openImportFlow: OpenImportFlow,
+    admin: AdminSessions,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openLibrary: OpenLibrary,
@@ -331,16 +327,7 @@ fun WebAppRoot(
             openSettings = openSettings,
             openDevices = openDevices,
             openAdmin = openAdmin,
-            openLibrarySettings = openLibrarySettings,
-            openAdminInbox = openAdminInbox,
-            openServerSettings = openServerSettings,
-            openCategories = openCategories,
-            openCollections = openCollections,
-            openCollectionDetail = openCollectionDetail,
-            openBackups = openBackups,
-            openRestore = openRestore,
-            openImports = openImports,
-            openImportFlow = openImportFlow,
+            admin = admin,
             openShelfDetail = openShelfDetail,
             openShelfEdit = openShelfEdit,
             openSearch = openSearch,
@@ -663,16 +650,7 @@ private fun RouteContent(
     openSettings: OpenSettings,
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
-    openLibrarySettings: OpenLibrarySettings,
-    openAdminInbox: OpenAdminInbox,
-    openServerSettings: OpenServerSettings,
-    openCategories: OpenCategories,
-    openCollections: OpenCollections,
-    openCollectionDetail: OpenCollectionDetail,
-    openBackups: OpenBackups,
-    openRestore: OpenRestore,
-    openImports: OpenImports,
-    openImportFlow: OpenImportFlow,
+    admin: AdminSessions,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -808,16 +786,8 @@ private fun RouteContent(
             openDevices = openDevices,
             openAdmin = openAdmin,
             openNotificationPrefs = openNotificationPrefs,
-            openLibrarySettings = openLibrarySettings,
-            openAdminInbox = openAdminInbox,
-            openServerSettings = openServerSettings,
-            openCategories = openCategories,
-            openCollections = openCollections,
-            openCollectionDetail = openCollectionDetail,
-            openBackups = openBackups,
-            openRestore = openRestore,
-            openImports = openImports,
-            openImportFlow = openImportFlow,
+            admin = admin,
+            onToast = onToast,
         )
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
@@ -2731,6 +2701,12 @@ private const val COLLECTIONS_KEY = "collections"
 /** The path segment that opens the genre tree — `/admin/categories`. */
 private const val CATEGORIES_KEY = "categories"
 
+/** `/admin/invite` — minting one. */
+private const val INVITE_KEY = "invite"
+
+/** `/admin/user/{id}` — one member and what they may do. */
+private const val USER_KEY = "user"
+
 /** The path segment that opens the scanner's triage queue — `/admin/inbox`. */
 private const val INBOX_KEY = "inbox"
 
@@ -2957,6 +2933,8 @@ private fun AdminRoute(
     onOpenCollections: () -> Unit,
     onOpenBackups: () -> Unit,
     onOpenImports: () -> Unit,
+    onOpenInvite: () -> Unit,
+    onOpenUser: (String) -> Unit,
 ) {
     val session = remember { openAdmin() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -2981,6 +2959,8 @@ private fun AdminRoute(
         onOpenCollections = onOpenCollections,
         onOpenBackups = onOpenBackups,
         onOpenImports = onOpenImports,
+        onOpenInvite = onOpenInvite,
+        onOpenUser = onOpenUser,
     )
 }
 
@@ -3011,49 +2991,41 @@ private fun AdminRouteContent(
     sub: String,
     id: String?,
     router: Router,
-    openLibrarySettings: OpenLibrarySettings,
-    openAdminInbox: OpenAdminInbox,
-    openServerSettings: OpenServerSettings,
-    openCategories: OpenCategories,
-    openCollections: OpenCollections,
-    openCollectionDetail: OpenCollectionDetail,
-    openBackups: OpenBackups,
-    openRestore: OpenRestore,
-    openImports: OpenImports,
-    openImportFlow: OpenImportFlow,
+    admin: AdminSessions,
+    onToast: (String) -> Unit,
 ) {
     when (sub) {
         LIBRARY_KEY -> {
-            LibrarySettingsRoute(router = router, openLibrarySettings = openLibrarySettings)
+            LibrarySettingsRoute(router = router, openLibrarySettings = admin.librarySettings)
         }
 
         INBOX_KEY -> {
-            AdminInboxRoute(router = router, openAdminInbox = openAdminInbox)
+            AdminInboxRoute(router = router, openAdminInbox = admin.inbox)
         }
 
         SETTINGS_KEY -> {
-            ServerSettingsRoute(router = router, openServerSettings = openServerSettings)
+            ServerSettingsRoute(router = router, openServerSettings = admin.serverSettings)
         }
 
         CATEGORIES_KEY -> {
-            CategoriesRoute(router = router, openCategories = openCategories)
+            CategoriesRoute(router = router, openCategories = admin.categories)
         }
 
         // ⛔ The id case first, in both families below. Without it the bare list matches every URL
         // beneath it and the detail page becomes unreachable by link.
         COLLECTIONS_KEY -> {
             if (id != null) {
-                CollectionDetailRoute(router = router, openCollectionDetail = openCollectionDetail, collectionId = id)
+                CollectionDetailRoute(router = router, openCollectionDetail = admin.collectionDetail, collectionId = id)
             } else {
-                CollectionsRoute(router = router, openCollections = openCollections)
+                CollectionsRoute(router = router, openCollections = admin.collections)
             }
         }
 
         BACKUPS_KEY -> {
             if (id != null) {
-                RestoreRoute(router = router, openRestore = openRestore, backupId = id)
+                RestoreRoute(router = router, openRestore = admin.restore, backupId = id)
             } else {
-                BackupsRoute(router = router, openBackups = openBackups)
+                BackupsRoute(router = router, openBackups = admin.backups)
             }
         }
 
@@ -3061,9 +3033,22 @@ private fun AdminRouteContent(
         // segment carries a literal here rather than an id, which is why it reads as a comparison.
         IMPORTS_KEY -> {
             if (id == NEW_KEY) {
-                ImportFlowRoute(router = router, openImportFlow = openImportFlow)
+                ImportFlowRoute(router = router, openImportFlow = admin.importFlow)
             } else {
-                ImportsRoute(router = router, openImports = openImports)
+                ImportsRoute(router = router, openImports = admin.imports)
+            }
+        }
+
+        INVITE_KEY -> {
+            CreateInviteRoute(router = router, openCreateInvite = admin.createInvite, onToast = onToast)
+        }
+
+        USER_KEY -> {
+            if (id != null) {
+                UserDetailRoute(router = router, openUserDetail = admin.userDetail, userId = id)
+            } else {
+                // `/admin/user` with nobody named is not a page — it is a link that lost its id.
+                PagePlaceholder(ADMIN_KEY)
             }
         }
 
@@ -3076,6 +3061,53 @@ private fun AdminRouteContent(
     }
 }
 
+/** Opens a create-invite session and collects it. */
+@Composable
+private fun CreateInviteRoute(
+    router: Router,
+    openCreateInvite: OpenCreateInvite,
+    onToast: (String) -> Unit,
+) {
+    val session = remember { openCreateInvite() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    CreateInvitePage(
+        state = session.state.collectAsState().value,
+        onCreate = session.onCreate,
+        onClearError = session.onClearError,
+        onCreateAnother = session.onReset,
+        // ⛔ The toast reports what actually happened, not what was attempted. `navigator.clipboard`
+        // is absent outside a secure context — which a LAN server over plain http is — and a page
+        // that said "Copied!" either way would send an admin off to paste nothing.
+        onCopy = { url ->
+            copyToClipboard(url) { copied ->
+                onToast(
+                    if (copied) "Link copied." else "Couldn't reach the clipboard — select the link to copy it.",
+                )
+            }
+        },
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/** Opens one member's page and collects it. Keyed on the member, as every detail route is. */
+@Composable
+private fun UserDetailRoute(
+    router: Router,
+    openUserDetail: OpenUserDetail,
+    userId: String,
+) {
+    val session = remember(userId) { openUserDetail(userId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    UserDetailPage(
+        state = session.state.collectAsState().value,
+        onToggleCanEdit = session.onToggleCanEdit,
+        onToggleCanShare = session.onToggleCanShare,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
 /** The account family: settings, the devices beneath it, and admin. */
 @Composable
 private fun AccountRouteContent(
@@ -3086,16 +3118,8 @@ private fun AccountRouteContent(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openNotificationPrefs: OpenNotificationPrefs,
-    openLibrarySettings: OpenLibrarySettings,
-    openAdminInbox: OpenAdminInbox,
-    openServerSettings: OpenServerSettings,
-    openCategories: OpenCategories,
-    openCollections: OpenCollections,
-    openCollectionDetail: OpenCollectionDetail,
-    openBackups: OpenBackups,
-    openRestore: OpenRestore,
-    openImports: OpenImports,
-    openImportFlow: OpenImportFlow,
+    admin: AdminSessions,
+    onToast: (String) -> Unit,
 ) {
     when {
         segments.firstOrNull() == ADMIN_KEY && segments.size > 1 -> {
@@ -3103,16 +3127,8 @@ private fun AccountRouteContent(
                 sub = segments[1],
                 id = segments.getOrNull(2),
                 router = router,
-                openLibrarySettings = openLibrarySettings,
-                openAdminInbox = openAdminInbox,
-                openServerSettings = openServerSettings,
-                openCategories = openCategories,
-                openCollections = openCollections,
-                openCollectionDetail = openCollectionDetail,
-                openBackups = openBackups,
-                openRestore = openRestore,
-                openImports = openImports,
-                openImportFlow = openImportFlow,
+                admin = admin,
+                onToast = onToast,
             )
         }
 
@@ -3136,6 +3152,8 @@ private fun AccountRouteContent(
                 onOpenCollections = { router.navigate(Route(listOf(ADMIN_KEY, COLLECTIONS_KEY))) },
                 onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
                 onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
+                onOpenInvite = { router.navigate(Route(listOf(ADMIN_KEY, INVITE_KEY))) },
+                onOpenUser = { id -> router.navigate(Route(listOf(ADMIN_KEY, USER_KEY, id))) },
             )
         }
 

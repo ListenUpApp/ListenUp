@@ -29,6 +29,8 @@ import com.calypsan.listenup.web.features.books.graphMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.graphBulkEdit
 import com.calypsan.listenup.web.features.browse.graphBrowseFacet
 import com.calypsan.listenup.web.features.browse.graphGenreDestination
+import com.calypsan.listenup.web.features.admin.graphCreateInvite
+import com.calypsan.listenup.web.features.admin.graphUserDetail
 import com.calypsan.listenup.web.features.readers.graphBookReaders
 import com.calypsan.listenup.web.features.search.graphSeeAll
 import com.calypsan.listenup.web.features.metadata.graphMetadata
@@ -39,6 +41,7 @@ import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
 import com.calypsan.listenup.web.features.discover.graphDiscover
 import com.calypsan.listenup.web.features.home.graphHome
+import com.calypsan.listenup.web.features.admin.AdminSessions
 import com.calypsan.listenup.web.features.admin.graphAdmin
 import com.calypsan.listenup.web.features.admin.graphAdminInbox
 import com.calypsan.listenup.web.features.admin.graphBackups
@@ -179,16 +182,21 @@ fun main() {
                 openSettings = graphSettings(koin),
                 openDevices = graphDevices(koin),
                 openAdmin = graphAdmin(koin),
-                openLibrarySettings = graphLibrarySettings(koin),
-                openAdminInbox = graphAdminInbox(koin),
-                openServerSettings = graphServerSettings(koin),
-                openCategories = graphCategories(koin),
-                openCollections = graphCollections(koin),
-                openCollectionDetail = graphCollectionDetail(koin),
-                openBackups = graphBackups(koin),
-                openRestore = graphRestore(koin),
-                openImports = graphImports(koin),
-                openImportFlow = graphImportFlow(koin),
+                admin =
+                    AdminSessions(
+                        librarySettings = graphLibrarySettings(koin),
+                        inbox = graphAdminInbox(koin),
+                        serverSettings = graphServerSettings(koin),
+                        categories = graphCategories(koin),
+                        collections = graphCollections(koin),
+                        collectionDetail = graphCollectionDetail(koin),
+                        backups = graphBackups(koin),
+                        restore = graphRestore(koin),
+                        imports = graphImports(koin),
+                        importFlow = graphImportFlow(koin),
+                        createInvite = graphCreateInvite(koin),
+                        userDetail = graphUserDetail(koin),
+                    ),
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),
                 openSearch = graphSearch(koin),
