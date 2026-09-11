@@ -53,6 +53,8 @@ fun AdminPage(
     onOpenCollections: () -> Unit = {},
     onOpenBackups: () -> Unit = {},
     onOpenImports: () -> Unit = {},
+    onOpenInvite: () -> Unit = {},
+    onOpenUser: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
@@ -68,6 +70,7 @@ fun AdminPage(
             AdminLink("Collections", onOpenCollections)
             AdminLink("Backups", onOpenBackups)
             AdminLink("Imports", onOpenImports)
+            AdminLink("Invite someone", onOpenInvite)
         }
 
         when (state) {
@@ -88,6 +91,7 @@ fun AdminPage(
                     onSetRegistrationPolicy = onSetRegistrationPolicy,
                     onClearError = onClearError,
                     onRetry = onRetry,
+                    onOpenUser = onOpenUser,
                 )
             }
         }
@@ -133,6 +137,7 @@ private fun ReadyContent(
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
+    onOpenUser: (String) -> Unit,
 ) {
     // Which row a confirm is about, rather than a bare boolean: two dialogs share this screen and
     // each needs to name its subject in the copy.
@@ -152,7 +157,7 @@ private fun ReadyContent(
 
     PendingSection(state, onApproveUser, onDenyUser)
     ResetsSection(state, nowMs, onDecidePasswordReset)
-    MembersSection(state) { deleting = it }
+    MembersSection(state, onAskRemove = { deleting = it }, onOpenUser = onOpenUser)
     InvitesSection(state) { revoking = it }
 
     ConfirmDialog(
@@ -270,6 +275,7 @@ private fun ResetsSection(
 private fun MembersSection(
     state: AdminUiState.Ready,
     onAskRemove: (AdminUserInfo) -> Unit,
+    onOpenUser: (String) -> Unit,
 ) {
     Section("Members") {
         if (state.users.isEmpty()) {
@@ -277,7 +283,7 @@ private fun MembersSection(
             return@Section
         }
         state.users.forEach { user ->
-            PersonRow(user, subtitle = user.email) {
+            PersonRow(user, subtitle = user.email, onOpen = { onOpenUser(user.id) }) {
                 // The root account is the server's own owner; removing it would leave nobody able
                 // to administer anything, so it is not offered rather than refused.
                 if (!user.isRoot) {
@@ -304,7 +310,7 @@ private fun InvitesSection(
     Section("Open invites") {
         state.pendingInvites.forEach { invite ->
             Div(attrs = { classes("adm-row") }) {
-                Div(attrs = { classes("adm-row-text") }) {
+                Div(attrs = { classes(ROW_TEXT) }) {
                     Span(attrs = { classes("adm-row-t") }) { Text(invite.name) }
                     Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
                 }
@@ -356,7 +362,7 @@ private fun ResetRow(
     onDecide: (String, Boolean) -> Unit,
 ) {
     Div(attrs = { classes("adm-row") }) {
-        Div(attrs = { classes("adm-row-text") }) {
+        Div(attrs = { classes(ROW_TEXT) }) {
             Span(attrs = { classes("adm-row-t") }) { Text(request.displayName) }
             Span(attrs = { classes("adm-row-sub") }) { Text(request.email) }
             Span(attrs = { classes("adm-row-when") }) { Text(relativeLastActive(request.requestedAt, nowMs)) }
@@ -382,17 +388,36 @@ private fun ResetRow(
 private fun PersonRow(
     user: AdminUserInfo,
     subtitle: String,
+    onOpen: (() -> Unit)? = null,
     actions: @Composable () -> Unit,
 ) {
     Div(attrs = { classes("adm-row") }) {
-        Div(attrs = { classes("adm-row-text") }) {
-            Span(attrs = { classes("adm-row-t") }) { Text(user.displayName ?: user.email) }
-            Span(attrs = { classes("adm-row-sub") }) { Text(subtitle) }
-            if (user.isRoot) {
-                Span(attrs = { classes("adm-badge") }) { Text("Owner") }
-            }
+        // ⛔ The name is the control, not the whole row: the row already carries Remove (and
+        // Approve/Deny for a pending person), and a row-level click would put a destructive button
+        // inside a link. Pending and reset rows pass no [onOpen] at all — there is no page for
+        // somebody who has not joined yet.
+        if (onOpen == null) {
+            Div(attrs = { classes(ROW_TEXT) }) { PersonText(user, subtitle) }
+        } else {
+            Button(attrs = {
+                classes(ROW_TEXT, "adm-row-open")
+                attr(ATTR_TYPE, VALUE_BUTTON)
+                onClick { onOpen() }
+            }) { PersonText(user, subtitle) }
         }
         Div(attrs = { classes("adm-row-actions") }) { actions() }
+    }
+}
+
+@Composable
+private fun PersonText(
+    user: AdminUserInfo,
+    subtitle: String,
+) {
+    Span(attrs = { classes("adm-row-t") }) { Text(user.displayName ?: user.email) }
+    Span(attrs = { classes("adm-row-sub") }) { Text(subtitle) }
+    if (user.isRoot) {
+        Span(attrs = { classes("adm-badge") }) { Text("Owner") }
     }
 }
 
@@ -420,6 +445,8 @@ internal fun policyOf(raw: String): RegistrationPolicy =
     RegistrationPolicy.entries.firstOrNull { it.name == raw } ?: RegistrationPolicy.CLOSED
 
 /** The outline button — every action here that is not the affirmative one. */
+private const val ROW_TEXT = "adm-row-text"
+
 private const val QUIET_BUTTON = "btn-o"
 
 private const val ATTR_DISABLED = "disabled"

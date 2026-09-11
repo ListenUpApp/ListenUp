@@ -238,6 +238,16 @@ import com.calypsan.listenup.web.features.readers.readersData
 import com.calypsan.listenup.web.features.search.ResultsList
 import com.calypsan.listenup.web.features.search.SeeAllPage
 import com.calypsan.listenup.web.features.search.searchResult
+import com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType
+import com.calypsan.listenup.client.presentation.admin.CreateInviteField
+import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
+import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
+import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
+import com.calypsan.listenup.web.features.admin.CreateInvitePage
+import com.calypsan.listenup.web.features.admin.UserDetailPage
+import com.calypsan.listenup.web.features.admin.adminUser
+import com.calypsan.listenup.web.features.admin.invite
+import com.calypsan.listenup.web.features.admin.readyUser
 
 /**
  * Guards the seam between Kotlin and `web.css`.
@@ -1311,6 +1321,7 @@ class ClassContractTest :
                         browseShapes().forEach { it() }
                         readerShapes().forEach { it() }
                         seeAllShapes().forEach { it() }
+                        peopleShapes().forEach { it() }
                     }
                 }
 
@@ -1606,6 +1617,43 @@ private fun seeAllShapes(): List<@Composable () -> Unit> {
         page(SeeAllSearchUiState.Loading),
         page(SeeAllSearchUiState.TooShort),
         page(SeeAllSearchUiState.Error("Search unavailable.")),
+    )
+}
+
+/** The invite form in each of its shapes, and one member's page in each of its states. */
+private fun peopleShapes(): List<@Composable () -> Unit> {
+    fun form(state: CreateInviteUiState): @Composable () -> Unit =
+        {
+            CreateInvitePage(
+                state = state,
+                onCreate = { _, _, _ -> },
+                onClearError = {},
+                onCreateAnother = {},
+                onCopy = {},
+                onOpenAdmin = {},
+            )
+        }
+
+    fun member(state: UserDetailUiState): @Composable () -> Unit =
+        { UserDetailPage(state = state, onToggleCanEdit = {}, onToggleCanShare = {}, onOpenAdmin = {}) }
+
+    return listOf(
+        form(CreateInviteUiState.Ready()),
+        // The field error is the only shape that draws `.f-box.err` on this page.
+        form(
+            CreateInviteUiState.Ready(
+                CreateInviteStatus.Error(CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)),
+            ),
+        ),
+        form(CreateInviteUiState.Ready(CreateInviteStatus.Error(CreateInviteErrorType.ServerError("boom")))),
+        // The success half shares no markup at all with the form it replaces.
+        form(CreateInviteUiState.Ready(CreateInviteStatus.Success(invite()))),
+        member(readyUser()),
+        // The owner draws the note that explains the disabled switches.
+        member(readyUser(adminUser(isRoot = true))),
+        member(readyUser(error = InternalError(debugInfo = "boom"))),
+        member(UserDetailUiState.Loading),
+        member(UserDetailUiState.Error(InternalError(debugInfo = "boom"))),
     )
 }
 

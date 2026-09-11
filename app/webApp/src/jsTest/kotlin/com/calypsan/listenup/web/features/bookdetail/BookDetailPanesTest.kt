@@ -72,6 +72,11 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
 import com.calypsan.listenup.web.features.readers.fixedBookReaders
 import com.calypsan.listenup.web.features.search.fixedSeeAll
+import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
+import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
+import com.calypsan.listenup.web.features.admin.fixedCreateInvite
+import com.calypsan.listenup.web.features.admin.fixedUserDetail
+import com.calypsan.listenup.web.features.admin.AdminSessions
 
 /**
  * The Files pane and the states with no book.
@@ -122,16 +127,21 @@ class BookDetailPanesTest :
                     openSettings = fixedSettings(),
                     openDevices = fixedDevices(),
                     openAdmin = fixedAdmin(),
-                    openLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
-                    openAdminInbox = fixedAdminInbox(),
-                    openServerSettings = fixedServerSettings(),
-                    openCategories = fixedCategories(),
-                    openCollections = fixedCollections(),
-                    openCollectionDetail = fixedCollectionDetail(),
-                    openBackups = fixedBackups(),
-                    openRestore = fixedRestore(),
-                    openImports = fixedImports(),
-                    openImportFlow = fixedImportFlow(),
+                    admin =
+                        AdminSessions(
+                            librarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+                            inbox = fixedAdminInbox(),
+                            serverSettings = fixedServerSettings(),
+                            categories = fixedCategories(),
+                            collections = fixedCollections(),
+                            collectionDetail = fixedCollectionDetail(),
+                            backups = fixedBackups(),
+                            restore = fixedRestore(),
+                            imports = fixedImports(),
+                            importFlow = fixedImportFlow(),
+                            createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
+                            userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                        ),
                     openShelfDetail = fixedShelfDetail(),
                     openShelfEdit = fixedShelfEdit(),
                     openLibrary = fakeLibrary(),

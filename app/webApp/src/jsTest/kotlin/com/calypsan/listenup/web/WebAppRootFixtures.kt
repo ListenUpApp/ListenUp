@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
@@ -71,6 +72,12 @@ import com.calypsan.listenup.web.features.browse.fixedGenreDestination
 import com.calypsan.listenup.web.features.readers.OpenBookReaders
 import com.calypsan.listenup.web.features.readers.fixedBookReaders
 import com.calypsan.listenup.web.features.search.OpenSeeAll
+import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
+import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
+import com.calypsan.listenup.web.features.admin.OpenCreateInvite
+import com.calypsan.listenup.web.features.admin.OpenUserDetail
+import com.calypsan.listenup.web.features.admin.fixedCreateInvite
+import com.calypsan.listenup.web.features.admin.fixedUserDetail
 import com.calypsan.listenup.web.features.search.fixedSeeAll
 import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
@@ -133,6 +140,7 @@ import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
+import com.calypsan.listenup.web.features.admin.AdminSessions
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -171,6 +179,7 @@ internal fun mountAt(
     openLibrary: OpenLibrary = fakeLibrary(),
     openSettings: OpenSettings = fixedSettings(),
     openLibrarySettings: OpenLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
+    openAdmin: OpenAdmin = fixedAdmin(),
     openAdminInbox: OpenAdminInbox = fixedAdminInbox(),
     openServerSettings: OpenServerSettings = fixedServerSettings(),
     openCategories: OpenCategories = fixedCategories(),
@@ -188,6 +197,8 @@ internal fun mountAt(
     openGenreDestination: OpenGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
     openBookReaders: OpenBookReaders = fixedBookReaders(BookReadersUiState.Loading),
     openSeeAll: OpenSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+    openCreateInvite: OpenCreateInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
+    openUserDetail: OpenUserDetail = fixedUserDetail(UserDetailUiState.Loading),
     onToast: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -216,17 +227,22 @@ internal fun mountAt(
                 openDiscover = fixedDiscover(),
                 openSettings = openSettings,
                 openDevices = fixedDevices(),
-                openAdmin = fixedAdmin(),
-                openLibrarySettings = openLibrarySettings,
-                openAdminInbox = openAdminInbox,
-                openServerSettings = openServerSettings,
-                openCategories = openCategories,
-                openCollections = openCollections,
-                openCollectionDetail = openCollectionDetail,
-                openBackups = openBackups,
-                openRestore = openRestore,
-                openImports = openImports,
-                openImportFlow = openImportFlow,
+                openAdmin = openAdmin,
+                admin =
+                    AdminSessions(
+                        librarySettings = openLibrarySettings,
+                        inbox = openAdminInbox,
+                        serverSettings = openServerSettings,
+                        categories = openCategories,
+                        collections = openCollections,
+                        collectionDetail = openCollectionDetail,
+                        backups = openBackups,
+                        restore = openRestore,
+                        imports = openImports,
+                        importFlow = openImportFlow,
+                        createInvite = openCreateInvite,
+                        userDetail = openUserDetail,
+                    ),
                 openShelfDetail = fixedShelfDetail(),
                 openShelfEdit = fixedShelfEdit(),
                 openLibrary = openLibrary,

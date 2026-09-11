@@ -1,16 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.OpenAdmin
-import com.calypsan.listenup.web.features.admin.OpenAdminInbox
-import com.calypsan.listenup.web.features.admin.OpenCategories
-import com.calypsan.listenup.web.features.admin.OpenCollectionDetail
-import com.calypsan.listenup.web.features.admin.OpenBackups
-import com.calypsan.listenup.web.features.admin.OpenImportFlow
-import com.calypsan.listenup.web.features.admin.OpenImports
-import com.calypsan.listenup.web.features.admin.OpenCollections
-import com.calypsan.listenup.web.features.admin.OpenRestore
-import com.calypsan.listenup.web.features.admin.OpenServerSettings
-import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.watchSystemTheme
@@ -71,6 +61,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.features.admin.AdminSessions
 
 /**
  * The root of the ListenUp web body: `AuthState` decides whether the reader sees an auth screen or
@@ -111,16 +102,7 @@ fun AuthGate(
     openSettings: OpenSettings,
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
-    openLibrarySettings: OpenLibrarySettings,
-    openAdminInbox: OpenAdminInbox,
-    openServerSettings: OpenServerSettings,
-    openCategories: OpenCategories,
-    openCollections: OpenCollections,
-    openCollectionDetail: OpenCollectionDetail,
-    openBackups: OpenBackups,
-    openRestore: OpenRestore,
-    openImports: OpenImports,
-    openImportFlow: OpenImportFlow,
+    admin: AdminSessions,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
     openSearch: OpenSearch,
@@ -231,16 +213,7 @@ fun AuthGate(
                         openSettings = openSettings,
                         openDevices = openDevices,
                         openAdmin = openAdmin,
-                        openLibrarySettings = openLibrarySettings,
-                        openAdminInbox = openAdminInbox,
-                        openServerSettings = openServerSettings,
-                        openCategories = openCategories,
-                        openCollections = openCollections,
-                        openCollectionDetail = openCollectionDetail,
-                        openBackups = openBackups,
-                        openRestore = openRestore,
-                        openImports = openImports,
-                        openImportFlow = openImportFlow,
+                        admin = admin,
                         openShelfDetail = openShelfDetail,
                         openShelfEdit = openShelfEdit,
                         openSearch = openSearch,

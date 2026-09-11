@@ -2763,3 +2763,53 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .rdr-all:active { transform: translateY(1px); }
 .luw .rdr-all:focus { outline: none; }
 .luw .rdr-all:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+/* ============================================================
+   INVITES — minting one, and the link it produces
+   ============================================================ */
+.luw .inv { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 640px; }
+.luw .inv-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .inv-lede { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-2); }
+.luw .inv-err { margin: 8px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-deep); }
+.luw .inv-opts { display: flex; flex-direction: column; gap: 8px; }
+/* A pressed-state card rather than a radio: the two levels want a sentence of explanation each,
+   which a radio label cannot carry without wrapping badly at every width. */
+.luw .inv-opt { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); text-align: left; font-family: inherit; cursor: pointer; }
+@media (hover: hover) { .luw .inv-opt:hover { border-color: var(--coral); } }
+.luw .inv-opt:active { transform: translateY(1px); }
+.luw .inv-opt:focus { outline: none; }
+.luw .inv-opt:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .inv-opt.on { border-color: var(--coral); background: var(--coral-soft); }
+.luw .inv-opt-t { font-size: 0.9rem; font-weight: 700; }
+.luw .inv-opt-s { font-size: 0.78rem; color: var(--ink-3); }
+.luw .inv-opt.on .inv-opt-s { color: var(--coral); }
+.luw .inv-days { display: flex; flex-wrap: wrap; gap: 8px; }
+.luw .inv-go { align-self: flex-start; }
+.luw .inv-done { display: flex; flex-direction: column; gap: 12px; }
+.luw .inv-done-e { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--coral); }
+/* ⛔ The URL is selectable text, never a button's label. `navigator.clipboard` is absent outside a
+   secure context, so hand-selecting it has to stay possible — `user-select` and the wrap below are
+   what make that the fallback rather than a dead end. */
+.luw .inv-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.luw .inv-url { flex: 1; min-width: 0; font-family: var(--mono); font-size: 0.8rem; color: var(--ink); user-select: all; overflow-wrap: anywhere; }
+.luw .inv-copy { flex: none; }
+.luw .inv-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ============================================================
+   ONE MEMBER — who they are and what they may do
+   ============================================================ */
+.luw .usr { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 640px; }
+.luw .usr-skel { height: 200px; }
+.luw .usr-head { display: flex; align-items: center; gap: 14px; }
+.luw .usr-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.luw .usr-t { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .usr-e { font-size: 0.84rem; color: var(--ink-3); }
+.luw .usr-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+.luw .usr-note { margin: 0 0 10px; font-size: 0.8rem; color: var(--ink-3); }
+.luw .usr-err { margin: 10px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-deep); }
+/* The member's name on the People page is the way into their page — a control, so it says so. */
+.luw .adm-row-open { border: none; background: transparent; padding: 0; font-family: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
+@media (hover: hover) { .luw .adm-row-open:hover .adm-row-t { color: var(--coral); text-decoration: underline; } }
+.luw .adm-row-open:active { transform: translateY(1px); }
+.luw .adm-row-open:focus { outline: none; }
+.luw .adm-row-open:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
