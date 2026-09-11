@@ -58,7 +58,14 @@ import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.web.features.browse.BrowseFacetPage
 import com.calypsan.listenup.web.features.browse.GenreDestinationPage
 import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.web.features.browse.OpenGenreDestination
+import com.calypsan.listenup.web.features.readers.OpenBookReaders
+import com.calypsan.listenup.web.features.readers.ReadersPage
+import com.calypsan.listenup.web.features.search.OpenSeeAll
+import com.calypsan.listenup.web.features.search.SeeAllPage
+import com.calypsan.listenup.web.features.search.label
+import kotlin.js.Date
 import com.calypsan.listenup.web.features.books.PickerTarget
 import com.calypsan.listenup.web.features.books.SelectionPicker
 import com.calypsan.listenup.web.features.books.bookCountLabel
@@ -230,6 +237,8 @@ fun WebAppRoot(
     openBulkEdit: OpenBulkEdit,
     openBrowseFacet: OpenBrowseFacet,
     openGenreDestination: OpenGenreDestination,
+    openBookReaders: OpenBookReaders,
+    openSeeAll: OpenSeeAll,
     onToast: (String) -> Unit,
     openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
@@ -339,6 +348,8 @@ fun WebAppRoot(
             openBulkEdit = openBulkEdit,
             openBrowseFacet = openBrowseFacet,
             openGenreDestination = openGenreDestination,
+            openBookReaders = openBookReaders,
+            openSeeAll = openSeeAll,
             onToast = onToast,
             librarySession = librarySession,
             playback = playback,
@@ -468,6 +479,87 @@ private fun SeriesRouteContent(
     )
 }
 
+/**
+ * The URL spelling of a hit type: `/search/books`, `/search/contributors`, `/search/series`,
+ * `/search/tags`.
+ *
+ * ⛔ Derived from the label the page already shows, not from `name`. Two reasons, and the second is
+ * the one that matters: `CONTRIBUTOR.name.lowercase()` is the singular word the *database* uses,
+ * and a hand-written second table would let the URL and the heading drift apart — a reader
+ * following `/search/people` to a page titled "Contributors" is being shown two names for one
+ * thing. One vocabulary, one source.
+ */
+internal fun SearchHitType.slug(): String = label().lowercase()
+
+/** Which type `/search/{type}` names, or null when the route is not a see-all. */
+private fun Route.seeAllType(): SearchHitType? {
+    if (segments.firstOrNull() != SEARCH_KEY) return null
+    val slug = segments.getOrNull(1) ?: return null
+    return SearchHitType.entries.firstOrNull { it.slug() == slug }
+}
+
+/**
+ * The `/search` branch of [RouteContent]: the search page, and the single-type page its capped
+ * groups defer to.
+ *
+ * ⛔ The see-all is tested first. `/search` is a prefix of `/search/{type}`, so a branch order that
+ * asks "is this the search page?" first makes every see-all link resolve to the page it was meant
+ * to expand — the same trap the series and book forms sit behind.
+ */
+@Composable
+private fun SearchRouteContent(
+    router: Router,
+    route: Route,
+    openSearch: OpenSearch,
+    openSeeAll: OpenSeeAll,
+) {
+    val seeAllType = route.seeAllType()
+    if (seeAllType != null) {
+        SeeAllRoute(
+            router = router,
+            openSeeAll = openSeeAll,
+            query = route.query[SEARCH_QUERY_KEY].orEmpty(),
+            type = seeAllType,
+        )
+        return
+    }
+
+    SearchRoute(
+        router = router,
+        route = route,
+        openSearch = openSearch,
+        onSeeAll = { type -> router.navigate(Route(listOf(SEARCH_KEY, type.slug()), route.query)) },
+    )
+}
+
+/**
+ * Opens a see-all session and collects it.
+ *
+ * Keyed on the query *and* the type: `/search/books?q=dune` → `/search/people?q=dune` changes only
+ * the type, and a session remembered on the query alone would keep answering with books.
+ */
+@Composable
+private fun SeeAllRoute(
+    router: Router,
+    openSeeAll: OpenSeeAll,
+    query: String,
+    type: SearchHitType,
+) {
+    val session = remember(query, type) { openSeeAll(query, type) }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    LaunchedEffect(session) {
+        session.navActions.collect { action -> router.navigate(searchNavRoute(action)) }
+    }
+
+    SeeAllPage(
+        state = session.state.collectAsState().value,
+        openableTypes = SEARCH_OPENABLE_TYPES,
+        onOpenHit = session.onOpenHit,
+        onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))) },
+    )
+}
+
 /** The `/tag`, `/mood` and `/genre` branch of [RouteContent]. */
 @Composable
 private fun BrowseRouteContent(
@@ -588,6 +680,8 @@ private fun RouteContent(
     openBulkEdit: OpenBulkEdit,
     openBrowseFacet: OpenBrowseFacet,
     openGenreDestination: OpenGenreDestination,
+    openBookReaders: OpenBookReaders,
+    openSeeAll: OpenSeeAll,
     onToast: (String) -> Unit,
     librarySession: LibrarySession,
     playback: PlaybackSession,
@@ -641,6 +735,7 @@ private fun RouteContent(
             openBookEdit = openBookEdit,
             openChapterEditor = openChapterEditor,
             openMetadata = openMetadata,
+            openBookReaders = openBookReaders,
             playback = playback,
         )
     } else if (isContributors || contributorId != null) {
@@ -693,7 +788,7 @@ private fun RouteContent(
             onToast = onToast,
         )
     } else if (page == SEARCH_KEY) {
-        SearchRoute(router = router, route = route, openSearch = openSearch)
+        SearchRouteContent(router = router, route = route, openSearch = openSearch, openSeeAll = openSeeAll)
     } else if (active == HOME_KEY) {
         HomeRoute(router = router, openHome = openHome, onHeroBookIdChange = onHeroBookIdChange)
     } else if (shelfRoute != null) {
@@ -828,6 +923,7 @@ private fun SearchRoute(
     router: Router,
     route: Route,
     openSearch: OpenSearch,
+    onSeeAll: (SearchHitType) -> Unit,
 ) {
     val session = remember { openSearch() }
     DisposableEffect(session) { onDispose { session.close() } }
@@ -847,6 +943,7 @@ private fun SearchRoute(
         onQueryChanged = { query -> onSearchFieldChanged(query, session, router) },
         onToggleType = session.onToggleType,
         onOpenHit = session.onOpenHit,
+        onSeeAll = onSeeAll,
         onRetry = session.retry,
         openableTypes = SEARCH_OPENABLE_TYPES,
     )
@@ -984,6 +1081,14 @@ private fun CommandPaletteHost(
             onOpenHit = activeSession.onOpenHit,
             openableTypes = SEARCH_OPENABLE_TYPES,
             highlighted = highlighted,
+            // ⛔ The palette caps its groups like the page does, so it owes the same way out. Shift
+            // +Enter reaches the whole search, but a reader looking at "4 of 26 books" wants those
+            // 26, not a fresh query they have to narrow again.
+            onSeeAll = { type ->
+                val query = uiState.query
+                closePalette()
+                router.navigate(Route(listOf(SEARCH_KEY, type.slug()), mapOf(SEARCH_QUERY_KEY to query)))
+            },
         )
     }
 }
@@ -1340,6 +1445,7 @@ private fun BookRouteContent(
     openBookEdit: OpenBookEdit,
     openChapterEditor: OpenChapterEditor,
     openMetadata: OpenMetadata,
+    openBookReaders: OpenBookReaders,
     playback: PlaybackSession,
 ) {
     val editingBookId = route.editTargetOf(bookId)
@@ -1348,6 +1454,19 @@ private fun BookRouteContent(
     val chapteringBookId = bookId.takeIf { route.segments.getOrNull(2) == CHAPTERS_KEY }
     // `/book/{id}/match` — the Audible wizard over one book.
     val matchingBookId = bookId.takeIf { route.segments.getOrNull(2) == MATCH_KEY }
+    // `/book/{id}/readers` — the whole readership, where the side panel's "See all" leads.
+    val readersBookId = bookId.takeIf { route.segments.getOrNull(2) == READERS_KEY }
+
+    if (readersBookId != null) {
+        ReadersPage(
+            state = bookReadersState(readersBookId, openBookReaders),
+            bookTitle = bookTitleOf(bookDetailState(readersBookId, openBookDetail)),
+            nowMs = nowMs(),
+            onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
+            onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, readersBookId))) },
+        )
+        return
+    }
 
     if (matchingBookId != null) {
         MetadataRoute(
@@ -1416,8 +1535,36 @@ private fun BookRouteContent(
         onOpenMood = { id -> router.navigate(Route(listOf(MOOD_KEY, id))) },
         onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
         onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+        readers = bookReadersState(bookId, openBookReaders),
+        nowMs = nowMs(),
+        onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
+        onSeeAllReaders = { router.navigate(Route(listOf(BOOK_KEY, bookId, READERS_KEY))) },
     )
 }
+
+/**
+ * Opens a readers session for [bookId] and collects it, keyed on the book for the same reason
+ * [bookDetailState] is.
+ */
+@Composable
+private fun bookReadersState(
+    bookId: String,
+    openBookReaders: OpenBookReaders,
+): BookReadersUiState {
+    val session = remember(bookId) { openBookReaders(bookId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session.state.collectAsState().value
+}
+
+/** What the readers page calls the book it belongs to, before the book itself has loaded. */
+private fun bookTitleOf(state: BookDetailUiState): String = (state as? BookDetailUiState.Ready)?.book?.title ?: "Book"
+
+/**
+ * ⛔ Read once per composition, not per row. `relativeOrMonthYear` needs a now to measure against,
+ * and a reader list that asked the clock for every line could render two rows either side of a
+ * midnight boundary — one "today", one "yesterday", for finishes a millisecond apart.
+ */
+private fun nowMs(): Long = Date.now().toLong()
 
 /**
  * Opens a Metadata Match session for [bookId] and collects it.
@@ -2499,6 +2646,9 @@ private const val EDIT_KEY = "edit"
 
 /** `/book/{id}/chapters` — the chapter editor over one book. */
 private const val CHAPTERS_KEY = "chapters"
+
+/** `/book/{id}/readers` — everyone on this book. */
+private const val READERS_KEY = "readers"
 
 /** `/books/edit?ids=…` — the bulk editor over a selection. */
 private const val BOOKS_KEY = "books"

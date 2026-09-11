@@ -60,6 +60,7 @@ import com.calypsan.listenup.web.features.contributors.contributor
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.features.search.bookHit
+import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.features.search.contributorHit
 import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.nav.Router
@@ -115,6 +116,12 @@ import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchSession
 import com.calypsan.listenup.web.features.search.fixedSearch
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
+import com.calypsan.listenup.web.features.readers.fixedBookReaders
+import com.calypsan.listenup.web.features.readers.reader
+import com.calypsan.listenup.web.features.readers.readersData
+import com.calypsan.listenup.web.features.search.bookHit
+import com.calypsan.listenup.web.features.search.fixedSeeAll
 
 /**
  * The root wiring: the sidebar drives the URL and the URL drives the sidebar. This is where the
@@ -349,6 +356,151 @@ class WebAppRootTest :
                 // ⛔ The book's own page must not also be up. `/book/{id}` is a prefix of this
                 // route, and a branch order that tests it first makes the form unreachable.
                 host.querySelector(".bd-title") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/search/{type} opens that group alone, uncapped") {
+            val asked = mutableListOf<Pair<String, SearchHitType>>()
+            val hits = (1..9).map { bookHit("b$it", "Book $it") }
+            val (host, router) =
+                mountAt(
+                    "/search/books?q=dune",
+                    openSeeAll =
+                        fixedSeeAll(
+                            SeeAllSearchUiState.Results(SearchHitType.BOOK, "dune", hits),
+                            onOpen = { query, type -> asked += query to type },
+                        ),
+                )
+
+            try {
+                asked shouldBe listOf("dune" to SearchHitType.BOOK)
+                host.querySelectorAll(".search-name").length shouldBe 9
+                // ⛔ The main search page must not also be up. `/search` is a prefix of this route,
+                // and a branch order that tests it first makes every see-all link resolve to the
+                // page it was meant to expand.
+                host.querySelector(".search-types") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the type in the URL is the one the page opens") {
+            val asked = mutableListOf<Pair<String, SearchHitType>>()
+            val (_, router) =
+                mountAt(
+                    "/search/contributors?q=herbert",
+                    openSeeAll =
+                        fixedSeeAll(
+                            SeeAllSearchUiState.Loading,
+                            onOpen = { query, type -> asked += query to type },
+                        ),
+                )
+
+            try {
+                asked shouldBe listOf("herbert" to SearchHitType.CONTRIBUTOR)
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a /search/{word} that names no type is still the search page") {
+            // An old or hand-typed link must not render a see-all over nothing.
+            val (host, router) = mountAt("/search/wombats?q=dune")
+
+            try {
+                host.querySelector(".search-types").shouldNotBeNull()
+                host.querySelector(".sall-t") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("See all on a capped group opens that group's own page, carrying the query") {
+            val hits = (1..9).map { bookHit("b$it", "Book $it") }
+            val (host, router) =
+                mountAt(
+                    "/search?q=dune",
+                    openSearch =
+                        fixedSearch(
+                            SearchUiState.Results(
+                                query = "dune",
+                                selectedTypes = emptySet(),
+                                result = searchResult(query = "dune", hits = hits),
+                            ),
+                        ),
+                )
+
+            try {
+                (host.querySelector(".search-seeall") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/search/books"
+                window.location.search shouldBe "?q=dune"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/book/{id}/readers lists everyone on that book, under the book's own name") {
+            val asked = mutableListOf<String>()
+            val (host, router) =
+                mountAt(
+                    "/book/b-stormlight/readers",
+                    openBookDetail = fixedBookDetail(readyBook()),
+                    openBookReaders =
+                        fixedBookReaders(
+                            readersData(reader(userId = "u1", displayName = "Ada Lovelace", progressPct = 42)),
+                            onOpen = { asked += it },
+                        ),
+                )
+
+            try {
+                asked shouldBe listOf("b-stormlight")
+                host.querySelectorAll(".rdr-row").length shouldBe 1
+                (host.querySelector(".crumb a") as HTMLElement).textContent?.trim() shouldBe "The Institute"
+                // ⛔ The book's own page must not also be up — `/book/{id}` is a prefix of this route.
+                host.querySelector(".bd-title") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the Readers panel on a book leads to the full list") {
+            val many = (1..7).map { reader(userId = "u$it", displayName = "Reader $it", progressPct = it) }
+            val (host, router) =
+                mountAt(
+                    "/book/b-stormlight",
+                    openBookDetail = fixedBookDetail(readyBook()),
+                    openBookReaders = fixedBookReaders(readersData(*many.toTypedArray())),
+                )
+
+            try {
+                host.querySelectorAll(".rdr-row").length shouldBe 5
+
+                (host.querySelector(".rdr-all") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/book/b-stormlight/readers"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("clicking a reader opens their profile") {
+            val (host, router) =
+                mountAt(
+                    "/book/b-stormlight",
+                    openBookDetail = fixedBookDetail(readyBook()),
+                    openBookReaders = fixedBookReaders(readersData(reader(userId = "u-ada", progressPct = 12))),
+                )
+
+            try {
+                (host.querySelector(".rdr-row") as HTMLElement).click()
+                awaitFrame()
+
+                window.location.pathname shouldBe "/profile/u-ada"
             } finally {
                 router.dispose()
             }

@@ -65,7 +65,13 @@ import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
 import com.calypsan.listenup.web.features.browse.OpenGenreDestination
 import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
 import com.calypsan.listenup.web.features.browse.fixedGenreDestination
+import com.calypsan.listenup.web.features.readers.OpenBookReaders
+import com.calypsan.listenup.web.features.readers.fixedBookReaders
+import com.calypsan.listenup.web.features.search.OpenSeeAll
+import com.calypsan.listenup.web.features.search.fixedSeeAll
 import com.calypsan.listenup.web.features.books.fixedMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
@@ -180,6 +186,8 @@ internal fun mountAt(
     openBulkEdit: OpenBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
     openBrowseFacet: OpenBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
     openGenreDestination: OpenGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
+    openBookReaders: OpenBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+    openSeeAll: OpenSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
     onToast: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -227,6 +235,8 @@ internal fun mountAt(
                 openBulkEdit = openBulkEdit,
                 openBrowseFacet = openBrowseFacet,
                 openGenreDestination = openGenreDestination,
+                openBookReaders = openBookReaders,
+                openSeeAll = openSeeAll,
                 onToast = onToast,
                 openNotificationBell = openNotificationBell,
                 openPlayback = fixedPlayback(),

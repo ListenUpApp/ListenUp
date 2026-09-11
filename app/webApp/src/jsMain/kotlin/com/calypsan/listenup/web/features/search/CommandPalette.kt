@@ -32,6 +32,7 @@ fun CommandPalette(
     onOpenHit: (SearchHit) -> Unit,
     openableTypes: Set<SearchHitType>,
     highlighted: SearchHit?,
+    onSeeAll: (SearchHitType) -> Unit = {},
 ) {
     Div(attrs = { classes("cmdk-scrim") }) {
         Div(attrs = {
@@ -70,6 +71,7 @@ fun CommandPalette(
                                 result = state.result,
                                 openableTypes = openableTypes,
                                 onOpenHit = onOpenHit,
+                                onSeeAll = onSeeAll,
                                 highlighted = highlighted,
                             )
                         }
