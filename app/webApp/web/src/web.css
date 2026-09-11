@@ -2813,3 +2813,57 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .adm-row-open:active { transform: translateY(1px); }
 .luw .adm-row-open:focus { outline: none; }
 .luw .adm-row-open:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+/* ============================================================
+   FILE ORGANIZATION — where books live on disk
+   ============================================================ */
+.luw .org { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 720px; }
+.luw .org-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .org-lede { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+.luw .org-skel { height: 260px; }
+.luw .org-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+.luw .org-err { margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-deep); }
+.luw .org-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.luw .org-opt { padding: 9px 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--ink-2); font-family: var(--mono); font-size: 0.78rem; cursor: pointer; }
+@media (hover: hover) { .luw .org-opt:hover { border-color: var(--coral); } }
+.luw .org-opt:active { transform: translateY(1px); }
+.luw .org-opt:focus { outline: none; }
+.luw .org-opt:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .org-opt.on { border-color: var(--coral); background: var(--coral-soft); color: var(--coral); font-weight: 700; }
+/* ⛔ Save is primary and Organize is not. One persists rules, the other rearranges a library —
+   a matched pair of buttons would make the destructive one a slip away. */
+.luw .org-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.luw .org-note { margin: 0; font-size: 0.78rem; color: var(--ink-3); }
+.luw .org-rows { display: flex; flex-direction: column; gap: 4px; max-height: 16rem; overflow-y: auto; margin: 12px 0; }
+.luw .org-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 0.72rem; }
+.luw .org-from { color: var(--ink-3); overflow-wrap: anywhere; }
+.luw .org-arrow { flex: none; color: var(--coral); }
+.luw .org-to { color: var(--ink); overflow-wrap: anywhere; }
+.luw .org-clash { flex: none; padding: 1px 7px; border-radius: 999px; background: var(--surface-3); font-family: var(--font-a); font-size: 0.66rem; font-weight: 700; color: var(--ink-3); }
+.luw .org-more { margin: 4px 0 0; font-size: 0.74rem; color: var(--ink-3); }
+.luw .org-bar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; margin-top: 10px; }
+.luw .org-bar-fill { height: 100%; background: var(--coral); border-radius: inherit; transition: width .2s linear; }
+
+/* ============================================================
+   UPLOAD — putting books in from this machine
+   ============================================================ */
+.luw .upl { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 720px; }
+.luw .upl-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .upl-lede { margin: 0 0 12px; font-size: 0.9rem; color: var(--ink-2); }
+.luw .upl-picks { display: flex; flex-wrap: wrap; gap: 10px; }
+.luw .upl-live { display: flex; flex-direction: column; gap: 8px; }
+.luw .upl-step { margin: 0; font-size: 0.86rem; color: var(--ink-2); overflow-wrap: anywhere; }
+.luw .upl-bar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.luw .upl-bar-fill { height: 100%; width: 0; background: var(--coral); border-radius: inherit; transition: width .2s linear; }
+/* ⛔ Indeterminate, not zero: a selection that could not report its sizes is unknown progress, and
+   a bar pinned at zero reads as a hung upload. */
+.luw .upl-bar.is-idle .upl-bar-fill { width: 40%; }
+@media (prefers-reduced-motion: no-preference) {
+  .luw .upl-bar.is-idle .upl-bar-fill { animation: shim 1.5s linear infinite; background: linear-gradient(90deg, var(--coral-soft), var(--coral), var(--coral-soft)); background-size: 200% 100%; }
+}
+.luw .upl-done { display: flex; flex-direction: column; gap: var(--gap); }
+.luw .upl-sum { margin: 0; font-size: 1rem; font-weight: 700; color: var(--ink); }
+.luw .upl-err { margin: 0 0 12px; font-size: 0.9rem; color: var(--coral-deep); }
+.luw .upl-row { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; }
+.luw .upl-n { font-size: 0.86rem; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
+.luw .upl-d { font-size: 0.74rem; color: var(--ink-3); overflow-wrap: anywhere; }

@@ -30,6 +30,8 @@ import com.calypsan.listenup.web.features.bulkedit.graphBulkEdit
 import com.calypsan.listenup.web.features.browse.graphBrowseFacet
 import com.calypsan.listenup.web.features.browse.graphGenreDestination
 import com.calypsan.listenup.web.features.admin.graphCreateInvite
+import com.calypsan.listenup.web.features.admin.graphOrganize
+import com.calypsan.listenup.web.features.admin.graphUpload
 import com.calypsan.listenup.web.features.admin.graphUserDetail
 import com.calypsan.listenup.web.features.readers.graphBookReaders
 import com.calypsan.listenup.web.features.search.graphSeeAll
@@ -196,6 +198,8 @@ fun main() {
                         importFlow = graphImportFlow(koin),
                         createInvite = graphCreateInvite(koin),
                         userDetail = graphUserDetail(koin),
+                        upload = graphUpload(koin),
+                        organize = graphOrganize(koin),
                     ),
                 openShelfDetail = graphShelfDetail(koin),
                 openShelfEdit = graphShelfEdit(koin),

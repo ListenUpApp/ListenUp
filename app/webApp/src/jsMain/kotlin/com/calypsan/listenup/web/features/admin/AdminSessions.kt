@@ -26,4 +26,6 @@ data class AdminSessions(
     val importFlow: OpenImportFlow,
     val createInvite: OpenCreateInvite,
     val userDetail: OpenUserDetail,
+    val upload: OpenUpload,
+    val organize: OpenOrganize,
 )

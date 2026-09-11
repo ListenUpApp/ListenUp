@@ -75,6 +75,10 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.web.features.admin.fixedCreateInvite
 import com.calypsan.listenup.web.features.admin.fixedUserDetail
 import com.calypsan.listenup.web.features.admin.AdminSessions
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
+import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
+import com.calypsan.listenup.web.features.admin.fixedOrganize
+import com.calypsan.listenup.web.features.admin.fixedUpload
 
 /**
  * Proves Compose HTML actually drives the DOM in this build — the composition runs, emits real
@@ -132,6 +136,8 @@ class ComposeHtmlRenderTest :
                                 importFlow = fixedImportFlow(),
                                 createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
                                 userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                                upload = fixedUpload(UploadBooksUiState.Idle),
+                                organize = fixedOrganize(OrganizeSettingsUiState.Loading),
                             ),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),
@@ -198,6 +204,8 @@ class ComposeHtmlRenderTest :
                                 importFlow = fixedImportFlow(),
                                 createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
                                 userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                                upload = fixedUpload(UploadBooksUiState.Idle),
+                                organize = fixedOrganize(OrganizeSettingsUiState.Loading),
                             ),
                         openShelfDetail = fixedShelfDetail(),
                         openShelfEdit = fixedShelfEdit(),

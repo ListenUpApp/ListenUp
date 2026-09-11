@@ -103,6 +103,10 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.web.features.admin.fixedCreateInvite
 import com.calypsan.listenup.web.features.admin.fixedUserDetail
 import com.calypsan.listenup.web.features.admin.AdminSessions
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
+import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
+import com.calypsan.listenup.web.features.admin.fixedOrganize
+import com.calypsan.listenup.web.features.admin.fixedUpload
 
 /** A signed-in session. The ids are arbitrary — the gate only ever branches on the state's type. */
 private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
@@ -165,6 +169,8 @@ private fun mountGate(
                     importFlow = fixedImportFlow(),
                     createInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
                     userDetail = fixedUserDetail(UserDetailUiState.Loading),
+                    upload = fixedUpload(UploadBooksUiState.Idle),
+                    organize = fixedOrganize(OrganizeSettingsUiState.Loading),
                 ),
             openShelfDetail = fixedShelfDetail(),
             openShelfEdit = fixedShelfEdit(),

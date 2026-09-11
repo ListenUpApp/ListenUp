@@ -77,6 +77,8 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.web.features.admin.OpenCreateInvite
 import com.calypsan.listenup.web.features.admin.OpenUserDetail
 import com.calypsan.listenup.web.features.admin.fixedCreateInvite
+import com.calypsan.listenup.web.features.admin.OpenOrganize
+import com.calypsan.listenup.web.features.admin.OpenUpload
 import com.calypsan.listenup.web.features.admin.fixedUserDetail
 import com.calypsan.listenup.web.features.search.fixedSeeAll
 import com.calypsan.listenup.web.features.books.fixedMultiSelect
@@ -141,6 +143,10 @@ import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
 import com.calypsan.listenup.web.features.admin.AdminSessions
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
+import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
+import com.calypsan.listenup.web.features.admin.fixedOrganize
+import com.calypsan.listenup.web.features.admin.fixedUpload
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -199,6 +205,8 @@ internal fun mountAt(
     openSeeAll: OpenSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
     openCreateInvite: OpenCreateInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
     openUserDetail: OpenUserDetail = fixedUserDetail(UserDetailUiState.Loading),
+    openUpload: OpenUpload = fixedUpload(UploadBooksUiState.Idle),
+    openOrganize: OpenOrganize = fixedOrganize(OrganizeSettingsUiState.Loading),
     onToast: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     window.history.replaceState(null, "", path)
@@ -242,6 +250,8 @@ internal fun mountAt(
                         importFlow = openImportFlow,
                         createInvite = openCreateInvite,
                         userDetail = openUserDetail,
+                        upload = openUpload,
+                        organize = openOrganize,
                     ),
                 openShelfDetail = fixedShelfDetail(),
                 openShelfEdit = fixedShelfEdit(),
