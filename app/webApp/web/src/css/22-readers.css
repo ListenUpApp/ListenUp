@@ -1,0 +1,28 @@
+/* ============================================================
+   READERS — who else is on this book
+   ============================================================ */
+.luw .rdr { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+.luw .rdr-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .rdr-skel { height: 160px; }
+.luw .rdr-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+.luw .rdr-now { margin-bottom: 8px; font-size: 0.78rem; font-weight: 700; color: var(--coral); }
+.luw .rdr-list { display: flex; flex-direction: column; gap: 2px; }
+.luw .rdr-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: none; border-radius: 10px; background: transparent; color: var(--ink); text-align: left; font-family: inherit; cursor: pointer; }
+@media (hover: hover) { .luw .rdr-row:hover { background: var(--surface-2); } }
+.luw .rdr-row:active { transform: translateY(1px); }
+.luw .rdr-row:focus { outline: none; }
+.luw .rdr-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+/* Actively listening: the accent is on the mark, not the whole row — several people reading at
+   once would otherwise turn the list into a block of colour. */
+.luw .rdr-row.is-live { color: var(--ink); }
+.luw .rdr-row.is-live svg { color: var(--coral); }
+.luw .rdr-row svg { flex: none; margin-left: auto; color: var(--ink-3); }
+.luw .rdr-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.luw .rdr-n { font-size: 0.88rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .rdr-s { font-size: 0.74rem; color: var(--ink-3); }
+.luw .rdr-all { padding: 3px 9px; border: none; border-radius: 8px; background: transparent; color: var(--coral); font-family: inherit; font-size: 0.76rem; font-weight: 750; cursor: pointer; }
+@media (hover: hover) { .luw .rdr-all:hover { background: var(--coral-soft); } }
+.luw .rdr-all:active { transform: translateY(1px); }
+.luw .rdr-all:focus { outline: none; }
+.luw .rdr-all:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+

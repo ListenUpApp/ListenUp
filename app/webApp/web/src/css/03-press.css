@@ -1,0 +1,220 @@
+/* ============================================================
+   PRESS — what happens when you actually touch the thing
+   ============================================================
+   `web.css` had 58 `:hover` rules and exactly one `:active` rule. On a pointer that is a
+   shortfall; on a touchscreen there is no hover at all, so a tablet reader got no acknowledgement
+   from any card, row, tab, nav item or chip — the tap either did something or the app looked
+   broken. `PressContractTest` now fails the build if a hover treatment is added without one.
+
+   One idea — the thing settles under your finger — in three expressions, because one geometry
+   does not fit every shape:
+
+     · CONTROLS settle 1px, which is the vocabulary `.btn:active` already established.
+     · CARDS scale to .985, the same figure `lib-card-in` uses to arrive.
+     · ROWS deepen instead. A `<tr>` cannot be transformed reliably (the spec leaves transforms on
+       table rows largely undefined, and browsers disagree), so rows say it in colour.
+
+   No transition is declared here on purpose. Press feedback wants to be instantaneous in both
+   directions; an eased release is a nicety `.btn` happens to carry and the rest do not need.
+   That also keeps this out of `prefers-reduced-motion`'s way — an untransitioned 1px offset is a
+   position, not an animation. */
+
+/* Controls — buttons, icon buttons, chips, tabs, nav items. */
+.btn-ghost:active,
+.dir-b .btn-ghost:active,
+.btn-c:active,
+.btn-o:active,
+.btn-sq:active,
+.btn-d:active,
+.iconbtn:active,
+.f-eye:active,
+.pill:active,
+.facet:active,
+.tab:active,
+.nav-i:active,
+.tport-b:active,
+.tport-skip:active,
+.tport-sleep:active,
+.tport-boost:active,
+.tport-speed:active,
+.tport-note-x:active,
+.tport-expand:active,
+.np-play:active,
+.np-b:active,
+.np-chstep:active,
+.np-chip:active,
+.np-goto:active,
+.np-by-name:active,
+.np-series-chip:active,
+.bulk-b:active,
+.bulk-x:active,
+.toast .t-act:active,
+.toast .t-x:active,
+.rel-x:active,
+.rel-add-role:active,
+.rel-drop:active,
+.chmap i:active,
+.cover-pick:active,
+.tbl th.can:active,
+.luw .home-search:active,
+.luw .disc-chip:active,
+.luw .shelf-grip:active,
+.luw .shelf-book-x:active,
+.luw .shelf-notice-x:active,
+.luw .lsetup-err-x:active,
+.luw .lsetup-up:active,
+.luw .lsetup-check:active,
+.luw .lset-err-x:active,
+.luw .lset-x:active,
+.luw .lset-up:active,
+.luw .lset-brow-add:active,
+.luw .inbox-selall:active,
+.luw .inbox-issue-x:active,
+.luw .inbox-notice-x:active,
+.luw .srv-err-x:active,
+.luw .cat-err-x:active,
+.luw .coll-err-x:active,
+.luw .bkp-err-x:active,
+.luw .imp-err-x:active,
+.luw .ced-err-x:active,
+.luw .ced-split:active,
+.luw .ced-merge:active,
+.luw .sed-err-x:active,
+.luw .sed-merge:active,
+.luw .ched-add:active,
+.luw .mdx-review:active,
+.luw .cmx-hit:active,
+.luw .sel-target:active,
+.luw .bke-clear:active,
+.luw .drift-pin:active,
+.luw .chr-a:active,
+.luw .cover-undo:active,
+.luw .imp-new:active,
+.luw .iflow-skip:active,
+.luw .iflow-find:active,
+.luw .bkp-restore:active,
+.luw .coll-new:active,
+.luw .cdet-add:active,
+.luw .cdet-share:active,
+.luw .cat-twist:active,
+.luw .cat-bar-b:active,
+.bd-series-chip:active { transform: translateY(1px); }
+
+/* Cards and tiles — big targets where 1px would be invisible. */
+.luw .home-card:active,
+.luw .disc-card:active,
+.luw .home-shelf:active,
+.luw .disc-shelf:active,
+.luw .disc-listener:active,
+.luw .shelf-book-open:active,
+.luw .prof-book:active,
+.cd-series-card:active { transform: scale(0.985); }
+
+/* Rows — colour, not geometry. See the note about `<tr>` above; the others join them so a list
+   of rows presses the same way whether it happens to be a table or a stack of divs. */
+.tbl tbody tr:not(.sel):active,
+.menu-i:active,
+.rel-result:active,
+.contrib-row:active,
+.search-row:not(.is-static):active,
+.folder-row:active,
+.luw .disc-feed-row.is-open:active,
+.luw .ntf-row:active,
+.luw .lsetup-open:active,
+.luw .prof-shelf:active,
+.luw .lset-brow-open:active,
+.luw .coll-open:active,
+.luw .cdet-result:active,
+.luw .ced-result:active,
+.luw .sed-result:active,
+.luw .chr:active,
+.luw .mdx-result:active,
+.lib-card.on:active,
+.luw .mdx-cover:active,
+.luw .iflow-result:active,
+.luw .cdet-person:active,
+.luw .inbox-book:active,
+.sd-book:active { background: var(--surface-3); }
+
+/* The library card is the one place a press has something to undo rather than add: the cover is
+   already lifted 3px by hover, so pressing sets it back down. Same rule as the hover treatment it
+   answers — transform only, never a property that participates in layout, because the grid is
+   virtualised on every card being exactly the same height. */
+.lib-card:active .lib-cover { transform: translateY(0); box-shadow: none; }
+
+/* ---- links ---- */
+.lnk {
+  color: var(--coral); font-weight: 600; cursor: pointer; text-decoration: none;
+  font-size: 14.5px; letter-spacing: -0.01em; white-space: nowrap;
+  border-bottom: 1px solid transparent; transition: border-color .15s;
+}
+@media (hover: hover) { .lnk:hover { border-bottom-color: var(--coral); } }
+.muted { color: var(--ink-2); }
+
+/* ---- checkbox ---- */
+.chk { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
+.chk .box {
+  width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--hairline);
+  background: var(--surface-2); display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background .15s, border-color .15s;
+}
+.chk.on .box { background: var(--coral); border-color: var(--coral); }
+.chk .box svg { opacity: 0; transition: opacity .12s; }
+.chk.on .box svg { opacity: 1; }
+.chk span { font-size: 14.5px; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
+
+/* ---- switch. A real <input type=checkbox role=switch> with its own chrome hidden and the track
+   drawn beside it, so the thing that is focusable, tabbable and announced IS the thing you see
+   move. `opacity:0` rather than `display:none`: a hidden input is removed from the tab order and
+   from the accessibility tree, which would leave a switch no keyboard could reach. */
+.sw { display: inline-flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; position: relative; }
+.sw-lb { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.sw-in { position: absolute; inset: auto 0 0 0; width: 100%; height: 22px; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.sw-track {
+  width: 40px; height: 22px; border-radius: 999px; flex: none;
+  background: var(--surface-3); border: 1px solid var(--line);
+  display: inline-flex; align-items: center; padding: 2px;
+  transition: background .15s, border-color .15s;
+}
+.sw-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--surface);
+  box-shadow: 0 1px 3px rgba(20,12,6,.3); transition: transform .15s;
+}
+.sw-in:checked ~ .sw-track { background: var(--coral); border-color: var(--coral); }
+.sw-in:checked ~ .sw-track .sw-thumb { transform: translateX(18px); }
+/* The focus ring lands on the track, because the input it belongs to is invisible by design. */
+.sw-in:focus-visible ~ .sw-track { outline: 2px solid var(--coral); outline-offset: 2px; }
+/* A channel the server declared ineligible. Dimmed AND `disabled` on the input — the look alone
+   would leave it reachable by keyboard and silent to a screen reader. */
+.sw.off { cursor: default; opacity: .45; }
+.f-box.off { opacity: .55; }
+.f-box.off .f-input { cursor: default; }
+.sw.off .sw-in { cursor: default; }
+
+/* ---- server connection chip (self-hosted indicator) ---- */
+.srv-chip {
+  display: inline-flex; align-items: center; gap: 9px; height: 34px;
+  padding: 0 13px 0 11px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.dir-b .srv-chip { border-radius: 8px; background: var(--surface); }
+.srv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); flex-shrink: 0; }
+.srv-chip { white-space: nowrap; }
+.srv-host { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-weight: 500; }
+.srv-sub { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+
+/* ---- badge (admin) ---- */
+.badge {
+  display: inline-flex; align-items: center; gap: 7px; height: 30px;
+  padding: 0 13px 0 10px; border-radius: 999px;
+  background: var(--coral-soft); color: var(--coral); font-weight: 600; font-size: 13px; white-space: nowrap;
+}
+.dir-b .badge { border-radius: 7px; font-family: var(--mono); text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.1em; }
+
+/* ---- divider with label ---- */
+.div-or { display: flex; align-items: center; gap: 14px; color: var(--ink-3); }
+.div-or::before, .div-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.div-or span { font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
+
