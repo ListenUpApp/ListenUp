@@ -1,0 +1,371 @@
+/* ============================================================
+   WEB PATTERNS — the power-surface layer.
+   Tables, menus, dialogs, toasts, states. Two densities:
+   .den-comfy (default, reading) and .den-dense (working).
+   ============================================================ */
+.luw { --ctl:44px; --row:48px; --fs:14.5px; --fsm:13px; --fxs:11.5px; --pad:22px; --rad:14px; --gap:16px; --colgap:22px; }
+.den-dense { --ctl:34px; --row:34px; --fs:13px; --fsm:12px; --fxs:11px; --pad:14px; --rad:9px; --gap:10px; --colgap:14px; }
+
+/* real focus rings — the web's own affordance */
+.luw :focus-visible { outline: 2.5px solid var(--coral); outline-offset: 2px; border-radius: 6px; }
+/* …except the text control inside a field box: `.f-box:focus-within` already draws the ring
+   (border + halo), so the generic outline would stack a second ring inside it — the double
+   highlight. Only `.f-input` opts out: the eye button in a password field keeps the generic
+   ring, because the box ring alone cannot show WHICH control inside the box holds focus. */
+.luw .f-box .f-input:focus-visible { outline: none; }
+.focus-demo { outline: 2.5px solid var(--coral); outline-offset: 2px; }
+
+/* keycap */
+.kbd { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; font-family:var(--mono); font-size:11px; font-weight:600; color:var(--ink-2); background:var(--surface); border:1px solid var(--line); border-bottom-width:2px; border-radius:6px; white-space:nowrap; }
+
+/* URL query-string emphasis — deep-linkable state made visible */
+.chrome-url i, .murl i { font-style: normal; color: var(--coral); font-weight: 600; }
+
+/* ---- table / data rows ---- */
+.tblwrap { background: var(--surface); border:1px solid var(--line); border-radius: var(--rad); overflow: hidden; box-shadow: var(--shadow-card); }
+.tbl { width:100%; border-collapse:separate; border-spacing:0; font-size:var(--fs); }
+.tbl th { height:36px; padding:0 12px; text-align:left; font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); background:var(--surface-2); border-bottom:1px solid var(--line); white-space:nowrap; user-select:none; }
+.tbl th.srt { color:var(--coral); cursor:pointer; }
+.tbl th.can { cursor:pointer; }
+@media (hover: hover) { .tbl th.can:hover { color:var(--ink); } }
+.tbl td { height:var(--row); padding:0 12px; border-bottom:1px solid var(--line-2); color:var(--ink); vertical-align:middle; }
+.tbl tbody tr:last-child td { border-bottom:none; }
+.tbl tbody tr { transition:background .12s; cursor:pointer; }
+@media (hover: hover) { .tbl tbody tr:hover { background:var(--surface-2); } }
+@media (hover: hover) { .tbl tbody tr.sel, .tbl tbody tr.sel:hover { background:var(--coral-soft); } }
+.tbl tbody tr.on td { color:var(--coral); font-weight:700; }
+.tbl .num { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink-2); text-align:right; white-space:nowrap; font-size:calc(var(--fs) - 1px); }
+.tbl .tt { font-weight:700; letter-spacing:-.01em; }
+.tbl .sub { font-size:var(--fxs); color:var(--ink-3); font-weight:500; }
+.tbl .rowact { display:flex; gap:2px; justify-content:flex-end; opacity:0; transition:opacity .12s; }
+@media (hover: hover) { .tbl tbody tr:hover .rowact { opacity:1; } }
+.iconbtn { width:30px; height:30px; border:none; background:transparent; border-radius:8px; color:var(--ink-3); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .iconbtn:hover { background:var(--surface-3); color:var(--ink); } }
+
+/* ---- menu / popover ---- */
+/* What a popover hangs from. `inline-flex` keeps it the width of its trigger: the account menu
+   was briefly anchored to .f-wrap, which is the FORM FIELD wrapper at width:100%, and an
+   unpositioned .menu inside it flowed as a block child — rendering the dropdown as a full-width
+   bar across the top of the content area. */
+.menu-anchor { position:relative; display:inline-flex; }
+/* Absolute by definition — this is a popover, so it must not take space in the flow. `left:0`
+   hangs it off the trigger's left edge (the account button sits at the content area's left);
+   `max-content` lets it size to its items while min-width keeps a small menu from looking mean.
+   Below .scrim's z-index:40 so a modal still covers it. */
+.menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
+.menu-i { display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; }
+@media (hover: hover) { .menu-i:hover { background:var(--surface-2); } }
+.menu-i.hi { background:var(--surface-2); }
+.menu-i .k { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.menu-i.danger { color:#C0392B; }
+@media (hover: hover) { .menu-i.danger:hover { background:rgba(192,57,43,.10); } }
+[data-theme="dark"] .menu-i.danger { color:#F08D7C; }
+.menu-sep { height:1px; background:var(--line-2); margin:5px 8px; }
+.menu-lb { padding:9px 9px 5px; font-family:var(--mono); font-size:10px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
+
+/* ---- dialog ---- */
+.scrim { position:absolute; inset:0; background:rgba(22,15,10,.36); display:flex; align-items:center; justify-content:center; z-index:40; }
+[data-theme="dark"] .scrim { background:rgba(0,0,0,.55); }
+.dlg { width:472px; max-width:88%; background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:0 30px 80px rgba(30,20,12,.42); overflow:hidden; }
+.dlg-h { padding:22px 24px 0; }
+.dlg-t { margin:0; font-size:19px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.dlg-b { padding:9px 24px 20px; font-size:14px; color:var(--ink-2); line-height:1.55; }
+.dlg-f { display:flex; justify-content:flex-end; gap:10px; padding:14px 18px; background:var(--surface-2); border-top:1px solid var(--line-2); }
+.btn-c { height:40px; padding:0 18px; border-radius:11px; border:none; cursor:pointer; font-family:inherit; font-size:14px; font-weight:700; letter-spacing:-.01em; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+@media (hover: hover) { .btn-c:hover { background:var(--coral-press); } }
+.btn-o { height:40px; padding:0 16px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:600; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+@media (hover: hover) { .btn-o:hover { background:var(--surface-3); } }
+/* Square icon-only companion to `.btn` — same height and radius, outline weight, so a primary
+   action and its icon sibling read as one row rather than two generations of button. */
+.btn-sq { height:52px; width:52px; flex-shrink:0; padding:0; border-radius:13px; cursor:pointer; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .btn-sq:hover { background:var(--surface-3); } }
+.btn-d { background:#C0392B; color:#fff; }
+@media (hover: hover) { .btn-d:hover { background:#A5301F; } }
+
+/* ---- toast ---- */
+.toast { display:flex; align-items:center; gap:12px; min-height:50px; padding:0 8px 0 15px; background:var(--ink); color:var(--paper); border-radius:13px; box-shadow:0 16px 44px rgba(20,12,6,.36); font-size:13.5px; font-weight:600; white-space:nowrap; }
+[data-theme="dark"] .toast { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
+.toast .t-dot { width:9px; height:9px; border-radius:99px; flex-shrink:0; }
+.toast .t-act { color:var(--amber); font-weight:700; cursor:pointer; padding:0 12px; height:34px; display:inline-flex; align-items:center; border-radius:8px; }
+@media (hover: hover) { .toast .t-act:hover { background:rgba(255,255,255,.10); } }
+[data-theme="dark"] .toast .t-act { color:var(--coral); }
+.toast .t-x { width:32px; height:32px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; opacity:.6; cursor:pointer; }
+@media (hover: hover) { .toast .t-x:hover { opacity:1; background:rgba(255,255,255,.10); } }
+
+/* The toast stack: bottom-centre, above everything including the transport bar (z 5/6) and the
+   command palette's scrim (z 50). Fixed rather than sticky — a toast reports on the app, not on
+   the page you happen to be scrolled to. `pointer-events:none` on the column with it restored on
+   each chip, so the empty space beside a short toast does not eat clicks on the page beneath. */
+.toastwrap {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none; max-width: min(560px, calc(100vw - 32px));
+}
+.toastwrap .toast { pointer-events: auto; max-width: 100%; white-space: normal; }
+/* The dot is the only colour a toast carries, so it has to mean something: coral for a failure,
+   muted for a notice. */
+.t-dot { background: var(--ink-3); }
+.t-dot.t-bad { background: var(--coral); }
+@media (prefers-reduced-motion: no-preference) {
+  .toastwrap .toast { animation: toast-in 180ms cubic-bezier(.2,.8,.2,1); }
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* The chapter picker: a modal list you jump from, not a table you edit. Capped in height so a
+   book with hundreds of marks scrolls inside the dialog rather than growing past the viewport. */
+.chap-dlg { max-width: 520px; width: min(520px, calc(100vw - 32px)); }
+.chap-list {
+  display: flex; flex-direction: column; gap: 2px; margin: 12px 0;
+  max-height: min(56vh, 460px); overflow-y: auto;
+  /* Scroll anchoring fights a programmatic scrollIntoView on open — the same reason the
+     virtualised grid disables it. */
+  overflow-anchor: none;
+}
+.chap-row {
+  display: flex; align-items: baseline; gap: 12px; width: 100%; text-align: left;
+  padding: 9px 12px; border: none; border-radius: 9px; cursor: pointer;
+  background: transparent; color: var(--ink); font: inherit; font-size: 14px;
+}
+@media (hover: hover) { .chap-row:hover { background: var(--surface-2); } }
+.chap-row:active { background: var(--surface-3); }
+/* The chapter being listened to. Coral rather than a bolder weight: the row is already dense, and
+   a weight change reflows the text under the reader's eye as the chapter turns over. */
+.chap-row.on { background: var(--coral-soft); color: var(--coral); }
+.chap-n { flex-shrink: 0; width: 2.2em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chap-row.on .chap-n { color: var(--coral); }
+.chap-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chap-at { flex-shrink: 0; font-size: 12.5px; color: var(--ink-3); }
+.chap-row.on .chap-at { color: var(--coral); }
+
+/* ---- sleep timer ---- */
+.sleep-dlg { max-width: 420px; width: min(420px, calc(100vw - 32px)); }
+.sleep-opts { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.sleep-opt {
+  padding: 8px 15px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600;
+}
+@media (hover: hover) { .sleep-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
+.sleep-opt:active { transform: translateY(1px); }
+.sleep-eoc {
+  display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+  background: var(--surface-2); color: var(--ink); font: inherit;
+}
+@media (hover: hover) { .sleep-eoc:hover { border-color: var(--coral); } }
+.sleep-eoc:active { transform: scale(0.985); }
+.sleep-eoc-t { font-size: 14px; font-weight: 700; }
+.sleep-eoc-s { font-size: 12.5px; color: var(--ink-3); }
+/* The countdown. Tabular figures so the digits do not jitter sideways once a second — the number
+   is being watched by someone trying to fall asleep. */
+.sleep-left {
+  margin: 16px 0 4px; font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.sleep-fade { margin: 16px 0; font-size: 14px; color: var(--ink-3); }
+/* ---- playback speed ---- */
+.speed-dlg { max-width: 460px; width: min(460px, calc(100vw - 32px)); }
+/* The rate, big enough to read from arm's length while the slider is under a thumb. Tabular so
+   the digits do not jitter sideways as it moves. */
+.speed-read {
+  margin: 18px 0 10px; font-size: 42px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
+}
+.speed-slide { width: 100%; margin: 0 0 18px; accent-color: var(--coral); }
+.speed-opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.speed-opt {
+  min-width: 56px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) { .speed-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
+.speed-opt:active { transform: translateY(1px); }
+/* The rate playing now. Coral fill rather than a heavier weight: the chips sit in a tight row and
+   a weight change reflows every one of them as the selection moves. */
+.speed-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
+.speed-reset { margin-top: 14px; }
+
+/* ---- volume boost ---- */
+/* Narrower than the speed panel: five chips and no slider. */
+.boost-dlg { max-width: 380px; width: min(380px, calc(100vw - 32px)); }
+
+/* ---- the expanded player. Wider than the pickers because it is the only panel that has to hold
+   a cover, a byline and a transport at once; every other one is a list of choices. */
+.np-dlg { width: 560px; max-width: min(560px, calc(100vw - 32px)); }
+.np-body { display:flex; gap:20px; align-items:flex-start; padding:4px 0 16px; }
+.np-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
+.np-t { font-size:20px; font-weight:800; letter-spacing:-.02em; color:var(--ink); line-height:1.2; }
+.np-by { font-size:14px; font-weight:600; color:var(--ink-2); }
+.np-sep { color:var(--ink-3); }
+/* A byline name is a control, not decoration — same contract as `.bd-by-name`. */
+.np-by-name { font:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer; border-radius:4px; }
+@media (hover: hover) { .np-by-name:hover { color:var(--coral); text-decoration:underline; } }
+.np-by-name:focus { outline:none; }
+.np-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-series { display:flex; flex-wrap:wrap; gap:8px; }
+.np-series-chip {
+  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+  background:var(--surface-2); border:1px solid var(--line);
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+}
+@media (hover: hover) { .np-series-chip:hover { border-color:var(--coral); color:var(--coral); } }
+.np-series-chip:focus { outline:none; }
+.np-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-series-seq { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.np-ch { display:flex; flex-direction:column; gap:2px; margin-top:2px; }
+.np-ch-n { font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); }
+.np-ch-t { font-size:13.5px; color:var(--ink-2); font-weight:600; }
+
+/* The transport. Centred as one group so the play button sits on the panel's axis — the row is
+   read as a unit, not as controls distributed across the width. */
+.np-transport { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 12px; }
+.np-play { width:56px; height:56px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .np-play:hover { background:var(--coral-press); } }
+.np-b, .np-chstep {
+  width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer;
+  background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center;
+}
+@media (hover: hover) { .np-b:hover, .np-chstep:not(:disabled):hover { background:var(--surface-2); color:var(--ink); } }
+/* A chapter step at either end of the book is genuinely unavailable, and says so. The hover above
+   is scoped to :not(:disabled) rather than overridden back here, so there is exactly one rule
+   describing when a step responds at all. */
+.np-chstep:disabled { opacity:.3; cursor:default; }
+
+.np-scrub-row { display:flex; align-items:center; gap:12px; padding-bottom:16px; }
+.np-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+.np-scrub { flex:1; min-width:60px; height:5px; margin:0; accent-color:var(--coral); cursor:pointer; }
+
+.np-actions { display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding-bottom:6px; }
+.np-chip {
+  padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:transparent;
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+  font-variant-numeric:tabular-nums;
+}
+@media (hover: hover) { .np-chip:hover { background:var(--surface-2); color:var(--ink); } }
+.np-chip.on { border-color:var(--coral); color:var(--coral); }
+.np-chip:focus { outline:none; }
+.np-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* The one control that leaves the player, so it sits apart from the four that do not. */
+.np-goto {
+  margin-left:auto; display:inline-flex; align-items:center; gap:4px;
+  padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:transparent;
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+}
+@media (hover: hover) { .np-goto:hover { border-color:var(--coral); color:var(--coral); } }
+.np-goto:focus { outline:none; }
+.np-goto:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+
+@media (max-width: 620px) {
+  /* The cover is the first thing to go: it is the largest element and the only one that carries
+     no information the rest of the panel does not already state in words. */
+  .np-body { flex-direction:column; align-items:stretch; gap:14px; }
+}
+.boost-read {
+  margin: 18px 0 10px; font-size: 42px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
+}
+/* Said only when a boost was asked for and refused, so it reads as an answer rather than a
+   standing caveat. */
+.boost-warn { margin: 0 0 14px; font-size: 13px; line-height: 1.45; color: var(--ink-3); text-align: center; }
+.boost-opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.boost-opt {
+  min-width: 56px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) { .boost-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
+.boost-opt:active { transform: translateY(1px); }
+.boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
+.boost-reset { margin-top: 14px; }
+
+/* An armed timer, said on the control itself rather than only inside the dialog. */
+.tport-sleep.on { color: var(--coral); }
+
+/* A boost in force, same idea: it changes how the book sounds, so it has to be visible without
+   opening a panel to ask. */
+.tport-boost.on { color: var(--coral); }
+
+/* ---- banners ---- */
+.banner { display:flex; align-items:center; gap:11px; padding:0 16px; min-height:44px; font-size:13.5px; font-weight:600; border-bottom:1px solid; }
+.banner.warn { background:#FBF1D8; color:#7A5A11; border-color:#EEDDB0; }
+.banner.err  { background:#FBE9E6; color:#8E2F20; border-color:#F1CFC9; }
+.banner.info { background:var(--surface-2); color:var(--ink-2); border-color:var(--line); }
+[data-theme="dark"] .banner.warn { background:#2A2110; color:#F3D492; border-color:#453619; }
+[data-theme="dark"] .banner.err  { background:#2B1512; color:#F5B5A8; border-color:#4A211B; }
+.banner .b-act { margin-left:auto; font-weight:700; text-decoration:underline; cursor:pointer; white-space:nowrap; }
+
+/* ---- server chip states ---- */
+.srv-chip.warn .srv-dot { background:var(--amber); box-shadow:0 0 0 3px color-mix(in srgb, var(--amber) 24%, transparent); }
+.srv-chip.down .srv-dot { background:#C0392B; box-shadow:0 0 0 3px rgba(192,57,43,.24); }
+@media (prefers-reduced-motion: no-preference) { .srv-chip.warn .srv-dot { animation: scanPulse 1.2s ease-in-out infinite; } }
+
+/* ---- states ---- */
+.empty { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:52px 24px; gap:7px; }
+.empty .ico { width:56px; height:56px; border-radius:17px; background:var(--surface-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink-3); margin-bottom:5px; }
+.empty h3 { margin:0; font-size:17px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
+.empty p { margin:0; font-size:13.5px; color:var(--ink-2); max-width:360px; line-height:1.55; text-wrap:pretty; }
+.skel { background:linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size:200% 100%; border-radius:7px; }
+@media (prefers-reduced-motion: no-preference) { .skel { animation: shim 1.5s linear infinite; } }
+@keyframes shim { to { background-position:-200% 0; } }
+
+/* ---- tabs ---- */
+.tabs { display:flex; gap:2px; border-bottom:1px solid var(--line); }
+.tab { height:42px; padding:0 14px; display:inline-flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600; color:var(--ink-2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
+@media (hover: hover) { .tab:hover { color:var(--ink); } }
+.tab.on { color:var(--coral); border-bottom-color:var(--coral); font-weight:700; }
+.tab .ct { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.tab.on .ct { color:var(--coral); }
+
+/* ---- segmented ---- */
+.seg { display:inline-flex; padding:3px; background:var(--surface-2); border:1px solid var(--line); border-radius:11px; gap:2px; }
+.seg b { height:30px; padding:0 11px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
+.seg b.on { background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(40,28,18,.14); }
+
+/* ---- facet rail ---- */
+.facet-h { font-family:var(--mono); font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); margin:0 0 7px 3px; }
+.facet { display:flex; align-items:center; gap:9px; height:30px; padding:0 9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
+@media (hover: hover) { .facet:hover { background:var(--surface-2); color:var(--ink); } }
+.facet.on { background:var(--coral-soft); color:var(--coral); }
+.facet .n { margin-left:auto; font-family:var(--mono); font-size:11.5px; color:var(--ink-3); }
+.facet.on .n { color:var(--coral); }
+
+/* ---- bulk action bar ---- */
+.bulk { display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:0 18px 48px rgba(20,12,6,.38); white-space:nowrap; }
+[data-theme="dark"] .bulk { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
+.bulk-b { height:36px; padding:0 13px; border-radius:9px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.09); color:inherit; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+[data-theme="dark"] .bulk-b { border-color:var(--line); background:var(--surface-2); }
+@media (hover: hover) { .bulk-b:hover { background:rgba(255,255,255,.18); } }
+@media (hover: hover) { [data-theme="dark"] .bulk-b:hover { background:var(--surface); } }
+.bulk-x { width:36px; height:36px; border-radius:9px; border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); } }
+@media (hover: hover) { [data-theme="dark"] .bulk-x:hover { background:var(--surface-2); } }
+
+/* ---- setting rows ---- */
+.srow { display:flex; align-items:center; gap:18px; padding:15px 0; border-bottom:1px solid var(--line-2); }
+.srow:last-child { border-bottom:none; }
+.den-dense .srow { padding:9px 0; }
+.srow .lbl { font-size:var(--fs); font-weight:600; color:var(--ink); letter-spacing:-.01em; }
+.srow .hint { font-size:var(--fsm); color:var(--ink-2); margin-top:2px; line-height:1.45; text-wrap:pretty; }
+.sw { width:46px; height:27px; border-radius:99px; background:var(--surface-3); border:1px solid var(--line); position:relative; cursor:pointer; flex-shrink:0; transition:background .16s; }
+.sw i { position:absolute; top:2px; left:2px; width:21px; height:21px; border-radius:99px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.28); transition:left .16s; }
+.sw.on { background:var(--coral); border-color:var(--coral); }
+.sw.on i { left:21px; }
+
+/* ---- breadcrumb ---- */
+.crumb { display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--ink-3); white-space:nowrap; }
+.crumb a { color:var(--ink-2); text-decoration:none; cursor:pointer; }
+@media (hover: hover) { .crumb a:hover { color:var(--coral); } }
+.crumb .cur { color:var(--ink); }
+
+/* ---- meta list (mono technical facts) ---- */
+.meta-r { display:flex; align-items:baseline; gap:14px; padding:7px 0; border-bottom:1px solid var(--line-2); font-size:var(--fsm); }
+.meta-r:last-child { border-bottom:none; }
+.meta-r dt { color:var(--ink-3); font-weight:600; width:98px; flex-shrink:0; }
+.meta-r dd { margin:0; color:var(--ink); font-weight:600; min-width:0; word-break:break-word; }
+.meta-r dd.mono { font-family:var(--mono); font-weight:500; font-size:calc(var(--fsm) - .5px); }
+
+/* ---- pill / tag ---- */
+.pill { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); font-size:12.5px; font-weight:600; color:var(--ink-2); cursor:pointer; white-space:nowrap; }
+@media (hover: hover) { .pill:hover { background:var(--surface-3); color:var(--ink); } }
+.pill.on { background:var(--coral-soft); border-color:transparent; color:var(--coral); }
+.pill .x { opacity:.6; }
+

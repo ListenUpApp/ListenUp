@@ -1,0 +1,16 @@
+/* ============================================================
+   SEE ALL — one group of search hits, uncapped
+   ============================================================ */
+/* ⛔ A "See all" appears only when hits are actually being withheld, so its presence is itself the
+   signal that the group above it is capped. Pushed to the header's trailing edge. */
+.luw .search-seeall { margin-left: auto; padding: 3px 9px; border: none; border-radius: 8px; background: transparent; color: var(--coral); font-family: inherit; font-size: 0.76rem; font-weight: 750; cursor: pointer; }
+@media (hover: hover) { .luw .search-seeall:hover { background: var(--coral-soft); } }
+.luw .search-seeall:active { transform: translateY(1px); }
+.luw .search-seeall:focus { outline: none; }
+.luw .search-seeall:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .sall { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+.luw .sall-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.luw .sall-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .sall-n { font-size: 0.82rem; font-weight: 650; color: var(--ink-3); }
+.luw .sall-q { font-size: 0.82rem; color: var(--ink-3); }
+

@@ -1,0 +1,73 @@
+/* ============================================================
+   UPLOAD — putting books in from this machine
+   ============================================================ */
+.luw .upl { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 720px; }
+.luw .upl-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.luw .upl-lede { margin: 0 0 12px; font-size: 0.9rem; color: var(--ink-2); }
+.luw .upl-picks { display: flex; flex-wrap: wrap; gap: 10px; }
+.luw .upl-live { display: flex; flex-direction: column; gap: 8px; }
+.luw .upl-step { margin: 0; font-size: 0.86rem; color: var(--ink-2); overflow-wrap: anywhere; }
+.luw .upl-bar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.luw .upl-bar-fill { height: 100%; width: 0; background: var(--coral); border-radius: inherit; transition: width .2s linear; }
+/* ⛔ Indeterminate, not zero: a selection that could not report its sizes is unknown progress, and
+   a bar pinned at zero reads as a hung upload. */
+.luw .upl-bar.is-idle .upl-bar-fill { width: 40%; }
+@media (prefers-reduced-motion: no-preference) {
+  .luw .upl-bar.is-idle .upl-bar-fill { animation: shim 1.5s linear infinite; background: linear-gradient(90deg, var(--coral-soft), var(--coral), var(--coral-soft)); background-size: 200% 100%; }
+}
+.luw .upl-done { display: flex; flex-direction: column; gap: var(--gap); }
+.luw .upl-sum { margin: 0; font-size: 1rem; font-weight: 700; color: var(--ink); }
+.luw .upl-err { margin: 0 0 12px; font-size: 0.9rem; color: var(--coral-deep); }
+.luw .upl-row { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; }
+.luw .upl-n { font-size: 0.86rem; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
+.luw .upl-d { font-size: 0.74rem; color: var(--ink-3); overflow-wrap: anywhere; }
+
+/* The transport's play control while the player waits on bytes. Sized to the glyph it replaces so
+   a stall never shuffles the row sideways; the accessible name changes with it, in TransportBar. */
+.luw .tport-wait { width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; opacity: .85; }
+@media (prefers-reduced-motion: no-preference) {
+  .luw .tport-wait { animation: tport-spin .8s linear infinite; }
+}
+@keyframes tport-spin { to { transform: rotate(360deg); } }
+
+/* ⛔ A lapsed session, said above the shell rather than instead of it — the library still reads and
+   an already-loaded book still plays, so replacing the page would remove everything that works in
+   order to report the one thing that does not. Not dismissible: it is the only route back in. */
+.luw .lapse { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--coral-soft); border-bottom: 1px solid var(--line); }
+.luw .lapse-ico { flex: none; display: inline-flex; color: var(--coral); }
+.luw .lapse-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.luw .lapse-t { font-size: 0.86rem; font-weight: 750; color: var(--ink); }
+.luw .lapse-b { font-size: 0.78rem; color: var(--ink-2); }
+.luw .lapse-go { flex: none; }
+
+/* ⛔ Edits the server refused past their retry budget. Not dismissible and not a sync indicator:
+   this client shows no in-flight sync chrome at all, but a change that was silently lost is not
+   chrome — it is the reader's own work, and the only routes out are retry and accept-the-server. */
+.luw .dlq { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); margin: 0 var(--pad) 10px; }
+.luw .dlq-ico { flex: none; display: inline-flex; color: var(--coral); }
+.luw .dlq-t { flex: 1; min-width: 0; font-size: 0.84rem; font-weight: 650; color: var(--ink); }
+.luw .dlq-go { flex: none; }
+.luw .dlq-list { display: flex; flex-direction: column; gap: 6px; max-height: 16rem; overflow-y: auto; margin: 12px 0; }
+.luw .dlq-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.luw .dlq-what { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 12rem; }
+.luw .dlq-desc { font-size: 0.86rem; font-weight: 650; color: var(--ink); }
+.luw .dlq-why { font-size: 0.74rem; color: var(--ink-3); overflow-wrap: anywhere; }
+.luw .dlq-acts { display: flex; gap: 6px; flex: none; }
+
+/* The book's overflow menu reuses the shell menu's look, but its items are real <button role=
+   "menuitem"> elements rather than clickable divs — so they are reachable by keyboard and announce
+   themselves. These two rules are what a button needs to sit in a list styled for divs. */
+.luw .menu-i { width: 100%; border: none; background: transparent; font-family: inherit; text-align: left; }
+.luw .menu-i:focus-visible { outline: 2px solid var(--coral); outline-offset: -2px; }
+
+/* Every name on Discover is the way to that person. A button rather than the span it replaced, so
+   it is focusable and announced; inherits its neighbour's type so only the behaviour changed. */
+.luw .disc-person { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+@media (hover: hover) { .luw .disc-person:hover { color: var(--coral); text-decoration: underline; } }
+.luw .disc-person:active { transform: translateY(1px); }
+.luw .disc-person:focus { outline: none; }
+.luw .disc-person:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 4px; }
+
+/* A refused filing, reported under the header rather than inside the picker — the picker closes on
+   a successful pick, so a failure shown only there would vanish with it. Click to dismiss. */
+.luw .bd-pick-err { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--coral-soft); color: var(--coral-deep); font-size: 0.82rem; font-weight: 600; cursor: pointer; }
