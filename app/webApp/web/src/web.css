@@ -2905,3 +2905,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
    themselves. These two rules are what a button needs to sit in a list styled for divs. */
 .luw .menu-i { width: 100%; border: none; background: transparent; font-family: inherit; text-align: left; }
 .luw .menu-i:focus-visible { outline: 2px solid var(--coral); outline-offset: -2px; }
+
+/* Every name on Discover is the way to that person. A button rather than the span it replaced, so
+   it is focusable and announced; inherits its neighbour's type so only the behaviour changed. */
+.luw .disc-person { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+@media (hover: hover) { .luw .disc-person:hover { color: var(--coral); text-decoration: underline; } }
+.luw .disc-person:active { transform: translateY(1px); }
+.luw .disc-person:focus { outline: none; }
+.luw .disc-person:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 4px; }

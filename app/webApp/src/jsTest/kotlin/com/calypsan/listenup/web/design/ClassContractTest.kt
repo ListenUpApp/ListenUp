@@ -2068,6 +2068,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 nowMs = 0L,
                 onOpenBook = {},
                 onOpenShelf = {},
+                onOpenProfile = {},
                 onSelectPeriod = {},
                 onSelectCategory = {},
             )
