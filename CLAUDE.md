@@ -355,6 +355,15 @@ fails.
 
 ---
 
+## Platform Parity Is a Stop, Not a Ticket
+
+ListenUp ships on Android (Compose), iOS (SwiftUI over Swift Export) and web (Compose HTML); desktop is frozen. Every feature works on every platform unless it is genuinely not applicable there, and "not applicable" is a justification written into the PR, not a shrug.
+
+- If, while working on anything, you find a platform that lacks what you are touching — the screen, the row, the action, the setting — **stop**. Say so. Implement it on that platform first, in the same branch and the same PR. Then continue.
+- A PR body that says "not in this PR", "booked separately", "follow-up" or "parity gap" about another platform is a failure signal, and a reviewer sends it back. If a platform is truly out of scope, the PR says why in one sentence a maintainer would accept.
+- Bug fixes are not exempt. A fix that touches a screen surfaces every gap on that screen on the other platforms, and the PR closes them.
+- Why: "we'll do it later" has meant "never" often enough that iOS and web accumulated gaps nobody planned. Parity is the definition of done and a release gate, not a nice-to-have.
+
 ## What Done Looks Like
 
 Working software that has been tested. Clean, readable code that the next person can understand. A codebase that is better than you found it. Features that serve the people using them, not the people building them. A rubric rule that was violated is now complied with. A test that didn't exist now does.
