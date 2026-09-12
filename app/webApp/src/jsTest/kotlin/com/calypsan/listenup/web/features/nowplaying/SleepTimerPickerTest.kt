@@ -339,6 +339,47 @@ class SleepTimerSessionTest :
             player.releasePlayer()
         }
 
+        test("a timer armed on one book does not survive into the next") {
+            // ⛔ The bug this exists for: web never told the shared timer the book had changed, so an
+            // end-of-chapter timer armed on book A faded out book B at ITS first chapter turn — and
+            // `SleepTimerManager.onBookChanged`'s KDoc names why that is the worst case: it happens
+            // "while the listener is asleep and cannot correct it". A duration timer likewise just
+            // kept counting across books.
+            val segment = silentSegment(SEGMENT_MS)
+            val manager = fakePlaybackManager(segment, title = "Dune")
+            val player = HtmlAudioPlayer()
+            val playback =
+                LivePlayback(
+                    manager,
+                    WebPlaybackController(player, manager),
+                    player,
+                    FakePlaybackPreferences(),
+                    FakeBookRepository(),
+                )
+
+            manager.currentChapter.value = chapterInfo(index = 0)
+            playback.playBook(BookId("book-1"))
+            player.awaitState(PlaybackState.Playing)
+            playback.setSleepTimer(SleepTimerMode.EndOfChapter)
+            playback.sleepTimer.value.shouldBeInstanceOf<SleepTimerState.Active>()
+
+            // A different book, started while that timer is live.
+            playback.playBook(BookId("book-2"))
+            player.awaitState(PlaybackState.Playing)
+
+            // Cancelled by the change of book, not carried over.
+            playback.sleepTimer.value shouldBe SleepTimerState.Inactive
+
+            // And the new book's first chapter turn does not fade it out.
+            manager.currentChapter.value = chapterInfo(index = 1)
+            playback.sleepTimer.value shouldBe SleepTimerState.Inactive
+            player.state.value shouldBe PlaybackState.Playing
+
+            playback.close()
+            player.releasePlayer()
+            URL.revokeObjectURL(segment.url)
+        }
+
         test("an end-of-chapter timer stops the audio when the chapter turns over") {
             // The whole chain, on a real player: the chapter feed reaches the shared timer, the
             // timer fires, the fade runs, the element actually pauses, and the timer resets so the
@@ -358,6 +399,11 @@ class SleepTimerSessionTest :
                     FakeBookRepository(),
                 )
 
+            // ⛔ Chapter 0 is published BEFORE the book, and the suspension inside `playBook` is
+            // what makes it observable. `currentChapter` is a StateFlow and therefore conflates:
+            // set 0 and then 1 with nothing suspending in between and a collector that has not run
+            // yet sees only 1, so the end-of-chapter baseline never becomes 0 and the turn cannot
+            // be detected. This ordering is load-bearing, not incidental.
             manager.currentChapter.value = chapterInfo(index = 0)
             playback.playBook(BookId("book-1"))
             player.awaitState(PlaybackState.Playing)

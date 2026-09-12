@@ -69,6 +69,8 @@ fun BookDetailPage(
     onOpenContributor: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     readers: BookReadersUiState = BookReadersUiState.Loading,
+    /** True while a play request for this book is in flight — see the Play button. */
+    isPreparing: Boolean = false,
     nowMs: Long = 0L,
     onOpenProfile: (String) -> Unit = {},
     onSeeAllReaders: () -> Unit = {},
@@ -84,6 +86,7 @@ fun BookDetailPage(
         SharedHeader(
             state = state,
             bookId = bookId,
+            isPreparing = isPreparing,
             onPlay = onPlay,
             onEdit = onEdit,
             onMatchMetadata = onMatchMetadata,
@@ -185,6 +188,7 @@ fun BookDetailPage(
 private fun SharedHeader(
     state: BookDetailUiState,
     bookId: String?,
+    isPreparing: Boolean,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
     onMatchMetadata: () -> Unit,
@@ -228,13 +232,19 @@ private fun SharedHeader(
                 // the absence of Play.
                 Div(attrs = { classes("bd-actions") }) {
                     if (ready.canPlay) {
+                        // ⛔ The button answers its own tap. Preparing a book nulls the transport
+                        // bar's title (nothing is loaded, so the bar is gone) — which left pressing
+                        // Play with no visible consequence anywhere until audio actually began. The
+                        // flag behind this is `preparingBookIdUi`, delayed so a fast prepare never
+                        // flashes; both natives make this same button their busy surface.
                         Button(attrs = {
                             classes("btn")
                             attr("type", BUTTON_VALUE)
+                            if (isPreparing) attr("disabled", "")
                             onClick { onPlay() }
                         }) {
-                            Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
-                            Text(if (ready.progress != null) "Resume" else "Play")
+                            Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
+                            Text(playLabel(ready, isPreparing))
                         }
                     }
                     // Icon-only, so the accessible name is the attribute, not the content —
@@ -541,6 +551,22 @@ private const val COVER_RUNG = 360
 private const val COVER_RADIUS = 16
 
 private const val ICON_SIZE = 24
+
+/**
+ * What the Play button says.
+ *
+ * ⛔ "Loading…" rather than keeping "Play"/"Resume" under a changed icon: the label is what a screen
+ * reader gets, and a disabled button still called "Play" says nothing about why it stopped working.
+ */
+internal fun playLabel(
+    ready: BookDetailUiState.Ready,
+    isPreparing: Boolean,
+): String =
+    when {
+        isPreparing -> "Loading…"
+        ready.progress != null -> "Resume"
+        else -> "Play"
+    }
 
 private const val PLAY_ICON_SIZE = 16
 

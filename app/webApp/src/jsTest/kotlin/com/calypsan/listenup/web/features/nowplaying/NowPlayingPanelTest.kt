@@ -51,6 +51,28 @@ class NowPlayingPanelTest :
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
 
+        /** Just the bar, with no panel opened — enough for the controls it owns itself. */
+        fun plainBar(state: TransportState): HTMLElement =
+            mounts.mount {
+                TransportBar(
+                    state = state,
+                    onPlayPause = {},
+                    onSeek = {},
+                    onSkipBack = {},
+                    onSkipForward = {},
+                    onSetSpeed = {},
+                    chapters = emptyList(),
+                    currentChapterIndex = null,
+                    onSeekToChapter = {},
+                    sleepTimer = SleepTimerState.Inactive,
+                    volumeBoostDb = 0f,
+                    nowPlaying = book(),
+                    onOpenBook = {},
+                    onOpenSeries = {},
+                    onOpenContributor = {},
+                )
+            }
+
         /**
          * Mounts the real bar, opens the expanded player through the handle a listener would use,
          * and hands back the host.
@@ -266,6 +288,25 @@ class NowPlayingPanelTest :
 
             host.querySelector(".speed-dlg").shouldNotBeNull()
             host.querySelector(".np-dlg").shouldNotBeNull()
+        }
+
+        test("a stalled player says so on the control, and in words") {
+            // ⛔ `HtmlAudioPlayer` has published Buffering since it was written and nothing read it,
+            // so a book that stalled showed a Pause icon and a frozen clock — indistinguishable
+            // from the app being broken. The label matters as much as the spinner: a spinner is
+            // invisible to a screen reader, and "Pause" while stalled lies about what the control
+            // would do.
+            val host = plainBar(playing(isPlaying = true).copy(isBuffering = true))
+
+            host.querySelector(".tport-wait").shouldNotBeNull()
+            (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Loading"
+        }
+
+        test("a player that is merely playing shows no spinner") {
+            val host = plainBar(playing(isPlaying = true).copy(isBuffering = false))
+
+            host.querySelector(".tport-wait") shouldBe null
+            (host.querySelector(".tport-b") as HTMLElement).getAttribute("aria-label") shouldBe "Pause"
         }
     })
 

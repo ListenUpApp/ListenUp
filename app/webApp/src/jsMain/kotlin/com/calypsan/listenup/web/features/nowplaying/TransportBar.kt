@@ -29,6 +29,15 @@ import kotlin.math.roundToInt
 data class TransportState(
     val title: String,
     val isPlaying: Boolean,
+    /**
+     * The player is waiting on bytes — a mid-playback stall, not a prepare.
+     *
+     * ⛔ Load-bearing, not decoration. [com.calypsan.listenup.web.playback.HtmlAudioPlayer] has
+     * published `Buffering` since it was written and nothing read it, so a book that stalled on a
+     * slow connection showed a Pause icon and a frozen clock — indistinguishable from a bug in the
+     * app. Both native clients put a spinner on the same control for the same reason.
+     */
+    val isBuffering: Boolean = false,
     val positionMs: Long,
     val durationMs: Long,
     /** Current playback rate, shown on the speed control and used to size a skip. */
@@ -92,7 +101,14 @@ fun TransportBar(
     var speedOpen by remember { mutableStateOf(false) }
     var boostOpen by remember { mutableStateOf(false) }
     var expandedOpen by remember { mutableStateOf(false) }
-    val label = if (state.isPlaying) "Pause" else "Play"
+    // ⛔ Announced, not merely drawn: a spinner is invisible to a screen reader, and "Pause" while
+    // the player is stalled is a lie about what pressing it would achieve.
+    val label =
+        when {
+            state.isBuffering -> "Loading"
+            state.isPlaying -> "Pause"
+            else -> "Play"
+        }
     ChapterPicker(
         open = chaptersOpen,
         chapters = chapters,
@@ -172,15 +188,7 @@ fun TransportBar(
             onClick = onSkipBack,
         )
 
-        Button(attrs = {
-            classes("tport-b")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, label)
-            attr(ATTR_TITLE, label)
-            onClick { onPlayPause() }
-        }) {
-            Icon(if (state.isPlaying) WebIcon.Pause else WebIcon.Play, size = TRANSPORT_ICON_SIZE)
-        }
+        PlayPauseButton(state = state, label = label, onPlayPause = onPlayPause)
 
         SkipButton(
             icon = WebIcon.SkipForward,
@@ -290,6 +298,36 @@ private fun SessionControls(
         onClick { onOpenSleep() }
     }) {
         Icon(WebIcon.Clock, size = SLEEP_ICON_SIZE)
+    }
+}
+
+/**
+ * The one control that changes whether audio is coming out, in its three states.
+ *
+ * ⛔ The spinner replaces the glyph rather than sitting beside it: the control keeps its size and
+ * position, so a stall does not shuffle the whole transport row sideways under the reader's cursor.
+ */
+@Composable
+private fun PlayPauseButton(
+    state: TransportState,
+    label: String,
+    onPlayPause: () -> Unit,
+) {
+    Button(attrs = {
+        classes("tport-b")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, label)
+        attr(ATTR_TITLE, label)
+        onClick { onPlayPause() }
+    }) {
+        if (state.isBuffering) {
+            Div(attrs = {
+                classes("tport-wait")
+                attr("aria-hidden", "true")
+            })
+        } else {
+            Icon(if (state.isPlaying) WebIcon.Pause else WebIcon.Play, size = TRANSPORT_ICON_SIZE)
+        }
     }
 }
 
