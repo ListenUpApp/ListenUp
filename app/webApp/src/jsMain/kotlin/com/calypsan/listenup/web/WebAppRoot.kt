@@ -35,6 +35,7 @@ import com.calypsan.listenup.web.features.chaptereditor.chapterProblemText
 import com.calypsan.listenup.web.features.chaptereditor.DiscardChapterEditsDialog
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.BookDetailSession
+import com.calypsan.listenup.web.features.bookdetail.BookPickers
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
@@ -1526,6 +1527,21 @@ private fun BookRouteContent(
         onMarkComplete = detailSession.onMarkComplete,
         onDiscardProgress = detailSession.onDiscardProgress,
         onRestart = detailSession.onRestart,
+        pickers =
+            BookPickers(
+                myShelves = detailSession.myShelves.collectAsState().value,
+                collections = detailSession.collections.collectAsState().value,
+                onShowShelfPicker = detailSession.onShowShelfPicker,
+                onHideShelfPicker = detailSession.onHideShelfPicker,
+                onAddToShelf = detailSession.onAddToShelf,
+                onCreateShelfAndAdd = detailSession.onCreateShelfAndAdd,
+                onClearShelfError = detailSession.onClearShelfError,
+                onShowCollectionPicker = detailSession.onShowCollectionPicker,
+                onHideCollectionPicker = detailSession.onHideCollectionPicker,
+                onAddToCollection = detailSession.onAddToCollection,
+                onCreateCollectionAndAdd = detailSession.onCreateCollectionAndAdd,
+                onClearCollectionError = detailSession.onClearCollectionError,
+            ),
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
         onMatchMetadata = { router.navigate(Route(listOf(BOOK_KEY, bookId, MATCH_KEY))) },

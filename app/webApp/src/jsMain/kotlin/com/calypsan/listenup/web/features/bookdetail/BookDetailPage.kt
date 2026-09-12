@@ -74,6 +74,8 @@ fun BookDetailPage(
     onMarkComplete: () -> Unit = {},
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
+    /** The pickers' state comes from [state]; these open, answer and dismiss them. */
+    pickers: BookPickers = BookPickers(),
     nowMs: Long = 0L,
     onOpenProfile: (String) -> Unit = {},
     onSeeAllReaders: () -> Unit = {},
@@ -93,6 +95,7 @@ fun BookDetailPage(
             onMarkComplete = onMarkComplete,
             onDiscardProgress = onDiscardProgress,
             onRestart = onRestart,
+            pickers = pickers,
             onPlay = onPlay,
             onEdit = onEdit,
             onMatchMetadata = onMatchMetadata,
@@ -198,6 +201,7 @@ private fun SharedHeader(
     onMarkComplete: () -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
+    pickers: BookPickers,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
     onMatchMetadata: () -> Unit,
@@ -262,7 +266,10 @@ private fun SharedHeader(
                             onMarkComplete = onMarkComplete,
                             onDiscardProgress = onDiscardProgress,
                             onRestart = onRestart,
+                            onAddToShelf = pickers.onShowShelfPicker,
+                            onAddToCollection = pickers.onShowCollectionPicker,
                         )
+                        BookPickerDialogs(ready = loaded, pickers = pickers)
                     }
                     // Icon-only, so the accessible name is the attribute, not the content —
                     // BookDetailEditButtonTest pins both the label and that it matches Play's height.

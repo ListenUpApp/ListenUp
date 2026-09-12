@@ -47,6 +47,8 @@ class BookActionsMenuTest :
             onMarkComplete: () -> Unit = {},
             onDiscardProgress: () -> Unit = {},
             onRestart: () -> Unit = {},
+            onAddToShelf: () -> Unit = {},
+            onAddToCollection: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 BookActionsMenu(
@@ -54,6 +56,8 @@ class BookActionsMenuTest :
                     onMarkComplete = onMarkComplete,
                     onDiscardProgress = onDiscardProgress,
                     onRestart = onRestart,
+                    onAddToShelf = onAddToShelf,
+                    onAddToCollection = onAddToCollection,
                 )
             }
 
@@ -68,14 +72,14 @@ class BookActionsMenuTest :
             // changes nothing.
             val host = openMenu(menu(readyBook()))
 
-            menuItems(host) shouldContainExactly listOf("Mark as finished")
+            menuItems(host) shouldContainExactly listOf("Mark as finished", "Add to shelf")
         }
 
         test("a book in progress offers all three") {
             val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
 
             menuItems(host) shouldContainExactly
-                listOf("Mark as finished", "Mark as not started", "Restart book")
+                listOf("Mark as finished", "Mark as not started", "Restart book", "Add to shelf")
         }
 
         test("a finished book can still be undone, even with no progress left to key on") {
@@ -84,7 +88,7 @@ class BookActionsMenuTest :
             // book finished by mistake.
             val host = openMenu(menu(readyBook().copy(isComplete = true, progress = null)))
 
-            menuItems(host) shouldContainExactly listOf("Mark as not started", "Restart book")
+            menuItems(host) shouldContainExactly listOf("Mark as not started", "Restart book", "Add to shelf")
         }
 
         test("each action reports itself") {
@@ -135,7 +139,7 @@ class BookActionsMenuTest :
             val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
 
             val items = host.querySelectorAll(".menu-i").asList().filterIsInstance<HTMLElement>()
-            items.size shouldBe 3
+            items.size shouldBe 4
             items.forEach {
                 it.tagName.lowercase() shouldBe "button"
                 it.getAttribute("role") shouldBe "menuitem"
