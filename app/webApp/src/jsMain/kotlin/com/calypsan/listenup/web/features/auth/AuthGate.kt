@@ -183,12 +183,17 @@ fun AuthGate(
                 PendingApprovalBranch(authGraph, state.userId.value, state.email)
             }
 
-            // SessionLapsed rides with Authenticated exactly as AuthNavigation.kt:131 does. Its
-            // documented "sign in to sync" affordance is deferred on every platform; web does not
-            // get to invent a re-auth UX the native clients do not have.
+            // ⛔ SessionLapsed rides with Authenticated because the shell still works — the library
+            // is in OPFS and reads, and an already-loaded book keeps playing. What it does NOT get
+            // to do is stay silent: this branch used to render the ordinary signed-in shell with no
+            // banner and no way back, so a reader whose refresh token died just watched requests
+            // fail. (The comment that stood here claimed the affordance was "deferred on every
+            // platform". It was not: Android ships a non-dismissible ConnectionHealthBanner and iOS
+            // a SessionLapsedBanner with a re-auth sheet. Web was alone in having nothing.)
             is AuthState.Authenticated,
             is AuthState.SessionLapsed,
             -> {
+                if (state is AuthState.SessionLapsed) SessionLapsedBanner(authGraph)
                 LibrarySetupGate(openLibrarySetup) {
                     WebAppRoot(
                         router = router,

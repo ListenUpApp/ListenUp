@@ -107,6 +107,8 @@ import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
+import org.w3c.dom.asList
+import org.w3c.dom.HTMLDialogElement
 
 /** A signed-in session. The ids are arbitrary — the gate only ever branches on the state's type. */
 private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
@@ -212,6 +214,76 @@ class AuthGateTest :
 
             host.querySelector(".lsetup").shouldNotBeNull()
             host.querySelector(".shell") shouldBe null
+        }
+
+        test("a lapsed session keeps the app and says how to get back in") {
+            // ⛔ The regression this pins. This branch used to render the ordinary signed-in shell
+            // with no banner at all, so a reader whose refresh token died just watched requests
+            // fail with nothing on screen explaining why or offering a way back. The shell stays —
+            // the library is in OPFS and still reads — but silence was never the right half to keep.
+            val host =
+                mountGate(
+                    FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
+                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                )
+
+            host.querySelector(".shell").shouldNotBeNull()
+            val banner = (host.querySelector(".lapse") as? HTMLElement).shouldNotBeNull()
+            banner.textContent.orEmpty() shouldContain "Signed out"
+            // ⛔ Not the shared copy verbatim — it promises downloads, which this client has none of.
+            banner.textContent.orEmpty() shouldNotContain "downloads"
+            banner.getAttribute("aria-live") shouldBe "polite"
+        }
+
+        test("the banner offers no way to dismiss it, because it is the only way back") {
+            // Android's own banner carries this reasoning: a close button removes the reader's sole
+            // route to sign-in from an authenticated shell.
+            val host =
+                mountGate(
+                    FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
+                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                )
+
+            val banner = host.querySelector(".lapse") as HTMLElement
+            val labels =
+                banner
+                    .querySelectorAll("button")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .map { it.textContent?.trim() }
+            labels shouldBe listOf("Sign in")
+        }
+
+        test("Sign in opens the form over the app rather than replacing it") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
+                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                )
+
+            (host.querySelector(".lapse-go") as HTMLElement).click()
+            awaitFrame()
+
+            val sheet = (host.querySelector("dialog") as? HTMLDialogElement).shouldNotBeNull()
+            host.querySelector("#auth-password").shouldNotBeNull()
+            // The app is still underneath — a lapse is not a sign-out.
+            host.querySelector(".shell").shouldNotBeNull()
+
+            // ⛔ Closed before this spec ends. `showModal()` makes the whole document inert, and a
+            // dialog left open outlives the composition that owns it — it took the command palette's
+            // focus specs down with it, which is precisely the leak `ClassContractTest` closes
+            // dialogs to avoid.
+            sheet.close()
+        }
+
+        test("an authenticated session shows no banner at all") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                )
+
+            host.querySelector(".lapse") shouldBe null
         }
 
         test("a server that is already set up goes straight to the app") {
