@@ -34,6 +34,7 @@ import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
 import com.calypsan.listenup.web.features.chaptereditor.chapterProblemText
 import com.calypsan.listenup.web.features.chaptereditor.DiscardChapterEditsDialog
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
+import com.calypsan.listenup.web.features.bookdetail.BookDetailSession
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
@@ -1200,13 +1201,13 @@ private fun playbackState(openPlayback: OpenPlayback): PlaybackSession {
  * ViewModel down instead of stacking another live one behind it.
  */
 @Composable
-private fun bookDetailState(
+private fun bookDetailSession(
     bookId: String,
     openBookDetail: OpenBookDetail,
-): BookDetailUiState {
+): BookDetailSession {
     val session = remember(bookId) { openBookDetail(bookId) }
     DisposableEffect(session) { onDispose { session.close() } }
-    return session.state.collectAsState().value
+    return session
 }
 
 /**
@@ -1452,7 +1453,7 @@ private fun BookRouteContent(
     if (readersBookId != null) {
         ReadersPage(
             state = bookReadersState(readersBookId, openBookReaders),
-            bookTitle = bookTitleOf(bookDetailState(readersBookId, openBookDetail)),
+            bookTitle = bookTitleOf(bookDetailSession(readersBookId, openBookDetail).state.collectAsState().value),
             nowMs = nowMs(),
             onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
             onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, readersBookId))) },
@@ -1496,8 +1497,9 @@ private fun BookRouteContent(
         return
     }
 
+    val detailSession = bookDetailSession(bookId, openBookDetail)
     BookDetailPage(
-        state = bookDetailState(bookId, openBookDetail),
+        state = detailSession.state.collectAsState().value,
         tab = route.query["tab"] ?: "overview",
         // replace, not navigate: panes and selection are page state, and Back should
         // leave the page rather than unwind every pane and toggle.
@@ -1520,6 +1522,9 @@ private fun BookRouteContent(
         },
         onPlay = { playback.onPlayBook(BookId(bookId)) },
         isPreparing = playback.preparingBookId.collectAsState().value == bookId,
+        onMarkComplete = detailSession.onMarkComplete,
+        onDiscardProgress = detailSession.onDiscardProgress,
+        onRestart = detailSession.onRestart,
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
         onMatchMetadata = { router.navigate(Route(listOf(BOOK_KEY, bookId, MATCH_KEY))) },
@@ -1577,7 +1582,7 @@ private fun MetadataRoute(
     openMetadata: OpenMetadata,
     bookId: String,
 ) {
-    val detail = bookDetailState(bookId, openBookDetail)
+    val detail = bookDetailSession(bookId, openBookDetail).state.collectAsState().value
     val ready = detail as? BookDetailUiState.Ready
     val book = ready?.book
 
