@@ -30,8 +30,12 @@ fun BookActionsMenu(
     onMarkComplete: () -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
+    onAddToShelf: () -> Unit,
+    onAddToCollection: () -> Unit,
 ) {
-    val items = progressActions(ready, onMarkComplete, onDiscardProgress, onRestart)
+    val items =
+        progressActions(ready, onMarkComplete, onDiscardProgress, onRestart) +
+            filingActions(ready, onAddToShelf, onAddToCollection)
     // No menu at all rather than an empty one: a button that opens nothing is worse than no button.
     if (items.isEmpty()) return
 
@@ -108,6 +112,27 @@ internal fun progressActions(
         }
     }
 }
+
+/**
+ * Where this book can be filed.
+ *
+ * ⛔ Collections are admin-managed, and the entry is gated on `isAdmin` here as well as being
+ * refused server-side. Android gates its own picker the same way and says why: defence in depth, so
+ * the picker cannot render for a non-admin even if the flag behind it leaks true.
+ *
+ * "Add to shelf" has no such gate — a shelf is the listener's own.
+ */
+internal fun filingActions(
+    ready: BookDetailUiState.Ready,
+    onAddToShelf: () -> Unit,
+    onAddToCollection: () -> Unit,
+): List<BookAction> =
+    buildList {
+        add(BookAction("Add to shelf", WebIcon.Bookmark, onAddToShelf))
+        if (ready.isAdmin) {
+            add(BookAction("Add to collection", WebIcon.Layers, onAddToCollection))
+        }
+    }
 
 private const val ICON_SIZE = 18
 

@@ -2913,3 +2913,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .disc-person:active { transform: translateY(1px); }
 .luw .disc-person:focus { outline: none; }
 .luw .disc-person:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 4px; }
+
+/* A refused filing, reported under the header rather than inside the picker — the picker closes on
+   a successful pick, so a failure shown only there would vanish with it. Click to dismiss. */
+.luw .bd-pick-err { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--coral-soft); color: var(--coral-deep); font-size: 0.82rem; font-weight: 600; cursor: pointer; }

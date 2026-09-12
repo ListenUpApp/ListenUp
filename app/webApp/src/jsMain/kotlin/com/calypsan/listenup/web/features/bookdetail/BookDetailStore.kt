@@ -6,6 +6,8 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
+import com.calypsan.listenup.client.domain.model.Collection
+import com.calypsan.listenup.client.domain.model.Shelf
 
 /**
  * An open Book Detail state stream, plus the teardown for it.
@@ -29,6 +31,24 @@ class BookDetailSession(
     val onDiscardProgress: () -> Unit,
     /** Keep the book started but send the position back to zero. */
     val onRestart: () -> Unit,
+    /**
+     * The shelves this listener owns, and the collections they may file a book into.
+     *
+     * ⛔ Both are exposed by the ViewModel as flows separate from `state`, and web read neither — so
+     * even once the actions existed the pickers would have had nothing to show.
+     */
+    val myShelves: StateFlow<List<Shelf>>,
+    val collections: StateFlow<List<Collection>>,
+    val onShowShelfPicker: () -> Unit,
+    val onHideShelfPicker: () -> Unit,
+    val onAddToShelf: (String) -> Unit,
+    val onCreateShelfAndAdd: (String) -> Unit,
+    val onClearShelfError: () -> Unit,
+    val onShowCollectionPicker: () -> Unit,
+    val onHideCollectionPicker: () -> Unit,
+    val onAddToCollection: (String) -> Unit,
+    val onCreateCollectionAndAdd: (String) -> Unit,
+    val onClearCollectionError: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -58,16 +78,41 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onMarkComplete = { viewModel.markComplete() },
             onDiscardProgress = viewModel::discardProgress,
             onRestart = viewModel::restartBook,
+            myShelves = viewModel.myShelves,
+            collections = viewModel.collections,
+            onShowShelfPicker = viewModel::showShelfPicker,
+            onHideShelfPicker = viewModel::hideShelfPicker,
+            onAddToShelf = viewModel::addBookToShelf,
+            onCreateShelfAndAdd = viewModel::createShelfAndAddBook,
+            onClearShelfError = viewModel::clearShelfError,
+            onShowCollectionPicker = viewModel::showCollectionPicker,
+            onHideCollectionPicker = viewModel::hideCollectionPicker,
+            onAddToCollection = viewModel::addBookToCollection,
+            onCreateCollectionAndAdd = viewModel::createCollectionAndAddBook,
+            onClearCollectionError = viewModel::clearCollectionError,
             close = store::clear,
         )
     }
 
 /** A session over a state that never changes — the shape specs use in place of the graph. */
+@Suppress("LongParameterList")
 fun fixedBookDetail(
     state: BookDetailUiState,
     onMarkComplete: () -> Unit = {},
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
+    myShelves: List<Shelf> = emptyList(),
+    collections: List<Collection> = emptyList(),
+    onShowShelfPicker: () -> Unit = {},
+    onHideShelfPicker: () -> Unit = {},
+    onAddToShelf: (String) -> Unit = {},
+    onCreateShelfAndAdd: (String) -> Unit = {},
+    onClearShelfError: () -> Unit = {},
+    onShowCollectionPicker: () -> Unit = {},
+    onHideCollectionPicker: () -> Unit = {},
+    onAddToCollection: (String) -> Unit = {},
+    onCreateCollectionAndAdd: (String) -> Unit = {},
+    onClearCollectionError: () -> Unit = {},
 ): OpenBookDetail =
     {
         BookDetailSession(
@@ -75,6 +120,18 @@ fun fixedBookDetail(
             onMarkComplete = onMarkComplete,
             onDiscardProgress = onDiscardProgress,
             onRestart = onRestart,
+            myShelves = MutableStateFlow(myShelves),
+            collections = MutableStateFlow(collections),
+            onShowShelfPicker = onShowShelfPicker,
+            onHideShelfPicker = onHideShelfPicker,
+            onAddToShelf = onAddToShelf,
+            onCreateShelfAndAdd = onCreateShelfAndAdd,
+            onClearShelfError = onClearShelfError,
+            onShowCollectionPicker = onShowCollectionPicker,
+            onHideCollectionPicker = onHideCollectionPicker,
+            onAddToCollection = onAddToCollection,
+            onCreateCollectionAndAdd = onCreateCollectionAndAdd,
+            onClearCollectionError = onClearCollectionError,
             close = {},
         )
     }
