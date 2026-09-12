@@ -71,6 +71,9 @@ fun BookDetailPage(
     readers: BookReadersUiState = BookReadersUiState.Loading,
     /** True while a play request for this book is in flight — see the Play button. */
     isPreparing: Boolean = false,
+    onMarkComplete: () -> Unit = {},
+    onDiscardProgress: () -> Unit = {},
+    onRestart: () -> Unit = {},
     nowMs: Long = 0L,
     onOpenProfile: (String) -> Unit = {},
     onSeeAllReaders: () -> Unit = {},
@@ -87,6 +90,9 @@ fun BookDetailPage(
             state = state,
             bookId = bookId,
             isPreparing = isPreparing,
+            onMarkComplete = onMarkComplete,
+            onDiscardProgress = onDiscardProgress,
+            onRestart = onRestart,
             onPlay = onPlay,
             onEdit = onEdit,
             onMatchMetadata = onMatchMetadata,
@@ -189,6 +195,9 @@ private fun SharedHeader(
     state: BookDetailUiState,
     bookId: String?,
     isPreparing: Boolean,
+    onMarkComplete: () -> Unit,
+    onDiscardProgress: () -> Unit,
+    onRestart: () -> Unit,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
     onMatchMetadata: () -> Unit,
@@ -246,6 +255,14 @@ private fun SharedHeader(
                             Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
                             Text(playLabel(ready, isPreparing))
                         }
+                    }
+                    ready?.let { loaded ->
+                        BookActionsMenu(
+                            ready = loaded,
+                            onMarkComplete = onMarkComplete,
+                            onDiscardProgress = onDiscardProgress,
+                            onRestart = onRestart,
+                        )
                     }
                     // Icon-only, so the accessible name is the attribute, not the content —
                     // BookDetailEditButtonTest pins both the label and that it matches Play's height.

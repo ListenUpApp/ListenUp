@@ -16,6 +16,19 @@ import org.koin.core.Koin
  */
 class BookDetailSession(
     val state: StateFlow<BookDetailUiState>,
+    /**
+     * Mark the book finished.
+     *
+     * ⛔ These three were the whole of web's Book Detail gap: the page consumed `state` and exposed
+     * no action at all, so a reader could look at a book on the web and never change their own
+     * relationship to it. `BookDetailViewModel` has had all three since it was written, and both
+     * native clients offer them from the book's overflow menu.
+     */
+    val onMarkComplete: () -> Unit,
+    /** Clear progress entirely — the "start over / did not finish" answer. */
+    val onDiscardProgress: () -> Unit,
+    /** Keep the book started but send the position back to zero. */
+    val onRestart: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -40,9 +53,28 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
         val viewModel = koin.get<BookDetailViewModel>()
         val store = ViewModelStore().apply { put(bookId, viewModel) }
         viewModel.loadBook(bookId)
-        BookDetailSession(state = viewModel.state, close = store::clear)
+        BookDetailSession(
+            state = viewModel.state,
+            onMarkComplete = { viewModel.markComplete() },
+            onDiscardProgress = viewModel::discardProgress,
+            onRestart = viewModel::restartBook,
+            close = store::clear,
+        )
     }
 
 /** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedBookDetail(state: BookDetailUiState): OpenBookDetail =
-    { BookDetailSession(state = MutableStateFlow(state), close = {}) }
+fun fixedBookDetail(
+    state: BookDetailUiState,
+    onMarkComplete: () -> Unit = {},
+    onDiscardProgress: () -> Unit = {},
+    onRestart: () -> Unit = {},
+): OpenBookDetail =
+    {
+        BookDetailSession(
+            state = MutableStateFlow(state),
+            onMarkComplete = onMarkComplete,
+            onDiscardProgress = onDiscardProgress,
+            onRestart = onRestart,
+            close = {},
+        )
+    }

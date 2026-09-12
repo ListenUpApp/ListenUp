@@ -2899,3 +2899,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .dlq-desc { font-size: 0.86rem; font-weight: 650; color: var(--ink); }
 .luw .dlq-why { font-size: 0.74rem; color: var(--ink-3); overflow-wrap: anywhere; }
 .luw .dlq-acts { display: flex; gap: 6px; flex: none; }
+
+/* The book's overflow menu reuses the shell menu's look, but its items are real <button role=
+   "menuitem"> elements rather than clickable divs — so they are reachable by keyboard and announce
+   themselves. These two rules are what a button needs to sit in a list styled for divs. */
+.luw .menu-i { width: 100%; border: none; background: transparent; font-family: inherit; text-align: left; }
+.luw .menu-i:focus-visible { outline: 2px solid var(--coral); outline-offset: -2px; }
