@@ -34,6 +34,7 @@ final class SettingsObserver {
 
     private(set) var serverUrl: String?
     private(set) var serverVersion: String?
+    private(set) var appVersion: String = ""
 
     private let viewModel: SettingsViewModel
     private let bridge = FlowBridge()
@@ -70,6 +71,7 @@ final class SettingsObserver {
         hideSingleBookSeries = state.hideSingleBookSeries
         serverUrl = state.serverUrl
         serverVersion = state.serverVersion
+        appVersion = state.appVersion
     }
 
     // MARK: - Actions (forward to the shared VM)
