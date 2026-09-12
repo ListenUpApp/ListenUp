@@ -35,6 +35,16 @@ fun RegisterForm(
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+
+    // ⛔ Guarded here rather than by the shared ViewModel, because `RegisterViewModel` takes no
+    // confirm value — the same place Android guards it (`CreateAccountScreen`'s `confirmMismatch`
+    // + `canSubmit`). Setup and Claim-invite both have this field already; registration was the
+    // one account-creating form on web without it, so a typo created an account awaiting admin
+    // approval with a password the registrant could not reproduce, recoverable only through the
+    // admin-mediated reset flow.
+    val mismatch = confirm.isNotEmpty() && password != confirm
+    val canSubmit = password.isNotEmpty() && password == confirm
 
     val submit = onSubmit
 
@@ -74,6 +84,17 @@ fun RegisterForm(
         PasswordField(label = "Password", value = password, onInput = {
             password = it
         }, id = PASSWORD_ID, autocomplete = "new-password")
+        PasswordField(
+            label = "Confirm password",
+            value = confirm,
+            onInput = { confirm = it },
+            error = mismatch,
+            id = REGISTER_CONFIRM_ID,
+            autocomplete = "new-password",
+        )
+        if (mismatch) {
+            Div(attrs = { classes("auth-err") }) { Text("Passwords don't match") }
+        }
 
         // The shared state carries a raw String here rather than a semantic error type, unlike
         // LoginUiState and SetupUiState. Rendered verbatim on purpose: substituting our own copy
@@ -86,7 +107,7 @@ fun RegisterForm(
         Button(attrs = {
             classes("btn")
             attr("type", "submit")
-            if (state is RegisterUiState.Loading) disabled()
+            if (state is RegisterUiState.Loading || !canSubmit) disabled()
             // No onClick: a submit button inside a form already submits it.
         }) {
             Icon(WebIcon.UserPlus, size = BUTTON_ICON_SIZE)
@@ -102,5 +123,8 @@ fun RegisterForm(
         }
     }
 }
+
+/** Registration's own confirm field — [SetupForm] already owns `auth-confirm`. */
+internal const val REGISTER_CONFIRM_ID = "auth-register-confirm"
 
 private const val BUTTON_ICON_SIZE = 19

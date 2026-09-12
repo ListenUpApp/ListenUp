@@ -2875,3 +2875,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   .luw .tport-wait { animation: tport-spin .8s linear infinite; }
 }
 @keyframes tport-spin { to { transform: rotate(360deg); } }
+
+/* ⛔ A lapsed session, said above the shell rather than instead of it — the library still reads and
+   an already-loaded book still plays, so replacing the page would remove everything that works in
+   order to report the one thing that does not. Not dismissible: it is the only route back in. */
+.luw .lapse { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--coral-soft); border-bottom: 1px solid var(--line); }
+.luw .lapse-ico { flex: none; display: inline-flex; color: var(--coral); }
+.luw .lapse-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.luw .lapse-t { font-size: 0.86rem; font-weight: 750; color: var(--ink); }
+.luw .lapse-b { font-size: 0.78rem; color: var(--ink-2); }
+.luw .lapse-go { flex: none; }
