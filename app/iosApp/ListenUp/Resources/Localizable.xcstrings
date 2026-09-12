@@ -14431,16 +14431,6 @@
         }
       }
     },
-    "settings.desktop": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Desktop"
-          }
-        }
-      }
-    },
     "settings.devices": {
       "localizations": {
         "en": {

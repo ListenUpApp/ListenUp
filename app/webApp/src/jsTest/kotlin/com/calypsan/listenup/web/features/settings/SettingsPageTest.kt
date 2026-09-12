@@ -201,6 +201,16 @@ class SettingsPageTest :
             host.textContent.orEmpty() shouldNotContain "null"
         }
 
+        test("the About section names this build's version, not the server's") {
+            val host =
+                mounts.mount {
+                    page(state = SettingsUiState(isLoading = false, appVersion = "9.9.9", serverVersion = "0.1.0"))
+                }
+
+            host.textContent.orEmpty() shouldContain "App version"
+            host.textContent.orEmpty() shouldContain "9.9.9"
+        }
+
         test("while loading it shows a shape, not a form full of defaults") {
             // Every field has a default, so a form rendered before the real values arrive would show
             // confident wrong answers and invite someone to "correct" one.

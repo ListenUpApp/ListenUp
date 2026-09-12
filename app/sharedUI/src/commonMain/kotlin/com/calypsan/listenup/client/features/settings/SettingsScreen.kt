@@ -103,7 +103,6 @@ import listenup.composeapp.generated.resources.settings_choose_light_dark_or_fol
 import listenup.composeapp.generated.resources.settings_default_boost
 import listenup.composeapp.generated.resources.settings_default_speed
 import listenup.composeapp.generated.resources.settings_default_timer
-import listenup.composeapp.generated.resources.settings_desktop
 import listenup.composeapp.generated.resources.settings_devices
 import listenup.composeapp.generated.resources.settings_downloads
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_backward
@@ -637,7 +636,7 @@ private fun AboutSection(
             icon = Icons.Default.Verified,
             accent = accent,
             title = stringResource(Res.string.settings_app_version),
-            value = stringResource(Res.string.settings_desktop),
+            value = state.appVersion,
         )
         state.serverVersion?.let { version ->
             InfoRow(

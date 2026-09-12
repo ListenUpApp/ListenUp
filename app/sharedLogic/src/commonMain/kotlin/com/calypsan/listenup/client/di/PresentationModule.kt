@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 /** Koin qualifier for the application-lifetime [kotlinx.coroutines.CoroutineScope] (`appCoreModule`). */
@@ -610,6 +611,7 @@ internal val settingsPresentationModule =
                 serverConfig = get(),
                 logoutUseCase = get<com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase>(),
                 pushRepository = get(),
+                appVersion = get(named("clientVersion")),
                 errorBus = get(),
             )
         }

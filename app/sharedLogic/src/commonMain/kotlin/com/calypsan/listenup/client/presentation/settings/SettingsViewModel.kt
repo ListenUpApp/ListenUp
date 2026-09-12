@@ -71,6 +71,8 @@ data class SettingsUiState(
     // Server info (read-only)
     val serverUrl: String? = null,
     val serverVersion: String? = null,
+    // This build (read-only). Known at construction, so never a placeholder.
+    val appVersion: String = "",
 )
 
 /**
@@ -91,6 +93,7 @@ class SettingsViewModel(
     private val serverConfig: ServerConfig,
     private val logoutUseCase: LogoutUseCase,
     private val pushRepository: PushRepository,
+    private val appVersion: String,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // Internal mutable state for settings that aren't reactive StateFlows
@@ -102,7 +105,7 @@ class SettingsViewModel(
      */
     val events: Flow<SettingsEvent> = testNotificationEvents.receiveAsFlow()
 
-    private val internalState = MutableStateFlow(SettingsUiState())
+    private val internalState = MutableStateFlow(SettingsUiState(appVersion = appVersion))
 
     /**
      * Combined UI state that merges:
@@ -143,7 +146,7 @@ class SettingsViewModel(
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = SettingsUiState(),
+            initialValue = SettingsUiState(appVersion = appVersion),
         )
 
     init {

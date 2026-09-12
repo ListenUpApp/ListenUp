@@ -89,6 +89,7 @@ class SettingsViewModelTest :
                     serverConfig = serverConfig,
                     logoutUseCase = logoutUseCase,
                     pushRepository = pushRepository,
+                    appVersion = BUILD_VERSION,
                     errorBus = errorBus,
                 )
         }
@@ -133,6 +134,14 @@ class SettingsViewModelTest :
 
         beforeTest { Dispatchers.setMain(testDispatcher) }
         afterTest { Dispatchers.resetMain() }
+
+        test("the state names this build's version from the first emission, before anything loads") {
+            // The About row rendered a placeholder for months because nothing carried the real
+            // version into the state; it must be there before any repository answers.
+            val viewModel = createFixture().build()
+
+            viewModel.state.value.appVersion shouldBe BUILD_VERSION
+        }
 
         // ========== Init / Loading Tests ==========
 
@@ -418,3 +427,5 @@ class SettingsViewModelTest :
             }
         }
     })
+
+private const val BUILD_VERSION = "9.9.9"
