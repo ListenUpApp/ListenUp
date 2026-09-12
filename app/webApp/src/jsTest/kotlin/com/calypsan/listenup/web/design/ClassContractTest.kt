@@ -248,6 +248,18 @@ import com.calypsan.listenup.web.features.admin.UserDetailPage
 import com.calypsan.listenup.web.features.admin.adminUser
 import com.calypsan.listenup.web.features.admin.invite
 import com.calypsan.listenup.web.features.admin.readyUser
+import com.calypsan.listenup.api.dto.uploads.UploadedBookStatus
+import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
+import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
+import com.calypsan.listenup.web.features.admin.OrganizePage
+import com.calypsan.listenup.web.features.admin.UploadPage
+import com.calypsan.listenup.web.features.admin.entry
+import com.calypsan.listenup.web.features.admin.finished
+import com.calypsan.listenup.web.features.admin.noopOrganizeActions
+import com.calypsan.listenup.web.features.admin.preview
+import com.calypsan.listenup.web.features.admin.readyOrganize
+import com.calypsan.listenup.web.features.admin.uploaded
 
 /**
  * Guards the seam between Kotlin and `web.css`.
@@ -1322,6 +1334,7 @@ class ClassContractTest :
                         readerShapes().forEach { it() }
                         seeAllShapes().forEach { it() }
                         peopleShapes().forEach { it() }
+                        adminToolShapes().forEach { it() }
                     }
                 }
 
@@ -1654,6 +1667,46 @@ private fun peopleShapes(): List<@Composable () -> Unit> {
         member(readyUser(error = InternalError(debugInfo = "boom"))),
         member(UserDetailUiState.Loading),
         member(UserDetailUiState.Error(InternalError(debugInfo = "boom"))),
+    )
+}
+
+/** The organizer and the uploader, in every state that draws markup of its own. */
+private fun adminToolShapes(): List<@Composable () -> Unit> {
+    fun organize(state: OrganizeSettingsUiState): @Composable () -> Unit =
+        { OrganizePage(state = state, actions = noopOrganizeActions(), onOpenAdmin = {}) }
+
+    fun upload(state: UploadBooksUiState): @Composable () -> Unit =
+        { UploadPage(state = state, onFilesPicked = {}, onCancel = {}, onReset = {}, onOpenAdmin = {}) }
+
+    return listOf(
+        organize(readyOrganize()),
+        organize(readyOrganize(error = InternalError(debugInfo = "boom"))),
+        // The consent dialog, with a collision row and a truncated tail — the only shapes that
+        // draw `.org-clash` and `.org-more`.
+        organize(
+            readyOrganize(
+                previewDto =
+                    preview(
+                        entries = listOf(entry(), entry(bookId = "b2", collisionResolved = true)),
+                        truncated = true,
+                    ),
+            ),
+        ),
+        organize(readyOrganize(run = OrganizeRunProgress(completed = 2, total = 9))),
+        organize(readyOrganize(run = OrganizeRunProgress(movedBooks = 7, failedBooks = 2, terminal = true))),
+        organize(OrganizeSettingsUiState.Loading),
+        organize(OrganizeSettingsUiState.Error(InternalError(debugInfo = "boom"))),
+        upload(UploadBooksUiState.Idle),
+        upload(UploadBooksUiState.Uploading(fileIndex = 1, fileCount = 4, filename = "02.m4b", fraction = 0.5f)),
+        upload(UploadBooksUiState.Finalizing),
+        upload(
+            finished(
+                imported = listOf(uploaded("Dune", UploadedBookStatus.IMPORTED)),
+                duplicates = listOf(uploaded("Mistborn", UploadedBookStatus.DUPLICATE)),
+                failed = listOf(uploaded("Broken", UploadedBookStatus.FAILED, detail = "no audio stream")),
+            ),
+        ),
+        upload(UploadBooksUiState.Error(InternalError(debugInfo = "boom"))),
     )
 }
 

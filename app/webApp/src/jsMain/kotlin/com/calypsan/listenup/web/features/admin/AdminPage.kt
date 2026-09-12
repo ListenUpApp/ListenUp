@@ -54,6 +54,8 @@ fun AdminPage(
     onOpenBackups: () -> Unit = {},
     onOpenImports: () -> Unit = {},
     onOpenInvite: () -> Unit = {},
+    onOpenUpload: () -> Unit = {},
+    onOpenOrganize: () -> Unit = {},
     onOpenUser: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("adm") }) {
@@ -70,6 +72,8 @@ fun AdminPage(
             AdminLink("Collections", onOpenCollections)
             AdminLink("Backups", onOpenBackups)
             AdminLink("Imports", onOpenImports)
+            AdminLink("Upload books", onOpenUpload)
+            AdminLink("File organization", onOpenOrganize)
             AdminLink("Invite someone", onOpenInvite)
         }
 

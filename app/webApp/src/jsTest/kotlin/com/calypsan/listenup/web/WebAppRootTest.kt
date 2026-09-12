@@ -127,6 +127,9 @@ import com.calypsan.listenup.web.features.admin.adminUser
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.web.features.admin.fixedUserDetail
 import com.calypsan.listenup.web.features.admin.readyUser
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
+import com.calypsan.listenup.web.features.admin.fixedOrganize
+import com.calypsan.listenup.web.features.admin.readyOrganize
 
 /**
  * The root wiring: the sidebar drives the URL and the URL drives the sidebar. This is where the
@@ -506,6 +509,76 @@ class WebAppRootTest :
                 awaitFrame()
 
                 window.location.pathname shouldBe "/profile/u-ada"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/upload renders the picker") {
+            val (host, router) = mountAt("/admin/upload", isAdmin = flowOf(true))
+
+            try {
+                (host.querySelector(".upl-t") as HTMLElement).textContent shouldBe "Upload books"
+                host.querySelector(".adm-title") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/admin/organize renders the organizer over its loaded rules") {
+            val (host, router) =
+                mountAt(
+                    "/admin/organize",
+                    isAdmin = flowOf(true),
+                    openOrganize = fixedOrganize(readyOrganize()),
+                )
+
+            try {
+                (host.querySelector(".org-t") as HTMLElement).textContent shouldBe "File organization"
+                host.textContent.orEmpty() shouldContain "Organize library"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the organizer's one-shot confirmations reach the reader once") {
+            // ⛔ A Channel, not a state flag: re-collecting must never replay a snackbar the
+            // reader already dismissed, which is exactly what a StateFlow<Event?> would do.
+            val events = Channel<OrganizeSettingsEvent>(Channel.BUFFERED)
+            val toasts = mutableListOf<String>()
+            val (_, router) =
+                mountAt(
+                    "/admin/organize",
+                    isAdmin = flowOf(true),
+                    openOrganize = fixedOrganize(readyOrganize(), events = events.receiveAsFlow()),
+                    onToast = { toasts += it },
+                )
+
+            try {
+                events.send(OrganizeSettingsEvent.RulesSaved)
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (toasts.isEmpty()) delay(NAV_POLL)
+                }
+                toasts shouldBe listOf("Organization settings saved.")
+
+                events.send(OrganizeSettingsEvent.AlreadyOrganized)
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (toasts.size < 2) delay(NAV_POLL)
+                }
+                toasts[1] shouldBe "Your library is already organized."
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Upload books and File organization are both reachable from the People page") {
+            val (host, router) = mountAt("/admin", isAdmin = flowOf(true), openAdmin = fixedAdmin(readyAdmin()))
+
+            try {
+                val links = host.querySelectorAll(".adm-link").asList().filterIsInstance<HTMLElement>()
+                links.first { it.textContent?.trim() == "Upload books" }.click()
+                awaitFrame()
+                window.location.pathname shouldBe "/admin/upload"
             } finally {
                 router.dispose()
             }

@@ -83,7 +83,14 @@ import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.admin.AdminPage
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
+import com.calypsan.listenup.web.candidatesFrom
 import com.calypsan.listenup.web.features.admin.AdminSessions
+import com.calypsan.listenup.web.features.admin.OpenOrganize
+import com.calypsan.listenup.web.features.admin.OpenUpload
+import com.calypsan.listenup.web.features.admin.OrganizeActions
+import com.calypsan.listenup.web.features.admin.OrganizePage
+import com.calypsan.listenup.web.features.admin.UploadPage
 import com.calypsan.listenup.web.features.admin.CreateInvitePage
 import com.calypsan.listenup.web.features.admin.OpenCreateInvite
 import com.calypsan.listenup.web.features.admin.OpenUserDetail
@@ -2707,6 +2714,12 @@ private const val INVITE_KEY = "invite"
 /** `/admin/user/{id}` — one member and what they may do. */
 private const val USER_KEY = "user"
 
+/** `/admin/upload` — putting books in from this machine. */
+private const val UPLOAD_KEY = "upload"
+
+/** `/admin/organize` — where books live on disk. */
+private const val ORGANIZE_KEY = "organize"
+
 /** The path segment that opens the scanner's triage queue — `/admin/inbox`. */
 private const val INBOX_KEY = "inbox"
 
@@ -2934,6 +2947,8 @@ private fun AdminRoute(
     onOpenBackups: () -> Unit,
     onOpenImports: () -> Unit,
     onOpenInvite: () -> Unit,
+    onOpenUpload: () -> Unit,
+    onOpenOrganize: () -> Unit,
     onOpenUser: (String) -> Unit,
 ) {
     val session = remember { openAdmin() }
@@ -2960,6 +2975,8 @@ private fun AdminRoute(
         onOpenBackups = onOpenBackups,
         onOpenImports = onOpenImports,
         onOpenInvite = onOpenInvite,
+        onOpenUpload = onOpenUpload,
+        onOpenOrganize = onOpenOrganize,
         onOpenUser = onOpenUser,
     )
 }
@@ -3043,6 +3060,14 @@ private fun AdminRouteContent(
             CreateInviteRoute(router = router, openCreateInvite = admin.createInvite, onToast = onToast)
         }
 
+        UPLOAD_KEY -> {
+            UploadRoute(router = router, openUpload = admin.upload, onToast = onToast)
+        }
+
+        ORGANIZE_KEY -> {
+            OrganizeRoute(router = router, openOrganize = admin.organize, onToast = onToast)
+        }
+
         USER_KEY -> {
             if (id != null) {
                 UserDetailRoute(router = router, openUserDetail = admin.userDetail, userId = id)
@@ -3059,6 +3084,83 @@ private fun AdminRouteContent(
             PagePlaceholder(ADMIN_KEY)
         }
     }
+}
+
+/**
+ * Opens an upload session and collects it.
+ *
+ * ⛔ Reading the picked files is this route's job, not the page's: the page is pure and the read is
+ * a suspending trip through `FileReader` per file. A selection too large for the tab to hold comes
+ * back null — said in a toast, with the picker left exactly as it was.
+ */
+@Composable
+private fun UploadRoute(
+    router: Router,
+    openUpload: OpenUpload,
+    onToast: (String) -> Unit,
+) {
+    val session = remember { openUpload() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    val scope = rememberCoroutineScope()
+
+    UploadPage(
+        state = session.state.collectAsState().value,
+        onFilesPicked = { files ->
+            if (files.isNotEmpty()) {
+                scope.launch {
+                    val candidates = candidatesFrom(files)
+                    if (candidates == null) {
+                        onToast("That is too much for one browser upload. Add it in smaller batches.")
+                    } else if (candidates.isNotEmpty()) {
+                        session.onFilesPicked(candidates)
+                    }
+                }
+            }
+        },
+        onCancel = session.onCancel,
+        onReset = session.onReset,
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
+}
+
+/** Opens the file-organizer session and collects it, surfacing its one-shot events as toasts. */
+@Composable
+private fun OrganizeRoute(
+    router: Router,
+    openOrganize: OpenOrganize,
+    onToast: (String) -> Unit,
+) {
+    val session = remember { openOrganize() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    // ⛔ A Channel, so re-collecting never replays a confirmation the reader already dismissed.
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            onToast(
+                when (event) {
+                    OrganizeSettingsEvent.RulesSaved -> "Organization settings saved."
+                    OrganizeSettingsEvent.AlreadyOrganized -> "Your library is already organized."
+                },
+            )
+        }
+    }
+
+    OrganizePage(
+        state = session.state.collectAsState().value,
+        actions =
+            OrganizeActions(
+                onPreset = session.onPreset,
+                onSeriesPrefix = session.onSeriesPrefix,
+                onAuthorForm = session.onAuthorForm,
+                onSaveRules = session.onSaveRules,
+                onOrganize = session.onOrganize,
+                onConfirmOrganize = session.onConfirmOrganize,
+                onDismissPreview = session.onDismissPreview,
+                onDismissReport = session.onDismissReport,
+                onResume = session.onResume,
+            ),
+        onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+    )
 }
 
 /** Opens a create-invite session and collects it. */
@@ -3153,6 +3255,8 @@ private fun AccountRouteContent(
                 onOpenBackups = { router.navigate(Route(listOf(ADMIN_KEY, BACKUPS_KEY))) },
                 onOpenImports = { router.navigate(Route(listOf(ADMIN_KEY, IMPORTS_KEY))) },
                 onOpenInvite = { router.navigate(Route(listOf(ADMIN_KEY, INVITE_KEY))) },
+                onOpenUpload = { router.navigate(Route(listOf(ADMIN_KEY, UPLOAD_KEY))) },
+                onOpenOrganize = { router.navigate(Route(listOf(ADMIN_KEY, ORGANIZE_KEY))) },
                 onOpenUser = { id -> router.navigate(Route(listOf(ADMIN_KEY, USER_KEY, id))) },
             )
         }
