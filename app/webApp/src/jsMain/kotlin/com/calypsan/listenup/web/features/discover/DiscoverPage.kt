@@ -32,6 +32,32 @@ private const val EMPTY_CLASS = "empty"
 /** Cover size for a discovery card, in px. Square, like the artwork. */
 private const val CARD_COVER_WIDTH = 140
 
+/**
+ * A person's name, as the way to reach them.
+ *
+ * A `<button>` rather than the `<span>` these all used to be: it is a real control, so it is
+ * focusable, announced, and reachable without a mouse. It keeps the span's class so the surrounding
+ * layout is unchanged — only the element and its behaviour differ.
+ */
+@Composable
+private fun PersonLink(
+    name: String,
+    userId: String,
+    onOpenProfile: (String) -> Unit,
+    styleClass: String,
+) {
+    Button(attrs = {
+        classes(styleClass, "disc-person")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        onClick { event ->
+            // The listener card around this is itself a button that opens the book. Without this
+            // the browser would run both and the reader would land on the book they did not click.
+            event.stopPropagation()
+            onOpenProfile(userId)
+        }
+    }) { Text(name) }
+}
+
 /** Cover width for a listener row's book, in px. */
 private const val LISTENER_COVER_WIDTH = 56
 
@@ -65,18 +91,26 @@ fun DiscoverPage(
     nowMs: Long,
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
+    /**
+     * Opens the person behind a name.
+     *
+     * ⛔ Discover is the one screen built to show you other people, and every name on it was inert
+     * text — the profile page existed and route and all, with nothing on this page pointing at it.
+     * Both natives link all four surfaces below.
+     */
+    onOpenProfile: (String) -> Unit,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
 ) {
     Div(attrs = { classes("disc") }) {
         H1(attrs = { classes("disc-title") }) { Text("Discover") }
 
-        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook)
+        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile)
         DiscoverBooksSection(books, onOpenBook)
         RecentlyAddedSection(recentlyAdded, onOpenBook)
-        SharedShelvesSection(shelves, onOpenShelf)
-        LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory)
-        ActivityFeedSection(activity, nowMs, onOpenBook)
+        SharedShelvesSection(shelves, onOpenShelf, onOpenProfile)
+        LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory, onOpenProfile)
+        ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile)
     }
 }
 
@@ -92,6 +126,7 @@ private fun CurrentlyListeningSection(
     state: CurrentlyListeningUiState,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenProfile: (String) -> Unit,
 ) {
     Section("What others are listening to") {
         when (state) {
@@ -108,7 +143,7 @@ private fun CurrentlyListeningSection(
                     Empty("Nobody else is listening yet", "When they do, you will see them here.")
                 } else {
                     Div(attrs = { classes("disc-listeners") }) {
-                        state.sessions.forEach { session -> ListenerCard(session, nowMs, onOpenBook) }
+                        state.sessions.forEach { session -> ListenerCard(session, nowMs, onOpenBook, onOpenProfile) }
                     }
                 }
             }
@@ -121,6 +156,7 @@ private fun ListenerCard(
     session: CurrentlyListeningUiSession,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenProfile: (String) -> Unit,
 ) {
     Button(attrs = {
         classes("disc-listener")
@@ -134,7 +170,9 @@ private fun ListenerCard(
             size = LISTENER_COVER_WIDTH,
         )
         Div(attrs = { classes("disc-listener-text") }) {
-            Span(attrs = { classes("disc-listener-who") }) { Text(session.displayName) }
+            // ⛔ The name, not the card: the card opens the book, and a second click target inside
+            // a button is not one — so the name is a sibling of the card, rendered as a link.
+            PersonLink(session.displayName, session.userId, onOpenProfile, "disc-listener-who")
             Span(attrs = { classes("disc-listener-book") }) { Text(session.bookTitle) }
             Span(attrs = {
                 // The live marker is the one thing on this page that changes while you watch it.
@@ -243,6 +281,7 @@ private fun LeaderboardSection(
     state: LeaderboardUiState,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
+    onOpenProfile: (String) -> Unit,
 ) {
     Section("Leaderboard") {
         when (state) {
@@ -288,7 +327,7 @@ private fun LeaderboardSection(
                         entries.forEach { entry ->
                             Div(attrs = { classes("disc-lb-row") }) {
                                 Span(attrs = { classes("disc-lb-rank") }) { Text("${entry.rank}") }
-                                Span(attrs = { classes("disc-lb-name") }) { Text(entry.displayName) }
+                                PersonLink(entry.displayName, entry.userId, onOpenProfile, "disc-lb-name")
                                 Span(attrs = { classes("disc-lb-stat", "mono") }) {
                                     Text(leaderboardLabel(entry, state.category))
                                 }
@@ -307,6 +346,7 @@ private fun ActivityFeedSection(
     state: ActivityFeedUiState,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenProfile: (String) -> Unit,
 ) {
     Section("Recent activity") {
         when (state) {
@@ -323,7 +363,7 @@ private fun ActivityFeedSection(
                     Empty("Nothing has happened yet", "Activity from everyone on this server shows up here.")
                 } else {
                     Div(attrs = { classes("disc-feed") }) {
-                        state.activities.forEach { item -> ActivityRow(item, nowMs, onOpenBook) }
+                        state.activities.forEach { item -> ActivityRow(item, nowMs, onOpenBook, onOpenProfile) }
                     }
                 }
             }
@@ -342,13 +382,14 @@ private fun ActivityRow(
     item: ActivityUiModel,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    onOpenProfile: (String) -> Unit,
 ) {
     val parts = activityParts(item)
     val bookId = item.bookId
 
     val body: @Composable () -> Unit = {
         Span(attrs = { classes("disc-feed-line") }) {
-            Span(attrs = { classes("disc-feed-who") }) { Text(item.userDisplayName) }
+            PersonLink(item.userDisplayName, item.userId, onOpenProfile, "disc-feed-who")
             Text(" ${parts.predicate}")
             parts.highlight?.let { highlight ->
                 Text(" ")
@@ -464,6 +505,7 @@ private const val VALUE_BUTTON = "button"
 private fun SharedShelvesSection(
     state: DiscoverShelvesUiState,
     onOpenShelf: (String) -> Unit,
+    onOpenProfile: (String) -> Unit,
 ) {
     Section("Shelves from others") {
         when (state) {
@@ -481,7 +523,12 @@ private fun SharedShelvesSection(
                 } else {
                     state.users.forEach { owner ->
                         Div(attrs = { classes("disc-shelf-owner") }) {
-                            Span(attrs = { classes("disc-shelf-who") }) { Text(owner.user.displayName) }
+                            PersonLink(
+                                owner.user.displayName,
+                                owner.user.id,
+                                onOpenProfile,
+                                "disc-shelf-who",
+                            )
                             Div(attrs = { classes("disc-shelves") }) {
                                 owner.shelves.forEach { shelf ->
                                     Button(attrs = {

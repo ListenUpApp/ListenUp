@@ -889,6 +889,7 @@ private fun DiscoverRoute(
             router.navigate(Route(listOf(BOOK_KEY, id)))
         },
         onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
+        onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
         onSelectPeriod = session.onSelectPeriod,
         onSelectCategory = session.onSelectCategory,
     )

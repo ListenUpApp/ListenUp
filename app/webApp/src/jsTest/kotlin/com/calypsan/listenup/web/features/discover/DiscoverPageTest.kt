@@ -23,6 +23,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLElement
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldBeEmpty
+import com.calypsan.listenup.web.awaitFrame
+import org.w3c.dom.asList
 
 /** A day in milliseconds — far enough back that the relative time is stable to read. */
 private const val TWO_DAYS_MS = 172_800_000L
@@ -100,6 +104,7 @@ private fun page(
     nowMs: Long = NOW_MS,
     onOpenBook: (String) -> Unit = {},
     onOpenShelf: (String) -> Unit = {},
+    onOpenProfile: (String) -> Unit = {},
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
 ) {
@@ -113,6 +118,7 @@ private fun page(
         nowMs = nowMs,
         onOpenBook = onOpenBook,
         onOpenShelf = onOpenShelf,
+        onOpenProfile = onOpenProfile,
         onSelectPeriod = onSelectPeriod,
         onSelectCategory = onSelectCategory,
     )
@@ -348,5 +354,72 @@ class DiscoverPageTest :
                 }
 
             host.textContent.orEmpty() shouldContain "Piranesi"
+        }
+
+        test("every name on Discover opens that person") {
+            // ⛔ The regression this pins: Discover is the one screen built to show you other
+            // people, and every name on it was inert text. The profile page and its route already
+            // existed — nothing here pointed at them. Both natives link all four surfaces.
+            val opened = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        currentlyListening =
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                        leaderboard =
+                            LeaderboardUiState.Data(
+                                snapshot = LeaderboardSnapshot(listOf(entry("Grace")), emptyList(), emptyList()),
+                                period = LeaderboardPeriod.Month,
+                                category = LeaderboardCategory.Time,
+                            ),
+                        activityState = ActivityFeedUiState.Ready(listOf(activity("finished_book"))),
+                        onOpenProfile = { opened += it },
+                    )
+                }
+
+            host
+                .querySelectorAll(".disc-person")
+                .asList()
+                .filterIsInstance<HTMLElement>()
+                .forEach { it.click() }
+            awaitFrame()
+
+            // The listener card, the leaderboard row and the activity line — each its own person.
+            opened shouldContainExactly listOf("u1", "u-Grace", "u1")
+        }
+
+        test("opening a listener's profile does not also open the book they are on") {
+            // ⛔ The name sits inside the card, and the card is itself a button that opens the book.
+            // Without stopping propagation the browser runs both and the reader lands on the book.
+            val profiles = mutableListOf<String>()
+            val books = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        currentlyListening =
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                        onOpenBook = { books += it },
+                        onOpenProfile = { profiles += it },
+                    )
+                }
+
+            (host.querySelector(".disc-listener-who") as HTMLElement).click()
+            awaitFrame()
+
+            profiles shouldContainExactly listOf("u1")
+            books.shouldBeEmpty()
+        }
+
+        test("a name is a control, not text that happens to respond") {
+            val host =
+                mounts.mount {
+                    page(
+                        currentlyListening =
+                            CurrentlyListeningUiState.Ready(listOf(listener(isLive = true))),
+                    )
+                }
+
+            val name = host.querySelector(".disc-listener-who") as HTMLElement
+            name.tagName.lowercase() shouldBe "button"
         }
     })
