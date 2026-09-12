@@ -61,6 +61,8 @@ import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.web.features.browse.OpenGenreDestination
 import com.calypsan.listenup.web.features.readers.OpenBookReaders
+import com.calypsan.listenup.web.features.sync.DeadLetterNotice
+import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 import com.calypsan.listenup.web.features.readers.ReadersPage
 import com.calypsan.listenup.web.features.search.OpenSeeAll
 import com.calypsan.listenup.web.features.search.SeeAllPage
@@ -242,6 +244,7 @@ fun WebAppRoot(
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
     openSeeAll: OpenSeeAll,
+    openDeadLetters: OpenDeadLetters,
     onToast: (String) -> Unit,
     openNotificationBell: OpenNotificationBell,
     openPlayback: OpenPlayback,
@@ -349,6 +352,18 @@ fun WebAppRoot(
             playback = playback,
             heroBookId = heroBookId,
             onHeroBookIdChange = { heroBookId = it },
+        )
+
+        // Above the playback notices, and unlike them it is not dismissible: a failed edit stays
+        // until the reader retries or accepts the server's version. See [DeadLetterNotice].
+        val deadLetters = remember { openDeadLetters() }
+        DisposableEffect(deadLetters) { onDispose { deadLetters.close() } }
+        DeadLetterNotice(
+            failed = deadLetters.failed.collectAsState().value,
+            onRetry = deadLetters.onRetry,
+            onDismiss = deadLetters.onDismiss,
+            onRetryAll = deadLetters.onRetryAll,
+            onDismissAll = deadLetters.onDismissAll,
         )
 
         // Both last inside the content region, so they sit under whatever page is showing and

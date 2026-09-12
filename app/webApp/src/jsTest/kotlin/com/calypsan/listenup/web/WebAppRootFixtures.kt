@@ -147,6 +147,8 @@ import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
+import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -203,6 +205,7 @@ internal fun mountAt(
     openGenreDestination: OpenGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
     openBookReaders: OpenBookReaders = fixedBookReaders(BookReadersUiState.Loading),
     openSeeAll: OpenSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+    openDeadLetters: OpenDeadLetters = fixedDeadLetters(),
     openCreateInvite: OpenCreateInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
     openUserDetail: OpenUserDetail = fixedUserDetail(UserDetailUiState.Loading),
     openUpload: OpenUpload = fixedUpload(UploadBooksUiState.Idle),
@@ -263,6 +266,7 @@ internal fun mountAt(
                 openGenreDestination = openGenreDestination,
                 openBookReaders = openBookReaders,
                 openSeeAll = openSeeAll,
+                openDeadLetters = openDeadLetters,
                 onToast = onToast,
                 openNotificationBell = openNotificationBell,
                 openPlayback = fixedPlayback(),
