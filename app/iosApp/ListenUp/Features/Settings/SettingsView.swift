@@ -312,10 +312,25 @@ struct SettingsView: View {
     private func aboutSection(_ observer: SettingsObserver) -> some View {
         Section(String(localized: "common.about")) {
             LabeledContent {
+                Text(observer.appVersion)
+                    .foregroundStyle(Color.luLabel2)
+            } label: {
+                SettingsLabel(
+                    title: String(localized: "settings.app_version"),
+                    systemImage: "checkmark.seal.fill",
+                    tint: .gray
+                )
+            }
+
+            LabeledContent {
                 Text(observer.serverVersion ?? "—")
                     .foregroundStyle(Color.luLabel2)
             } label: {
-                SettingsLabel(title: String(localized: "common.version"), systemImage: "star.fill", tint: .gray)
+                SettingsLabel(
+                    title: String(localized: "settings.server_version"),
+                    systemImage: "server.rack",
+                    tint: .gray
+                )
             }
 
             NavigationLink(value: LicensesDestination()) {
