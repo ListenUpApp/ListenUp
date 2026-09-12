@@ -217,6 +217,7 @@ final class FakeSleepTiming: SleepTiming {
     private let firedContinuation: AsyncStream<Void>.Continuation
     private(set) var fadeCompletedCount = 0
     private(set) var chapterChanges: [Int] = []
+    private(set) var bookChanges: [String?] = []
 
     /// Fires on fade-completed and chapter-change callbacks (both driven on the main actor),
     /// so tests can await those exact transitions without polling.
@@ -230,6 +231,9 @@ final class FakeSleepTiming: SleepTiming {
     }
     func emitFired() { firedContinuation.yield(()) }
     func onFadeCompleted() { fadeCompletedCount += 1; gate.fire("fadeCompleted") }
+    func onBookChanged(bookId: String?) {
+        bookChanges.append(bookId); gate.fire("book-\(bookId ?? "nil")")
+    }
     func onChapterChanged(newChapterIndex: Int) {
         chapterChanges.append(newChapterIndex); gate.fire("chapter-\(newChapterIndex)")
     }

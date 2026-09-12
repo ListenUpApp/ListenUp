@@ -139,6 +139,11 @@ protocol SleepTiming {
     func setDurationTimer(minutes: Int)
     func setEndOfChapterTimer()
     func cancelTimer()
+    /// Tell the timer which book the listener is on. A change of book cancels any running timer
+    /// and clears the end-of-chapter baseline — a timer is a request about *this* book's chapters,
+    /// and carrying it into the next one fires the fade at a boundary nobody asked for, while the
+    /// listener is asleep and cannot correct it. Reporting the same book again is a no-op.
+    func onBookChanged(bookId: String?)
     func onChapterChanged(newChapterIndex: Int)
     func onFadeCompleted()
 }

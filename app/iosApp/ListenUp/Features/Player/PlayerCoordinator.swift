@@ -381,6 +381,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
         phase = .preparing(PreparingState(bookId: bookId))
         currentBookId = bookId
+        // Synchronously, here rather than from an observer: this is the moment the book changes, and
+        // it happens before the async prepare publishes the new book's chapters — which matters,
+        // because `onBookChanged` clears the end-of-chapter baseline and only a chapter report
+        // restores it. Reporting later would leave the baseline cleared with nothing to restore it.
+        sleep.onBookChanged(bookId: bookId)
 
         prepareTask = Task {
             // Silence the outgoing book immediately — before the (possibly slow) prepare —
@@ -546,6 +551,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // `shouldYield` true, suspending iOS downloads indefinitely.
         phase = .idle
         resetMetadataForSwitch()
+        // Closing the book ends any timer set on it, for the same reason switching does.
+        sleep.onBookChanged(bookId: nil)
         await engine.deactivateSession()
         await engine.unload()
     }
