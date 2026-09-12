@@ -79,6 +79,7 @@ import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
+import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 
 /**
  * Proves Compose HTML actually drives the DOM in this build — the composition runs, emits real
@@ -149,6 +150,7 @@ class ComposeHtmlRenderTest :
                         openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                         openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
                         openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                        openDeadLetters = fixedDeadLetters(),
                         onToast = {},
                         openNotificationBell = fixedNotificationBell(),
                         openPlayback = fixedPlayback(),
@@ -217,6 +219,7 @@ class ComposeHtmlRenderTest :
                         openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                         openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
                         openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                        openDeadLetters = fixedDeadLetters(),
                         onToast = {},
                         openNotificationBell = fixedNotificationBell(),
                         openPlayback = fixedPlayback(),

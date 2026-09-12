@@ -84,6 +84,7 @@ import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
+import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 
 /**
  * Book Detail through the URL contract: `/book/{id}?tab=…` names the book and the pane, pane
@@ -160,6 +161,7 @@ class BookDetailTest :
                     openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                     openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
                     openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                    openDeadLetters = fixedDeadLetters(),
                     onToast = {},
                     openNotificationBell = fixedNotificationBell(),
                     openPlayback = fixedPlayback(),

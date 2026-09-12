@@ -34,6 +34,7 @@ import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
 import com.calypsan.listenup.web.features.browse.OpenGenreDestination
 import com.calypsan.listenup.web.features.readers.OpenBookReaders
+import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 import com.calypsan.listenup.web.features.search.OpenSeeAll
 import com.calypsan.listenup.web.features.metadata.OpenMetadata
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
@@ -112,6 +113,7 @@ fun AuthGate(
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
     openSeeAll: OpenSeeAll,
+    openDeadLetters: OpenDeadLetters,
     openPlayback: OpenPlayback,
     observeIsAdmin: () -> Flow<Boolean>,
     observeCurrentUserId: () -> Flow<String?>,
@@ -228,6 +230,7 @@ fun AuthGate(
                         openGenreDestination = openGenreDestination,
                         openBookReaders = openBookReaders,
                         openSeeAll = openSeeAll,
+                        openDeadLetters = openDeadLetters,
                         // A confirmed bulk action is exactly the kind of thing a toast is for:
                         // the change is real, it happened off-screen, and the number is the
                         // part the reader cannot check for themselves.

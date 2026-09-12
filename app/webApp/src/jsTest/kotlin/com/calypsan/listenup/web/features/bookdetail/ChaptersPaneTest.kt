@@ -83,6 +83,7 @@ import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
+import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 
 /**
  * The chapters workbench through its URL contract: `?tab=chapters&sel=9,10` names the selection,
@@ -155,6 +156,7 @@ class ChaptersPaneTest :
                     openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                     openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
                     openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                    openDeadLetters = fixedDeadLetters(),
                     onToast = {},
                     openNotificationBell = fixedNotificationBell(),
                     openPlayback = fixedPlayback(),

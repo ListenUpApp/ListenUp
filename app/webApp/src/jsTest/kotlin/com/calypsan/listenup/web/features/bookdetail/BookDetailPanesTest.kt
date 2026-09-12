@@ -81,6 +81,7 @@ import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
+import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 
 /**
  * The Files pane and the states with no book.
@@ -158,6 +159,7 @@ class BookDetailPanesTest :
                     openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                     openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
                     openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+                    openDeadLetters = fixedDeadLetters(),
                     onToast = {},
                     openNotificationBell = fixedNotificationBell(),
                     openPlayback = fixedPlayback(),

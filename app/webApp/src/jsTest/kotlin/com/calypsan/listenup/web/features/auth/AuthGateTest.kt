@@ -109,6 +109,7 @@ import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import org.w3c.dom.asList
 import org.w3c.dom.HTMLDialogElement
+import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 
 /** A signed-in session. The ids are arbitrary — the gate only ever branches on the state's type. */
 private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
@@ -184,6 +185,7 @@ private fun mountGate(
             openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
             openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
             openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
+            openDeadLetters = fixedDeadLetters(),
             openPlayback = fixedPlayback(),
             observeIsAdmin = { flowOf(false) },
             observeCurrentUserId = { flowOf(null) },
