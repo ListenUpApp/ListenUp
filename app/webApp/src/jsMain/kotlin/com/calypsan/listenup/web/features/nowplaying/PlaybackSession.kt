@@ -46,6 +46,13 @@ class PlaybackSession(
     val state: StateFlow<TransportState?>,
     val error: StateFlow<String?>,
     /**
+     * The book a play request is currently in flight for, or null.
+     *
+     * Read by the Book Detail play button so a tap has a visible consequence before audio starts —
+     * see [LivePlayback.preparingBookId] for why the transport bar cannot answer that itself.
+     */
+    val preparingBookId: StateFlow<String?>,
+    /**
      * The book's chapter marks, or empty when it has none.
      *
      * A flow of its own rather than a field on [TransportState]: chapters change once per book,
@@ -178,11 +185,13 @@ fun fixedPlayback(
     volumeBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
     defaultBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
     boostUnavailable: Boolean = false,
+    preparingBookId: String? = null,
 ): OpenPlayback =
     {
         PlaybackSession(
             state = MutableStateFlow(state),
             error = MutableStateFlow(error),
+            preparingBookId = MutableStateFlow(preparingBookId),
             chapters = MutableStateFlow(chapters),
             currentChapterIndex = MutableStateFlow(currentChapterIndex),
             nowPlaying = MutableStateFlow(nowPlaying),
@@ -475,7 +484,28 @@ internal class LivePlayback(
                     skipForwardSec = forwardSec,
                 )
             }
+            // ⛔ Folded on afterwards rather than passed as a sixth flow: `combine` only has typed
+            // overloads to five, and a sixth silently selects the `vararg Array<Any?>` version —
+            // which compiles against `Any?` and would take any of these fields in any order.
+        }.combine(playbackManager.isBuffering) { base, isBuffering ->
+            base?.copy(isBuffering = isBuffering)
         }.stateIn(scope, SharingStarted.Eagerly, null)
+
+    /**
+     * Whether a play request is in flight, for the button that asked for it.
+     *
+     * ⛔ Reads [PlaybackManager.preparingBookIdUi], never `preparingBookId`: the UI-facing flow is
+     * delayed behind the instant one precisely so a fast prepare does not flash a spinner. Its own
+     * KDoc names the two surfaces that must observe it, and the Book Detail play button is one.
+     *
+     * This is the other half of the silent-tap problem. The bar cannot answer a prepare — [title]
+     * is nulled while nothing is loaded, so the bar is *gone* at exactly that moment — which left
+     * pressing Play with no visible consequence at all until audio began.
+     */
+    val preparingBookId: StateFlow<String?> =
+        playbackManager.preparingBookIdUi
+            .map { it?.value }
+            .stateIn(scope, SharingStarted.Eagerly, null)
 
     /**
      * Start [bookId] from cold.
@@ -535,6 +565,24 @@ internal class LivePlayback(
         }
         preparingJob?.cancel()
         val generation = ++playGeneration
+        // ⛔ A timer belongs to the book it was set on. Without this, an end-of-chapter timer armed
+        // on one book fades out the NEXT one at its first chapter turn, and a duration timer keeps
+        // counting across books — [SleepTimerManager.onBookChanged]'s own KDoc says why that matters
+        // most: it happens "while the listener is asleep and cannot correct it".
+        //
+        // ⛔ Reported HERE, synchronously, and deliberately NOT from a `currentBookId` collector the
+        // way `NowPlayingViewModel` does it. Two reasons, both specific to this client:
+        //
+        //  1. `activateBook` is the only thing that moves `currentBookId` on web, and it lives a few
+        //     lines below — so this call site is complete, not a partial substitute for observing.
+        //  2. A collector replays the flow's CURRENT value on subscribe, which is `null`. That
+        //     arrives on its own turn, after this, and `null != "book-1"` reads as a book change —
+        //     cancelling the timer and clearing the end-of-chapter baseline behind everyone's back.
+        //
+        // Ordering against the chapter feed is the other half: `onBookChanged` clears the baseline,
+        // and only a chapter report restores it. Doing it here, before the chapters for this book
+        // are published, means the reset always precedes the report that re-establishes it.
+        sleepTimerManager.onBookChanged(bookId.value)
         playbackManager.markPreparing(bookId)
         playbackManager.clearError()
         audioPlayer.primeForPlayback()
@@ -750,6 +798,7 @@ internal class LivePlayback(
         PlaybackSession(
             state = state,
             error = error,
+            preparingBookId = preparingBookId,
             chapters = chapters,
             currentChapterIndex = currentChapterIndex,
             nowPlaying = nowPlaying,

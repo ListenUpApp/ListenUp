@@ -1504,6 +1504,7 @@ private fun BookRouteContent(
             router.replace(Route(route.segments, query))
         },
         onPlay = { playback.onPlayBook(BookId(bookId)) },
+        isPreparing = playback.preparingBookId.collectAsState().value == bookId,
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
         onMatchMetadata = { router.navigate(Route(listOf(BOOK_KEY, bookId, MATCH_KEY))) },

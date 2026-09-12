@@ -2867,3 +2867,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .upl-row { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; }
 .luw .upl-n { font-size: 0.86rem; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
 .luw .upl-d { font-size: 0.74rem; color: var(--ink-3); overflow-wrap: anywhere; }
+
+/* The transport's play control while the player waits on bytes. Sized to the glyph it replaces so
+   a stall never shuffles the row sideways; the accessible name changes with it, in TransportBar. */
+.luw .tport-wait { width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; opacity: .85; }
+@media (prefers-reduced-motion: no-preference) {
+  .luw .tport-wait { animation: tport-spin .8s linear infinite; }
+}
+@keyframes tport-spin { to { transform: rotate(360deg); } }

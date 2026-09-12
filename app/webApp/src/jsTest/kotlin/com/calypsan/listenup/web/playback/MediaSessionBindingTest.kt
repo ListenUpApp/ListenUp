@@ -141,6 +141,7 @@ private fun session(
     PlaybackSession(
         state = state,
         error = MutableStateFlow<String?>(null),
+        preparingBookId = MutableStateFlow<String?>(null),
         chapters = MutableStateFlow<List<TransportChapter>>(emptyList()),
         currentChapterIndex = MutableStateFlow<Int?>(null),
         nowPlaying = nowPlaying,
