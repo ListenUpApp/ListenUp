@@ -17,7 +17,38 @@ import com.calypsan.listenup.web.design.RelationChip
  * three platforms title-case a tag the same way; pulling them up touches iOS and Android, so it is
  * tracked as its own change rather than smuggled into the web form.
  */
-internal fun EditableGenre.toChip(): RelationChip = RelationChip(id = id, label = name)
+internal fun EditableGenre.toChip(): RelationChip =
+    RelationChip(id = id, label = name, subtitle = parentPath(path, name))
+
+/**
+ * Where a genre sits, when that is not obvious from its name.
+ *
+ * ⛔ "Fantasy" under Fiction and "Fantasy" under Games are two different rows that read identically
+ * without this. Null for a top-level genre, whose path is just itself — a subtitle repeating the
+ * name is noise.
+ */
+internal fun parentPath(
+    path: String,
+    name: String,
+): String? =
+    path
+        .trim('/')
+        .split('/')
+        .dropLast(1)
+        .filter { it.isNotBlank() }
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString(" / ")
+        ?.takeIf { it != name }
+
+/** "3 books" — the count Android and iOS both put under a search hit, or null when there are none. */
+internal fun booksLabel(count: Int): String? =
+    if (count <= 0) {
+        null
+    } else if (count == 1) {
+        "1 book"
+    } else {
+        "$count books"
+    }
 
 internal fun EditableCollection.toChip(): RelationChip = RelationChip(id = id, label = name)
 

@@ -2917,3 +2917,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* A refused filing, reported under the header rather than inside the picker — the picker closes on
    a successful pick, so a failure shown only there would vanish with it. Click to dismiss. */
 .luw .bd-pick-err { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--coral-soft); color: var(--coral-deep); font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+
+/* A search hit's two lines: the name, and what tells it apart from an identically-named record.
+   Both inside the one button — the row is a single choice, so the subtitle is not its own control. */
+.luw .rel-result { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.luw .rel-result-n { font-size: 0.86rem; font-weight: 650; }
+.luw .rel-result-s { font-size: 0.72rem; color: var(--ink-3); }
