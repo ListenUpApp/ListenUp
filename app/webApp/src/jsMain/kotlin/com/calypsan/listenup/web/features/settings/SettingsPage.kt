@@ -128,8 +128,9 @@ fun SettingsPage(
         }
 
         Section("About", null) {
+            Row("App version", state.appVersion)
             Row("Server", state.serverUrl ?: "Not configured")
-            state.serverVersion?.let { Row("Version", it) }
+            state.serverVersion?.let { Row("Server version", it) }
         }
     }
 }
