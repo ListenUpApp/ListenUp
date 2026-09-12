@@ -31,6 +31,8 @@ import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.features.bookedit.booksLabel
+import com.calypsan.listenup.web.features.bookedit.parentPath
 
 /** Everything the form needs to offer, gathered so the page's own signature stays readable. */
 class BulkEditCatalog(
@@ -245,7 +247,7 @@ private fun CreditFields(
         label = "Add to series",
         attached = state.seriesInput?.let { listOf(RelationChip(it.name, it.name)) }.orEmpty(),
         query = seriesQuery,
-        results = catalog.seriesMatches.map { RelationChip(it.name, it.name) },
+        results = catalog.seriesMatches.map { RelationChip(it.name, it.name, booksLabel(it.bookCount)) },
         onQueryChange = {
             seriesQuery = it
             actions.onSeriesQuery(it)
@@ -262,7 +264,7 @@ private fun CreditFields(
         label = "Add contributors",
         attached = state.contributorInput.map { RelationChip(it.name, it.name) },
         query = contributorQuery,
-        results = catalog.contributorMatches.map { RelationChip(it.name, it.name) },
+        results = catalog.contributorMatches.map { RelationChip(it.name, it.name, booksLabel(it.bookCount)) },
         onQueryChange = {
             contributorQuery = it
             actions.onContributorQuery(it)
@@ -309,7 +311,7 @@ private fun ClassificationFields(
             catalog.genres
                 .filterNot { genre -> state.genreInput.any { it.genreId.value == genre.id } }
                 .matching(genreQuery) { it.name }
-                .map { RelationChip(it.id, it.name) },
+                .map { RelationChip(it.id, it.name, parentPath(it.path, it.name)) },
         onQueryChange = { genreQuery = it },
         onSelect = { chip ->
             actions.onGenres(state.genreInput + BookGenreInput(genreId = GenreId(chip.id)))

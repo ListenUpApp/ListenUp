@@ -5,6 +5,7 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.Label
+import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.attributes.InputType
 
@@ -22,6 +23,19 @@ data class RelationChip(
     val id: String,
     /** What the reader sees. Precomputed by the caller, so this component formats nothing. */
     val label: String,
+    /**
+     * The second line on a search result — what tells two identically-named records apart.
+     *
+     * ⛔ Load-bearing, not ornament. Without it a library with two contributors called "John Smith"
+     * offers the editor two identical rows and no way to know which is which; the same is true of
+     * two series with the same name, and of a genre that appears under more than one parent. Both
+     * native clients show it ("N books", the parent path), and web shipped without it.
+     *
+     * Null where there is genuinely nothing to add — a record with no books yet, or a top-level
+     * genre. Rendered only on search results, never on an attached chip, which has no room and is
+     * already disambiguated by having been chosen.
+     */
+    val subtitle: String? = null,
 )
 
 /**
@@ -113,7 +127,15 @@ fun RelationField(
                                 classes("rel-result")
                                 attr("type", "button")
                                 onClick { onSelect(result) }
-                            }) { Text(result.label) }
+                            }) {
+                                Span(attrs = { classes("rel-result-n") }) { Text(result.label) }
+                                // ⛔ Inside the same control, not beside it: the whole row is one
+                                // choice, and a subtitle that were its own element would be a second
+                                // tab stop offering nothing.
+                                result.subtitle?.let { detail ->
+                                    Span(attrs = { classes("rel-result-s") }) { Text(detail) }
+                                }
+                            }
                         }
                     }
 

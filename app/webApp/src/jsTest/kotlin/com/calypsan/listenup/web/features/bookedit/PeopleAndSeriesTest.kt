@@ -14,6 +14,8 @@ import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
+import com.calypsan.listenup.client.domain.model.ContributorSearchResult
+import org.w3c.dom.asList
 
 private fun ready(): BookEditUiState = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune")
 
@@ -122,6 +124,68 @@ class PeopleAndSeriesTest :
             sequence.dispatchEvent(Event("input", js("({bubbles:true})")))
 
             events shouldContain BookEditUiEvent.SeriesSequenceChanged(series, "1.5")
+        }
+
+        test("two series with the same name are told apart by their size") {
+            // ⛔ The bug this pins. `RelationChip` was `{ id, label }` with no second line at all,
+            // so a library holding two series called "Chronicles" offered the editor two identical
+            // rows and no way to know which was which. Both natives show the count.
+            val root =
+                page(
+                    ready().copy(
+                        seriesSearchQuery = "chron",
+                        seriesSearchResults =
+                            listOf(
+                                SeriesSearchResult(id = "s1", name = "Chronicles", bookCount = 9),
+                                SeriesSearchResult(id = "s2", name = "Chronicles", bookCount = 1),
+                            ),
+                    ),
+                )
+
+            val rows = root.querySelectorAll(".rel-result").asList().filterIsInstance<HTMLElement>()
+            rows.map { it.textContent?.trim() } shouldBe listOf("Chronicles9 books", "Chronicles1 book")
+        }
+
+        test("a series nobody has used yet gets no second line rather than a zero") {
+            // "0 books" is noise on a record that is simply new.
+            val root =
+                page(
+                    ready().copy(
+                        seriesSearchQuery = "new",
+                        seriesSearchResults = listOf(SeriesSearchResult(id = "s3", name = "Brand New", bookCount = 0)),
+                    ),
+                )
+
+            root.querySelectorAll(".rel-result-s").length shouldBe 0
+        }
+
+        test("a contributor's row carries the same disambiguation") {
+            val root =
+                page(
+                    ready().copy(
+                        visibleRoles = setOf(ContributorRole.AUTHOR),
+                        roleSearchQueries = mapOf(ContributorRole.AUTHOR to "smith"),
+                        roleSearchResults =
+                            mapOf(
+                                ContributorRole.AUTHOR to
+                                    listOf(
+                                        ContributorSearchResult(id = "c1", name = "John Smith", bookCount = 12),
+                                        ContributorSearchResult(id = "c2", name = "John Smith", bookCount = 2),
+                                    ),
+                            ),
+                    ),
+                )
+
+            val rows = root.querySelectorAll(".rel-result").asList().filterIsInstance<HTMLElement>()
+            rows.map { it.textContent?.trim() } shouldBe listOf("John Smith12 books", "John Smith2 books")
+        }
+
+        test("an attached chip carries no subtitle — it has been chosen already") {
+            // The second line exists to choose between candidates. On a chip it is noise in a place
+            // with no room for it.
+            val root = page(ready().copy(series = listOf(EditableSeries(id = "s1", name = "The Expanse", sequence = "1"))))
+
+            root.querySelectorAll(".rel-chip .rel-result-s").length shouldBe 0
         }
 
         test("picking a series from search reports the result, not a rebuilt copy") {

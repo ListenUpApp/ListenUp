@@ -267,7 +267,10 @@ private fun ContributorFields(
                 label = "${role.displayName}s",
                 attached = attached.map { RelationChip(id = it.name, label = it.name) },
                 query = state.roleSearchQueries[role].orEmpty(),
-                results = state.roleSearchResults[role].orEmpty().map { RelationChip(id = it.id, label = it.name) },
+                results =
+                    state.roleSearchResults[role]
+                        .orEmpty()
+                        .map { RelationChip(id = it.id, label = it.name, subtitle = booksLabel(it.bookCount)) },
                 loading = state.roleSearchLoading[role] == true,
                 offline = state.roleOfflineResults[role] == true,
                 onQueryChange = { onEvent(BookEditUiEvent.RoleSearchQueryChanged(role, it)) },
@@ -333,7 +336,10 @@ private fun SeriesFields(
         label = "Series",
         attached = state.series.map { RelationChip(id = it.name, label = it.name) },
         query = state.seriesSearchQuery,
-        results = state.seriesSearchResults.map { RelationChip(id = it.id, label = it.name) },
+        results =
+            state.seriesSearchResults.map {
+                RelationChip(id = it.id, label = it.name, subtitle = booksLabel(it.bookCount))
+            },
         loading = state.seriesSearchLoading,
         offline = state.seriesOfflineResult,
         onQueryChange = { onEvent(BookEditUiEvent.SeriesSearchQueryChanged(it)) },
