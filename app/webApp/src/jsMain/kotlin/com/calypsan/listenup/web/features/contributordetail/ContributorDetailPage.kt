@@ -37,12 +37,11 @@ import org.jetbrains.compose.web.dom.Text
  * layer — the same split [com.calypsan.listenup.web.features.bookdetail.BookDetailPage] makes, for
  * the same reason (the store wiring lives one level up, once B2 adds routing).
  *
- * No edit pencil and no delete affordance: there is no web contributor-edit form and no
- * destructive-action pattern on web yet, and a button that goes nowhere is the lie this arc keeps
- * refusing to ship. No "Show all" / "+N more" tile either — [RoleSection.showViewAll] and
- * [com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksViewModel] are the
- * hook for a per-role all-books screen when one exists; until then the panel's own count badge
- * already tells the truth about the total.
+ * Each role panel shows a preview and, when [RoleSection.showViewAll], a way to the rest —
+ * [ContributorBooksPage], over the shared
+ * [com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksViewModel]. Before
+ * that page existed the count badge named a total the browser could not open: forty books claimed,
+ * ten reachable.
  */
 @Composable
 fun ContributorDetailPage(
@@ -51,6 +50,7 @@ fun ContributorDetailPage(
     onOpenContributors: () -> Unit,
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit = {},
+    onOpenRoleBooks: (String) -> Unit = {},
     onEdit: () -> Unit = {},
     onMatchMetadata: () -> Unit = {},
 ) {
@@ -64,7 +64,7 @@ fun ContributorDetailPage(
 
         when (state) {
             is ContributorDetailUiState.Ready -> {
-                ReadyContent(state, onOpenBook, onOpenSeries, onEdit, onMatchMetadata)
+                ReadyContent(state, onOpenBook, onOpenSeries, onOpenRoleBooks, onEdit, onMatchMetadata)
             }
 
             is ContributorDetailUiState.Error -> {
@@ -123,6 +123,7 @@ private fun ReadyContent(
     state: ContributorDetailUiState.Ready,
     onOpenBook: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
+    onOpenRoleBooks: (String) -> Unit,
     onEdit: () -> Unit,
     onMatchMetadata: () -> Unit,
 ) {
@@ -139,6 +140,15 @@ private fun ReadyContent(
                             onOpen = { onOpenBook(book.id.value) },
                         )
                     }
+                }
+                // Only when there is genuinely more than the preview holds. A "View all" over a
+                // panel already showing everything sends the reader to the same books twice.
+                if (section.showViewAll) {
+                    Button(attrs = {
+                        classes("btn-c", "cd-view-all")
+                        attr("type", BUTTON_VALUE)
+                        onClick { onOpenRoleBooks(section.role) }
+                    }) { Text("View all ${section.bookCount}") }
                 }
             }
         }
@@ -243,7 +253,7 @@ private fun CountBadge(count: Int) {
  * [progress] is known.
  */
 @Composable
-private fun RoleTile(
+internal fun RoleTile(
     book: BookListItem,
     progress: Float?,
     onOpen: () -> Unit,
@@ -378,7 +388,7 @@ private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "
  * "also credited as X" from the distinct aliases in [bookCreditedAs] — null when there are none,
  * so the hero never renders an empty "also credited as" line.
  */
-private fun creditedAsLine(bookCreditedAs: Map<String, String>): String? {
+internal fun creditedAsLine(bookCreditedAs: Map<String, String>): String? {
     val aliases = bookCreditedAs.values.distinct()
     return if (aliases.isEmpty()) null else "also credited as ${aliases.joinToString(", ")}"
 }

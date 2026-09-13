@@ -107,6 +107,10 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
+import com.calypsan.listenup.web.features.contributordetail.ContributorBooksSession
+import com.calypsan.listenup.web.features.contributordetail.OpenContributorBooks
+import com.calypsan.listenup.web.features.contributordetail.fixedContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditSession
@@ -169,6 +173,7 @@ internal fun mountAt(
     isAdmin: Flow<Boolean> = flowOf(false),
     openBookDetail: OpenBookDetail = fixedBookDetail(readyBook()),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+    openContributorBooks: OpenContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
     openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
     openContributorMetadata: OpenContributorMetadata =
         fixedContributorMetadata(ContributorMetadataUiState.Idle()),
@@ -225,6 +230,7 @@ internal fun mountAt(
                 openChapterEditor = openChapterEditor,
                 openMetadata = openMetadata,
                 openContributorDetail = openContributorDetail,
+                openContributorBooks = openContributorBooks,
                 openContributorEdit = openContributorEdit,
                 openContributorMetadata = openContributorMetadata,
                 openSeriesDetail = openSeriesDetail,
@@ -536,6 +542,34 @@ internal class RecordingContributorEdit(
             navActions = navActions,
             onEvent = {},
             onMergeQuery = {},
+            close = {},
+        )
+    }
+}
+
+/**
+ * An [OpenContributorBooks] that records every (id, role) pair it was asked for.
+ *
+ * Records both halves deliberately: the route carries the role in a query parameter, and a bug
+ * that drops it would still open a plausible-looking page — the person's Author books under a
+ * heading the reader asked to say something else.
+ */
+internal class RecordingContributorBooks {
+    val requested = mutableListOf<Pair<String, String>>()
+    val open: OpenContributorBooks = { id, role ->
+        requested += id to role
+        ContributorBooksSession(
+            state =
+                MutableStateFlow(
+                    ContributorBooksUiState.Ready(
+                        contributorName = "Contributor $id",
+                        roleDisplayName = "Role $role",
+                        seriesGroups = emptyList(),
+                        standaloneBooks = emptyList(),
+                        bookProgress = emptyMap(),
+                        bookCreditedAs = emptyMap(),
+                    ),
+                ),
             close = {},
         )
     }

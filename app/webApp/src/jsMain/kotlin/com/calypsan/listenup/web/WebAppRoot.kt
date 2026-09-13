@@ -39,6 +39,9 @@ import com.calypsan.listenup.web.features.bookdetail.BookPickers
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
+import com.calypsan.listenup.web.features.contributordetail.ContributorBooksPage
+import com.calypsan.listenup.web.features.contributordetail.OpenContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
@@ -221,6 +224,7 @@ fun WebAppRoot(
     openChapterEditor: OpenChapterEditor,
     openMetadata: OpenMetadata,
     openContributorDetail: OpenContributorDetail,
+    openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
     openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
@@ -324,6 +328,7 @@ fun WebAppRoot(
             openChapterEditor = openChapterEditor,
             openMetadata = openMetadata,
             openContributorDetail = openContributorDetail,
+            openContributorBooks = openContributorBooks,
             openContributorEdit = openContributorEdit,
             openContributorMetadata = openContributorMetadata,
             openSeriesDetail = openSeriesDetail,
@@ -659,6 +664,7 @@ private fun RouteContent(
     openChapterEditor: OpenChapterEditor,
     openMetadata: OpenMetadata,
     openContributorDetail: OpenContributorDetail,
+    openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
     openContributorMetadata: OpenContributorMetadata,
     openSeriesDetail: OpenSeriesDetail,
@@ -699,6 +705,7 @@ private fun RouteContent(
     // `/contributor/{id}` — the person behind the books, a route of its own (unlike the list, one
     // book's worth of detail is not a facet of anything else).
     val contributorId = route.idUnder(CONTRIBUTOR_KEY)
+    val roleBooksContributorId = contributorId?.takeIf { route.segments.getOrNull(2) == BOOKS_KEY }
     val editingContributorId = route.editTargetOf(contributorId)
     // `/contributor/{id}/match` — the Audible wizard over one person.
     val matchingContributorId =
@@ -744,12 +751,15 @@ private fun RouteContent(
         ContributorRouteContent(
             isList = isContributors,
             contributorId = contributorId,
+            roleBooksContributorId = roleBooksContributorId,
+            roleBooksRole = parseAnyContributorRole(route.query[ROLE_QUERY_KEY]),
             editingContributorId = editingContributorId,
             matchingContributorId = matchingContributorId,
             role = parseContributorRole(route.query[ROLE_QUERY_KEY]),
             router = router,
             openContributors = openContributors,
             openContributorDetail = openContributorDetail,
+            openContributorBooks = openContributorBooks,
             openContributorEdit = openContributorEdit,
             openContributorMetadata = openContributorMetadata,
         )
@@ -1354,12 +1364,15 @@ private fun ContributorMetadataRoute(
 private fun ContributorRouteContent(
     isList: Boolean,
     contributorId: String?,
+    roleBooksContributorId: String?,
+    roleBooksRole: ContributorRole,
     editingContributorId: String?,
     matchingContributorId: String?,
     role: ContributorRole,
     router: Router,
     openContributors: OpenContributors,
     openContributorDetail: OpenContributorDetail,
+    openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
     openContributorMetadata: OpenContributorMetadata,
 ) {
@@ -1384,6 +1397,17 @@ private fun ContributorRouteContent(
             )
         }
 
+        // The per-role book list, likewise — `/contributor/{id}/books` is also a `/contributor/{id}`.
+        roleBooksContributorId != null -> {
+            ContributorBooksPage(
+                state = contributorBooksState(roleBooksContributorId, roleBooksRole, openContributorBooks),
+                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+                onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
+                onOpenContributor = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, roleBooksContributorId))) },
+                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+            )
+        }
+
         // The edit form, likewise.
         editingContributorId != null -> {
             ContributorEditRoute(
@@ -1402,9 +1426,34 @@ private fun ContributorRouteContent(
                 onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
                 onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
                 onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+                onOpenRoleBooks = { roleValue ->
+                    router.navigate(
+                        Route(
+                            listOf(CONTRIBUTOR_KEY, contributorId, BOOKS_KEY),
+                            mapOf(ROLE_QUERY_KEY to roleValue),
+                        ),
+                    )
+                },
             )
         }
     }
+}
+
+/**
+ * Opens a Contributor Books session and collects it, closing the previous one whenever either half
+ * of the request changes. Keyed on both: a reader moving from a person's Author list to their
+ * Narrator list has changed what they asked for, and a key on the id alone would keep answering
+ * with the first role's books.
+ */
+@Composable
+private fun contributorBooksState(
+    contributorId: String,
+    role: ContributorRole,
+    openContributorBooks: OpenContributorBooks,
+): ContributorBooksUiState {
+    val session = remember(contributorId, role) { openContributorBooks(contributorId, role.apiValue) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session.state.collectAsState().value
 }
 
 /**
@@ -2610,6 +2659,16 @@ private fun parseSelection(raw: String?): Set<Int> =
         .toSet()
 
 /**
+ * Parses `?role=` for the per-role book list, where every role is a real destination.
+ *
+ * ⛔ Deliberately not [parseContributorRole], which folds all eight other roles into Author because
+ * the Contributors list offers exactly two chips. Reusing it here would send a reader who asked for
+ * a person's Editor credits to their Author ones, under a heading saying Editor.
+ */
+private fun parseAnyContributorRole(raw: String?): ContributorRole =
+    raw?.let { ContributorRole.fromApiValue(it) } ?: ContributorRole.AUTHOR
+
+/**
  * Parses `?role=` at the route boundary, so [ContributorsPage] only ever receives a valid enum.
  *
  * Anything other than the narrator token is Author — absent, malformed ("banana"), and even a
@@ -2665,7 +2724,10 @@ private const val CHAPTERS_KEY = "chapters"
 /** `/book/{id}/readers` — everyone on this book. */
 private const val READERS_KEY = "readers"
 
-/** `/books/edit?ids=…` — the bulk editor over a selection. */
+/**
+ * The plural-books segment, in both places it appears: `/books/edit?ids=…` (the bulk editor over a
+ * selection) and `/contributor/{id}/books?role=…` (one person's whole list in one role).
+ */
 private const val BOOKS_KEY = "books"
 
 /** The selection the bulk editor edits, comma-separated. */

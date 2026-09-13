@@ -29,6 +29,7 @@ class ContributorDetailPageTest :
             onOpenContributors: () -> Unit = {},
             onOpenBook: (String) -> Unit = {},
             onOpenSeries: (String) -> Unit = {},
+            onOpenRoleBooks: (String) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 ContributorDetailPage(
@@ -37,6 +38,7 @@ class ContributorDetailPageTest :
                     onOpenContributors = onOpenContributors,
                     onOpenBook = onOpenBook,
                     onOpenSeries = onOpenSeries,
+                    onOpenRoleBooks = onOpenRoleBooks,
                 )
             }
 
@@ -246,5 +248,59 @@ class ContributorDetailPageTest :
             val root = contributorDetailPage(readyContributor(series = emptyList()))
 
             (root.querySelector(".cd-series-card") == null) shouldBe true
+        }
+        test("a role panel with more books than its preview offers a way to the rest") {
+            val root =
+                contributorDetailPage(
+                    readyContributor(
+                        roleSections = listOf(roleSection(bookCount = 40, previewBooks = listOf(bookItem("b1", "It")))),
+                    ),
+                )
+
+            (root.querySelector(".cd-view-all") as HTMLElement).textContent shouldBe "View all 40"
+        }
+
+        test("a role panel already showing everything offers no View all") {
+            val root =
+                contributorDetailPage(
+                    readyContributor(
+                        roleSections =
+                            listOf(
+                                roleSection(
+                                    bookCount = 1,
+                                    previewBooks = listOf(bookItem("b1", "It")),
+                                ),
+                            ),
+                    ),
+                )
+
+            root.querySelector(".cd-view-all") shouldBe null
+        }
+
+        test("View all reports its own panel's role, not the first one on the page") {
+            var opened: String? = null
+            val root =
+                contributorDetailPage(
+                    readyContributor(
+                        roleSections =
+                            listOf(
+                                roleSection(
+                                    role = ContributorRole.AUTHOR.apiValue,
+                                    displayName = "Written By",
+                                    bookCount = 40,
+                                ),
+                                roleSection(
+                                    role = ContributorRole.NARRATOR.apiValue,
+                                    displayName = "Narrated By",
+                                    bookCount = 12,
+                                ),
+                            ),
+                    ),
+                    onOpenRoleBooks = { opened = it },
+                )
+
+            (root.querySelectorAll(".cd-view-all").item(1) as HTMLElement).click()
+
+            opened shouldBe ContributorRole.NARRATOR.apiValue
         }
     })

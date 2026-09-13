@@ -1,0 +1,18 @@
+/* ── Contributor Books ────────────────────────────────────────────────────────
+   The per-role "View all" list behind Contributor Detail. Book tiles are not
+   restyled here: the page reuses `.cd-tile*` from the detail page on purpose,
+   so clicking "View all" continues the grid the reader was already reading. */
+
+.cb { display: flex; flex-direction: column; gap: 18px; }
+
+.cb-head { display: flex; flex-direction: column; gap: 4px; }
+.cb-role { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.cb-by { font-size: 0.92rem; color: var(--ink-2); }
+/* Quieter than the count it sits under: the alias identifies, it does not headline. */
+.cb-alias { font-size: 0.8rem; color: var(--ink-3); font-style: italic; }
+
+.cb-series, .cb-standalone { display: flex; flex-direction: column; }
+
+/* Sits under its panel's grid, right-aligned, so it reads as the end of that role's
+   preview rather than a page-level action. */
+.cd-view-all { align-self: flex-end; margin-top: 12px; }
