@@ -53,6 +53,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
+import com.calypsan.listenup.web.features.contributordetail.fixedContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
@@ -118,6 +120,7 @@ class BookDetailPanesTest :
                     openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
                     openMetadata = fixedMetadata(MetadataUiState.Idle()),
                     openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                    openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
                     openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
                     openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
                     openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),

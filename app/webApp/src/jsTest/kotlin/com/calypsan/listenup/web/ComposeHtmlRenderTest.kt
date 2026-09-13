@@ -43,6 +43,8 @@ import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiStat
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
+import com.calypsan.listenup.web.features.contributordetail.fixedContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
@@ -109,6 +111,7 @@ class ComposeHtmlRenderTest :
                         openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
                         openMetadata = fixedMetadata(MetadataUiState.Idle()),
                         openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                        openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
                         openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
                         openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
                         openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
@@ -178,6 +181,7 @@ class ComposeHtmlRenderTest :
                         openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
                         openMetadata = fixedMetadata(MetadataUiState.Idle()),
                         openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+                        openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
                         openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
                         openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
                         openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),

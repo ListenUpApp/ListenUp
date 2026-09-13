@@ -79,6 +79,8 @@ import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.web.features.profile.fixedEditProfile
 import com.calypsan.listenup.web.features.profile.fixedProfile
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
+import com.calypsan.listenup.web.features.contributordetail.fixedContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
@@ -143,6 +145,7 @@ private fun mountGate(
             openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
             openMetadata = fixedMetadata(MetadataUiState.Idle()),
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
+            openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
             openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
             openContributorMetadata = fixedContributorMetadata(ContributorMetadataUiState.Idle()),
             openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),

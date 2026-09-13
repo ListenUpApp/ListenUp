@@ -34,6 +34,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
+import com.calypsan.listenup.web.features.contributordetail.roleSection
 import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
 import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
@@ -1219,6 +1220,113 @@ class WebAppRootTest :
             try {
                 recorder.requestedIds shouldBe listOf("c-king")
                 (host.querySelector(".cd-name") as HTMLElement).textContent shouldBe "Contributor c-king"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/contributor/{id}/books opens that person's list in the role the query names") {
+            val recorder = RecordingContributorBooks()
+            val (host, router) =
+                mountAt("/contributor/c-king/books?role=narrator", openContributorBooks = recorder.open)
+
+            try {
+                recorder.requested shouldBe listOf("c-king" to "narrator")
+                (host.querySelector(".cb-role") as HTMLElement).textContent shouldBe "Role narrator"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a books route with no role at all falls back to author rather than rendering nothing") {
+            val recorder = RecordingContributorBooks()
+            val (host, router) = mountAt("/contributor/c-king/books", openContributorBooks = recorder.open)
+
+            try {
+                recorder.requested shouldBe listOf("c-king" to "author")
+                host.querySelector(".cb") shouldNotBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ The regression the two-chip `parseContributorRole` would cause if it were reused here:
+        // it folds every role but Narrator into Author, so an Editor link would quietly open the
+        // Author list under an Editor heading.
+        test("a books route for a role beyond the two the Contributors list offers keeps that role") {
+            val recorder = RecordingContributorBooks()
+            val (_, router) = mountAt("/contributor/c-king/books?role=editor", openContributorBooks = recorder.open)
+
+            try {
+                recorder.requested shouldBe listOf("c-king" to "editor")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a junk role opens the author list rather than a page with no books in it") {
+            val recorder = RecordingContributorBooks()
+            val (_, router) = mountAt("/contributor/c-king/books?role=banana", openContributorBooks = recorder.open)
+
+            try {
+                recorder.requested shouldBe listOf("c-king" to "author")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The prefix regression: /contributor/{id}/books is also a /contributor/{id}, so a branch
+        // order that tests the bare detail route first makes the book list unreachable by link.
+        test("/contributor/{id} still renders the detail page now that a sub-route shares its prefix") {
+            val detail = RecordingContributorDetail()
+            val books = RecordingContributorBooks()
+            val (host, router) =
+                mountAt("/contributor/c-king", openContributorDetail = detail.open, openContributorBooks = books.open)
+
+            try {
+                detail.requestedIds shouldBe listOf("c-king")
+                books.requested shouldBe emptyList()
+                host.querySelector(".cb") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("View all on a role panel navigates to that role's book list") {
+            val books = RecordingContributorBooks()
+            val (host, router) =
+                mountAt(
+                    "/contributor/c-king",
+                    openContributorDetail =
+                        fixedContributorDetail(
+                            readyContributor(roleSections = listOf(roleSection(bookCount = 40))),
+                        ),
+                    openContributorBooks = books.open,
+                )
+
+            try {
+                (host.querySelector(".cd-view-all") as HTMLElement).click()
+                awaitFrame()
+
+                router.current.segments shouldBe listOf("contributor", "c-king", "books")
+                books.requested shouldBe listOf("c-king" to "author")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // The session is keyed on the role as well as the id. Keyed on the id alone, this second
+        // navigation reuses the first session and the reader reads Author books under Narrated By.
+        test("switching role on the same person opens a second session, not the first one again") {
+            val recorder = RecordingContributorBooks()
+            val (_, router) =
+                mountAt("/contributor/c-king/books?role=author", openContributorBooks = recorder.open)
+
+            try {
+                router.navigate(Route(listOf("contributor", "c-king", "books"), mapOf("role" to "narrator")))
+                awaitFrame()
+
+                recorder.requested shouldBe listOf("c-king" to "author", "c-king" to "narrator")
             } finally {
                 router.dispose()
             }
