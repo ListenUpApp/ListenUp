@@ -474,7 +474,7 @@ private fun AuthBoot() {
  * Keeps the document's theme in step with the reader's choice and their OS.
  *
  * Both inputs matter and either can change while the page is open: the reader can pick a mode here,
- * and the OS can flip under a reader who chose to follow it. `web.css` has always carried the dark
+ * and the OS can flip under a reader who chose to follow it. `css/00-base.css` carries the dark
  * palette; this is the only thing that turns it on.
  */
 @Composable

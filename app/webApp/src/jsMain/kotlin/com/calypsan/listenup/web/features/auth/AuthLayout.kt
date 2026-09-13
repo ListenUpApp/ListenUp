@@ -11,7 +11,7 @@ import org.jetbrains.compose.web.dom.Text
  * The chrome every signed-out screen sits in: a brand panel beside a centred form column.
  *
  * Both layouts of the comps (`AuthSignIn` and `AuthSignInDesktop`) are the same DOM — the brand
- * panel always renders and `web.css` hides it below the breakpoint. That is the same one-mechanism
+ * panel always renders and `css/07-auth.css` hides it below the breakpoint. That is the same one-mechanism
  * rule the shell's rail follows, and for the same reason: a Kotlin-side width check needs a resize
  * listener and will disagree with the sheet at the boundary.
  *

@@ -3,7 +3,22 @@
 KGP compiles Kotlin to ES modules and stops. Everything after that — dev server, bundling,
 browser tests — lives here, as an ordinary JS project with an ordinary package manager.
 
-## `src/web.css` is ours
+## `src/css/` is ours
+
+⛔ **One file per feature, and a new feature gets a NEW file.** The stylesheet used to be a single
+`src/web.css` that every feature appended to, which meant any two web PRs in flight collided at the
+end of it by construction — eight consecutive rebases in one session, every one the same conflict,
+each resolved by hand. A hand-resolved union is also the one place a rule can be dropped silently:
+nothing fails when a CSS block disappears, because `ClassContractTest` only catches a class that is
+*rendered* and undefined.
+
+Load order is the cascade, so the numeric prefixes are meaningful: `00`–`08` are the design system
+and the shared page furniture, `20`+ are per-feature sheets. Append within your own file; add a new
+`2x-<feature>.css` when the feature is new.
+
+⛔ **Two loaders, kept in step:** `index.html` and `test/kotest.html`. A sheet added to one and not
+the other is not a cosmetic slip — the test harness would stop seeing those classes, and
+`ClassContractTest` fails by name when a sheet is missing (verified by dropping one).
 
 It started as the ListenUp design project's web sheet and is **adapted, not mirrored**. The comps
 are the brand reference and the starting point, not a spec to transcribe: prune what the app does

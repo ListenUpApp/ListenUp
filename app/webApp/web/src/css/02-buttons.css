@@ -1,0 +1,26 @@
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; height: 52px; border: none; cursor: pointer;
+  font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+  border-radius: 13px; background: var(--coral); color: var(--on-coral); white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(240,81,47,0.28);
+  transition: background .15s, transform .08s, box-shadow .15s;
+}
+@media (hover: hover) { .btn:hover { background: var(--coral-press); box-shadow: 0 8px 22px rgba(240,81,47,0.36); } }
+.btn:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(240,81,47,0.3); }
+.dir-b .btn { border-radius: 9px; font-weight: 600; }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+  font-family: inherit; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;
+  background: var(--surface-2); color: var(--ink); border: 1.5px solid var(--line); white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+@media (hover: hover) { .btn-ghost:hover { background: var(--surface-3); border-color: var(--hairline); } }
+.dir-b .btn-ghost { border-radius: 9px; background: transparent; }
+@media (hover: hover) { .dir-b .btn-ghost:hover { background: var(--surface-2); } }
+

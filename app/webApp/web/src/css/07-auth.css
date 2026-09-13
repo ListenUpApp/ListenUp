@@ -1,0 +1,477 @@
+/* ============================================================
+   AUTH — the signed-out surface.
+   One DOM, two layouts: the brand panel always renders and this
+   sheet hides it below the breakpoint, the same single mechanism
+   the sidebar rail uses.
+   ============================================================ */
+.auth { display: flex; min-height: 100dvh; background: var(--paper); }
+
+.auth-brand { display: none; }
+@media (min-width: 1100px) {
+  .auth-brand {
+    display: flex; flex-direction: column; justify-content: center;
+    width: 520px; flex-shrink: 0; padding: 52px 56px;
+    background: linear-gradient(160deg, var(--coral-deep), #2A0F08);
+    color: #FFF; position: relative; overflow: hidden;
+  }
+}
+.auth-hd {
+  margin: 0; max-width: 380px;
+  font-size: 46px; font-weight: 800; letter-spacing: -1.6px; line-height: 1.02;
+}
+.auth-sub { margin: 18px 0 0; max-width: 360px; opacity: 0.82; font-size: 16px; line-height: 1.5; }
+
+.auth-form {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 24px;
+}
+.auth-col { width: 100%; max-width: 460px; display: flex; flex-direction: column; }
+/* The heading sets `margin: 0`, so without this the badge sits flush against it. Scoped to the
+   auth column because `.badge` is shared — `.dir-b .badge` styles it differently elsewhere. */
+.auth-col > .badge { margin-bottom: 18px; }
+.auth-t {
+  margin: 0; color: var(--ink);
+  font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.0;
+}
+.auth-st { margin: 12px 0 0; color: var(--ink-2); font-size: 16px; line-height: 1.5; }
+.auth-fields { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
+.auth-row { display: flex; gap: 12px; }
+/* Each half takes an equal share of the row and nothing more. `min-width: 0` is the load-bearing
+   part: a flex item's automatic minimum size is its MIN-CONTENT, so without this the halves refuse
+   to shrink and the row overflows .auth-col — visibly, since the single-column fields above and
+   below it stop at 460px. The password row overhangs worst because its min-content carries the
+   lock icon plus the non-shrinking eye button, so it is the row that makes the bug obvious. */
+.auth-row > * { flex: 1 1 0; min-width: 0; }
+.auth-alt {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 6px; font-size: 14.5px; color: var(--ink-2);
+}
+/* The invite card: who invited you, where, and as whom. Sits inside `.auth-fields`, so it is a
+   panel rather than a page section — surface, hairline, and the same radius the fields use. */
+.inv-card {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 13px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+}
+.inv-lead { margin: 0; font-size: 14.5px; color: var(--ink); line-height: 1.5; text-wrap: pretty; }
+.inv-who { font-weight: 800; }
+.inv-mail { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+/* A link that belongs to the field above it — right-aligned, and pulled up tight against it
+   so it reads as part of that field rather than as another row of the form. */
+.auth-aside { display: flex; justify-content: flex-end; margin-top: -4px; }
+.auth-err { color: var(--coral); font-size: 14px; font-weight: 600; }
+.auth-boot {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100dvh; background: var(--paper); color: var(--ink-2);
+}
+
+/* Library — books grid, sort control, progress (web sync arc). */
+.lib-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.lib-sort { display: flex; gap: 0.5rem; align-items: center; }
+.lib-sort-option { cursor: pointer; opacity: 0.6; }
+.lib-sort-option.is-active { opacity: 1; font-weight: 600; }
+.lib-sort-direction { cursor: pointer; user-select: none; }
+.lib-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1.25rem;
+  /* ⛔ Load-bearing for the virtualiser. The spacers above and below the rendered window resize on
+     every scroll, and Chrome's scroll anchoring responds to content resizing above the viewport by
+     adjusting `scrollTop` to keep something pinned — which fights the windowing and throws the
+     scroll position. Measured with it on: fifty deliberate 60px scrolls produced jumps of 366px,
+     794px, 1281px, up to 3479px, so one notch of the wheel could travel a quarter of the library.
+     The virtualiser controls the scroll extent itself; the browser must not second-guess it. */
+  overflow-anchor: none;
+}
+/* `loading="lazy"` on the cover carries the scroll win on its own: measured at 1195 books, only the
+   covers near the viewport are fetched and decoded instead of all 1195 at once.
+   `content-visibility: auto` was tried here as well and REVERTED — on a grid item it skips the
+   item's layout, so `contain-intrinsic-size` governed the row heights, cards misaligned, and the
+   lazy covers never entered the viewport calculation to load at all. Don't reintroduce it on
+   `.lib-card`; if more is needed, contain a section wrapper, not the grid items. */
+.lib-card {
+  /* `relative` so the selection tick can sit on the cover. It changes nothing about the card's
+     size, which the virtualised grid depends on. */
+  position: relative;
+  cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem;
+  border-radius: 8px;
+}
+/* ⛔ Hover and focus may move the cover but must NEVER change the card's height. The grid is
+   virtualised on the assumption that every card is exactly the same height, so a treatment that
+   grew the box would drift the row offsets under the reader's cursor. `transform` is safe because
+   it does not participate in layout; padding, border-width and font-size are not. */
+/* Split: the focus half is how a reader arriving by Tab sees where they are, and cannot be made
+   conditional on a pointer existing. Only the hover half is gated. */
+.lib-card:focus-visible .lib-cover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+}
+@media (hover: hover) {
+  .lib-card:hover .lib-cover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+  }
+}
+.lib-cover { transition: transform .16s ease, box-shadow .16s ease; }
+@media (hover: hover) { .lib-card:hover .lib-title { color: var(--coral); } }
+/* `:focus-visible`, not `:focus` — a mouse click should not leave a ring behind, but a reader
+   arriving by Tab must be able to see where they are. */
+.lib-card:focus { outline: none; }
+.lib-card:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 3px;
+}
+
+/* ⛔ `lib-card-in` is NOT applied to `.lib-card` any more, and must not be re-added.
+   The grid is virtualised: cards mount and unmount continuously as the reader scrolls — measured,
+   149 nodes were inserted across 2,400px of scrolling — so an insertion animation replays on every
+   one of them and the grid flickers the whole way down. A book genuinely arriving or leaving is
+   animated by the View Transition instead, which can tell the two apart; CSS cannot. */
+
+/* Books arrive in batches during the initial seed, ~100 at a time. The animation is on the CARD
+   rather than the grid so it plays per element as each is inserted — a grid-level transition would
+   re-run over every existing card each time a batch landed, which reads as the whole page flashing.
+   Cards already on screen keep their DOM node and so do not replay. */
+@keyframes lib-card-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Letter section header. Spans the whole grid row so the run of books below it reads as its group,
+   and sticks to the top while that run scrolls past. */
+.lib-section {
+  grid-column: 1 / -1;
+  position: sticky; top: -24px; z-index: 2;
+  padding: 14px 2px 6px;
+  background: var(--paper);
+  font-size: 1.05rem; font-weight: 700; color: var(--ink);
+  animation: none;
+}
+
+/* Motion here is decoration, and a 1200-card cascade is exactly the kind of thing that makes a
+   reader who asked for less of it feel worse. */
+@media (prefers-reduced-motion: reduce) {
+  .lib-card { animation: none; }
+  /* The focus ring and the hover colour stay — they are information, not decoration. Only the
+     movement goes. */
+  .lib-cover { transition: none; }
+  .lib-card:hover .lib-cover,
+  .lib-card:focus-visible .lib-cover { transform: none; }
+}
+/* The background is what a lazy cover shows while it is still being fetched, so an unloaded card
+   reads as a waiting tile rather than a hole in the grid. */
+.lib-cover {
+  width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px;
+  background: var(--coral-soft);
+}
+/* Shown in place of the <img> when the server holds no artwork for a book, so a coverless book
+   reads as a titled tile rather than the browser's broken-image icon. */
+.lib-cover-fallback {
+  display: flex; align-items: flex-end; padding: 10px;
+  background: linear-gradient(150deg, var(--coral-soft), var(--paper-2, #e7e0d8));
+  color: var(--ink-2); font-size: 0.8rem; font-weight: 600; line-height: 1.25;
+  overflow: hidden;
+}
+/* Title, author and progress all reserve their space whether or not they have content, so every
+   card is exactly the same height. That is what lets the grid be virtualised: row offsets are
+   arithmetic rather than measurement, and a row's height does not depend on which books are in it.
+   Measured before this rule, card heights were 257 / 274 / 285 depending on how many lines the
+   title and author wrapped to — a 28px spread that made exact row maths impossible. */
+/* One line, not two. Reserving a second line for the minority of titles that need it left a
+   visible gap under every single-line title — which is most of them. A long title now truncates
+   with an ellipsis instead of every card paying for the space.
+   ⛔ Still a FIXED height: uniform cards are what make the virtualiser's row offsets arithmetic
+   rather than measurement. One line clamped is fine; "one line usually, two sometimes" is not. */
+.lib-title {
+  font-size: 0.9rem; line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  height: calc(0.9rem * 1.2);
+  transition: color .16s ease;
+}
+.lib-author {
+  font-size: 0.8rem; line-height: 1.2; color: var(--ink-2);
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  height: calc(0.8rem * 1.2);
+}
+.lib-progress { height: 3px; border-radius: 2px; overflow: hidden; background: var(--luw-border, #333); }
+/* `visibility`, not `display`, so the rail still occupies its row — the grid is virtualised and
+   depends on every card being exactly the same height. */
+.lib-progress.is-empty { visibility: hidden; }
+
+/* The facet row — Books / Authors / Narrators — shared by Library and Contributors. Values
+   carried over from the Contributors role toggle it replaces: same chip, one shared idiom. */
+.facet-row { display: flex; gap: 9px; margin-bottom: 22px; }
+.facet-chip {
+  height: 40px; padding: 0 17px; border-radius: 11px; border: 1.5px solid var(--line);
+  display: inline-flex; align-items: center; cursor: pointer;
+  font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
+  background: var(--surface); color: var(--ink-2);
+}
+.facet-chip.is-active { border-color: transparent; background: var(--coral); color: var(--on-coral); }
+
+/* Spans the grid so the rows above and below the rendered window keep the scrollbar honest. */
+.lib-spacer { grid-column: 1 / -1; overflow-anchor: none; }
+.lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
+
+/* Contributors — the A→Z people list (Library facet). Values pulled from the approved artboard. */
+.contrib-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.contrib-title-row { display: flex; align-items: center; gap: 13px; }
+.contrib-title-row h3 { margin: 0; font-size: 42px; font-weight: 800; letter-spacing: -0.04em; color: var(--ink); }
+.contrib-count {
+  min-width: 32px; height: 28px; padding: 0 11px; border-radius: 999px;
+  background: var(--coral-soft); color: var(--coral);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+}
+/* The browse card the A→Z sections sit in — the artboard's "Browse all" surface. */
+.contrib-list {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  padding: 22px 26px; box-shadow: var(--shadow-card);
+}
+.contrib-section + .contrib-section { margin-top: 8px; }
+.contrib-letter-row { display: flex; align-items: center; gap: 14px; margin: 8px 0 6px; }
+.contrib-letter {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: var(--coral-soft); color: var(--coral);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800;
+}
+.contrib-letter-line { flex-grow: 1; height: 1.5px; border-radius: 99px; background: var(--line); }
+
+.contrib-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
+@media (hover: hover) { .contrib-row:hover { background: var(--surface-2); } }
+.contrib-row:focus { outline: none; }
+.contrib-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.contrib-avatar {
+  width: 58px; height: 58px; border-radius: 999px; flex-shrink: 0;
+  color: #FFFFFF; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 20px;
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
+}
+.contrib-info { flex-grow: 1; min-width: 0; }
+.contrib-name { font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+.contrib-meta { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
+.contrib-role-chip {
+  height: 23px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center;
+  font-size: 11.5px; font-weight: 800; background: var(--coral-soft); color: var(--coral);
+}
+.contrib-role-chip.is-narrator { background: var(--surface-3); color: var(--ink-2); }
+.contrib-book-count { font-size: 13px; color: var(--ink-2); font-weight: 500; }
+.contrib-chevron { color: var(--ink-3); display: flex; }
+
+/* Contributor Detail — the person behind the books. Values pulled from the approved artboard;
+   `.cd` itself mirrors `.bd`'s page-container shape (width, max-width, gap). */
+.cd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.cd-hero { display:flex; align-items:center; gap:22px; }
+.cd-avatar {
+  width:104px; height:104px; border-radius:999px; flex-shrink:0;
+  color:#FFFFFF; display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:35px; letter-spacing:-0.01em;
+  box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
+}
+.cd-name-block { flex:1; min-width:0; }
+.cd-name { margin:0; font-size:42px; font-weight:800; letter-spacing:-0.04em; line-height:1.04; color:var(--ink); }
+.cd-roles { display:flex; align-items:center; gap:8px; margin-top:10px; }
+.cd-role-chip {
+  height:23px; padding:0 10px; border-radius:999px; display:inline-flex; align-items:center;
+  font-size:11.5px; font-weight:800; letter-spacing:0.02em; background:var(--coral-soft); color:var(--coral);
+}
+.cd-role-chip.is-muted { background:var(--surface-3); color:var(--ink-2); }
+.cd-alias { font-size:13px; font-weight:500; color:var(--ink-3); }
+.cd-stats { display:flex; gap:10px; margin-top:14px; }
+.cd-stat {
+  display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 14px 0 11px; border-radius:999px;
+  background:var(--surface); border:1px solid var(--line); color:var(--ink-2);
+}
+.cd-stat-label { font-size:13.5px; font-weight:700; color:var(--ink); }
+/* Panel wrappers carry no look of their own — Panel draws the card — but need to shrink inside
+   the page's flex column the same way `.bd-main`/`.bd-side` do. */
+.cd-role-section, .cd-series-section { min-width:0; }
+.cd-count-badge {
+  min-width:24px; height:22px; padding:0 8px; border-radius:999px;
+  background:var(--coral-soft); color:var(--coral);
+  display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+}
+.cd-tile-grid { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:18px; }
+.cd-tile { cursor:pointer; min-width:0; }
+.cd-tile:focus { outline:none; }
+.cd-tile:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
+.cd-tile-frame {
+  position:relative; width:100%; aspect-ratio:1/1; border-radius:12px; overflow:hidden; box-shadow:var(--shadow-card);
+}
+.cd-tile-cover { width:100%; height:100%; object-fit:cover; display:block; }
+/* Shown in place of the <img> when the server holds no artwork, so a coverless book reads as a
+   titled tile rather than the browser's broken-image icon — same treatment as `.lib-cover-fallback`. */
+.cd-tile-fallback {
+  position:absolute; inset:0; display:flex; align-items:flex-end; padding:10px;
+  background:linear-gradient(150deg, var(--coral-soft), var(--paper-2));
+  color:var(--ink-2); font-size:13px; font-weight:800; line-height:1.15; overflow:hidden;
+}
+.cd-tile-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
+.cd-tile-title {
+  font-size:12.5px; font-weight:600; color:var(--ink); margin-top:8px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.cd-series-grid { display:flex; gap:22px; flex-wrap:wrap; }
+.cd-series-card {
+  flex:1; min-width:260px; display:flex; align-items:center; gap:16px; padding:14px; border-radius:16px;
+  background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-card);
+  /* The card became a <button> when the series route arrived. A button does not inherit the
+     page's font, centres its text and draws its own chrome, so each of those is cancelled here —
+     the card must look exactly as it did as a div, and only behave differently. */
+  font:inherit; color:inherit; text-align:left; cursor:pointer;
+}
+@media (hover: hover) { .cd-series-card:hover { border-color:var(--coral); } }
+.cd-series-card:focus { outline:none; }
+.cd-series-card:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
+.cd-series-fan { position:relative; height:82px; flex-shrink:0; }
+.cd-fan-tile { position:absolute; border-radius:10px; outline:2px solid var(--surface); }
+.cd-fan-tile.is-front { box-shadow:var(--shadow-pop); display:flex; align-items:flex-end; padding:8px; box-sizing:border-box; }
+.cd-fan-title { color:#FFFFFF; font-size:11px; font-weight:800; line-height:1.1; }
+.cd-series-info { flex:1; min-width:0; }
+.cd-series-name { font-size:15px; font-weight:800; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cd-series-count { font-size:12.5px; color:var(--ink-2); font-weight:500; }
+
+/* ---- series detail — one series in reading order.
+   Geometry deliberately matches `.bd` and `.cd`: the three entity pages (a book, a person, a
+   series) are the same kind of destination, and a reader arriving from a cover click should not
+   feel the page width change under them. */
+.sd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.sd-head { display:flex; gap:26px; align-items:flex-end; }
+.sd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
+.sd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.sd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
+.sd-stats { display:flex; gap:10px; flex-wrap:wrap; }
+.sd-stat {
+  display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:12px;
+  background:var(--surface-2); border:1px solid var(--line); color:var(--ink-3);
+}
+.sd-stat-label { font-size:13.5px; font-weight:700; color:var(--ink); }
+.sd-actions { display:flex; gap:10px; margin-top:4px; }
+.sd-desc { font-size:14.5px; line-height:1.6; color:var(--ink-2); }
+.sd-desc p { margin:0; }
+.sd-count-badge {
+  font-family:var(--mono); font-size:11px; color:var(--ink-3); padding:2px 8px;
+  border-radius:999px; background:var(--surface-2); border:1px solid var(--line);
+}
+
+/* One row per book, never a grid: the order IS the series, and a grid that wraps makes "the
+   third book" mean different things at different widths. Same reasoning as `.shelf-books`. */
+.sd-books { display:flex; flex-direction:column; gap:8px; }
+.sd-book {
+  display:flex; align-items:center; gap:14px; width:100%;
+  padding:10px 12px; border-radius:14px;
+  background:var(--surface); border:1px solid var(--line);
+  font:inherit; color:inherit; text-align:left; cursor:pointer;
+}
+@media (hover: hover) { .sd-book:hover { border-color:var(--coral); } }
+@media (hover: hover) { .sd-book:hover .sd-book-t { color:var(--coral); } }
+.sd-book:focus { outline:none; }
+.sd-book:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
+/* Monospaced and fixed-width so the numbers form a column rather than a ragged edge — #1 and
+   #10 must line up, and a 1.5 interquel must not shift its neighbours. */
+.sd-seq {
+  flex:none; min-width:38px; font-family:var(--mono); font-size:12px; font-weight:600;
+  color:var(--ink-3);
+}
+.sd-book-frame {
+  position:relative; flex:none; width:56px; height:56px; border-radius:10px; overflow:hidden;
+  background:var(--surface-2);
+}
+.sd-book-cover { width:100%; height:100%; object-fit:cover; display:block; }
+.sd-book-fallback {
+  width:100%; height:100%; padding:6px; box-sizing:border-box; display:flex; align-items:flex-end;
+  font-size:10px; font-weight:800; line-height:1.1; color:var(--ink-2);
+}
+.sd-book-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
+.sd-book-text { flex:1; min-width:0; }
+.sd-book-t { font-size:15px; font-weight:700; letter-spacing:-0.01em; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sd-book-sub { font-size:12.5px; color:var(--ink-2); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sd-done {
+  flex:none; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px;
+  font-size:11.5px; font-weight:700; color:var(--ink-3); background:var(--surface-2);
+  border:1px solid var(--line);
+}
+
+/* A book's series memberships, on Book Detail. Sits under the byline, above the actions. */
+.bd-series { display:flex; flex-wrap:wrap; gap:8px; }
+.bd-series-chip {
+  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+  background:var(--surface-2); border:1px solid var(--line);
+  font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2); cursor:pointer;
+}
+@media (hover: hover) { .bd-series-chip:hover { border-color:var(--coral); color:var(--coral); } }
+.bd-series-chip:focus { outline:none; }
+.bd-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.bd-series-seq { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
+/* Search — federated results across books, contributors, series and tags. */
+.search-page { width: 100%; padding: 24px 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.search-header h3 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.search-types { display: flex; flex-wrap: wrap; gap: 9px; }
+.search-summary { font-size: 13.5px; color: var(--ink-2); font-weight: 500; }
+
+.search-results { display: flex; flex-direction: column; }
+.search-group + .search-group { margin-top: 22px; }
+.search-group-h { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px 3px; }
+.search-group-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.search-group-count { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+.search-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
+@media (hover: hover) { .search-row:hover { background: var(--surface-2); } }
+.search-row:focus { outline: none; }
+.search-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+/* A hit type with no destination yet — no pointer cursor, no hover fill, nothing that promises a click leads anywhere. */
+.search-row.is-static { cursor: default; }
+@media (hover: hover) { .search-row.is-static:hover { background: none; } }
+.search-badge {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3);
+  display: flex; align-items: center; justify-content: center;
+}
+.search-info { flex-grow: 1; min-width: 0; }
+.search-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-meta { font-size: 13px; color: var(--ink-2); font-weight: 500; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-chevron { color: var(--ink-3); display: flex; flex-shrink: 0; }
+
+.is-error .ico { color: var(--coral); }
+.is-tooshort .ico { color: var(--coral); }
+.is-idle .ico, .is-noresults .ico, .is-searching .ico { color: var(--ink-3); }
+@media (prefers-reduced-motion: no-preference) { .is-searching .ico { animation: scanPulse 1.3s ease-in-out infinite; } }
+
+/* The palette's keyboard-selected row — a stronger, more deliberate mark than plain :hover, since
+   a mouse is never involved in putting it there. */
+.search-row.is-highlighted { background: var(--surface-2); outline: 2px solid var(--coral); outline-offset: -2px; }
+
+/* ---- command palette (⌘K / Ctrl+K / “/”) ---- */
+.cmdk-scrim { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; padding: 96px 20px 20px; background: rgba(22,15,10,.36); }
+[data-theme="dark"] .cmdk-scrim { background: rgba(0,0,0,.55); }
+.cmdk-panel { width: 100%; max-width: 620px; max-height: min(70vh, 560px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-pop); overflow: hidden; }
+.cmdk-field { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.cmdk-field .f-wrap { width: auto; }
+.cmdk-body { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
+/* A compact echo of `.empty` (see its own rule) — the palette has a fraction of the page's room. */
+.cmdk-body .empty { padding: 30px 20px; }
+.cmdk-body .empty .ico { width: 40px; height: 40px; margin-bottom: 2px; }
+.cmdk-body .empty h3 { font-size: 14.5px; }
+.cmdk-body .empty p { font-size: 12.5px; }
+.cmdk-footer { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.cmdk-hint { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+
+/* ---- page background ----
+   Painted on the root because the shell's own surface does not cover the whole canvas during a
+   navigation; without it the gap reads as a flash of white. */
+:root { background: var(--paper); }
+
+/* ⛔ The `::view-transition-*` rules that used to live here have been DELETED, and must not come
+   back. Nothing in this app ever calls `startViewTransition`, so they could never match — but the
+   deeper reason is that they cannot be made to. The browser's View Transition API needs the DOM
+   change to happen inside its update callback, and Compose HTML cannot render in there: rendering
+   is suppressed while the callback is outstanding and Compose's scheduler needs a frame. Measured,
+   the destination had still not rendered 361 ms in, so every transition photographed an identical
+   before and after — animating nothing while holding the old page frozen, which is what read as a
+   lurch on every navigation. See `WebAppRoot`'s note on the library grid, `HeroFlight`, and
+   `NoViewTransitionsRule`, which fails the build if the call name reappears.
+
+   Motion that does work here drives the Web Animations API directly and does not care when any
+   framework renders: `HeroFlight` for the cover, `PageFade` for the page. */
+

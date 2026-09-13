@@ -1,0 +1,271 @@
+/* ============================================================
+   APP SHELL — Shell A: a labeled, collapsible sidebar beside a
+   content region that scrolls. The persistent player bar docks
+   below both once playback exists on this platform.
+   ============================================================ */
+.shell { display:flex; height:100dvh; background:var(--paper); }
+.sidebar { width:252px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface); border-right:1px solid var(--line); padding:18px 16px; transition:width .2s; overflow-y:auto; }
+.sb-brand { display:flex; align-items:center; justify-content:space-between; height:40px; margin-bottom:14px; }
+/* Mark + wordmark travel together so `space-between` still pushes the collapse toggle to the edge. */
+.sb-lockup { display:flex; align-items:center; gap:9px; min-width:0; }
+.sb-mark { width:26px; height:26px; flex:none; }
+.sb-name { font-size:18px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.sb-toggle { color:var(--ink-3); }
+.sb-group { display:block; margin:16px 0 6px 14px; font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
+.sb-nav { display:flex; flex-direction:column; gap:3px; }
+.nav-i { display:flex; align-items:center; gap:13px; height:44px; padding:0 13px; border-radius:12px; cursor:pointer; font-size:14.5px; font-weight:600; letter-spacing:-.01em; color:var(--ink-2); transition:background .14s, color .14s; white-space:nowrap; }
+@media (hover: hover) { .nav-i:hover { background:var(--surface-2); color:var(--ink); } }
+.nav-i.on { background:var(--coral-soft); color:var(--coral); font-weight:700; }
+.nav-i .lb { display:block; flex:1; overflow:hidden; text-overflow:ellipsis; }
+/* The unread badge. `min-width` with a pill radius rather than a fixed circle, so "99+" widens
+   instead of clipping — the count is the point, and a truncated number is worse than a wide one. */
+.nav-badge {
+  flex:none; min-width:20px; height:20px; padding:0 6px; border-radius:999px;
+  background:var(--coral); color:var(--on-coral);
+  font-size:11px; font-weight:800; font-variant-numeric:tabular-nums;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.sb-spacer { flex:1; }
+.sb-expand { margin:0 auto 10px; }
+/* Every page's content lands here, so this is the one place that owes it breathing room —
+   without it a grid or heading sits flush against the sidebar and the top of the window. */
+/* A flex column so the transport bar can be pushed to the bottom by an auto top margin. Without
+   it, `.tport`'s `position:sticky; bottom:0` only pins once the content is tall enough to scroll —
+   on a short page the bar rendered mid-screen, floating above the fold. */
+.shell-main { flex:1; min-width:0; overflow:auto; padding:24px 28px; display:flex; flex-direction:column; }
+
+/* The bottom group. Whichever of these comes first absorbs the free space; when the notice is
+   present it takes the auto margin and the bar tucks directly beneath it, so the two stay a pair
+   rather than splitting the gap between them. */
+.shell-main > .tport-note, .shell-main > .tport { margin-top:auto; }
+.shell-main > .tport-note ~ .tport { margin-top:0; }
+
+/* The bar's own `margin-bottom:-24px` cannot cancel the container's bottom padding here: in a flex
+   column an `auto` top margin absorbs the free space AFTER the other margins are counted, so a
+   negative bottom margin only enlarges what the auto margin then eats — it never overhangs. So the
+   padding is dropped instead, and only when a bar is actually present. */
+.shell-main:has(> .tport) { padding-bottom:0; }
+.shell-main > .tport { margin-bottom:0; }
+
+/* ---- transport bar — the player docked under whatever page is showing.
+   Sticky rather than fixed: it belongs to the content region, so it never
+   overlaps the sidebar and never needs a width computed from it. It renders
+   only when a book is loaded, which is why nothing here reserves space. */
+.tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:24px -28px -24px; padding:14px 22px; min-height:76px; background:var(--surface); border-top:1px solid var(--line); box-shadow:0 -10px 30px rgba(20,12,6,.06); }
+.tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-b:hover { background:var(--coral-press); } }
+.tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:none; }
+.tport-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+.tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
+/* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
+   bar read as three equal actions, when only one of them is the one you reach for. `position:
+   relative` anchors the interval numeral over the arrow. */
+.tport-skip, .tport-sleep, .tport-boost, .tport-expand { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-skip:hover, .tport-sleep:hover, .tport-boost:hover, .tport-expand:hover { background:var(--surface-2); color:var(--ink); } }
+/* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
+   two-digit interval still has to fit. */
+.tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
+/* Text, not an icon: the current rate IS the label, and no glyph says "1.5x" as directly. */
+.tport-speed { flex:none; min-width:40px; height:30px; padding:0 8px; border:1px solid var(--line); border-radius:15px; background:transparent; color:var(--ink-2); font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; }
+@media (hover: hover) { .tport-speed:hover { background:var(--surface-2); color:var(--ink); } }
+/* The playback failure notice. Sits directly above the bar and, more often, alone — the failures
+   worth reporting are the ones that leave nothing playing. */
+.tport-note { position:sticky; bottom:76px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral); border-top:1px solid var(--line); font-size:13.5px; font-weight:600; }
+.tport-note-t { flex:1; min-width:0; }
+.tport-note-x { width:28px; height:28px; flex:none; border:none; border-radius:8px; background:transparent; color:inherit; opacity:.7; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-note-x:hover { opacity:1; background:var(--surface-2); } }
+@media (max-width: 759px) {
+  .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
+  .tport-t { display:none; }
+  /* Skips go; the sleep timer and the boost stay. A narrow screen is a phone in the dark, which
+     is precisely where someone reaches for a sleep timer — and a phone speaker is where a quiet
+     book most needs turning up. Hiding either would drop the control on the device that needs it
+     most. Note this rule names .tport-skip ONLY: give a new control that class and it vanishes
+     under 760px. */
+  .tport-skip { display:none; }
+  .tport-note { margin:16px -14px 0; padding:10px 12px; }
+}
+
+/* The rail form. ONE mechanism, two triggers: the manual .clpsd class (>=1280 preference)
+   and the narrow-viewport media query below, which forces it. Keep the two blocks identical. */
+.sidebar.clpsd { width:76px; padding:16px 14px; align-items:center; }
+.sidebar.clpsd .sb-brand { display:none; }
+.sidebar.clpsd .sb-group { display:none; }
+.sidebar.clpsd .nav-i .lb { display:none; }
+.sidebar.clpsd .nav-i { width:44px; justify-content:center; padding:0; position:relative; }
+/* In the rail there is no label to sit beside, so the badge rides the icon's corner — the whole
+   reason the count lives on the NavEntry rather than next to the label it would vanish with. */
+.sidebar.clpsd .nav-badge { position:absolute; top:2px; right:-2px; min-width:17px; height:17px; padding:0 4px; font-size:10px; }
+@media (max-width: 1279px) {
+  .sidebar { width:76px; padding:16px 14px; align-items:center; }
+  .sidebar .sb-brand { display:none; }
+  .sidebar .sb-group { display:none; }
+  .sidebar .nav-i .lb { display:none; }
+  .sidebar .nav-i { width:44px; justify-content:center; padding:0; }
+  /* Forced rail: collapse is not a preference here, so neither affordance shows. */
+  .sb-toggle, .sb-expand { display:none; }
+}
+
+/* ---- book detail (Workbench layout, Paper voice) ---- */
+/* ⛔ `width:100%` is load-bearing, not belt-and-braces. `margin:0 auto` is an auto margin on
+   a flex item's cross axis, and that DISABLES the parent's `align-items:stretch` — so without
+   an explicit width this block is shrink-to-fit. It measured 366px while the book was loading
+   and 1160px once the panes rendered, which jumped the whole page sideways on arrival and
+   handed the cover's flight a destination that moved out from under it mid-animation. */
+.bd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.bd-head { display:flex; gap:26px; align-items:flex-end; }
+/* The edit page's <form> wraps every section, which would otherwise make all of them ONE flex
+   item of `.bd` and collapse the 20px rhythm between them. The form reproduces its parent's
+   column so the element is structural only — it must not be visible in the layout. */
+.edit-body { display:flex; flex-direction:column; gap:20px; }
+.bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
+.bd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
+/* A byline name is a control, not decoration — same activation contract as `.contrib-row`. */
+.bd-by-name { cursor:pointer; border-radius:4px; }
+@media (hover: hover) { .bd-by-name:hover { color:var(--coral); text-decoration:underline; } }
+.bd-by-name:focus { outline:none; }
+.bd-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
+.bd-actions { display:flex; gap:10px; margin-top:4px; }
+/* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as
+   inline style on a single paragraph. */
+.bd-desc { font-size:14.5px; line-height:1.6; color:var(--ink-2); }
+.bd-desc p { margin:0 0 14px; }
+.bd-desc p:last-child { margin-bottom:0; }
+.bd-desc a { color:var(--coral); }
+/* ---- book edit form ---- */
+/* Two fields to a row where they are short, one where they are not. `minmax(0,1fr)` rather than
+   `1fr` so a long placeholder cannot push the column wider than its share. */
+/* The form's vertical rhythm. Fields are stacked siblings, so without this they sit flush against
+   each other and a label reads as belonging to the input above it rather than below. */
+.edit-form { display:flex; flex-direction:column; gap:20px; }
+.edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--gap); }
+/* A role section: the field plus its "remove all" escape hatch. */
+.rel-section { display:flex; flex-direction:column; gap:8px; }
+.rel-drop {
+  align-self:flex-start; padding:4px 0; border:none; background:none; cursor:pointer;
+  font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-3);
+}
+@media (hover: hover) { .rel-drop:hover { color:var(--coral); } }
+.rel-add-roles { display:flex; flex-wrap:wrap; gap:8px; }
+.rel-add-role {
+  padding:6px 12px; border-radius:999px; cursor:pointer;
+  border:1.5px dashed var(--line); background:none; color:var(--ink-2);
+  font-family:inherit; font-size:13px; font-weight:600;
+}
+@media (hover: hover) { .rel-add-role:hover { border-style:solid; border-color:var(--coral); color:var(--coral); } }
+/* Free text, not a number input: "1.5", "0" and "Prequel" are all real positions. */
+.rel-seq {
+  width:52px; padding:2px 6px; border-radius:7px;
+  border:1.5px solid var(--line); background:var(--surface);
+  font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink); text-align:center;
+}
+.rel-seq:focus { outline:none; border-color:var(--coral); }
+/* ---- relation chips (genres, tags, moods, collections, series, contributors) ---- */
+.rel-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.rel-chip {
+  display:inline-flex; align-items:center; gap:7px;
+  padding:5px 6px 5px 12px; border-radius:999px;
+  background:var(--surface-2); border:1.5px solid var(--line);
+  font-size:13px; font-weight:600; color:var(--ink);
+}
+.rel-x {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:20px; height:20px; padding:0; border:none; border-radius:50%;
+  background:var(--surface-3); color:var(--ink-2);
+  font-family:inherit; font-size:14px; line-height:1; cursor:pointer;
+}
+@media (hover: hover) { .rel-x:hover { background:var(--coral); color:var(--on-coral); } }
+.rel-results {
+  display:flex; flex-direction:column; margin-top:8px;
+  border:1.5px solid var(--line); border-radius:12px; overflow:hidden;
+  background:var(--surface);
+}
+.rel-result {
+  text-align:left; padding:10px 14px; border:none; background:none; cursor:pointer;
+  font-family:inherit; font-size:14px; color:var(--ink);
+}
+/* Split: keyboard focus is not a pointer state and must reach a reader on any device. Only the
+   hover half is gated below. */
+.rel-result:focus-visible { background:var(--surface-3); outline:none; }
+@media (hover: hover) { .rel-result:hover { background:var(--surface-3); outline:none; } }
+.rel-create { font-weight:700; color:var(--coral); }
+.rel-hint { padding:10px 14px; font-size:13.5px; color:var(--ink-3); }
+
+/* A search hit's two lines: the name, and what tells it apart from an identically-named record.
+   Both inside the one button — the row is a single choice, so the subtitle is not its own control. */
+.luw .rel-result { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.luw .rel-result-n { font-size: 0.86rem; font-weight: 650; }
+.luw .rel-result-s { font-size: 0.72rem; color: var(--ink-3); }
+.edit-actions { display:flex; justify-content:flex-end; gap:10px; }
+.edit-actions button[disabled] { opacity:.55; cursor:default; }
+/* The cover shows the book at its true aspect; the dropzone beside it takes the replacement. */
+.cover-field { display:flex; gap:24px; align-items:stretch; }
+.cover-art { width:132px; height:132px; border-radius:10px; overflow:hidden; flex-shrink:0; box-shadow:var(--shadow-card); }
+.cover-art img { width:100%; height:100%; object-fit:cover; display:block; }
+.cover-preview { width:100%; height:100%; object-fit:cover; display:block; }
+.cover-pick-col { flex:1; display:flex; flex-direction:column; gap:10px; }
+.cover-undo { align-self:flex-start; }
+.cover-pick {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  padding:18px; cursor:pointer; font-family:inherit;
+  border:1.5px dashed var(--hairline); border-radius:13px; background:var(--surface-2);
+}
+/* Split for the same reason: `.cover-drag` is a drag-over state, not a pointer-hover one, and a
+   file dragged onto this target must light it up wherever the drag came from. */
+.cover-pick.cover-drag { border-color:var(--coral); background:var(--surface); }
+@media (hover: hover) { .cover-pick:hover { border-color:var(--coral); background:var(--surface); } }
+.cover-pick[disabled] { opacity:.55; cursor:default; }
+.cover-pick-disc { width:44px; height:44px; border-radius:50%; background:var(--coral-soft); color:var(--coral); display:flex; align-items:center; justify-content:center; }
+.cover-pick-main { font-size:15px; font-weight:600; color:var(--ink); }
+.cover-pick-sub { font-size:13px; font-weight:500; color:var(--ink-3); }
+.edit-error {
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:14px 16px; border-radius:12px;
+  background:var(--coral-soft); border:1.5px solid var(--coral); color:var(--ink);
+}
+.edit-error p { margin:0; font-size:14px; }
+/* A text area is the one field whose height is content, not chrome, so it opts out of `.f-box`'s
+   fixed height rather than fighting it. */
+.f-box-area { height:auto; padding:12px 15px; }
+.f-area { resize:vertical; min-height:120px; line-height:1.55; font-weight:450; padding:0; }
+/* A select stops looking like a select the moment `appearance:none` takes the native arrow away,
+   and everything else here wants that shape — so the sheet owes it a chevron back. Overlaid on the
+   box rather than sat beside it as a flex sibling: the arrow is the part people aim at, and a
+   sibling would carve those exact pixels out of the control into a dead zone. */
+.f-select { appearance:none; cursor:pointer; background:none; padding-right:24px; }
+.f-box-select { position:relative; }
+.f-caret {
+  position:absolute; right:15px; top:50%; transform:translateY(-50%);
+  display:flex; pointer-events:none; color:var(--ink-3); transition:color .15s;
+}
+.f-box-select:focus-within .f-caret { color:var(--coral); }
+.f-check {
+  display:inline-flex; align-items:center; gap:10px; cursor:pointer;
+  font-size:14px; font-weight:600; color:var(--ink-2);
+}
+.f-check input { width:18px; height:18px; accent-color:var(--coral); cursor:pointer; }
+.bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
+.bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
+/* the chapter map — the book as a strip; segment width is proportional to duration */
+.chmap { display:flex; gap:2px; height:34px; }
+.chmap i { flex:1 0 2px; min-width:2px; border-radius:3px; background:var(--surface-3); cursor:pointer; transition:background .12s; }
+@media (hover: hover) { .chmap i:hover { background:var(--hairline); } }
+.chmap i.on { background:var(--coral); }
+
+/* 760–1023: the side rail folds under the main column. */
+@media (max-width: 1023px) { .bd-cols { grid-template-columns:minmax(0,1fr); } }
+/* < 760: the thin fallback — same structure, tighter everything. */
+@media (max-width: 759px) {
+  .bd { padding:16px 14px 28px; gap:16px; }
+  .bd-head { gap:16px; }
+  .bd-t { font-size:26px; }
+}
+
+/* ---- checkbox (table select) ---- */
+.cbx { width:17px; height:17px; border-radius:5px; border:1.5px solid var(--hairline); background:var(--surface); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+.cbx.on { background:var(--coral); border-color:var(--coral); }
+.cbx.ind { background:var(--coral); border-color:var(--coral); }
+.cbx.ind::after { content:""; width:9px; height:2px; border-radius:2px; background:#fff; }
+
