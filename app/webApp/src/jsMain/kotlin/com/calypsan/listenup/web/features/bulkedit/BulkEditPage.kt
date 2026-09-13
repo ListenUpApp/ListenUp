@@ -9,12 +9,14 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
+import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.presentation.bookedit.displayName
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.web.design.Field
@@ -22,6 +24,8 @@ import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.RelationChip
 import com.calypsan.listenup.web.design.RelationField
+import com.calypsan.listenup.web.design.SelectField
+import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
@@ -240,6 +244,10 @@ private fun CreditFields(
 ) {
     var seriesQuery by remember { mutableStateOf("") }
     var contributorQuery by remember { mutableStateOf("") }
+    // The role the NEXT person added is credited in — the same `pendingRole` model both natives
+    // use, rather than one section per role like the single-book editor. A bulk edit adds a few
+    // people to forty books; ten standing sections would be ten empty boxes in the common case.
+    var pendingRole by remember { mutableStateOf(ContributorRole.AUTHOR) }
 
     // At most one series: the ViewModel's instruction carries a single membership, so a second
     // chip would be a promise the edit cannot keep.
@@ -260,9 +268,16 @@ private fun CreditFields(
         placeholder = "Search series",
         id = "bke-series",
     )
+    SelectField(
+        label = "Credit as",
+        value = pendingRole.apiValue,
+        options = ContributorRole.entries.map { SelectOption(it.apiValue, it.displayName) },
+        onSelect = { value -> pendingRole = value?.let { ContributorRole.fromApiValue(it) } ?: ContributorRole.AUTHOR },
+        id = "bke-role",
+    )
     RelationField(
         label = "Add contributors",
-        attached = state.contributorInput.map { RelationChip(it.name, it.name) },
+        attached = state.contributorInput.map { creditChip(it) },
         query = contributorQuery,
         results = catalog.contributorMatches.map { RelationChip(it.name, it.name, booksLabel(it.bookCount)) },
         onQueryChange = {
@@ -272,15 +287,37 @@ private fun CreditFields(
         onSelect = { chip ->
             actions.onContributors(
                 state.contributorInput +
-                    BookContributorInput(name = chip.label, role = AUTHOR_ROLE, position = state.contributorInput.size),
+                    BookContributorInput(
+                        name = chip.label,
+                        role = pendingRole.apiValue,
+                        position = state.contributorInput.size,
+                    ),
             )
             contributorQuery = ""
         },
-        onRemove = { chip -> actions.onContributors(state.contributorInput.filterNot { it.name == chip.id }) },
+        onRemove = { chip -> actions.onContributors(state.contributorInput.filterNot { creditKey(it) == chip.id }) },
         placeholder = "Search people",
         id = "bke-contributors",
     )
 }
+
+/**
+ * A credit's chip: keyed on name **and** role, labelled with both.
+ *
+ * ⛔ Not keyed on the name alone. The same person can be credited twice — author and narrator of
+ * their own memoir is the ordinary case — and a name-only key makes the second credit collide with
+ * the first, so removing either removes both. iOS keys the same pair for the same reason.
+ */
+private fun creditChip(credit: BookContributorInput): RelationChip =
+    RelationChip(
+        id = creditKey(credit),
+        label = "${credit.name} · ${roleTitle(credit.role)}",
+    )
+
+private fun creditKey(credit: BookContributorInput): String = "${credit.name}/${credit.role}"
+
+/** A stored role token as a reader-facing name, falling back to the raw token if it is unknown. */
+private fun roleTitle(apiValue: String): String = ContributorRole.fromApiValue(apiValue)?.displayName ?: apiValue
 
 /**
  * Genres, tags and moods.
@@ -437,9 +474,6 @@ private fun <T> List<T>.matching(
 
 /** What an untouched publishing field shows when the books do not agree. */
 private const val MIXED = "Multiple values"
-
-/** Bulk-added contributors are authors; a per-person role picker is the single-book editor's job. */
-private const val AUTHOR_ROLE = "author"
 
 private const val ATTR_TYPE = "type"
 
