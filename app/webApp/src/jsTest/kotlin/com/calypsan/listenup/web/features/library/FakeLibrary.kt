@@ -1,12 +1,15 @@
 package com.calypsan.listenup.web.features.library
 
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.SeriesProgress
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
@@ -30,26 +33,30 @@ fun fakeLibrary(state: LibraryUiState = LibraryUiState.Loading): OpenLibrary =
 fun contractLibrary(
     books: List<BookListItem> = emptyList(),
     syncing: Boolean = false,
+    series: List<SeriesWithBooks> = emptyList(),
+    seriesProgress: Map<SeriesId, SeriesProgress> = emptyMap(),
+    seriesSortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+    isBuildingInitialLibrary: Boolean = false,
 ): LibraryUiState.Loaded =
     LibraryUiState.Loaded(
         booksSortState = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
-        seriesSortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+        seriesSortState = seriesSortState,
         authorsSortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
         narratorsSortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
         ignoreTitleArticles = false,
         hideSingleBookSeries = false,
         books = books,
-        series = emptyList(),
+        series = series,
         authors = emptyList(),
         narrators = emptyList(),
         bookProgress = books.associate { it.id to PARTIAL_PROGRESS },
         bookIsFinished = emptyMap(),
         booksInProgress = emptyList(),
-        seriesProgress = emptyMap(),
+        seriesProgress = seriesProgress,
         syncState = if (syncing) SyncState.Syncing else SyncState.Idle,
         isServerScanning = false,
         scanProgress = null,
-        isBuildingInitialLibrary = false,
+        isBuildingInitialLibrary = isBuildingInitialLibrary,
     )
 
 /**

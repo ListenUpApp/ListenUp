@@ -105,6 +105,7 @@ import com.calypsan.listenup.web.features.admin.UserDetailPage
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.features.devices.OpenDevices
+import com.calypsan.listenup.web.features.serieslist.SeriesListPage
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.SettingsPage
 import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
@@ -702,6 +703,7 @@ private fun RouteContent(
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
     val isContributors = active == LIBRARY_KEY && route.segments.getOrNull(1) == CONTRIBUTORS_KEY
+    val isSeriesList = active == LIBRARY_KEY && route.segments.getOrNull(1) == SERIES_KEY
     // `/contributor/{id}` — the person behind the books, a route of its own (unlike the list, one
     // book's worth of detail is not a facet of anything else).
     val contributorId = route.idUnder(CONTRIBUTOR_KEY)
@@ -790,6 +792,11 @@ private fun RouteContent(
             openSeriesEdit = openSeriesEdit,
             playback = playback,
         )
+    } else if (isSeriesList) {
+        // ⛔ Before the bare Library branch: `/library/series` is also an `active == LIBRARY_KEY`,
+        // so testing that first renders the book grid under a Series chip — which is precisely what
+        // this route did until a spec caught it.
+        SeriesListRoute(librarySession = librarySession, router = router)
     } else if (active == LIBRARY_KEY) {
         LibraryRouteContent(
             librarySession = librarySession,
@@ -1470,6 +1477,25 @@ private fun contributorDetailState(
     val session = remember(contributorId) { openContributorDetail(contributorId) }
     DisposableEffect(session) { onDispose { session.close() } }
     return session.state.collectAsState().value
+}
+
+/**
+ * `/library/series` — every series in the library, over the shell's own library session.
+ *
+ * Extracted for the reason [ShelfRouteContent] and [SearchRouteContent] were: [RouteContent]'s chain
+ * is a cognitive-complexity budget every new route spends from, and this one pushed it over.
+ */
+@Composable
+private fun SeriesListRoute(
+    librarySession: LibrarySession,
+    router: Router,
+) {
+    SeriesListPage(
+        state = librarySession.state.collectAsState().value,
+        onEvent = librarySession.onEvent,
+        onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
+        onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+    )
 }
 
 /**
@@ -2688,6 +2714,10 @@ private fun routeFor(facet: LibraryFacet): Route =
     when (facet) {
         LibraryFacet.Books -> {
             Route(listOf(LIBRARY_KEY))
+        }
+
+        LibraryFacet.Series -> {
+            Route(listOf(LIBRARY_KEY, SERIES_KEY))
         }
 
         LibraryFacet.Authors -> {

@@ -1,69 +1,109 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.ContributorRole
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
-import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
-import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
-import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
-import com.calypsan.listenup.web.features.bookdetail.readyBook
-import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
-import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
-import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
-import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
-import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
-import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
-import com.calypsan.listenup.web.features.chaptereditor.chapter
-import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
-import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
-import com.calypsan.listenup.api.error.InternalError
-import com.calypsan.listenup.web.features.bulkedit.editing
-import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
-import com.calypsan.listenup.client.presentation.books.SelectionMode
-import com.calypsan.listenup.web.features.books.fixedMultiSelect
+import com.calypsan.listenup.client.domain.model.FacetKind
+import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.SearchHit
+import com.calypsan.listenup.client.domain.model.SearchHitType
+import com.calypsan.listenup.client.domain.model.SearchResult
+import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.Shelf
-import com.calypsan.listenup.core.ShelfId
-import com.calypsan.listenup.web.features.library.contractBook
+import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.presentation.admin.AdminUiState
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
+import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterSetProblem
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent
-import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
-import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
-import com.calypsan.listenup.web.features.contributormetadata.localContributor
+import com.calypsan.listenup.client.presentation.genredestination.SubGenre
+import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
+import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
+import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.client.presentation.search.SearchNavAction
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
-import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.web.features.admin.adminUser
+import com.calypsan.listenup.web.features.admin.fixedAdmin
+import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
+import com.calypsan.listenup.web.features.admin.fixedOrganize
+import com.calypsan.listenup.web.features.admin.fixedUserDetail
+import com.calypsan.listenup.web.features.admin.readyLibrary
+import com.calypsan.listenup.web.features.admin.readyOrganize
+import com.calypsan.listenup.web.features.admin.readyUser
+import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
+import com.calypsan.listenup.web.features.bookdetail.readyBook
+import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
+import com.calypsan.listenup.web.features.books.fixedMultiSelect
+import com.calypsan.listenup.web.features.browse.facetReady
+import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
+import com.calypsan.listenup.web.features.browse.fixedGenreDestination
+import com.calypsan.listenup.web.features.browse.genreReady
+import com.calypsan.listenup.web.features.bulkedit.editing
+import com.calypsan.listenup.web.features.bulkedit.fixedBulkEdit
+import com.calypsan.listenup.web.features.chaptereditor.chapter
+import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
+import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.roleSection
 import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
-import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
-import com.calypsan.listenup.web.features.seriesdetail.readySeries
-import com.calypsan.listenup.api.notifications.NotificationEvent
-import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
-import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
-import com.calypsan.listenup.web.features.notifications.fixedNotifications
-import com.calypsan.listenup.web.features.notifications.notification
-import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
-import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
-import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
-import com.calypsan.listenup.web.features.admin.readyLibrary
-import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
-import com.calypsan.listenup.web.features.notifications.pref
-import com.calypsan.listenup.client.presentation.settings.SettingsUiState
-import com.calypsan.listenup.web.features.settings.fixedSettings
-import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
-import com.calypsan.listenup.web.features.profile.fixedProfile
-import com.calypsan.listenup.web.features.profile.readyProfile
-import com.calypsan.listenup.web.features.profile.ProfileSession
+import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
+import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
+import com.calypsan.listenup.web.features.contributormetadata.localContributor
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.contributor
 import com.calypsan.listenup.web.features.contributors.fixedContributors
-import com.calypsan.listenup.web.nav.Route
+import com.calypsan.listenup.web.features.home.OpenHome
+import com.calypsan.listenup.web.features.home.fixedHome
+import com.calypsan.listenup.web.features.library.OpenLibrary
+import com.calypsan.listenup.web.features.library.contractBook
+import com.calypsan.listenup.web.features.library.contractLibrary
+import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.notifications.fixedNotificationBell
+import com.calypsan.listenup.web.features.notifications.fixedNotificationPrefs
+import com.calypsan.listenup.web.features.notifications.fixedNotifications
+import com.calypsan.listenup.web.features.notifications.notification
+import com.calypsan.listenup.web.features.notifications.pref
+import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
+import com.calypsan.listenup.web.features.profile.ProfileSession
+import com.calypsan.listenup.web.features.profile.fixedProfile
+import com.calypsan.listenup.web.features.profile.readyProfile
+import com.calypsan.listenup.web.features.readers.fixedBookReaders
+import com.calypsan.listenup.web.features.readers.reader
+import com.calypsan.listenup.web.features.readers.readersData
+import com.calypsan.listenup.web.features.search.OpenSearch
+import com.calypsan.listenup.web.features.search.SearchSession
 import com.calypsan.listenup.web.features.search.bookHit
-import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.features.search.contributorHit
+import com.calypsan.listenup.web.features.search.fixedSearch
+import com.calypsan.listenup.web.features.search.fixedSeeAll
 import com.calypsan.listenup.web.features.search.searchResult
+import com.calypsan.listenup.web.features.search.seriesHit
+import com.calypsan.listenup.web.features.search.tagHit
+import com.calypsan.listenup.web.features.seriesdetail.fixedSeriesDetail
+import com.calypsan.listenup.web.features.seriesdetail.readySeries
+import com.calypsan.listenup.web.features.settings.fixedSettings
+import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -71,66 +111,25 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import kotlinx.browser.document
 import io.kotest.matchers.string.shouldNotContain
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeout
+import org.jetbrains.compose.web.renderComposable
+import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
-import org.w3c.dom.asList
-import org.jetbrains.compose.web.renderComposable
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
-import com.calypsan.listenup.web.features.library.OpenLibrary
-import com.calypsan.listenup.web.features.library.contractLibrary
-import com.calypsan.listenup.web.features.library.fakeLibrary
-import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
-import com.calypsan.listenup.client.domain.model.SearchHit
-import com.calypsan.listenup.client.domain.model.SearchHitType
-import com.calypsan.listenup.client.domain.model.SearchResult
-import com.calypsan.listenup.client.presentation.search.SearchNavAction
-import com.calypsan.listenup.client.presentation.search.SearchUiState
-import com.calypsan.listenup.client.domain.model.FacetKind
-import com.calypsan.listenup.client.domain.model.Mood
-import com.calypsan.listenup.client.domain.model.Tag
-import com.calypsan.listenup.client.presentation.genredestination.SubGenre
-import com.calypsan.listenup.core.GenreId
-import com.calypsan.listenup.web.features.browse.facetReady
-import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
-import com.calypsan.listenup.web.features.browse.fixedGenreDestination
-import com.calypsan.listenup.web.features.browse.genreReady
-import com.calypsan.listenup.web.features.search.seriesHit
-import com.calypsan.listenup.web.features.search.tagHit
-import org.w3c.dom.asList
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.emptyFlow
 import org.w3c.dom.HTMLInputElement
-import org.w3c.dom.EventInit
+import org.w3c.dom.asList
 import org.w3c.dom.events.Event
-import com.calypsan.listenup.client.presentation.home.HomeUiState
-import com.calypsan.listenup.web.features.home.OpenHome
-import com.calypsan.listenup.web.features.home.fixedHome
-import com.calypsan.listenup.web.features.search.OpenSearch
-import com.calypsan.listenup.web.features.search.SearchSession
-import com.calypsan.listenup.web.features.search.fixedSearch
-import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
-import com.calypsan.listenup.web.features.readers.fixedBookReaders
-import com.calypsan.listenup.web.features.readers.reader
-import com.calypsan.listenup.web.features.readers.readersData
-import com.calypsan.listenup.web.features.search.bookHit
-import com.calypsan.listenup.web.features.search.fixedSeeAll
-import com.calypsan.listenup.client.presentation.admin.AdminUiState
-import com.calypsan.listenup.web.features.admin.adminUser
-import com.calypsan.listenup.web.features.admin.fixedAdmin
-import com.calypsan.listenup.web.features.admin.fixedUserDetail
-import com.calypsan.listenup.web.features.admin.readyUser
-import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
-import com.calypsan.listenup.web.features.admin.fixedOrganize
-import com.calypsan.listenup.web.features.admin.readyOrganize
 
 /**
  * The root wiring: the sidebar drives the URL and the URL drives the sidebar. This is where the
@@ -331,13 +330,72 @@ class WebAppRootTest :
             }
         }
 
-        test("neither an 'In progress' nor a 'Series' chip exists in the facet row") {
+        // ⛔ The regression this route shipped with before a spec existed: the routing edit silently
+        // never landed, `/library/series` fell through to the bare Library branch, and the Series
+        // chip rendered the book grid. Every page-level spec stayed green — they mount the page
+        // directly and never ask the router to find it.
+        test("/library/series renders the series list, not the book grid under a Series chip") {
+            val (host, router, composition) =
+                mountAt(
+                    "/library/series",
+                    openLibrary =
+                        fakeLibrary(
+                            contractLibrary(
+                                books = listOf(contractBook("b1", "The Institute")),
+                                series = listOf(routedSeries()),
+                            ),
+                        ),
+                )
+
+            try {
+                (host.querySelector(".srs-name") as HTMLElement).textContent shouldBe "The Dark Tower"
+                host.querySelector(".lib-grid") shouldBe null
+                (host.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Series"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("the Series chip navigates to the series list") {
+            val (host, router, composition) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
+
+            try {
+                facetChip(host, "Series").click()
+                awaitFrame()
+
+                router.current.segments shouldBe listOf("library", "series")
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/library still renders the book grid now that a sibling route shares its prefix") {
+            val (host, router, composition) =
+                mountAt(
+                    "/library",
+                    openLibrary = fakeLibrary(contractLibrary(books = listOf(contractBook("b1", "The Institute")))),
+                )
+
+            try {
+                host.querySelector(".srs-grid") shouldBe null
+                (host.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Books"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        // Series joined the row when it got a page to lead to. "In progress" still has none, so it
+        // still must not appear — a chip whose only outcome is nothing is a lie.
+        test("the facet row offers Series but still no 'In progress' chip") {
             val (host, router, composition) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
 
             try {
                 val chips = host.querySelectorAll(".facet-chip")
                 val labels = (0 until chips.length).map { (chips.item(it) as HTMLElement).textContent }
-                labels shouldBe listOf("Books", "Authors", "Narrators")
+                labels shouldBe listOf("Books", "Series", "Authors", "Narrators")
             } finally {
                 composition.dispose()
                 router.dispose()
@@ -2044,3 +2102,13 @@ private fun readyAdmin(
     users: List<com.calypsan.listenup.client.domain.model.AdminUserInfo> = emptyList(),
     pendingUsers: List<com.calypsan.listenup.client.domain.model.AdminUserInfo> = emptyList(),
 ) = AdminUiState.Ready(users = users, pendingUsers = pendingUsers)
+
+/** One series, so the routed page has something to draw rather than its empty state. */
+private fun routedSeries(): SeriesWithBooks {
+    val books = listOf(contractBook("dt1", "The Gunslinger"))
+    return SeriesWithBooks(
+        series = Series(id = SeriesId("s-dt"), name = "The Dark Tower"),
+        books = books,
+        bookSequences = books.associate { it.id.value to null },
+    )
+}

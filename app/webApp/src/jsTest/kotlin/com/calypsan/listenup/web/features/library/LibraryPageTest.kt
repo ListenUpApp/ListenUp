@@ -12,6 +12,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.design.LibraryFacet
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -43,7 +44,7 @@ class LibraryPageTest :
             listOf(LibraryUiState.Loading, LibraryUiState.Error("nope")).forEach { state ->
                 val root = render(state)
 
-                root.querySelectorAll(".facet-chip").length shouldBe 3
+                root.querySelectorAll(".facet-chip").length shouldBe LibraryFacet.entries.size
             }
         }
 

@@ -1,0 +1,23 @@
+/* ── Series list ──────────────────────────────────────────────────────────────
+   The Library's Series tab. Sort and facet chrome is shared with the Books tab
+   (`.lib-header`, `.lib-sort`, `.facet-row`), so only the grid lives here. */
+
+.srs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 18px;
+}
+
+.srs-card {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 0; border: none; background: none; cursor: pointer;
+  font-family: inherit; text-align: left; color: var(--ink);
+}
+
+.srs-cover { width: 100%; }
+
+.srs-meta { display: flex; flex-direction: column; gap: 2px; }
+.srs-name { font-size: 0.9rem; font-weight: 650; line-height: 1.25; }
+.srs-count { font-size: 0.76rem; color: var(--ink-3); }
+/* Only rendered once a series has been started, so it can afford to be the accent. */
+.srs-progress { font-size: 0.76rem; font-weight: 600; color: var(--coral); }
