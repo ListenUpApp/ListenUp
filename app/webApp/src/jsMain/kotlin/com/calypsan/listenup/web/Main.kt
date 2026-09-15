@@ -57,6 +57,7 @@ import com.calypsan.listenup.web.features.admin.graphCollections
 import com.calypsan.listenup.web.features.admin.graphServerSettings
 import com.calypsan.listenup.web.features.admin.graphLibrarySettings
 import com.calypsan.listenup.web.features.devices.graphDevices
+import com.calypsan.listenup.web.features.licences.graphLicences
 import com.calypsan.listenup.web.features.settings.graphSettings
 import com.calypsan.listenup.web.features.shelf.graphShelfDetail
 import com.calypsan.listenup.web.features.shelf.graphShelfEdit
@@ -183,6 +184,7 @@ fun main() {
                 openHome = graphHome(koin),
                 openDiscover = graphDiscover(koin),
                 openSettings = graphSettings(koin),
+                openLicences = graphLicences(),
                 openDevices = graphDevices(koin),
                 openAdmin = graphAdmin(koin),
                 admin =

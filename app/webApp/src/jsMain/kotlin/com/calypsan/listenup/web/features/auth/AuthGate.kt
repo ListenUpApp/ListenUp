@@ -38,6 +38,7 @@ import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 import com.calypsan.listenup.web.features.search.OpenSeeAll
 import com.calypsan.listenup.web.features.metadata.OpenMetadata
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorBooks
+import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
@@ -93,6 +94,7 @@ fun AuthGate(
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
+    openLicences: OpenLicences,
     openLibrarySetup: OpenLibrarySetup,
     openProfile: OpenProfile,
     openEditProfile: OpenEditProfile,
@@ -211,6 +213,7 @@ fun AuthGate(
                         openSeriesEdit = openSeriesEdit,
                         openNotifications = openNotifications,
                         openNotificationPrefs = openNotificationPrefs,
+                        openLicences = openLicences,
                         openProfile = openProfile,
                         openEditProfile = openEditProfile,
                         openNotificationBell = openNotificationBell,

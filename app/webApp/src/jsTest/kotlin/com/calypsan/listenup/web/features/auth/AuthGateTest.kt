@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.features.licences.fixedLicences
+import com.calypsan.listenup.web.features.licences.OpenLicences
+import com.calypsan.listenup.web.features.licences.LicencesUiState
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
@@ -157,6 +160,7 @@ private fun mountGate(
             openHome = fixedHome(HomeUiState.Loading),
             openDiscover = fixedDiscover(),
             openSettings = fixedSettings(),
+            openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
             openDevices = fixedDevices(),
             openAdmin = fixedAdmin(),
             admin =

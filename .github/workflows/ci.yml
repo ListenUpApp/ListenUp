@@ -141,6 +141,13 @@ jobs:
         working-directory: app/webApp/web
         run: pnpm install --frozen-lockfile
 
+      # The OSS licence manifest the web client serves is generated from two dependency graphs —
+      # this module's Kotlin/JS one and `web/`'s npm one — so this is the only job with everything
+      # needed to regenerate it. Before the Playwright download rather than after: a stale manifest
+      # is a fast failure, and there is no reason to spend twelve minutes on a browser first.
+      - name: Verify the web licence manifest is in sync
+        run: ./gradlew :app:webApp:verifyWebLicences --no-daemon
+
       # Playwright brings its own Chromium rather than reusing a system browser: karma's
       # equivalent step was a long-running source of CHROME_BIN drift, and a pinned download
       # removes the variable entirely.

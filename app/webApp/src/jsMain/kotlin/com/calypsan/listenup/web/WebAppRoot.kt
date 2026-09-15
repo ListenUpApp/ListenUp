@@ -105,6 +105,8 @@ import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.serieslist.SeriesListPage
 import com.calypsan.listenup.web.features.settings.OpenSettings
+import com.calypsan.listenup.web.features.licences.LicencesPage
+import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.settings.SettingsPage
 import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
 import com.calypsan.listenup.web.features.shelf.OpenShelfEdit
@@ -233,6 +235,7 @@ fun WebAppRoot(
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
+    openLicences: OpenLicences,
     openProfile: OpenProfile,
     openEditProfile: OpenEditProfile,
     openHome: OpenHome,
@@ -336,6 +339,7 @@ fun WebAppRoot(
             openSeriesEdit = openSeriesEdit,
             openNotifications = openNotifications,
             openNotificationPrefs = openNotificationPrefs,
+            openLicences = openLicences,
             openProfile = openProfile,
             openEditProfile = openEditProfile,
             currentUserId = currentUserId,
@@ -671,6 +675,7 @@ private fun RouteContent(
     openSeriesEdit: OpenSeriesEdit,
     openNotifications: OpenNotifications,
     openNotificationPrefs: OpenNotificationPrefs,
+    openLicences: OpenLicences,
     openProfile: OpenProfile,
     openEditProfile: OpenEditProfile,
     currentUserId: String?,
@@ -825,6 +830,7 @@ private fun RouteContent(
             openDevices = openDevices,
             openAdmin = openAdmin,
             openNotificationPrefs = openNotificationPrefs,
+            openLicences = openLicences,
             admin = admin,
             onToast = onToast,
         )
@@ -2850,6 +2856,9 @@ private const val INBOX_KEY = "inbox"
 
 private const val SETTINGS_KEY = "settings"
 
+/** `/settings/licences` — the open-source acknowledgements for what the browser actually loads. */
+private const val LICENCES_KEY = "licences"
+
 private const val DEVICES_KEY = "devices"
 
 /** The path segment that opens a listener's own page — `/profile/{userId}`. */
@@ -3028,6 +3037,27 @@ private fun SettingsRoute(
         onHideSingleBookSeries = session.onHideSingleBookSeries,
         onOpenDevices = { router.navigate(Route(listOf(SETTINGS_KEY, DEVICES_KEY))) },
         onOpenNotifications = { router.navigate(Route(listOf(SETTINGS_KEY, NOTIFICATIONS_KEY))) },
+        onOpenLicences = { router.navigate(Route(listOf(SETTINGS_KEY, LICENCES_KEY))) },
+    )
+}
+
+/**
+ * `/settings/licences` — what the web client is built from.
+ *
+ * Opened once for the route's life: the manifest is a static build artifact, so there is nothing to
+ * re-fetch while the page is up.
+ */
+@Composable
+private fun LicencesRoute(
+    router: Router,
+    openLicences: OpenLicences,
+) {
+    val session = remember { openLicences() }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    LicencesPage(
+        state = session.state.collectAsState().value,
+        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
     )
 }
 
@@ -3345,6 +3375,7 @@ private fun AccountRouteContent(
     openDevices: OpenDevices,
     openAdmin: OpenAdmin,
     openNotificationPrefs: OpenNotificationPrefs,
+    openLicences: OpenLicences,
     admin: AdminSessions,
     onToast: (String) -> Unit,
 ) {
@@ -3365,6 +3396,10 @@ private fun AccountRouteContent(
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == NOTIFICATIONS_KEY -> {
             NotificationPrefsRoute(router = router, openNotificationPrefs = openNotificationPrefs)
+        }
+
+        segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == LICENCES_KEY -> {
+            LicencesRoute(router = router, openLicences = openLicences)
         }
 
         // `size <= 1` for the reason the Settings branch needs it: `active` is ADMIN_KEY for
