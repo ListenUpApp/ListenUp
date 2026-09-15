@@ -48,7 +48,6 @@ import com.calypsan.listenup.web.features.contributordetail.fixedContributorBook
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
-import com.calypsan.listenup.web.features.contributors.fixedContributors
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.nav.Router
@@ -120,7 +119,6 @@ class ComposeHtmlRenderTest :
                         openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                         openProfile = fixedProfile(UserProfileUiState.Loading),
                         openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
-                        openContributors = fixedContributors(emptyList()),
                         openHome = fixedHome(HomeUiState.Loading),
                         openDiscover = fixedDiscover(),
                         openSettings = fixedSettings(),
@@ -190,7 +188,6 @@ class ComposeHtmlRenderTest :
                         openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                         openProfile = fixedProfile(UserProfileUiState.Loading),
                         openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
-                        openContributors = fixedContributors(emptyList()),
                         openHome = fixedHome(HomeUiState.Loading),
                         openDiscover = fixedDiscover(),
                         openSettings = fixedSettings(),

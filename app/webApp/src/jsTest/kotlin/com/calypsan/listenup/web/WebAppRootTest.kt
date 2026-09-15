@@ -69,10 +69,7 @@ import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
 import com.calypsan.listenup.web.features.contributormetadata.contributorSearchState
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributormetadata.localContributor
-import com.calypsan.listenup.web.features.contributors.ContributorsSession
-import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.contributors.contributor
-import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.web.features.library.OpenLibrary
@@ -310,20 +307,29 @@ class WebAppRootTest :
             }
         }
 
-        test("switching facet role opens a new session rather than reusing the old one's") {
-            // A1 only proved the toggle gesture escapes the page; this closes the gap the plan
-            // flagged — that nothing yet proved `openContributors(role)` is re-invoked when the
-            // role actually changes, which is exactly what a bare `remember { }` would get wrong.
-            val recorder = RecordingContributors()
-            val (host, router, composition) = mountAt("/library/contributors", openContributors = recorder.open)
+        // The property the old per-role session proved, now that the role selects which of the
+        // library's two already-loaded lists is rendered rather than opening a session: switching
+        // must actually change the people on screen, not just the chip above them.
+        test("switching facet role renders the other role's people, not the first role's") {
+            val (host, router, composition) =
+                mountAt(
+                    "/library/contributors",
+                    openLibrary =
+                        fakeLibrary(
+                            contractLibrary(
+                                authors = listOf(contributor("c1", "Andy Weir", 3)),
+                                narrators = listOf(contributor("c2", "Rosamund Pike", 9)),
+                            ),
+                        ),
+                )
 
             try {
-                recorder.requestedRoles shouldBe listOf(ContributorRole.AUTHOR)
+                (host.querySelector(".contrib-name") as HTMLElement).textContent shouldBe "Andy Weir"
 
                 facetChip(host, "Narrators").click()
                 awaitFrame()
 
-                recorder.requestedRoles shouldBe listOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR)
+                (host.querySelector(".contrib-name") as HTMLElement).textContent shouldBe "Rosamund Pike"
             } finally {
                 composition.dispose()
                 router.dispose()
@@ -1394,7 +1400,7 @@ class WebAppRootTest :
             val (host, router) =
                 mountAt(
                     "/library/contributors",
-                    openContributors = fixedContributors(listOf(contributor("c1", "Andy Weir", 3))),
+                    openLibrary = fakeLibrary(contractLibrary(authors = listOf(contributor("c1", "Andy Weir", 3)))),
                 )
 
             try {

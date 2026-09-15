@@ -2,6 +2,10 @@ package com.calypsan.listenup.web.features.contributors
 
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
+import com.calypsan.listenup.client.presentation.library.SortCategory
+import com.calypsan.listenup.client.presentation.library.SortDirection
+import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.LibraryFacet
 import io.kotest.core.spec.style.FunSpec
@@ -10,6 +14,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
@@ -39,9 +44,13 @@ class ContributorsPageTest :
             role: ContributorRole = ContributorRole.AUTHOR,
             onSelectFacet: (LibraryFacet) -> Unit = {},
             onOpenContributor: (String) -> Unit = {},
+            sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+            onEvent: (LibraryUiEvent) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 ContributorsPage(
+                    sortState = sortState,
+                    onEvent = onEvent,
                     state = state,
                     role = role,
                     onSelectFacet = onSelectFacet,
@@ -66,14 +75,17 @@ class ContributorsPageTest :
             (root.querySelector(".contrib-book-count") as HTMLElement).textContent shouldBe "1 book"
         }
 
-        test("letter sections appear in order; a person's name is never article-stripped") {
+        // The people arrive already ordered by the shared ViewModel, so the fixture supplies them
+        // that way; what this pins is that the rail honours that order and that a person's name is
+        // never article-stripped — "The Kingkiller Trio" files under T, not K.
+        test("letter sections follow the caller's order; a person's name is never article-stripped") {
             val root =
                 contributorsPage(
                     state =
                         listOf(
-                            contributor("c1", "Zoe Quinn"),
                             contributor("c2", "Andy Weir"),
                             contributor("c3", "The Kingkiller Trio"),
+                            contributor("c1", "Zoe Quinn"),
                         ),
                 )
 
@@ -137,7 +149,10 @@ class ContributorsPageTest :
             root.textContent!! shouldNotContain "Loading…"
         }
 
-        test("groupByLetter sorts A→Z with '#' first, for names with no leading letter") {
+        // ⛔ Ordering is no longer this function's job — the caller's sort decides it, and
+        // re-deciding here is what made a descending name sort leave its letters in ascending
+        // order. What it still owns is which letter a name files under, `#` included.
+        test("groupByLetter files non-letter names under '#' and keeps the order it was given") {
             val groups =
                 groupByLetter(
                     listOf(
@@ -147,7 +162,7 @@ class ContributorsPageTest :
                     ),
                 )
 
-            groups.map { it.letter } shouldBe listOf('#', 'A', 'Z')
+            groups.map { it.letter } shouldBe listOf('Z', 'A', '#')
         }
 
         test("groupByLetter never article-strips a person's name, matching the shared nameLetter rule") {
@@ -270,5 +285,111 @@ class ContributorsPageTest :
             val root = contributorsPage(state = listOf(contributor("c1", "Andy Weir")))
 
             (root.querySelector(".contrib-avatar") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
+        }
+        test("the sort row offers the two categories a person list can be ordered by") {
+            val root = contributorsPage(listOf(contributor("c1", "Andy Weir", 3)))
+
+            root.querySelectorAll(".lib-sort-option").asList().map { it.textContent } shouldBe
+                listOf(SortCategory.NAME.label, SortCategory.BOOK_COUNT.label)
+        }
+
+        test("choosing a category reports the Authors event when Authors is showing") {
+            val events = mutableListOf<LibraryUiEvent>()
+            val root = contributorsPage(listOf(contributor("c1", "Andy Weir", 3)), onEvent = { events += it })
+
+            (root.querySelectorAll(".lib-sort-option").item(1) as HTMLElement).click()
+
+            events shouldBe listOf(LibraryUiEvent.AuthorsCategoryChanged(SortCategory.BOOK_COUNT))
+        }
+
+        // ⛔ The two lists keep separate sorts. Sorting Narrators by book count must not silently
+        // reorder Authors, which a single shared event would do.
+        test("choosing a category reports the Narrators event when Narrators is showing") {
+            val events = mutableListOf<LibraryUiEvent>()
+            val root =
+                contributorsPage(
+                    listOf(contributor("c1", "Rosamund Pike", 9)),
+                    role = ContributorRole.NARRATOR,
+                    onEvent = { events += it },
+                )
+
+            (root.querySelectorAll(".lib-sort-option").item(1) as HTMLElement).click()
+
+            events shouldBe listOf(LibraryUiEvent.NarratorsCategoryChanged(SortCategory.BOOK_COUNT))
+        }
+
+        test("the direction toggle reports the role's own toggle") {
+            val events = mutableListOf<LibraryUiEvent>()
+            val root =
+                contributorsPage(
+                    listOf(contributor("c1", "Rosamund Pike", 9)),
+                    role = ContributorRole.NARRATOR,
+                    onEvent = { events += it },
+                )
+
+            (root.querySelector(".lib-sort-direction") as HTMLElement).click()
+
+            events shouldBe listOf(LibraryUiEvent.NarratorsDirectionToggled)
+        }
+
+        // ⛔ The bug the old local `sortedBy { name.lowercase() }` would cause once the ViewModel
+        // owns ordering: the page would silently re-alphabetise a list the reader asked to see by
+        // book count.
+        test("a book-count sort keeps the ViewModel's order rather than re-alphabetising it") {
+            val root =
+                contributorsPage(
+                    listOf(
+                        contributor("c1", "Zoe Quinn", 47),
+                        contributor("c2", "Andy Weir", 3),
+                    ),
+                    sortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING),
+                )
+
+            root.querySelectorAll(".contrib-name").asList().map { it.textContent } shouldBe
+                listOf("Zoe Quinn", "Andy Weir")
+        }
+
+        // The rail labels runs of people with a letter. Under "Most books" that letter means
+        // nothing — the same call the Books tab makes for its Added and Duration sorts.
+        test("the letter rail belongs to a name sort and disappears under any other") {
+            val people = listOf(contributor("c1", "Andy Weir", 3), contributor("c2", "Zoe Quinn", 47))
+
+            contributorsPage(people).querySelectorAll(".contrib-letter").length shouldBe 2
+            contributorsPage(
+                people,
+                sortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING),
+            ).querySelectorAll(".contrib-letter").length shouldBe 0
+        }
+
+        // ⛔ The rail used to be re-sorted A→Z here regardless of the sort it was rendering, so a
+        // reader who pressed ↓ on a name sort saw the people inside each letter reverse while the
+        // letters themselves stayed put. The sections follow the caller's order now.
+        test("a descending name sort runs the letter rail Z to A, not A to Z") {
+            val root =
+                contributorsPage(
+                    listOf(contributor("c2", "Zoe Quinn", 47), contributor("c1", "Andy Weir", 3)),
+                    sortState = SortState(SortCategory.NAME, SortDirection.DESCENDING),
+                )
+
+            root.querySelectorAll(".contrib-letter").asList().map { it.textContent } shouldBe listOf("Z", "A")
+        }
+
+        test("an ascending name sort still runs A to Z") {
+            val root =
+                contributorsPage(
+                    listOf(contributor("c1", "Andy Weir", 3), contributor("c2", "Zoe Quinn", 47)),
+                    sortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+                )
+
+            root.querySelectorAll(".contrib-letter").asList().map { it.textContent } shouldBe listOf("A", "Z")
+        }
+
+        // Offering to reorder nothing is an affordance whose only outcome is nothing — the same
+        // rule the Library's own header follows.
+        test("sorting is offered only once the list has actually answered") {
+            contributorsPage(null).querySelectorAll(".lib-sort").length shouldBe 0
+            contributorsPage(listOf(contributor("c1", "Andy Weir", 3)))
+                .querySelectorAll(".lib-sort")
+                .length shouldBe 1
         }
     })

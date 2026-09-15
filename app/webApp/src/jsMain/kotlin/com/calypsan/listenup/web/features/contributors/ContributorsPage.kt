@@ -4,6 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
+import com.calypsan.listenup.client.presentation.library.SortCategory
+import com.calypsan.listenup.client.presentation.library.SortDirection
+import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
@@ -43,6 +47,8 @@ fun ContributorsPage(
     role: ContributorRole,
     onSelectFacet: (LibraryFacet) -> Unit,
     onOpenContributor: (String) -> Unit,
+    sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+    onEvent: (LibraryUiEvent) -> Unit = {},
 ) {
     Div(attrs = { classes("contrib-header") }) {
         Div(attrs = { classes("contrib-title-row") }) {
@@ -51,6 +57,9 @@ fun ContributorsPage(
             // answer, and there isn't one yet.
             state?.let { list -> Span(attrs = { classes("contrib-count") }) { Text(list.size.toString()) } }
         }
+        // Sorting stays with an answered list, the same rule the Library's own header follows:
+        // offering to reorder nothing is an affordance whose only outcome is nothing.
+        if (state != null) ContributorSortControl(sortState, role, onEvent)
     }
     // Books is never the active chip here — this page only ever renders for the Authors or
     // Narrators facet — but selecting it must still be able to navigate back to the library, so
@@ -71,23 +80,86 @@ fun ContributorsPage(
     }
 
     Div(attrs = { classes("contrib-list") }) {
-        // `state` is re-sorted and re-grouped on every recomposition otherwise; keyed on the list
-        // itself, the same precedent `VirtualBookGrid` sets for its own `layOut(...)` call.
-        val groups = remember(state) { groupByLetter(state) }
-        groups.forEach { group ->
-            Div(attrs = { classes("contrib-section") }) {
-                LetterHeading(group.letter)
-                group.contributors.forEach { entry ->
-                    ContributorRow(
-                        entry = entry,
-                        role = role,
-                        onOpen = { onOpenContributor(entry.contributor.idString) },
-                    )
+        // ⛔ The letter rail belongs to a NAME sort and nothing else. Under "Most books" the list
+        // runs 47, 31, 12 — letter squares over that would label runs of people with letters that
+        // mean nothing, which is the same call the Books tab makes for its Added and Duration sorts.
+        if (sortState.category == SortCategory.NAME) {
+            // Re-grouped on every recomposition otherwise; keyed on the list itself, the same
+            // precedent `VirtualBookGrid` sets for its own `layOut(...)` call.
+            val groups = remember(state) { groupByLetter(state) }
+            groups.forEach { group ->
+                Div(attrs = { classes("contrib-section") }) {
+                    LetterHeading(group.letter)
+                    group.contributors.forEach { entry ->
+                        ContributorRow(
+                            entry = entry,
+                            role = role,
+                            onOpen = { onOpenContributor(entry.contributor.idString) },
+                        )
+                    }
                 }
+            }
+        } else {
+            state.forEach { entry ->
+                ContributorRow(
+                    entry = entry,
+                    role = role,
+                    onOpen = { onOpenContributor(entry.contributor.idString) },
+                )
             }
         }
     }
 }
+
+/**
+ * Sort category and direction for whichever contributor list is showing.
+ *
+ * The events are per-role because the ViewModel keeps a separate sort for each: a reader who sorts
+ * Narrators by book count has not asked for their Authors to change. Both ride [LibraryUiEvent], so
+ * the shared ViewModel owns persistence and the choice follows them to their phone — the browser
+ * never stores a sort preference of its own.
+ */
+@Composable
+private fun ContributorSortControl(
+    sortState: SortState,
+    role: ContributorRole,
+    onEvent: (LibraryUiEvent) -> Unit,
+) {
+    val isNarrator = role == ContributorRole.NARRATOR
+    Div(attrs = { classes("lib-sort") }) {
+        CONTRIBUTOR_SORT_CATEGORIES.forEach { category ->
+            Div(attrs = {
+                classes("lib-sort-option")
+                if (sortState.category == category) classes("is-active")
+                onClick {
+                    onEvent(
+                        if (isNarrator) {
+                            LibraryUiEvent.NarratorsCategoryChanged(category)
+                        } else {
+                            LibraryUiEvent.AuthorsCategoryChanged(category)
+                        },
+                    )
+                }
+            }) { Text(category.label) }
+        }
+        Div(attrs = {
+            classes("lib-sort-direction")
+            onClick {
+                onEvent(
+                    if (isNarrator) LibraryUiEvent.NarratorsDirectionToggled else LibraryUiEvent.AuthorsDirectionToggled,
+                )
+            }
+        }) { Text(if (sortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
+    }
+}
+
+/**
+ * Categories a contributor list sorts by — the two iOS's `ContributorListContent` offers.
+ *
+ * An explicit list rather than `SortCategory.entries` for the reason the Books and Series tabs keep
+ * one: the enum carries categories that only mean something for a book.
+ */
+private val CONTRIBUTOR_SORT_CATEGORIES = listOf(SortCategory.NAME, SortCategory.BOOK_COUNT)
 
 @Composable
 private fun LetterHeading(letter: Char) {
@@ -173,16 +245,20 @@ data class LetterGroup(
  * platform files a given contributor under the same letter. Names with no leading letter (blank,
  * numeric, symbolic) group under `#`, sorted first — [nameLetter]'s own contract.
  *
- * Sorted with `lowercase()` rather than relying on the caller's own order: SQLite's default
- * BINARY collation is case-sensitive, so a repository result ordered by that collation would put
- * "Zoe" before "andy" — this sort is what actually puts both under the right letter in A→Z order.
+ * ⛔ Groups and nothing else — it neither sorts the people nor orders the sections.
+ *
+ * Both used to happen here: a `sortedBy { name.lowercase() }` because the raw repository result came
+ * back in SQLite's case-sensitive BINARY collation ("Zoe" before "andy"), and a `sortedBy` on the
+ * letters to run the rail A→Z. The list now arrives already ordered by
+ * `LibraryViewModel.sortContributors`, and **ordering the sections here contradicted it**: under a
+ * descending name sort the ViewModel hands back Z→A and this re-ran the rail A→Z, so pressing ↓
+ * reversed the people inside each letter and left the letters themselves untouched.
+ *
+ * `groupBy` preserves encounter order, so the sections now come out in whatever order the caller's
+ * sort put them — which is the reader's answer, not a second opinion. `#` lands where the sort puts
+ * it rather than being pinned first.
  */
 fun groupByLetter(contributors: List<ContributorWithBookCount>): List<LetterGroup> =
     contributors
-        .sortedBy { it.contributor.name.lowercase() }
         .groupBy { it.contributor.name.nameLetter() }
-        .entries
-        .sortedBy { (letter, _) -> if (letter == HASH_LETTER) Int.MIN_VALUE else letter.code }
         .map { (letter, group) -> LetterGroup(letter, group) }
-
-private const val HASH_LETTER = '#'
