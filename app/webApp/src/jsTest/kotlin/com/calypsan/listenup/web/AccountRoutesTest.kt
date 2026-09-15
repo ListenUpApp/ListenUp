@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.notifications.NotificationsUiSt
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
+import com.calypsan.listenup.web.features.admin.inboxBook
 import com.calypsan.listenup.web.features.admin.fixedAdminInbox
 import com.calypsan.listenup.web.features.admin.fixedCategories
 import com.calypsan.listenup.web.features.admin.fixedCollectionDetail
@@ -172,6 +173,47 @@ class AccountRoutesTest :
                 host.querySelector(".inbox").shouldNotBeNull()
                 host.textContent.orEmpty() shouldContain "Waiting for review"
                 host.textContent.orEmpty() shouldContain "Needs attention"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        // ⛔ A page spec proves the menu reports an id; only a route spec proves the id reaches a
+        // URL. The Series tab shipped a page that worked and a route that did not, and every
+        // page-level spec stayed green — they mount the composable and never ask the router.
+        test("editing a book from the inbox opens that book's edit form") {
+            val (host, router) =
+                mountAt(
+                    "/admin/inbox",
+                    openAdminInbox = fixedAdminInbox(readyInbox(books = listOf(inboxBook(id = "b7")))),
+                )
+
+            try {
+                (host.querySelector(".inbox-book-row .menu-anchor button") as HTMLElement).click()
+                awaitFrame()
+                (host.querySelectorAll(".inbox-book-row .menu-i").item(0) as HTMLElement).click()
+                awaitFrame()
+
+                router.current.segments shouldBe listOf("book", "b7", "edit")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("finding metadata from the inbox opens the wizard over that book") {
+            val (host, router) =
+                mountAt(
+                    "/admin/inbox",
+                    openAdminInbox = fixedAdminInbox(readyInbox(books = listOf(inboxBook(id = "b7")))),
+                )
+
+            try {
+                (host.querySelector(".inbox-book-row .menu-anchor button") as HTMLElement).click()
+                awaitFrame()
+                (host.querySelectorAll(".inbox-book-row .menu-i").item(1) as HTMLElement).click()
+                awaitFrame()
+
+                router.current.segments shouldBe listOf("book", "b7", "match")
             } finally {
                 router.dispose()
             }

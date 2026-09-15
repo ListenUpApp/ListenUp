@@ -6,11 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
-import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.ActionsMenu
+import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.dom.Button
-import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.Text
 
 /**
  * What a reader can do about their own relationship to this book.
@@ -36,57 +34,13 @@ fun BookActionsMenu(
     val items =
         progressActions(ready, onMarkComplete, onDiscardProgress, onRestart) +
             filingActions(ready, onAddToShelf, onAddToCollection)
-    // No menu at all rather than an empty one: a button that opens nothing is worse than no button.
-    if (items.isEmpty()) return
 
-    var open by remember { mutableStateOf(false) }
     // ⛔ One flag for all three: they are the same round-trip through the same repository, and a
     // second request while one is in flight would race it to the same position record.
     val busy = ready.isMarkingComplete || ready.isDiscardingProgress || ready.isRestarting
 
-    Div(attrs = { classes("menu-anchor") }) {
-        Button(attrs = {
-            classes("btn-sq")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr("aria-label", "More actions")
-            attr("aria-expanded", open.toString())
-            if (busy) attr("disabled", "")
-            onClick { open = !open }
-        }) { Icon(WebIcon.Grip, size = ICON_SIZE) }
-
-        if (open) {
-            Div(attrs = {
-                classes("menu")
-                attr("role", "menu")
-            }) {
-                items.forEach { item ->
-                    // ⛔ A real <button role="menuitem">, not the clickable <div> the account menu
-                    // uses: a div is unreachable by keyboard and announces nothing. Same CSS, so it
-                    // looks identical; the account menu wants the same treatment separately.
-                    Button(attrs = {
-                        classes("menu-i")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("role", "menuitem")
-                        onClick {
-                            open = false
-                            item.onSelect()
-                        }
-                    }) {
-                        Icon(item.icon, size = ICON_SIZE)
-                        Text(item.label)
-                    }
-                }
-            }
-        }
-    }
+    ActionsMenu(items = items, enabled = !busy)
 }
-
-/** One entry in the menu. */
-internal data class BookAction(
-    val label: String,
-    val icon: WebIcon,
-    val onSelect: () -> Unit,
-)
 
 /**
  * The three progress actions, filtered to the ones that would do something.
@@ -100,15 +54,15 @@ internal fun progressActions(
     onMarkComplete: () -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
-): List<BookAction> {
+): List<MenuAction> {
     val hasSomethingToClear = ready.progress != null || ready.isComplete
     return buildList {
         if (!ready.isComplete) {
-            add(BookAction("Mark as finished", WebIcon.Check, onMarkComplete))
+            add(MenuAction("Mark as finished", WebIcon.Check, onMarkComplete))
         }
         if (hasSomethingToClear) {
-            add(BookAction("Mark as not started", WebIcon.Minus, onDiscardProgress))
-            add(BookAction("Restart book", WebIcon.ArrowUp, onRestart))
+            add(MenuAction("Mark as not started", WebIcon.Minus, onDiscardProgress))
+            add(MenuAction("Restart book", WebIcon.ArrowUp, onRestart))
         }
     }
 }
@@ -126,11 +80,11 @@ internal fun filingActions(
     ready: BookDetailUiState.Ready,
     onAddToShelf: () -> Unit,
     onAddToCollection: () -> Unit,
-): List<BookAction> =
+): List<MenuAction> =
     buildList {
-        add(BookAction("Add to shelf", WebIcon.Bookmark, onAddToShelf))
+        add(MenuAction("Add to shelf", WebIcon.Bookmark, onAddToShelf))
         if (ready.isAdmin) {
-            add(BookAction("Add to collection", WebIcon.Layers, onAddToCollection))
+            add(MenuAction("Add to collection", WebIcon.Layers, onAddToCollection))
         }
     }
 
