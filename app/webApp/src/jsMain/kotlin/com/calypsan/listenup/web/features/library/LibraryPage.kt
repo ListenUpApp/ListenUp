@@ -39,7 +39,14 @@ import org.jetbrains.compose.web.dom.Text
  * silently pick up whatever a future entry happens to be called.
  */
 private val BOOK_SORT_CATEGORIES =
-    listOf(SortCategory.TITLE, SortCategory.AUTHOR, SortCategory.ADDED, SortCategory.DURATION)
+    listOf(
+        SortCategory.TITLE,
+        SortCategory.AUTHOR,
+        SortCategory.DURATION,
+        SortCategory.YEAR,
+        SortCategory.ADDED,
+        SortCategory.SERIES,
+    )
 
 /**
  * The Books tab of the library.
@@ -152,7 +159,13 @@ private fun BookListItem.sectionLetter(
 ): Char? =
     when (category) {
         SortCategory.TITLE -> title.sortLetter(ignoreTitleArticles)
+
         SortCategory.AUTHOR -> authors.firstOrNull()?.name.nameLetter()
+
+        // Grouped by series name via the same shared rule Android uses, so a standalone book files
+        // under '#' here exactly as it does there — `nameLetter(null)` is '#', not absent.
+        SortCategory.SERIES -> seriesName.nameLetter()
+
         else -> null
     }
 

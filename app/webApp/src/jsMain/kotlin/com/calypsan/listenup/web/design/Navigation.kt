@@ -93,18 +93,22 @@ enum class LibraryFacet(
     val label: String,
 ) {
     Books("Books"),
+    Series("Series"),
     Authors("Authors"),
     Narrators("Narrators"),
 }
 
 /**
- * The facet row that sits under a page title and does the navigating between the book grid and
- * the two Contributors lists — [com.calypsan.listenup.web.features.library.LibraryPage] and
- * [com.calypsan.listenup.web.features.contributors.ContributorsPage] both render it, so a reader
- * gets to the library's people from either side of that boundary the same way.
+ * The facet row that sits under a page title and does the navigating between the book grid, the
+ * series list and the two Contributors lists — [com.calypsan.listenup.web.features.library.LibraryPage],
+ * [com.calypsan.listenup.web.features.serieslist.SeriesListPage] and
+ * [com.calypsan.listenup.web.features.contributors.ContributorsPage] all render it, so a reader
+ * gets to the library's people from any side of that boundary the same way.
  *
- * Renders exactly the three [LibraryFacet] entries — no "In progress" or "Series" chip, because
- * neither facet exists yet and a chip whose only outcome is nothing is a lie. This replaces the
+ * Renders exactly the [LibraryFacet] entries, and still no "In progress" chip: that facet has no
+ * destination behind it, and a chip whose only outcome is nothing is a lie. Series carried the same
+ * note until it had a page to lead to — the bar is a real destination, not a place in a comp. This
+ * replaces the
  * bespoke two-chip role toggle Contributors shipped with first: a facet row and a role toggle are
  * the same idiom wearing two names, and [SegmentedControl] already covers the "narrow what's
  * already shown" case a step down in weight from this one.
