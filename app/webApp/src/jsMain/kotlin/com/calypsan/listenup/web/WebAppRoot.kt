@@ -50,6 +50,7 @@ import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
+import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.bulkedit.BulkEditActions
 import com.calypsan.listenup.web.features.bulkedit.BulkEditCatalog
@@ -702,6 +703,7 @@ private fun RouteContent(
 ) {
     val shelfRoute = shelfRouteOf(route.segments)
     val bulkEditIds = route.bulkEditIds()
+    val feeds = FeedSelection(openMultiSelect, onHeroBookIdChange, onToast)
     val bookId = route.idUnder(BOOK_KEY)
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
@@ -710,11 +712,6 @@ private fun RouteContent(
     // `/contributor/{id}` — the person behind the books, a route of its own (unlike the list, one
     // book's worth of detail is not a facet of anything else).
     val contributorId = route.idUnder(CONTRIBUTOR_KEY)
-    val roleBooksContributorId = contributorId?.takeIf { route.segments.getOrNull(2) == BOOKS_KEY }
-    val editingContributorId = route.editTargetOf(contributorId)
-    // `/contributor/{id}/match` — the Audible wizard over one person.
-    val matchingContributorId =
-        if (contributorId != null && route.segments.getOrNull(2) == MATCH_KEY) contributorId else null
     // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
     // series is something you arrive at and link to, not a filter over the library grid.
     val seriesId = route.idUnder(SERIES_KEY)
@@ -757,11 +754,7 @@ private fun RouteContent(
             isList = isContributors,
             librarySession = librarySession,
             contributorId = contributorId,
-            roleBooksContributorId = roleBooksContributorId,
-            roleBooksRole = parseAnyContributorRole(route.query[ROLE_QUERY_KEY]),
-            editingContributorId = editingContributorId,
-            matchingContributorId = matchingContributorId,
-            role = parseContributorRole(route.query[ROLE_QUERY_KEY]),
+            route = route,
             router = router,
             openContributorDetail = openContributorDetail,
             openContributorBooks = openContributorBooks,
@@ -812,7 +805,7 @@ private fun RouteContent(
     } else if (page == SEARCH_KEY) {
         SearchRouteContent(router = router, route = route, openSearch = openSearch, openSeeAll = openSeeAll)
     } else if (active == HOME_KEY) {
-        HomeRoute(router = router, openHome = openHome, onHeroBookIdChange = onHeroBookIdChange)
+        HomeRoute(router, openHome, feeds)
     } else if (shelfRoute != null) {
         ShelfRouteContent(
             shelfRoute = shelfRoute,
@@ -835,7 +828,7 @@ private fun RouteContent(
             onToast = onToast,
         )
     } else if (active == DISCOVER_KEY) {
-        DiscoverRoute(router = router, openDiscover = openDiscover, onHeroBookIdChange = onHeroBookIdChange)
+        DiscoverRoute(router, openDiscover, feeds)
     } else {
         PagePlaceholder(active)
     }
@@ -857,23 +850,26 @@ private fun RouteContent(
 private fun HomeRoute(
     router: Router,
     openHome: OpenHome,
-    onHeroBookIdChange: (String) -> Unit,
+    feeds: FeedSelection,
 ) {
     val session = remember { openHome() }
     DisposableEffect(session) { onDispose { session.close() } }
 
-    HomePage(
-        state = session.state.collectAsState().value,
-        stats = session.stats.collectAsState().value,
-        onOpenBook = { id ->
-            onHeroBookIdChange(id)
-            router.navigate(Route(listOf(BOOK_KEY, id)))
-        },
-        onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY))) },
-        onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
-        onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
-        onCreateShelf = { router.navigate(Route(listOf(SHELF_KEY, NEW_KEY))) },
-    )
+    BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->
+        HomePage(
+            state = session.state.collectAsState().value,
+            stats = session.stats.collectAsState().value,
+            onOpenBook = { id ->
+                feeds.onHeroBookIdChange(id)
+                router.navigate(Route(listOf(BOOK_KEY, id)))
+            },
+            onOpenSearch = { router.navigate(Route(listOf(SEARCH_KEY))) },
+            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+            onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
+            onCreateShelf = { router.navigate(Route(listOf(SHELF_KEY, NEW_KEY))) },
+            selection = selection,
+        )
+    }
 }
 
 /**
@@ -892,29 +888,32 @@ private fun HomeRoute(
 private fun DiscoverRoute(
     router: Router,
     openDiscover: OpenDiscover,
-    onHeroBookIdChange: (String) -> Unit,
+    feeds: FeedSelection,
 ) {
     val session = remember { openDiscover() }
     DisposableEffect(session) { onDispose { session.close() } }
     val nowMs = remember { currentEpochMilliseconds() }
 
-    DiscoverPage(
-        books = session.books.collectAsState().value,
-        recentlyAdded = session.recentlyAdded.collectAsState().value,
-        currentlyListening = session.currentlyListening.collectAsState().value,
-        leaderboard = session.leaderboard.collectAsState().value,
-        activity = session.activity.collectAsState().value,
-        shelves = session.shelves.collectAsState().value,
-        nowMs = nowMs,
-        onOpenBook = { id ->
-            onHeroBookIdChange(id)
-            router.navigate(Route(listOf(BOOK_KEY, id)))
-        },
-        onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
-        onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
-        onSelectPeriod = session.onSelectPeriod,
-        onSelectCategory = session.onSelectCategory,
-    )
+    BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->
+        DiscoverPage(
+            books = session.books.collectAsState().value,
+            recentlyAdded = session.recentlyAdded.collectAsState().value,
+            currentlyListening = session.currentlyListening.collectAsState().value,
+            leaderboard = session.leaderboard.collectAsState().value,
+            activity = session.activity.collectAsState().value,
+            shelves = session.shelves.collectAsState().value,
+            nowMs = nowMs,
+            onOpenBook = { id ->
+                feeds.onHeroBookIdChange(id)
+                router.navigate(Route(listOf(BOOK_KEY, id)))
+            },
+            onOpenShelf = { id -> router.navigate(Route(listOf(SHELF_KEY, id))) },
+            onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
+            onSelectPeriod = session.onSelectPeriod,
+            onSelectCategory = session.onSelectCategory,
+            selection = selection,
+        )
+    }
 }
 
 /**
@@ -1359,17 +1358,24 @@ private fun ContributorRouteContent(
     isList: Boolean,
     librarySession: LibrarySession,
     contributorId: String?,
-    roleBooksContributorId: String?,
-    roleBooksRole: ContributorRole,
-    editingContributorId: String?,
-    matchingContributorId: String?,
-    role: ContributorRole,
+    route: Route,
     router: Router,
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
     openContributorMetadata: OpenContributorMetadata,
 ) {
+    // Derived here rather than in [RouteContent], the same way [BookRouteContent] owns its own
+    // sub-routes: a value only this branch reads is this branch's business, and RouteContent's
+    // length is a budget every route family spends from.
+    val roleBooksContributorId = contributorId?.takeIf { route.segments.getOrNull(2) == BOOKS_KEY }
+    val editingContributorId = route.editTargetOf(contributorId)
+    // `/contributor/{id}/match` — the Audible wizard over one person.
+    val matchingContributorId =
+        if (contributorId != null && route.segments.getOrNull(2) == MATCH_KEY) contributorId else null
+    val roleBooksRole = parseAnyContributorRole(route.query[ROLE_QUERY_KEY])
+    val role = parseContributorRole(route.query[ROLE_QUERY_KEY])
+
     when {
         isList -> {
             val library = librarySession.state.collectAsState().value as? LibraryUiState.Loaded
@@ -1909,6 +1915,43 @@ private fun LibraryRouteContent(
     onHeroBookIdChange: (String) -> Unit,
     onToast: (String) -> Unit,
 ) {
+    BookSelectionScaffold(openMultiSelect, router, onToast) { selection ->
+        LibraryPage(
+            state = animatedLibrary(librarySession),
+            onEvent = librarySession.onEvent,
+            onOpenBook = { id ->
+                onHeroBookIdChange(id)
+                router.navigate(Route(listOf(BOOK_KEY, id)))
+            },
+            onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
+            heroBookId = heroBookId,
+            selecting = selection.isSelecting,
+            selectedIds = selection.selectedIds,
+            onToggleSelect = selection.onToggle,
+            onStartSelecting = selection.onStart,
+        )
+    }
+}
+
+/**
+ * The selection machinery every book surface shares: the session, the bar, the destination pickers,
+ * and the navigation an Edit destination performs.
+ *
+ * Extracted from [LibraryRouteContent] when Home and Discover needed the same thing. Both natives
+ * already factored it the same way — Android's `BookSelectionScaffold`, iOS's
+ * `BookSelectionScreenChrome` — and for the same reason: sixty lines of session, bar and picker per
+ * surface is three copies to keep in step.
+ *
+ * [content] receives a [BookSelection] rather than three loose parameters, so a card consults one
+ * object and a new selectable surface adds no new signatures.
+ */
+@Composable
+private fun BookSelectionScaffold(
+    openMultiSelect: OpenMultiSelect,
+    router: Router,
+    onToast: (String) -> Unit,
+    content: @Composable (BookSelection) -> Unit,
+) {
     val session = remember { openMultiSelect() }
     DisposableEffect(session) { onDispose { session.close() } }
 
@@ -1926,19 +1969,13 @@ private fun LibraryRouteContent(
         }
     }
 
-    LibraryPage(
-        state = animatedLibrary(librarySession),
-        onEvent = librarySession.onEvent,
-        onOpenBook = { id ->
-            onHeroBookIdChange(id)
-            router.navigate(Route(listOf(BOOK_KEY, id)))
-        },
-        onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
-        heroBookId = heroBookId,
-        selecting = mode.isActive(),
-        selectedIds = selected,
-        onToggleSelect = session.onToggle,
-        onStartSelecting = session.onEnter,
+    content(
+        BookSelection(
+            isSelecting = mode.isActive(),
+            selectedIds = selected,
+            onToggle = session.onToggle,
+            onStart = session.onEnter,
+        ),
     )
 
     if (mode.isActive()) {
@@ -2001,6 +2038,20 @@ private fun LibraryRouteContent(
         }
     }
 }
+
+/**
+ * What Home and Discover both need beyond their own session.
+ *
+ * Three values that travel together to exactly two call sites, bundled so [RouteContent]'s chain
+ * stays one glance of routing — the same budget that pushed [ShelfRouteContent] and
+ * [SearchRouteContent] out. ⛔ Not the start of a general opener bundle: it is scoped to the two
+ * book feeds and grows only if a third feed appears.
+ */
+private class FeedSelection(
+    val openMultiSelect: OpenMultiSelect,
+    val onHeroBookIdChange: (String) -> Unit,
+    val onToast: (String) -> Unit,
+)
 
 /** Where a selection can be sent. */
 private enum class SelectionDestination { Edit, Shelf, Collection }

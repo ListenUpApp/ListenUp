@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
@@ -107,6 +108,7 @@ private fun page(
     onOpenProfile: (String) -> Unit = {},
     onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
     onSelectCategory: (LeaderboardCategory) -> Unit = {},
+    selection: BookSelection? = null,
 ) {
     DiscoverPage(
         books = books,
@@ -121,6 +123,7 @@ private fun page(
         onOpenProfile = onOpenProfile,
         onSelectPeriod = onSelectPeriod,
         onSelectCategory = onSelectCategory,
+        selection = selection,
     )
 }
 
@@ -422,4 +425,96 @@ class DiscoverPageTest :
             val name = host.querySelector(".disc-listener-who") as HTMLElement
             name.tagName.lowercase() shouldBe "button"
         }
+
+        // ⛔ The idle state production always renders — the scaffold supplies a BookSelection even
+        // when nobody is selecting, so `null` never reaches a card at runtime.
+        test("a selection that is present but idle still opens the book") {
+            var opened: String? = null
+            val picked = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        books =
+                            DiscoverBooksUiState.Ready(
+                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null)),
+                            ),
+                        onOpenBook = { opened = it },
+                        selection = idleSelection(onToggle = { picked += it }),
+                    )
+                }
+
+            (host.querySelector(".disc-card") as HTMLElement).click()
+
+            opened shouldBe "b7"
+            picked shouldBe emptyList()
+        }
+
+        test("while selecting, a cover card picks the book rather than opening it") {
+            var opened: String? = null
+            val picked = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        books =
+                            DiscoverBooksUiState.Ready(
+                                listOf(DiscoverUiBook("b7", "Dune", "Frank Herbert", null, null, null)),
+                            ),
+                        onOpenBook = { opened = it },
+                        selection = selecting(onToggle = { picked += it }),
+                    )
+                }
+
+            (host.querySelector(".disc-card") as HTMLElement).click()
+
+            picked shouldBe listOf("b7")
+            opened shouldBe null
+        }
+
+        test("a picked cover card is marked") {
+            val host =
+                mounts.mount {
+                    page(
+                        books =
+                            DiscoverBooksUiState.Ready(
+                                listOf(DiscoverUiBook("b7", "Dune", null, null, null, null)),
+                            ),
+                        selection = selecting(selected = setOf("b7")),
+                    )
+                }
+
+            (host.querySelector(".disc-card") as HTMLElement).className shouldContain "is-sel"
+        }
+
+        // ⛔ The activity feed is deliberately NOT selectable, matching iOS: a feed row is an event
+        // that happened, not a book you are picking. Pressing one still opens the book it mentions.
+        test("the activity feed still opens its book while a selection is in progress") {
+            var opened: String? = null
+            val picked = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        activityState = activityWithOneBook(),
+                        onOpenBook = { opened = it },
+                        selection = selecting(onToggle = { picked += it }),
+                    )
+                }
+
+            (host.querySelector(".disc-feed-row.is-open") as HTMLElement).click()
+
+            opened shouldBe FEED_BOOK_ID
+            picked shouldBe emptyList()
+        }
     })
+
+private fun idleSelection(onToggle: (String) -> Unit = {}) =
+    BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = onToggle, onStart = {})
+
+private fun selecting(
+    selected: Set<String> = emptySet(),
+    onToggle: (String) -> Unit = {},
+) = BookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle, onStart = {})
+
+private const val FEED_BOOK_ID = "b-feed"
+
+/** One feed row that names a book, so pressing it has somewhere to go. */
+private fun activityWithOneBook() = ActivityFeedUiState.Ready(listOf(activity("finished_book", bookId = FEED_BOOK_ID)))

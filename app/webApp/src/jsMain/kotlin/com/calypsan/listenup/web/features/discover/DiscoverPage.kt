@@ -15,6 +15,8 @@ import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.features.books.press
+import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
@@ -90,6 +92,7 @@ fun DiscoverPage(
     shelves: DiscoverShelvesUiState,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
+    selection: BookSelection? = null,
     onOpenShelf: (String) -> Unit,
     /**
      * Opens the person behind a name.
@@ -105,9 +108,9 @@ fun DiscoverPage(
     Div(attrs = { classes("disc") }) {
         H1(attrs = { classes("disc-title") }) { Text("Discover") }
 
-        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile)
-        DiscoverBooksSection(books, onOpenBook)
-        RecentlyAddedSection(recentlyAdded, onOpenBook)
+        CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection)
+        DiscoverBooksSection(books, onOpenBook, selection)
+        RecentlyAddedSection(recentlyAdded, onOpenBook, selection)
         SharedShelvesSection(shelves, onOpenShelf, onOpenProfile)
         LeaderboardSection(leaderboard, onSelectPeriod, onSelectCategory, onOpenProfile)
         ActivityFeedSection(activity, nowMs, onOpenBook, onOpenProfile)
@@ -127,6 +130,7 @@ private fun CurrentlyListeningSection(
     nowMs: Long,
     onOpenBook: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    selection: BookSelection?,
 ) {
     Section("What others are listening to") {
         when (state) {
@@ -143,7 +147,7 @@ private fun CurrentlyListeningSection(
                     Empty("Nobody else is listening yet", "When they do, you will see them here.")
                 } else {
                     Div(attrs = { classes("disc-listeners") }) {
-                        state.sessions.forEach { session -> ListenerCard(session, nowMs, onOpenBook, onOpenProfile) }
+                        state.sessions.forEach { s -> ListenerCard(s, nowMs, onOpenBook, onOpenProfile, selection) }
                     }
                 }
             }
@@ -157,12 +161,14 @@ private fun ListenerCard(
     nowMs: Long,
     onOpenBook: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    selection: BookSelection?,
 ) {
     Button(attrs = {
         classes("disc-listener")
+        if (selection?.isSelected(session.bookId) == true) classes("is-sel")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr("aria-label", "${session.displayName} — ${session.bookTitle}")
-        onClick { onOpenBook(session.bookId) }
+        onClick { selection.press(session.bookId) { onOpenBook(session.bookId) } }
     }) {
         Cover(
             title = session.bookTitle,
@@ -189,6 +195,7 @@ private fun ListenerCard(
 private fun DiscoverBooksSection(
     state: DiscoverBooksUiState,
     onOpenBook: (String) -> Unit,
+    selection: BookSelection?,
 ) {
     Section("Something new") {
         when (state) {
@@ -206,7 +213,7 @@ private fun DiscoverBooksSection(
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
-                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook)
+                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
                         }
                     }
                 }
@@ -220,6 +227,7 @@ private fun DiscoverBooksSection(
 private fun RecentlyAddedSection(
     state: RecentlyAddedUiState,
     onOpenBook: (String) -> Unit,
+    selection: BookSelection?,
 ) {
     Section("Recently added") {
         when (state) {
@@ -237,7 +245,7 @@ private fun RecentlyAddedSection(
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
-                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook)
+                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
                         }
                     }
                 }
@@ -253,11 +261,13 @@ private fun BookCard(
     authorName: String?,
     coverHash: String?,
     onOpenBook: (String) -> Unit,
+    selection: BookSelection?,
 ) {
     Button(attrs = {
         classes("disc-card")
+        if (selection?.isSelected(bookId) == true) classes("is-sel")
         attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { onOpenBook(bookId) }
+        onClick { selection.press(bookId) { onOpenBook(bookId) } }
     }) {
         Cover(
             title = title,

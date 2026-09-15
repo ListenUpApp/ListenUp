@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
@@ -49,6 +50,7 @@ class HomePageTest :
             onOpenLibrary: () -> Unit = {},
             onOpenShelf: (String) -> Unit = {},
             onCreateShelf: () -> Unit = {},
+            selection: BookSelection? = null,
         ): HTMLElement =
             mounts.mount {
                 HomePage(
@@ -59,6 +61,7 @@ class HomePageTest :
                     onOpenLibrary = onOpenLibrary,
                     onOpenShelf = onOpenShelf,
                     onCreateShelf = onCreateShelf,
+                    selection = selection,
                 )
             }
 
@@ -307,4 +310,83 @@ class HomePageTest :
 
             host.textContent.orEmpty() shouldContain "Failed to load home screen"
         }
+
+        // ⛔ While selecting, a press PICKS instead of opening. One gesture, two jobs, decided by
+        // the mode — the same rule the library grid follows, now that Home is selectable too.
+        test("a continue card opens the book when nothing is being selected") {
+            var opened: String? = null
+            val host = homePage(withOneBook(), onOpenBook = { opened = it }, selection = null)
+
+            (host.querySelector(".home-card") as HTMLElement).click()
+
+            opened shouldBe CONTINUE_BOOK_ID
+        }
+
+        // ⛔ The state production is in whenever nobody is selecting: the scaffold ALWAYS supplies a
+        // BookSelection, with `isSelecting = false`. A `null` selection never reaches these cards at
+        // runtime, so testing only null-versus-active left the ordinary case uncovered — and a
+        // sabotage that made any present selection pick on every press broke no test at all.
+        test("a selection that is present but idle still opens the book") {
+            var opened: String? = null
+            val picked = mutableListOf<String>()
+            val host =
+                homePage(
+                    withOneBook(),
+                    onOpenBook = { opened = it },
+                    selection = idleSelection(onToggle = { picked += it }),
+                )
+
+            (host.querySelector(".home-card") as HTMLElement).click()
+
+            opened shouldBe CONTINUE_BOOK_ID
+            picked shouldBe emptyList()
+        }
+
+        test("while selecting, a press picks the book rather than opening it") {
+            var opened: String? = null
+            val picked = mutableListOf<String>()
+            val host =
+                homePage(
+                    withOneBook(),
+                    onOpenBook = { opened = it },
+                    selection = selecting(onToggle = { picked += it }),
+                )
+
+            (host.querySelector(".home-card") as HTMLElement).click()
+
+            picked shouldBe listOf(CONTINUE_BOOK_ID)
+            opened shouldBe null
+        }
+
+        test("a picked card is marked, and an unpicked one is not") {
+            val picked = homePage(withOneBook(), selection = selecting(selected = setOf(CONTINUE_BOOK_ID)))
+            val unpicked = homePage(withOneBook(), selection = selecting(selected = emptySet()))
+
+            (picked.querySelector(".home-card") as HTMLElement).className shouldContain "is-sel"
+            (unpicked.querySelector(".home-card") as HTMLElement).className shouldNotContain "is-sel"
+        }
+
+        // The keyboard path is not a second implementation — it presses the same way.
+        test("Enter picks while selecting, just as a click does") {
+            val picked = mutableListOf<String>()
+            val host = homePage(withOneBook(), selection = selecting(onToggle = { picked += it }))
+
+            (host.querySelector(".home-card") as HTMLElement)
+                .dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Enter", bubbles = true)))
+
+            picked shouldBe listOf(CONTINUE_BOOK_ID)
+        }
     })
+
+private fun idleSelection(onToggle: (String) -> Unit = {}) =
+    BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = onToggle, onStart = {})
+
+private fun selecting(
+    selected: Set<String> = emptySet(),
+    onToggle: (String) -> Unit = {},
+) = BookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle, onStart = {})
+
+/** A Home with exactly one Continue Listening card, which is what the selection specs press. */
+private fun withOneBook() = readyHome(continueListening = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))
+
+private const val CONTINUE_BOOK_ID = "b7"
