@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.licences.fixedLicences
+import com.calypsan.listenup.web.features.licences.OpenLicences
+import com.calypsan.listenup.web.features.licences.LicencesUiState
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.admin.fixedAdmin
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
@@ -187,6 +190,7 @@ internal fun mountAt(
     openHome: OpenHome = fixedHome(HomeUiState.Loading),
     openLibrary: OpenLibrary = fakeLibrary(),
     openSettings: OpenSettings = fixedSettings(),
+    openLicences: OpenLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
     openLibrarySettings: OpenLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
     openAdmin: OpenAdmin = fixedAdmin(),
     openAdminInbox: OpenAdminInbox = fixedAdminInbox(),
@@ -238,6 +242,7 @@ internal fun mountAt(
                 openHome = openHome,
                 openDiscover = fixedDiscover(),
                 openSettings = openSettings,
+                openLicences = openLicences,
                 openDevices = fixedDevices(),
                 openAdmin = openAdmin,
                 admin =

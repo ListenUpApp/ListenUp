@@ -115,6 +115,7 @@
 .tbl tbody tr:not(.sel):active,
 .menu-i:active,
 .rel-result:active,
+.lic-link:active,
 .contrib-row:active,
 .search-row:not(.is-static):active,
 .folder-row:active,

@@ -10,6 +10,98 @@ plugins {
     // kotest, same order as :server.
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotest)
+    // The serialization RUNTIME was already here; the compiler plugin was not, because until
+    // now this module only ever consumed serializers generated in `:contract`. The licence
+    // manifest is this module's own `@Serializable` type, and without the plugin `@Serializable`
+    // is inert: it compiles, then throws at runtime looking for a serializer nobody generated.
+    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.aboutlibraries)
+}
+
+// ── OSS licence manifest (web) ──────────────────────────────────────────────
+// ⛔ A separate manifest from `:app:sharedUI`'s, deliberately. That one is the ANDROID dependency
+// graph — Media3, Firebase, Play Services, bytedeco — and the browser loads none of it. Shipping it
+// here would attribute libraries this client never bundles, which on an attribution page is worse
+// than having no page at all.
+//
+// This collects THIS module's graph, which is the Kotlin/JS half of what the browser runs. The
+// other half is npm (see `web/scripts/collect-npm-licences.mjs`); `mergeWebLicences` joins them.
+aboutLibraries {
+    offlineMode = false
+
+    collect {
+        // Same two guards :app:sharedUI sets, for the same reason: no GitHub API calls, so no token
+        // and no rate limit. SPDX texts come from the SPDX data set.
+        fetchRemoteLicense = false
+        fetchRemoteFunding = false
+    }
+
+    export {
+        outputFile = file("build/aboutLibraries/kotlin-licences.json")
+        prettyPrint = true
+    }
+}
+
+// The merged manifest the browser fetches. Committed rather than generated at build time, for the
+// reason `:app:sharedUI` commits its own: it is an artifact a human should review when it changes,
+// and `verifyWebLicences` is the gate that makes a silent change impossible.
+//
+// The merge itself lives in Node rather than here: both inputs are JSON, one of them comes from
+// `pnpm`, and Gradle's Kotlin DSL has no JSON parser without pulling a dependency into the build.
+val webLicenceManifest = file("web/public/licences.json")
+
+// ⛔ Snapshot BEFORE the merge overwrites it, as its own task — the same shape and the same reason
+// as `:app:sharedUI`'s `snapshotLicenseManifest`. Taken in the verify task's `doFirst` instead, it
+// would run after its own `dependsOn` had already rewritten the file, and the gate would compare
+// the regenerated manifest against itself and pass forever.
+val snapshotWebLicences =
+    tasks.register("snapshotWebLicences") {
+        description = "Snapshot the committed web licence manifest before regeneration"
+        outputs.upToDateWhen { false }
+        val source = webLicenceManifest
+        val target = layout.buildDirectory.file("aboutLibraries/committed-web-manifest.json")
+        doLast {
+            val out = target.get().asFile
+            out.parentFile.mkdirs()
+            out.writeText(if (source.exists()) source.readText() else "")
+        }
+    }
+
+val mergeWebLicences =
+    tasks.register<Exec>("mergeWebLicences") {
+        group = "build"
+        description = "Merge the Kotlin/JS and npm licence manifests into web/public/licences.json"
+        dependsOn("exportLibraryDefinitions")
+        mustRunAfter(snapshotWebLicences)
+        // Both halves are collectors over a dependency graph, not pure functions of tracked files.
+        outputs.upToDateWhen { false }
+        workingDir = file("web")
+        commandLine(
+            "node",
+            "scripts/build-licences.mjs",
+            layout.buildDirectory
+                .file("aboutLibraries/kotlin-licences.json")
+                .get()
+                .asFile.absolutePath,
+            webLicenceManifest.absolutePath,
+        )
+    }
+
+tasks.register("verifyWebLicences") {
+    group = "verification"
+    description = "Fail if web/public/licences.json is out of sync with the Kotlin/JS and npm graphs"
+    dependsOn(snapshotWebLicences, mergeWebLicences)
+    outputs.upToDateWhen { false }
+    val output = webLicenceManifest
+    val snapshot = layout.buildDirectory.file("aboutLibraries/committed-web-manifest.json")
+    doLast {
+        if (snapshot.get().asFile.readText() != output.readText()) {
+            throw GradleException(
+                "web/public/licences.json is out of date with the dependency graph. The corrected " +
+                    "file is already on disk — review and commit it.",
+            )
+        }
+    }
 }
 
 kotlin {

@@ -48,6 +48,7 @@ fun SettingsPage(
     onHideSingleBookSeries: (Boolean) -> Unit,
     onOpenDevices: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenLicences: () -> Unit = {},
 ) {
     Div(attrs = { classes("set") }) {
         H1(attrs = { classes("set-title") }) { Text("Settings") }
@@ -131,6 +132,11 @@ fun SettingsPage(
             Row("App version", state.appVersion)
             Row("Server", state.serverUrl ?: "Not configured")
             state.serverVersion?.let { Row("Server version", it) }
+            Button(attrs = {
+                classes("btn-o")
+                attr("type", "button")
+                onClick { onOpenLicences() }
+            }) { Text("Open Source Licenses") }
         }
     }
 }
