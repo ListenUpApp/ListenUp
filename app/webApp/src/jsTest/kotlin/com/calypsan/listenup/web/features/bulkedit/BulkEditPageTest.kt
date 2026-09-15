@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bulkedit
 
+import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -31,13 +32,14 @@ private fun noActions(
     onApply: () -> Unit = {},
     onLeave: () -> Unit = {},
     onContributors: (List<BookContributorInput>) -> Unit = {},
+    onSeries: (BookSeriesInput?) -> Unit = {},
 ) = BulkEditActions(
     onSeriesQuery = {},
     onContributorQuery = {},
     onPublisher = onPublisher,
     onYear = onYear,
     onLanguage = {},
-    onSeries = {},
+    onSeries = onSeries,
     onContributors = onContributors,
     onGenres = {},
     onTags = {},
@@ -107,6 +109,9 @@ private fun search(
     input.value = query
     input.dispatchEvent(Event("input", EventInit(bubbles = true)))
 }
+
+/** One credit only, so a second role can be added on top of it. */
+private fun onlyAuthorCredit() = BulkEdit.AddContributors(listOf(BookContributorInput(name = "Neil Gaiman", role = "author", position = 0)))
 
 /** The same person credited twice — the case a name-only chip key collapses into one. */
 private fun bothRolesForOnePerson() =
@@ -357,6 +362,80 @@ class BulkEditPageTest :
             text shouldContain "every book keeps the series and the people it already has"
             text shouldContain "every book keeps the genres, tags and moods it already has"
             text shouldContain "A field you don’t touch is never written"
+        }
+
+        // A series the library has never held is a normal thing to start — the same call a picked
+        // match makes, with the typed name instead.
+        test("a series the library does not have can be started from here") {
+            var chosen: BookSeriesInput? = null
+            val host =
+                page(
+                    editing(),
+                    actions = noActions(onSeries = { chosen = it }),
+                )
+
+            search(host, "bke-series", "A Brand New Saga")
+            awaitFrame()
+            (field(host, "bke-series").querySelector(".rel-create") as HTMLElement).click()
+
+            chosen?.name shouldBe "A Brand New Saga"
+        }
+
+        test("a person the library does not have is credited in the chosen role") {
+            var credited = emptyList<BookContributorInput>()
+            val host =
+                page(
+                    editing(),
+                    actions = noActions(onContributors = { credited = it }),
+                )
+
+            val select = host.querySelector("#bke-role") as HTMLSelectElement
+            select.value = "narrator"
+            select.dispatchEvent(Event("change", EventInit(bubbles = true)))
+            search(host, "bke-contributors", "Wil Wheaton")
+            awaitFrame()
+            (field(host, "bke-contributors").querySelector(".rel-create") as HTMLElement).click()
+
+            credited.map { it.name to it.role } shouldContainExactly listOf("Wil Wheaton" to "narrator")
+        }
+
+        // ⛔ The case the name-and-role pair exists for, and the one a name-only dedupe silently
+        // swallows: author AND narrator of their own memoir is ordinary. A spec that types a name
+        // already credited in the SAME role cannot tell the two rules apart — this one can.
+        test("the same person can be added again in a different role") {
+            var credited = emptyList<BookContributorInput>()
+            val host =
+                page(
+                    editing(edits = listOf(onlyAuthorCredit())),
+                    actions = noActions(onContributors = { credited = it }),
+                )
+
+            val select = host.querySelector("#bke-role") as HTMLSelectElement
+            select.value = "narrator"
+            select.dispatchEvent(Event("change", EventInit(bubbles = true)))
+            search(host, "bke-contributors", "Neil Gaiman")
+            awaitFrame()
+            (field(host, "bke-contributors").querySelector(".rel-create") as HTMLElement).click()
+
+            credited.map { it.name to it.role } shouldContainExactly
+                listOf("Neil Gaiman" to "author", "Neil Gaiman" to "narrator")
+        }
+
+        // ⛔ Deduped on name AND role. Typing a name already credited in this role must not add it
+        // twice; the same person in a second role is a second credit and belongs.
+        test("typing a name already credited in that role adds nothing") {
+            var credited: List<BookContributorInput>? = null
+            val host =
+                page(
+                    editing(edits = listOf(bothRolesForOnePerson())),
+                    actions = noActions(onContributors = { credited = it }),
+                )
+
+            search(host, "bke-contributors", "Neil Gaiman")
+            awaitFrame()
+            (field(host, "bke-contributors").querySelector(".rel-create") as HTMLElement).click()
+
+            credited shouldBe null
         }
 
         // ⛔ The bug this replaces: every bulk-added person was written as an author, whatever they
