@@ -58,9 +58,6 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
-/** Coarse ± step, matching the row's own buttons. */
-private const val NUDGE_MS = 1_000L
-
 /**
  * How much of the book the detail lane shows on open.
  *
@@ -371,7 +368,9 @@ private fun ChapterEditorBody(
                         selectedChapterId = state.selectedChapterId,
                         playheadMs = playheadMs,
                         onSelect = viewModel::select,
-                        onNudge = { id, step -> viewModel.nudge(id, step * NUDGE_MS) },
+                        // The row already speaks milliseconds (COARSE_NUDGE_MS); nothing scales it here.
+                        onNudge = viewModel::nudge,
+                        onAddAtPlayhead = { viewModel.addAt(playheadMs ?: 0L, newChapterTitle) },
                         onSnapToPlayhead = { id -> playheadMs?.let { viewModel.snapToPlayhead(id, it) } },
                         onToggleLock = viewModel::toggleLock,
                         onMore = onMore,
