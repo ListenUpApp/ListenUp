@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.bulkedit
 
+import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
+import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.web.awaitFrame
@@ -16,6 +19,7 @@ import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 
@@ -26,6 +30,7 @@ private fun noActions(
     onYear: (Int?) -> Unit = {},
     onApply: () -> Unit = {},
     onLeave: () -> Unit = {},
+    onContributors: (List<BookContributorInput>) -> Unit = {},
 ) = BulkEditActions(
     onSeriesQuery = {},
     onContributorQuery = {},
@@ -33,7 +38,7 @@ private fun noActions(
     onYear = onYear,
     onLanguage = {},
     onSeries = {},
-    onContributors = {},
+    onContributors = onContributors,
     onGenres = {},
     onTags = {},
     onMoods = {},
@@ -45,6 +50,7 @@ private fun page(
     state: BulkEditUiState,
     actions: BulkEditActions = noActions(),
     notice: String? = null,
+    contributorMatches: List<ContributorSearchResult> = emptyList(),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -58,7 +64,7 @@ private fun page(
                     tags = emptyList(),
                     moods = emptyList(),
                     seriesMatches = emptyList(),
-                    contributorMatches = emptyList(),
+                    contributorMatches = contributorMatches,
                 ),
             actions = actions,
             notice = notice,
@@ -76,6 +82,40 @@ private fun button(
         .asList()
         .filterIsInstance<HTMLButtonElement>()
         .firstOrNull { it.textContent?.trim() == label }
+
+private fun searchResult(name: String) = ContributorSearchResult(id = name, name = name, bookCount = 1)
+
+/**
+ * The whole relation field around the input with [inputId].
+ *
+ * `RelationField` puts the caller's id on the `<input>`, not on a wrapper, and the chips and result
+ * rows are siblings of that input — so an unscoped `.rel-chip` would also match the series field
+ * sitting above this one on the same page.
+ */
+private fun field(
+    host: HTMLElement,
+    inputId: String,
+): HTMLElement = (host.querySelector("#$inputId") as HTMLElement).closest(".f-wrap") as HTMLElement
+
+/** Result rows only render while the box has something in it, so a spec must type before it clicks. */
+private fun search(
+    host: HTMLElement,
+    inputId: String,
+    query: String,
+) {
+    val input = host.querySelector("#$inputId") as HTMLInputElement
+    input.value = query
+    input.dispatchEvent(Event("input", EventInit(bubbles = true)))
+}
+
+/** The same person credited twice — the case a name-only chip key collapses into one. */
+private fun bothRolesForOnePerson() =
+    BulkEdit.AddContributors(
+        listOf(
+            BookContributorInput(name = "Neil Gaiman", role = "author", position = 0),
+            BookContributorInput(name = "Neil Gaiman", role = "narrator", position = 1),
+        ),
+    )
 
 private fun fieldRows(host: HTMLElement) = host.querySelectorAll(".bke-field").asList().filterIsInstance<HTMLElement>()
 
@@ -317,6 +357,88 @@ class BulkEditPageTest :
             text shouldContain "every book keeps the series and the people it already has"
             text shouldContain "every book keeps the genres, tags and moods it already has"
             text shouldContain "A field you don’t touch is never written"
+        }
+
+        // ⛔ The bug this replaces: every bulk-added person was written as an author, whatever they
+        // actually did. Adding a narrator to forty books silently created forty author credits.
+        test("a person is credited in the role the picker names, not always as author") {
+            var credited = emptyList<BookContributorInput>()
+            val host =
+                page(
+                    editing(),
+                    actions = noActions(onContributors = { credited = it }),
+                    contributorMatches = listOf(searchResult("Rosamund Pike")),
+                )
+
+            val select = host.querySelector("#bke-role") as HTMLSelectElement
+            select.value = "narrator"
+            select.dispatchEvent(Event("change", EventInit(bubbles = true)))
+            search(host, "bke-contributors", "Rosamund")
+            awaitFrame()
+            (field(host, "bke-contributors").querySelector(".rel-result") as HTMLElement).click()
+            awaitFrame()
+
+            credited.map { it.name to it.role } shouldContainExactly listOf("Rosamund Pike" to "narrator")
+        }
+
+        test("the picker offers every role the contract defines, not the two the lists show") {
+            val host = page(editing())
+
+            val options = (host.querySelector("#bke-role") as HTMLSelectElement).querySelectorAll("option")
+            options.length shouldBe ContributorRole.entries.size
+        }
+
+        test("with the picker untouched a person is still credited as author") {
+            var credited = emptyList<BookContributorInput>()
+            val host =
+                page(
+                    editing(),
+                    actions = noActions(onContributors = { credited = it }),
+                    contributorMatches = listOf(searchResult("Stephen King")),
+                )
+
+            search(host, "bke-contributors", "Stephen")
+            awaitFrame()
+            (field(host, "bke-contributors").querySelector(".rel-result") as HTMLElement).click()
+            awaitFrame()
+
+            credited.map { it.role } shouldContainExactly listOf("author")
+        }
+
+        test("a credit chip names the role, so two people are told apart by more than name") {
+            val host =
+                page(
+                    editing(edits = listOf(bothRolesForOnePerson())),
+                )
+
+            val chips = field(host, "bke-contributors").querySelectorAll(".rel-chip").asList()
+            chips.map {
+                it.textContent
+                    .orEmpty()
+                    .trim()
+                    .removeSuffix("×")
+                    .trim()
+            } shouldContainExactly
+                listOf("Neil Gaiman · Author", "Neil Gaiman · Narrator")
+        }
+
+        // ⛔ Keyed on name alone, removing either of these removed both — the same person credited
+        // twice is the ordinary case (author and narrator of their own memoir), not an edge one.
+        test("removing one of a person's two credits keeps the other") {
+            var credited = emptyList<BookContributorInput>()
+            val host =
+                page(
+                    editing(edits = listOf(bothRolesForOnePerson())),
+                    actions = noActions(onContributors = { credited = it }),
+                )
+
+            (
+                field(host, "bke-contributors")
+                    .querySelector("[aria-label=\"Remove Neil Gaiman · Author\"]") as HTMLElement
+            ).click()
+            awaitFrame()
+
+            credited.map { it.role } shouldContainExactly listOf("narrator")
         }
 
         test("leaving reports it") {
