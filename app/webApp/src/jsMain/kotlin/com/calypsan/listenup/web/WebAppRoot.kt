@@ -46,8 +46,6 @@ import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetai
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
-import com.calypsan.listenup.web.features.contributors.ContributorsSession
-import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
@@ -122,6 +120,9 @@ import com.calypsan.listenup.web.features.search.openableSearchHits
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
+import com.calypsan.listenup.client.presentation.library.SortState
+import com.calypsan.listenup.client.presentation.library.SortDirection
+import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
@@ -234,7 +235,6 @@ fun WebAppRoot(
     openNotificationPrefs: OpenNotificationPrefs,
     openProfile: OpenProfile,
     openEditProfile: OpenEditProfile,
-    openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
@@ -339,7 +339,6 @@ fun WebAppRoot(
             openProfile = openProfile,
             openEditProfile = openEditProfile,
             currentUserId = currentUserId,
-            openContributors = openContributors,
             openHome = openHome,
             openDiscover = openDiscover,
             openSettings = openSettings,
@@ -675,7 +674,6 @@ private fun RouteContent(
     openProfile: OpenProfile,
     openEditProfile: OpenEditProfile,
     currentUserId: String?,
-    openContributors: OpenContributors,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
@@ -752,6 +750,7 @@ private fun RouteContent(
     } else if (isContributors || contributorId != null) {
         ContributorRouteContent(
             isList = isContributors,
+            librarySession = librarySession,
             contributorId = contributorId,
             roleBooksContributorId = roleBooksContributorId,
             roleBooksRole = parseAnyContributorRole(route.query[ROLE_QUERY_KEY]),
@@ -759,7 +758,6 @@ private fun RouteContent(
             matchingContributorId = matchingContributorId,
             role = parseContributorRole(route.query[ROLE_QUERY_KEY]),
             router = router,
-            openContributors = openContributors,
             openContributorDetail = openContributorDetail,
             openContributorBooks = openContributorBooks,
             openContributorEdit = openContributorEdit,
@@ -1259,23 +1257,6 @@ private fun bookEditState(
 }
 
 /**
- * An open Contributors session for [role], closed whenever the role changes or the page goes away.
- *
- * Keyed on [role] rather than a bare `remember { }` — the same reason [bookDetailState] keys on
- * `bookId` — so switching from Authors to Narrators tears the old session down instead of
- * rendering the new role's chip against the old role's list forever.
- */
-@Composable
-private fun contributorsState(
-    role: ContributorRole,
-    openContributors: OpenContributors,
-): ContributorsSession {
-    val session = remember(role) { openContributors(role) }
-    DisposableEffect(session) { onDispose { session.close() } }
-    return session
-}
-
-/**
  * `/contributor/{id}/edit` — the person's own details, and who they are really.
  *
  * Keyed on [contributorId] for the reason Contributor Detail is: `loadContributor` returns early
@@ -1370,6 +1351,7 @@ private fun ContributorMetadataRoute(
 @Composable
 private fun ContributorRouteContent(
     isList: Boolean,
+    librarySession: LibrarySession,
     contributorId: String?,
     roleBooksContributorId: String?,
     roleBooksRole: ContributorRole,
@@ -1377,7 +1359,6 @@ private fun ContributorRouteContent(
     matchingContributorId: String?,
     role: ContributorRole,
     router: Router,
-    openContributors: OpenContributors,
     openContributorDetail: OpenContributorDetail,
     openContributorBooks: OpenContributorBooks,
     openContributorEdit: OpenContributorEdit,
@@ -1385,12 +1366,26 @@ private fun ContributorRouteContent(
 ) {
     when {
         isList -> {
-            val contributorsSession = contributorsState(role, openContributors)
+            val library = librarySession.state.collectAsState().value as? LibraryUiState.Loaded
             ContributorsPage(
-                state = contributorsSession.state.collectAsState().value,
+                // Null until the library has actually answered, exactly as the dedicated session
+                // was: an empty list and an unanswered query are different facts.
+                state = library?.let { if (role == ContributorRole.NARRATOR) it.narrators else it.authors },
                 role = role,
                 onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
                 onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+                sortState =
+                    library?.let {
+                        if (role ==
+                            ContributorRole.NARRATOR
+                        ) {
+                            it.narratorsSortState
+                        } else {
+                            it.authorsSortState
+                        }
+                    }
+                        ?: SortState(SortCategory.NAME, SortDirection.ASCENDING),
+                onEvent = librarySession.onEvent,
             )
         }
 

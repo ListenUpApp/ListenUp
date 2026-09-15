@@ -40,7 +40,6 @@ import com.calypsan.listenup.web.features.metadata.graphMetadata
 import com.calypsan.listenup.web.features.contributordetail.graphContributorBooks
 import com.calypsan.listenup.web.features.contributordetail.graphContributorDetail
 import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
-import com.calypsan.listenup.web.features.contributors.graphContributors
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
 import com.calypsan.listenup.web.features.discover.graphDiscover
@@ -180,7 +179,6 @@ fun main() {
                 openProfile = graphProfile(koin),
                 openEditProfile = graphEditProfile(koin),
                 openNotificationBell = graphNotificationBell(koin),
-                openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
                 openHome = graphHome(koin),
                 openDiscover = graphDiscover(koin),

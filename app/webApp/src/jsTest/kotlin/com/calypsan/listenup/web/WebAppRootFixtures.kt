@@ -51,8 +51,6 @@ import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.web.features.metadata.OpenMetadata
 import com.calypsan.listenup.web.features.metadata.fixedMetadata
 import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
-import com.calypsan.listenup.web.features.contributors.OpenContributors
-import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.web.features.library.OpenLibrary
@@ -119,7 +117,6 @@ import com.calypsan.listenup.web.features.contributormetadata.OpenContributorMet
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.client.domain.model.ContributorRole
-import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -187,7 +184,6 @@ internal fun mountAt(
     openEditProfile: OpenEditProfile = fixedEditProfile(EditProfileUiState.Loading),
     currentUserId: Flow<String?> = flowOf(null),
     openNotificationBell: OpenNotificationBell = fixedNotificationBell(),
-    openContributors: OpenContributors = fixedContributors(emptyList()),
     openHome: OpenHome = fixedHome(HomeUiState.Loading),
     openLibrary: OpenLibrary = fakeLibrary(),
     openSettings: OpenSettings = fixedSettings(),
@@ -239,7 +235,6 @@ internal fun mountAt(
                 openNotificationPrefs = openNotificationPrefs,
                 openProfile = openProfile,
                 openEditProfile = openEditProfile,
-                openContributors = openContributors,
                 openHome = openHome,
                 openDiscover = fixedDiscover(),
                 openSettings = openSettings,
@@ -421,15 +416,6 @@ internal suspend fun awaitPresent(
 }
 
 private const val FRAME_POLL_MS = 10L
-
-/** An [OpenContributors] that records every role it was asked to open, in the order asked. */
-internal class RecordingContributors {
-    val requestedRoles = mutableListOf<ContributorRole>()
-    val open: OpenContributors = { role ->
-        requestedRoles += role
-        ContributorsSession(state = MutableStateFlow(emptyList()), close = {})
-    }
-}
 
 /** An [OpenSeriesDetail] that records every id it was asked to open, in the order asked. */
 internal class RecordingSeriesDetail {

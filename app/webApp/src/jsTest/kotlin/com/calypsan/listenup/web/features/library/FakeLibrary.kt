@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.library
 
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -37,18 +38,22 @@ fun contractLibrary(
     seriesProgress: Map<SeriesId, SeriesProgress> = emptyMap(),
     seriesSortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
     isBuildingInitialLibrary: Boolean = false,
+    authors: List<ContributorWithBookCount> = emptyList(),
+    narrators: List<ContributorWithBookCount> = emptyList(),
+    authorsSortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+    narratorsSortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
 ): LibraryUiState.Loaded =
     LibraryUiState.Loaded(
         booksSortState = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
         seriesSortState = seriesSortState,
-        authorsSortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
-        narratorsSortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+        authorsSortState = authorsSortState,
+        narratorsSortState = narratorsSortState,
         ignoreTitleArticles = false,
         hideSingleBookSeries = false,
         books = books,
         series = series,
-        authors = emptyList(),
-        narrators = emptyList(),
+        authors = authors,
+        narrators = narrators,
         bookProgress = books.associate { it.id to PARTIAL_PROGRESS },
         bookIsFinished = emptyMap(),
         booksInProgress = emptyList(),

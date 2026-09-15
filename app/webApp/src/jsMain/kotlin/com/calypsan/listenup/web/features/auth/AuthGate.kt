@@ -49,7 +49,6 @@ import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesedit.OpenSeriesEdit
-import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.discover.OpenDiscover
@@ -98,7 +97,6 @@ fun AuthGate(
     openProfile: OpenProfile,
     openEditProfile: OpenEditProfile,
     openNotificationBell: OpenNotificationBell,
-    openContributors: OpenContributors,
     openLibrary: OpenLibrary,
     openHome: OpenHome,
     openDiscover: OpenDiscover,
@@ -216,7 +214,6 @@ fun AuthGate(
                         openProfile = openProfile,
                         openEditProfile = openEditProfile,
                         openNotificationBell = openNotificationBell,
-                        openContributors = openContributors,
                         openLibrary = openLibrary,
                         openHome = openHome,
                         openDiscover = openDiscover,

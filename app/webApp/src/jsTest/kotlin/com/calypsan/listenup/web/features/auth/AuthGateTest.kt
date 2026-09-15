@@ -85,7 +85,6 @@ import com.calypsan.listenup.web.features.contributordetail.fixedContributorDeta
 import com.calypsan.listenup.web.features.contributoredit.fixedContributorEdit
 import com.calypsan.listenup.web.features.contributormetadata.fixedContributorMetadata
 import com.calypsan.listenup.client.presentation.search.SearchUiState
-import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 import com.calypsan.listenup.web.features.books.fixedMultiSelect
@@ -155,7 +154,6 @@ private fun mountGate(
             openProfile = fixedProfile(UserProfileUiState.Loading),
             openNotificationBell = fixedNotificationBell(),
             openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
-            openContributors = fixedContributors(emptyList()),
             openHome = fixedHome(HomeUiState.Loading),
             openDiscover = fixedDiscover(),
             openSettings = fixedSettings(),
