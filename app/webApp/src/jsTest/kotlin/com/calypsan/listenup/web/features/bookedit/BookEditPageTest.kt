@@ -49,6 +49,78 @@ class BookEditPageTest :
                 BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
             }
 
+        // ⛔ UTC, not local. `addedAt` is a real scanner timestamp and Android reads it through
+        // `rememberDatePickerState`, which treats millis as UTC. A local rendering names a different
+        // day than Android for anything added near midnight.
+        //
+        // TWO instants because one cannot catch both directions: 02:00Z is the previous day for a
+        // reader behind UTC, 23:30Z is the next day for a reader ahead of it, and a local rendering
+        // fails whichever one matches the runner's offset. (A runner sitting exactly on UTC can
+        // distinguish neither — that is a limit of asserting this from inside a browser, not a gap
+        // in the contract.)
+        test("an instant early in the UTC day renders that day, not the one before") {
+            val root = edited(loaded().copy(addedAt = INSTANT_EARLY_IN_THE_UTC_DAY))
+
+            (root.querySelector("#edit-added-at") as HTMLInputElement).value shouldBe "2021-03-04"
+        }
+
+        test("an instant late in the UTC day renders that day, not the one after") {
+            val root = edited(loaded().copy(addedAt = INSTANT_LATE_IN_THE_UTC_DAY))
+
+            (root.querySelector("#edit-added-at") as HTMLInputElement).value shouldBe "2021-03-04"
+        }
+
+        test("a single-digit month and day are zero-padded, or the input rejects the value") {
+            val root = edited(loaded().copy(addedAt = INSTANT_EARLY_JANUARY))
+
+            (root.querySelector("#edit-added-at") as HTMLInputElement).value shouldBe "2021-01-02"
+        }
+
+        test("a book with no recorded date shows an empty field rather than the epoch") {
+            val root = edited(loaded().copy(addedAt = null))
+
+            (root.querySelector("#edit-added-at") as HTMLInputElement).value shouldBe ""
+        }
+
+        test("picking a date reports UTC midnight on that day") {
+            var reported: Long? = -1L
+            val root =
+                edited(loaded(), onEvent = { if (it is BookEditUiEvent.AddedAtChanged) reported = it.epochMillis })
+
+            typeInto(root, "#edit-added-at", "2021-03-04")
+
+            reported shouldBe UTC_MIDNIGHT_ON_THE_FOURTH
+        }
+
+        // ⛔ Null, not 0. Epoch 0 is 1 January 1970, which the form would then redisplay as a real
+        // answer — so clearing the field would invent a date rather than remove one.
+        test("clearing the date reports no date rather than the epoch") {
+            var reported: Long? = -1L
+            val root =
+                edited(
+                    loaded().copy(addedAt = INSTANT_LATE_IN_THE_UTC_DAY),
+                    onEvent = { if (it is BookEditUiEvent.AddedAtChanged) reported = it.epochMillis },
+                )
+
+            typeInto(root, "#edit-added-at", "")
+
+            reported shouldBe null
+        }
+
+        // The round trip is where a timezone slip would corrupt data silently: open the form, save
+        // it unchanged, and the stored day must not move.
+        test("rendering a date and reporting it back leaves the day unchanged") {
+            var reported: Long? = null
+            val shown =
+                (edited(loaded().copy(addedAt = INSTANT_LATE_IN_THE_UTC_DAY)).querySelector("#edit-added-at") as HTMLInputElement)
+                    .value
+            val root = edited(loaded(), onEvent = { if (it is BookEditUiEvent.AddedAtChanged) reported = it.epochMillis })
+
+            typeInto(root, "#edit-added-at", shown)
+
+            reported shouldBe UTC_MIDNIGHT_ON_THE_FOURTH
+        }
+
         test("the book's metadata reaches the fields") {
             val root = edited(loaded())
 
@@ -148,3 +220,31 @@ class BookEditPageTest :
             root.textContent!! shouldContain "Loading…"
         }
     })
+
+/** Sets a field's value and fires the `input` this form listens for. */
+private fun typeInto(
+    root: HTMLElement,
+    selector: String,
+    text: String,
+) {
+    val input = root.querySelector(selector) as HTMLInputElement
+    input.value = text
+    input.dispatchEvent(Event("input", js("({bubbles:true})")))
+}
+
+/** 2021-03-04T02:00:00Z — a local reading behind UTC names the 3rd. */
+private const val INSTANT_EARLY_IN_THE_UTC_DAY = 1_614_823_200_000L
+
+/** 2021-03-04T23:30:00Z — a local reading ahead of UTC names the 5th. */
+private const val INSTANT_LATE_IN_THE_UTC_DAY = 1_614_900_600_000L
+
+/**
+ * 2021-01-02T12:00:00Z — a single-digit month and day, which must zero-pad.
+ *
+ * Midday deliberately: at midnight this would also shift day under a local rendering, and the
+ * padding spec would then fail for a timezone reason rather than a padding one.
+ */
+private const val INSTANT_EARLY_JANUARY = 1_609_588_800_000L
+
+/** 2021-03-04T00:00:00Z — what picking "2021-03-04" must report. */
+private const val UTC_MIDNIGHT_ON_THE_FOURTH = 1_614_816_000_000L

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookedit
 
+import kotlin.js.Date
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.Language
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
@@ -87,6 +88,7 @@ fun BookEditPage(
             FormSection("Series") { SeriesFields(state, onEvent) }
             FormSection("Classification") { ClassificationFields(state, onEvent) }
             FormSection("Identifiers") { IdentifierFields(state, onEvent) }
+            FormSection("Library") { LibraryFields(state, onEvent) }
             EditActions(state, onEvent)
         }
     }
@@ -395,6 +397,61 @@ private fun IdentifierFields(
         id = "edit-abridged",
     )
 }
+
+/**
+ * When this book joined the library.
+ *
+ * A native `<input type="date">` rather than a dialog: the browser already owns a date picker, and
+ * the field is also typeable, which a tap-to-open dialog is not.
+ *
+ * ⛔ UTC in both directions, not local time. `addedAt` is a real timestamp from the scanner, and
+ * Android reads it through `rememberDatePickerState`, which interprets millis as UTC. Rendering the
+ * LOCAL date here would show a different day than Android does for any book added near midnight —
+ * and worse, re-saving would shift the stored value by the reader's offset every time the form was
+ * opened and saved.
+ */
+@Composable
+private fun LibraryFields(
+    state: BookEditUiState,
+    onEvent: (BookEditUiEvent) -> Unit,
+) {
+    Field(
+        label = "Date Added",
+        value = state.addedAt?.let(::toDateInputValue).orEmpty(),
+        onInput = { text -> onEvent(BookEditUiEvent.AddedAtChanged(fromDateInputValue(text))) },
+        type = InputType.Date,
+        id = "edit-added-at",
+    )
+}
+
+/** Epoch millis → the `yyyy-MM-dd` an `<input type="date">` reads, in UTC. */
+private fun toDateInputValue(epochMillis: Long): String {
+    val date = Date(epochMillis.toDouble())
+    val year = date.getUTCFullYear()
+    val month = date.getUTCMonth() + 1
+    val day = date.getUTCDate()
+    return "$year-${month.pad()}-${day.pad()}"
+}
+
+/**
+ * `yyyy-MM-dd` → epoch millis at UTC midnight, or null when the field is empty.
+ *
+ * Null rather than 0: clearing the field means "this book has no recorded date", and epoch 0 is
+ * 1 January 1970, which the form would then show as a real answer.
+ */
+private fun fromDateInputValue(text: String): Long? {
+    if (text.isBlank()) return null
+    val parts = text.split("-")
+    if (parts.size != DATE_PARTS) return null
+    val year = parts[0].toIntOrNull() ?: return null
+    val month = parts[1].toIntOrNull() ?: return null
+    val day = parts[2].toIntOrNull() ?: return null
+    return Date.UTC(year = year, month = month - 1, day = day).toLong()
+}
+
+private fun Int.pad(): String = toString().padStart(2, '0')
+
+private const val DATE_PARTS = 3
 
 /**
  * Save and Cancel.
