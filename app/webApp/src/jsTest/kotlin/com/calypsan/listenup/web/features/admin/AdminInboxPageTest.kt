@@ -74,6 +74,8 @@ private fun page(
     onClearReleaseResult: () -> Unit = {},
     onRetry: () -> Unit = {},
     onOpenAdmin: () -> Unit = {},
+    onOpenBookEdit: (String) -> Unit = {},
+    onOpenMatch: (String) -> Unit = {},
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -90,9 +92,28 @@ private fun page(
             onClearReleaseResult = onClearReleaseResult,
             onRetry = onRetry,
             onOpenAdmin = onOpenAdmin,
+            onOpenBookEdit = onOpenBookEdit,
+            onOpenMatch = onOpenMatch,
         )
     }
     return host
+}
+
+/**
+ * Opens a row's actions menu and returns its items, in DOM order.
+ *
+ * ⛔ Suspends for a frame after the click. Compose HTML recomposes asynchronously, so querying
+ * straight after `.click()` reads the DOM as it was before the menu opened — an empty list, which
+ * looks exactly like a menu that renders nothing.
+ */
+private suspend fun openRowMenu(
+    host: HTMLElement,
+    index: Int = 0,
+): List<HTMLElement> {
+    val anchors = host.querySelectorAll(".inbox-book-row .menu-anchor button").asList().filterIsInstance<HTMLElement>()
+    anchors[index].click()
+    awaitFrame()
+    return host.querySelectorAll(".inbox-book-row .menu-i").asList().filterIsInstance<HTMLElement>()
 }
 
 private fun bookRows(host: HTMLElement) = host.querySelectorAll(".inbox-book").asList().filterIsInstance<HTMLElement>()
@@ -413,5 +434,64 @@ class AdminInboxPageTest :
             awaitFrame()
 
             retries shouldBe 1
+        }
+
+        // ⛔ Beside the row, not inside it. The row is a <button role="checkbox"> and a <button>
+        // cannot contain another — invalid markup, and a screen reader loses the inner control.
+        test("a book's actions live beside the selection target, never nested inside it") {
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
+
+            host.querySelectorAll(".inbox-book button").length shouldBe 0
+            host.querySelectorAll(".inbox-book-row > .menu-anchor").length shouldBe 1
+        }
+
+        test("the menu offers editing and matching that book") {
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))))
+
+            openRowMenu(host).map { it.textContent?.trim() } shouldBe listOf("Edit details", "Find metadata")
+        }
+
+        test("editing reports that row's book, not the first on the page") {
+            var edited: String? = null
+            val host =
+                page(
+                    readyInbox(books = listOf(inboxBook(id = "b1"), inboxBook(id = "b7"))),
+                    onOpenBookEdit = { edited = it },
+                )
+
+            openRowMenu(host, index = 1)[0].click()
+
+            edited shouldBe "b7"
+        }
+
+        test("finding metadata reports that row's book") {
+            var matched: String? = null
+            val host =
+                page(
+                    readyInbox(books = listOf(inboxBook(id = "b1"), inboxBook(id = "b7"))),
+                    onOpenMatch = { matched = it },
+                )
+
+            openRowMenu(host, index = 1)[1].click()
+
+            matched shouldBe "b7"
+        }
+
+        // A row of identical "More actions" buttons is unusable by anyone who cannot see which row
+        // they sit on.
+        test("each row's actions button names the book it belongs to") {
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7", title = "Elantris"))))
+
+            val trigger = host.querySelector(".inbox-book-row .menu-anchor button") as HTMLElement
+            trigger.getAttribute("aria-label") shouldBe "Actions for Elantris"
+        }
+
+        test("opening the menu does not select the book") {
+            val toggled = mutableListOf<String>()
+            val host = page(readyInbox(books = listOf(inboxBook(id = "b7"))), onToggleBook = { toggled += it })
+
+            openRowMenu(host)
+
+            toggled shouldBe emptyList()
         }
     })

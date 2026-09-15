@@ -604,6 +604,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* Rows, not cards: the reader is scanning a queue for the one that looks wrong, and a grid of
    covers makes that a hunt. */
 .luw .inbox-books { display: flex; flex-direction: column; gap: 0.5rem; }
+/* The row and its actions menu sit side by side: a <button> cannot contain another one, so the
+   per-book actions live beside the selection target rather than inside it. */
+.luw .inbox-book-row { display: flex; align-items: stretch; gap: 8px; }
+.luw .inbox-book-row > .inbox-book { flex: 1; min-width: 0; }
+.luw .inbox-book-row > .menu-anchor { display: flex; align-items: center; }
 .luw .inbox-book {
   display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left;
   padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 12px;
