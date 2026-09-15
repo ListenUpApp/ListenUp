@@ -14,10 +14,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import listenup.composeapp.generated.resources.chapter_editor_add_at_playhead
 import listenup.composeapp.generated.resources.chapter_editor_clear_search
 import listenup.composeapp.generated.resources.chapter_editor_jump_to_title
 import listenup.composeapp.generated.resources.chapter_editor_no_matches
@@ -126,6 +130,7 @@ fun ChapterEditorContent(
     onMore: (String) -> Unit,
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    onAddAtPlayhead: (() -> Unit)? = null,
     onRetime: (String, Long) -> Unit = { _, _ -> },
     lockedChapterIds: Set<String> = emptySet(),
     query: String = "",
@@ -156,6 +161,7 @@ fun ChapterEditorContent(
             playheadMs = playheadMs,
             onSelect = onSelect,
             onNudge = onNudge,
+            onAddAtPlayhead = onAddAtPlayhead,
             onSnapToPlayhead = onSnapToPlayhead,
             onToggleLock = onToggleLock,
             onMore = onMore,
@@ -323,6 +329,7 @@ private fun ChapterListPane(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onAddAtPlayhead: (() -> Unit)? = null,
 ) {
     // Filtered here, after numbering: `chapters` arrives numbered against the whole book, so a
     // narrowed list still calls chapter 213 by its real number. See [matching].
@@ -373,6 +380,25 @@ private fun ChapterListPane(
                     onMore = { onMore(numbered.chapter.id) },
                     isLocked = numbered.chapter.id in lockedChapterIds,
                 )
+            }
+            // The list's last row is the way to add a chapter to a book that already has some —
+            // the spec draws it here, and iOS and web offer the same control. Only the empty
+            // state had it on Android, so a book missing one chapter could not gain it.
+            // Absent, not disabled, without a playhead — the same call iOS and web made: with no
+            // playhead the add would land on the first chapter's boundary and be refused silently.
+            if (onAddAtPlayhead != null && playheadMs != null) {
+                item(key = "add-at-playhead") {
+                    TextButton(
+                        onClick = onAddAtPlayhead,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Text(
+                            text = stringResource(Res.string.chapter_editor_add_at_playhead),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
             }
         }
     }

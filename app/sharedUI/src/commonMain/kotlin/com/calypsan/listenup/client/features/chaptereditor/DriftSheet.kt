@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -63,6 +65,7 @@ import org.jetbrains.compose.resources.stringResource
  * @param onCancel abandon the proposal.
  * @param modifier Modifier for the panel.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DriftSheet(
     drift: ChapterEditorUiState.DriftState,
@@ -115,7 +118,8 @@ fun DriftSheet(
             ready = ready,
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Three actions do not fit one phone-width row: Apply was rendering as a column of letters.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = onCancel) { Text(stringResource(Res.string.common_cancel)) }
             TextButton(onClick = onPin, enabled = canPin) {
                 Text(
