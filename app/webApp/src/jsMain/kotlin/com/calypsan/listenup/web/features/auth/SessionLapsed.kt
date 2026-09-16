@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -91,3 +92,63 @@ private fun SignInSheet(
 }
 
 private const val LAPSE_ICON = 20
+
+/**
+ * The shell's one connection-health banner, rendered from the shared projection.
+ *
+ * ⛔ One projection decides this, not two signals. `ConnectionHealthUi.SessionExpired` and web's old
+ * `AuthState.SessionLapsed` check are the same fact — `ConnectionHealthStore` derives the former
+ * from exactly the latter's flow — so reading both would show a reader two banners about one
+ * expired session.
+ *
+ * `Hidden` covers the unreachable server too, deliberately: offline-first means an unreachable
+ * server is never ambient banner noise. Point-of-need surfaces (the offline-search notice, for one)
+ * say so where it matters instead.
+ */
+@Composable
+fun ConnectionHealthBanner(
+    state: ConnectionHealthUi,
+    authGraph: AuthGraph,
+    onDismissOutdated: () -> Unit,
+) {
+    when (state) {
+        ConnectionHealthUi.Hidden -> Unit
+
+        // Not dismissible, and that is the whole design: this banner is the only way back in.
+        ConnectionHealthUi.SessionExpired -> SessionLapsedBanner(authGraph)
+
+        is ConnectionHealthUi.Outdated -> OutdatedBanner(state, onDismissOutdated)
+    }
+}
+
+/**
+ * A version-mismatch hint: what this client is, what the server is, and what it might cost.
+ *
+ * Dismissible, unlike a lapsed session — nothing is broken, some things may simply not sync, and a
+ * reader who has read it once should not keep being told.
+ */
+@Composable
+private fun OutdatedBanner(
+    state: ConnectionHealthUi.Outdated,
+    onDismiss: () -> Unit,
+) {
+    Div(attrs = {
+        classes("lapse", "is-hint")
+        attr("role", "status")
+        attr("aria-live", "polite")
+    }) {
+        Div(attrs = { classes("lapse-ico") }) { Icon(WebIcon.ArrowUp, size = LAPSE_ICON) }
+        Div(attrs = { classes("lapse-text") }) {
+            Span(attrs = { classes("lapse-t") }) { Text("Update available") }
+            Span(attrs = { classes("lapse-b") }) {
+                Text("App ${state.clientVersion} / server ${state.serverVersion}. Some features may not sync.")
+            }
+        }
+        Button(attrs = {
+            classes("btn-o", "lapse-act")
+            attr("type", "button")
+            attr("aria-label", "Dismiss update hint")
+            onClick { onDismiss() }
+        }) { Text("Dismiss") }
+    }
+}

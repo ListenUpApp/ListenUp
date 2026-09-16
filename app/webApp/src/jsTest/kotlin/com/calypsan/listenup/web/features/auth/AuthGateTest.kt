@@ -31,6 +31,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
@@ -133,6 +134,7 @@ private fun mountGate(
     inviteCode: String? = null,
     errors: Flow<AppError> = emptyFlow(),
     openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+    openConnectionHealth: OpenConnectionHealth = fixedConnectionHealth(),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -142,6 +144,7 @@ private fun mountGate(
             authGraph = graph,
             router = router,
             openLibrarySetup = openLibrarySetup,
+            openConnectionHealth = openConnectionHealth,
             openBookDetail = fixedBookDetail(readyBook()),
             openBookEdit = fixedBookEdit(BookEditUiState()),
             openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
@@ -228,10 +231,15 @@ class AuthGateTest :
             // with no banner at all, so a reader whose refresh token died just watched requests
             // fail with nothing on screen explaining why or offering a way back. The shell stays —
             // the library is in OPFS and still reads — but silence was never the right half to keep.
+            // The projection is set alongside the auth state deliberately. Production derives
+            // `SessionExpired` from this very `AuthState` inside `ConnectionHealthViewModel`, so the
+            // two cannot disagree there; teaching this fake to derive it too would mean the harness
+            // carried its own copy of that rule and kept these green if the real one broke.
             val host =
                 mountGate(
                     FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
                     openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                    openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
                 )
 
             host.querySelector(".shell").shouldNotBeNull()
@@ -249,6 +257,7 @@ class AuthGateTest :
                 mountGate(
                     FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
                     openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                    openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
                 )
 
             val banner = host.querySelector(".lapse") as HTMLElement
@@ -266,6 +275,7 @@ class AuthGateTest :
                 mountGate(
                     FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
                     openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                    openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
                 )
 
             (host.querySelector(".lapse-go") as HTMLElement).click()
@@ -281,6 +291,60 @@ class AuthGateTest :
             // focus specs down with it, which is precisely the leak `ClassContractTest` closes
             // dialogs to avoid.
             sheet.close()
+        }
+
+        test("an outdated client says which versions disagree and what it costs") {
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openConnectionHealth =
+                        fixedConnectionHealth(ConnectionHealthUi.Outdated("1.2.0", "1.4.0")),
+                )
+
+            val banner = (host.querySelector(".lapse") as? HTMLElement).shouldNotBeNull()
+            val text = banner.textContent.orEmpty()
+            text shouldContain "Update available"
+            // ⛔ Both versions, not just one. A reader told only "you are out of date" cannot tell
+            // whether the fix is on their side or the server's — and on a self-hosted server it is
+            // usually theirs to make.
+            text shouldContain "1.2.0"
+            text shouldContain "1.4.0"
+            text shouldContain "may not sync"
+            banner.getAttribute("aria-live") shouldBe "polite"
+        }
+
+        test("an outdated client can be dismissed, unlike a lapsed session") {
+            // ⛔ The distinction the two banners exist to draw: nothing is broken here, so a reader
+            // who has read it once should not keep being told. A lapse has no such button.
+            var dismissed = 0
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openConnectionHealth =
+                        fixedConnectionHealth(
+                            ConnectionHealthUi.Outdated("1.2.0", "1.4.0"),
+                            onDismiss = { dismissed++ },
+                        ),
+                )
+
+            val labels =
+                (host.querySelector(".lapse") as HTMLElement)
+                    .querySelectorAll("button")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .map { it.textContent?.trim() }
+            labels shouldBe listOf("Dismiss")
+
+            (host.querySelector(".lapse-act") as HTMLElement).click()
+            awaitFrame()
+            dismissed shouldBe 1
+        }
+
+        test("a healthy connection shows no banner at all") {
+            val host = mountGate(FakeAuthGraph(authenticated()))
+
+            host.querySelector(".shell").shouldNotBeNull()
+            host.querySelector(".lapse") shouldBe null
         }
 
         test("an authenticated session shows no banner at all") {

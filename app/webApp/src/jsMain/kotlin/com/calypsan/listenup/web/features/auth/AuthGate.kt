@@ -96,6 +96,7 @@ fun AuthGate(
     openNotificationPrefs: OpenNotificationPrefs,
     openLicences: OpenLicences,
     openLibrarySetup: OpenLibrarySetup,
+    openConnectionHealth: OpenConnectionHealth,
     openProfile: OpenProfile,
     openEditProfile: OpenEditProfile,
     openNotificationBell: OpenNotificationBell,
@@ -197,7 +198,17 @@ fun AuthGate(
             is AuthState.Authenticated,
             is AuthState.SessionLapsed,
             -> {
-                if (state is AuthState.SessionLapsed) SessionLapsedBanner(authGraph)
+                // ⛔ The projection decides, not `state`. `ConnectionHealthStore` derives its
+                // SessionExpired from this very flow, so reading both would show two banners for
+                // one expired session — and the projection additionally carries the version-
+                // mismatch hint, which nothing on web could surface before.
+                val health = remember { openConnectionHealth() }
+                DisposableEffect(health) { onDispose { health.close() } }
+                ConnectionHealthBanner(
+                    state = health.state.collectAsState().value,
+                    authGraph = authGraph,
+                    onDismissOutdated = health.onDismiss,
+                )
                 LibrarySetupGate(openLibrarySetup) {
                     WebAppRoot(
                         router = router,
