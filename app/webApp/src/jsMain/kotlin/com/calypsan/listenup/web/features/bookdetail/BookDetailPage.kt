@@ -74,6 +74,7 @@ fun BookDetailPage(
     onMarkComplete: () -> Unit = {},
     onDiscardProgress: () -> Unit = {},
     onRestart: () -> Unit = {},
+    onShare: () -> Unit = {},
     /** The pickers' state comes from [state]; these open, answer and dismiss them. */
     pickers: BookPickers = BookPickers(),
     nowMs: Long = 0L,
@@ -93,6 +94,7 @@ fun BookDetailPage(
             bookId = bookId,
             isPreparing = isPreparing,
             onMarkComplete = onMarkComplete,
+            onShare = onShare,
             onDiscardProgress = onDiscardProgress,
             onRestart = onRestart,
             pickers = pickers,
@@ -201,6 +203,7 @@ private fun SharedHeader(
     onMarkComplete: () -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
+    onShare: () -> Unit,
     pickers: BookPickers,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
@@ -268,6 +271,7 @@ private fun SharedHeader(
                             onRestart = onRestart,
                             onAddToShelf = pickers.onShowShelfPicker,
                             onAddToCollection = pickers.onShowCollectionPicker,
+                            onShare = onShare,
                         )
                         BookPickerDialogs(ready = loaded, pickers = pickers)
                     }

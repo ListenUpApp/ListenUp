@@ -49,6 +49,7 @@ class BookActionsMenuTest :
             onRestart: () -> Unit = {},
             onAddToShelf: () -> Unit = {},
             onAddToCollection: () -> Unit = {},
+            onShare: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 BookActionsMenu(
@@ -58,6 +59,7 @@ class BookActionsMenuTest :
                     onRestart = onRestart,
                     onAddToShelf = onAddToShelf,
                     onAddToCollection = onAddToCollection,
+                    onShare = onShare,
                 )
             }
 
@@ -72,14 +74,14 @@ class BookActionsMenuTest :
             // changes nothing.
             val host = openMenu(menu(readyBook()))
 
-            menuItems(host) shouldContainExactly listOf("Mark as finished", "Add to shelf")
+            menuItems(host) shouldContainExactly listOf("Mark as finished", "Add to shelf", "Share")
         }
 
         test("a book in progress offers all three") {
             val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
 
             menuItems(host) shouldContainExactly
-                listOf("Mark as finished", "Mark as not started", "Restart book", "Add to shelf")
+                listOf("Mark as finished", "Mark as not started", "Restart book", "Add to shelf", "Share")
         }
 
         test("a finished book can still be undone, even with no progress left to key on") {
@@ -88,7 +90,7 @@ class BookActionsMenuTest :
             // book finished by mistake.
             val host = openMenu(menu(readyBook().copy(isComplete = true, progress = null)))
 
-            menuItems(host) shouldContainExactly listOf("Mark as not started", "Restart book", "Add to shelf")
+            menuItems(host) shouldContainExactly listOf("Mark as not started", "Restart book", "Add to shelf", "Share")
         }
 
         test("each action reports itself") {
@@ -139,7 +141,8 @@ class BookActionsMenuTest :
             val host = openMenu(menu(readyBook().copy(progress = 0.4f)))
 
             val items = host.querySelectorAll(".menu-i").asList().filterIsInstance<HTMLElement>()
-            items.size shouldBe 4
+            // Three progress actions, two filing ones, and Share — which is always offered.
+            items.size shouldBe 5
             items.forEach {
                 it.tagName.lowercase() shouldBe "button"
                 it.getAttribute("role") shouldBe "menuitem"
