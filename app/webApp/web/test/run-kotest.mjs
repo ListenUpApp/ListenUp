@@ -109,6 +109,12 @@ await page.addInitScript((url) => {
   window.__LU_SERVER_URL = url
 }, process.env.LU_SERVER_URL ?? null)
 
+// The directory `LibrarySetupProbe` registers through the real addFolder RPC. Null under a plain
+// `pnpm test`, which is what disables that spec there — the same guard shape LU_SERVER_URL uses.
+await page.addInitScript((dir) => {
+  window.__LU_SPARE_FOLDER = dir
+}, process.env.LU_SPARE_FOLDER ?? null)
+
 const startedAt = Date.now()
 await page.goto(`${BASE}/test/kotest.html`, { waitUntil: 'load' })
 

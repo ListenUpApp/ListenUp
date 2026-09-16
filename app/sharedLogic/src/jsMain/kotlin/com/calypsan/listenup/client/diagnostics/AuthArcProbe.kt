@@ -6,6 +6,8 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
 import com.calypsan.listenup.core.ServerUrl
@@ -37,6 +39,20 @@ data class AuthArcProbe(
      * indistinguishable from a local read that never left the browser.
      */
     val userCount: Int,
+    /**
+     * Sub-directories the real `browseFilesystem` RPC returned for `/`, or -1 if the call failed.
+     *
+     * Counted, not merely succeeded-on: the folder picker's whole job is to show what is actually
+     * on the server's disk, and an empty list from a root that certainly has directories would mean
+     * the picker renders a dead end while every call reports success.
+     */
+    val rootDirectoryCount: Int,
+    /** `AppError.code` from a failed browse, or null when it succeeded. */
+    val browseErrorCode: String?,
+    /** True once a real directory was registered as a library folder through the real ViewModel. */
+    val folderRegistered: Boolean,
+    /** The error the page would have shown had registration failed, or null. */
+    val folderError: String?,
 )
 
 /**
@@ -110,12 +126,43 @@ suspend fun probeAuthArc(
         // having reached the RPC channel — precisely the handoff the state machine above cannot see.
         val authed = app.koin.get<AdminRepository>().getUsers()
 
+        // ── The library half of first run ────────────────────────────────────────────────────
+        // Driven through the real LibrarySetupViewModel rather than the RPC proxies, because the
+        // proxies are not what the page uses: a browse that works but never reaches `state` would
+        // pass an RPC-level check and still render an empty picker.
+        //
+        // In the same arc, and in this order, deliberately. Registering a folder is admin-only, so
+        // it cannot run before the admin above exists — and this harness boots ONE server, whose
+        // setup this probe already owns.
+        val librarySetup = app.koin.get<LibrarySetupViewModel>()
+        librarySetup.loadDirectory(ROOT_PATH)
+        val browsed =
+            withTimeoutOrNull(ARC_TIMEOUT) {
+                librarySetup.state.first { !it.isLoadingDirectories }
+            }
+
+        // ⛔ `as? String` first, and that is what makes the `?.let` below safe. Kotlin/JS dispatches
+        // scope functions on a raw `dynamic` as JS PROPERTY LOOKUPS, so `someDynamic?.let { }`
+        // silently evaluates to undefined rather than running the block — a trap detekt's UseLet
+        // rule leads straight into. Narrowed to a real `String?` first, this is ordinary Kotlin.
+        val spare = window.asDynamic().__LU_SPARE_FOLDER as? String
+        val registered =
+            spare?.let { path ->
+                librarySetup.togglePath(path)
+                librarySetup.completeSetup()
+                withTimeoutOrNull(ARC_TIMEOUT) { librarySetup.navActions.first() }
+            }
+
         AuthArcProbe(
             setupSucceeded = setupSucceeded,
             reachedAuthenticated = reachedAuthenticated,
             authedCallSucceeded = authed is AppResult.Success,
             authedCallErrorCode = (authed as? AppResult.Failure)?.error?.code,
             userCount = (authed as? AppResult.Success)?.data?.size ?: NO_USER_COUNT,
+            rootDirectoryCount = browsed?.directories?.size ?: NO_USER_COUNT,
+            browseErrorCode = browsed?.error,
+            folderRegistered = registered is LibrarySetupNavAction.Finished,
+            folderError = librarySetup.state.value.error,
         )
     } finally {
         app.close()
@@ -125,5 +172,7 @@ suspend fun probeAuthArc(
 private val ARC_TIMEOUT = 20.seconds
 
 private const val NO_USER_COUNT = -1
+private const val ROOT_PATH = "/"
+
 private const val PROBE_FIRST_NAME = "Probe"
 private const val PROBE_LAST_NAME = "Admin"

@@ -175,6 +175,13 @@ const port = await freePort()
 const url = `http://localhost:${port}`
 const home = await mkdtemp(join(tmpdir(), 'listenup-webtest-'))
 
+// A second throwaway directory, NOT handed to the server at boot. `LibrarySetupProbe` registers it
+// through the real `addFolder` RPC, which is the half of first-run that nothing else covers: the
+// seeded library above arrives via LISTENUP_LIBRARY_PATH and so never exercises the folder picker's
+// write path. Empty on purpose — the assertion is that a real path is accepted and comes back as a
+// registered folder, not that a scan finds anything in it.
+const spareFolder = await mkdtemp(join(tmpdir(), 'listenup-webtest-spare-'))
+
 // Matches `seedLibraryDir` in server/build.gradle.kts — the output the generator task declares.
 const seedLibrary = join(repoRoot, 'server', 'build', 'seed-library')
 
@@ -190,6 +197,7 @@ const cleanup = async () => {
   cleanedUp = true
   await killAndWait(server, port)
   await rm(home, { recursive: true, force: true })
+  await rm(spareFolder, { recursive: true, force: true }).catch(() => {})
 }
 
 const onSignal = (signal, exitCode) => () => {
@@ -250,7 +258,7 @@ try {
   const [cmd, ...args] = process.argv.slice(2)
   const child = await spawnLongRunning(cmd, args, {
     cwd: resolve(dirname(fileURLToPath(import.meta.url)), '..'),
-    env: { ...process.env, LU_SERVER_URL: url },
+    env: { ...process.env, LU_SERVER_URL: url, LU_SPARE_FOLDER: spareFolder },
     stdio: 'inherit',
   })
   code = await new Promise((res) => child.once('exit', res))

@@ -4,13 +4,20 @@ import com.calypsan.listenup.client.diagnostics.probeAuthArc
 import io.kotest.assertions.assertSoftly
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import kotlin.random.Random
 
 /**
- * THE end-to-end auth proof: a browser creates the first admin on a real server through the real
- * shared `SetupViewModel`, reaches `AuthState.Authenticated`, and then makes an **authenticated**
- * RPC call that succeeds.
+ * THE end-to-end first-run proof: a browser creates the first admin on a real server through the
+ * real shared `SetupViewModel`, reaches `AuthState.Authenticated`, makes an **authenticated** RPC
+ * call that succeeds, and then browses the server's real filesystem and registers a library folder
+ * through the real `LibrarySetupViewModel`.
+ *
+ * Both halves live here because they are one arc and this harness boots ONE server: registering a
+ * folder is admin-only, so it cannot precede the admin this spec creates, and setup is a
+ * once-per-boot transition this spec already owns (see below). Splitting them would mean a second
+ * spec that either duplicates setup or depends on file ordering.
  *
  * The last clause is the one that matters. Reaching `Authenticated` only proves a state machine
  * ran — it cannot see whether the access token reached the RPC channel's bearer provider, which is
@@ -30,7 +37,7 @@ class AuthArcTest :
     FunSpec({
         val serverBooted = js("window.__LU_SERVER_URL").unsafeCast<String?>() != null
 
-        test("a browser signs up, becomes authenticated, and makes an authed RPC call")
+        test("a browser sets a server up from nothing: first admin, then a library folder")
             .config(enabled = serverBooted) {
                 val probe =
                     probeAuthArc(
@@ -58,6 +65,19 @@ class AuthArcTest :
                         // the call reached the server; zero would be indistinguishable from a
                         // local read.
                         probe.userCount shouldBe 1
+
+                        // ── The library half ────────────────────────────────────────────────
+                        // ⛔ Counted, not merely succeeded-on. `/` certainly has sub-directories on
+                        // any machine this runs on, so a success carrying an empty list would mean
+                        // the folder picker renders a dead end while every call reports fine.
+                        probe.browseErrorCode shouldBe null
+                        probe.rootDirectoryCount shouldBeGreaterThan 0
+                        // Registered through the real ViewModel against a real directory the
+                        // harness made. Until this, nothing anywhere drove the picker's WRITE path:
+                        // the seeded library arrives via LISTENUP_LIBRARY_PATH at boot and so never
+                        // touches addFolder at all.
+                        probe.folderError shouldBe null
+                        probe.folderRegistered shouldBe true
                     }
                 }
             }
