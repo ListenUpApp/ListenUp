@@ -265,6 +265,13 @@ private fun CreditFields(
             seriesQuery = ""
         },
         onRemove = { actions.onSeries(null) },
+        // No id: the server resolves-or-creates by name, exactly as the single-book editor's Add
+        // does. A series the library has never held is a normal thing to start.
+        onCreate = { name ->
+            actions.onSeries(BookSeriesInput(name = name))
+            seriesQuery = ""
+            actions.onSeriesQuery("")
+        },
         placeholder = "Search series",
         id = "bke-series",
     )
@@ -296,6 +303,27 @@ private fun CreditFields(
             contributorQuery = ""
         },
         onRemove = { chip -> actions.onContributors(state.contributorInput.filterNot { creditKey(it) == chip.id }) },
+        // ⛔ Deduped on name AND role, the same pair the chips are keyed on: typing a name already
+        // credited in this role must not add it twice, while the same person in a second role is a
+        // second credit and belongs.
+        onCreate = { name ->
+            val alreadyCredited =
+                state.contributorInput.any {
+                    it.name.equals(name, ignoreCase = true) && it.role == pendingRole.apiValue
+                }
+            if (!alreadyCredited) {
+                actions.onContributors(
+                    state.contributorInput +
+                        BookContributorInput(
+                            name = name,
+                            role = pendingRole.apiValue,
+                            position = state.contributorInput.size,
+                        ),
+                )
+            }
+            contributorQuery = ""
+            actions.onContributorQuery("")
+        },
         placeholder = "Search people",
         id = "bke-contributors",
     )
@@ -325,6 +353,10 @@ private fun roleTitle(apiValue: String): String = ContributorRole.fromApiValue(a
  * ⛔ Picked from what the library already holds, never invented. Minting a tag forty books at a time
  * is how a library ends up with `found-family`, `Found Family` and `found family` as three separate
  * things — so no field here passes an `onCreate`.
+ *
+ * Series and people are the exception and live in [CreditFields], which does pass one: a series or
+ * an author the library has never held is a normal thing to start, where a fourth spelling of an
+ * existing tag never is. Android draws the line in the same place.
  */
 @Composable
 private fun ClassificationFields(
