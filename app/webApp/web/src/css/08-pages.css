@@ -1044,6 +1044,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* ⛔ An outline, never a border or padding. The grid is virtualised on the assumption that every
    card is exactly the same height, and an outline is drawn outside the box without changing it. */
 .lib-card.on { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+/* The same picked treatment the library grid uses, on the feed cards that can now be picked.
+   One rule rather than three: a reader should not have to learn what "selected" looks like
+   twice because they started from Home instead of the Library. */
+.luw .home-card.is-sel,
+.luw .disc-card.is-sel,
+.luw .disc-listener.is-sel { outline: 2px solid var(--coral); outline-offset: 2px; }
 .lib-tick { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--shadow-card); }
 .lib-tick.on { background: var(--coral); border-color: var(--coral); }
 .luw .sel-none { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-3); }

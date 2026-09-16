@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.WeekChartColumn
 import com.calypsan.listenup.client.presentation.home.genreShareBars
 import com.calypsan.listenup.client.presentation.home.weekChartColumns
+import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
@@ -55,6 +57,7 @@ fun HomePage(
     onOpenLibrary: () -> Unit,
     onOpenShelf: (String) -> Unit,
     onCreateShelf: () -> Unit,
+    selection: BookSelection? = null,
 ) {
     Div(attrs = { classes("home") }) {
         when (state) {
@@ -72,7 +75,7 @@ fun HomePage(
             is HomeUiState.Ready -> {
                 HomeHeader(greeting = state.greeting, onOpenSearch = onOpenSearch)
                 LibraryStatus(state)
-                ContinueListening(state.continueListening, onOpenBook, onOpenLibrary)
+                ContinueListening(state.continueListening, onOpenBook, onOpenLibrary, selection)
                 MyShelves(state.myShelves, onOpenShelf, onCreateShelf)
                 ThisWeek(stats)
             }
@@ -180,6 +183,7 @@ private fun ContinueListening(
     items: List<ContinueListeningItem>,
     onOpenBook: (String) -> Unit,
     onOpenLibrary: () -> Unit,
+    selection: BookSelection?,
 ) {
     Div(attrs = { classes("home-section") }) {
         H3(attrs = { classes("home-section-h") }) { Text("Continue listening") }
@@ -195,7 +199,7 @@ private fun ContinueListening(
             }
         } else {
             Div(attrs = { classes("home-continue") }) {
-                items.forEach { item -> ContinueCard(item, onOpenBook) }
+                items.forEach { item -> ContinueCard(item, onOpenBook, selection) }
             }
         }
     }
@@ -212,6 +216,7 @@ private fun ContinueListening(
 private fun ContinueCard(
     item: ContinueListeningItem,
     onOpenBook: (String) -> Unit,
+    selection: BookSelection?,
 ) {
     when (item) {
         is ContinueListeningItem.Loading -> {
@@ -223,17 +228,21 @@ private fun ContinueCard(
 
         is ContinueListeningItem.Ready -> {
             val book = item.book
+            // While selecting, a press picks instead of opening — one gesture, two jobs, decided
+            // by the mode, exactly as the library grid does it.
+            val press = { selection.press(book.bookId) { onOpenBook(book.bookId) } }
             Div(attrs = {
                 classes("home-card")
+                if (selection?.isSelected(book.bookId) == true) classes("is-sel")
                 tabIndex(0)
                 attr("role", "button")
                 onKeyDown { event ->
                     if (event.key == "Enter" || event.key == " ") {
                         event.preventDefault()
-                        onOpenBook(book.bookId)
+                        press()
                     }
                 }
-                onClick { onOpenBook(book.bookId) }
+                onClick { press() }
             }) {
                 Cover(
                     title = book.title,
