@@ -30,10 +30,14 @@ fun BookActionsMenu(
     onRestart: () -> Unit,
     onAddToShelf: () -> Unit,
     onAddToCollection: () -> Unit,
+    onShare: () -> Unit,
 ) {
     val items =
         progressActions(ready, onMarkComplete, onDiscardProgress, onRestart) +
-            filingActions(ready, onAddToShelf, onAddToCollection)
+            filingActions(ready, onAddToShelf, onAddToCollection) +
+            // Always offered, unlike the progress actions: sharing says nothing about your own
+            // relationship to the book, so there is no state in which it would do nothing.
+            MenuAction("Share", WebIcon.Share, onShare)
 
     // ⛔ One flag for all three: they are the same round-trip through the same repository, and a
     // second request while one is in flight would race it to the same position record.

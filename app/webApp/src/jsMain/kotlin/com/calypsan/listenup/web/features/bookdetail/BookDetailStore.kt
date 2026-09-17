@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.share.ShareTarget
+import com.calypsan.listenup.client.share.ShareLinkCodec
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
@@ -49,6 +53,13 @@ class BookDetailSession(
     val onAddToCollection: (String) -> Unit,
     val onCreateCollectionAndAdd: (String) -> Unit,
     val onClearCollectionError: () -> Unit,
+    /**
+     * Shares this book, reporting how it went so the page can say the right thing.
+     *
+     * Suspends because building the link needs the server's own identity — the instance id and
+     * remote URL a recipient's client uses to resolve the link back to THIS server.
+     */
+    val onShare: suspend (title: String) -> ShareOutcome,
     val close: () -> Unit,
 )
 
@@ -90,6 +101,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onAddToCollection = viewModel::addBookToCollection,
             onCreateCollectionAndAdd = viewModel::createCollectionAndAddBook,
             onClearCollectionError = viewModel::clearCollectionError,
+            onShare = { title -> shareBook(koin, bookId, title) },
             close = store::clear,
         )
     }
@@ -113,6 +125,7 @@ fun fixedBookDetail(
     onAddToCollection: (String) -> Unit = {},
     onCreateCollectionAndAdd: (String) -> Unit = {},
     onClearCollectionError: () -> Unit = {},
+    onShare: suspend (String) -> ShareOutcome = { ShareOutcome.SHARED },
 ): OpenBookDetail =
     {
         BookDetailSession(
@@ -132,6 +145,38 @@ fun fixedBookDetail(
             onAddToCollection = onAddToCollection,
             onCreateCollectionAndAdd = onCreateCollectionAndAdd,
             onClearCollectionError = onClearCollectionError,
+            onShare = onShare,
             close = {},
         )
     }
+
+/**
+ * Builds this book's share link from the server's own identity, then hands it to the browser.
+ *
+ * ⛔ The link carries the instance id and remote URL, not just the book id. A recipient's client
+ * resolves a share against the server it names — without them the link only works for someone
+ * already pointed at the same server, which is exactly the person who did not need a link.
+ *
+ * The sentence is the natives' sentence, character for character, and the URL comes from the shared
+ * [ShareLinkCodec]: three clients producing three dialects of the same link would be three bugs
+ * waiting for someone to paste the wrong one.
+ *
+ * A server that cannot say who it is yields [ShareOutcome.FAILED] rather than a link missing its
+ * identity — a link that silently resolves nowhere is worse than an honest refusal.
+ */
+private suspend fun shareBook(
+    koin: Koin,
+    bookId: String,
+    title: String,
+): ShareOutcome {
+    val info = koin.get<InstanceRepository>().getServerInfoOrNull() ?: return ShareOutcome.FAILED
+    val url =
+        ShareLinkCodec.encode(
+            ShareTarget.Book(
+                bookId = BookId(bookId),
+                serverInstanceId = info.instanceId,
+                serverUrl = info.remoteUrl?.trimEnd('/'),
+            ),
+        )
+    return shareBookLink(title = title, text = "Check out $title on ListenUp!\n$url", url = url)
+}

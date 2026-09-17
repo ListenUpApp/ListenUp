@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -747,6 +748,7 @@ private fun RouteContent(
             openChapterEditor = openChapterEditor,
             openMetadata = openMetadata,
             openBookReaders = openBookReaders,
+            onToast = onToast,
             playback = playback,
         )
     } else if (isContributors || contributorId != null) {
@@ -1524,6 +1526,7 @@ private fun BookRouteContent(
     openMetadata: OpenMetadata,
     openBookReaders: OpenBookReaders,
     playback: PlaybackSession,
+    onToast: (String) -> Unit,
 ) {
     val editingBookId = route.editTargetOf(bookId)
     // `/book/{id}/chapters` — a route of its own, for the reason `/book/{id}/edit` is one, and one
@@ -1582,6 +1585,10 @@ private fun BookRouteContent(
     }
 
     val detailSession = bookDetailSession(bookId, openBookDetail)
+    // Sharing suspends (it asks the server who it is), and the press that starts it is not a
+    // composition. `rememberCoroutineScope` ties the work to this page: navigate away mid-share and
+    // it is cancelled rather than resolving into a toast over a book the reader has left.
+    val shareScope = rememberCoroutineScope()
     BookDetailPage(
         state = detailSession.state.collectAsState().value,
         tab = route.query["tab"] ?: "overview",
@@ -1609,6 +1616,21 @@ private fun BookRouteContent(
         onMarkComplete = detailSession.onMarkComplete,
         onDiscardProgress = detailSession.onDiscardProgress,
         onRestart = detailSession.onRestart,
+        onShare = {
+            val title = (detailSession.state.value as? BookDetailUiState.Ready)?.book?.title
+            if (title != null) {
+                shareScope.launch {
+                    // ⛔ Only COPIED says anything. A browser that showed its own share sheet has
+                    // already told the reader what happened, and a toast on top of that is the app
+                    // narrating a conversation the reader just had with their own operating system.
+                    when (detailSession.onShare(title)) {
+                        ShareOutcome.COPIED -> onToast("Link copied")
+                        ShareOutcome.FAILED -> onToast("That link could not be shared.")
+                        ShareOutcome.SHARED -> Unit
+                    }
+                }
+            }
+        },
         pickers =
             BookPickers(
                 myShelves = detailSession.myShelves.collectAsState().value,
