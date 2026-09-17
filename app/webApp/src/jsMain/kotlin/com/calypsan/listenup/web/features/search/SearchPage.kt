@@ -50,6 +50,7 @@ fun SearchPage(
     state: SearchUiState,
     onQueryChanged: (String) -> Unit,
     onToggleType: (SearchHitType) -> Unit,
+    onClearTypes: () -> Unit,
     onOpenHit: (SearchHit) -> Unit,
     onRetry: () -> Unit,
     openableTypes: Set<SearchHitType>,
@@ -61,6 +62,14 @@ fun SearchPage(
         SearchField(query = state.query, onQueryChanged = onQueryChanged)
 
         Div(attrs = { classes("search-types") }) {
+            // ⛔ First, and selected precisely when nothing else is — the same shape as Android's
+            // TypeFilterRow and iOS's scope picker. It is how a reader gets back out of a filter
+            // they set; without it the only route was to remember which chips they had pressed.
+            Pill(
+                label = "All",
+                selected = state.selectedTypes.isEmpty(),
+                onClick = onClearTypes,
+            )
             SearchHitType.entries.forEach { type ->
                 Pill(
                     label = type.label(),

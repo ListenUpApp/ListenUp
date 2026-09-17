@@ -32,6 +32,15 @@ class SearchSession(
     val state: StateFlow<SearchUiState>,
     val onQueryChanged: (String) -> Unit,
     val onToggleType: (SearchHitType) -> Unit,
+    /**
+     * Drop every type filter at once — the "All" pill.
+     *
+     * ⛔ Web had the toggles and no way back out of them. Both natives lead their filter row with
+     * All (`TypeFilterRow`'s `onSelectAll` on Android, `selectScope(.all)` on iOS), and both route
+     * it to `clearTypeFilters()`. Without it, a reader who had narrowed to Series had to un-toggle
+     * each chip they had touched to see everything again, with nothing on screen saying so.
+     */
+    val onClearTypes: () -> Unit,
     val onOpenHit: (SearchHit) -> Unit,
     val retry: () -> Unit,
     val navActions: Flow<SearchNavAction>,
@@ -61,6 +70,7 @@ fun graphSearch(koin: Koin): OpenSearch =
             state = viewModel.state,
             onQueryChanged = viewModel::onQueryChanged,
             onToggleType = viewModel::toggleTypeFilter,
+            onClearTypes = viewModel::clearTypeFilters,
             onOpenHit = viewModel::onResultClicked,
             retry = {
                 val currentQuery = viewModel.state.value.query
@@ -73,12 +83,17 @@ fun graphSearch(koin: Koin): OpenSearch =
     }
 
 /** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedSearch(state: SearchUiState): OpenSearch =
+fun fixedSearch(
+    state: SearchUiState,
+    onToggleType: (SearchHitType) -> Unit = {},
+    onClearTypes: () -> Unit = {},
+): OpenSearch =
     {
         SearchSession(
             state = MutableStateFlow(state),
             onQueryChanged = {},
-            onToggleType = {},
+            onToggleType = onToggleType,
+            onClearTypes = onClearTypes,
             onOpenHit = {},
             retry = {},
             navActions = emptyFlow(),

@@ -959,6 +959,7 @@ private fun SearchRoute(
         state = session.state.collectAsState().value,
         onQueryChanged = { query -> onSearchFieldChanged(query, session, router) },
         onToggleType = session.onToggleType,
+        onClearTypes = session.onClearTypes,
         onOpenHit = session.onOpenHit,
         onSeeAll = onSeeAll,
         onRetry = session.retry,

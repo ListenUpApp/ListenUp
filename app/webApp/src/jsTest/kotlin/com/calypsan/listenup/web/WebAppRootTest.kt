@@ -490,6 +490,38 @@ class WebAppRootTest :
             }
         }
 
+        test("All on the search page reaches the session, not just the page") {
+            // ⛔ Deliberately at the root, not on SearchPage. A page-level spec proves the pill
+            // calls the lambda it was handed; it says nothing about whether `WebAppRoot` handed it
+            // the session's. Wiring the page to a no-op is the shape of every gap this parity work
+            // has been closing, so it gets its own spec rather than being assumed from a green page.
+            var cleared = 0
+            val (host, router) =
+                mountAt(
+                    "/search?q=dune",
+                    openSearch =
+                        fixedSearch(
+                            SearchUiState.Idle(query = "dune", selectedTypes = setOf(SearchHitType.SERIES)),
+                            onClearTypes = { cleared++ },
+                        ),
+                )
+
+            try {
+                val all =
+                    host
+                        .querySelectorAll(".search-types .pill")
+                        .asList()
+                        .filterIsInstance<HTMLElement>()
+                        .first { it.textContent == "All" }
+                all.click()
+                awaitFrame()
+
+                cleared shouldBe 1
+            } finally {
+                router.dispose()
+            }
+        }
+
         test("See all on a capped group opens that group's own page, carrying the query") {
             val hits = (1..9).map { bookHit("b$it", "Book $it") }
             val (host, router) =
