@@ -1631,6 +1631,7 @@ private fun BookRouteContent(
                 }
             }
         },
+        documents = detailSession.documents.collectAsState().value,
         pickers =
             BookPickers(
                 myShelves = detailSession.myShelves.collectAsState().value,

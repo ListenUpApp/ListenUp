@@ -51,6 +51,11 @@ enum class WebIcon(
         "M4 4l16 16 M9.9 5.7A9.6 9.6 0 0 1 12 5.5c5.9 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.4 4.1 " +
             "M6.5 7.6A17 17 0 0 0 2.5 12S6.1 18.5 12 18.5a9.4 9.4 0 0 0 3.4-.6 M9.8 9.9a3 3 0 0 0 4.2 4.2",
     ),
+
+    /** A page with lines of text: a supplementary document. Android's `Description`, iOS's `doc.richtext`. */
+    FileText(
+        "M6 3h7l5 5v13H6z M13 3v5h5 M9 13h6 M9 16.5h6",
+    ),
     Flame(
         "M12 3c3 3.5 4.5 5.8 4.5 8a4.5 4.5 0 0 1-9 0c0-1.2.4-2.3 1.2-3.4 " +
             "M12 20.5a4 4 0 0 1-2-7.5c.8 1.4 1.5 2 2 2s1.2-.6 2-2a4 4 0 0 1-2 7.5",

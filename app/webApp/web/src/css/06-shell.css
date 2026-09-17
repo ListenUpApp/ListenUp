@@ -248,6 +248,11 @@
 .f-check input { width:18px; height:18px; accent-color:var(--coral); cursor:pointer; }
 .bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
 .bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
+/* A document row's open/download link. Sizing only: it borrows .btn-o's surface, border and
+   :active press, because a row action that answered a pointer differently from every other button
+   would read as a different kind of control. .btn-o's 40px is a page button's height, not a table
+   row's. */
+.bd .doc-open { height:30px; padding:0 10px; font-size:12.5px; border-radius:9px; gap:5px; text-decoration:none; }
 /* the chapter map — the book as a strip; segment width is proportional to duration */
 .chmap { display:flex; gap:2px; height:34px; }
 .chmap i { flex:1 0 2px; min-width:2px; border-radius:3px; background:var(--surface-3); cursor:pointer; transition:background .12s; }

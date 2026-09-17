@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Shelf
 
@@ -60,6 +61,22 @@ class BookDetailSession(
      * remote URL a recipient's client uses to resolve the link back to THIS server.
      */
     val onShare: suspend (title: String) -> ShareOutcome,
+    /**
+     * The supplementary documents shipped with this book — a PDF map, a bonus chapter, cover art.
+     *
+     * ⛔ Another flow the ViewModel has always exposed and web never read. Android renders these in
+     * its detail body and iOS has a whole DocumentReader feature; web showed nothing, so a
+     * self-hoster who put a PDF beside their audiobook had no way to learn from the browser that
+     * the server had even found it.
+     *
+     * `onOpenDocument` is deliberately NOT wired. Its job is to resolve a *local file path* for a
+     * platform PDF viewer, and web has neither: the document route is already cookie-authenticated
+     * for exactly this (`BLOB_READ_PROVIDER`, "an `<img src>` or a document link"), so the browser
+     * opens the URL and renders it with machinery far better than anything we would port. On web
+     * `ensureLocal` would also write the bytes into a set that discards them — see
+     * `BrowserDocumentStorage`.
+     */
+    val documents: StateFlow<List<BookDocument>>,
     val close: () -> Unit,
 )
 
@@ -102,6 +119,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onCreateCollectionAndAdd = viewModel::createCollectionAndAddBook,
             onClearCollectionError = viewModel::clearCollectionError,
             onShare = { title -> shareBook(koin, bookId, title) },
+            documents = viewModel.documents,
             close = store::clear,
         )
     }
@@ -126,6 +144,7 @@ fun fixedBookDetail(
     onCreateCollectionAndAdd: (String) -> Unit = {},
     onClearCollectionError: () -> Unit = {},
     onShare: suspend (String) -> ShareOutcome = { ShareOutcome.SHARED },
+    documents: List<BookDocument> = emptyList(),
 ): OpenBookDetail =
     {
         BookDetailSession(
@@ -146,6 +165,7 @@ fun fixedBookDetail(
             onCreateCollectionAndAdd = onCreateCollectionAndAdd,
             onClearCollectionError = onClearCollectionError,
             onShare = onShare,
+            documents = MutableStateFlow(documents),
             close = {},
         )
     }
