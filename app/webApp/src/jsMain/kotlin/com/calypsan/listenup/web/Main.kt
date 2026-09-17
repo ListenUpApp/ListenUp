@@ -21,6 +21,7 @@ import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
+import com.calypsan.listenup.web.features.auth.graphConnectionHealth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.bookedit.graphBookEdit
 import com.calypsan.listenup.web.features.chaptereditor.graphChapterEditor
@@ -177,6 +178,7 @@ fun main() {
                 openNotifications = graphNotifications(koin),
                 openNotificationPrefs = graphNotificationPrefs(koin),
                 openLibrarySetup = graphLibrarySetup(koin),
+                openConnectionHealth = graphConnectionHealth(koin),
                 openProfile = graphProfile(koin),
                 openEditProfile = graphEditProfile(koin),
                 openNotificationBell = graphNotificationBell(koin),
