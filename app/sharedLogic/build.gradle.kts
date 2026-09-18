@@ -232,6 +232,25 @@ tasks.named<Test>("jvmTest") {
     // so an honest deletion never trips it. A floor hugging the current count is a ratchet, and a
     // ratchet here just teaches people to edit the number without reading it.
     failBelowDiscoveredTestCount(2700, ":app:sharedLogic:jvmTest")
+    // ⛔ Konsist reads the whole production tree off the filesystem at RUN time, through JVM file
+    // APIs Gradle cannot see. Nothing here depends on `:app:webApp` or `:server`, so without this
+    // a commit touching only those modules leaves this task UP-TO-DATE and every architectural
+    // rule silently re-reports its previous verdict — including on CI, via the build cache.
+    //
+    // Found by sabotage: deleting a wired callback from a `:app:webApp` session failed nothing
+    // until `--rerun-tasks`, and `WebSessionCoversItsViewModelRule` exists precisely to catch that.
+    //
+    // Derived from Gradle's own module list rather than a hand-kept copy, so a new module is
+    // covered the day it is added. `tools/build-logic` is a separate included build and is out of
+    // Konsist's scope for the same reason it is out of `EXPECTED_MODULE_DIRS`.
+    inputs
+        .files(
+            rootProject.allprojects
+                .map { it.projectDir.resolve("src") }
+                .filter { it.isDirectory }
+                .map { fileTree(it) { include("**/*.kt") } },
+        ).withPropertyName("konsistProductionSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // Pin the E2E retry ledger (written by HeavyweightE2ERetryExtension) to an absolute path under
     // this module's build/, so its location is workingDir-independent and identical in shape to the
     // server's — CI reads app/sharedLogic/build/e2e-retries.log.
