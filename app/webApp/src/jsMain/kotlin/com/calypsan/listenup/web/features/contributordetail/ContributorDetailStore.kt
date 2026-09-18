@@ -1,9 +1,12 @@
 package com.calypsan.listenup.web.features.contributordetail
 
 import androidx.lifecycle.ViewModelStore
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -16,6 +19,28 @@ import org.koin.core.Koin
  */
 class ContributorDetailSession(
     val state: StateFlow<ContributorDetailUiState>,
+    /**
+     * Delete this contributor, for good.
+     *
+     * ⛔ This session was `(state, close)` — the exact shape that let web's action gap go unnoticed
+     * for so long. Both natives wire `confirmDelete` on this very ViewModel
+     * (`ContributorDetailScreen` on Android, `ContributorDetailObserver` on iOS); web offered no
+     * way to remove a contributor at all.
+     *
+     * There is no `requestDelete`: the ViewModel has no such step, because asking is the UI's job
+     * and the answer is local state. This callback is the *answer*, so a page must not call it
+     * without having asked — see [ConfirmDialog] at the call site.
+     */
+    val onConfirmDelete: () -> Unit,
+    /** Clear a failed delete's message so the page can be used again. */
+    val onDismissDeleteError: () -> Unit,
+    /**
+     * Where the ViewModel says to go once the contributor is gone.
+     *
+     * The page it was deleted from no longer describes anything, so staying on it would show a
+     * reader the remains of a person they just removed.
+     */
+    val navActions: Flow<ContributorDetailNavAction>,
     val close: () -> Unit,
 )
 
@@ -40,9 +65,28 @@ fun graphContributorDetail(koin: Koin): OpenContributorDetail =
         val viewModel = koin.get<ContributorDetailViewModel>()
         val store = ViewModelStore().apply { put(contributorId, viewModel) }
         viewModel.loadContributor(contributorId)
-        ContributorDetailSession(state = viewModel.state, close = store::clear)
+        ContributorDetailSession(
+            state = viewModel.state,
+            onConfirmDelete = viewModel::confirmDelete,
+            onDismissDeleteError = viewModel::dismissDeleteError,
+            navActions = viewModel.navActions,
+            close = store::clear,
+        )
     }
 
 /** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedContributorDetail(state: ContributorDetailUiState): OpenContributorDetail =
-    { ContributorDetailSession(state = MutableStateFlow(state), close = {}) }
+fun fixedContributorDetail(
+    state: ContributorDetailUiState,
+    onConfirmDelete: () -> Unit = {},
+    onDismissDeleteError: () -> Unit = {},
+    navActions: Flow<ContributorDetailNavAction> = emptyFlow(),
+): OpenContributorDetail =
+    {
+        ContributorDetailSession(
+            state = MutableStateFlow(state),
+            onConfirmDelete = onConfirmDelete,
+            onDismissDeleteError = onDismissDeleteError,
+            navActions = navActions,
+            close = {},
+        )
+    }

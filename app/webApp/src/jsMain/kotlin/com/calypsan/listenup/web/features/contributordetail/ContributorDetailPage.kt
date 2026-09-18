@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.contributordetail
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.design.ConfirmDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +54,12 @@ fun ContributorDetailPage(
     onOpenRoleBooks: (String) -> Unit = {},
     onEdit: () -> Unit = {},
     onMatchMetadata: () -> Unit = {},
+    /**
+     * Remove this contributor. No default: a defaulted no-op would render a real, enabled Delete
+     * that does nothing — the same reasoning `BookDetailPage.onPlay` carries.
+     */
+    onConfirmDelete: () -> Unit,
+    onDismissDeleteError: () -> Unit,
 ) {
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page
@@ -64,7 +71,16 @@ fun ContributorDetailPage(
 
         when (state) {
             is ContributorDetailUiState.Ready -> {
-                ReadyContent(state, onOpenBook, onOpenSeries, onOpenRoleBooks, onEdit, onMatchMetadata)
+                ReadyContent(
+                    state,
+                    onOpenBook,
+                    onOpenSeries,
+                    onOpenRoleBooks,
+                    onEdit,
+                    onMatchMetadata,
+                    onConfirmDelete,
+                    onDismissDeleteError,
+                )
             }
 
             is ContributorDetailUiState.Error -> {
@@ -126,8 +142,43 @@ private fun ReadyContent(
     onOpenRoleBooks: (String) -> Unit,
     onEdit: () -> Unit,
     onMatchMetadata: () -> Unit,
+    onConfirmDelete: () -> Unit,
+    onDismissDeleteError: () -> Unit,
 ) {
-    Hero(state, onEdit, onMatchMetadata)
+    // Local, like every picker's visibility on every platform: asking is the page's business and
+    // the ViewModel has no step for it. Android's `showDeleteConfirmation` is the same variable.
+    var confirming by remember { mutableStateOf(false) }
+
+    // ⛔ Above the hero, not beside the button that failed. A delete that did not happen leaves the
+    // contributor on screen looking untouched, so the only thing that can say otherwise is a line
+    // the reader cannot miss on their way back to the page.
+    state.deleteError?.let { message ->
+        Div(attrs = { classes("banner", "err") }) {
+            Span { Text(message) }
+            Button(attrs = {
+                classes("btn-o", "cd-err-x")
+                attr("type", BUTTON_VALUE)
+                attr(ARIA_LABEL, "Dismiss delete error")
+                onClick { onDismissDeleteError() }
+            }) { Text("Dismiss") }
+        }
+    }
+
+    Hero(state, onEdit, onMatchMetadata, state.isDeleting) { confirming = true }
+
+    ConfirmDialog(
+        open = confirming,
+        title = "Delete contributor",
+        // Android's wording, because the consequence is the same one and a reader who has seen it
+        // on their phone should not have to re-read a different sentence to check.
+        body = "This will remove ${state.contributor.name} from your library. This action cannot be undone.",
+        confirmLabel = "Delete",
+        onConfirm = {
+            confirming = false
+            onConfirmDelete()
+        },
+        onDismiss = { confirming = false },
+    )
 
     state.roleSections.forEach { section ->
         Div(attrs = { classes("cd-role-section") }) {
@@ -175,6 +226,8 @@ private fun Hero(
     state: ContributorDetailUiState.Ready,
     onEdit: () -> Unit,
     onMatchMetadata: () -> Unit,
+    isDeleting: Boolean,
+    onDeleteClick: () -> Unit,
 ) {
     Div(attrs = { classes("cd-hero") }) {
         Div(attrs = {
@@ -212,7 +265,7 @@ private fun Hero(
         Button(attrs = {
             classes("btn-sq", "cd-edit")
             attr("type", BUTTON_VALUE)
-            attr("aria-label", "Edit contributor")
+            attr(ARIA_LABEL, "Edit contributor")
             attr("title", "Edit contributor")
             onClick { onEdit() }
         }) { Icon(WebIcon.Pencil) }
@@ -222,10 +275,21 @@ private fun Hero(
         Button(attrs = {
             classes("btn-sq", "cd-match")
             attr("type", BUTTON_VALUE)
-            attr("aria-label", "Match contributor")
+            attr(ARIA_LABEL, "Match contributor")
             attr("title", "Match contributor")
             onClick { onMatchMetadata() }
         }) { Icon(WebIcon.Sparkles) }
+
+        // Last, and disabled while its own work is in flight — a second press would ask the server
+        // to delete someone already being deleted.
+        Button(attrs = {
+            classes("btn-sq", "cd-delete")
+            attr("type", BUTTON_VALUE)
+            attr(ARIA_LABEL, if (isDeleting) "Deleting contributor" else "Delete contributor")
+            attr("title", "Delete contributor")
+            if (isDeleting) attr("disabled", "")
+            onClick { onDeleteClick() }
+        }) { Icon(WebIcon.Trash) }
     }
 }
 
@@ -422,3 +486,6 @@ private const val FAN_SECOND_LIGHTNESS = 14
 
 /** Every button here is an action, never a form submit. */
 private const val BUTTON_VALUE = "button"
+
+/** Extracted only because this page now sets enough of them to trip StringLiteralDuplication. */
+private const val ARIA_LABEL = "aria-label"

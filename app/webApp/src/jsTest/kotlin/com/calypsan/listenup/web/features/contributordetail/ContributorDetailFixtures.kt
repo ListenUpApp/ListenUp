@@ -36,6 +36,8 @@ internal fun readyContributor(
     series: List<SeriesWithBooks> = emptyList(),
     bookCount: Int = DEFAULT_BOOK_COUNT,
     totalDuration: Duration = DEFAULT_TOTAL_DURATION,
+    isDeleting: Boolean = false,
+    deleteError: String? = null,
 ): ContributorDetailUiState.Ready =
     ContributorDetailUiState.Ready(
         contributor = Contributor(id = ContributorId("c-king"), name = name),
@@ -45,8 +47,8 @@ internal fun readyContributor(
         series = series,
         bookCount = bookCount,
         totalDuration = totalDuration,
-        isDeleting = false,
-        deleteError = null,
+        isDeleting = isDeleting,
+        deleteError = deleteError,
     )
 
 /**
