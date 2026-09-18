@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.bookdetail
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
@@ -58,6 +59,35 @@ internal fun readyBook(
         tags = tags,
         moods = moods,
     )
+
+/**
+ * Two supplementary documents: one the browser renders, one it can only hand over.
+ *
+ * The PDF sits in a subdirectory on purpose — [BookDocument.filename] is book-root-relative, and
+ * every client displays the basename. A fixture with flat names could not catch a row that printed
+ * the path.
+ */
+internal fun sampleDocuments(): List<BookDocument> =
+    listOf(
+        BookDocument(
+            id = "doc-1",
+            index = 0,
+            filename = "extras/institute-map.pdf",
+            format = "pdf",
+            size = 2L * 1024 * 1024,
+            hash = "a".repeat(HASH_LENGTH),
+        ),
+        BookDocument(
+            id = "doc-2",
+            index = 1,
+            filename = "bonus-chapter.epub",
+            format = "epub",
+            size = 512L * 1024,
+            hash = "b".repeat(HASH_LENGTH),
+        ),
+    )
+
+private const val HASH_LENGTH = 64
 
 /**
  * 33 chapters whose durations vary but always sum to the book's runtime — the two panes

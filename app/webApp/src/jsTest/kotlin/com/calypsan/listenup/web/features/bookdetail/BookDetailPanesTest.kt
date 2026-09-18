@@ -51,6 +51,9 @@ import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import org.w3c.dom.asList
+import org.w3c.dom.HTMLAnchorElement
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
@@ -230,6 +233,102 @@ class BookDetailPanesTest :
                 (host.querySelector(".bd") as HTMLElement)
                     .textContent
                     .orEmpty() shouldContain "no audio files"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the Files tab counts the documents it holds, not just the audio") {
+            // ⛔ Pinned because it was wrong by omission the moment documents arrived in this pane:
+            // 3 audio files and 2 documents is five rows, and a tab reading "3" over five rows is
+            // the kind of small lie the reader has no way to check.
+            val (host, router) =
+                mountAt("/book/42?tab=files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
+
+            try {
+                tabText(host) shouldContain "5"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the documents pane lists what shipped beside the audio") {
+            // ⛔ The gap this closes. `BookDetailViewModel.documents` has always existed and web
+            // read it nowhere, so a PDF the server had found was invisible in the browser.
+            val (host, router) =
+                mountAt("/book/42?tab=files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
+
+            try {
+                val main = (host.querySelector(".bd-main") as HTMLElement).textContent.orEmpty()
+                main shouldContain "Documents"
+                // The basename, not the book-root-relative path the fixture carries.
+                main shouldContain "institute-map.pdf"
+                main shouldNotContain "extras/"
+                main shouldContain "PDF"
+                main shouldContain "EPUB"
+                main shouldContain "2 MB"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a PDF is opened in a tab and everything else is handed over") {
+            val (host, router) =
+                mountAt("/book/42?tab=files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
+
+            try {
+                val links =
+                    host
+                        .querySelectorAll(".doc-open")
+                        .asList()
+                        .filterIsInstance<HTMLAnchorElement>()
+                links.size shouldBe 2
+
+                // ⛔ Real hrefs, not click handlers: this is what makes a document middle-clickable,
+                // and the server's own access cookie rides an anchor for free.
+                val pdf = links[0]
+                pdf.getAttribute("href") shouldBe "/api/v1/books/42/documents/doc-1"
+                pdf.getAttribute("target") shouldBe "_blank"
+                pdf.getAttribute("rel") shouldBe "noopener"
+                pdf.hasAttribute("download") shouldBe false
+
+                // An epub in a tab is raw bytes on screen, which helps nobody — so it downloads.
+                val epub = links[1]
+                epub.getAttribute("href") shouldBe "/api/v1/books/42/documents/doc-2"
+                epub.getAttribute("download") shouldBe "bonus-chapter.epub"
+                epub.hasAttribute("target") shouldBe false
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a book with no documents draws no documents panel at all") {
+            val (host, router) = mountAt("/book/42?tab=files")
+
+            try {
+                (host.querySelector(".doc-open") == null) shouldBe true
+                (host.querySelector(".bd-main") as HTMLElement)
+                    .textContent
+                    .orEmpty() shouldNotContain "Documents"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a document shows even when the audio has not been scanned yet") {
+            // ⛔ This is why the empty-audio branch is not an early return. A book the scanner has
+            // found a PDF for but no audio is exactly when someone opens this tab to ask what the
+            // server actually has.
+            val (host, router) =
+                mountAt(
+                    "/book/42?tab=files",
+                    fixedBookDetail(readyBook(audioFiles = emptyList()), documents = sampleDocuments()),
+                )
+
+            try {
+                val bd = (host.querySelector(".bd") as HTMLElement).textContent.orEmpty()
+                bd shouldContain "no audio files"
+                bd shouldContain "institute-map.pdf"
             } finally {
                 router.dispose()
             }

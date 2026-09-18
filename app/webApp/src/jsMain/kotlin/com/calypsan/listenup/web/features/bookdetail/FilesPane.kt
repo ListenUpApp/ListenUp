@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.bookdetail
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.AudioFile
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay
 import com.calypsan.listenup.web.design.ColumnAlign
@@ -27,13 +28,19 @@ import org.jetbrains.compose.web.dom.Text
  * directory. A per-book path is a contract change, not a web edit.
  */
 @Composable
-internal fun FilesPane(state: BookDetailUiState.Ready) {
+internal fun FilesPane(
+    state: BookDetailUiState.Ready,
+    documents: List<BookDocument>,
+) {
     val files = state.book.audioFiles
 
     if (files.isEmpty()) {
         Panel(title = "Audio files") {
             PaneHint("This book has no audio files on record — the scanner hasn't indexed it yet.")
         }
+        // ⛔ Not an early return any more. A book the scanner found a PDF for but no audio yet is
+        // exactly when someone opens this tab to see what the server actually has.
+        DocumentsPanel(state.book.id.value, documents)
         return
     }
 
@@ -46,6 +53,7 @@ internal fun FilesPane(state: BookDetailUiState.Ready) {
             ) {
                 DataTable(columns = FILE_COLUMNS, rows = files)
             }
+            DocumentsPanel(state.book.id.value, documents)
         }
         Div(attrs = { classes("bd-side") }) {
             Panel(title = "Audio") {
@@ -97,7 +105,7 @@ private fun codecLabel(file: AudioFile): String {
  * Binary megabytes, no decimals: these sit in a scannable column, and a self-hoster comparing
  * "178 MB" against their filesystem wants the number their file manager shows.
  */
-private fun formatBytes(bytes: Long): String {
+internal fun formatBytes(bytes: Long): String {
     if (bytes < BYTES_PER_MEGABYTE) return "${bytes / BYTES_PER_KILOBYTE} KB"
     if (bytes < BYTES_PER_GIGABYTE) return "${bytes / BYTES_PER_MEGABYTE} MB"
     // Integer tenths rather than floating point: one decimal is all a size column can use, and
@@ -107,7 +115,7 @@ private fun formatBytes(bytes: Long): String {
 }
 
 @Composable
-private fun MachineNote(text: String) {
+internal fun MachineNote(text: String) {
     Span(attrs = {
         classes("mono")
         style {

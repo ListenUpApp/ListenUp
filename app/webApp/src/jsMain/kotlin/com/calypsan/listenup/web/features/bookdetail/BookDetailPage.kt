@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.web.features.readers.ReadersPanel
@@ -69,6 +70,11 @@ fun BookDetailPage(
     onOpenContributor: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     readers: BookReadersUiState = BookReadersUiState.Loading,
+    /**
+     * The book's supplementary documents, from the sibling flow of the same name. Defaulted empty
+     * because most books have none, and a book with none renders no Documents panel at all.
+     */
+    documents: List<BookDocument> = emptyList(),
     /** True while a play request for this book is in flight — see the Play button. */
     isPreparing: Boolean = false,
     onMarkComplete: () -> Unit = {},
@@ -136,9 +142,10 @@ fun BookDetailPage(
                             TabItem(
                                 "files",
                                 "Files",
-                                count =
-                                    state.book.audioFiles.size
-                                        .toString(),
+                                // Audio AND documents: the tab says Files and the pane holds both
+                                // tables, so a count of the audio alone would read as a smaller
+                                // number than the rows underneath it.
+                                count = (state.book.audioFiles.size + documents.size).toString(),
                             ),
                         ),
                     active = tab,
@@ -156,7 +163,7 @@ fun BookDetailPage(
                     }
 
                     "files" -> {
-                        FilesPane(state)
+                        FilesPane(state, documents)
                     }
 
                     else -> {
