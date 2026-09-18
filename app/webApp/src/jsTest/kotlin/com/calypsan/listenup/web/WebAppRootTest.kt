@@ -105,6 +105,9 @@ import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
+import kotlinx.coroutines.flow.MutableSharedFlow
+import org.w3c.dom.HTMLDialogElement
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
@@ -1316,6 +1319,59 @@ class WebAppRootTest :
             try {
                 recorder.requestedIds shouldBe listOf("c-king")
                 (host.querySelector(".cd-name") as HTMLElement).textContent shouldBe "Contributor c-king"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Delete on a contributor page reaches the session, not just the page") {
+            // ⛔ At the root deliberately. A page spec proves the dialog calls the lambda it was
+            // handed; only this proves `WebAppRoot` handed it the session's. Wiring a page to a
+            // no-op is the shape of every gap this parity work has closed.
+            var deleted = 0
+            val (host, router) =
+                mountAt(
+                    "/contributor/c-king",
+                    openContributorDetail =
+                        fixedContributorDetail(
+                            readyContributor(name = "Stephen King"),
+                            onConfirmDelete = { deleted++ },
+                        ),
+                )
+
+            try {
+                (host.querySelector(".cd-delete") as HTMLElement).click()
+                awaitFrame()
+                (host.querySelector("dialog") as HTMLDialogElement)
+                    .querySelectorAll("button")
+                    .asList()
+                    .filterIsInstance<HTMLElement>()
+                    .first { it.textContent?.trim() == "Delete" }
+                    .click()
+                awaitFrame()
+
+                deleted shouldBe 1
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a deleted contributor takes the reader off the page that described them") {
+            // ⛔ `replace`, not `navigate`: Back must not return to the page of someone who no
+            // longer exists. The ViewModel emits Deleted and the router has to obey it — without
+            // this the reader is left looking at the remains of a person they just removed.
+            val deletedActions = MutableSharedFlow<ContributorDetailNavAction>(replay = 1)
+            deletedActions.tryEmit(ContributorDetailNavAction.Deleted)
+            val (_, router) =
+                mountAt(
+                    "/contributor/c-king",
+                    openContributorDetail =
+                        fixedContributorDetail(readyContributor(), navActions = deletedActions),
+                )
+
+            try {
+                awaitFrame()
+                window.location.pathname shouldBe "/library/contributors"
             } finally {
                 router.dispose()
             }
