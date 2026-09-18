@@ -39,6 +39,7 @@ class SearchPageTest :
             state: SearchUiState,
             onQueryChanged: (String) -> Unit = {},
             onToggleType: (SearchHitType) -> Unit = {},
+            onClearTypes: () -> Unit = {},
             onOpenHit: (SearchHit) -> Unit = {},
             onRetry: () -> Unit = {},
             openableTypes: Set<SearchHitType> = SearchHitType.entries.toSet(),
@@ -48,10 +49,16 @@ class SearchPageTest :
                     state = state,
                     onQueryChanged = onQueryChanged,
                     onToggleType = onToggleType,
+                    onClearTypes = onClearTypes,
                     onOpenHit = onOpenHit,
                     onRetry = onRetry,
                     openableTypes = openableTypes,
                 )
+            }
+
+        fun pills(root: HTMLElement): List<HTMLElement> =
+            root.querySelectorAll(".pill").let { found ->
+                (0 until found.length).map { found.item(it) as HTMLElement }
             }
 
         test("Idle renders its own marker, and no other state's marker") {
@@ -252,6 +259,40 @@ class SearchPageTest :
             }
 
             toggled shouldBe listOf(SearchHitType.CONTRIBUTOR)
+        }
+
+        test("All clears every type filter rather than toggling one more") {
+            // ⛔ The gap this closes. Web had the toggles and no way back out of them: a reader who
+            // had narrowed to Series had to remember which chips they pressed to widen again.
+            var cleared = 0
+            val toggled = mutableListOf<SearchHitType>()
+            val root =
+                searchPage(
+                    state = SearchUiState.Idle(query = "", selectedTypes = setOf(SearchHitType.SERIES)),
+                    onToggleType = { toggled += it },
+                    onClearTypes = { cleared++ },
+                )
+
+            pills(root).first { it.textContent == "All" }.click()
+
+            cleared shouldBe 1
+            // Not a fifth type — All is the absence of a filter, so it must not report one.
+            toggled shouldBe emptyList()
+        }
+
+        test("All reads as selected exactly when no type filter is set") {
+            val unfiltered = searchPage(state = SearchUiState.Idle())
+            pills(unfiltered).first { it.textContent == "All" }.classList.contains("on") shouldBe true
+
+            val filtered =
+                searchPage(state = SearchUiState.Idle(query = "", selectedTypes = setOf(SearchHitType.SERIES)))
+            pills(filtered).first { it.textContent == "All" }.classList.contains("on") shouldBe false
+        }
+
+        test("All leads the row, because it is where a reader looks to widen again") {
+            val root = searchPage(state = SearchUiState.Idle())
+
+            pills(root).first().textContent shouldBe "All"
         }
 
         test("a selected type chip carries the selected class") {
