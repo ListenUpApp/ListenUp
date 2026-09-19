@@ -21,7 +21,13 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * otherwise satisfy the rule by naming it — the exact false negative this guard exists to prevent.
  *
  * **What this does NOT check.** That the *right* method is wired, or that a wired callback reaches
- * the UI. It catches "nobody thought about this action",
+ * the UI.
+ *
+ * ⛔ **And it cannot see a capability that lives on a different ViewModel.** An offender here means
+ * "this session does not reference this function" — NOT "web cannot do this". Book Detail's whole
+ * tag API reads as a gap and is not one: tag editing lives on `BookEditViewModel`, which web wires
+ * in full. Before filing an entry as a GAP, look for the capability elsewhere; an unwired function
+ * that *no* client wires is dead code on the ViewModel, not a web gap. It catches "nobody thought about this action",
  * which is the failure that actually happened, and it catches it the day the action is added to a
  * shared ViewModel rather than at the next audit.
  *
@@ -156,14 +162,19 @@ private val EXCUSED =
         "SearchViewModel.setTypeFilter",
         // Web signs out through AuthGraph.signOut() — see AuthGate.
         "SettingsViewModel.signOut",
-        // ── GAP — web owes these. Close one, delete its line. ─────────────────────────────────
-        // Tag editing on Book Detail is absent entirely: web renders tag pills that navigate to a
-        // tag's shelf, and offers no way to add or remove one.
+        // ⛔ CORRECTION (2026-09-18). These five were filed as a GAP — "a book cannot be tagged
+        // from the browser" — and that was WRONG. No client wires BookDetailViewModel's tag API:
+        // not Android, not iOS, not web. It is dead code on the ViewModel. Tag editing lives on
+        // the Book EDIT screen, through BookEditViewModel, which web has in full (search, attach,
+        // detach, invent — see BookEditPage's RelationField). Wiring these on web would build a
+        // detail-page picker no other platform has AND give web a second tag surface. The
+        // derivation that found them cannot see a capability that lives on a different ViewModel.
         "BookDetailViewModel.addTag",
         "BookDetailViewModel.addNewTag",
         "BookDetailViewModel.removeTag",
         "BookDetailViewModel.showTagPicker",
         "BookDetailViewModel.hideTagPicker",
+        // ── GAP — web owes these. Close one, delete its line. ─────────────────────────────────
         "BookDetailViewModel.retryConnection",
         // Delete Book is parked on the `next` branch by an explicit product decision.
         "BookDetailViewModel.deleteBook",
