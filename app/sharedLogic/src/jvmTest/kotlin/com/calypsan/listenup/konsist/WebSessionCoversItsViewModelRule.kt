@@ -23,7 +23,13 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * **What this does NOT check.** That the *right* method is wired, or that a wired callback reaches
  * the UI.
  *
- * ⛔ **And it cannot see a capability that lives on a different ViewModel.** An offender here means
+ * ⛔ **An offender is a question, not a verdict.** Four shapes have turned out not to be gaps:
+ * a **convenience overload** (`onResultClicked` *is* `onResultSelected`), a **different route to
+ * the same capability** (`SettingsViewModel.signOut` vs `AuthGraph.signOut()`), a **function the
+ * ViewModel calls itself** (`loadScanIssues`, from `init`), and a **building block covered by
+ * wrappers** (`setBookOverride`, behind `selectBook`/`skipBook`). Plus the big one:
+ *
+ * ⛔ **it cannot see a capability that lives on a different ViewModel.** An offender here means
  * "this session does not reference this function" — NOT "web cannot do this". Book Detail's whole
  * tag API reads as a gap and is not one: tag editing lives on `BookEditViewModel`, which web wires
  * in full. Before filing an entry as a GAP, look for the capability elsewhere; an unwired function
@@ -174,6 +180,12 @@ private val EXCUSED =
         "BookDetailViewModel.removeTag",
         "BookDetailViewModel.showTagPicker",
         "BookDetailViewModel.hideTagPicker",
+        // Loaded by the ViewModel itself — from `init`, and again when an admin event says the
+        // inbox changed. No client wires it because none needs to; it is public by accident.
+        "AdminInboxViewModel.loadScanIssues",
+        // A building block. Clients drive the two wrappers that cover it — `selectBook` and
+        // `skipBook` — and web wires both.
+        "ImportFlowViewModel.setBookOverride",
         // ── GAP — web owes these. Close one, delete its line. ─────────────────────────────────
         "BookDetailViewModel.retryConnection",
         // Delete Book is parked on the `next` branch by an explicit product decision.
@@ -193,8 +205,6 @@ private val EXCUSED =
         "LibrarySetupViewModel.clearSelection",
         "LibrarySetupViewModel.selectPath",
         // Admin.
-        "AdminInboxViewModel.loadScanIssues",
-        "ImportFlowViewModel.setBookOverride",
         "OrganizeSettingsViewModel.clearError",
         "SyncIndicatorViewModel.toggleExpanded",
         // Manual refresh: check whether web refreshes on navigation before building a control.
