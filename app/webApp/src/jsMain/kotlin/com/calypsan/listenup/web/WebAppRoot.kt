@@ -15,6 +15,8 @@ import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
+import com.calypsan.listenup.web.features.contributordetail.ContributorDetailSession
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
@@ -1435,8 +1437,26 @@ private fun ContributorRouteContent(
         }
 
         contributorId != null -> {
+            val session = contributorDetailSession(contributorId, openContributorDetail)
+
+            // ⛔ Deleted is the only nav action this ViewModel emits, and it must be obeyed: the
+            // page it fires from describes someone who no longer exists, so staying would leave a
+            // reader looking at the remains of a person they just removed. `replace`, not
+            // `navigate` — Back must not return to that page either.
+            LaunchedEffect(session) {
+                session.navActions.collect { action ->
+                    when (action) {
+                        ContributorDetailNavAction.Deleted -> {
+                            router.replace(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY)))
+                        }
+                    }
+                }
+            }
+
             ContributorDetailPage(
-                state = contributorDetailState(contributorId, openContributorDetail),
+                state = session.state.collectAsState().value,
+                onConfirmDelete = session.onConfirmDelete,
+                onDismissDeleteError = session.onDismissDeleteError,
                 onEdit = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, EDIT_KEY))) },
                 onMatchMetadata = { router.navigate(Route(listOf(CONTRIBUTOR_KEY, contributorId, MATCH_KEY))) },
                 onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
@@ -1480,13 +1500,13 @@ private fun contributorBooksState(
  * forever after navigating to a second one.
  */
 @Composable
-private fun contributorDetailState(
+private fun contributorDetailSession(
     contributorId: String,
     openContributorDetail: OpenContributorDetail,
-): ContributorDetailUiState {
+): ContributorDetailSession {
     val session = remember(contributorId) { openContributorDetail(contributorId) }
     DisposableEffect(session) { onDispose { session.close() } }
-    return session.state.collectAsState().value
+    return session
 }
 
 /**

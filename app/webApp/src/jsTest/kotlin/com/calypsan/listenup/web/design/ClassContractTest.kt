@@ -494,24 +494,32 @@ class ClassContractTest :
                             onOpenLibrary = {},
                             onOpenContributors = {},
                             onOpenBook = {},
+                            onConfirmDelete = {},
+                            onDismissDeleteError = {},
                         )
                         ContributorDetailPage(
                             state = ContributorDetailUiState.Loading,
                             onOpenLibrary = {},
                             onOpenContributors = {},
                             onOpenBook = {},
+                            onConfirmDelete = {},
+                            onDismissDeleteError = {},
                         )
                         ContributorDetailPage(
                             state = ContributorDetailUiState.Error("The server could not be reached."),
                             onOpenLibrary = {},
                             onOpenContributors = {},
                             onOpenBook = {},
+                            onConfirmDelete = {},
+                            onDismissDeleteError = {},
                         )
                         ContributorDetailPage(
                             state = ContributorDetailUiState.NotFound,
                             onOpenLibrary = {},
                             onOpenContributors = {},
                             onOpenBook = {},
+                            onConfirmDelete = {},
+                            onDismissDeleteError = {},
                         )
                         // Contributor Edit: the loaded form with everything on it (an error banner,
                         // a portrait, aliases), the skeleton, and each dialog — three dialogs that

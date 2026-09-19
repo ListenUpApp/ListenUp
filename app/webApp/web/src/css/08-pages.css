@@ -1039,6 +1039,12 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cmx-photo-none { display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 0.72rem; font-weight: 600; text-align: center; }
 .luw .cmx-apply { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .luw .cd-match { flex: none; align-self: flex-start; }
+/* Delete sits with Edit and Match, sized the same: it is one of the hero's actions, not a
+   special zone. The warning lives in the confirm dialog's words, per ConfirmDialog's "no red". */
+.luw .cd-delete { flex: none; align-self: flex-start; }
+.luw .cd-delete[disabled] { opacity: .55; cursor: default; }
+/* Pushes Dismiss to the end of the error banner, which is otherwise a single flex row. */
+.luw .cd-err-x { margin-left: auto; height: 30px; padding: 0 10px; font-size: 12.5px; }
 /* Multi-select over the library grid, and where a selection can go. */
 .luw .lib-select { flex: none; margin-left: auto; }
 /* ⛔ An outline, never a border or padding. The grid is virtualised on the assumption that every

@@ -575,6 +575,9 @@ internal class RecordingContributorDetail {
         requestedIds += id
         ContributorDetailSession(
             state = MutableStateFlow(readyContributor(name = "Contributor $id")),
+            onConfirmDelete = {},
+            onDismissDeleteError = {},
+            navActions = emptyFlow(),
             close = {},
         )
     }

@@ -5,7 +5,11 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
+import com.calypsan.listenup.web.awaitFrame
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.nulls.shouldNotBeNull
+import org.w3c.dom.asList
+import org.w3c.dom.HTMLDialogElement
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLElement
 
@@ -30,6 +34,8 @@ class ContributorDetailPageTest :
             onOpenBook: (String) -> Unit = {},
             onOpenSeries: (String) -> Unit = {},
             onOpenRoleBooks: (String) -> Unit = {},
+            onConfirmDelete: () -> Unit = {},
+            onDismissDeleteError: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 ContributorDetailPage(
@@ -39,8 +45,77 @@ class ContributorDetailPageTest :
                     onOpenBook = onOpenBook,
                     onOpenSeries = onOpenSeries,
                     onOpenRoleBooks = onOpenRoleBooks,
+                    onConfirmDelete = onConfirmDelete,
+                    onDismissDeleteError = onDismissDeleteError,
                 )
             }
+
+        test("Delete asks before it does anything") {
+            // ⛔ The whole safety property. `confirmDelete()` is not a request — it IS the delete,
+            // and it cannot be undone, so a page that called it straight off the button would
+            // remove a person on a single mis-click.
+            var deleted = 0
+            val root = contributorDetailPage(readyContributor(), onConfirmDelete = { deleted++ })
+
+            (root.querySelector(".cd-delete") as HTMLElement).click()
+            awaitFrame()
+
+            deleted shouldBe 0
+            val dialog = (root.querySelector("dialog") as? HTMLDialogElement).shouldNotBeNull()
+            dialog.textContent.orEmpty() shouldContain "cannot be undone"
+            // The person's own name, so the reader can see they are deleting who they think.
+            dialog.textContent.orEmpty() shouldContain "Stephen King"
+            dialog.close()
+        }
+
+        test("confirming the dialog is what actually deletes") {
+            var deleted = 0
+            val root = contributorDetailPage(readyContributor(), onConfirmDelete = { deleted++ })
+
+            (root.querySelector(".cd-delete") as HTMLElement).click()
+            awaitFrame()
+            val dialog = root.querySelector("dialog") as HTMLDialogElement
+            dialog
+                .querySelectorAll("button")
+                .asList()
+                .filterIsInstance<HTMLElement>()
+                .first { it.textContent?.trim() == "Delete" }
+                .click()
+            awaitFrame()
+
+            deleted shouldBe 1
+        }
+
+        test("a delete in flight cannot be started twice") {
+            // A second press would ask the server to delete someone already being deleted.
+            val root = contributorDetailPage(readyContributor(isDeleting = true))
+
+            (root.querySelector(".cd-delete") as HTMLElement).hasAttribute("disabled") shouldBe true
+        }
+
+        test("a failed delete says so, and can be dismissed") {
+            // ⛔ A delete that did not happen leaves the contributor on screen looking untouched,
+            // so silence here reads as success.
+            var dismissed = 0
+            val root =
+                contributorDetailPage(
+                    readyContributor(deleteError = "That contributor still has books."),
+                    onDismissDeleteError = { dismissed++ },
+                )
+
+            val banner = (root.querySelector(".banner.err") as? HTMLElement).shouldNotBeNull()
+            banner.textContent.orEmpty() shouldContain "still has books"
+
+            (root.querySelector(".cd-err-x") as HTMLElement).click()
+            awaitFrame()
+            dismissed shouldBe 1
+        }
+
+        test("a contributor with no trouble shows no error banner") {
+            val root = contributorDetailPage(readyContributor())
+
+            root.querySelector(".banner.err") shouldBe null
+        }
 
         test("the hero renders the contributor's name and both stat pills") {
             val root =

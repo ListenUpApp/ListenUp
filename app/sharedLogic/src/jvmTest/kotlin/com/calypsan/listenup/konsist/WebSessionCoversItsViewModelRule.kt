@@ -179,9 +179,6 @@ private val EXCUSED =
         // Delete Book is parked on the `next` branch by an explicit product decision.
         "BookDetailViewModel.deleteBook",
         "BookDetailViewModel.clearDeleteError",
-        // A contributor cannot be deleted from the browser.
-        "ContributorDetailViewModel.confirmDelete",
-        "ContributorDetailViewModel.dismissDeleteError",
         // Settings toggles.
         "SettingsViewModel.sendTestNotification",
         "SettingsViewModel.setDefaultSleepTimerMin",
