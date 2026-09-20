@@ -54,4 +54,10 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
         ServerConfigDefault("transcode.maxConcurrentSessions", "2", "LISTENUP_TRANSCODE_MAX_SESSIONS"),
         ServerConfigDefault("transcode.bitrateKbps", "64", "LISTENUP_TRANSCODE_BITRATE_KBPS"),
         ServerConfigDefault("scan.periodicRescanInterval", "6h", "LISTENUP_SCAN_PERIODIC_RESCAN_INTERVAL"),
+        // ⛔ Declared so the native binary honours it. It was exempted as "JVM-only" while the image
+        // shipped no web bundle, which made the knob silently dead on the only build that ships —
+        // setting LISTENUP_WEB_ROOT on the release image did nothing at all. The image now bakes the
+        // bundle in and sets this itself; the default stays empty so a JVM dev run is unchanged and
+        // an operator can turn the client off with an empty value.
+        ServerConfigDefault("web.root", "", "LISTENUP_WEB_ROOT"),
     )

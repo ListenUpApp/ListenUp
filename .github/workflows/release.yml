@@ -333,6 +333,32 @@ jobs:
       - name: Stage binary for Docker
         run: cp server/build/bin/linuxX64/releaseExecutable/server.kexe server/server-binary
 
+      # Same toolchain pins as ci.yml's web jobs — one pnpm/Node version across every lane that
+      # builds this bundle, so the artifact a release ships is the artifact CI tested.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.13.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
+
+      # The web client the image serves. `webBundle` runs `pnpm build:check`, which boots the built
+      # bundle before it can be staged — an image whose web client cannot start never gets built.
+      #
+      # ⛔ Without this step the release shipped no web client at all. The platform was built and
+      # gated in CI (test-web-browser, test-web-browser-server) and then omitted from every image,
+      # because nothing here ever produced a production bundle.
+      - name: Build the production web bundle
+        run: ./gradlew :app:webApp:webBundle --no-daemon
+
+      - name: Stage web bundle for Docker
+        run: cp -r app/webApp/web/dist server/web-dist
+
       # The release must not ship a binary whose own native test suite was never run. The aarch64-
       # free link dependencies this needs are already installed above.
       - name: Run :server linuxX64 tests

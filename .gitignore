@@ -28,6 +28,8 @@ listenup.db-wal
 
 # Locally staged native server binary (release.yml stages server.kexe here for Dockerfile.native)
 server/server-binary
+# Staged by release.yml alongside server-binary: the production web bundle the image serves.
+server/web-dist/
 
 # Git worktrees (Claude Code subagent-driven development)
 .worktrees/

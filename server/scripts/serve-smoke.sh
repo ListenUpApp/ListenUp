@@ -85,4 +85,31 @@ if [ -n "$EXPECTED_VERSION" ] && [[ "$BODY" != *"\"version\":\"${EXPECTED_VERSIO
     exit 1
 fi
 
+# The web client the image now ships. A healthy /healthz says nothing about it: the bundle is
+# COPYed in a later layer and mounted from LISTENUP_WEB_ROOT, so a missing COPY, a mistyped path or
+# a knob dead on native all leave /healthz green and / a 404 — which is exactly the state the whole
+# platform sat in, built and CI-tested, through every release before this one. Fail closed here.
+INDEX=$(curl -fsS "http://localhost:${HOST_PORT}/" 2>/dev/null || true)
+if [ -z "$INDEX" ]; then
+    echo "SMOKE FAILED: / served nothing — the image carries no web client" >&2
+    exit 1
+fi
+if [[ "$INDEX" != *"<!doctype html>"* && "$INDEX" != *"<!DOCTYPE html>"* ]]; then
+    echo "SMOKE FAILED: / did not serve an HTML document — body starts: ${INDEX:0:120}" >&2
+    exit 1
+fi
+# An index that references no bundle is a shell with no app in it — the "partially-served shell"
+# WebRootResolutionTest fails closed to avoid, arriving by a different route.
+if [[ "$INDEX" != *"/assets/"* ]]; then
+    echo "SMOKE FAILED: / served HTML referencing no assets — body starts: ${INDEX:0:200}" >&2
+    exit 1
+fi
+# And the asset it names must actually be reachable, or the page loads to a blank screen.
+ASSET=$(grep -oE '/assets/[A-Za-z0-9_.-]+\.js' <<<"$INDEX" | head -1)
+if [ -z "$ASSET" ] || ! curl -fsS -o /dev/null "http://localhost:${HOST_PORT}${ASSET}"; then
+    echo "SMOKE FAILED: the web client's script ${ASSET:-<none found>} is not served" >&2
+    exit 1
+fi
+echo "SMOKE OK: web client served at / (script ${ASSET})"
+
 echo "SMOKE OK: /healthz healthy after migrations — $BODY"

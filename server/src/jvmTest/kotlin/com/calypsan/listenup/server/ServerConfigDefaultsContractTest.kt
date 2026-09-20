@@ -62,9 +62,6 @@ private val ENV_OVERRIDE = Regex("""\$\{\?(LISTENUP_[A-Z0-9_]+)}""")
  */
 private val INTENTIONALLY_JVM_ONLY =
     setOf(
-        // web.root is deliberately absent on native — the native image ships no web bundle.
-        // Pinned by WebRootResolutionTest("no web.root property means no web client").
-        "LISTENUP_WEB_ROOT",
         // Push relay config is read config-key-then-env directly (ApplicationConfig.kt
         // resolvePushRelayUrl / resolvePushSenderToken), so the env override works on native
         // without a SERVER_CONFIG_DEFAULTS entry.
