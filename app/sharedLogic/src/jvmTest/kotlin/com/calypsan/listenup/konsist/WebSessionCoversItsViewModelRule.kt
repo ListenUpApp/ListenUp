@@ -159,6 +159,23 @@ private val EXCUSED =
         // Material You sources colours from the Android wallpaper. Web has its own theme switch
         // (ThemeMode), so there is no equivalent knob to wire.
         "SettingsViewModel.setDynamicColorsEnabled",
+        // ⛔ The Settings four. `SettingsPage`/`SettingsSession` already carry the reasoning in
+        // prose — "eight controls, not twelve" — and this rule strips comments, so a carefully
+        // made decision read exactly like an oversight. Recorded here so it reads as a decision:
+        //  - wifi-only downloads: web cannot download at all (`supportsDownloads` is false), so the
+        //    toggle would govern a capability this device does not have.
+        //  - haptics: needs hardware a browser tab does not have.
+        //  - default sleep timer: a stored preference NOTHING anywhere reads yet — web has the
+        //    sleep timer, but nothing starts one from this number, so the control would change
+        //    nothing. Revisit when something honours it, exactly as default boost was revisited
+        //    once `WebGainStage` could act on it.
+        //  - sendTestNotification: pushes "back to THIS device", and this tab cannot receive a push
+        //    (no service worker). It would report "sent" while nothing ever arrived — destroying
+        //    the one diagnostic the button exists for.
+        "SettingsViewModel.setWifiOnlyDownloads",
+        "SettingsViewModel.setHapticFeedbackEnabled",
+        "SettingsViewModel.setDefaultSleepTimerMin",
+        "SettingsViewModel.sendTestNotification",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",
@@ -186,16 +203,18 @@ private val EXCUSED =
         // A building block. Clients drive the two wrappers that cover it — `selectBook` and
         // `skipBook` — and web wires both.
         "ImportFlowViewModel.setBookOverride",
-        // ── GAP — web owes these. Close one, delete its line. ─────────────────────────────────
+        // ── UNREVIEWED — an offender nobody has triaged yet. NOT a to-do list. ────────────────
+        //
+        // ⛔ Do not build from this section. Three times now a cluster here has turned out to be a
+        // decision web already made (tags, the Settings four) or a function no client wires at all.
+        // Before treating an entry as work: check the other clients call it, and check whether
+        // web's own KDoc already explains the omission — this rule strips comments, so a documented
+        // decision is indistinguishable from an oversight until a human looks. Then move it up to a
+        // labelled section or close it and delete the line.
         "BookDetailViewModel.retryConnection",
         // Delete Book is parked on the `next` branch by an explicit product decision.
         "BookDetailViewModel.deleteBook",
         "BookDetailViewModel.clearDeleteError",
-        // Settings toggles.
-        "SettingsViewModel.sendTestNotification",
-        "SettingsViewModel.setDefaultSleepTimerMin",
-        "SettingsViewModel.setHapticFeedbackEnabled",
-        "SettingsViewModel.setWifiOnlyDownloads",
         // Metadata wizards.
         "ContributorMetadataViewModel.reset",
         "ContributorMetadataViewModel.selectAsin",
