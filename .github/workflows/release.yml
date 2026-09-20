@@ -347,6 +347,21 @@ jobs:
           cache: pnpm
           cache-dependency-path: app/webApp/web/pnpm-lock.yaml
 
+      # Before the Playwright step, because `pnpm exec` needs node_modules. Gradle's own
+      # `webPnpmInstall` (a `webBundle` dependency) runs later and finds this up to date.
+      - name: Install JS toolchain
+        working-directory: app/webApp/web
+        run: pnpm install --frozen-lockfile
+
+      # ⛔ `webBundle` ends in `prod-boot.mjs`, which does `chromium.launch()` — so the browser
+      # binaries have to be here, and `pnpm install` fetches the playwright PACKAGE, not them. Same
+      # step and pins as ci.yml's two web jobs. Without it the release fails at the bundle step; it
+      # passed locally only because a dev machine already has the download from `webKotest`.
+      - name: Install Playwright Chromium
+        working-directory: app/webApp/web
+        timeout-minutes: 12
+        run: pnpm exec playwright install --with-deps chromium
+
       # The web client the image serves. `webBundle` runs `pnpm build:check`, which boots the built
       # bundle before it can be staged — an image whose web client cannot start never gets built.
       #
