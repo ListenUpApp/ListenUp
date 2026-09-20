@@ -189,6 +189,28 @@ tasks.register<Exec>("webKotest") {
     outputs.upToDateWhen { false }
 }
 
+// Builds the production browser bundle the server image ships.
+//
+// ⛔ This is what `web.root` points at. Until it existed, `release.yml` had no way to produce the
+// bundle and the shipped image contained no web client at all — the whole platform was built,
+// tested in CI, and then left out of every release.
+//
+// `pnpm build` is `sync-kotlin.mjs main-prod && vite build`, so the PRODUCTION Kotlin/JS output is
+// a real input (the dev output is a different directory and would ship unminified). `build:check`
+// rather than `build`: it boots the built bundle before anyone ships it, and an image whose web
+// client cannot start is exactly the failure this lane exists to catch.
+tasks.register<Exec>("webBundle") {
+    group = "build"
+    description = "Builds and boot-checks the production web bundle into web/dist."
+    dependsOn(pnpmInstall, "jsProductionExecutableCompileSync")
+    workingDir = webRoot.asFile
+    commandLine("pnpm", "build:check")
+    inputs.dir(layout.buildDirectory.dir("compileSync/js/main/productionExecutable/kotlin"))
+    inputs.dir(webRoot.dir("src"))
+    inputs.file(webRoot.file("index.html"))
+    outputs.dir(webRoot.dir("dist"))
+}
+
 tasks.register<Exec>("webAuthKotest") {
     group = "verification"
     description = "Runs the browser specs against a REAL server (transport + auth proofs)."

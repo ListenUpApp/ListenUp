@@ -250,6 +250,17 @@ ENV GST_PLUGIN_SYSTEM_PATH=/opt/gst-plugins \
     GST_PLUGIN_PATH=/opt/gst-plugins \
     GST_REGISTRY=/tmp/gst-registry.bin \
     GST_REGISTRY_FORK=no
+# The web client. `release.yml` stages `app/webApp/web/dist` here as `web-dist` (built by
+# `:app:webApp:webBundle`, which boot-checks it), and LISTENUP_WEB_ROOT points the server at it so a
+# default `docker run` serves the client at / with no configuration.
+#
+# ⛔ The env var is what turns it on, not a baked default. `web.root` defaults to empty everywhere so
+# a JVM dev run is unchanged, and an operator who does not want the client exposed can turn it off
+# with `-e LISTENUP_WEB_ROOT=` — an empty value resolves to no web client, as WebRootResolutionTest
+# pins. Before this, the image carried no bundle AND the variable was dead on native, so the web
+# platform was built and tested in CI and then left out of every release.
+COPY --chown=65532:65532 web-dist /app/web
+ENV LISTENUP_WEB_ROOT=/app/web
 VOLUME /data
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/listenup-server"]
