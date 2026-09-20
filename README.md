@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <strong>A modern, offline-first audiobook player for Android &amp; iOS</strong>
+  <strong>A modern, offline-first audiobook player for Android, iOS &amp; the browser</strong>
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 <img src=".github/screenshots/listenup-hero-banner.webp" alt="Hero Banner">
 
 <p align="center">
-  ListenUp is a <strong>self-hosted audiobook platform</strong>: native apps for Android and iOS, backed by a
+  ListenUp is a <strong>self-hosted audiobook platform</strong>: native apps for Android and iOS plus a web client your server hosts itself, backed by a
   ListenUp server that you run yourself — included right here in this repository. Built with
   <a href="https://kotlinlang.org/docs/multiplatform.html">Kotlin Multiplatform</a> and designed
   <strong>offline-first</strong> — download your books, sync your progress in real time, and pick up
@@ -57,21 +57,30 @@
 
 ## Platforms
 <img src=".github/screenshots/listenup-book-detail.webp" alt="Book Detail">
-Beta ships on the two platforms below; more are on the way.
+Beta ships on the platforms below; more are on the way.
 
 | Platform | Status | Audio Engine |
 |----------|--------|-------------|
 | Android  | ✅ Beta | Media3 / ExoPlayer |
 | iOS      | ✅ Beta | AVFoundation |
+| Web      | ✅ Beta | hls.js + Web Audio (served by your own server) |
 | Android Auto | ✅ Beta | Media3 / ExoPlayer (via the Android app) |
 | Apple CarPlay | ✅ Beta | AVFoundation (via the iOS app) |
 
-**In development (not currently shipping):** Desktop (JVM and native macOS) and Android TV both build from this codebase, but the shipping focus is iOS and Android — desktop will be shored up and rebuilt later. Other platforms to follow.
+**What the web client does and doesn't do.** It is the same library, player, editing and admin
+surface as the apps, running in a browser with no install and nothing to sign up for — your server
+serves it. Two honest limits: there are **no offline downloads** (a browser cannot hold your
+library the way the apps do, so playback needs the server reachable), and **notifications reach
+your phone, not the tab**. Books in formats a browser cannot decode are transcoded on the fly by
+the server, so they play.
+
+**In development (not currently shipping):** Desktop (JVM and native macOS) and Android TV both build from this codebase, but the shipping focus is iOS, Android and the web — desktop will be shored up and rebuilt later. Other platforms to follow.
 
 ## Getting the Beta
 
 - **iOS** — [Join the TestFlight beta](https://testflight.apple.com/join/5DJ6GZdt)
 - **Android** — via the Google Play internal track _(invite coming soon — check [Releases](https://github.com/ListenUpApp/ListenUp/releases) in the meantime)_
+- **Web** — nothing to join. [Run a server](#run-your-own-server) and open it in a browser; the web client is served at `/`.
 
 ### Connecting to a Server
 
@@ -89,7 +98,9 @@ The ListenUp server lives in this repository as the `:server` module — there's
 ./gradlew :server:runJvm
 ```
 
-It serves on port `8080` by default. Point the app at `http://<your-host>:8080` (or rely on mDNS on the same network) and sign in. See the docs site for [installation (Docker)](https://listenup.audio/getting-started/installation/), [configuration](https://listenup.audio/server/configuration/), [backups](https://listenup.audio/server/backups/), and [reverse proxy / HTTPS](https://listenup.audio/server/reverse-proxy/).
+It serves on port `8080` by default. Point the app at `http://<your-host>:8080` (or rely on mDNS on the same network) and sign in — **or just open that URL in a browser**, which is the web client.
+
+The server image ships the web client and serves it at `/` with no configuration. If you would rather it served nothing there, start the container with an empty `LISTENUP_WEB_ROOT` (`-e LISTENUP_WEB_ROOT=`). See the docs site for [installation (Docker)](https://listenup.audio/getting-started/installation/), [configuration](https://listenup.audio/server/configuration/), [backups](https://listenup.audio/server/backups/), and [reverse proxy / HTTPS](https://listenup.audio/server/reverse-proxy/).
 
 ### Demo server
 
