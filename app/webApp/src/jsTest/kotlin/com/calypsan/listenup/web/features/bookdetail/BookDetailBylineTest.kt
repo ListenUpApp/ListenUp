@@ -33,6 +33,7 @@ class BookDetailBylineTest :
                     onOpenLibrary = {},
                     onPlay = {},
                     onOpenContributor = onOpenContributor,
+                    onRetryConnection = {},
                 )
             }
 

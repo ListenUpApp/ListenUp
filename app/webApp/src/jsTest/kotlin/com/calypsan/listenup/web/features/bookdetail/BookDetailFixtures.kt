@@ -30,6 +30,7 @@ internal fun readyBook(
     series: List<BookSeries> = emptyList(),
     tags: List<Tag> = emptyList(),
     moods: List<Mood> = emptyList(),
+    showServerWarning: Boolean = false,
 ): BookDetailUiState.Ready =
     BookDetailUiState.Ready(
         book =
@@ -58,6 +59,7 @@ internal fun readyBook(
         genres = listOf(Genre(id = "g1", name = "Horror", slug = "horror", path = "/horror")),
         tags = tags,
         moods = moods,
+        showServerWarning = showServerWarning,
     )
 
 /**

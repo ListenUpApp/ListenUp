@@ -75,6 +75,11 @@ fun BookDetailPage(
      * because most books have none, and a book with none renders no Documents panel at all.
      */
     documents: List<BookDocument> = emptyList(),
+    /**
+     * Ask the server again. No default: a defaulted no-op renders a real, enabled Retry that does
+     * nothing, which is worse than the silence this banner exists to end.
+     */
+    onRetryConnection: () -> Unit,
     /** True while a play request for this book is in flight — see the Play button. */
     isPreparing: Boolean = false,
     onMarkComplete: () -> Unit = {},
@@ -134,6 +139,8 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Ready -> {
+                ServerOfflineBanner(state.showServerWarning, onRetryConnection)
+
                 Tabs(
                     items =
                         listOf(
@@ -635,3 +642,35 @@ private fun FacetChips(
 /** Whether the book carries anything to browse sideways from. */
 private fun BookDetailUiState.Ready.hasFacets(): Boolean =
     genres.isNotEmpty() || tags.isNotEmpty() || moods.isNotEmpty()
+
+/**
+ * Says the server is unreachable, and offers the one thing that might fix it.
+ *
+ * ⛔ Web's library reads from OPFS, so a book page renders perfectly while the server is gone —
+ * nothing looks wrong until Play fails with no explanation. That silence is the bug this ends;
+ * `Ready.showServerWarning` has carried the fact all along and web drew nothing from it.
+ *
+ * **Not the shared copy verbatim.** Android's body promises "Downloaded books still play", and
+ * this client has no downloads at all, so repeating it would comfort a reader with a fallback they
+ * do not have — the same reason `SessionLapsedBanner` rewrote its own body.
+ */
+@Composable
+private fun ServerOfflineBanner(
+    visible: Boolean,
+    onRetry: () -> Unit,
+) {
+    if (!visible) return
+
+    Div(attrs = {
+        classes("banner", "warn")
+        attr("role", "status")
+        attr("aria-live", "polite")
+    }) {
+        Span { Text("Server offline — streaming is unavailable until it is back.") }
+        Button(attrs = {
+            classes("btn-o", "bd-retry")
+            attr("type", BUTTON_VALUE)
+            onClick { onRetry() }
+        }) { Text("Retry") }
+    }
+}

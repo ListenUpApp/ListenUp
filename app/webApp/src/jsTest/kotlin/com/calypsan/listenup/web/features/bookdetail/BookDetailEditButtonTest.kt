@@ -30,6 +30,7 @@ class BookDetailEditButtonTest :
                     onOpenLibrary = {},
                     onPlay = {},
                     onEdit = onEdit,
+                    onRetryConnection = {},
                 )
             }
 

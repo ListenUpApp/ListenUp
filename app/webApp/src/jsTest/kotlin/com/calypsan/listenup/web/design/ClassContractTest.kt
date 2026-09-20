@@ -400,6 +400,7 @@ class ClassContractTest :
                             onSelectTab = {},
                             onOpenLibrary = {},
                             onPlay = {},
+                            onRetryConnection = {},
                         )
                         BookDetailPage(
                             state = readyBook(),
@@ -408,6 +409,7 @@ class ClassContractTest :
                             onOpenLibrary = {},
                             onPlay = {},
                             selection = setOf(1, 2),
+                            onRetryConnection = {},
                         )
                         // The states with no book draw classes of their own, so they belong in
                         // the contract too — an invented class hides just as well in an empty
@@ -418,6 +420,7 @@ class ClassContractTest :
                             onSelectTab = {},
                             onOpenLibrary = {},
                             onPlay = {},
+                            onRetryConnection = {},
                         )
                         BookDetailPage(
                             state = BookDetailUiState.Loading,
@@ -425,6 +428,7 @@ class ClassContractTest :
                             onSelectTab = {},
                             onOpenLibrary = {},
                             onPlay = {},
+                            onRetryConnection = {},
                         )
                         // Every Library state draws classes of its own — the grid and sort row
                         // from a loaded page, and the two empty states, which are the ones most

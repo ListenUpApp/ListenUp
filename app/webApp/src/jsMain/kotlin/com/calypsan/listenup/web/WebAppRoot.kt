@@ -1653,6 +1653,7 @@ private fun BookRouteContent(
             }
         },
         documents = detailSession.documents.collectAsState().value,
+        onRetryConnection = detailSession.onRetryConnection,
         pickers =
             BookPickers(
                 myShelves = detailSession.myShelves.collectAsState().value,

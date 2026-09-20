@@ -77,6 +77,16 @@ class BookDetailSession(
      * `BrowserDocumentStorage`.
      */
     val documents: StateFlow<List<BookDocument>>,
+    /**
+     * Ask the server again, now.
+     *
+     * ⛔ `Ready.showServerWarning` has been in the shared state all along and web rendered it
+     * nowhere, so a reader whose server had gone away saw an ordinary book page — the library
+     * reads from OPFS, so nothing looks wrong until Play quietly fails. Both natives show an
+     * offline banner here and back its Retry with this call, which tears the sync firehose down
+     * and re-opens it rather than waiting out the automatic backoff.
+     */
+    val onRetryConnection: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -120,6 +130,7 @@ fun graphBookDetail(koin: Koin): OpenBookDetail =
             onClearCollectionError = viewModel::clearCollectionError,
             onShare = { title -> shareBook(koin, bookId, title) },
             documents = viewModel.documents,
+            onRetryConnection = viewModel::retryConnection,
             close = store::clear,
         )
     }
@@ -145,6 +156,7 @@ fun fixedBookDetail(
     onClearCollectionError: () -> Unit = {},
     onShare: suspend (String) -> ShareOutcome = { ShareOutcome.SHARED },
     documents: List<BookDocument> = emptyList(),
+    onRetryConnection: () -> Unit = {},
 ): OpenBookDetail =
     {
         BookDetailSession(
@@ -166,6 +178,7 @@ fun fixedBookDetail(
             onClearCollectionError = onClearCollectionError,
             onShare = onShare,
             documents = MutableStateFlow(documents),
+            onRetryConnection = onRetryConnection,
             close = {},
         )
     }

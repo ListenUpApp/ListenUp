@@ -49,6 +49,8 @@ import com.calypsan.listenup.web.features.seriesedit.fixedSeriesEdit
 import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
+import com.calypsan.listenup.web.awaitFrame
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.asList
@@ -247,6 +249,52 @@ class BookDetailPanesTest :
 
             try {
                 tabText(host) shouldContain "5"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("an unreachable server says so, instead of letting the page look fine") {
+            // ⛔ The silence this ends. Web's library reads from OPFS, so a book page renders
+            // perfectly while the server is gone — nothing looks wrong until Play fails with no
+            // explanation. `showServerWarning` has carried the fact all along; web drew nothing.
+            val (host, router) =
+                mountAt("/book/42", fixedBookDetail(readyBook(showServerWarning = true)))
+
+            try {
+                val banner = (host.querySelector(".banner.warn") as? HTMLElement).shouldNotBeNull()
+                banner.textContent.orEmpty() shouldContain "Server offline"
+                // ⛔ NOT the shared copy: Android promises "Downloaded books still play", and this
+                // client has no downloads at all.
+                banner.textContent.orEmpty() shouldNotContain "Downloaded"
+                banner.getAttribute("aria-live") shouldBe "polite"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Retry asks the server again") {
+            var retried = 0
+            val (host, router) =
+                mountAt(
+                    "/book/42",
+                    fixedBookDetail(readyBook(showServerWarning = true), onRetryConnection = { retried++ }),
+                )
+
+            try {
+                (host.querySelector(".bd-retry") as HTMLElement).click()
+                awaitFrame()
+                retried shouldBe 1
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a reachable server draws no banner at all") {
+            val (host, router) = mountAt("/book/42")
+
+            try {
+                host.querySelector(".banner.warn") shouldBe null
             } finally {
                 router.dispose()
             }
