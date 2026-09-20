@@ -211,7 +211,6 @@ private val EXCUSED =
         // web's own KDoc already explains the omission — this rule strips comments, so a documented
         // decision is indistinguishable from an oversight until a human looks. Then move it up to a
         // labelled section or close it and delete the line.
-        "BookDetailViewModel.retryConnection",
         // Delete Book is parked on the `next` branch by an explicit product decision.
         "BookDetailViewModel.deleteBook",
         "BookDetailViewModel.clearDeleteError",

@@ -33,6 +33,7 @@ class BookDetailSeriesTest :
                     onOpenLibrary = {},
                     onPlay = {},
                     onOpenSeries = onOpenSeries,
+                    onRetryConnection = {},
                 )
             }
 
