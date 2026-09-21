@@ -4,6 +4,18 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.client.handoff.resolveHandoffTarget
+import com.calypsan.listenup.client.handoff.ViewedBookTracker
+import com.calypsan.listenup.client.handoff.HandoffTarget
+import androidx.core.net.toUri
+import android.os.PersistableBundle
+import android.os.Build
+import android.content.ComponentName
+import android.app.HandoffActivityDataRequestInfo
+import android.app.HandoffActivityData
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -60,6 +72,11 @@ private val logger = KotlinLogging.logger {}
  * This ensures real-time updates when actively using the app
  * while preserving battery life in the background.
  */
+private const val HANDOFF_MIN_SDK = 37
+
+/** The handoff extra: a share link, so the receiver reuses the App-Link path. */
+private const val EXTRA_HANDOFF_LINK = "com.calypsan.listenup.HANDOFF_LINK"
+
 class MainActivity : ComponentActivity() {
     private val authSession: AuthSession by inject()
     private val syncRepository: SyncRepository by inject()
@@ -67,6 +84,21 @@ class MainActivity : ComponentActivity() {
     private val connectionCoordinator: ConnectionCoordinator by inject()
     private val deepLinkManager: DeepLinkManager by inject()
     private val shortcutActionManager: ShortcutActionManager by inject()
+    private val viewedBookTracker: ViewedBookTracker by inject()
+    private val playbackStateProvider: PlaybackStateProvider by inject()
+    private val instanceRepository: InstanceRepository by inject()
+
+    /**
+     * The server's identity, resolved once at startup and read synchronously during a handoff.
+     *
+     * ⛔ Not laziness — a necessity. `onHandoffActivityDataRequested` is a synchronous platform
+     * callback and every `InstanceRepository` accessor suspends, so the value has to already be
+     * here when the system asks. Staleness is a non-issue: a server's instance id and remote URL
+     * are the two things about it that essentially never change, and a null merely produces a
+     * link without them, which the codec already treats as optional.
+     */
+    @Volatile
+    private var serverIdentity: ServerInfo? = null
     private val appStartupViewModel: AppStartupViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,6 +138,55 @@ class MainActivity : ComponentActivity() {
                 ListenUpApp()
             }
         }
+
+        // Continue On (API 37). Guarded because minSdk is 33: the methods are final on Activity and
+        // simply do not exist on older platforms, so this is a version check rather than a
+        // capability one. Enabling is all the setup there is — no manifest entry, no permission.
+        if (Build.VERSION.SDK_INT >= HANDOFF_MIN_SDK) {
+            setHandoffEnabled(true, null)
+            lifecycleScope.launch { serverIdentity = instanceRepository.getServerInfoOrNull() }
+        }
+    }
+
+    /**
+     * What this phone offers another device, asked live by the system.
+     *
+     * ⛔ The extras carry a LINK, not a book id, and that is the design. `ShareLinkCodec` already
+     * produces `https://link.listenup.audio/o?t=book&b=…&i=…&u=…` — a verified App Link this very
+     * activity already decodes for sharing — so the receiver reuses [handleIntent]'s existing path
+     * instead of growing a second one. The same string is the fallback URI, which means a receiver
+     * WITHOUT the app opens the web client on the same book. One URL, three consumers.
+     *
+     * ⛔ Position is deliberately absent. The server is the source of truth for where the reader
+     * is in a book and already syncs it across devices, so shipping a timestamp here would create a
+     * second, staler answer to a question already answered. The 50 KB extras budget is never
+     * approached; this carries one URL.
+     */
+    override fun onHandoffActivityDataRequested(
+        handoffRequestInfo: HandoffActivityDataRequestInfo,
+    ): HandoffActivityData? {
+        val target =
+            resolveHandoffTarget(
+                playingBookId = playbackStateProvider.currentBookId.value,
+                viewedBookId = viewedBookTracker.viewedBookId.value,
+            )
+        if (target !is HandoffTarget.Book) return null
+
+        val server = serverIdentity
+        val link =
+            ShareLinkCodec.encode(
+                ShareTarget.Book(
+                    bookId = target.bookId,
+                    serverInstanceId = server?.instanceId,
+                    serverUrl = server?.remoteUrl?.trimEnd('/'),
+                ),
+            )
+
+        return HandoffActivityData
+            .Builder(ComponentName(this, MainActivity::class.java))
+            .setExtras(PersistableBundle().apply { putString(EXTRA_HANDOFF_LINK, link) })
+            .setFallbackUri(link.toUri())
+            .build()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -123,6 +204,21 @@ class MainActivity : ComponentActivity() {
      */
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
+
+        // A Continue On arrival. Read FIRST: a handoff launch carries our extra and may also carry
+        // an action of its own, and the link is the more specific instruction either way. Decoding
+        // it through the same codec as an App Link means the receiving half of this feature is the
+        // path that was already built and already tested — a handoff and a shared link land the
+        // reader in exactly the same place, because they are the same string.
+        intent.getStringExtra(EXTRA_HANDOFF_LINK)?.let { raw ->
+            val target = ShareLinkCodec.decode(raw)
+            if (target != null) {
+                logger.debug { "Continue On handoff received" }
+                deepLinkManager.setPendingTarget(target)
+                return
+            }
+            logger.warn { "Continue On handoff did not decode: ${redactLinkForLog(raw)}" }
+        }
 
         // Share / deep links (https App Links) — parsed once, in commonMain.
         if (intent.action == Intent.ACTION_VIEW) {

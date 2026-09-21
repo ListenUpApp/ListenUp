@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -137,6 +138,16 @@ fun BookDetailScreen(
     val snackbarHostState = LocalSnackbarHostState.current
     val viewerComingSoonLabel = stringResource(Res.string.book_detail_document_viewer_coming_soon)
     val navPlatformActions: BookDetailPlatformActions = koinInject()
+
+    // Tells the handoff layer which book is on screen, so Android's Continue On can offer it to
+    // another device. A DisposableEffect rather than a LaunchedEffect because the *departure*
+    // matters as much as the arrival — and it clears by id, so the outgoing screen (disposed after
+    // the incoming one appears) cannot wipe a newer book's claim.
+    DisposableEffect(bookId) {
+        val id = BookId(bookId)
+        navPlatformActions.onBookScreenShown(id)
+        onDispose { navPlatformActions.onBookScreenHidden(id) }
+    }
 
     // Consume one-shot navigation events from the ViewModel.
     LaunchedEffect(viewModel) {

@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.di.androidSharedModules
 import com.calypsan.listenup.client.core.logging.LogSinkRegistry
 import com.calypsan.listenup.client.features.bookdetail.AndroidBookDetailPlatformActions
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
+import com.calypsan.listenup.client.handoff.ViewedBookTracker
 import com.calypsan.listenup.client.features.settings.AndroidSettingsPlatformActions
 import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
 import com.calypsan.listenup.client.logging.ListenUpAndroidLogProvider
@@ -341,12 +342,18 @@ val playbackModule =
  */
 val downloadModule =
     module {
+        // Which book is on screen, for Android's Continue On. Registered here rather than in
+        // `:app:sharedLogic`'s AppCoreModule because commonMain there is exported to iOS, and this
+        // is Android-only plumbing — see the export-surface note on BookDetailPlatformActions.
+        single { ViewedBookTracker() }
+
         // Platform actions for BookDetailScreen (download + playback integration)
         single<BookDetailPlatformActions> {
             AndroidBookDetailPlatformActions(
                 context = androidContext(),
                 downloadManager = get(),
                 nowPlayingViewModel = get(),
+                viewedBookTracker = get(),
             )
         }
     }

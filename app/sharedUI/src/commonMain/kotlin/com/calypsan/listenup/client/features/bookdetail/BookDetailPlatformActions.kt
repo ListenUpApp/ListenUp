@@ -27,6 +27,23 @@ interface BookDetailPlatformActions {
     /** Start playback for a book */
     fun playBook(bookId: BookId)
 
+    /**
+     * Reports that a book screen appeared.
+     *
+     * ⛔ Here rather than in a shared holder because only Android has anywhere to send it: the
+     * platform's Continue On asks the Activity what the reader is in the middle of, and the
+     * Activity cannot ask Compose. Desktop no-ops. Routing it through this seam also keeps the
+     * handoff types in `androidMain`, which is what keeps them off the iOS Swift Export surface —
+     * `:app:sharedLogic`'s commonMain is exported, and three Android-only types were landing there.
+     */
+    fun onBookScreenShown(bookId: BookId)
+
+    /**
+     * Reports that a book screen went away. Takes the id so a screen leaving late cannot clear a
+     * newer one's claim — Compose disposes the outgoing screen AFTER the incoming one appears.
+     */
+    fun onBookScreenHidden(bookId: BookId)
+
     /** Share text via platform share sheet (Android) or clipboard (Desktop) */
     fun shareText(
         text: String,
