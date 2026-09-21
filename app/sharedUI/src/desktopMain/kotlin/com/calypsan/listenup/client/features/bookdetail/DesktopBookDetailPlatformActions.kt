@@ -26,6 +26,11 @@ class DesktopBookDetailPlatformActions(
         nowPlayingViewModel.playBook(bookId)
     }
 
+    // Desktop has no handoff to offer it to.
+    override fun onBookScreenShown(bookId: BookId) = Unit
+
+    override fun onBookScreenHidden(bookId: BookId) = Unit
+
     override fun shareText(
         text: String,
         url: String,

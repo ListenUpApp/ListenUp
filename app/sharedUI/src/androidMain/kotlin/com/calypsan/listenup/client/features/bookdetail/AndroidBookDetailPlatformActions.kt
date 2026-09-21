@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadManager
+import com.calypsan.listenup.client.handoff.ViewedBookTracker
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import android.content.Context
 import android.content.Intent
@@ -16,6 +17,7 @@ class AndroidBookDetailPlatformActions(
     private val context: Context,
     private val downloadManager: DownloadManager,
     private val nowPlayingViewModel: NowPlayingViewModel,
+    private val viewedBookTracker: ViewedBookTracker,
 ) : BookDetailPlatformActions {
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> = downloadManager.downloadBook(bookId)
 
@@ -24,6 +26,10 @@ class AndroidBookDetailPlatformActions(
     override suspend fun deleteDownload(bookId: BookId) = downloadManager.deleteDownload(bookId)
 
     override fun playBook(bookId: BookId) = nowPlayingViewModel.playBook(bookId)
+
+    override fun onBookScreenShown(bookId: BookId) = viewedBookTracker.onBookShown(bookId)
+
+    override fun onBookScreenHidden(bookId: BookId) = viewedBookTracker.onBookHidden(bookId)
 
     override fun shareText(
         text: String,
