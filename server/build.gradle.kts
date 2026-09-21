@@ -332,7 +332,11 @@ val generateMigrationCatalog = tasks.register("generateMigrationCatalog") {
     }
 }
 
-kotlin.sourceSets["commonMain"].kotlin.srcDir(generatedMigrationsDir)
+// ⛔ The TASK, not the directory. Registering the bare path told Gradle where the sources are and
+// nothing about who writes them, so `kspKotlinJvm` consumed `generateMigrationCatalog`'s output with
+// no declared dependency — ordering that happened to work. Gradle now fails the build for it rather
+// than warning. Passing the provider carries the producer with the path.
+kotlin.sourceSets["commonMain"].kotlin.srcDir(generateMigrationCatalog)
 tasks.named("compileKotlinJvm") { dependsOn(generateMigrationCatalog) }
 tasks.named("compileKotlinLinuxX64") { dependsOn(generateMigrationCatalog) }
 tasks.named("compileKotlinLinuxArm64") { dependsOn(generateMigrationCatalog) }
@@ -373,9 +377,13 @@ val generateServerVersion = tasks.register("generateServerVersion") {
     }
 }
 
-kotlin.sourceSets["commonMain"].kotlin.srcDir(generatedVersionDir)
-tasks.named("compileKotlinJvm") { dependsOn(generateServerVersion) }
-tasks.named("compileKotlinLinuxX64") { dependsOn(generateServerVersion) }
+// ⛔ The TASK, not the directory — and that replaces the two hand-listed consumers below it.
+// Enumerating `compileKotlinJvm` and `compileKotlinLinuxX64` covered the compilers and missed
+// `kspKotlinJvm`, which reads the same commonMain sources; Gradle now fails the build for the
+// undeclared edge instead of warning. A provider carries its producer to EVERY consumer, so a new
+// one cannot be forgotten the way KSP was. (`:app:sharedLogic` solves the same problem by matching
+// task names — left as it is, since it already covers `compile*` and `ksp*`.)
+kotlin.sourceSets["commonMain"].kotlin.srcDir(generateServerVersion)
 tasks.named("compileKotlinLinuxArm64") { dependsOn(generateServerVersion) }
 
 // KMP jvm-target compilations — the `application` plugin and the JavaExec helper tasks below
