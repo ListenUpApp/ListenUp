@@ -32,11 +32,21 @@ cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 # --tmpfs /data gives a world-writable dir so the non-root (uid 65532) server can mkdir LISTENUP_HOME.
+#
+# ⛔ `mode=1777` is SPELLED OUT, not inherited. This line used to be a bare `--tmpfs /data` and relied
+# on Docker defaulting the mount to 1777. A runner image later changed that default to root-owned
+# 0755 and the server — correctly — refused to boot: "cannot open data-dir lock file /data/.lock:
+# Permission denied". Nothing caught it for two weeks because this script only runs in a release, and
+# the failure looked like the web-client change that happened to be in the same release.
+#
+# The image itself is fine: it ships /data owned by 65532 so a named volume inherits that. Only this
+# ephemeral tmpfs needed telling.
+#
 # $PLATFORM_FLAG is unquoted on purpose: empty it must vanish entirely, and non-empty it is two argv
 # words ("--platform linux/arm64"). Quoting would hand docker run one glued argument or an empty one.
 # shellcheck disable=SC2086
 docker run -d --name "$NAME" $PLATFORM_FLAG \
-    --tmpfs /data \
+    --tmpfs /data:mode=1777 \
     -e LISTENUP_HOME=/data \
     -e PORT=8080 \
     -p "${HOST_PORT}:8080" \
