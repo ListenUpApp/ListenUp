@@ -5,6 +5,7 @@ import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 
 class BulkBarTest :
@@ -13,6 +14,23 @@ class BulkBarTest :
         afterTest { mounts.disposeAll() }
 
         fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
+
+        test("the bar sticks to the viewport instead of sitting at the end of the page") {
+            // ⛔ The bug this pins, reported from a real library. Every other spec here asserts the
+            // bar's CONTENT and CALLBACKS — one is even called "clear is always offered and
+            // reports" — and all of them passed while the bar was unreachable. It had a pill radius
+            // and an 18px/48px drop shadow but NO positioning, so it rendered in flow at the very
+            // end of the page: on a thousand-book library, a scroll to the bottom away. To the
+            // reader that is "multi-select cannot be turned off and shows no actions", because
+            // Clear and every action live in this bar.
+            //
+            // Markup is not reach. This asserts the computed position, which is the property that
+            // was missing and the only one a content assertion cannot see.
+            val host = mount { BulkBar(count = 2, onClear = {}) }
+
+            val bar = host.querySelector(".bulk") as HTMLElement
+            window.getComputedStyle(bar).position shouldBe "sticky"
+        }
 
         test("the bar states how many rows are selected") {
             val host = mount { BulkBar(count = 2, onClear = {}) }
