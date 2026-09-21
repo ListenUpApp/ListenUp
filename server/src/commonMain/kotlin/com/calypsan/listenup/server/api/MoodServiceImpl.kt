@@ -145,7 +145,7 @@ internal class MoodServiceImpl(
 
     override suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats> {
         val row = suspendTransaction(sql) { sql.bookMoodsQueries.moodStats(moodId.value).executeAsOne() }
-        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms))
+        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L))
     }
 
     override suspend fun addMoodToBook(

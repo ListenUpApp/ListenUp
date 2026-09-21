@@ -182,13 +182,19 @@ internal class GenreServiceImpl(
             if (genreRow == null || genreRow.deleted_at != null) {
                 return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
             }
+            // ⛔ `?: 0L` mirrors the SQL, it does not paper over it. Both queries select
+            // `CAST(COALESCE(SUM(b.total_duration), 0) AS INTEGER)`, so the value cannot be null —
+            // but SQLDelight 2.4.0 infers a CAST as nullable where 2.3.2 did not, and the generated
+            // column became `Long?`. The elvis restates COALESCE's own default rather than asserting
+            // with `!!`, so if that inference is ever right the answer is still the one the SQL
+            // promises: zero.
             val stats =
                 if (includeDescendants) {
                     val row = sqlDb.bookGenresQueries.genreStatsSubtree(genreRow.path).executeAsOne()
-                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms)
+                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L)
                 } else {
                     val row = sqlDb.bookGenresQueries.genreStatsDirect(genreId.value).executeAsOne()
-                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms)
+                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L)
                 }
             AppResult.Success(stats)
         }

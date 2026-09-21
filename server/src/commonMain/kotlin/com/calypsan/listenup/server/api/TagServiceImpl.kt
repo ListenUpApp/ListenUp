@@ -154,7 +154,7 @@ internal class TagServiceImpl(
 
     override suspend fun getTagStats(tagId: TagId): AppResult<FacetStats> {
         val row = suspendTransaction(sql) { sql.bookTagsQueries.tagStats(tagId.value).executeAsOne() }
-        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms))
+        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms ?: 0L))
     }
 
     override suspend fun addTagToBook(
