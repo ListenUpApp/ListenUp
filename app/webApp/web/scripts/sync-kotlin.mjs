@@ -52,6 +52,11 @@ await cp(source, dest, { recursive: true })
 
 const workerDest = resolve(dest, 'sqlite-wasm-worker')
 await mkdir(workerDest, { recursive: true })
-await cp(resolve(webAppRoot, 'worker/worker.js'), resolve(workerDest, 'worker.js'))
+// The whole worker directory, not just worker.js: the VFS choice lives in a sibling module so
+// it can be unit-tested without @sqlite.org/sqlite-wasm, and copying only the entry point left
+// `./open-database.js` unresolvable at bundle time.
+for (const file of ['worker.js', 'open-database.js']) {
+    await cp(resolve(webAppRoot, 'worker', file), resolve(workerDest, file))
+}
 
 console.log(`synced ${variant} → web/kotlin`)

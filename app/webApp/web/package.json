@@ -6,7 +6,7 @@
     "sync": "node scripts/sync-kotlin.mjs",
     "dev": "node scripts/sync-kotlin.mjs main && vite",
     "build": "node scripts/sync-kotlin.mjs main-prod && vite build",
-    "build:check": "pnpm build && node test/prod-boot.mjs",
+    "build:check": "pnpm build && node test/prod-boot.mjs && node test/insecure-boot.mjs",
     "preview": "vite preview",
     "test:prod": "node scripts/sync-kotlin.mjs test && LU_TEST_PAGE=1 vite build && node test/run-kotest.mjs preview",
     "test:harness": "node --test \"test/*.test.mjs\"",
