@@ -292,7 +292,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-datetime",
-      "artifactVersion": "0.8.0",
+      "artifactVersion": "0.8.0-0.6.x-compat",
       "name": "kotlinx-datetime",
       "description": "Kotlin Datetime Library",
       "website": "https://github.com/Kotlin/kotlinx-datetime",
@@ -422,7 +422,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-client-auth",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-client-auth",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -432,7 +432,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-client-content-negotiation",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-client-content-negotiation",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -442,7 +442,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-client-core",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-client-core",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -452,7 +452,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-client-js",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-client-js",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -462,7 +462,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-client-logging",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-client-logging",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -482,7 +482,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-events",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-events",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -492,7 +492,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-http",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-http",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -502,7 +502,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-http-cio",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-http-cio",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -512,7 +512,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-io",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-io",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -521,8 +521,18 @@
       ]
     },
     {
+      "uniqueId": "io.ktor:ktor-openapi-schema",
+      "artifactVersion": "3.6.0",
+      "name": "ktor-openapi-schema",
+      "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
+      "website": "https://github.com/ktorio/ktor",
+      "licenses": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "uniqueId": "io.ktor:ktor-serialization",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-serialization",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -532,7 +542,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-serialization-kotlinx",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-serialization-kotlinx",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -542,7 +552,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-serialization-kotlinx-json",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-serialization-kotlinx-json",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -552,7 +562,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-sse",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-sse",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -562,7 +572,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-utils",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-utils",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -572,7 +582,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-websocket-serialization",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-websocket-serialization",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -582,7 +592,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-websockets",
-      "artifactVersion": "3.5.2",
+      "artifactVersion": "3.6.0",
       "name": "ktor-websockets",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -612,20 +622,20 @@
     },
     {
       "uniqueId": "androidx.room3:room3-common",
-      "artifactVersion": "3.0.2",
+      "artifactVersion": "3.0.3",
       "name": "Room-Common",
       "description": "Android Room-Common",
-      "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.2",
+      "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.3",
       "licenses": [
         "Apache-2.0"
       ]
     },
     {
       "uniqueId": "androidx.room3:room3-runtime",
-      "artifactVersion": "3.0.2",
+      "artifactVersion": "3.0.3",
       "name": "Room-Runtime",
       "description": "Android Room-Runtime",
-      "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.2",
+      "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.3",
       "licenses": [
         "Apache-2.0"
       ]
@@ -642,30 +652,30 @@
     },
     {
       "uniqueId": "androidx.sqlite:sqlite",
-      "artifactVersion": "2.7.0",
+      "artifactVersion": "2.7.1",
       "name": "SQLite",
       "description": "SQLite API",
-      "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.0",
+      "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.1",
       "licenses": [
         "Apache-2.0"
       ]
     },
     {
       "uniqueId": "androidx.sqlite:sqlite-async",
-      "artifactVersion": "2.7.0",
+      "artifactVersion": "2.7.1",
       "name": "SQLite Async",
       "description": "SQLite Async Extensions",
-      "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.0",
+      "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.1",
       "licenses": [
         "Apache-2.0"
       ]
     },
     {
       "uniqueId": "androidx.sqlite:sqlite-web",
-      "artifactVersion": "2.7.0",
+      "artifactVersion": "2.7.1",
       "name": "SQLite Web Integration",
       "description": "The implementation of SQLite Web library using a Web Worker",
-      "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.0",
+      "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.1",
       "licenses": [
         "Apache-2.0"
       ]
