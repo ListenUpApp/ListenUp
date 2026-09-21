@@ -329,7 +329,15 @@
 .facet.on .n { color:var(--coral); }
 
 /* ---- bulk action bar ---- */
-.bulk { display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:0 18px 48px rgba(20,12,6,.38); white-space:nowrap; }
+/* ⛔ STICKY, and that is the bug this fixes. The bar had every other floating-pill property —
+   a pill radius and an 18px/48px drop shadow — and no positioning at all, so it rendered in flow
+   at the very END of the page. On a library of a thousand books that is a scroll to the bottom
+   away, which read to the reader as "multi-select cannot be turned off and offers no actions":
+   both Clear and every action live in this bar.
+   Sticky rather than fixed so it stays in flow and cannot cover the transport bar, which is
+   itself a flex sticky-footer rather than a fixed element. Below .scrim's z-index:40 so a modal
+   still covers it. */
+.bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:16px auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:0 18px 48px rgba(20,12,6,.38); white-space:nowrap; }
 [data-theme="dark"] .bulk { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .bulk-b { height:36px; padding:0 13px; border-radius:9px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.09); color:inherit; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
 [data-theme="dark"] .bulk-b { border-color:var(--line); background:var(--surface-2); }
