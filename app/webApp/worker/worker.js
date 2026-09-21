@@ -4,7 +4,8 @@
 // supply the worker. This implementation started as the Room team's reference at
 // github.com/danysantiago/room-web-demo (Apache-2.0),
 // sqliteWasmWorker/worker/worker.js, backed by @sqlite.org/sqlite-wasm with
-// OPFS persistence (sqlite3.oo1.OpfsDb — requires COOP/COEP headers).
+// OPFS persistence where the browser allows it (sqlite3.oo1.OpfsDb — requires COOP/COEP
+// headers on a trustworthy origin), and an in-memory database where it does not.
 //
 // NO LONGER VERBATIM. Local divergences, to be preserved across any upstream
 // reconciliation:
@@ -27,6 +28,8 @@
 // request instead of throwing. See SqliteWorkerProtocolTest.
 // Sunset: replace with official packaging if/when androidx ships the worker.
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
+// The VFS choice lives in its own module so it can be tested without this browser-only import.
+import { openDatabase } from './open-database.js';
 
 let sqlite3 = null;
 
@@ -41,7 +44,7 @@ let nextStatementId = 0;
 function openRequest(id, requestData) {
     try {
         const newDatabaseId = nextDatabaseId++;
-        const newDatabase = new sqlite3.oo1.OpfsDb(requestData.fileName);
+        const newDatabase = openDatabase(requestData.fileName, sqlite3);
         databases.set(newDatabaseId, newDatabase);
         postMessage({'id': id, data: {'databaseId': newDatabaseId}});
     } catch (error) {

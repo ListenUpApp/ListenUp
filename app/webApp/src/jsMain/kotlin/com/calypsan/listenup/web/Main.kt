@@ -1,6 +1,10 @@
 package com.calypsan.listenup.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.diagnostics.BrowserStoreEnvironment
 import com.calypsan.listenup.client.diagnostics.checkBrowserStoreEnvironment
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
@@ -83,6 +87,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Span
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -104,15 +110,15 @@ import org.w3c.dom.Worker
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
 
-    // Probe first, boot second. Every precondition below is checked without touching the
-    // store, so a browser that can host the database is unaffected — and one that cannot
-    // gets the sentence naming the broken link instead of a spinner over a worker whose
-    // init already rejected.
+    // Probe first, boot second. Every precondition below is checked without touching the store,
+    // so a browser that can persist the database is unaffected.
+    //
+    // ⛔ This used to render the reason and `return`. That turned a browser limitation into a dead
+    // app for the deployment this project recommends — plain http on a LAN is not a trustworthy
+    // origin, so OPFS never installs there. The worker now opens an in-memory database instead,
+    // which needs none of that chain, and the only thing genuinely lost is persistence between
+    // visits. Boot, then say so.
     val environment = checkBrowserStoreEnvironment()
-    if (environment is BrowserStoreEnvironment.Unavailable) {
-        renderComposable(root = mount) { WebAppSurface { StoreUnavailable(environment.reason) } }
-        return
-    }
 
     // The worker is the one thing :app:sharedLogic cannot supply — it ships no worker script —
     // so it is the browser application's contribution to an otherwise shared graph.
@@ -162,6 +168,12 @@ fun main() {
 
         val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
         renderComposable(root = mount) {
+            // Above the gate, so it is visible whether or not anyone is signed in — the reason the
+            // library is slow to appear is the same on the sign-in screen as inside the app.
+            if (environment is BrowserStoreEnvironment.Degraded) {
+                var dismissed by remember { mutableStateOf(false) }
+                if (!dismissed) StoreDegradedBanner(environment.reason) { dismissed = true }
+            }
             AuthGate(
                 authGraph = graphAuth(koin),
                 router = router,
@@ -304,15 +316,38 @@ private suspend fun seedServerUrlIfNeeded(koin: Koin) {
 }
 
 /**
- * What a browser that cannot host the local database sees instead of the app.
+ * What a browser that cannot *keep* the local database says, above the app it is still running.
  *
- * The reason comes from [checkBrowserStoreEnvironment], which names the first broken link
- * in the OPFS precondition chain — an operator can act on "the server must send COOP/COEP"
- * and cannot act on a spinner.
+ * ⛔ Not an error screen. The app works; what it cannot do is remember. Saying nothing would be
+ * the dishonest option — a reader whose library rebuilds on every visit deserves to know why it
+ * is slow rather than concluding the app is. The reason comes from
+ * [checkBrowserStoreEnvironment], which names the first broken link in the OPFS chain, because an
+ * operator can act on "serve this over HTTPS" and cannot act on a spinner.
+ *
+ * Dismissible, like the version-mismatch hint and unlike a lapsed session: nothing is broken, and
+ * a reader who has read it once should not keep being told on a server they cannot change.
  */
 @Composable
-internal fun StoreUnavailable(reason: String) {
-    Div(attrs = { classes("auth-boot") }) { Text(reason) }
+internal fun StoreDegradedBanner(
+    reason: String,
+    onDismiss: () -> Unit,
+) {
+    Div(attrs = {
+        classes("lapse", "is-hint")
+        attr("role", "status")
+        attr("aria-live", "polite")
+    }) {
+        Div(attrs = { classes("lapse-text") }) {
+            Span(attrs = { classes("lapse-t") }) { Text("Your library is not being kept on this device") }
+            Span(attrs = { classes("lapse-b") }) { Text("$reason It reloads from the server each visit.") }
+        }
+        Button(attrs = {
+            classes("btn-o", "lapse-act")
+            attr("type", "button")
+            attr("aria-label", "Dismiss storage notice")
+            onClick { onDismiss() }
+        }) { Text("Dismiss") }
+    }
 }
 
 private const val MOUNT_ID = "app"
