@@ -9,7 +9,7 @@ import com.calypsan.listenup.server.metadata.audnexus.AudnexusChapters
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusGenre
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusNarrator
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusSeries
-import com.calypsan.listenup.server.metadata.providerHtmlToPlainText
+import com.calypsan.listenup.server.scanner.pipeline.HtmlToMarkdown
 import com.calypsan.listenup.server.metadata.spi.BookContributorMeta
 import com.calypsan.listenup.server.metadata.spi.BookCoreMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
@@ -56,12 +56,12 @@ internal fun AudnexusBook.toBookCoreMeta(): BookCoreMeta =
 /**
  * Prefers the full HTML [AudnexusBook.summary] over the short marketing
  * [AudnexusBook.description] when it is non-blank — Audnexus's `description` is
- * often cut mid-sentence, while `summary` carries the full publisher text. Both
- * are run through [providerHtmlToPlainText] (a no-op on already-plain text).
+ * often cut mid-sentence, while `summary` carries the full publisher text. Stored as
+ * Markdown, like every other description source ([HtmlToMarkdown] returns plain text verbatim).
  */
 private fun AudnexusBook.fullDescription(): String? =
     (summary?.takeIf { it.isNotBlank() } ?: description?.takeIf { it.isNotBlank() })
-        ?.let { providerHtmlToPlainText(it) }
+        ?.let { HtmlToMarkdown.convert(it).trim() }
         ?.takeIf { it.isNotBlank() }
 
 /** Maps an Audnexus author credit to a [BookContributorMeta] (its ASIN is the profile key). */
