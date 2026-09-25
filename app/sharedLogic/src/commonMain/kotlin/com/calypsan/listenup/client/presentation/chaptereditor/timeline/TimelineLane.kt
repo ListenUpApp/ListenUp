@@ -13,6 +13,9 @@ import com.calypsan.listenup.client.presentation.chaptereditor.retimed
  */
 const val DEFAULT_LANE_WINDOW_MS: Long = 600_000L
 
+/** The narrowest the lane zooms: ten seconds, as [TimelineGeometry.zoomBy] allows. */
+private const val MIN_ZOOM_WINDOW_MS = 10_000L
+
 /**
  * The detail lane's interactive state: which slice of the book it shows, and the boundary being
  * dragged, if any. Immutable — every gesture returns the next lane.
@@ -101,6 +104,24 @@ data class TimelineLane(
         focusPx: Float,
         bookDurationMs: Long,
     ): TimelineLane = copy(geometry = geometry.zoomBy(factor, focusPx, bookDurationMs))
+
+    /**
+     * Zooms by [factor] around the middle of the window — the zoom buttons, which have no pointer
+     * to zoom around and may run before the lane has been measured.
+     */
+    fun zoomedAroundCentre(
+        factor: Float,
+        bookDurationMs: Long,
+    ): TimelineLane {
+        val length =
+            (geometry.windowLengthMs * factor.toDouble())
+                .toLong()
+                .coerceIn(MIN_ZOOM_WINDOW_MS, bookDurationMs.coerceAtLeast(MIN_ZOOM_WINDOW_MS))
+        val centre = (geometry.windowStartMs + geometry.windowEndMs) / 2
+        val bounded = length.coerceAtMost(bookDurationMs.coerceAtLeast(0L))
+        val start = (centre - bounded / 2).coerceIn(0L, (bookDurationMs - bounded).coerceAtLeast(0L))
+        return copy(geometry = geometry.copy(windowStartMs = start, windowEndMs = start + bounded))
+    }
 
     /** Pans by [dxPx]; dragging the lane rightwards shows earlier audio. */
     fun panned(

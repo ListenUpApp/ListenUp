@@ -103,6 +103,18 @@ class TimelineLaneTest :
                 10_000L
         }
 
+        // The zoom buttons: no pointer to zoom around, and possibly no measured width yet either.
+        test("zooming around the centre keeps the middle of the window in the middle, measured or not") {
+            val unmeasured =
+                TimelineLane(TimelineGeometry(windowStartMs = 100_000L, windowEndMs = 200_000L, widthPx = 0f))
+
+            val zoomed = unmeasured.zoomedAroundCentre(factor = 0.5f, bookDurationMs = BOOK_MS)
+
+            zoomed.geometry.windowStartMs shouldBe 125_000L
+            zoomed.geometry.windowEndMs shouldBe 175_000L
+            unmeasured.zoomedAroundCentre(factor = 100f, bookDurationMs = BOOK_MS).geometry.windowEndMs shouldBe BOOK_MS
+        }
+
         test("the editor opens on the listener's position, with the window kept inside the book") {
             val hour = 3_600_000L
             val opened = TimelineLane.opening(bookDurationMs = hour, aroundMs = 1_800_000L, widthPx = 1_000f)

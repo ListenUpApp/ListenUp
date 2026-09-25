@@ -913,6 +913,39 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .chr-a.on { background: var(--coral-soft); color: var(--coral); }
 .luw .chr-a[disabled] { opacity: .4; cursor: default; }
 
+/* The chapter timeline (spec 7.3): the whole-book minimap over the draggable detail lane. Two
+   columns when there is room for both — timeline left, list right (spec 7.1) — stacked otherwise. */
+.luw .ched-body { display: flex; flex-direction: column; gap: 14px; }
+.luw .ched-listpane { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (min-width: 1180px) {
+  .luw .ched:has(.ched-body) { max-width: 1400px; }
+  .luw .ched-body { display: grid; grid-template-columns: minmax(0, 1fr) 480px; align-items: start; }
+}
+.luw .ctl { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-radius: 20px; background: var(--surface-2); }
+.luw .ctl-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.luw .ctl-h { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.luw .ctl-sub { font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.luw .ctl-hint { flex: 1; font-size: 0.74rem; color: var(--ink-3); }
+.luw .ctl-zoom { width: 28px; height: 28px; padding: 0; border: none; border-radius: 8px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .luw .ctl-zoom:hover { background: var(--surface); color: var(--ink); } }
+.luw .ctl-zoom:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+/* The minimap: density buckets so 300 chapters read as structure, and the window the lane shows. */
+.luw .ctl-map { position: relative; display: flex; gap: 1px; height: 28px; padding: 4px 0; cursor: pointer; touch-action: none; user-select: none; }
+.luw .ctl-bk { flex: 1; border-radius: 2px; background: var(--ink-3); }
+.luw .ctl-view { position: absolute; top: 0; bottom: 0; border: 2px solid var(--coral); border-radius: 6px; background: var(--coral-soft); pointer-events: none; }
+/* The detail lane. `touch-action: none` hands every pointer to the drag (it is the lane's whole job),
+   and markers outside the window are clipped rather than piled onto the edges. */
+.luw .ctl-lane { position: relative; height: 96px; overflow: hidden; border-radius: 14px; background: var(--surface); cursor: grab; touch-action: none; user-select: none; }
+.luw .ctl-file { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--ink-3); opacity: .5; pointer-events: none; }
+.luw .ctl-mk { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink-2); pointer-events: none; }
+.luw .ctl-mk.on { background: var(--coral); width: 3px; }
+.luw .ctl-mk.locked { background: var(--ink-3); }
+.luw .ctl-mk.ctl-ghost { background: transparent; border-left: 2px dotted var(--coral); }
+.luw .ctl-mk-n { position: absolute; top: 4px; left: 5px; font-size: 0.7rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.luw .ctl-mk.on .ctl-mk-n { color: var(--coral); }
+.luw .ctl-ph { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
+.luw .ctl-hud { position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 8px; background: var(--coral); color: #fff; font-size: 0.78rem; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
+
 /* The guided drift flow. A panel rather than a dialog: pinning an anchor needs the list and the
    transport, and a modal over both would hide the two things the flow is about. */
 .luw .drift { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1.5px solid var(--coral); border-radius: 16px; background: var(--surface-2); }

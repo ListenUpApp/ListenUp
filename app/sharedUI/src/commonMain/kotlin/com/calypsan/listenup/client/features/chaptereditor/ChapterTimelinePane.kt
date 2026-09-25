@@ -136,12 +136,12 @@ internal fun ChapterTimelinePane(
                 modifier = Modifier.weight(1f),
             )
             IconButton(
-                onClick = { onLaneChange(lane.zoomed(ZOOM_OUT_STEP, lane.geometry.widthPx / 2f, bookDurationMs)) },
+                onClick = { onLaneChange(lane.zoomedAroundCentre(ZOOM_OUT_STEP, bookDurationMs)) },
             ) {
                 Icon(Icons.Default.ZoomOut, stringResource(Res.string.chapter_editor_zoom_out))
             }
             IconButton(
-                onClick = { onLaneChange(lane.zoomed(ZOOM_IN_STEP, lane.geometry.widthPx / 2f, bookDurationMs)) },
+                onClick = { onLaneChange(lane.zoomedAroundCentre(ZOOM_IN_STEP, bookDurationMs)) },
             ) {
                 Icon(Icons.Default.ZoomIn, stringResource(Res.string.chapter_editor_zoom_in))
             }

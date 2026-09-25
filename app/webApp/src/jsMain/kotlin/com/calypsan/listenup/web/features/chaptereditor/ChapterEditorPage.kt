@@ -1,5 +1,14 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.Event
+import org.w3c.dom.HTMLElement
+import kotlinx.browser.window
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
+import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -129,6 +138,16 @@ private fun EditingContent(
 ) {
     var query by remember { mutableStateOf("") }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
+    var lane by remember { mutableStateOf<TimelineLane?>(null) }
+
+    EditorKeys(
+        chapters = state.chapters,
+        selectedChapterId = state.selectedChapterId,
+        // A dialog owns the keyboard while it is open: arrows move its caret, not a boundary.
+        enabled = rowAction == null,
+        onNudge = onNudge,
+        onSelect = onSelect,
+    )
 
     EditorHeader(state, onUndo, onBeginDrift, onSave, onLeave)
 
@@ -177,50 +196,63 @@ private fun EditingContent(
     val all = state.chapters.numbered()
     val shown = all.matching(query)
 
-    Div(attrs = { classes("ched-tools") }) {
-        Field(
-            label = "Jump to title…",
-            value = query,
-            onInput = { query = it },
-            leading = WebIcon.Search,
-            id = "ched-search",
+    Div(attrs = { classes("ched-body") }) {
+        ChapterTimeline(
+            state = state,
+            // Opened around the playhead when this book is playing, else at the start.
+            lane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs, widthPx = 0f),
+            onLaneChange = { lane = it },
+            playheadMs = playheadMs,
+            ghosts = driftGhosts(state),
+            onRetime = onRetime,
         )
-        if (playheadMs != null) {
-            Button(attrs = {
-                classes(BTN_SECONDARY, "ched-add")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onAddAt(playheadMs, NEW_CHAPTER_TITLE) }
-            }) {
-                Icon(WebIcon.Plus, size = SMALL_ICON)
-                Text("Add chapter at playhead")
-            }
-        }
-    }
-
-    if (shown.isEmpty()) {
-        P(attrs = { classes("ched-none") }) { Text("No chapters match “$query”.") }
-    } else {
-        Div(attrs = {
-            classes("ched-list")
-            attr("role", "list")
-        }) {
-            shown.forEach { numbered ->
-                ChapterRow(
-                    numbered = numbered,
-                    isSelected = numbered.chapter.id == state.selectedChapterId,
-                    isLocked = numbered.chapter.id in state.lockedChapterIds,
-                    isPlaying = playheadMs != null && numbered.chapter.holds(playheadMs),
-                    playheadMs = playheadMs,
-                    onSelect = { onSelect(numbered.chapter.id) },
-                    onNudge = { delta -> onNudge(numbered.chapter.id, delta) },
-                    onSnapToPlayhead = { playheadMs?.let { onSnapToPlayhead(numbered.chapter.id, it) } },
-                    onToggleLock = { onToggleLock(numbered.chapter.id) },
-                    onEditTime = { rowAction = RowAction.EditingTime(numbered.chapter.id) },
-                    onInsertBelow = { onInsertBelow(numbered.chapter.id, NEW_CHAPTER_TITLE) },
-                    onPlayFrom = { onPlayFrom(numbered.chapter.id) },
-                    onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
-                    onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
+        Div(attrs = { classes("ched-listpane") }) {
+            Div(attrs = { classes("ched-tools") }) {
+                Field(
+                    label = "Jump to title…",
+                    value = query,
+                    onInput = { query = it },
+                    leading = WebIcon.Search,
+                    id = "ched-search",
                 )
+                if (playheadMs != null) {
+                    Button(attrs = {
+                        classes(BTN_SECONDARY, "ched-add")
+                        attr(ATTR_TYPE, VALUE_BUTTON)
+                        onClick { onAddAt(playheadMs, NEW_CHAPTER_TITLE) }
+                    }) {
+                        Icon(WebIcon.Plus, size = SMALL_ICON)
+                        Text("Add chapter at playhead")
+                    }
+                }
+            }
+
+            if (shown.isEmpty()) {
+                P(attrs = { classes("ched-none") }) { Text("No chapters match “$query”.") }
+            } else {
+                Div(attrs = {
+                    classes("ched-list")
+                    attr("role", "list")
+                }) {
+                    shown.forEach { numbered ->
+                        ChapterRow(
+                            numbered = numbered,
+                            isSelected = numbered.chapter.id == state.selectedChapterId,
+                            isLocked = numbered.chapter.id in state.lockedChapterIds,
+                            isPlaying = playheadMs != null && numbered.chapter.holds(playheadMs),
+                            playheadMs = playheadMs,
+                            onSelect = { onSelect(numbered.chapter.id) },
+                            onNudge = { delta -> onNudge(numbered.chapter.id, delta) },
+                            onSnapToPlayhead = { playheadMs?.let { onSnapToPlayhead(numbered.chapter.id, it) } },
+                            onToggleLock = { onToggleLock(numbered.chapter.id) },
+                            onEditTime = { rowAction = RowAction.EditingTime(numbered.chapter.id) },
+                            onInsertBelow = { onInsertBelow(numbered.chapter.id, NEW_CHAPTER_TITLE) },
+                            onPlayFrom = { onPlayFrom(numbered.chapter.id) },
+                            onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
+                            onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -356,3 +388,78 @@ private const val BTN_SECONDARY = "btn-o"
 private const val VALUE_BUTTON = "button"
 
 private const val SMALL_ICON = 16
+
+/**
+ * The drift preview's corrected positions as lane markers, or none while there is no proposal to
+ * show. Numbered by position in the corrected set, so a ghost carries the number it would have.
+ */
+private fun driftGhosts(state: ChapterEditorUiState.Editing): List<TimelineChapter> {
+    val ready = state.drift?.preview as? DriftPreview.Ready ?: return emptyList()
+    return ready.corrected.mapIndexed { index, chapter ->
+        TimelineChapter(id = chapter.id, number = index + 1, startMs = chapter.startTime)
+    }
+}
+
+/** A fine nudge — Shift with an arrow key — a tenth of the coarse step (spec §7.8). */
+private const val FINE_NUDGE_MS = 100L
+
+/**
+ * The editor's keyboard (spec §7.8): ← / → nudge the selected boundary by a second, a tenth with
+ * Shift; `[` / `]` step the selection to the previous or next chapter.
+ *
+ * ⛔ Ignored while focus is in a text field — typing a title must never move a boundary — and while
+ * [enabled] is false because a dialog has the keyboard.
+ */
+@Composable
+private fun EditorKeys(
+    chapters: List<Chapter>,
+    selectedChapterId: String?,
+    enabled: Boolean,
+    onNudge: (String, Long) -> Unit,
+    onSelect: (String?) -> Unit,
+) {
+    val latest = rememberUpdatedState(KeyTargets(chapters, selectedChapterId, enabled, onNudge, onSelect))
+    DisposableEffect(Unit) {
+        val listener: (Event) -> Unit = { event -> latest.value.handle(event as KeyboardEvent) }
+        window.addEventListener("keydown", listener)
+        onDispose { window.removeEventListener("keydown", listener) }
+    }
+}
+
+/** What a key press acts on, read fresh for every press. */
+private class KeyTargets(
+    val chapters: List<Chapter>,
+    val selectedChapterId: String?,
+    val enabled: Boolean,
+    val onNudge: (String, Long) -> Unit,
+    val onSelect: (String?) -> Unit,
+) {
+    fun handle(event: KeyboardEvent) {
+        if (!enabled || event.isTyping()) return
+        val selected = selectedChapterId
+        val index = chapters.indexOfFirst { it.id == selected }
+        val step = if (event.shiftKey) FINE_NUDGE_MS else NUDGE_MS
+        when (event.key) {
+            "ArrowLeft", "ArrowRight" -> {
+                if (selected == null) return
+                onNudge(selected, if (event.key == "ArrowLeft") -step else step)
+                event.preventDefault()
+            }
+
+            "]" -> {
+                chapters.getOrNull(if (index < 0) 0 else index + 1)?.let { onSelect(it.id) }
+            }
+
+            "[" -> {
+                chapters.getOrNull(if (index < 0) chapters.lastIndex else index - 1)?.let { onSelect(it.id) }
+            }
+        }
+    }
+
+    private fun KeyboardEvent.isTyping(): Boolean {
+        val element = target as? HTMLElement ?: return false
+        return element.tagName in TYPING_TAGS || element.isContentEditable
+    }
+}
+
+private val TYPING_TAGS = setOf("INPUT", "TEXTAREA", "SELECT")
