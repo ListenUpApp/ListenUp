@@ -21,6 +21,11 @@ internal data class AudnexusBook(
     val title: String = "",
     val subtitle: String? = null,
     val description: String? = null,
+    /**
+     * The full publisher summary, as HTML. Preferred over [description] (a short
+     * marketing blurb) when non-blank — see `AudnexusBook.toBookCoreMeta()`.
+     */
+    val summary: String? = null,
     val publisherName: String? = null,
     val releaseDate: String? = null,
     val language: String? = null,

@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.metadata.audnexus.AudnexusChapters
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusGenre
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusNarrator
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusSeries
+import com.calypsan.listenup.server.metadata.providerHtmlToPlainText
 import com.calypsan.listenup.server.metadata.spi.BookContributorMeta
 import com.calypsan.listenup.server.metadata.spi.BookCoreMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
@@ -41,7 +42,7 @@ internal fun AudnexusBook.toBookCoreMeta(): BookCoreMeta =
     BookCoreMeta(
         title = title.takeIf { it.isNotBlank() },
         subtitle = subtitle?.takeIf { it.isNotBlank() },
-        description = description?.takeIf { it.isNotBlank() },
+        description = fullDescription(),
         publisher = publisherName?.takeIf { it.isNotBlank() },
         releaseDate = releaseDate?.takeIf { it.isNotBlank() },
         language = language?.takeIf { it.isNotBlank() },
@@ -51,6 +52,17 @@ internal fun AudnexusBook.toBookCoreMeta(): BookCoreMeta =
         authors = authors.map { it.toBookContributorMeta() },
         narrators = narrators.map { it.toBookContributorMeta() },
     )
+
+/**
+ * Prefers the full HTML [AudnexusBook.summary] over the short marketing
+ * [AudnexusBook.description] when it is non-blank — Audnexus's `description` is
+ * often cut mid-sentence, while `summary` carries the full publisher text. Both
+ * are run through [providerHtmlToPlainText] (a no-op on already-plain text).
+ */
+private fun AudnexusBook.fullDescription(): String? =
+    (summary?.takeIf { it.isNotBlank() } ?: description?.takeIf { it.isNotBlank() })
+        ?.let { providerHtmlToPlainText(it) }
+        ?.takeIf { it.isNotBlank() }
 
 /** Maps an Audnexus author credit to a [BookContributorMeta] (its ASIN is the profile key). */
 internal fun AudnexusAuthor.toBookContributorMeta(): BookContributorMeta =

@@ -70,6 +70,26 @@ class AudnexusProviderTest :
             core.language.shouldBeNull()
         }
 
+        test("a full HTML summary is preferred over the short description, converted to plain text") {
+            val core =
+                fullBook()
+                    .copy(
+                        description = "Stone and storms.",
+                        summary = "<p>Roshar is a world of stone and storms.</p><p>A second paragraph of detail.</p>",
+                    ).toBookCoreMeta()
+            core.description shouldBe "Roshar is a world of stone and storms.\n\nA second paragraph of detail."
+        }
+
+        test("a blank summary falls back to the short description") {
+            val core = fullBook().copy(description = "Stone and storms.", summary = "").toBookCoreMeta()
+            core.description shouldBe "Stone and storms."
+        }
+
+        test("a null summary falls back to the short description") {
+            val core = fullBook().copy(description = "Stone and storms.", summary = null).toBookCoreMeta()
+            core.description shouldBe "Stone and storms."
+        }
+
         test("Audnexus chapters map to a ChapterListMeta carrying isAccurate and brand offsets") {
             val list =
                 AudnexusChapters(

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.metadata.providerHtmlToPlainText
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -349,7 +350,7 @@ private fun RawProduct.toBook(): AudibleBook {
         publisher = publisherName,
         releaseDate = releaseDate,
         runtimeMinutes = runtimeLengthMin,
-        description = stripHtmlTags(merchandisingSummary),
+        description = fullDescription(),
         coverUrl = selectCoverUrl(productImages),
         series =
             this.series.map {
@@ -420,7 +421,13 @@ private fun extractGenreLadders(ladders: List<RawCategoryLadder>): List<List<Str
         .filter { it.isNotEmpty() }
 
 /**
- * Removes HTML tags from Audible's `merchandising_summary` field.
- * Audible wraps descriptions in `<p>` tags; strip them for plain text.
+ * Prefers Audible's full [RawProduct.publisherSummary] over the short
+ * [RawProduct.merchandisingSummary] (which is sometimes absent outright) when
+ * it is non-blank. Both arrive as HTML; [providerHtmlToPlainText] converts
+ * whichever is chosen to plain text with paragraph breaks preserved.
  */
-private fun stripHtmlTags(html: String): String = html.replace(Regex("<[^>]+>"), "").trim()
+private fun RawProduct.fullDescription(): String =
+    listOf(publisherSummary, merchandisingSummary)
+        .firstOrNull { it.isNotBlank() }
+        ?.let { providerHtmlToPlainText(it) }
+        ?: ""
