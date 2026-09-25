@@ -209,7 +209,7 @@ internal class SeriesServiceImpl(
 
     override suspend fun undoSeriesMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return AppResult.Failure(SeriesError.MergeReceiptNotFound(debugInfo = "undo lands in the next task"))
+        return mergeReceipts.undo(receiptId)
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
