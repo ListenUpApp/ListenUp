@@ -494,6 +494,9 @@ private fun SeriesError.toHttpStatus(): HttpStatusCode =
         is SeriesError.NotFound -> HttpStatusCode.NotFound
         is SeriesError.InvalidInput -> HttpStatusCode.BadRequest
         is SeriesError.MergeSelfTarget -> HttpStatusCode.BadRequest
+        is SeriesError.MergeReceiptNotFound -> HttpStatusCode.NotFound
+        is SeriesError.MergeAlreadyUndone -> HttpStatusCode.Conflict
+        is SeriesError.MergeTargetGone -> HttpStatusCode.Conflict
     }
 
 private fun GenreError.toHttpStatus(): HttpStatusCode =
@@ -505,6 +508,10 @@ private fun GenreError.toHttpStatus(): HttpStatusCode =
         is GenreError.MoveSelfDescendant -> HttpStatusCode.BadRequest
         is GenreError.HasDescendants -> HttpStatusCode.Conflict
         is GenreError.SlugConflict -> HttpStatusCode.Conflict
+        is GenreError.MergeReceiptNotFound -> HttpStatusCode.NotFound
+        is GenreError.MergeAlreadyUndone -> HttpStatusCode.Conflict
+        is GenreError.MergeTargetGone -> HttpStatusCode.Conflict
+        is GenreError.MergeSourceNameTaken -> HttpStatusCode.Conflict
     }
 
 private fun CollectionError.toHttpStatus(): HttpStatusCode =

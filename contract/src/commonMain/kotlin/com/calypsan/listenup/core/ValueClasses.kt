@@ -169,6 +169,22 @@ value class SeriesId(
 }
 
 /**
+ * Type-safe wrapper for a merge receipt — the record of what one series or genre merge changed,
+ * which is what lets it be undone.
+ */
+@Serializable
+@JvmInline
+value class MergeReceiptId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Merge receipt ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Contributor IDs.
  */
 @Serializable

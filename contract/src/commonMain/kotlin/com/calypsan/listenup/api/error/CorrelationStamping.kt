@@ -332,6 +332,9 @@ private fun SeriesError.withCorrelationId(id: String?): SeriesError =
         is SeriesError.NotFound -> copy(correlationId = id)
         is SeriesError.InvalidInput -> copy(correlationId = id)
         is SeriesError.MergeSelfTarget -> copy(correlationId = id)
+        is SeriesError.MergeReceiptNotFound -> copy(correlationId = id)
+        is SeriesError.MergeAlreadyUndone -> copy(correlationId = id)
+        is SeriesError.MergeTargetGone -> copy(correlationId = id)
     }
 
 private fun GenreError.withCorrelationId(id: String?): GenreError =
@@ -343,6 +346,10 @@ private fun GenreError.withCorrelationId(id: String?): GenreError =
         is GenreError.MoveSelfDescendant -> copy(correlationId = id)
         is GenreError.HasDescendants -> copy(correlationId = id)
         is GenreError.SlugConflict -> copy(correlationId = id)
+        is GenreError.MergeReceiptNotFound -> copy(correlationId = id)
+        is GenreError.MergeAlreadyUndone -> copy(correlationId = id)
+        is GenreError.MergeTargetGone -> copy(correlationId = id)
+        is GenreError.MergeSourceNameTaken -> copy(correlationId = id)
     }
 
 private fun CollectionError.withCorrelationId(id: String?): CollectionError =
