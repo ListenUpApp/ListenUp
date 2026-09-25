@@ -400,7 +400,7 @@ internal class GenreServiceImpl(
 
     override suspend fun undoGenreMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return AppResult.Failure(GenreError.MergeReceiptNotFound(debugInfo = "undo lands in the next task"))
+        return mergeReceipts.undo(receiptId)
     }
 
     override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
