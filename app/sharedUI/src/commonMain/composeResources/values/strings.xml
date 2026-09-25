@@ -642,7 +642,7 @@ One beautiful library.</string>
     <string name="chapter_editor_unlock">Unlock chapter</string>
     <string name="chapter_editor_unsaved">Unsaved</string>
     <string name="chapter_editor_whole_book">Whole book</string>
-    <string name="chapter_editor_zoom_hint">Scroll to zoom · drag a marker, then pull away to fine-tune</string>
+    <string name="chapter_editor_zoom_hint">Pinch or scroll to zoom · drag a marker, then pull away to fine-tune</string>
     <string name="chapter_editor_zoom_in">Zoom in</string>
     <string name="chapter_editor_zoom_out">Zoom out</string>
     <string name="common_about">About</string>

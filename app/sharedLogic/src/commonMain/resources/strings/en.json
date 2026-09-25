@@ -1518,7 +1518,7 @@
     "unsaved": "Unsaved",
     "whole_book": "Whole book",
     "detail_lane": "Detail lane",
-    "zoom_hint": "Scroll to zoom · drag a marker, then pull away to fine-tune",
+    "zoom_hint": "Pinch or scroll to zoom · drag a marker, then pull away to fine-tune",
     "zoom_in": "Zoom in",
     "zoom_out": "Zoom out",
     "jump_to_title": "Jump to title…",

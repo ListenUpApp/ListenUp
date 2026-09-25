@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.domain.model.Chapter
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -45,7 +46,8 @@ class ChapterListSearchTest {
                 ChapterEditorContent(
                     chapters = chapters.numbered(),
                     bookDurationMs = BOOK_MS,
-                    geometry = TimelineGeometry(0L, BOOK_MS, 1_000f),
+                    lane = TimelineLane(TimelineGeometry(0L, BOOK_MS, 1_000f)),
+                    onLaneChange = {},
                     isWide = true,
                     selectedChapterId = null,
                     playheadMs = null,
@@ -55,7 +57,6 @@ class ChapterListSearchTest {
                     onToggleLock = {},
                     onMore = {},
                     onEditTime = {},
-                    onSeekFraction = {},
                     query = query,
                     onQueryChange = {},
                 )

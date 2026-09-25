@@ -37,7 +37,7 @@ import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
-import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
@@ -58,15 +58,6 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-
-/**
- * How much of the book the detail lane shows on open.
- *
- * Ten minutes rather than the whole book, because the whole book is exactly the view that does not
- * work: at 65 hours every boundary lands within a pixel or two of its neighbours and the lane can
- * neither be read nor aimed at. The minimap above it is what covers the whole book.
- */
-private const val DEFAULT_WINDOW_MS = 600_000L
 
 /**
  * The chapter editor, bound to its ViewModel.
@@ -111,7 +102,7 @@ fun ChapterEditorScreen(
 
     var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
-    var windowStartMs by remember { mutableStateOf(0L) }
+    var lane by remember { mutableStateOf<TimelineLane?>(null) }
     var query by remember { mutableStateOf("") }
 
     val editing = state as? ChapterEditorUiState.Editing
@@ -127,7 +118,10 @@ fun ChapterEditorScreen(
     // Open where the listener already is. A 65-hour book opened at 0:00 is technically correct and
     // useless; when this book is the one loaded, the interesting boundary is the one being heard.
     LaunchedEffect(isThisBookLoaded) {
-        if (isThisBookLoaded) windowStartMs = positionMs - DEFAULT_WINDOW_MS / 2
+        if (isThisBookLoaded) {
+            // Not yet opened: the lane opens around the playhead on its own (TimelineLane.opening).
+            lane = lane?.let { current -> editing?.let { current.centredOn(positionMs, it.bookDurationMs) } ?: current }
+        }
     }
 
     LaunchedEffect(viewModel) {
@@ -191,8 +185,8 @@ fun ChapterEditorScreen(
             padding = padding,
             playheadMs = playheadMs,
             fileBoundaries = fileBoundaries,
-            windowStartMs = windowStartMs,
-            onWindowStartChange = { windowStartMs = it },
+            lane = lane,
+            onLaneChange = { lane = it },
             query = query,
             onQueryChange = { query = it },
             onPinAnchor = {
@@ -344,8 +338,8 @@ private fun ChapterEditorBody(
     padding: PaddingValues,
     playheadMs: Long?,
     fileBoundaries: List<TimelineFileBoundary>,
-    windowStartMs: Long,
-    onWindowStartChange: (Long) -> Unit,
+    lane: TimelineLane?,
+    onLaneChange: (TimelineLane) -> Unit,
     query: String,
     onQueryChange: (String) -> Unit,
     onPinAnchor: () -> Unit,
@@ -374,8 +368,7 @@ private fun ChapterEditorBody(
                     canLookUp = false,
                 )
             } else {
-                val windowLength = DEFAULT_WINDOW_MS.coerceAtMost(state.bookDurationMs)
-                val start = windowStartMs.coerceIn(0L, (state.bookDurationMs - windowLength).coerceAtLeast(0L))
+                val currentLane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs, widthPx = 0f)
                 Column(Modifier.padding(padding)) {
                     if (state.changedElsewhere) {
                         ChangedElsewhereBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
@@ -395,7 +388,8 @@ private fun ChapterEditorBody(
                     ChapterEditorContent(
                         chapters = state.chapters.numbered(),
                         bookDurationMs = state.bookDurationMs,
-                        geometry = TimelineGeometry(start, start + windowLength, 0f),
+                        lane = currentLane,
+                        onLaneChange = onLaneChange,
                         isWide =
                             currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
                                 WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
@@ -410,11 +404,6 @@ private fun ChapterEditorBody(
                         onToggleLock = viewModel::toggleLock,
                         onMore = onMore,
                         onEditTime = onEditTime,
-                        onSeekFraction = { fraction ->
-                            // The minimap hands back where in the book to look; centre the lane there.
-                            val centre = (fraction.toDouble() * state.bookDurationMs).toLong()
-                            onWindowStartChange(centre - windowLength / 2)
-                        },
                         fileBoundaries = fileBoundaries,
                         // The corrected positions, drawn beside the current ones. This is the
                         // parameter the lane has always accepted and nothing ever supplied.

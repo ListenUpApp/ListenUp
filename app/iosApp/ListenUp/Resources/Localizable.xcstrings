@@ -6416,7 +6416,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scroll to zoom · drag a marker, then pull away to fine-tune"
+            "value": "Pinch or scroll to zoom · drag a marker, then pull away to fine-tune"
           }
         }
       }

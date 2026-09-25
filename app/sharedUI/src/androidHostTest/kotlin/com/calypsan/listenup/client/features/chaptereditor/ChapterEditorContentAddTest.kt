@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.domain.model.Chapter
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -43,7 +44,8 @@ class ChapterEditorContentAddTest {
                 ChapterEditorContent(
                     chapters = chapters.numbered(),
                     bookDurationMs = BOOK_MS,
-                    geometry = TimelineGeometry(windowStartMs = 0L, windowEndMs = BOOK_MS, widthPx = 1_000f),
+                    lane = TimelineLane(TimelineGeometry(windowStartMs = 0L, windowEndMs = BOOK_MS, widthPx = 1_000f)),
+                    onLaneChange = {},
                     isWide = true,
                     selectedChapterId = null,
                     playheadMs = playheadMs,
@@ -53,7 +55,6 @@ class ChapterEditorContentAddTest {
                     onToggleLock = {},
                     onMore = {},
                     onEditTime = {},
-                    onSeekFraction = {},
                     onAddAtPlayhead = onAddAtPlayhead,
                 )
             }
