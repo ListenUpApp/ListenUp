@@ -40,6 +40,13 @@ internal data class EngineSnapshot(
     /** Terminal ops that exhausted their retry budget — dead letters awaiting user retry/dismiss or age-GC. */
     val deadLetterCount: Int = 0,
     val meaningfulErrorActive: Boolean = false,
+    /**
+     * Whether the app currently WANTS the firehose open — set by `SyncRepositoryImpl` when it starts
+     * the engine, cleared when it deliberately disconnects. Separates an outage (wanted, not connected: recover it) from a stop the app chose
+     * (Android leaving the foreground: leave it closed). The reconnection supervisor reads this;
+     * without it, it fought every deliberate stop by reconnecting every couple of seconds.
+     */
+    val realtimeWanted: Boolean = false,
 )
 
 private const val ERROR_COUNT_THRESHOLD = 5
@@ -57,6 +64,11 @@ internal class SyncEngineState {
 
     /** Observable for UI consumption. Hot, replays the latest snapshot. */
     fun observe(): StateFlow<EngineSnapshot> = flow.asStateFlow()
+
+    /** Records whether the firehose is wanted open (engine started) or deliberately closed (engine stopped). */
+    fun setRealtimeWanted(wanted: Boolean) {
+        flow.update { it.copy(realtimeWanted = wanted) }
+    }
 
     /** Update the firehose connection state. */
     fun setConnection(state: ConnectionState) {

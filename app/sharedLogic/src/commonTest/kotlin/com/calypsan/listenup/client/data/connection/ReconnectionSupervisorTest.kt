@@ -32,6 +32,7 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -58,9 +59,62 @@ class ReconnectionSupervisorTest :
 
         fun verified(instanceId: String) = VerifiedServer(serverInfo = serverInfo(instanceId), verifiedUrl = activeUrl)
 
+        // The engine wants the firehose (it was started) and the firehose is down — the one situation
+        // this supervisor exists for.
+        fun droppedWhileWanted() = SyncEngineState().apply { setRealtimeWanted(true) }
+
+        // 2026-09-25: Android deliberately closes the firehose when the app leaves the foreground.
+        // The supervisor read that as an outage, found the server answering, and kicked a reconnect
+        // every ~2 s for as long as the process lived — 22 probes a minute with a paused book, on a
+        // phone and against the server, indefinitely.
+        test("a deliberately closed connection is left alone: no probe, no reconnect") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState().apply { setRealtimeWanted(false) }
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            val syncStreamClient = mock<SyncStreamClient> { every { reconnectNow() } returns Unit }
+            val authSession =
+                mock<AuthSession> {
+                    every { authState } returns
+                        MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                }
+            var reevaluateCount = 0
+            ReconnectionSupervisor(
+                engineState = engineState,
+                instanceRepository = instance,
+                serverConfig = serverConfig,
+                syncStreamClient = syncStreamClient,
+                authSession = authSession,
+                errorBus = ErrorBus(),
+                reevaluate = { reevaluateCount++ },
+                scope = scope,
+                probeIntervalMillis = interval,
+            ).start()
+
+            scope.testScheduler.advanceTimeBy(10 * interval)
+            scope.testScheduler.runCurrent()
+
+            verifySuspend(exactly(0)) { instance.verifyServer(any()) }
+            verify(exactly(0)) { syncStreamClient.reconnectNow() }
+            check(reevaluateCount == 0) { "no relocation sweep while the connection is closed on purpose" }
+
+            // Wanted again (the app came back): recovery resumes.
+            engineState.setRealtimeWanted(true)
+            scope.testScheduler.runCurrent()
+            verifySuspend(exactly(1)) { instance.verifyServer(any()) }
+            scope.cancel()
+        }
+
         test("disconnected + same instance triggers reconnectNow without logout") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // starts Disconnected
+            val engineState = droppedWhileWanted()
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
@@ -107,7 +161,7 @@ class ReconnectionSupervisorTest :
 
         test("disconnected + different instance clears auth, emits ServerInstanceChanged, stops") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState()
+            val engineState = droppedWhileWanted()
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-NEW"))
@@ -152,7 +206,7 @@ class ReconnectionSupervisorTest :
 
         test("connected stays idle: no probe, no reconnect") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState()
+            val engineState = droppedWhileWanted()
             engineState.setConnection(ConnectionState.Connected(lastEventId = 1L))
             val instance =
                 mock<InstanceRepository> {
@@ -193,7 +247,7 @@ class ReconnectionSupervisorTest :
 
         test("unreachable server retries with escalating interval") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState()
+            val engineState = droppedWhileWanted()
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns
@@ -237,7 +291,7 @@ class ReconnectionSupervisorTest :
 
         test("no active url: returns early without probing or clearing auth") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // Disconnected
+            val engineState = droppedWhileWanted() // Disconnected
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
@@ -278,7 +332,7 @@ class ReconnectionSupervisorTest :
 
         test("loop is cancelled once the connection becomes Connected") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // Disconnected
+            val engineState = droppedWhileWanted() // Disconnected
             // Keep failing so the loop would otherwise probe forever; count actual probes.
             var probeCount = 0
             val instance =
@@ -334,7 +388,7 @@ class ReconnectionSupervisorTest :
 
         test("probe success while SessionLapsed does NOT kick reconnectNow (the spam amplifier)") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // Disconnected — recovery loop runs
+            val engineState = droppedWhileWanted() // Disconnected — recovery loop runs
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
@@ -379,7 +433,7 @@ class ReconnectionSupervisorTest :
 
         test("probe success reports reachable to the health store") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // Disconnected — recovery loop runs
+            val engineState = droppedWhileWanted() // Disconnected — recovery loop runs
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
@@ -424,7 +478,7 @@ class ReconnectionSupervisorTest :
 
         test("probe failure reports unreachable to the health store") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState()
+            val engineState = droppedWhileWanted()
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns
@@ -468,7 +522,7 @@ class ReconnectionSupervisorTest :
 
         test("a throw from reevaluate does not permanently stop recovery") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // Disconnected
+            val engineState = droppedWhileWanted() // Disconnected
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
@@ -517,7 +571,7 @@ class ReconnectionSupervisorTest :
 
         test("a persistently-throwing reevaluate keeps retrying without hot-spinning") {
             val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // Disconnected
+            val engineState = droppedWhileWanted() // Disconnected
             val instance =
                 mock<InstanceRepository> {
                     everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))

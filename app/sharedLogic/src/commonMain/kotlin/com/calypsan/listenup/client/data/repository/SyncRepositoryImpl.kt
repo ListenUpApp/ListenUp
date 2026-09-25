@@ -177,6 +177,9 @@ internal class SyncRepositoryImpl(
     }
 
     override suspend fun disconnect() {
+        // A deliberate close (Android leaving the foreground): the reconnection supervisor must not
+        // read it as an outage and fight it.
+        syncEngineState.setRealtimeWanted(false)
         syncEngine.stopAndJoin()
     }
 
@@ -289,6 +292,8 @@ internal class SyncRepositoryImpl(
                     logger.warn(e) { "Orphan span recovery failed — will retry on next startup" }
                 }
             }
+            // The app wants the firehose open from here on: an outage is now worth recovering.
+            syncEngineState.setRealtimeWanted(true)
             syncEngine.start(userId)
             startScanProgressObserver()
             startFtsLiveRefreshObserver()
