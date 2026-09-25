@@ -93,12 +93,6 @@ fun ChapterEditorScreen(
     // screen, so it is absent rather than misleading.
     val isThisBookLoaded = timeline?.bookId == BookId(bookId)
     val playheadMs = if (isThisBookLoaded) positionMs else null
-    val fileBoundaries =
-        if (isThisBookLoaded) {
-            timeline?.files.orEmpty().map { TimelineFileBoundary(label = it.filename, startMs = it.startOffsetMs) }
-        } else {
-            emptyList()
-        }
 
     var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
@@ -106,6 +100,8 @@ fun ChapterEditorScreen(
     var query by remember { mutableStateOf("") }
 
     val editing = state as? ChapterEditorUiState.Editing
+    // From the shared state, which already knows whether this book is the one in the player.
+    val fileBoundaries = editing?.fileBoundaries.orEmpty()
     val isDirty = editing?.isDirty == true
     val leave = { if (isDirty) pendingDiscard = true else onBack() }
 

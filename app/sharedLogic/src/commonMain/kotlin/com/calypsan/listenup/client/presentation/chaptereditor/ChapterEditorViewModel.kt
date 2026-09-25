@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
+import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import androidx.lifecycle.ViewModel
@@ -92,7 +94,8 @@ class ChapterEditorViewModel(
             bookRepository.observeChapters(bookId),
             bookRepository.observeBookDetail(bookId),
             session,
-        ) { mirrored, book, current ->
+            playbackManager.currentTimeline,
+        ) { mirrored, book, current, loaded ->
             if (book == null) {
                 ChapterEditorUiState.Loading
             } else {
@@ -115,6 +118,7 @@ class ChapterEditorViewModel(
                     // no longer there cannot survive, by construction rather than by remembering.
                     lockedChapterIds = locked,
                     drift = current.driftAnchors?.let { driftStateFor(it, chapters, locked, book.duration) },
+                    fileBoundaries = fileBoundariesOf(loaded),
                 )
             }
         }.stateIn(
@@ -122,6 +126,14 @@ class ChapterEditorViewModel(
             SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
             ChapterEditorUiState.Loading,
         )
+
+    /** The loaded book's audio-file boundaries, or none when the player holds another book (or nothing). */
+    private fun fileBoundariesOf(loaded: PlaybackTimeline?): List<TimelineFileBoundary> =
+        if (loaded?.bookId != BookId(bookId)) {
+            emptyList()
+        } else {
+            loaded.files.map { TimelineFileBoundary(label = it.filename, startMs = it.startOffsetMs) }
+        }
 
     /** Pins or unpins [chapterId] against drift correction. */
     fun toggleLock(chapterId: String) {

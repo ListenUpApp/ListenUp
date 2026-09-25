@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.test.fake.FakePlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
@@ -89,8 +90,25 @@ class ChapterEditorViewModelTest :
             loadedTimeline.value = null
         }
 
-        fun timelineFor(bookId: String): PlaybackTimeline =
-            PlaybackTimeline(bookId = BookId(bookId), totalDurationMs = BOOK_MS, files = emptyList())
+        fun segment(
+            name: String,
+            startMs: Long,
+        ) = PlaybackTimeline.FileSegment(
+            audioFileId = "af-$name",
+            filename = name,
+            format = "mp3",
+            startOffsetMs = startMs,
+            durationMs = 600_000L,
+            size = 1L,
+            streamingUrl = "https://example.test/$name",
+            localPath = null,
+            mediaItemIndex = 0,
+        )
+
+        fun timelineFor(
+            bookId: String,
+            files: List<PlaybackTimeline.FileSegment> = emptyList(),
+        ): PlaybackTimeline = PlaybackTimeline(bookId = BookId(bookId), totalDurationMs = BOOK_MS, files = files)
 
         fun rig(
             initial: List<Chapter> = chapters(0L, 300_000L, 900_000L),
@@ -471,6 +489,25 @@ class ChapterEditorViewModelTest :
 
                     controller.seekCalls shouldBe emptyList()
                     controller.playCount shouldBe 0
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // The lane's faint dividers (spec §7.3): where one audio file ends and the next begins.
+        // Read from the player, so only while this book is the one loaded — another book's files
+        // would draw boundaries that belong to different audio entirely.
+        test("audio-file boundaries are offered while this book is the one loaded, and only then") {
+            loadedTimeline.value = timelineFor(BOOK_ID, listOf(segment("01.mp3", 0L), segment("02.mp3", 600_000L)))
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().fileBoundaries shouldBe
+                        listOf(TimelineFileBoundary("01.mp3", 0L), TimelineFileBoundary("02.mp3", 600_000L))
+
+                    loadedTimeline.value = timelineFor("another-book", listOf(segment("x.mp3", 0L)))
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().fileBoundaries shouldBe emptyList()
                     cancelAndIgnoreRemainingEvents()
                 }
             }
