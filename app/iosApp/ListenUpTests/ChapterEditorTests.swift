@@ -29,6 +29,21 @@ struct ChapterEditorTests {
         ]
     }
 
+    // MARK: - Typing a start
+
+    /// The field takes back exactly what the row shows, through the shared parser — so a start
+    /// typed on the phone lands on the same millisecond as one typed on the web.
+    @Test func aTypedStartReadsBackToTheMillisecond() {
+        #expect(ChapterTimeFormat.shared.parsePrecise(text: "1:02:03.456") == 3_723_456)
+        #expect(ChapterTimeFormat.shared.parsePrecise(text: ChapterTimeFormat.shared.precise(ms: 62_300)) == 62_300)
+    }
+
+    /// Anything that is not a time is refused rather than guessed at.
+    @Test func somethingThatIsNotATimeIsRefused() {
+        #expect(ChapterTimeFormat.shared.parsePrecise(text: "soon") == nil)
+        #expect(ChapterTimeFormat.shared.parsePrecise(text: "1:75") == nil)
+    }
+
     // MARK: - Search
 
     /// A blank query is not a filter. Returning nothing for an empty box would empty the screen
