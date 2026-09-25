@@ -148,6 +148,9 @@ fun ChapterEditRow(
                     text = ChapterTimeFormat.precise(chapter.startTime),
                     style = MaterialTheme.typography.labelLarge,
                     color = if (isSelected) colors.onPrimaryContainer else colors.primary,
+                    // One line, always: a start split as "0:04:36." over "9" reads as two numbers.
+                    maxLines = 1,
+                    softWrap = false,
                     // The time is its own control: tap it to type the start to the millisecond.
                     modifier =
                         Modifier
@@ -160,14 +163,18 @@ fun ChapterEditRow(
             }
         }
 
-        ChapterRowActions(
-            isLocked = isLocked,
-            nudgeStepMs = nudgeStepMs,
-            onNudge = onNudge,
-            onSnapToPlayhead = onSnapToPlayhead,
-            onToggleLock = onToggleLock,
-            onMore = onMore,
-        )
+        // Their own row, packed: each control already has a 48dp touch target, and the row's 10dp
+        // gap between five of them took the width the start time needs to show in full.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ChapterRowActions(
+                isLocked = isLocked,
+                nudgeStepMs = nudgeStepMs,
+                onNudge = onNudge,
+                onSnapToPlayhead = onSnapToPlayhead,
+                onToggleLock = onToggleLock,
+                onMore = onMore,
+            )
+        }
     }
 }
 
