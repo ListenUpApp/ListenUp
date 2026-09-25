@@ -187,6 +187,62 @@ class AudibleClientTest :
             }
         }
 
+        test("getBook prefers the full publisher_summary over merchandising_summary, converted to plain text") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = BOOK_WITH_BOTH_SUMMARIES_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client = makeClient(engine)
+                val book = (client.getBook(AudibleRegion.US, "B0SUMMARY") as AppResult.Success<AudibleBook?>).data
+
+                book?.description shouldBe
+                    "From a bestselling author comes an epic tale.\n\nA second paragraph of detail."
+            }
+        }
+
+        test("getBook falls back to merchandising_summary when publisher_summary is absent") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = BOOK_WITH_ONLY_MERCHANDISING_SUMMARY_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client = makeClient(engine)
+                val book = (client.getBook(AudibleRegion.US, "B0MERCH") as AppResult.Success<AudibleBook?>).data
+
+                book?.description shouldBe "Science fiction masterpiece"
+            }
+        }
+
+        test("getBook uses publisher_summary when merchandising_summary is entirely absent from the response") {
+            // The real B003ZWFO7E shape: Audible omits merchandising_summary outright (not blank —
+            // absent) while publisher_summary carries the full text. This is the case that was
+            // silently dropping the description to empty before the fix.
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = BOOK_WITH_ONLY_PUBLISHER_SUMMARY_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client = makeClient(engine)
+                val book = (client.getBook(AudibleRegion.US, "B003ZWFO7E") as AppResult.Success<AudibleBook?>).data
+
+                book?.description shouldBe
+                    "From a bestselling author comes an epic tale.\n\nA second paragraph of detail."
+            }
+        }
+
         test("getBook preserves the category ladder hierarchy in genreLadders") {
             runTest {
                 val engine =
@@ -363,6 +419,73 @@ private val BOOK_200 =
     "narrators": [{"asin": "", "name": "Scott Brick", "role": "narrator"}],
     "series": [],
     "category_ladders": [{"ladder": [{"id": "18685580011", "name": "Science Fiction"}]}],
+    "language": "english",
+    "rating": null
+  }
+}
+    """.trimIndent()
+
+private val BOOK_WITH_BOTH_SUMMARIES_200 =
+    """
+{
+  "product": {
+    "asin": "B0SUMMARY",
+    "title": "Full Summary Book",
+    "subtitle": "",
+    "publisher_name": "Test Audio",
+    "release_date": "2020-01-01",
+    "runtime_length_min": 600,
+    "merchandising_summary": "Epic tale.",
+    "publisher_summary": "<p><b>From a bestselling author</b> comes an epic tale.</p><p>A second paragraph of detail.</p>",
+    "product_images": {"500": "https://example.com/cover500.jpg"},
+    "authors": [{"asin": "A1", "name": "Test Author", "role": "author"}],
+    "narrators": [],
+    "series": [],
+    "category_ladders": [],
+    "language": "english",
+    "rating": null
+  }
+}
+    """.trimIndent()
+
+private val BOOK_WITH_ONLY_MERCHANDISING_SUMMARY_200 =
+    """
+{
+  "product": {
+    "asin": "B0MERCH",
+    "title": "Blurb Only Book",
+    "subtitle": "",
+    "publisher_name": "Test Audio",
+    "release_date": "2020-01-01",
+    "runtime_length_min": 600,
+    "merchandising_summary": "Science fiction masterpiece",
+    "product_images": {"500": "https://example.com/cover500.jpg"},
+    "authors": [{"asin": "A1", "name": "Test Author", "role": "author"}],
+    "narrators": [],
+    "series": [],
+    "category_ladders": [],
+    "language": "english",
+    "rating": null
+  }
+}
+    """.trimIndent()
+
+private val BOOK_WITH_ONLY_PUBLISHER_SUMMARY_200 =
+    """
+{
+  "product": {
+    "asin": "B003ZWFO7E",
+    "title": "Publisher Summary Only Book",
+    "subtitle": "",
+    "publisher_name": "Test Audio",
+    "release_date": "2020-01-01",
+    "runtime_length_min": 600,
+    "publisher_summary": "<p><b>From a bestselling author</b> comes an epic tale.</p><p>A second paragraph of detail.</p>",
+    "product_images": {"500": "https://example.com/cover500.jpg"},
+    "authors": [{"asin": "A1", "name": "Test Author", "role": "author"}],
+    "narrators": [],
+    "series": [],
+    "category_ladders": [],
     "language": "english",
     "rating": null
   }

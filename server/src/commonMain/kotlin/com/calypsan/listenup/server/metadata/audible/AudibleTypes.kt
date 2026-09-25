@@ -148,6 +148,12 @@ data class RawProduct(
     val runtimeLengthMin: Int = 0,
     @SerialName("merchandising_summary")
     val merchandisingSummary: String = "",
+    /**
+     * The full publisher summary, as HTML. Preferred over [merchandisingSummary]
+     * (a short marketing blurb, sometimes absent outright) when non-blank.
+     */
+    @SerialName("publisher_summary")
+    val publisherSummary: String = "",
     @SerialName("product_images")
     val productImages: Map<String, String> = emptyMap(),
     val authors: List<RawContributor> = emptyList(),
