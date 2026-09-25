@@ -79,6 +79,9 @@ internal class SettingsRepositoryImpl(
         // Stable mDNS instance id of the connected server (for LAN IP-follow)
         private const val KEY_CONNECTED_SERVER_ID = "connected_server_id"
 
+        // Not cleared by disconnectFromServer: it records where the local library came from.
+        private const val KEY_LIBRARY_SERVER_ID = "library_server_id"
+
         // Library sort preferences (per-tab)
         private const val KEY_SORT_BOOKS = "sort_books"
         private const val KEY_SORT_SERIES = "sort_series"
@@ -203,6 +206,12 @@ internal class SettingsRepositoryImpl(
 
     override suspend fun getConnectedServerId(): String? = secureStorage.read(KEY_CONNECTED_SERVER_ID)
 
+    override suspend fun getLibraryServerId(): String? = secureStorage.read(KEY_LIBRARY_SERVER_ID)
+
+    override suspend fun setLibraryServerId(id: String) {
+        secureStorage.save(KEY_LIBRARY_SERVER_ID, id)
+    }
+
     override suspend fun updateLocalUrl(url: ServerUrl) {
         secureStorage.save(KEY_SERVER_URL, url.value)
         publishActiveUrl()
@@ -228,6 +237,12 @@ internal class SettingsRepositoryImpl(
      * this — they let the user retry or work offline.
      */
     override suspend fun disconnectFromServer() {
+        // The connection is forgotten below, but the library on the device still came from that
+        // server. An install from before the origin was recorded has only the connection to say so
+        // — keep it as the library's origin first, or the next server can't tell it is different.
+        if (secureStorage.read(KEY_LIBRARY_SERVER_ID) == null) {
+            secureStorage.read(KEY_CONNECTED_SERVER_ID)?.let { secureStorage.save(KEY_LIBRARY_SERVER_ID, it) }
+        }
         authSession.clearAuthTokens()
         authSession.clearPendingRegistration()
         secureStorage.delete(KEY_SERVER_URL)

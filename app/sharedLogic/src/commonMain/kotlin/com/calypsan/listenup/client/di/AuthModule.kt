@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
@@ -158,6 +159,13 @@ internal val clientAuthModule: Module
             factoryOf(::LoginUseCase)
             factoryOf(::RegisterUseCase)
             factoryOf(::SetupUseCase)
+            // Every connect path adopts its server here; a different server signs out locally first
+            // (the same clean slate as Sign Out, downloads kept). A lambda so the use case never
+            // needs the whole logout chain to be tested.
+            factory {
+                val scope = this
+                AdoptServerUseCase(serverConfig = get(), localSignOut = { scope.get<LogoutUseCase>().logoutLocally() })
+            }
             factory {
                 LogoutUseCase(
                     authRepository = get(),

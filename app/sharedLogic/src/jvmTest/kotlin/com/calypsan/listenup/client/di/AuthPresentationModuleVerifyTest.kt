@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -38,6 +39,7 @@ import org.koin.test.verify.verify
  *  - [PushRegistrar] — owned by the platform push module (nullable, defaulted).
  *  - [PasswordResetRepository] — owned by `authModule`.
  *  - [InviteRepository] — owned by `adminModule`.
+ *  - [AdoptServerUseCase] — owned by `clientAuthModule`.
  *  - [RpcChannel] — constructed inline by `rpcChannel<LibraryAdminService>()`, not resolved by Koin.
  *  - [String] — `PendingApprovalViewModel` takes `userId`/`email` as runtime `parametersOf` args.
  */
@@ -62,6 +64,7 @@ class AuthPresentationModuleVerifyTest :
                         PushRegistrar::class,
                         PasswordResetRepository::class,
                         InviteRepository::class,
+                        AdoptServerUseCase::class,
                         RpcChannel::class,
                         String::class,
                     ),

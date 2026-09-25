@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.connect
 
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.InternalError
@@ -46,7 +47,7 @@ class ServerConnectViewModelTest :
 
             fun build(appScope: CoroutineScope): ServerConnectViewModel =
                 ServerConnectViewModel(
-                    serverConfig = serverConfig,
+                    adoptServer = AdoptServerUseCase(serverConfig) {},
                     instanceRepository = instanceRepository,
                     appScope = appScope,
                 )
@@ -250,6 +251,9 @@ class ServerConnectViewModelTest :
                 everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
                     AppResult.Success(verified)
                 everySuspend { fixture.serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { fixture.serverConfig.getConnectedServerId() } returns null
+                everySuspend { fixture.serverConfig.getLibraryServerId() } returns null
+                everySuspend { fixture.serverConfig.setLibraryServerId(any()) } returns Unit
                 everySuspend { fixture.serverConfig.setConnectedServerId(any()) } returns Unit
 
                 val viewModel = fixture.build(CoroutineScope(testDispatcher))

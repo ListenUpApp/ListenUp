@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.invite
 
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -83,7 +84,7 @@ class ClaimInviteViewModelTest :
 
         test("initial state is Idle") {
             val repo = mock<InviteRepository>()
-            val vm = ClaimInviteViewModel(repo, mock(), mock(), mock())
+            val vm = ClaimInviteViewModel(repo, mock(), mock(), mock(), AdoptServerUseCase(mock()) {})
 
             vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Idle>()
         }
@@ -92,7 +93,7 @@ class ClaimInviteViewModelTest :
             runTest(testDispatcher) {
                 val repo = mock<InviteRepository>()
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
-                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock(), AdoptServerUseCase(mock()) {})
 
                 vm.state.test {
                     awaitItem().shouldBeInstanceOf<ClaimInviteUiState.Idle>()
@@ -110,7 +111,7 @@ class ClaimInviteViewModelTest :
                 val repo = mock<InviteRepository>()
                 everySuspend { repo.lookupInvite(any()) } returns
                     AppResult.Failure(InternalError(correlationId = "corr-1"))
-                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock(), AdoptServerUseCase(mock()) {})
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -126,7 +127,7 @@ class ClaimInviteViewModelTest :
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
                 everySuspend { repo.claimInvite(any(), any(), any()) } returns
                     AppResult.Success(fakeSession())
-                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock(), AdoptServerUseCase(mock()) {})
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -147,7 +148,7 @@ class ClaimInviteViewModelTest :
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
                 everySuspend { repo.claimInvite(any(), any(), any()) } returns
                     AppResult.Success(fakeSession())
-                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock(), AdoptServerUseCase(mock()) {})
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -164,7 +165,7 @@ class ClaimInviteViewModelTest :
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
                 everySuspend { repo.claimInvite(any(), any(), any()) } returns
                     AppResult.Failure(AuthError.InvalidCredentials())
-                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock(), AdoptServerUseCase(mock()) {})
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -179,7 +180,7 @@ class ClaimInviteViewModelTest :
         test("onClaimSubmit before a code is known is a no-op") {
             runTest(testDispatcher) {
                 val repo = mock<InviteRepository>()
-                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock(), mock(), AdoptServerUseCase(mock()) {})
 
                 vm.onClaimSubmit("password123", "", "")
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -203,6 +204,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns ServerUrl("https://example.com")
                         everySuspend { setServerUrl(any()) } calls { events.add("setServerUrl") }
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val repo =
                     mock<InviteRepository> {
@@ -217,7 +221,7 @@ class ClaimInviteViewModelTest :
                         everySuspend { findReachableUrl(any()) } returns "https://example.com"
                         everySuspend { verifyServer(any()) } returns AppResult.Failure(InternalError())
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock())
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock(), AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = "https://example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -236,6 +240,9 @@ class ClaimInviteViewModelTest :
                 val serverConfig =
                     mock<ServerConfig> {
                         everySuspend { setServerUrl(any()) } calls { events.add("setServerUrl") }
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val repo =
                     mock<InviteRepository> {
@@ -245,7 +252,7 @@ class ClaimInviteViewModelTest :
                                 AppResult.Success(fakePreview())
                             }
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, mock(), mock())
+                val vm = ClaimInviteViewModel(repo, serverConfig, mock(), mock(), AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = null, code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -265,6 +272,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns ServerUrl("https://remote.example.com")
                         everySuspend { setServerUrl(any()) } returns Unit
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val instanceRepository =
                     mock<InstanceRepository> {
@@ -275,7 +285,7 @@ class ClaimInviteViewModelTest :
                     mock<InviteRepository> {
                         everySuspend { lookupInvite(any()) } returns AppResult.Success(fakePreview())
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock())
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock(), AdoptServerUseCase(serverConfig) {})
 
                 vm.start(
                     serverUrl = "http://192.168.1.5:8080",
@@ -302,6 +312,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns ServerUrl("https://example.com")
                         everySuspend { setServerUrl(any()) } calls { events.add("setServerUrl") }
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val repo =
                     mock<InviteRepository> {
@@ -316,7 +329,7 @@ class ClaimInviteViewModelTest :
                         everySuspend { findReachableUrl(any()) } returns "https://example.com"
                         everySuspend { verifyServer(any()) } returns AppResult.Failure(InternalError())
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock())
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock(), AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = "https://example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -335,6 +348,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns ServerUrl("https://example.com")
                         everySuspend { setServerUrl(any()) } returns Unit
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val authSession =
                     mock<DomainAuthSession> {
@@ -348,7 +364,7 @@ class ClaimInviteViewModelTest :
                     mock<InviteRepository> {
                         everySuspend { lookupInvite(any()) } returns AppResult.Success(fakePreview())
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession)
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession, AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = "https://other.example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -370,6 +386,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns ServerUrl("https://example.com")
                         everySuspend { setServerUrl(any()) } calls { events.add("setServerUrl") }
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val authSession =
                     mock<DomainAuthSession> {
@@ -388,7 +407,7 @@ class ClaimInviteViewModelTest :
                                 AppResult.Success(fakePreview())
                             }
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession)
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession, AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = "https://other.example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -413,6 +432,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns null
                         everySuspend { setServerUrl(any()) } calls { events.add("setServerUrl") }
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val authSession =
                     mock<DomainAuthSession> {
@@ -431,7 +453,7 @@ class ClaimInviteViewModelTest :
                                 AppResult.Success(fakePreview())
                             }
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession)
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession, AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = "https://example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -456,6 +478,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns ServerUrl("https://example.com")
                         everySuspend { setServerUrl(any()) } returns Unit
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                     }
                 val authSession =
                     mock<DomainAuthSession> {
@@ -466,7 +491,7 @@ class ClaimInviteViewModelTest :
                         everySuspend { findReachableUrl(any()) } returns "https://other.example.com"
                     }
                 val repo = mock<InviteRepository>()
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession)
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, authSession, AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = "https://other.example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -489,6 +514,9 @@ class ClaimInviteViewModelTest :
                     mock<ServerConfig> {
                         everySuspend { getServerUrl() } returns ServerUrl("https://example.com")
                         everySuspend { setServerUrl(any()) } returns Unit
+                        everySuspend { getConnectedServerId() } returns null
+                        everySuspend { getLibraryServerId() } returns null
+                        everySuspend { setLibraryServerId(any()) } returns Unit
                         everySuspend { setConnectedServerId(any()) } returns Unit
                     }
                 val verified =
@@ -513,7 +541,7 @@ class ClaimInviteViewModelTest :
                     mock<InviteRepository> {
                         everySuspend { lookupInvite(any()) } returns AppResult.Success(fakePreview())
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock())
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository, mock(), AdoptServerUseCase(serverConfig) {})
 
                 vm.start(serverUrl = "https://example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()

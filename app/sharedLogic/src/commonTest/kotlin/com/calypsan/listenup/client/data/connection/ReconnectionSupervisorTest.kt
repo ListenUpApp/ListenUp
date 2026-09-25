@@ -31,6 +31,7 @@ import dev.mokkery.verify.VerifyMode.Companion.exactly
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -143,6 +144,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { reevaluateCount++ },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -159,7 +161,7 @@ class ReconnectionSupervisorTest :
             check(reevaluateCount >= 1) { "reevaluate should have run at least once" }
         }
 
-        test("disconnected + different instance clears auth, emits ServerInstanceChanged, stops") {
+        test("disconnected + different instance adopts it with a clean slate, emits ServerInstanceChanged, stops") {
             val scope = TestScope(StandardTestDispatcher())
             val engineState = droppedWhileWanted()
             val instance =
@@ -183,6 +185,11 @@ class ReconnectionSupervisorTest :
             val emitted = mutableListOf<com.calypsan.listenup.api.error.AppError>()
             scope.backgroundScope.launch { errorBus.errors.collect { emitted.add(it) } }
 
+            // A different server now answers at this address (reinstalled, or another box on the IP).
+            // Clearing only the tokens kept the old server's library under the new one; adopting it
+            // signs out locally AND records the new identity, so signing back in does not trip this
+            // again on the next disconnect.
+            val replacedWith = mutableListOf<Pair<String, String>>()
             val supervisor =
                 ReconnectionSupervisor(
                     engineState = engineState,
@@ -191,6 +198,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = errorBus,
+                    onServerReplaced = { url, id -> replacedWith += url to id },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -199,7 +207,7 @@ class ReconnectionSupervisorTest :
             supervisor.start()
             scope.testScheduler.advanceUntilIdle()
 
-            verifySuspend { authSession.clearAuthTokens() }
+            replacedWith shouldBe listOf(activeUrl to "inst-NEW")
             verify(exactly(0)) { syncStreamClient.reconnectNow() }
             emitted.map { it.code } shouldContain AuthError.ServerInstanceChanged().code
         }
@@ -233,6 +241,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -274,6 +283,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -317,6 +327,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -364,6 +375,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -416,6 +428,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -462,6 +475,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -506,6 +520,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -555,6 +570,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = { if (reevaluateCalls++ == 0) error("mDNS sweep blew up") },
                     scope = scope,
                     probeIntervalMillis = interval,
@@ -600,6 +616,7 @@ class ReconnectionSupervisorTest :
                     syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
+                    onServerReplaced = { _, _ -> },
                     reevaluate = {
                         reevaluateCalls++
                         error("mDNS down")

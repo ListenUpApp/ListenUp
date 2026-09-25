@@ -44,6 +44,9 @@ class AuthModuleVerifyTest :
             clientAuthModule.verify(
                 extraTypes =
                     listOf(
+                        // AdoptServerUseCase's localSignOut is a lambda built inline over LogoutUseCase,
+                        // not a Koin-resolved type.
+                        Function1::class,
                         SecureStorage::class,
                         ServerConfig::class,
                         InstanceRepository::class,

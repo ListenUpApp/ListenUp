@@ -103,6 +103,14 @@ private class FakeServerConfig(
 
     override suspend fun getConnectedServerId(): String? = null
 
+    private var libraryServerIdValue: String? = null
+
+    override suspend fun getLibraryServerId(): String? = libraryServerIdValue
+
+    override suspend fun setLibraryServerId(id: String) {
+        libraryServerIdValue = id
+    }
+
     override suspend fun updateLocalUrl(url: ServerUrl) = Unit
 
     override suspend fun disconnectFromServer() = Unit
