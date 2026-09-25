@@ -92,11 +92,14 @@ internal fun ChapterTimeline(
                     "${ChapterTimeFormat.clock(window.windowStartMs)} – ${ChapterTimeFormat.clock(window.windowEndMs)}",
                 )
             }
+            Span(attrs = { classes("ctl-zooms") }) {
+                ZoomButton(WebIcon.Minus, "Zoom out") { onLaneChange(lane.zoomedAroundCentre(ZOOM_OUT_STEP, duration)) }
+                ZoomButton(WebIcon.Plus, "Zoom in") { onLaneChange(lane.zoomedAroundCentre(ZOOM_IN_STEP, duration)) }
+            }
+            // Its own line under the controls, so it never squeezes into a column at phone width.
             Span(attrs = { classes("ctl-hint") }) {
                 Text("Scroll to zoom · drag a marker, pull away or hold Shift to fine-tune")
             }
-            ZoomButton(WebIcon.Minus, "Zoom out") { onLaneChange(lane.zoomedAroundCentre(ZOOM_OUT_STEP, duration)) }
-            ZoomButton(WebIcon.Plus, "Zoom in") { onLaneChange(lane.zoomedAroundCentre(ZOOM_IN_STEP, duration)) }
         }
         DetailLane(state, lane, markers, playheadMs, ghosts, live)
     }

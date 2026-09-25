@@ -925,7 +925,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ctl-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .luw .ctl-h { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
 .luw .ctl-sub { font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.luw .ctl-hint { flex: 1; font-size: 0.74rem; color: var(--ink-3); }
+.luw .ctl-hint { flex: 1 1 100%; font-size: 0.74rem; color: var(--ink-3); }
+.luw .ctl-zooms { display: inline-flex; gap: 2px; margin-left: auto; }
 .luw .ctl-zoom { width: 28px; height: 28px; padding: 0; border: none; border-radius: 8px; background: transparent; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) { .luw .ctl-zoom:hover { background: var(--surface); color: var(--ink); } }
 .luw .ctl-zoom:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
@@ -945,6 +946,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ctl-mk.on .ctl-mk-n { color: var(--coral); }
 .luw .ctl-ph { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
 .luw .ctl-hud { position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 8px; background: var(--coral); color: #fff; font-size: 0.78rem; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
+
+/* A phone-width row cannot hold a title and seven controls side by side: the controls take their own
+   line under the title rather than pushing it off the edge. */
+@media (max-width: 640px) {
+  .luw .chr { flex-wrap: wrap; }
+  .luw .chr-acts { width: 100%; justify-content: flex-end; }
+}
 
 /* The guided drift flow. A panel rather than a dialog: pinning an anchor needs the list and the
    transport, and a modal over both would hide the two things the flow is about. */
