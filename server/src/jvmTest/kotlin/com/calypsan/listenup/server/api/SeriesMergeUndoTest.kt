@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
@@ -225,6 +226,56 @@ class SeriesMergeUndoTest :
                     f.service.undoSeriesMerge(f.onlyReceiptInto(t)).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
 
                     f.membershipsOf("b1") shouldBe listOf(x.value to 1.0, s.value to 2.0)
+                }
+            }
+        }
+
+        test("undo keeps series order even when the merge's own renumbering would tie the recorded ordinal") {
+            withSqlDatabase {
+                val f = undoFixture(this)
+                runTest {
+                    // Fixed ids, not resolveOrCreate's random UUIDs: a book held by BOTH source and
+                    // target at merge time has its source row deleted (PK collision with the target
+                    // row) and the merge's own re-upsert renumbers the surviving target row down to
+                    // ordinal 0 — exactly the recorded ordinal the old code re-inserts source at, an
+                    // actual tie. These ids are chosen so any tie-break the old code's plain INSERT
+                    // falls into is exercised deterministically rather than by accident.
+                    val sourceId = SeriesId("zz-source")
+                    val targetId = SeriesId("aa-target")
+                    f.series.upsert(
+                        SeriesSyncPayload(
+                            id = sourceId.value,
+                            name = "Source",
+                            sortName = null,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        ),
+                    )
+                    f.series.upsert(
+                        SeriesSyncPayload(
+                            id = targetId.value,
+                            name = "Target",
+                            sortName = null,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        ),
+                    )
+                    f.putBook(
+                        "b1",
+                        BookSeriesPayload(sourceId.value, "Source", 1.0),
+                        BookSeriesPayload(targetId.value, "Target", 9.0),
+                    )
+
+                    f.service.mergeSeries(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    f.service
+                        .undoSeriesMerge(f.onlyReceiptInto(targetId))
+                        .shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
+
+                    f.membershipsOf("b1") shouldBe listOf(sourceId.value to 1.0, targetId.value to 9.0)
                 }
             }
         }
