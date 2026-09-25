@@ -212,6 +212,46 @@ class SettingsRepositoryTest :
             }
         }
 
+        fun disconnectRig(
+            libraryServerId: String?,
+            connectedServerId: String?,
+        ): Pair<SecureStorage, SettingsRepositoryImpl> {
+            val storage = createMockStorage()
+            val authSession = mock<AuthSession>(MockMode.autoUnit)
+            everySuspend { storage.read(any()) } returns null
+            everySuspend { storage.read("library_server_id") } returns libraryServerId
+            everySuspend { storage.read("connected_server_id") } returns connectedServerId
+            everySuspend { storage.save(any(), any()) } returns Unit
+            everySuspend { storage.delete(any()) } returns Unit
+            everySuspend { authSession.initializeAuthState() } returns Unit
+            return storage to createRepository(storage = storage, authSession = authSession)
+        }
+
+        // 2026-09-25: Change Server forgets the connection — so on an install from before the
+        // library's origin was recorded, the only record of which server the local library came
+        // from was deleted before a new server could be compared against it, and a different
+        // server's data landed on top of the old library.
+        test("Change Server records where the library came from before it forgets the connection") {
+            runTest {
+                val (storage, repository) = disconnectRig(libraryServerId = null, connectedServerId = "server-a")
+
+                repository.disconnectFromServer()
+
+                verifySuspend { storage.save("library_server_id", "server-a") }
+                verifySuspend { storage.delete("connected_server_id") }
+            }
+        }
+
+        test("Change Server leaves an already-recorded library origin alone") {
+            runTest {
+                val (storage, repository) = disconnectRig(libraryServerId = "server-a", connectedServerId = "server-x")
+
+                repository.disconnectFromServer()
+
+                verifySuspend(VerifyMode.not) { storage.save("library_server_id", any()) }
+            }
+        }
+
         test("getServerUrl returns stored URL") {
             runTest {
                 val storage = createMockStorage()

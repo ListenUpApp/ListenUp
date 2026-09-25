@@ -237,6 +237,12 @@ internal class SettingsRepositoryImpl(
      * this — they let the user retry or work offline.
      */
     override suspend fun disconnectFromServer() {
+        // The connection is forgotten below, but the library on the device still came from that
+        // server. An install from before the origin was recorded has only the connection to say so
+        // — keep it as the library's origin first, or the next server can't tell it is different.
+        if (secureStorage.read(KEY_LIBRARY_SERVER_ID) == null) {
+            secureStorage.read(KEY_CONNECTED_SERVER_ID)?.let { secureStorage.save(KEY_LIBRARY_SERVER_ID, it) }
+        }
         authSession.clearAuthTokens()
         authSession.clearPendingRegistration()
         secureStorage.delete(KEY_SERVER_URL)
