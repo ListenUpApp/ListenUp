@@ -67,10 +67,14 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.api.contributorServiceScopedTo
 import com.calypsan.listenup.server.api.createContributorService
@@ -216,6 +220,10 @@ internal data class ClientEngineScope(
     val serverContributorRepository: ContributorRepository,
     val serverSeriesRepository: SeriesRepository,
     val serverGenreRepository: ServerGenreRepository,
+    /** The server's `SeriesService`, scoped to a ROOT caller — for server-side actions a test drives directly. */
+    val serverSeriesService: SeriesService,
+    /** The server's `GenreService`, scoped to a ROOT caller — for server-side actions a test drives directly. */
+    val serverGenreService: GenreService,
     val serverActiveSessionRepository: ActiveSessionRepository,
     val serverPlaybackPositionRepository: PlaybackPositionRepository,
     val serverListeningEventRepository: ListeningEventRepository,
@@ -300,6 +308,10 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
+        // Server-side calls a test makes directly (no client repository exists for them yet) run
+        // as ROOT — the same authority the JWT test principal carries on the RPC mount.
+        val harnessRootPrincipal =
+            PrincipalProvider { UserPrincipal(UserId("u1"), SessionId("harness-root"), UserRole.ROOT) }
         application {
             install(ServerContentNegotiation) { json(contractJson) }
             // Install the kotlinx.rpc application plugin before any `rpc(...)` route
@@ -746,6 +758,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     serverContributorRepository = serverRepos.contributorRepo,
                     serverSeriesRepository = serverRepos.seriesRepo,
                     serverGenreRepository = serverRepos.genreRepo,
+                    serverSeriesService = seriesServiceScopedTo(seriesService, harnessRootPrincipal),
+                    serverGenreService = genreServiceScopedTo(genreService, harnessRootPrincipal),
                     serverActiveSessionRepository = serverRepos.activeSessionRepo,
                     serverPlaybackPositionRepository = serverRepos.playbackPositionRepo,
                     serverListeningEventRepository = serverRepos.listeningEventRepo,
