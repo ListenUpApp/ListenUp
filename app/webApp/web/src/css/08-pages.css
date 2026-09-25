@@ -899,6 +899,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .chr-t { font-size: 0.92rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Tabular numerals so a column of start times reads as a column rather than a ragged edge. */
 .luw .chr-at { display: flex; align-items: center; gap: 8px; margin-top: 1px; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* The start time is its own control (type it exactly), so it reads as text until you reach for it. */
+.luw .chr-time { padding: 1px 4px; margin: 0 -4px; border: none; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: text; }
+@media (hover: hover) { .luw .chr-time:hover { background: var(--surface); color: var(--ink); } }
+.luw .chr-time:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.luw .ched-field-err { margin: 6px 0 0; font-size: 0.82rem; font-weight: 600; color: var(--coral); }
 .luw .chr-now { padding: 1px 6px; border-radius: 999px; background: var(--coral); color: #fff; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; }
 /* ⛔ Always visible, never revealed on hover. A finger has no hover, so a dim-until-hover strip
    would hide six controls per row from every touch reader — the same rule `.cat-row` learned. */
