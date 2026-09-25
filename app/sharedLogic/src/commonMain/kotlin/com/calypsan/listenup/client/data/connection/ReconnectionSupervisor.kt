@@ -64,14 +64,17 @@ internal class ReconnectionSupervisor(
         scope.launch {
             engineState
                 .observe()
-                .map { it.connection is ConnectionState.Connected }
+                .map { it.realtimeWanted && it.connection !is ConnectionState.Connected }
                 .distinctUntilChanged()
-                .collectLatest { connected ->
-                    // collectLatest cancels the running recovery loop the moment we become Connected.
-                    // Gating on the Boolean (not the raw ConnectionState) means the stream client's
-                    // Connecting<->Disconnected backoff flapping does NOT keep restarting the loop.
+                .collectLatest { needsRecovery ->
+                    // collectLatest cancels the running recovery loop the moment we become Connected
+                    // — or the moment the engine is stopped on purpose. Gating on the Boolean (not the
+                    // raw ConnectionState) means the stream client's Connecting<->Disconnected backoff
+                    // flapping does NOT keep restarting the loop. A deliberate stop (Android leaving
+                    // the foreground) is not an outage: recovering it meant a reconnect kick every ~2 s
+                    // for as long as the process lived.
                     try {
-                        if (!connected) recoveryLoop()
+                        if (needsRecovery) recoveryLoop()
                     } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                         throw e
                     } catch (e: Exception) {

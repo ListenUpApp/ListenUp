@@ -247,7 +247,7 @@ private class CountingTentativeSpanDao(
 }
 
 /** Minimal [CatchUp] that succeeds immediately without doing any real sync work. */
-private class NoOpCatchUp : CatchUp {
+internal class NoOpCatchUp : CatchUp {
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
@@ -260,7 +260,7 @@ private class NoOpCatchUp : CatchUp {
 }
 
 /** Minimal SSE client that flips state to Connected on [connect]. */
-private class FakeOrphanRaceSyncStreamClient(
+internal class FakeOrphanRaceSyncStreamClient(
     private val state: SyncEngineState,
 ) : SyncStreamClient {
     private val flow = MutableSharedFlow<SyncFrame>()
@@ -290,7 +290,7 @@ private class FakeOrphanRaceSyncStreamClient(
     override fun reconnectNow() = Unit
 }
 
-private fun buildOrphanTestEngine(
+internal fun buildOrphanTestEngine(
     db: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
     state: SyncEngineState,
     catchUp: CatchUp,
