@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.dto.GenreUpdate
+import com.calypsan.listenup.api.dto.MergeReceipt
+import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -13,6 +15,7 @@ import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.Genres
@@ -23,6 +26,7 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private val logger = loggerFor<GenreServiceImpl>()
@@ -72,10 +76,13 @@ internal class GenreServiceImpl(
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    private val clock: Clock = Clock.System,
 ) : GenreService {
+    private val mergeReceipts = GenreMergeReceipts(sqlDb, genreRepository, bookRepository, clock)
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): GenreServiceImpl =
-        GenreServiceImpl(genreRepository, bookRepository, sqlDb, accessPolicy, permissionPolicy, principal)
+        GenreServiceImpl(genreRepository, bookRepository, sqlDb, accessPolicy, permissionPolicy, principal, clock)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -352,6 +359,7 @@ internal class GenreServiceImpl(
         target: GenreId,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
+        val mergedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Sequential single-engine cutover (see deleteGenre): synchronous relink + alias-repoint
         // commit first, the source genre soft-delete runs through the substrate, then the affected
         // books are re-upserted. All SQLDelight, run sequentially — no SQLITE_BUSY.
@@ -363,6 +371,8 @@ internal class GenreServiceImpl(
         // duplicates), then re-point the aliases.
         val affectedBookIds =
             suspendTransaction(sqlDb) {
+                // The receipt snapshots the links and aliases this transaction is about to rewrite.
+                mergeReceipts.record(source, target, mergedBy)
                 val ids = sqlDb.bookGenresQueries.bookIdsForGenre(source.value).executeAsList()
                 sqlDb.bookGenresQueries.relinkGenreCopy(to_id = target.value, from_id = source.value)
                 sqlDb.bookGenresQueries.deleteAllForGenre(source.value)
@@ -381,6 +391,16 @@ internal class GenreServiceImpl(
         }
 
         return AppResult.Success(Unit)
+    }
+
+    override suspend fun listMergeReceipts(target: GenreId): AppResult<List<MergeReceipt>> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return AppResult.Success(mergeReceipts.openFor(target))
+    }
+
+    override suspend fun undoGenreMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return AppResult.Failure(GenreError.MergeReceiptNotFound(debugInfo = "undo lands in the next task"))
     }
 
     override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
