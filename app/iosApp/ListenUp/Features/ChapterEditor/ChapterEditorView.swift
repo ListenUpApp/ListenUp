@@ -28,6 +28,8 @@ struct ChapterEditorView: View {
     @State private var renameText: String = ""
     @State private var retiming: EditableChapterRow?
     @State private var timeText: String = ""
+    /// Bumped on every snap-to-playhead, so the snap lands with a tap under the thumb (spec §7.8).
+    @State private var snaps = 0
 
     var body: some View {
         NavigationStack {
@@ -152,6 +154,7 @@ struct ChapterEditorView: View {
             chapterSection(observer)
         }
         .listStyle(.insetGrouped)
+        .haptic(.press, trigger: snaps)
         .searchable(text: $query, prompt: Text(String(localized: "chapter_editor.jump_to_title")))
         .safeAreaInset(edge: .bottom) { addAtPlayheadBar(observer) }
     }
@@ -221,7 +224,10 @@ struct ChapterEditorView: View {
             playheadMs: playheadMs,
             onSelect: { observer.select(row.id) },
             onNudge: { observer.nudge(row.id, byMs: $0) },
-            onSnapToPlayhead: { at in observer.snapToPlayhead(row.id, atMs: at) },
+            onSnapToPlayhead: { at in
+                observer.snapToPlayhead(row.id, atMs: at)
+                snaps += 1
+            },
             onToggleLock: { observer.toggleLock(row.id) },
             onEditTime: {
                 timeText = ChapterTimeFormat.shared.precise(ms: row.startMs)

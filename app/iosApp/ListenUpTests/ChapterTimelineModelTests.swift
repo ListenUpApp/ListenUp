@@ -45,6 +45,23 @@ struct ChapterTimelineModelTests {
         #expect(timeline.readout == nil)
     }
 
+    /// The haptic cues (spec §7.8): one on pickup, one when the drag starts to be held by a neighbour
+    /// — once, not on every movement spent pressing against it.
+    @Test func pickingUpAndHittingANeighbourAreEachCuedOnce() {
+        let timeline = model()
+
+        timeline.press(atX: 500)
+        #expect(timeline.pickups == 1)
+        timeline.move(dx: -300, pulled: 0)
+        timeline.move(dx: -100, pulled: 0)
+        timeline.move(dx: -100, pulled: 0)
+        #expect(timeline.resists == 1)
+        timeline.release()
+
+        timeline.press(atX: 250)
+        #expect(timeline.pickups == 1)
+    }
+
     @Test func pullingAwayMakesTheDragFine() {
         var landed: Int64?
         let timeline = model { landed = $1 }

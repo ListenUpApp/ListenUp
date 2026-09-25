@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import com.calypsan.listenup.client.design.haptics.Haptics
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.geometry.Offset
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import androidx.compose.runtime.State
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -19,11 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,12 +84,6 @@ internal fun ChapterTimelinePane(
     onRetime: (String, Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val localDensity = LocalDensity.current
-    // Gesture callbacks outlive a recomposition; they must read the lane as it is now, not as it
-    // was when the pointer went down, or every movement would start from the same stale state.
-    val currentLane by rememberUpdatedState(lane)
-    var dragStartY by remember { mutableFloatStateOf(0f) }
-
     val plain = chapters.map { it.chapter }
     val previewed = lane.preview(plain, bookDurationMs)
     val markers =
@@ -100,14 +96,16 @@ internal fun ChapterTimelinePane(
                 selected = numbered.chapter.id == selectedChapterId,
             )
         }
-    val currentMarkers by rememberUpdatedState(markers)
-    val currentPlain by rememberUpdatedState(plain)
-    val density = chapterDensity(plain.map { it.startTime }, bookDurationMs, MINIMAP_BUCKETS)
-    val zoomState =
-        rememberTransformableState { zoomChange, _, _ ->
-            // A pinch spreading apart (zoomChange > 1) shows less time, so the window shrinks.
-            onLaneChange(currentLane.zoomed(1f / zoomChange, currentLane.geometry.widthPx / 2f, bookDurationMs))
-        }
+    // Gesture callbacks outlive a recomposition; they read these as they are now, never as they
+    // were when the pointer went down.
+    val live =
+        LiveLane(
+            lane = rememberUpdatedState(lane),
+            markers = rememberUpdatedState(markers),
+            chapters = rememberUpdatedState(plain),
+            onLaneChange = rememberUpdatedState(onLaneChange),
+            onRetime = rememberUpdatedState(onRetime),
+        )
 
     Column(
         modifier
@@ -121,31 +119,16 @@ internal fun ChapterTimelinePane(
             trailing = ChapterTimeFormat.clock(bookDurationMs),
         )
         ChapterMiniMap(
-            density = density,
+            density = chapterDensity(plain.map { it.startTime }, bookDurationMs, MINIMAP_BUCKETS),
             viewportStartFraction = fractionOf(lane.geometry.windowStartMs, bookDurationMs),
             viewportEndFraction = fractionOf(lane.geometry.windowEndMs, bookDurationMs),
             onSeekFraction = { fraction ->
-                onLaneChange(currentLane.centredOn((fraction.toDouble() * bookDurationMs).toLong(), bookDurationMs))
+                val at = (fraction.toDouble() * bookDurationMs).toLong()
+                live.onLaneChange.value(live.lane.value.centredOn(at, bookDurationMs))
             },
             contentDescription = stringResource(Res.string.chapter_editor_minimap_description),
         )
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            TimelineLabel(
-                leading = stringResource(Res.string.chapter_editor_detail_lane),
-                trailing = stringResource(Res.string.chapter_editor_zoom_hint),
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = { onLaneChange(lane.zoomedAroundCentre(ZOOM_OUT_STEP, bookDurationMs)) },
-            ) {
-                Icon(Icons.Default.ZoomOut, stringResource(Res.string.chapter_editor_zoom_out))
-            }
-            IconButton(
-                onClick = { onLaneChange(lane.zoomedAroundCentre(ZOOM_IN_STEP, bookDurationMs)) },
-            ) {
-                Icon(Icons.Default.ZoomIn, stringResource(Res.string.chapter_editor_zoom_in))
-            }
-        }
+        LaneHeader(onZoom = { factor -> onLaneChange(lane.zoomedAroundCentre(factor, bookDurationMs)) })
         Box {
             ChapterDetailLane(
                 geometry = lane.geometry,
@@ -154,77 +137,162 @@ internal fun ChapterTimelinePane(
                 ghosts = ghosts,
                 playheadMs = playheadMs,
                 contentDescription = stringResource(Res.string.chapter_editor_lane_description, chapters.size),
-                modifier =
-                    Modifier
-                        .onSizeChanged { onLaneChange(currentLane.measured(it.width.toFloat())) }
-                        // Two fingers zoom; one finger is left for the drag below (canPan = false).
-                        .transformable(zoomState, canPan = { false })
-                        .pointerInput(bookDurationMs) {
-                            // The mouse wheel on desktop: a notch is one zoom step around the pointer.
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    if (event.type != PointerEventType.Scroll) continue
-                                    val change = event.changes.firstOrNull() ?: continue
-                                    val step = if (change.scrollDelta.y > 0f) ZOOM_OUT_STEP else ZOOM_IN_STEP
-                                    onLaneChange(currentLane.zoomed(step, change.position.x, bookDurationMs))
-                                    change.consume()
-                                }
-                            }
-                        }.pointerInput(bookDurationMs) {
-                            // The gesture keeps its own working lane: several movements can arrive
-                            // before a recomposition hands back the updated one, and folding each
-                            // into a stale copy would drop travel.
-                            var working = currentLane
-
-                            fun push(next: TimelineLane) {
-                                working = next
-                                onLaneChange(next)
-                            }
-                            detectDragGestures(
-                                onDragStart = { offset ->
-                                    dragStartY = offset.y
-                                    push(currentLane.grabbed(offset.x, currentMarkers))
-                                },
-                                onDragEnd = {
-                                    val active = working.drag
-                                    val landing = working.committedStartMs(currentPlain, bookDurationMs)
-                                    // One drag, one edit: committed here, never per movement.
-                                    if (active != null && landing != null) onRetime(active.chapterId, landing)
-                                    push(working.released())
-                                },
-                                onDragCancel = { push(working.released()) },
-                            ) { change, amount ->
-                                if (working.drag == null) {
-                                    // Open lane: the drag moves the window instead of a boundary.
-                                    push(working.panned(amount.x, bookDurationMs))
-                                } else {
-                                    // Measured from where the drag began, not the lane's middle: a
-                                    // marker grabbed near the top can only be pulled downward.
-                                    val pulledDp = with(localDensity) { (change.position.y - dragStartY).toDp().value }
-                                    push(working.dragged(amount.x, pulledDp))
-                                }
-                            }
-                        },
+                modifier = Modifier.laneGestures(live, bookDurationMs),
             )
             // The step the pull landed in AND the time the boundary would take (spec §7.2): the
             // step makes the pull aimable, the number is what the reader is aiming at.
             lane.readout(plain, bookDurationMs)?.let { readout ->
-                Text(
-                    readout,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.tertiaryContainer)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
+                LaneReadout(readout, Modifier.align(Alignment.TopEnd))
             }
         }
     }
+}
+
+/** What the gesture handlers read: always the latest values, never the ones from when they attached. */
+private class LiveLane(
+    val lane: State<TimelineLane>,
+    val markers: State<List<TimelineChapter>>,
+    val chapters: State<List<Chapter>>,
+    val onLaneChange: State<(TimelineLane) -> Unit>,
+    val onRetime: State<(String, Long) -> Unit>,
+)
+
+/**
+ * Every gesture the lane answers: measuring, two-finger pinch, the desktop wheel, and the one-finger
+ * drag — a boundary if it lands on one, the window if it lands in open lane.
+ */
+@Composable
+private fun Modifier.laneGestures(
+    live: LiveLane,
+    bookDurationMs: Long,
+): Modifier {
+    val localDensity = LocalDensity.current
+    val haptics = LocalHaptics.current
+    val zoomState =
+        rememberTransformableState { zoomChange, _, _ ->
+            // A pinch spreading apart (zoomChange > 1) shows less time, so the window shrinks.
+            val now = live.lane.value
+            live.onLaneChange.value(now.zoomed(1f / zoomChange, now.geometry.widthPx / 2f, bookDurationMs))
+        }
+    return this
+        .onSizeChanged { live.onLaneChange.value(live.lane.value.measured(it.width.toFloat())) }
+        // Two fingers zoom; one finger is left for the drag below (canPan = false).
+        .transformable(zoomState, canPan = { false })
+        .pointerInput(bookDurationMs) {
+            // The mouse wheel on desktop: a notch is one zoom step around the pointer.
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull()
+                    if (event.type == PointerEventType.Scroll && change != null) {
+                        val step = if (change.scrollDelta.y > 0f) ZOOM_OUT_STEP else ZOOM_IN_STEP
+                        live.onLaneChange.value(live.lane.value.zoomed(step, change.position.x, bookDurationMs))
+                        change.consume()
+                    }
+                }
+            }
+        }.pointerInput(bookDurationMs) {
+            val drag = BoundaryDrag(live, bookDurationMs, haptics) { dy -> with(localDensity) { dy.toDp().value } }
+            detectDragGestures(
+                onDragStart = drag::start,
+                onDragEnd = drag::end,
+                onDragCancel = drag::cancel,
+                onDrag = drag::move,
+            )
+        }
+}
+
+/**
+ * One drag on the lane: a boundary if it began on one, the window if it began in open lane.
+ *
+ * Keeps its own working lane: several movements can arrive before a recomposition hands back the
+ * updated one, and folding each into a stale copy would drop travel.
+ */
+private class BoundaryDrag(
+    private val live: LiveLane,
+    private val bookDurationMs: Long,
+    private val haptics: Haptics,
+    private val toDp: (Float) -> Float,
+) {
+    private var working = live.lane.value
+    private var startY = 0f
+    private var held = false
+
+    private fun push(next: TimelineLane) {
+        working = next
+        live.onLaneChange.value(next)
+    }
+
+    fun start(offset: Offset) {
+        startY = offset.y
+        held = false
+        push(live.lane.value.grabbed(offset.x, live.markers.value))
+        if (working.drag != null) haptics.thresholdActivate()
+    }
+
+    fun move(
+        change: PointerInputChange,
+        amount: Offset,
+    ) {
+        if (working.drag == null) {
+            // Open lane: the drag moves the window instead of a boundary.
+            push(working.panned(amount.x, bookDurationMs))
+            return
+        }
+        // Measured from where the drag began, not the lane's middle: a marker grabbed near the top
+        // can only be pulled downward.
+        push(working.dragged(amount.x, toDp(change.position.y - startY)))
+        // The boundary resists at a neighbour rather than crossing it (spec §7.6).
+        val nowHeld = working.isHeldByNeighbour(live.chapters.value, bookDurationMs)
+        if (nowHeld && !held) haptics.selectionTick()
+        held = nowHeld
+    }
+
+    fun end() {
+        val active = working.drag
+        val landing = working.committedStartMs(live.chapters.value, bookDurationMs)
+        // One drag, one edit: committed here, never per movement.
+        if (active != null && landing != null) live.onRetime.value(active.chapterId, landing)
+        push(working.released())
+    }
+
+    fun cancel() = push(working.released())
+}
+
+/** "Detail lane", the zoom hint, and the zoom buttons for anyone who cannot pinch. */
+@Composable
+private fun LaneHeader(onZoom: (Float) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        TimelineLabel(
+            leading = stringResource(Res.string.chapter_editor_detail_lane),
+            trailing = stringResource(Res.string.chapter_editor_zoom_hint),
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = { onZoom(ZOOM_OUT_STEP) }) {
+            Icon(Icons.Default.ZoomOut, stringResource(Res.string.chapter_editor_zoom_out))
+        }
+        IconButton(onClick = { onZoom(ZOOM_IN_STEP) }) {
+            Icon(Icons.Default.ZoomIn, stringResource(Res.string.chapter_editor_zoom_in))
+        }
+    }
+}
+
+@Composable
+private fun LaneReadout(
+    readout: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        readout,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onTertiaryContainer,
+        modifier =
+            modifier
+                .padding(8.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+    )
 }
 
 @Composable

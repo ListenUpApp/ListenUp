@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import androidx.compose.runtime.DisposableEffectResult
+import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.rememberUpdatedState
@@ -22,6 +24,13 @@ import org.w3c.dom.pointerevents.PointerEvent
 import org.w3c.dom.events.WheelEvent
 
 private const val MINIMAP_BUCKETS = 90
+private const val TIMELINE_HEAD = "ctl-head"
+private const val ARIA_LABEL = "aria-label"
+private const val POINTER_DOWN = "pointerdown"
+private const val POINTER_MOVE = "pointermove"
+private const val POINTER_UP = "pointerup"
+private const val POINTER_CANCEL = "pointercancel"
+private const val WHEEL = "wheel"
 
 /** One zoom button press, or one wheel notch: a fifth narrower, or a quarter wider. */
 private const val ZOOM_IN_STEP = 0.8f
@@ -78,14 +87,14 @@ internal fun ChapterTimeline(
 
     Section(attrs = {
         classes("ctl")
-        attr("aria-label", "Chapter timeline")
+        attr(ARIA_LABEL, "Chapter timeline")
     }) {
-        Div(attrs = { classes("ctl-head") }) {
+        Div(attrs = { classes(TIMELINE_HEAD) }) {
             Span(attrs = { classes("ctl-h") }) { Text("Whole book") }
             Span(attrs = { classes("ctl-sub") }) { Text(ChapterTimeFormat.clock(duration)) }
         }
         MiniMap(state.chapters, duration, window.windowStartMs, window.windowEndMs, live)
-        Div(attrs = { classes("ctl-head") }) {
+        Div(attrs = { classes(TIMELINE_HEAD) }) {
             Span(attrs = { classes("ctl-h") }) { Text("Detail lane") }
             Span(attrs = { classes("ctl-sub") }) {
                 Text(
@@ -126,39 +135,8 @@ private fun MiniMap(
     val density = chapterDensity(chapters.map { it.startTime }, duration, MINIMAP_BUCKETS)
     Div(attrs = {
         classes("ctl-map")
-        attr("aria-label", "Whole book overview; drag to move the detail lane")
-        ref { element ->
-            var pressed: Int? = null
-
-            fun centreAt(event: PointerEvent) {
-                val rect = element.getBoundingClientRect()
-                if (rect.width <= 0.0) return
-                val fraction = ((event.clientX - rect.left) / rect.width).coerceIn(0.0, 1.0)
-                val total = live.duration.value
-                live.onLaneChange.value(live.lane.value.centredOn((fraction * total).toLong(), total))
-            }
-            val down: (Event) -> Unit = { event ->
-                val pointer = event as PointerEvent
-                pressed = pointer.pointerId
-                capture(element, pointer.pointerId)
-                centreAt(pointer)
-            }
-            val move: (Event) -> Unit = { event ->
-                val pointer = event as PointerEvent
-                if (pressed == pointer.pointerId) centreAt(pointer)
-            }
-            val up: (Event) -> Unit = { pressed = null }
-            element.addEventListener("pointerdown", down)
-            element.addEventListener("pointermove", move)
-            element.addEventListener("pointerup", up)
-            element.addEventListener("pointercancel", up)
-            onDispose {
-                element.removeEventListener("pointerdown", down)
-                element.removeEventListener("pointermove", move)
-                element.removeEventListener("pointerup", up)
-                element.removeEventListener("pointercancel", up)
-            }
-        }
+        attr(ARIA_LABEL, "Whole book overview; drag to move the detail lane")
+        ref { element -> miniMapGestures(element, live) }
     }) {
         density.forEach { weight ->
             Div(attrs = {
@@ -189,87 +167,8 @@ private fun DetailLane(
     val end = lane.geometry.windowEndMs
     Div(attrs = {
         classes("ctl-lane")
-        attr("aria-label", "Chapter timeline showing ${state.chapters.size} chapters")
-        ref { element ->
-            // The gesture keeps its own working lane between events: a movement that arrives
-            // before recomposition would otherwise fold into a stale copy and lose travel.
-            var working = live.lane.value
-            var pointer: Int? = null
-            var lastX = 0.0
-            var startY = 0.0
-
-            fun push(next: TimelineLane) {
-                working = next
-                live.onLaneChange.value(next)
-            }
-            val down: (Event) -> Unit = { event ->
-                val press = event as PointerEvent
-                if (press.button.toInt() == 0) {
-                    val rect = element.getBoundingClientRect()
-                    pointer = press.pointerId
-                    lastX = press.clientX.toDouble()
-                    startY = press.clientY.toDouble()
-                    capture(element, press.pointerId)
-                    val measured = live.lane.value.measured(rect.width.toFloat())
-                    push(measured.grabbed((press.clientX - rect.left).toFloat(), live.markers.value))
-                    press.preventDefault()
-                }
-            }
-            val move: (Event) -> Unit = { event ->
-                val motion = event as PointerEvent
-                if (pointer == motion.pointerId) {
-                    val dx = (motion.clientX - lastX).toFloat()
-                    lastX = motion.clientX.toDouble()
-                    push(
-                        if (working.drag == null) {
-                            // Open lane: dragging moves the window, not a boundary.
-                            working.panned(dx, live.duration.value)
-                        } else {
-                            // CSS pixels stand in for dp: the fine-scrub steps are about distance
-                            // pulled, and a CSS pixel is the web's device-independent unit.
-                            working.dragged(dx, (motion.clientY - startY).toFloat(), shiftHeld = motion.shiftKey)
-                        },
-                    )
-                }
-            }
-            val up: (Event) -> Unit = { event ->
-                val release = event as PointerEvent
-                if (pointer == release.pointerId) {
-                    pointer = null
-                    val active = working.drag
-                    val landing = working.committedStartMs(live.chapters.value, live.duration.value)
-                    // One drag, one edit: committed here, never per movement.
-                    if (active != null && landing != null) live.onRetime.value(active.chapterId, landing)
-                    push(working.released())
-                }
-            }
-            val cancel: (Event) -> Unit = {
-                pointer = null
-                push(working.released())
-            }
-            val wheel: (Event) -> Unit = { event ->
-                val notch = event as WheelEvent
-                notch.preventDefault()
-                val rect = element.getBoundingClientRect()
-                val step = if (notch.deltaY > 0) ZOOM_OUT_STEP else ZOOM_IN_STEP
-                val measured = live.lane.value.measured(rect.width.toFloat())
-                push(measured.zoomed(step, (notch.clientX - rect.left).toFloat(), live.duration.value))
-            }
-            // ⛔ Not passive: the wheel zooms the lane, and must not also scroll the page under it.
-            val notPassive: dynamic = js("({ passive: false })")
-            element.addEventListener("pointerdown", down)
-            element.addEventListener("pointermove", move)
-            element.addEventListener("pointerup", up)
-            element.addEventListener("pointercancel", cancel)
-            element.addEventListener("wheel", wheel, notPassive)
-            onDispose {
-                element.removeEventListener("pointerdown", down)
-                element.removeEventListener("pointermove", move)
-                element.removeEventListener("pointerup", up)
-                element.removeEventListener("pointercancel", cancel)
-                element.removeEventListener("wheel", wheel)
-            }
-        }
+        attr(ARIA_LABEL, "Chapter timeline showing ${state.chapters.size} chapters")
+        ref { element -> laneGestures(element, live) }
     }) {
         state.fileBoundaries.forEach { file ->
             Div(attrs = {
@@ -318,7 +217,7 @@ private fun ZoomButton(
     Button(attrs = {
         classes("ctl-zoom")
         attr("type", "button")
-        attr("aria-label", label)
+        attr(ARIA_LABEL, label)
         attr("title", label)
         onClick { onClick() }
     }) { Icon(icon, size = ZOOM_ICON) }
@@ -347,5 +246,156 @@ private fun capture(
     } catch (_: Throwable) {
         // Not capturable (a synthetic event, or a pointer already released) — the drag still works
         // while the pointer stays over the lane.
+    }
+}
+
+/** Attaches every listener in [listeners] to [element], and removes them all when disposed. */
+private fun DisposableEffectScope.listenTo(
+    element: HTMLElement,
+    listeners: Map<String, (Event) -> Unit>,
+    options: dynamic = null,
+): DisposableEffectResult {
+    listeners.forEach { (type, listener) ->
+        if (options ==
+            null
+        ) {
+            element.addEventListener(type, listener)
+        } else {
+            element.addEventListener(type, listener, options)
+        }
+    }
+    return onDispose { listeners.forEach { (type, listener) -> element.removeEventListener(type, listener) } }
+}
+
+/** The minimap: press or drag anywhere to centre the lane on that point of the book. */
+private fun DisposableEffectScope.miniMapGestures(
+    element: HTMLElement,
+    live: LiveTimeline,
+): DisposableEffectResult {
+    var pressed: Int? = null
+
+    fun centreAt(event: PointerEvent) {
+        val rect = element.getBoundingClientRect()
+        if (rect.width <= 0.0) return
+        val fraction = ((event.clientX - rect.left) / rect.width).coerceIn(0.0, 1.0)
+        val total = live.duration.value
+        live.onLaneChange.value(live.lane.value.centredOn((fraction * total).toLong(), total))
+    }
+    return listenTo(
+        element,
+        mapOf(
+            POINTER_DOWN to { event ->
+                val pointer = event as PointerEvent
+                pressed = pointer.pointerId
+                capture(element, pointer.pointerId)
+                centreAt(pointer)
+            },
+            POINTER_MOVE to { event ->
+                val pointer = event as PointerEvent
+                if (pressed == pointer.pointerId) centreAt(pointer)
+            },
+            POINTER_UP to { pressed = null },
+            POINTER_CANCEL to { pressed = null },
+        ),
+    )
+}
+
+/**
+ * The detail lane's pointer and wheel handling. The gesture keeps its own working lane between
+ * events: a movement that arrives before recomposition would otherwise fold into a stale copy.
+ */
+private fun DisposableEffectScope.laneGestures(
+    element: HTMLElement,
+    live: LiveTimeline,
+): DisposableEffectResult {
+    val drag = LaneDrag(element, live)
+    // ⛔ Not passive: the wheel zooms the lane, and must not also scroll the page under it.
+    val notPassive: dynamic = js("({ passive: false })")
+    val wheel = listenTo(element, mapOf(WHEEL to drag::onWheel), notPassive)
+    val pointers =
+        listenTo(
+            element,
+            mapOf(
+                POINTER_DOWN to drag::onDown,
+                POINTER_MOVE to drag::onMove,
+                POINTER_UP to drag::onUp,
+                POINTER_CANCEL to drag::onCancel,
+            ),
+        )
+    return onDispose {
+        wheel.dispose()
+        pointers.dispose()
+    }
+}
+
+/** One lane's drag in progress: where it began, and the lane as the gesture has left it. */
+private class LaneDrag(
+    private val element: HTMLElement,
+    private val live: LiveTimeline,
+) {
+    private var working = live.lane.value
+    private var pointer: Int? = null
+    private var lastX = 0.0
+    private var startY = 0.0
+
+    private fun push(next: TimelineLane) {
+        working = next
+        live.onLaneChange.value(next)
+    }
+
+    fun onDown(event: Event) {
+        val press = event as PointerEvent
+        if (press.button.toInt() != 0) return
+        val rect = element.getBoundingClientRect()
+        pointer = press.pointerId
+        lastX = press.clientX.toDouble()
+        startY = press.clientY.toDouble()
+        capture(element, press.pointerId)
+        val measured = live.lane.value.measured(rect.width.toFloat())
+        push(measured.grabbed((press.clientX - rect.left).toFloat(), live.markers.value))
+        press.preventDefault()
+    }
+
+    fun onMove(event: Event) {
+        val motion = event as PointerEvent
+        if (pointer != motion.pointerId) return
+        val dx = (motion.clientX - lastX).toFloat()
+        lastX = motion.clientX.toDouble()
+        push(
+            if (working.drag == null) {
+                // Open lane: dragging moves the window, not a boundary.
+                working.panned(dx, live.duration.value)
+            } else {
+                // CSS pixels stand in for dp: the fine-scrub steps are about distance pulled, and a
+                // CSS pixel is the web's device-independent unit.
+                working.dragged(dx, (motion.clientY - startY).toFloat(), shiftHeld = motion.shiftKey)
+            },
+        )
+    }
+
+    fun onUp(event: Event) {
+        val release = event as PointerEvent
+        if (pointer != release.pointerId) return
+        pointer = null
+        val active = working.drag
+        val landing = working.committedStartMs(live.chapters.value, live.duration.value)
+        // One drag, one edit: committed here, never per movement.
+        if (active != null && landing != null) live.onRetime.value(active.chapterId, landing)
+        push(working.released())
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    fun onCancel(event: Event) {
+        pointer = null
+        push(working.released())
+    }
+
+    fun onWheel(event: Event) {
+        val notch = event as WheelEvent
+        notch.preventDefault()
+        val rect = element.getBoundingClientRect()
+        val step = if (notch.deltaY > 0) ZOOM_OUT_STEP else ZOOM_IN_STEP
+        val measured = live.lane.value.measured(rect.width.toFloat())
+        push(measured.zoomed(step, (notch.clientX - rect.left).toFloat(), live.duration.value))
     }
 }

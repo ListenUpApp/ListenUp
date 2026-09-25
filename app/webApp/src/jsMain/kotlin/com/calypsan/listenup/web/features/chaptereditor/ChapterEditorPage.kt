@@ -151,26 +151,7 @@ private fun EditingContent(
 
     EditorHeader(state, onUndo, onBeginDrift, onSave, onLeave)
 
-    if (state.changedElsewhere) {
-        Div(attrs = {
-            classes("ched-elsewhere")
-            attr("role", "status")
-            attr("aria-live", "polite")
-        }) {
-            Span(attrs = { classes("ched-elsewhere-t") }) { Text("Chapters changed on another device") }
-            Span(attrs = { classes("ched-elsewhere-b") }) { Text("Your edits are kept. Review before saving.") }
-        }
-    }
-
-    // ⛔ `role="alert"`, not a passing toast. A refused save means nothing left the device and the
-    // reader has to fix a specific row — a message that disappears on its own takes the row number
-    // with it.
-    problem?.let {
-        P(attrs = {
-            classes("ched-problem")
-            attr("role", "alert")
-        }) { Text(it) }
-    }
+    EditorNotices(changedElsewhere = state.changedElsewhere, problem = problem)
 
     state.drift?.let { drift ->
         DriftPanel(
@@ -257,32 +238,83 @@ private fun EditingContent(
         }
     }
 
-    when (val action = rowAction) {
+    RowActionDialogs(
+        action = rowAction,
+        chapters = state.chapters,
+        onAction = { rowAction = it },
+        onRetitle = onRetitle,
+        onRetime = onRetime,
+        onRemove = onRemove,
+    )
+}
+
+/** The two things said above the list: the set changed elsewhere, and a refused save. */
+@Composable
+private fun EditorNotices(
+    changedElsewhere: Boolean,
+    problem: String?,
+) {
+    if (changedElsewhere) {
+        Div(attrs = {
+            classes("ched-elsewhere")
+            attr("role", "status")
+            attr("aria-live", "polite")
+        }) {
+            Span(attrs = { classes("ched-elsewhere-t") }) { Text("Chapters changed on another device") }
+            Span(attrs = { classes("ched-elsewhere-b") }) { Text("Your edits are kept. Review before saving.") }
+        }
+    }
+
+    // ⛔ `role="alert"`, not a passing toast. A refused save means nothing left the device and the
+    // reader has to fix a specific row — a message that disappears on its own takes the row number
+    // with it.
+    problem?.let {
+        P(attrs = {
+            classes("ched-problem")
+            attr("role", "alert")
+        }) { Text(it) }
+    }
+}
+
+/**
+ * A row's dialogs, one at a time — [action] is a single nullable value so "renaming and deleting at
+ * once" cannot be reached. [onAction] closes (null) or moves between them.
+ */
+@Composable
+private fun RowActionDialogs(
+    action: RowAction?,
+    chapters: List<Chapter>,
+    onAction: (RowAction?) -> Unit,
+    onRetitle: (String, String) -> Unit,
+    onRetime: (String, Long) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    when (action) {
         null -> {}
 
         is RowAction.Renaming -> {
             RenameChapterDialog(
                 initialTitle =
-                    state.chapters
+                    chapters
                         .firstOrNull { it.id == action.chapterId }
                         ?.title
                         .orEmpty(),
                 onConfirm = {
                     onRetitle(action.chapterId, it)
-                    rowAction = null
+                    onAction(null)
                 },
-                onDismiss = { rowAction = null },
+                onDismiss = { onAction(null) },
             )
         }
 
         is RowAction.EditingTime -> {
             ChapterTimeDialog(
-                initialMs = state.chapters.firstOrNull { it.id == action.chapterId }?.startTime ?: 0L,
+                initialMs = chapters.firstOrNull { it.id == action.chapterId }?.startTime ?: 0L,
                 onConfirm = {
                     onRetime(action.chapterId, it)
-                    rowAction = null
+                    onAction(null)
                 },
-                onDismiss = { rowAction = null },
+                onDismiss = { onAction(null) },
             )
         }
 
@@ -290,9 +322,9 @@ private fun EditingContent(
             DeleteChapterDialog(
                 onConfirm = {
                     onRemove(action.chapterId)
-                    rowAction = null
+                    onAction(null)
                 },
-                onDismiss = { rowAction = null },
+                onDismiss = { onAction(null) },
             )
         }
     }

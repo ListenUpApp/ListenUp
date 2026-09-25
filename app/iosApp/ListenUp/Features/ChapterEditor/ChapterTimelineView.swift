@@ -136,6 +136,8 @@ struct ChapterTimelineView: View {
             .onChange(of: width) { _, newWidth in model.measure(width: newWidth) }
             .gesture(laneDrag)
             .simultaneousGesture(lanePinch)
+            .haptic(.thresholdActivate, trigger: model.pickups)
+            .haptic(.selectionTick, trigger: model.resists)
         }
         .frame(height: Self.laneHeight)
         .accessibilityElement()

@@ -49,6 +49,12 @@ final class ChapterTimelineModel {
     private(set) var windowStartMs: Int64 = 0
     private(set) var windowEndMs: Int64 = 0
 
+    /// Counts that the view turns into haptics (spec §7.8): a boundary picked up, and a drag starting
+    /// to be held back by its neighbour — the "resist" instead of crossing it.
+    private(set) var pickups = 0
+    private(set) var resists = 0
+    private var held = false
+
     /// A drag was released: the boundary and where it lands.
     var onRetime: (String, Int64) -> Void = { _, _ in }
 
@@ -98,7 +104,9 @@ final class ChapterTimelineModel {
 
     /// A press on the lane at [x]: grabs the boundary under it, unless it is locked.
     func press(atX x: Double) {
+        held = false
         change { $0.grabbed(xPx: Float(x), markers: timelineMarkers()) }
+        if lane?.drag != nil { pickups += 1 }
     }
 
     /// A movement of [dx] sideways, [pulled] points away from where the press began.
@@ -109,6 +117,9 @@ final class ChapterTimelineModel {
                 ? current.panned(dxPx: Float(dx), bookDurationMs: bookDurationMs)
                 : current.dragged(dxPx: Float(dx), pulledDp: Float(pulled), shiftHeld: false)
         }
+        let nowHeld = lane?.isHeldByNeighbour(chapters: chapters, bookDurationMs: bookDurationMs) ?? false
+        if nowHeld && !held { resists += 1 }
+        held = nowHeld
     }
 
     /// The finger lifted: commits the drag once, then ends it.

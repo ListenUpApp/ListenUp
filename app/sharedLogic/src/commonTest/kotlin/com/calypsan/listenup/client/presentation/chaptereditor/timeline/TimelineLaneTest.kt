@@ -60,6 +60,16 @@ class TimelineLaneTest :
             pushed.committedStartMs(set, BOOK_MS) shouldBe previewed
         }
 
+        // Spec 7.6/7.8: at the limit a boundary "resists with a subtle haptic rather than crossing a
+        // neighbour". The phones buzz on this; it has to know when the drag is being held back.
+        test("a drag held back by a neighbour says so; a free drag does not") {
+            lane().grabbed(502f, markers()).dragged(dxPx = 30f, pulledDp = 0f).isHeldByNeighbour(set, BOOK_MS) shouldBe
+                false
+            lane().grabbed(502f, markers()).dragged(dxPx = -400f, pulledDp = 0f).isHeldByNeighbour(set, BOOK_MS) shouldBe
+                true
+            lane().isHeldByNeighbour(set, BOOK_MS) shouldBe false
+        }
+
         // 2026-09-25: Android called retime on every pointer move, and each was its own undo frame —
         // so Undo after a drag walked it back one pixel at a time. One drag is one edit.
         test("a drag commits once, on release, at the previewed start") {

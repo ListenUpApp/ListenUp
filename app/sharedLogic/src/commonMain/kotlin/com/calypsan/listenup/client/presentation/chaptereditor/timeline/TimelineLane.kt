@@ -86,6 +86,18 @@ data class TimelineLane(
     }
 
     /**
+     * True while the drag has pushed its boundary against a neighbour (or an end of the book) and is
+     * being held there — the moment the phones answer with a haptic "resist" (spec §7.6).
+     */
+    fun isHeldByNeighbour(
+        chapters: List<Chapter>,
+        bookDurationMs: Long,
+    ): Boolean {
+        val current = drag ?: return false
+        return committedStartMs(chapters, bookDurationMs) != current.targetMs
+    }
+
+    /**
      * The drag's readout — `25× · 0:00:50.04` — or null when idle. Both halves, because the pull is
      * only aimable if it says which step it landed in, and the number is what the reader is aiming at.
      */
