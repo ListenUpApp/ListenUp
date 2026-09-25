@@ -17,14 +17,14 @@ struct ChapterTimelineModelTests {
     private func model(retimes: @escaping (String, Int64) -> Void = { _, _ in }) -> ChapterTimelineModel {
         let model = ChapterTimelineModel()
         model.onRetime = retimes
-        model.update(
+        model.update(TimelineInput(
             chapters: [chapter("c1", start: 0), chapter("c2", start: 50_000)],
             bookDurationMs: 100_000,
             selectedId: nil,
             lockedIds: [],
             ghostStarts: [],
             fileStarts: []
-        )
+        ))
         model.measure(width: 1_000)
         return model
     }

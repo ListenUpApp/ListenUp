@@ -148,14 +148,14 @@ final class ChapterEditorObserver {
             changedElsewhere = editing.changedElsewhere
             chapters = rowModels(editing)
             drift = driftModel(editing)
-            timeline.update(
+            timeline.update(TimelineInput(
                 chapters: editing.chapters,
                 bookDurationMs: editing.bookDurationMs,
                 selectedId: editing.selectedChapterId,
                 lockedIds: editing.lockedChapterIds,
                 ghostStarts: ghostStarts(editing),
                 fileStarts: editing.fileBoundaries.map(\.startMs)
-            )
+            ))
         }
     }
 

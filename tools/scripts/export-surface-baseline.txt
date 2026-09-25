@@ -713,6 +713,7 @@ TimelineChapter
 TimelineFileBoundary
 TimelineFileInput
 TimelineGeometry
+TimelineLane
 Timestamp
 TitleSortUtils
 TranscodeError

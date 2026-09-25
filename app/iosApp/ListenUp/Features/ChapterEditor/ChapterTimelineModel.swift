@@ -12,6 +12,18 @@ struct LaneMarker: Identifiable, Equatable {
     let isLocked: Bool
 }
 
+/// What the timeline draws from: the editor's state, flattened by the observer.
+struct TimelineInput {
+    let chapters: [Chapter]
+    let bookDurationMs: Int64
+    let selectedId: String?
+    let lockedIds: Set<String>
+    /// The drift preview's corrected starts, drawn as ghosts.
+    let ghostStarts: [Int64]
+    /// Where each audio file begins, drawn as faint dividers.
+    let fileStarts: [Int64]
+}
+
 /// The chapter timeline (spec §7.3) over the shared Kotlin `TimelineLane` the other clients drive.
 ///
 /// SwiftUI translates its gestures into these calls — a drag on the lane, a pinch, the minimap, the
@@ -55,20 +67,13 @@ final class ChapterTimelineModel {
 
     /// Takes the editor's current state. The lane opens at the start; `centre(onMs:)` moves it to the
     /// playhead once the view knows where that is.
-    func update(
-        chapters: [Chapter],
-        bookDurationMs: Int64,
-        selectedId: String?,
-        lockedIds: Set<String>,
-        ghostStarts: [Int64],
-        fileStarts: [Int64]
-    ) {
-        self.chapters = chapters
-        self.bookDurationMs = bookDurationMs
-        self.selectedId = selectedId
-        self.lockedIds = lockedIds
-        self.ghostStarts = ghostStarts
-        self.fileStarts = fileStarts
+    func update(_ input: TimelineInput) {
+        chapters = input.chapters
+        bookDurationMs = input.bookDurationMs
+        selectedId = input.selectedId
+        lockedIds = input.lockedIds
+        ghostStarts = input.ghostStarts
+        fileStarts = input.fileStarts
         if lane == nil {
             lane = TimelineLane.Companion.shared.opening(
                 bookDurationMs: bookDurationMs,
