@@ -34,9 +34,9 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
-import com.calypsan.listenup.client.design.timeline.TimelineFileBoundary
-import com.calypsan.listenup.client.design.timeline.TimelineChapter
-import com.calypsan.listenup.client.design.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState

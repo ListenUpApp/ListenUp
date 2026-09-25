@@ -384,6 +384,43 @@ class ChapterEditorViewModelTest :
             vm.close()
         }
 
+        // The row overflow's "Insert below" (spec §7.4): a new boundary halfway through this
+        // chapter, so the split is visible in the list and can be refined from there.
+        test("insert below splits the chapter at the middle of its span") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.insertBelow("c1", title = "New chapter")
+
+                    val edited = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    edited.chapters.map { it.startTime } shouldBe listOf(0L, 300_000L, 600_000L, 900_000L)
+                    edited.chapters[2].title shouldBe "New chapter"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("insert below the last chapter splits what remains of the book") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.insertBelow("c2", title = "New chapter")
+
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .chapters
+                        .map { it.startTime } shouldBe listOf(0L, 300_000L, 900_000L, 1_050_000L)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("locking a boundary pins it, and locking it again lets it go") {
             val (vm, _, _) = rig()
             runTest {
