@@ -561,6 +561,9 @@ internal val clientSyncModule =
                 syncStreamClient = get(),
                 authSession = get(),
                 errorBus = get(),
+                onServerReplaced = { url, instanceId ->
+                    get<com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase>()(url, instanceId)
+                },
                 reevaluate = { coordinator.reevaluate() },
                 scope = get(qualifier = named(APP_SCOPE)),
                 reportProbe = get<ConnectionHealthStore>()::reportProbe,

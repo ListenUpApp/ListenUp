@@ -35,7 +35,7 @@ internal val authPresentationModule =
         factory {
             ServerSelectViewModel(
                 serverRepository = get(),
-                serverConfig = get(),
+                adoptServer = get(),
                 instanceRepository = get(),
                 errorBus = get(),
                 // App-lifetime scope: selecting a server flips the global auth state, which tears this
@@ -50,7 +50,7 @@ internal val authPresentationModule =
         }
         factory {
             ServerConnectViewModel(
-                serverConfig = get(),
+                adoptServer = get(),
                 instanceRepository = get(),
                 // App-lifetime scope: saving the verified URL flips the global auth state, tearing this
                 // screen (and its viewModelScope) down mid-activation — the work must outlive it.
@@ -100,6 +100,7 @@ internal val authPresentationModule =
                 serverConfig = get(),
                 instanceRepository = get(),
                 authSession = get(),
+                adoptServer = get(),
             )
         }
         // LibrarySetupViewModel for initial library configuration

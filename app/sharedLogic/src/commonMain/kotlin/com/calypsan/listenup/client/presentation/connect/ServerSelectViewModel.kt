@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.connect
 
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.ServerConnectError
@@ -8,7 +9,6 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
-import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
@@ -51,7 +51,7 @@ private val logger = KotlinLogging.logger {}
  */
 class ServerSelectViewModel(
     private val serverRepository: ServerRepository,
-    private val serverConfig: ServerConfig,
+    private val adoptServer: AdoptServerUseCase,
     private val instanceRepository: InstanceRepository,
     private val errorBus: ErrorBus,
     private val appScope: CoroutineScope,
@@ -203,8 +203,8 @@ class ServerSelectViewModel(
                 val reachableUrl = instanceRepository.findReachableUrl(urlsToTry)
 
                 if (reachableUrl != null) {
-                    serverConfig.setServerUrl(ServerUrl(reachableUrl))
-                    serverConfig.setConnectedServerId(server.id)
+                    // A different server from the one the library mirrors starts from a clean slate.
+                    adoptServer(url = reachableUrl, instanceId = server.id)
                     logger.info { "Server activated: ${server.id} at $reachableUrl" }
                     overlay.value = Overlay.None
                     _navigationEvents.trySend(NavigationEvent.ServerActivated)

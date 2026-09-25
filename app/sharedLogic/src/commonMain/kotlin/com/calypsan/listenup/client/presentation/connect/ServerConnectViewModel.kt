@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.connect
 
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import com.calypsan.listenup.client.core.Failure
@@ -32,7 +33,7 @@ private val logger = KotlinLogging.logger {}
  * not this ViewModel. Callers pass the current URL into [submitUrl].
  */
 class ServerConnectViewModel(
-    private val serverConfig: ServerConfig,
+    private val adoptServer: AdoptServerUseCase,
     private val instanceRepository: InstanceRepository,
     private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -77,13 +78,10 @@ class ServerConnectViewModel(
             state.value =
                 when (val result = instanceRepository.verifyServer(url)) {
                     is AppResult.Success -> {
-                        serverConfig.setServerUrl(ServerUrl(result.data.verifiedUrl))
-                        // Persist the server's stable instance id so ConnectionCoordinator can
-                        // IP-follow this manually-entered server when its LAN address changes.
-                        // Relocation matches the mDNS-advertised id, which is the SAME
-                        // InstanceIdentity as ServerInfo.instanceId — so without this, a manually
-                        // connected server has a null connectedServerId and never relocates.
-                        serverConfig.setConnectedServerId(result.data.serverInfo.instanceId)
+                        // The instance id both arms IP-follow (ConnectionCoordinator relocates by the
+                        // mDNS-advertised id, the same InstanceIdentity as ServerInfo.instanceId) and
+                        // tells a different server from this one — which starts from a clean library.
+                        adoptServer(url = result.data.verifiedUrl, instanceId = result.data.serverInfo.instanceId)
                         ServerConnectUiState.Verified
                     }
 

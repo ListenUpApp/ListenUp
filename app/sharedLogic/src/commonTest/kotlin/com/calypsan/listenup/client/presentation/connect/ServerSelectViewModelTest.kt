@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.connect
 
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import app.cash.turbine.test
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.core.ServerUrl
@@ -85,7 +86,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -110,7 +111,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -138,7 +139,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -164,7 +165,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -197,7 +198,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = errorBus,
                         appScope = CoroutineScope(testDispatcher),
@@ -232,7 +233,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -260,7 +261,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -286,12 +287,15 @@ class ServerSelectViewModelTest :
                 every { serverRepository.startDiscovery() } returns Unit
                 everySuspend { instanceRepository.findReachableUrl(any()) } returns server.localUrl
                 everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { serverConfig.getConnectedServerId() } returns null
+                everySuspend { serverConfig.getLibraryServerId() } returns null
+                everySuspend { serverConfig.setLibraryServerId(any()) } returns Unit
                 everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
 
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -326,12 +330,15 @@ class ServerSelectViewModelTest :
                 every { serverRepository.startDiscovery() } returns Unit
                 everySuspend { instanceRepository.findReachableUrl(any()) } returns fallback
                 everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { serverConfig.getConnectedServerId() } returns null
+                everySuspend { serverConfig.getLibraryServerId() } returns null
+                everySuspend { serverConfig.setLibraryServerId(any()) } returns Unit
                 everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
 
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -363,7 +370,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),
@@ -393,7 +400,7 @@ class ServerSelectViewModelTest :
                 val viewModel =
                     ServerSelectViewModel(
                         serverRepository,
-                        serverConfig,
+                        AdoptServerUseCase(serverConfig) {},
                         instanceRepository,
                         errorBus = ErrorBus(),
                         appScope = CoroutineScope(testDispatcher),

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.invite
 
+import com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
@@ -29,6 +30,7 @@ class ClaimInviteViewModel(
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
     private val authSession: AuthSession,
+    private val adoptServer: AdoptServerUseCase,
 ) : ViewModel() {
     private var closed = false
 
@@ -123,15 +125,16 @@ class ClaimInviteViewModel(
     }
 
     private suspend fun applyServerAndLookUp(reachable: String) {
-        serverConfig.setServerUrl(ServerUrl(reachable))
-        // Arm IP-follow for invite-claimed servers too: persist the server's stable instance
-        // id (the same InstanceIdentity the mDNS relocation matches) so a later LAN address
-        // change is followed. Best-effort — a probe failure leaves relocation disarmed, as
-        // before, and never blocks the claim.
-        when (val verify = instanceRepository.verifyServer(reachable)) {
-            is AppResult.Success -> serverConfig.setConnectedServerId(verify.data.serverInfo.instanceId)
-            is AppResult.Failure -> Unit
-        }
+        // Identify the server first: its stable instance id arms IP-follow (the same InstanceIdentity
+        // the mDNS relocation matches) and tells a different server from the one the library
+        // mirrors. Best-effort — a probe failure adopts the server unidentified, which never wipes
+        // and never blocks the claim.
+        val instanceId =
+            when (val verify = instanceRepository.verifyServer(reachable)) {
+                is AppResult.Success -> verify.data.serverInfo.instanceId
+                is AppResult.Failure -> null
+            }
+        adoptServer(url = reachable, instanceId = instanceId)
         lookUp(code ?: return)
     }
 

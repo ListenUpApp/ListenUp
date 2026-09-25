@@ -170,6 +170,18 @@ interface ServerConfig {
     /** The stable mDNS instance id of the connected server, or null if none/manual. */
     suspend fun getConnectedServerId(): String?
 
+    /**
+     * The instance id of the server the LOCAL LIBRARY came from — its provenance, kept apart from
+     * [getConnectedServerId]. Change Server forgets the connection (IP-follow must not relocate a
+     * disconnected app back to the old server) but the library on the device still belongs to that
+     * server; adopting a different one must know to start clean. Null before the first adoption on
+     * an install that predates this record.
+     */
+    suspend fun getLibraryServerId(): String?
+
+    /** Records which server the local library now belongs to. */
+    suspend fun setLibraryServerId(id: String)
+
     /** Refresh only the stored local (LAN) URL and publish [activeUrl] — no auth side effects. Used by IP-follow. */
     suspend fun updateLocalUrl(url: ServerUrl)
 

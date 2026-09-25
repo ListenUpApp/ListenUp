@@ -44,6 +44,8 @@ private val logger = KotlinLogging.logger {}
  *
  * @param reevaluate re-points the active URL at a reachable address (wired to
  *   `ConnectionCoordinator.reevaluate`); a lambda so this stays unit-testable.
+ * @param onServerReplaced adopts a DIFFERENT server found at the active URL — wired to
+ *   [com.calypsan.listenup.client.domain.usecase.auth.AdoptServerUseCase].
  * @param reportProbe reports probe reachability into the health store's oracle; a lambda to stay
  *   unit-testable.
  */
@@ -54,6 +56,7 @@ internal class ReconnectionSupervisor(
     private val syncStreamClient: SyncStreamClient,
     private val authSession: AuthSession,
     private val errorBus: ErrorBus,
+    private val onServerReplaced: suspend (url: String, instanceId: String) -> Unit,
     private val reevaluate: suspend () -> Unit,
     private val scope: CoroutineScope,
     private val probeIntervalMillis: Long = DEFAULT_PROBE_INTERVAL_MS,
@@ -98,7 +101,11 @@ internal class ReconnectionSupervisor(
                         val serverId = probe.data.serverInfo.instanceId
                         if (connectedId != null && serverId != connectedId) {
                             logger.info { "Server instance changed ($connectedId -> $serverId); re-auth required" }
-                            authSession.clearAuthTokens()
+                            // Adopt it the way any connect path does: a local sign-out (clean library,
+                            // downloads kept) and the new identity recorded. Clearing only the tokens
+                            // left the old server's library under the new one, and re-flagged the
+                            // "change" after every sign-in.
+                            onServerReplaced(active.value, serverId)
                             errorBus.emit(AuthError.ServerInstanceChanged())
                             return // stop hammering a server we can't use this session against
                         }
