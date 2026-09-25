@@ -175,6 +175,27 @@ class AuthEndToEndTest :
             }
         }
 
+        // The contract's optional RefreshRequest.clientVersion, across the real wire: the server's
+        // session row must say which app version the device runs now, not the one it signed in with.
+        test("a refresh records the client's app version on its session") {
+            runBlocking {
+                val fix = autoClose(fixture())
+                bootstrap(fix)
+
+                fix.authRepository.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
+
+                val versions =
+                    java.sql.DriverManager.getConnection("jdbc:sqlite:${fix.databasePath}").use { db ->
+                        db.createStatement().use { query ->
+                            query.executeQuery("SELECT client_version FROM sessions WHERE revoked_at IS NULL").use { rows ->
+                                generateSequence { if (rows.next()) rows.getString(1) else null }.toList()
+                            }
+                        }
+                    }
+                versions shouldBe listOf(AuthEndToEndFixture.E2E_CLIENT_VERSION)
+            }
+        }
+
         test("replaying a revoked refresh token returns InvalidRefreshToken") {
             runBlocking {
                 val fix = autoClose(fixture())
