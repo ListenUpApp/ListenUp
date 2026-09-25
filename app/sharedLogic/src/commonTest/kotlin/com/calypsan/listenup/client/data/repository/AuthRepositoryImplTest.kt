@@ -169,6 +169,8 @@ class AuthRepositoryImplTest :
         fun refreshRig(
             scope: kotlinx.coroutines.CoroutineScope,
             answers: List<AppResult<ContractAuthSession>>,
+            timeSource: kotlin.time.TimeSource = kotlin.time.TestTimeSource(),
+            epoch: () -> Long = { 7L },
         ): Triple<AuthRepositoryImpl, ClientAuthSession, MutableList<RefreshToken>> {
             val presented = mutableListOf<RefreshToken>()
             val public = mock<AuthServicePublic>()
@@ -177,7 +179,7 @@ class AuthRepositoryImplTest :
                 answers[(presented.size - 1).coerceAtMost(answers.lastIndex)]
             }
             val authSession = mock<ClientAuthSession>()
-            everySuspend { authSession.currentAuthEpoch() } returns 7L
+            everySuspend { authSession.currentAuthEpoch() } calls { epoch() }
             everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
             everySuspend { authSession.saveAuthTokens(any(), any(), any(), any(), any()) } returns Unit
             val repo =
@@ -186,8 +188,56 @@ class AuthRepositoryImplTest :
                     authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                     authSession = authSession,
                     scope = scope,
+                    timeSource = timeSource,
                 )
             return Triple(repo, authSession, presented)
+        }
+
+        // 2026-09-25: after a wake, the audio-token refresh rotated the session and then the reconnecting
+        // socket — still carrying the access token it had before — hit a 401 and asked for another.
+        // The two calls were sequential, so the single-flight never merged them: two rotations in one
+        // second, each a fresh chance for a lost reply. A refresh that just completed answers them all.
+        test("a refresh moments after a successful one reuses it instead of rotating again") {
+            runTest {
+                val clock = kotlin.time.TestTimeSource()
+                val (repo, _, presented) =
+                    refreshRig(backgroundScope, listOf(AppResult.Success(rotated("rt-1"))), timeSource = clock)
+
+                val first = repo.refreshAccessToken()
+                clock += kotlin.time.Duration.parse("1s")
+                val second = repo.refreshAccessToken()
+
+                presented.size shouldBe 1
+                second shouldBe first
+            }
+        }
+
+        test("once the moment has passed, a refresh rotates again") {
+            runTest {
+                val clock = kotlin.time.TestTimeSource()
+                val (repo, _, presented) =
+                    refreshRig(backgroundScope, listOf(AppResult.Success(rotated("rt-1"))), timeSource = clock)
+
+                repo.refreshAccessToken()
+                clock += kotlin.time.Duration.parse("30s")
+                repo.refreshAccessToken()
+
+                presented.size shouldBe 2
+            }
+        }
+
+        test("a sign-out in between is never bridged by a reused refresh") {
+            runTest {
+                var epoch = 7L
+                val (repo, _, presented) =
+                    refreshRig(backgroundScope, listOf(AppResult.Success(rotated("rt-1"))), epoch = { epoch })
+
+                repo.refreshAccessToken()
+                epoch = 8L
+                repo.refreshAccessToken()
+
+                presented.size shouldBe 2
+            }
         }
 
         // 2026-09-25: the server rotated a refresh token and the app died before saving the new one
@@ -336,12 +386,14 @@ class AuthRepositoryImplTest :
                 everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
                 everySuspend { authSession.saveAuthTokens(any(), any(), any(), any(), any()) } returns Unit
 
+                val clock = kotlin.time.TestTimeSource()
                 val repo =
                     AuthRepositoryImpl(
                         authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                         scope = backgroundScope,
+                        timeSource = clock,
                     )
 
                 val leaderJob = launch { repo.refreshAccessToken() }
@@ -371,6 +423,9 @@ class AuthRepositoryImplTest :
                 // perform a genuinely new refresh rather than replaying the finished one forever.
                 // (This is what the pre-#1286 version of this test was really protecting: an
                 // inFlightRefresh that never clears wedges every future refresh behind a dead entry.)
+                // Past the recent-refresh window first: within it the finished result is reused by
+                // design, which would pass here without proving the slot was ever released.
+                clock += RECENT_REFRESH_WINDOW + kotlin.time.Duration.parse("1s")
                 repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
                 refreshCalls shouldBe 2
             }

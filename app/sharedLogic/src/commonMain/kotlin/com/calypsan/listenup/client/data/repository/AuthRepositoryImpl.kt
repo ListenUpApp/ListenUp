@@ -24,6 +24,8 @@ import com.calypsan.listenup.api.error.TransportError
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration
+import kotlin.time.TimeSource
+import kotlin.time.TimeMark
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -61,6 +63,7 @@ internal class AuthRepositoryImpl(
     private val authedChannel: RpcChannel<AuthServiceAuthed>,
     private val authSession: ClientAuthSession,
     private val scope: CoroutineScope,
+    private val timeSource: TimeSource = TimeSource.Monotonic,
 ) : AuthRepository {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> =
         authPublicChannel.call { it.login(request) }
@@ -75,6 +78,22 @@ internal class AuthRepositoryImpl(
 
     private val refreshMutex = Mutex()
     private var inFlightRefresh: CompletableDeferred<AppResult<AuthSession>>? = null
+
+    /**
+     * The last successful refresh, reused by any refresh asked for within [RECENT_REFRESH_WINDOW] in
+     * the same auth epoch. The single-flight merges CONCURRENT callers; this merges the sequential
+     * ones — after a wake the audio-token refresh rotated the session and a reconnecting socket,
+     * still holding the access token from before, asked again a second later. Two rotations in one
+     * second buy nothing and each is another chance for a lost reply. Never across an epoch change:
+     * a sign-out in between must not be bridged by a result from before it.
+     */
+    private var recentRefresh: RecentRefresh? = null
+
+    private class RecentRefresh(
+        val at: TimeMark,
+        val epoch: Long,
+        val result: AppResult.Success<AuthSession>,
+    )
 
     /**
      * Single-flight token refresh. The refresh token rotates on every use, so two
@@ -104,15 +123,25 @@ internal class AuthRepositoryImpl(
      */
     override suspend fun refreshAccessToken(): AppResult<AuthSession> {
         val pending = CompletableDeferred<AppResult<AuthSession>>()
+        val epoch = authSession.currentAuthEpoch()
         val deferred =
-            refreshMutex.withLock { inFlightRefresh ?: pending.also { inFlightRefresh = it } }
+            refreshMutex.withLock {
+                recentRefresh
+                    ?.takeIf { it.epoch == epoch && it.at.elapsedNow() < RECENT_REFRESH_WINDOW }
+                    ?.let { return it.result }
+                inFlightRefresh ?: pending.also { inFlightRefresh = it }
+            }
         if (deferred !== pending) return deferred.await()
 
         // We are the leader. Launch the refresh on `scope` — see the class KDoc for why this must
         // NOT run on the calling coroutine — then await it like any other caller would.
         scope.launch {
             try {
-                deferred.complete(performRefresh())
+                val result = performRefresh()
+                if (result is AppResult.Success) {
+                    refreshMutex.withLock { recentRefresh = RecentRefresh(timeSource.markNow(), epoch, result) }
+                }
+                deferred.complete(result)
             } catch (e: CancellationException) {
                 // `scope` itself was cancelled (app shutdown/logout sweep) mid-refresh. Complete
                 // with a plain VALUE, not exceptionally — completing exceptionally would re-throw
@@ -189,6 +218,9 @@ internal class AuthRepositoryImpl(
 
     override suspend fun logoutAll(): AppResult<Unit> = authedChannel.call { it.logoutAll() }
 }
+
+/** How long a successful refresh answers further refresh requests — seconds, far inside the access token's life. */
+internal val RECENT_REFRESH_WINDOW: Duration = 5.seconds
 
 /**
  * Waits between retries of a refresh whose reply was lost: about 8 minutes in total, well inside the
