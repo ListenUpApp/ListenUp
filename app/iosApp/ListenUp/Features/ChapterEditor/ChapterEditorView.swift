@@ -128,6 +128,23 @@ struct ChapterEditorView: View {
 
     @ViewBuilder
     private func editing(_ observer: ChapterEditorObserver) -> some View {
+        VStack(spacing: 0) {
+            if !observer.chapters.isEmpty {
+                ChapterTimelineView(
+                    model: observer.timeline,
+                    playheadMs: playheadMs,
+                    bookDurationMs: observer.bookDurationMs,
+                    chapterCount: observer.chapters.count
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+            chapterList(observer)
+        }
+    }
+
+    @ViewBuilder
+    private func chapterList(_ observer: ChapterEditorObserver) -> some View {
         List {
             if observer.changedElsewhere { Section { changedElsewhereNotice } }
             if let problem = observer.problem { Section { problemNotice(problem) } }
