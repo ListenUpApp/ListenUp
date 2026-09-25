@@ -76,6 +76,34 @@ class ProviderHtmlTest :
             providerHtmlToPlainText("   \n  Hello world.  \n  ") shouldBe "Hello world."
         }
 
+        test("a pre tag is not mistaken for a paragraph tag and stays one block") {
+            // Standalone (no adjacent real <p> break, so a wrongly-inserted break can't hide
+            // behind one that was going to happen anyway, and isn't collapsed away by the
+            // 3-newline rule either — this is what makes <p[^>]*> matching <pre> visible.
+            providerHtmlToPlainText("Before<pre>code</pre>After") shouldBe "BeforecodeAfter"
+        }
+
+        test("a link tag is not mistaken for a list-item tag") {
+            providerHtmlToPlainText("Before<link rel=x>After") shouldBe "BeforeAfter"
+        }
+
+        test("whitespace inside the source HTML (including newlines) collapses to a single space") {
+            val html = "<p>one\n   two</p><p>three</p>"
+            providerHtmlToPlainText(html) shouldBe
+                """
+                one two
+
+                three
+                """.trimIndent()
+        }
+
+        test("a line is trimmed on both sides, not just trailing") {
+            // A stray space right after the opening <p> lands, after the break substitution,
+            // glued to the start of the paragraph's first real text on the same line — only a
+            // leading (not just trailing) trim catches it.
+            providerHtmlToPlainText("<p>a</p> <p> b</p>") shouldBe "a\n\nb"
+        }
+
         test("a realistic multi-paragraph publisher summary preserves structure") {
             val html =
                 "<p><b>From a bestselling author</b> comes an epic tale.</p>" +
