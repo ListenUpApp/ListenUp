@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.design.timeline
+package com.calypsan.listenup.client.presentation.chaptereditor.timeline
 
 /**
  * Shades the minimap: one normalised weight per bucket across the whole book.

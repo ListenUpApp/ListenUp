@@ -9,6 +9,10 @@ private const val MS_PER_MINUTE = MS_PER_SECOND * SECONDS_PER_MINUTE
 private const val MS_PER_HOUR = MS_PER_MINUTE * MINUTES_PER_HOUR
 private const val TENTHS_PER_SECOND = 10L
 private const val HUNDREDTHS_PER_SECOND = 100L
+private const val MS_DIGITS = 3
+
+/** `h:mm:ss`, `m:ss` or `s`, then an optional fraction of up to three digits. */
+private val TYPED_TIME = Regex("""^(\d+(?::\d{1,2}){0,2})(?:\.(\d{1,3}))?$""")
 
 /**
  * Absolute positions inside a book, at the precision the chapter editor works in.
@@ -61,6 +65,26 @@ object ChapterTimeFormat {
         val subSecond = withinMinute % MS_PER_SECOND
         val tenths = subSecond / (MS_PER_SECOND / TENTHS_PER_SECOND)
         return "$sign$minutes:${pad(seconds)}.$tenths"
+    }
+
+    /**
+     * Reads a start time typed into a chapter row back into milliseconds, or null if it is not one.
+     *
+     * Accepts what [precise] and [exact] display, `h:mm:ss.fff`, and the shorter shapes people type:
+     * `m:ss`, `m:ss.f`, and bare seconds. Up to three fractional digits. Minutes and seconds after a
+     * colon must be below 60; hours may run past 24, as they do in a long book. Negative times and
+     * anything else are refused rather than guessed at: a guessed boundary lands somewhere the user
+     * did not ask for, silently.
+     */
+    fun parsePrecise(text: String): Long? {
+        val match = TYPED_TIME.matchEntire(text.trim()) ?: return null
+        val fields = match.groupValues[1].split(':').map { it.toLongOrNull() ?: return null }
+        val fraction = match.groupValues[2]
+        // Only the leading field may exceed 59: `65:00:00` is a long book, `1:75` is a typo.
+        if (fields.drop(1).any { it >= SECONDS_PER_MINUTE }) return null
+        val totalSeconds = fields.fold(0L) { acc, value -> acc * SECONDS_PER_MINUTE + value }
+        val fractionMs = if (fraction.isEmpty()) 0L else fraction.padEnd(MS_DIGITS, '0').toLong()
+        return totalSeconds * MS_PER_SECOND + fractionMs
     }
 
     private fun render(

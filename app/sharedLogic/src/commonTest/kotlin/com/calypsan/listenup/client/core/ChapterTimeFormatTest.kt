@@ -63,6 +63,32 @@ class ChapterTimeFormatTest :
             }
         }
 
+        // Typing a start: the row shows `h:mm:ss.t`, so the field must take back exactly that, and
+        // the shorter shapes people actually type. Anything else is refused rather than guessed at.
+        test("a typed time reads back exactly what the row displays") {
+            ChapterTimeFormat.parsePrecise(ChapterTimeFormat.precise(position)) shouldBe 148_328_400L
+            ChapterTimeFormat.parsePrecise(ChapterTimeFormat.exact(position)) shouldBe 148_328_420L
+        }
+
+        test("milliseconds can be typed in full") {
+            ChapterTimeFormat.parsePrecise("41:12:08.423") shouldBe 148_328_423L
+        }
+
+        test("shorter shapes mean what they look like") {
+            withClue("m:ss") { ChapterTimeFormat.parsePrecise("3:05") shouldBe 185_000L }
+            withClue("seconds alone") { ChapterTimeFormat.parsePrecise("75.5") shouldBe 75_500L }
+            withClue("no hours but a fraction") { ChapterTimeFormat.parsePrecise("12:08.4") shouldBe 728_400L }
+        }
+
+        test("surrounding spaces are forgiven; hours may run past 24") {
+            ChapterTimeFormat.parsePrecise("  65:00:00 ") shouldBe 234_000_000L
+        }
+
+        test("anything that is not a time is refused rather than guessed at") {
+            listOf("", "abc", "1:2:3:4", "1:60", "1:05:60", "-0:05", "1.2.3", "12:", ":30", "0:05.1234")
+                .forEach { typed -> withClue("'$typed'") { ChapterTimeFormat.parsePrecise(typed) shouldBe null } }
+        }
+
         test("zero offset reads as a plus, because no drift is not negative drift") {
             ChapterTimeFormat.offset(0L) shouldBe "+0:00.0"
         }

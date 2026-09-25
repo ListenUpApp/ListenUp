@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.design.timeline
 
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.chapterDensity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

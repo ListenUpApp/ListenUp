@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.ScrubDrag
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.chapterGrabbedAt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,10 +45,10 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.design.timeline.ChapterDetailLane
 import com.calypsan.listenup.client.design.timeline.ChapterMiniMap
-import com.calypsan.listenup.client.design.timeline.TimelineChapter
-import com.calypsan.listenup.client.design.timeline.TimelineFileBoundary
-import com.calypsan.listenup.client.design.timeline.TimelineGeometry
-import com.calypsan.listenup.client.design.timeline.chapterDensity
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.chapterDensity
 import com.calypsan.listenup.client.domain.model.Chapter
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.chapter_editor_detail_lane

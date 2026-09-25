@@ -167,6 +167,20 @@ class ChapterEditorViewModel(
         title: String,
     ) = edit { chapters, duration -> chapters.added(Uuid.random().toString(), title, atMs, duration) }
 
+    /**
+     * Inserts a boundary halfway through [chapterId]'s span — the row overflow's "Insert below".
+     * The midpoint rather than the playhead, because the row being acted on is not necessarily the
+     * one playing; the new boundary is then refined like any other.
+     */
+    fun insertBelow(
+        chapterId: String,
+        title: String,
+    ) = edit { chapters, duration ->
+        val chapter = chapters.firstOrNull { it.id == chapterId } ?: return@edit chapters
+        val midpoint = chapter.startTime + chapter.duration / 2
+        chapters.added(Uuid.random().toString(), title, midpoint, duration)
+    }
+
     /** Removes [chapterId], merging its span into the chapter before it. */
     fun remove(chapterId: String) = edit { chapters, duration -> chapters.removed(chapterId, duration) }
 

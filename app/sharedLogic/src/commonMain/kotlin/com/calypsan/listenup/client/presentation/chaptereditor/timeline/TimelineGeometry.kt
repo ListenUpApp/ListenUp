@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.design.timeline
+package com.calypsan.listenup.client.presentation.chaptereditor.timeline
 
 /** Narrowest window the detail lane will zoom to, per the editor spec's ~10-second floor. */
 private const val MIN_WINDOW_MS = 10_000L

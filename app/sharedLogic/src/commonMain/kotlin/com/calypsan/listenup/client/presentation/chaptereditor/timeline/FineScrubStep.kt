@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.design.timeline
+package com.calypsan.listenup.client.presentation.chaptereditor.timeline
 
 import kotlin.math.abs
 import kotlin.math.roundToLong

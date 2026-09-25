@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.design.timeline
+package com.calypsan.listenup.client.presentation.chaptereditor.timeline
 
 /**
  * One chapter boundary as the timeline needs to draw it.

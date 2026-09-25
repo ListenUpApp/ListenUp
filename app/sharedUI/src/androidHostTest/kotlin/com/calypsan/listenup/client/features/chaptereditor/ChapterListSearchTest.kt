@@ -5,7 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import com.calypsan.listenup.client.design.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
 import com.calypsan.listenup.client.domain.model.Chapter
 import org.junit.Assert.assertEquals
 import org.junit.Rule
