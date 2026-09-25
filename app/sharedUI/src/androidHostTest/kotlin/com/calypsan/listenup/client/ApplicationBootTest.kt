@@ -2,12 +2,14 @@ package com.calypsan.listenup.client
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkManager
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.stopKoin
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -78,5 +80,23 @@ class ApplicationBootTest {
         // is genuinely reachable.
         WorkManager.getInstance(app) shouldNotBe null
         GlobalContext.getOrNull() shouldNotBe null
+
+        // Every dependency MainActivity declares must resolve against this real graph. On
+        // 2026-09-25 `by inject<PlaybackStateProvider>()` shipped for Continue On: nothing binds
+        // that interface (PlaybackManager implements it; iOS binds no PlaybackManager at all), so
+        // the app crashed the first time Android asked for handoff data — every time it left the
+        // foreground. Forcing each lazy delegate here covers the next such field too, without a
+        // list to keep in step with the activity.
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
+        val unresolved =
+            MainActivity::class.java.declaredFields
+                .filter { Lazy::class.java.isAssignableFrom(it.type) }
+                .mapNotNull { field ->
+                    field.isAccessible = true
+                    runCatching { (field.get(activity) as Lazy<*>).value }
+                        .exceptionOrNull()
+                        ?.let { "${field.name.removeSuffix("\$delegate")}: ${it.message?.take(120)}" }
+                }
+        unresolved shouldBe emptyList()
     }
 }
