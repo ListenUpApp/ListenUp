@@ -26,6 +26,8 @@ struct ChapterEditorView: View {
     @State private var renaming: EditableChapterRow?
     @State private var deleting: EditableChapterRow?
     @State private var renameText: String = ""
+    @State private var retiming: EditableChapterRow?
+    @State private var timeText: String = ""
 
     var body: some View {
         NavigationStack {
@@ -71,6 +73,23 @@ struct ChapterEditorView: View {
                 renaming = nil
             }
             .disabled(renameText.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .alert(String(localized: "chapter_editor.edit_time_title"), isPresented: retimeBinding) {
+            TextField(String(localized: "chapter_editor.edit_time_label"), text: $timeText)
+                .keyboardType(TextEntry.timecode.keyboardType)
+                .textInputAutocapitalization(TextEntry.timecode.capitalization.textInput)
+                .autocorrectionDisabled(!TextEntry.timecode.autocorrects)
+            Button(String(localized: "common.cancel"), role: .cancel) { retiming = nil }
+            Button(String(localized: "common.save")) {
+                if let row = retiming, let ms = typedStartMs { observer?.retime(row.id, toMs: ms) }
+                retiming = nil
+            }
+            // ⛔ Refused rather than guessed at: a guessed boundary lands where nobody asked.
+            .disabled(typedStartMs == nil)
+        } message: {
+            if typedStartMs == nil {
+                Text(String(localized: "chapter_editor.edit_time_invalid"))
+            }
         }
         .confirmationDialog(
             String(localized: "chapter_editor.delete_title"),
@@ -187,6 +206,12 @@ struct ChapterEditorView: View {
             onNudge: { observer.nudge(row.id, byMs: $0) },
             onSnapToPlayhead: { at in observer.snapToPlayhead(row.id, atMs: at) },
             onToggleLock: { observer.toggleLock(row.id) },
+            onEditTime: {
+                timeText = ChapterTimeFormat.shared.precise(ms: row.startMs)
+                retiming = row
+            },
+            onInsertBelow: { observer.insertBelow(row.id, title: String(localized: "chapter_editor.new_chapter_title")) },
+            onPlayFrom: { observer.playFrom(row.id) },
             onRename: {
                 renameText = row.title
                 renaming = row
@@ -282,6 +307,15 @@ struct ChapterEditorView: View {
 
     private var renameBinding: Binding<Bool> {
         Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+    }
+
+    private var retimeBinding: Binding<Bool> {
+        Binding(get: { retiming != nil }, set: { if !$0 { retiming = nil } })
+    }
+
+    /// What the time field holds, read through the shared parser every client uses.
+    private var typedStartMs: Int64? {
+        ChapterTimeFormat.shared.parsePrecise(text: timeText)
     }
 
     private var deleteBinding: Binding<Bool> {

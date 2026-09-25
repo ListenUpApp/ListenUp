@@ -37,6 +37,8 @@ enum TextEntry: Equatable {
     case identifier
     /// A search query: nothing corrected, nothing capitalized.
     case search
+    /// A position in a book, typed as `1:02:03.4` — digits and the colon, nothing corrected.
+    case timecode
 
     /// Capitalization as an `Equatable` value the tests can pin; `TextInputAutocapitalization`
     /// itself is not comparable.
@@ -60,6 +62,7 @@ enum TextEntry: Equatable {
         case .number: .numberPad
         case .decimal: .decimalPad
         case .identifier: .asciiCapable
+        case .timecode: .numbersAndPunctuation
         case .words, .sentences, .givenName, .familyName, .password, .newPassword, .search: .default
         }
     }
@@ -73,7 +76,7 @@ enum TextEntry: Equatable {
         case .password: .password
         case .newPassword: .newPassword
         case .url: .URL
-        case .words, .sentences, .number, .decimal, .identifier, .search: nil
+        case .words, .sentences, .number, .decimal, .identifier, .search, .timecode: nil
         }
     }
 
@@ -82,7 +85,7 @@ enum TextEntry: Equatable {
         case .words, .givenName, .familyName: .words
         case .sentences: .sentences
         case .identifier: .characters
-        case .email, .accountEmail, .password, .newPassword, .url, .number, .decimal, .search: .never
+        case .email, .accountEmail, .password, .newPassword, .url, .number, .decimal, .search, .timecode: .never
         }
     }
 
@@ -91,7 +94,7 @@ enum TextEntry: Equatable {
         switch self {
         case .words, .sentences: true
         case .givenName, .familyName, .email, .accountEmail, .password, .newPassword, .url, .number, .decimal,
-             .identifier, .search: false
+             .identifier, .search, .timecode: false
         }
     }
 }

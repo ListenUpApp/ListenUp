@@ -104,6 +104,9 @@ final class ChapterEditorObserver {
     func remove(_ chapterId: String) { viewModel.remove(chapterId: chapterId) }
     func addAt(_ atMs: Int64, title: String) { viewModel.addAt(atMs: atMs, title: title) }
     func toggleLock(_ chapterId: String) { viewModel.toggleLock(chapterId: chapterId) }
+    func retime(_ chapterId: String, toMs startMs: Int64) { viewModel.retime(chapterId: chapterId, newStartMs: startMs) }
+    func insertBelow(_ chapterId: String, title: String) { viewModel.insertBelow(chapterId: chapterId, title: title) }
+    func playFrom(_ chapterId: String) { viewModel.playFrom(chapterId: chapterId) }
     func beginDrift() { viewModel.beginDrift() }
     func pinAnchor(_ chapterId: String, atMs trueStartMs: Int64) {
         viewModel.pinAnchor(chapterId: chapterId, trueStartMs: trueStartMs)

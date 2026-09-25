@@ -52,6 +52,15 @@ struct TextEntryTests {
         #expect(TextEntry.familyName.contentType == .familyName)
     }
 
+    /// A chapter start is typed as `1:02:03.4`: the colon is the whole shape, and the decimal pad
+    /// has no colon. Nothing capitalized, nothing corrected, nothing to autofill.
+    @Test func aTimecodeGetsAKeyboardWithTheColonOnIt() {
+        #expect(TextEntry.timecode.keyboardType == .numbersAndPunctuation)
+        #expect(TextEntry.timecode.capitalization == .never)
+        #expect(TextEntry.timecode.autocorrects == false)
+        #expect(TextEntry.timecode.contentType == nil)
+    }
+
     @Test func machineShapedEntriesGetTheirKeyboardAndNoCorrection() {
         #expect(TextEntry.email.keyboardType == .emailAddress)
         #expect(TextEntry.email.contentType == .emailAddress)
