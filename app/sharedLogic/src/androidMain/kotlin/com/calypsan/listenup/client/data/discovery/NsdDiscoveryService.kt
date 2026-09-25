@@ -35,6 +35,23 @@ internal class NsdDiscoveryService(
     private var isDiscovering = false
     private val resolveExecutors = ResolveExecutorOwner()
 
+    /** API-34 resolve callbacks registered and not yet unregistered — dropped when discovery stops. */
+    private val pendingResolutions = java.util.Collections.synchronizedSet(mutableSetOf<Any>())
+
+    private fun unregisterPendingResolutions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        val pending =
+            synchronized(pendingResolutions) { pendingResolutions.toList().also { pendingResolutions.clear() } }
+        pending.forEach { callback ->
+            try {
+                nsdManager.unregisterServiceInfoCallback(callback as NsdManager.ServiceInfoCallback)
+            } catch (e: IllegalArgumentException) {
+                // Already unregistered by its own completion; nothing to release.
+                logger.debug(e) { "ServiceInfoCallback was already unregistered" }
+            }
+        }
+    }
+
     companion object {
         private const val SERVICE_TYPE = "_listenup._tcp."
     }
@@ -59,9 +76,8 @@ internal class NsdDiscoveryService(
                 override fun onDiscoveryStopped(serviceType: String) {
                     logger.info { "mDNS discovery stopped for: '$serviceType'" }
                     isDiscovering = false
-                    // Mirrors stopDiscovery: the system can stop discovery without going through
-                    // it, and its guard would then never release the shared resolve executor.
-                    resolveExecutors.shutdown()
+                    // Mirrors stopDiscovery: the system can stop discovery without going through it.
+                    unregisterPendingResolutions()
                 }
 
                 override fun onServiceFound(serviceInfo: NsdServiceInfo) {
@@ -125,8 +141,9 @@ internal class NsdDiscoveryService(
         }
         discoveryListener = null
         isDiscovering = false
-        // The resolve threads must not outlive the discovery that needed them.
-        resolveExecutors.shutdown()
+        // Resolutions still in flight belong to the discovery that just stopped. The executor they
+        // deliver on is NOT shut down — NsdManager may still post to it (see ResolveExecutorOwner).
+        unregisterPendingResolutions()
         // Also drop the resolved-servers cache: a prior session's resolution of the server at its OLD
         // IP must not linger and short-circuit the next relocate with a stale localUrl. Leaving it is
         // why a relaunch (which starts with an empty map) recovered a moved server but a running
@@ -199,12 +216,12 @@ internal class NsdDiscoveryService(
                         logger.warn { "Failed to parse server: ${resolvedInfo.serviceName}" }
                     }
                     // Unregister after successful resolution
-                    callback?.let { nsdManager.unregisterServiceInfoCallback(it) }
+                    callback?.let(::unregisterResolution)
                 }
 
                 override fun onServiceLost() {
                     logger.debug { "Service lost during resolution: ${serviceInfo.serviceName}" }
-                    callback?.let { nsdManager.unregisterServiceInfoCallback(it) }
+                    callback?.let(::unregisterResolution)
                 }
 
                 override fun onServiceInfoCallbackUnregistered() {
@@ -214,8 +231,21 @@ internal class NsdDiscoveryService(
 
         try {
             nsdManager.registerServiceInfoCallback(serviceInfo, executor, callback)
+            pendingResolutions += callback
         } catch (e: Exception) {
             logger.error(e) { "Failed to register service info callback" }
+        }
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun unregisterResolution(callback: NsdManager.ServiceInfoCallback) {
+        // Removed first: stopDiscovery may be unregistering the same callback concurrently.
+        if (pendingResolutions.remove(callback)) {
+            try {
+                nsdManager.unregisterServiceInfoCallback(callback)
+            } catch (e: IllegalArgumentException) {
+                logger.debug(e) { "ServiceInfoCallback was already unregistered" }
+            }
         }
     }
 

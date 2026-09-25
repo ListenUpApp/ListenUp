@@ -148,6 +148,105 @@ class AuthRepositoryImplTest :
             }
         }
 
+        fun rotated(refresh: String): ContractAuthSession =
+            ContractAuthSession(
+                accessToken = AccessToken("access-for-$refresh"),
+                accessTokenExpiresAt = 0L,
+                refreshToken = RefreshToken(refresh),
+                refreshTokenExpiresAt = 0L,
+                sessionId = SessionId("session-1"),
+                user =
+                    User(
+                        id = UserId("user-1"),
+                        email = "alice@example.com",
+                        displayName = "Alice",
+                        role = UserRole.MEMBER,
+                        status = UserStatus.ACTIVE,
+                        createdAt = 0L,
+                    ),
+            )
+
+        fun refreshRig(
+            scope: kotlinx.coroutines.CoroutineScope,
+            answers: List<AppResult<ContractAuthSession>>,
+        ): Triple<AuthRepositoryImpl, ClientAuthSession, MutableList<RefreshToken>> {
+            val presented = mutableListOf<RefreshToken>()
+            val public = mock<AuthServicePublic>()
+            everySuspend { public.refreshSession(any()) } calls { (request: com.calypsan.listenup.api.dto.auth.RefreshRequest) ->
+                presented += request.refreshToken
+                answers[(presented.size - 1).coerceAtMost(answers.lastIndex)]
+            }
+            val authSession = mock<ClientAuthSession>()
+            everySuspend { authSession.currentAuthEpoch() } returns 7L
+            everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
+            everySuspend { authSession.saveAuthTokens(any(), any(), any(), any(), any()) } returns Unit
+            val repo =
+                AuthRepositoryImpl(
+                    authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                    authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
+                    authSession = authSession,
+                    scope = scope,
+                )
+            return Triple(repo, authSession, presented)
+        }
+
+        // 2026-09-25: the server rotated a refresh token and the app died before saving the new one
+        // (twice, a background crash within a second of the rotation). Reopened more than 30 min
+        // later, it presented the old token, and the server revoked the session as a replay. While
+        // the app is alive, a reply that never arrived must be retried with the SAME token inside
+        // the server's 30-minute grace window: a rotation that never happened rotates normally, one
+        // that did is re-issued on the same session.
+        test("a refresh whose reply was lost is retried with the same token until it lands") {
+            runTest {
+                val (repo, authSession, presented) =
+                    refreshRig(
+                        backgroundScope,
+                        listOf(
+                            AppResult.Failure(TransportError.OutcomeUnknown()),
+                            AppResult.Failure(TransportError.Timeout()),
+                            AppResult.Success(rotated("rt-1")),
+                        ),
+                    )
+
+                repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
+
+                presented shouldBe listOf(RefreshToken("rt-0"), RefreshToken("rt-0"), RefreshToken("rt-0"))
+                verifySuspend {
+                    authSession.saveAuthTokens(
+                        access = AccessToken("access-for-rt-1"),
+                        refresh = RefreshToken("rt-1"),
+                        sessionId = "session-1",
+                        userId = "user-1",
+                        ifEpoch = 7L,
+                    )
+                }
+            }
+        }
+
+        test("the lost-reply retries stop well inside the server's 30-minute grace window") {
+            runTest {
+                val (repo, _, presented) =
+                    refreshRig(backgroundScope, listOf(AppResult.Failure(TransportError.OutcomeUnknown())))
+                val started = testScheduler.currentTime
+
+                repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Failure>()
+
+                (presented.size > 1) shouldBe true
+                (testScheduler.currentTime - started < 20 * 60 * 1_000L) shouldBe true
+            }
+        }
+
+        test("a rejected refresh token is not retried: the server's answer is final") {
+            runTest {
+                val (repo, _, presented) =
+                    refreshRig(backgroundScope, listOf(AppResult.Failure(AuthError.InvalidRefreshToken(familyRevoked = true))))
+
+                repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Failure>()
+
+                presented.size shouldBe 1
+            }
+        }
+
         test("a successful refresh persists the rotated tokens inside the single-flight, epoch-guarded (C1/C8)") {
             runTest {
                 val session =

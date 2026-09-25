@@ -20,6 +20,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
+import com.calypsan.listenup.api.error.TransportError
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -139,16 +144,28 @@ internal class AuthRepositoryImpl(
         return deferred.await()
     }
 
-    /** The actual refresh + persist work. Caller (the leader launch above) owns [deferred]. */
+    /**
+     * The actual refresh + persist work. Caller (the leader launch above) owns [deferred].
+     *
+     * A refresh whose reply never arrived ([TransportError.OutcomeUnknown] / [TransportError.Timeout])
+     * is retried with the SAME token, on [LOST_REPLY_RETRY_DELAYS]. The server may already have
+     * rotated it; if so, it honours the old token for a 30-minute grace window and re-issues on the
+     * same session. Giving up instead meant the app kept the old token, and the next refresh — often
+     * the next launch, an hour later — was read as a replay and the whole session was revoked (seen
+     * twice on 2026-09-24/25). The schedule ends well inside the grace window. A rejected token is
+     * final and never retried.
+     */
     private suspend fun performRefresh(): AppResult<AuthSession> {
         val epoch = authSession.currentAuthEpoch()
         val token = authSession.getRefreshToken()
-        val result =
-            if (token == null) {
-                AppResult.Failure(AuthError.SessionExpired())
-            } else {
-                authPublicChannel.call { it.refreshSession(RefreshRequest(token)) }
-            }
+        if (token == null) return AppResult.Failure(AuthError.SessionExpired())
+        var result: AppResult<AuthSession> = authPublicChannel.call { it.refreshSession(RefreshRequest(token)) }
+        for (wait in LOST_REPLY_RETRY_DELAYS) {
+            if (!result.isLostReply() || authSession.currentAuthEpoch() != epoch) break
+            logger.info { "Token refresh reply was lost; retrying the same token in $wait (server grace covers it)" }
+            delay(wait)
+            result = authPublicChannel.call { it.refreshSession(RefreshRequest(token)) }
+        }
         if (result is AppResult.Success) {
             val session = result.data
             authSession.saveAuthTokens(
@@ -172,3 +189,15 @@ internal class AuthRepositoryImpl(
 
     override suspend fun logoutAll(): AppResult<Unit> = authedChannel.call { it.logoutAll() }
 }
+
+/**
+ * Waits between retries of a refresh whose reply was lost: about 8 minutes in total, well inside the
+ * server's 30-minute reuse grace (SessionService.DEFAULT_REUSE_GRACE), so every retry of the old token
+ * is still honoured rather than read as theft.
+ */
+internal val LOST_REPLY_RETRY_DELAYS: List<Duration> =
+    listOf(2.seconds, 10.seconds, 30.seconds, 1.minutes, 2.minutes, 4.minutes)
+
+/** The request may have reached the server and its answer never came back. */
+private fun AppResult<*>.isLostReply(): Boolean =
+    this is AppResult.Failure && (error is TransportError.OutcomeUnknown || error is TransportError.Timeout)
