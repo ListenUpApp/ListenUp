@@ -1503,6 +1503,12 @@
   },
   "chapter_editor": {
     "title": "Edit chapters",
+    "edit_time": "Edit start time",
+    "edit_time_title": "Set start time",
+    "edit_time_label": "Start time",
+    "edit_time_invalid": "Type a time like 1:02:03.4.",
+    "insert_below": "Insert chapter below",
+    "play_from_here": "Play from here",
     "subtitle": "%1$s · %2$d chapters",
     "done": "Done",
     "undo": "Undo",

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import com.calypsan.listenup.client.domain.model.Chapter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -81,7 +82,8 @@ private const val DEFAULT_WINDOW_MS = 600_000L
  * @param bookId the book whose chapters are being edited.
  * @param onBack leave the editor.
  * @param viewModel scoped to [bookId]; a fresh one per book, never switched.
- * @param playbackManager transport, read-only — the editor never starts or stops playback.
+ * @param playbackManager transport state — whether this book is loaded, and where its playhead is.
+ *   The editor only moves playback on an explicit "Play from here", through the ViewModel.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -201,6 +203,7 @@ fun ChapterEditorScreen(
             newChapterTitle = newChapterTitle,
             viewModel = viewModel,
             onMore = { rowAction = RowAction.Choosing(it) },
+            onEditTime = { rowAction = RowAction.EditingTime(it) },
         )
     }
 
@@ -217,15 +220,13 @@ fun ChapterEditorScreen(
 
     RowActionDialogs(
         action = rowAction,
-        titleOf = { id ->
-            editing
-                ?.chapters
-                ?.firstOrNull { it.id == id }
-                ?.title
-                .orEmpty()
-        },
+        chapterOf = { id -> editing?.chapters?.firstOrNull { it.id == id } },
+        canPlayFromHere = isThisBookLoaded,
         onAction = { rowAction = it },
         onRename = viewModel::retitle,
+        onRetime = viewModel::retime,
+        onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
+        onPlayFromHere = viewModel::playFrom,
         onDelete = viewModel::remove,
     )
 }
@@ -234,7 +235,7 @@ fun ChapterEditorScreen(
 private sealed interface RowAction {
     val chapterId: String
 
-    /** The overflow itself — rename or delete. */
+    /** The overflow itself — rename, insert below, play from here, delete. */
     data class Choosing(
         override val chapterId: String,
     ) : RowAction
@@ -248,6 +249,11 @@ private sealed interface RowAction {
     data class Deleting(
         override val chapterId: String,
     ) : RowAction
+
+    /** Typing the start exactly. */
+    data class EditingTime(
+        override val chapterId: String,
+    ) : RowAction
 }
 
 /**
@@ -259,9 +265,13 @@ private sealed interface RowAction {
 @Composable
 private fun RowActionDialogs(
     action: RowAction?,
-    titleOf: (String) -> String,
+    chapterOf: (String) -> Chapter?,
+    canPlayFromHere: Boolean,
     onAction: (RowAction?) -> Unit,
     onRename: (String, String) -> Unit,
+    onRetime: (String, Long) -> Unit,
+    onInsertBelow: (String) -> Unit,
+    onPlayFromHere: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
     when (action) {
@@ -270,14 +280,38 @@ private fun RowActionDialogs(
         is RowAction.Choosing -> {
             ChapterActionsDialog(
                 onRename = { onAction(RowAction.Renaming(action.chapterId)) },
+                onInsertBelow = {
+                    onInsertBelow(action.chapterId)
+                    onAction(null)
+                },
+                onPlayFromHere =
+                    if (canPlayFromHere) {
+                        {
+                            onPlayFromHere(action.chapterId)
+                            onAction(null)
+                        }
+                    } else {
+                        null
+                    },
                 onDelete = { onAction(RowAction.Deleting(action.chapterId)) },
+                onDismiss = { onAction(null) },
+            )
+        }
+
+        is RowAction.EditingTime -> {
+            ChapterTimeDialog(
+                initialMs = chapterOf(action.chapterId)?.startTime ?: 0L,
+                onConfirm = {
+                    onRetime(action.chapterId, it)
+                    onAction(null)
+                },
                 onDismiss = { onAction(null) },
             )
         }
 
         is RowAction.Renaming -> {
             RenameChapterDialog(
-                initialTitle = titleOf(action.chapterId),
+                initialTitle = chapterOf(action.chapterId)?.title.orEmpty(),
                 onConfirm = {
                     onRename(action.chapterId, it)
                     onAction(null)
@@ -318,6 +352,7 @@ private fun ChapterEditorBody(
     newChapterTitle: String,
     viewModel: ChapterEditorViewModel,
     onMore: (String) -> Unit,
+    onEditTime: (String) -> Unit,
 ) {
     when (state) {
         ChapterEditorUiState.Loading -> {
@@ -374,6 +409,7 @@ private fun ChapterEditorBody(
                         onSnapToPlayhead = { id -> playheadMs?.let { viewModel.snapToPlayhead(id, it) } },
                         onToggleLock = viewModel::toggleLock,
                         onMore = onMore,
+                        onEditTime = onEditTime,
                         onSeekFraction = { fraction ->
                             // The minimap hands back where in the book to look; centre the lane there.
                             val centre = (fraction.toDouble() * state.bookDurationMs).toLong()

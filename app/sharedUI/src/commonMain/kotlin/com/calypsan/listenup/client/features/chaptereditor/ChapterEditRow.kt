@@ -29,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +38,7 @@ import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.Chapter
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.chapter_editor_edit_time
 import listenup.composeapp.generated.resources.chapter_editor_lock
 import listenup.composeapp.generated.resources.chapter_editor_more
 import listenup.composeapp.generated.resources.chapter_editor_now_playing
@@ -56,6 +59,9 @@ const val COARSE_NUDGE_MS = 1_000L
 const val FINE_NUDGE_MS = 100L
 
 private val ROW_SHAPE = RoundedCornerShape(16.dp)
+
+/** The tappable start time's own hit shape, so its ripple reads as a control, not the row. */
+private val TIME_SHAPE = RoundedCornerShape(6.dp)
 private val NUMBER_COLUMN_WIDTH = 32.dp
 private val ACTION_SIZE = 36.dp
 
@@ -81,7 +87,8 @@ private val ACTION_SIZE = 36.dp
  * @param onNudge move the start by a signed step; the caller decides coarse (1s) or fine (0.1s).
  * @param onSnapToPlayhead take the playhead's exact millisecond as this chapter's start.
  * @param onToggleLock pin or unpin against drift correction.
- * @param onMore open the overflow: delete, insert below, play from here.
+ * @param onMore open the overflow: rename, insert below, play from here, delete.
+ * @param onEditTime type the start exactly — the time itself is the control (spec §7.4).
  * @param modifier Modifier for the row.
  */
 @Composable
@@ -95,6 +102,7 @@ fun ChapterEditRow(
     onSnapToPlayhead: () -> Unit,
     onToggleLock: () -> Unit,
     onMore: () -> Unit,
+    onEditTime: () -> Unit,
     modifier: Modifier = Modifier,
     isLocked: Boolean = false,
     nudgeStepMs: Long = COARSE_NUDGE_MS,
@@ -133,12 +141,20 @@ fun ChapterEditRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
+                val editTimeLabel = stringResource(Res.string.chapter_editor_edit_time)
                 Text(
                     // Precise rather than a rounded clock: this is the number being edited, and a
                     // start that reads the same before and after a nudge makes the nudge look broken.
                     text = ChapterTimeFormat.precise(chapter.startTime),
                     style = MaterialTheme.typography.labelLarge,
                     color = if (isSelected) colors.onPrimaryContainer else colors.primary,
+                    // The time is its own control: tap it to type the start to the millisecond.
+                    modifier =
+                        Modifier
+                            .clip(TIME_SHAPE)
+                            .clickable(onClickLabel = editTimeLabel, onClick = onEditTime)
+                            .semantics { contentDescription = editTimeLabel }
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
                 )
                 if (isPlaying) NowBadge()
             }

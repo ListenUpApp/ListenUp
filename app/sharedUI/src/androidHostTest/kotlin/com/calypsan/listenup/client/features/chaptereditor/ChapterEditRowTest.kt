@@ -34,6 +34,7 @@ class ChapterEditRowTest {
         onNudge: (Long) -> Unit = {},
         onSnap: () -> Unit = {},
         onToggleLock: () -> Unit = {},
+        onEditTime: () -> Unit = {},
     ) {
         composeRule.setContent {
             MaterialTheme {
@@ -48,6 +49,7 @@ class ChapterEditRowTest {
                     onToggleLock = onToggleLock,
                     onMore = {},
                     isLocked = isLocked,
+                    onEditTime = onEditTime,
                 )
             }
         }
@@ -63,6 +65,18 @@ class ChapterEditRowTest {
         // Precise, not a rounded clock: this is the number being edited, and a start that reads
         // the same before and after a nudge makes the nudge look broken.
         composeRule.onNodeWithText("41:12:08.4").assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping the start time asks to type it exactly`() {
+        // Spec 7.4: "precise time (tap to type to the ms)". Nudging a boundary 40 seconds a second
+        // at a time is not a precision tool; typing the number you heard is.
+        var asked = 0
+        render(onEditTime = { asked++ })
+
+        composeRule.onNodeWithContentDescription("Edit start time").performClick()
+
+        assert(asked == 1) { "expected one request to edit the time, got $asked" }
     }
 
     @Test

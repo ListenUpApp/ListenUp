@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.playback.PlaybackController
+import com.calypsan.listenup.client.playback.PlaybackManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.ChapterInput
@@ -48,6 +50,8 @@ class ChapterEditorViewModel(
     bookRepository: BookRepository,
     private val bookEditRepository: BookEditRepository,
     private val errorBus: ErrorBus,
+    private val playbackManager: PlaybackManager,
+    private val playbackController: PlaybackController,
 ) : ViewModel() {
     private var closed = false
 
@@ -179,6 +183,24 @@ class ChapterEditorViewModel(
         val chapter = chapters.firstOrNull { it.id == chapterId } ?: return@edit chapters
         val midpoint = chapter.startTime + chapter.duration / 2
         chapters.added(Uuid.random().toString(), title, midpoint, duration)
+    }
+
+    /**
+     * Plays from [chapterId]'s start — the row overflow's "Play from here", which is how the playhead
+     * reaches a boundary for snap-to-playhead to take.
+     *
+     * Only while this book is the one loaded: starting it from cold would replace whatever the
+     * listener has going with no confirmation, so the screens disable the action until the book is
+     * playing, the same rule as "Add chapter at playhead".
+     */
+    fun playFrom(chapterId: String) {
+        if (playbackManager.currentTimeline.value?.bookId != BookId(bookId)) return
+        val editing = state.value as? ChapterEditorUiState.Editing ?: return
+        val startMs = editing.chapters.firstOrNull { it.id == chapterId }?.startTime ?: return
+        playbackController.seekTo(startMs)
+        // So the playhead reads the new position at once, even before the player reports it.
+        playbackManager.updatePosition(startMs)
+        playbackController.play()
     }
 
     /** Removes [chapterId], merging its span into the chapter before it. */
