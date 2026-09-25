@@ -128,9 +128,13 @@ class SessionService(
 
     /**
      * Returns null if the token is unrecognized or matches `previous_hash`
-     * (replay → family revoked as a side effect).
+     * (replay → family revoked as a side effect). [clientVersion], when the client reports it,
+     * replaces the version recorded at sign-in, so the session says what the device runs now.
      */
-    suspend fun rotate(token: RefreshToken): RotatedSession? {
+    suspend fun rotate(
+        token: RefreshToken,
+        clientVersion: String? = null,
+    ): RotatedSession? {
         val incomingHash = tokenHasher.hash(token.value)
         val now = clock.now().toEpochMilliseconds()
         val newRaw = tokenGenerator.generate()
@@ -151,6 +155,7 @@ class SessionService(
                     refresh_token_hash = newHash,
                     last_used_at = now,
                     expires_at = newExpires,
+                    client_version = clientVersion,
                     id = live.id,
                 )
                 return@suspendTransaction RotatedSession(
@@ -198,6 +203,7 @@ class SessionService(
                     refresh_token_hash = newHash,
                     last_used_at = replay.last_used_at,
                     expires_at = replay.expires_at,
+                    client_version = clientVersion,
                     id = replay.id,
                 )
                 return@suspendTransaction RotatedSession(

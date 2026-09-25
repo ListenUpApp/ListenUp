@@ -55,6 +55,12 @@ data class RegisterRequest(
 data class RefreshRequest(
     @SerialName("refreshToken")
     val refreshToken: RefreshToken,
+    /**
+     * The app version the device runs now. Optional and ignored by servers that predate it
+     * (`contractJson` ignores unknown keys), so an updated client can still refresh against them.
+     */
+    @SerialName("clientVersion")
+    val clientVersion: String? = null,
 )
 
 const val PASSWORD_MIN = 8

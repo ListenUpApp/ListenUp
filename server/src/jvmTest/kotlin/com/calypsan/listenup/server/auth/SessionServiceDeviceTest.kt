@@ -50,4 +50,41 @@ class SessionServiceDeviceTest :
             row.user_agent shouldBe "ListenUp/1.0"
             row.label shouldBe "My iPhone"
         }
+
+        // A session records the app version it signed in with and never updated it: on 2026-09-12
+        // Chris's row still said 0.8.6 a month and several releases later, and nothing on the server
+        // could say what he actually ran. Each refresh now reports the running version.
+        test("a refresh records the app version the device is running now") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val service = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val issued =
+                service.createSession(
+                    userId = UserId("u-1"),
+                    label = null,
+                    deviceInfo = DeviceInfo(platform = "Android", clientVersion = "0.8.6"),
+                    userAgent = null,
+                )
+
+            service.rotate(issued.refreshToken, clientVersion = "0.9.5")
+
+            service.listActiveFor(UserId("u-1")).single().client_version shouldBe "0.9.5"
+        }
+
+        test("a refresh from a client that does not report its version keeps the recorded one") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val service = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val issued =
+                service.createSession(
+                    userId = UserId("u-1"),
+                    label = null,
+                    deviceInfo = DeviceInfo(platform = "Android", clientVersion = "0.8.6"),
+                    userAgent = null,
+                )
+
+            service.rotate(issued.refreshToken, clientVersion = null)
+
+            service.listActiveFor(UserId("u-1")).single().client_version shouldBe "0.8.6"
+        }
     })

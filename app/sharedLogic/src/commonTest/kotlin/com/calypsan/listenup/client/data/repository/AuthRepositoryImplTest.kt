@@ -54,6 +54,7 @@ class AuthRepositoryImplTest :
                 authedChannel = RpcChannel.forTest(authed),
                 authSession = mock(),
                 scope = backgroundScope,
+                clientVersion = "test",
             )
 
         test("listSessions delegates to the authed service") {
@@ -133,6 +134,7 @@ class AuthRepositoryImplTest :
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                         scope = backgroundScope,
+                        clientVersion = "test",
                     )
 
                 val first = async { repo.refreshAccessToken() }
@@ -194,6 +196,7 @@ class AuthRepositoryImplTest :
                     authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                     authSession = authSession,
                     scope = scope,
+                    clientVersion = "test",
                     timeSource = timeSource,
                 )
             return Triple(repo, authSession, presented)
@@ -264,6 +267,34 @@ class AuthRepositoryImplTest :
                 repo.refreshAccessToken()
 
                 presented shouldBe listOf(RefreshToken("rt-0"), RefreshToken("rt-from-somewhere-else"))
+            }
+        }
+
+        // The server's session list shows the app version a device signed in with; without this it
+        // stays frozen at sign-in forever, so an updated phone keeps reporting the old version.
+        test("a refresh tells the server which app version this device runs now") {
+            runTest {
+                val reported = mutableListOf<String?>()
+                val public = mock<AuthServicePublic>()
+                everySuspend { public.refreshSession(any()) } calls { (request: com.calypsan.listenup.api.dto.auth.RefreshRequest) ->
+                    reported += request.clientVersion
+                    AppResult.Failure(AuthError.SessionExpired())
+                }
+                val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 7L
+                everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
+                val repo =
+                    AuthRepositoryImpl(
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
+                        authSession = authSession,
+                        scope = backgroundScope,
+                        clientVersion = "0.9.5",
+                    )
+
+                repo.refreshAccessToken()
+
+                reported shouldBe listOf("0.9.5")
             }
         }
 
@@ -355,6 +386,7 @@ class AuthRepositoryImplTest :
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                         scope = backgroundScope,
+                        clientVersion = "test",
                     )
 
                 repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
@@ -420,6 +452,7 @@ class AuthRepositoryImplTest :
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                         scope = backgroundScope,
+                        clientVersion = "test",
                         timeSource = clock,
                     )
 
@@ -483,6 +516,7 @@ class AuthRepositoryImplTest :
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                         scope = backgroundScope,
+                        clientVersion = "test",
                     )
 
                 val leader = async { repo.refreshAccessToken() }
@@ -513,6 +547,7 @@ class AuthRepositoryImplTest :
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                         scope = backgroundScope,
+                        clientVersion = "test",
                     )
 
                 val result = repo.refreshAccessToken()
@@ -536,6 +571,7 @@ class AuthRepositoryImplTest :
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                         scope = backgroundScope,
+                        clientVersion = "test",
                     )
 
                 val result = repo.refreshAccessToken()

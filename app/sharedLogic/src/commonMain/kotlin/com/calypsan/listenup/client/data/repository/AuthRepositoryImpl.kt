@@ -57,12 +57,16 @@ private val logger = KotlinLogging.logger {}
  * next call, is counting on. The invariant belongs here, at the single-flight itself, not
  * re-implemented per call site — every caller inherits cancellation-safety for free and needs only
  * its own budget.
+ *
+ * Every refresh reports [clientVersion], the app version this device runs now, so the server's
+ * record of the session follows the device through app updates instead of freezing at sign-in.
  */
 internal class AuthRepositoryImpl(
     private val authPublicChannel: RpcChannel<AuthServicePublic>,
     private val authedChannel: RpcChannel<AuthServiceAuthed>,
     private val authSession: ClientAuthSession,
     private val scope: CoroutineScope,
+    private val clientVersion: String,
     private val timeSource: TimeSource = TimeSource.Monotonic,
 ) : AuthRepository {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> =
@@ -192,12 +196,15 @@ internal class AuthRepositoryImpl(
         val epoch = authSession.currentAuthEpoch()
         val token = authSession.getRefreshToken()
         if (token == null) return AppResult.Failure(AuthError.SessionExpired())
-        var result: AppResult<AuthSession> = authPublicChannel.call { it.refreshSession(RefreshRequest(token)) }
+        var result: AppResult<AuthSession> =
+            authPublicChannel.call {
+                it.refreshSession(RefreshRequest(token, clientVersion = clientVersion))
+            }
         for (wait in LOST_REPLY_RETRY_DELAYS) {
             if (!result.isLostReply() || authSession.currentAuthEpoch() != epoch) break
             logger.info { "Token refresh reply was lost; retrying the same token in $wait (server grace covers it)" }
             delay(wait)
-            result = authPublicChannel.call { it.refreshSession(RefreshRequest(token)) }
+            result = authPublicChannel.call { it.refreshSession(RefreshRequest(token, clientVersion = clientVersion)) }
         }
         if (result is AppResult.Success) {
             val session = result.data

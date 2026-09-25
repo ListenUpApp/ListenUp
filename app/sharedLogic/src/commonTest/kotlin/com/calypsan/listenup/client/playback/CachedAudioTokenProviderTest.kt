@@ -424,6 +424,7 @@ class CachedAudioTokenProviderTest :
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = clientAuthSession,
                         scope = backgroundScope,
+                        clientVersion = "test",
                     )
 
                 val storage = FakeStorageAuthSession(stored = AccessToken(freshJwt))
