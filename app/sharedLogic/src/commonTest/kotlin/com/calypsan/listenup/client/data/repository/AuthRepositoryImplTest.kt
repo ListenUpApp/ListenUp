@@ -171,8 +171,12 @@ class AuthRepositoryImplTest :
             answers: List<AppResult<ContractAuthSession>>,
             timeSource: kotlin.time.TimeSource = kotlin.time.TestTimeSource(),
             epoch: () -> Long = { 7L },
+            storedToken: () -> RefreshToken? = { null },
         ): Triple<AuthRepositoryImpl, ClientAuthSession, MutableList<RefreshToken>> {
             val presented = mutableListOf<RefreshToken>()
+            // The session store as the app has it: it hands back whatever refresh token was saved
+            // last, unless the test overrides what is stored.
+            var saved = RefreshToken("rt-0")
             val public = mock<AuthServicePublic>()
             everySuspend { public.refreshSession(any()) } calls { (request: com.calypsan.listenup.api.dto.auth.RefreshRequest) ->
                 presented += request.refreshToken
@@ -180,8 +184,10 @@ class AuthRepositoryImplTest :
             }
             val authSession = mock<ClientAuthSession>()
             everySuspend { authSession.currentAuthEpoch() } calls { epoch() }
-            everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
-            everySuspend { authSession.saveAuthTokens(any(), any(), any(), any(), any()) } returns Unit
+            everySuspend { authSession.getRefreshToken() } calls { storedToken() ?: saved }
+            everySuspend { authSession.saveAuthTokens(any(), any(), any(), any(), any()) } calls {
+                saved = it.arg(1)
+            }
             val repo =
                 AuthRepositoryImpl(
                     authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
@@ -237,6 +243,27 @@ class AuthRepositoryImplTest :
                 repo.refreshAccessToken()
 
                 presented.size shouldBe 2
+            }
+        }
+
+        // The reuse answers "is the session I hold the one that refresh just produced?". If the stored
+        // token has changed since (the replay end-to-end spec swaps in an old one), the stored
+        // session is not that one, and the server has to be asked.
+        test("a refresh token replaced since the last refresh is never answered by that refresh") {
+            runTest {
+                var stored: RefreshToken? = null
+                val (repo, _, presented) =
+                    refreshRig(
+                        backgroundScope,
+                        listOf(AppResult.Success(rotated("rt-1"))),
+                        storedToken = { stored },
+                    )
+
+                repo.refreshAccessToken()
+                stored = RefreshToken("rt-from-somewhere-else")
+                repo.refreshAccessToken()
+
+                presented shouldBe listOf(RefreshToken("rt-0"), RefreshToken("rt-from-somewhere-else"))
             }
         }
 

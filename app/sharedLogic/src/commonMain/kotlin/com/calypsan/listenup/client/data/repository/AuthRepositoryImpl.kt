@@ -84,8 +84,9 @@ internal class AuthRepositoryImpl(
      * the same auth epoch. The single-flight merges CONCURRENT callers; this merges the sequential
      * ones — after a wake the audio-token refresh rotated the session and a reconnecting socket,
      * still holding the access token from before, asked again a second later. Two rotations in one
-     * second buy nothing and each is another chance for a lost reply. Never across an epoch change:
-     * a sign-out in between must not be bridged by a result from before it.
+     * second buy nothing and each is another chance for a lost reply. Never across an epoch change
+     * (a sign-out in between must not be bridged by a result from before it), and never once the
+     * stored refresh token differs from the one that refresh returned.
      */
     private var recentRefresh: RecentRefresh? = null
 
@@ -128,6 +129,9 @@ internal class AuthRepositoryImpl(
             refreshMutex.withLock {
                 recentRefresh
                     ?.takeIf { it.epoch == epoch && it.at.elapsedNow() < RECENT_REFRESH_WINDOW }
+                    // Only while the session held is still the one that refresh produced: a token
+                    // stored since came from somewhere else, and only the server can answer for it.
+                    ?.takeIf { authSession.getRefreshToken() == it.result.data.refreshToken }
                     ?.let { return it.result }
                 inFlightRefresh ?: pending.also { inFlightRefresh = it }
             }
