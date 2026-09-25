@@ -43,6 +43,7 @@ AdminUiState
 AdminUiState_SealedType
 AdminUserInfo
 AdminViewModel
+AdoptServerUseCase
 AppError
 AppError_SealedType
 AppNotification
