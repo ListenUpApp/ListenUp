@@ -175,10 +175,11 @@ class SeriesRepository(
                     .executeAsOneOrNull()
             }
         if (existing != null) {
-            if (existing.deleted_at == null) return SeriesId(existing.id)
-            followRedirect(existing.merged_into)?.let { return it }
-            reviveTombstonedHit(existing.id)
-            return SeriesId(existing.id)
+            return if (existing.deleted_at == null) {
+                SeriesId(existing.id)
+            } else {
+                resolveTombstonedHit(existing.id, existing.merged_into)
+            }
         }
 
         val id = SeriesId(Uuid.random().toString())
@@ -214,7 +215,7 @@ class SeriesRepository(
      * @return a `Map<normalizedKey, SeriesId>` keyed by [normalizeForDedup] — callers look an id up
      *   by recomputing that key for each book's series. Every supplied name's key is present.
      *
-     * Tombstoned hits are revived; see [resolveOrCreate].
+     * Tombstoned hits follow their merge redirect, else are revived; see [resolveOrCreate].
      */
     suspend fun resolveOrCreateAll(names: Collection<String>): Map<String, SeriesId> {
         if (names.isEmpty()) return emptyMap()
@@ -241,7 +242,7 @@ class SeriesRepository(
                 if (row.deleted_at == null) {
                     SeriesId(row.id)
                 } else {
-                    followRedirect(row.merged_into) ?: SeriesId(row.id).also { reviveTombstonedHit(row.id) }
+                    resolveTombstonedHit(row.id, row.merged_into)
                 }
         }
 
@@ -267,22 +268,46 @@ class SeriesRepository(
     }
 
     /**
+     * Resolves a tombstoned dedup hit at [id] (whose row carries [mergedInto]): follows the merge
+     * redirect to the first live series when one exists, else revives the row in place under its
+     * own id. [resolveOrCreate] and [resolveOrCreateAll] both route every tombstoned hit through
+     * this single helper, so the single- and batch-resolution paths can never disagree.
+     */
+    private suspend fun resolveTombstonedHit(
+        id: String,
+        mergedInto: String?,
+    ): SeriesId = followRedirect(mergedInto) ?: SeriesId(id).also { reviveTombstonedHit(id) }
+
+    /**
      * Walks a merge-redirect chain from [firstHop] to the first LIVE series, or null when the chain
      * ends on a dead or missing row. Chains are walked rather than flattened at merge time so that
-     * undoing a middle merge re-routes the names that were merged into it. Bounded, and guarded
-     * against a cycle, so a corrupt chain can never hang a scan.
+     * undoing a middle merge re-routes the names that were merged into it. Relies on the invariant
+     * that a LIVE row always carries `merged_into = NULL` — `Series.sq`'s `update` clears it
+     * unconditionally, and only [softDeleteMergedInto]'s tombstone ever sets it — so the first live
+     * row the walk reaches is unambiguously the answer. Bounded, and guarded against a cycle, so a
+     * corrupt chain can never hang a scan; either case is logged, since a silent fallback would hide
+     * data corruption rather than surface it.
      */
-    private suspend fun followRedirect(firstHop: String?): SeriesId? =
-        suspendTransaction(db) {
-            var hop = firstHop
+    private suspend fun followRedirect(firstHop: String?): SeriesId? {
+        firstHop ?: return null
+        return suspendTransaction(db) {
             val seen = HashSet<String>()
-            while (hop != null && seen.size < MAX_REDIRECT_HOPS && seen.add(hop)) {
-                val row = db.seriesQueries.selectById(hop).executeAsOneOrNull() ?: break
+            var hop: String? = firstHop
+            while (hop != null) {
+                if (!seen.add(hop) || seen.size > MAX_REDIRECT_HOPS) {
+                    log.warn {
+                        "series redirect chain from $firstHop is cyclic or exceeds $MAX_REDIRECT_HOPS hops; " +
+                            "reviving the original"
+                    }
+                    return@suspendTransaction null
+                }
+                val row = db.seriesQueries.selectById(hop).executeAsOneOrNull() ?: return@suspendTransaction null
                 if (row.deleted_at == null) return@suspendTransaction SeriesId(row.id)
                 hop = row.merged_into
             }
             null
         }
+    }
 
     /**
      * Brings [id] back under its own id — merge undo. The base `upsert` bumps the revision and
@@ -326,7 +351,13 @@ class SeriesRepository(
                 if (rowsAffected == 0L) {
                     AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = source.value))
                 } else {
-                    val event = SyncEvent.Deleted(id = source.value, revision = rev, occurredAt = now, clientOpId = null)
+                    val event =
+                        SyncEvent.Deleted(
+                            id = source.value,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                        )
                     if (!suppressed) {
                         emitAfterCommit(event = event)
                     } else {

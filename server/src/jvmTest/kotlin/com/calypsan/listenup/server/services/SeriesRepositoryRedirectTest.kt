@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -29,7 +30,11 @@ class SeriesRepositoryRedirectTest :
                     repo.softDeleteMergedInto(source, target).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     repo.resolveOrCreate("Wheel of Time") shouldBe target
-                    repo.findById(source.value).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    repo
+                        .findById(source.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
                 }
             }
         }
@@ -45,7 +50,11 @@ class SeriesRepositoryRedirectTest :
                     val resolved = repo.resolveOrCreateAll(listOf("Wheel of Time"))
 
                     resolved.values.single() shouldBe target
-                    repo.findById(source.value).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    repo
+                        .findById(source.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
                 }
             }
         }
@@ -79,7 +88,11 @@ class SeriesRepositoryRedirectTest :
 
                     repo.revive(source)
 
-                    sql.seriesQueries.selectById(source.value).executeAsOne().merged_into.shouldBeNull()
+                    sql.seriesQueries
+                        .selectById(source.value)
+                        .executeAsOne()
+                        .merged_into
+                        .shouldBeNull()
                     repo.resolveOrCreate("Wheel of Time") shouldBe source
                 }
             }
@@ -95,7 +108,81 @@ class SeriesRepositoryRedirectTest :
                     repo.softDelete(target)
 
                     repo.resolveOrCreate("Wheel of Time") shouldBe source
-                    repo.findById(source.value).shouldNotBeNull().deletedAt.shouldBeNull()
+                    repo
+                        .findById(source.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+                }
+            }
+        }
+
+        test("resolveOrCreateAll falls back to reviving the original series when its redirect is dead") {
+            withSqlDatabase {
+                val repo = SeriesRepository(sql, ChangeBus(), SyncRegistry())
+                runTest {
+                    val source = repo.resolveOrCreate("Wheel of Time")
+                    val target = repo.resolveOrCreate("The Wheel of Time")
+                    repo.softDeleteMergedInto(source, target)
+                    repo.softDelete(target)
+
+                    val resolved = repo.resolveOrCreateAll(listOf("Wheel of Time"))
+
+                    resolved.values.single() shouldBe source
+                    repo
+                        .findById(source.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+                }
+            }
+        }
+
+        test("a cyclic redirect chain falls back to reviving the original series") {
+            withSqlDatabase {
+                val repo = SeriesRepository(sql, ChangeBus(), SyncRegistry())
+                runTest {
+                    val a = repo.resolveOrCreate("Series A")
+                    val b = repo.resolveOrCreate("Series B")
+                    // Fabricate a 2-row cycle directly through the substrate — softDeleteMergedInto
+                    // itself can never produce one (each call tombstones its source once), so the
+                    // only way to exercise the cycle guard is a raw write.
+                    sql.seriesQueries.softDeleteMergedIntoById(
+                        revision = 1L,
+                        updated_at = 1L,
+                        deleted_at = 1L,
+                        client_op_id = null,
+                        merged_into = b.value,
+                        id = a.value,
+                    )
+                    sql.seriesQueries.softDeleteMergedIntoById(
+                        revision = 2L,
+                        updated_at = 2L,
+                        deleted_at = 2L,
+                        client_op_id = null,
+                        merged_into = a.value,
+                        id = b.value,
+                    )
+
+                    repo.resolveOrCreate("Series A") shouldBe a
+                    repo
+                        .findById(a.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+                }
+            }
+        }
+
+        test("softDeleteMergedInto on a missing series returns a failure") {
+            withSqlDatabase {
+                val repo = SeriesRepository(sql, ChangeBus(), SyncRegistry())
+                runTest {
+                    val target = repo.resolveOrCreate("The Wheel of Time")
+
+                    repo
+                        .softDeleteMergedInto(SeriesId("missing-series"), target)
+                        .shouldBeInstanceOf<AppResult.Failure>()
                 }
             }
         }

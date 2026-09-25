@@ -45,14 +45,28 @@ class SeriesMergeRescanTest :
                     val libraryId = f.libraries.currentLibrary()
                     val scan = scanFor("King/DarkTower01", series = listOf(SeriesEntry("The Dark Tower (Bachman)", "1")))
                     val bookId = f.books.resolveOrInsert(libraryId, TEST_FOLDER, scan).resolved()
-                    val sourceId = SeriesId(f.books.findById(bookId)!!.series.single().id)
+                    val sourceId =
+                        SeriesId(
+                            f.books
+                                .findById(bookId)!!
+                                .series
+                                .single()
+                                .id,
+                        )
                     val targetId = f.series.resolveOrCreate("The Dark Tower")
 
                     f.service.mergeSeries(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
                     f.books.resolveOrInsert(libraryId, TEST_FOLDER, scan) // the same files, scanned again
 
-                    f.books.findById(bookId)!!.series.map { it.id } shouldBe listOf(targetId.value)
-                    f.series.findById(sourceId.value).shouldNotBeNull().deletedAt.shouldNotBeNull()
+                    f.books
+                        .findById(bookId)!!
+                        .series
+                        .map { it.id } shouldBe listOf(targetId.value)
+                    f.series
+                        .findById(sourceId.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
                 }
             }
         }

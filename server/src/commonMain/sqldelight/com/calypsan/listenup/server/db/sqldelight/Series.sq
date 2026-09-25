@@ -76,6 +76,8 @@ INSERT INTO book_series (
 
 -- normalized_name is re-derived from name on every write (matches the Exposed
 -- SeriesRepository.writePayload, which sets it on both insert and update).
+-- merged_into is cleared unconditionally: every update revives (deleted_at is always
+-- written NULL from writePayload), and a redirect lives only on tombstoned rows.
 update:
 UPDATE book_series
 SET normalized_name = :normalized_name, name = :name, sort_name = :sort_name,
