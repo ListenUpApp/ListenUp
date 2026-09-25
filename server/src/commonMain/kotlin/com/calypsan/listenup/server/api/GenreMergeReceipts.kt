@@ -91,7 +91,12 @@ internal class GenreMergeReceipts(
             genreRepository.findById(decision.sourceId.value)
                 ?: return AppResult.Failure(GenreError.NotFound(debugInfo = "id=${decision.sourceId.value}"))
         val revived =
-            source.copy(deletedAt = null, parentId = decision.parentId, path = decision.path, depth = decision.depth)
+            source.copy(
+                deletedAt = null,
+                parentId = decision.parentId?.value,
+                path = decision.path,
+                depth = decision.depth,
+            )
         when (val upserted = genreRepository.upsert(revived)) {
             is AppResult.Success -> Unit
             is AppResult.Failure -> return AppResult.Failure(upserted.error)
@@ -111,7 +116,7 @@ internal class GenreMergeReceipts(
         firstFailure?.let { return AppResult.Failure(it) }
         return AppResult.Success(
             MergeUndoResult(
-                restoredSourceId = claim.sourceId,
+                restoredSourceId = claim.sourceId.value,
                 booksRestored = claim.restoredBookIds.size,
                 booksSkipped = claim.skipped,
                 restoredAtTopLevel = decision.restoredAtTopLevel,
@@ -157,7 +162,7 @@ internal class GenreMergeReceipts(
                 ?.takeIf { it.deleted_at == null }
         return GenreUndoDecision.Allowed(
             sourceId = GenreId(receipt.source_id),
-            parentId = parent?.id,
+            parentId = parent?.id?.let { GenreId(it) },
             path = (parent?.path ?: "") + "/" + source.slug,
             depth = parent?.let { it.depth.toInt() + 1 } ?: 0,
             restoredAtTopLevel = source.parent_id != null && parent == null,
@@ -219,7 +224,7 @@ internal class GenreMergeReceipts(
             )
         }
         return GenreUndoClaim.Granted(
-            sourceId = receipt.source_id,
+            sourceId = GenreId(receipt.source_id),
             restoredBookIds = restorable.map { it.book_id },
             skipped = (recorded - restorable.size).toInt(),
         )
@@ -240,7 +245,7 @@ private sealed interface GenreUndoDecision {
      */
     data class Allowed(
         val sourceId: GenreId,
-        val parentId: String?,
+        val parentId: GenreId?,
         val path: String,
         val depth: Int,
         val restoredAtTopLevel: Boolean,
@@ -254,9 +259,9 @@ private sealed interface GenreUndoClaim {
         val error: GenreError,
     ) : GenreUndoClaim
 
-    /** Links and aliases are restored and the receipt is marked; the source and books still need re-upserting. */
+    /** Links and aliases are restored and the receipt is marked; the books still need re-upserting. */
     data class Granted(
-        val sourceId: String,
+        val sourceId: GenreId,
         val restoredBookIds: List<String>,
         val skipped: Int,
     ) : GenreUndoClaim

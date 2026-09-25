@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.MergeReceiptId
@@ -29,6 +31,7 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldBeNull
@@ -37,6 +40,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -285,7 +291,7 @@ class GenreMergeUndoTest :
             }
         }
 
-        test("undo re-publishes every restored book") {
+        test("undo re-publishes every restored book, with the revived genre in its payload") {
             withSqlDatabase {
                 val f = genreFixture(sql, driver)
                 sql.seedGenre("g-s", "Space Opera", "space-opera", "/space-opera")
@@ -299,7 +305,22 @@ class GenreMergeUndoTest :
                             .shouldNotBeNull()
                             .revision
 
+                    // Filtering on revision > revisionAfterMerge (not just id == "book1") is what
+                    // proves this is the UNDO's re-publish, not a replay of the merge's own — the
+                    // bus's replay buffer would otherwise hand back that earlier event instead.
+                    val republished =
+                        async {
+                            f.bus
+                                .subscribe()
+                                .first { it.event.id == "book1" && it.event.revision > revisionAfterMerge }
+                        }
+                    advanceUntilIdle()
+
                     f.service.undoGenreMerge(f.onlyReceiptInto("g-t")).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
+
+                    val busEvent = republished.await()
+                    busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<BookSyncPayload>>()
+                    (busEvent.event as SyncEvent.Updated<BookSyncPayload>).payload.genres.map { it.id } shouldContain "g-s"
 
                     val revisionAfterUndo =
                         f.books
@@ -307,6 +328,47 @@ class GenreMergeUndoTest :
                             .shouldNotBeNull()
                             .revision
                     revisionAfterUndo shouldBeGreaterThan revisionAfterMerge
+                }
+            }
+        }
+
+        test("undo skips a receipt book that was deleted since") {
+            withSqlDatabase {
+                val dbs = this
+                val f = genreFixture(sql, driver)
+                sql.seedGenre("g-s", "Space Opera", "space-opera", "/space-opera")
+                sql.seedGenre("g-t", "Science Fiction", "science-fiction", "/science-fiction")
+                sql.bookGenresQueries.insertIfAbsent("book1", "g-s")
+                sql.bookGenresQueries.insertIfAbsent("book2", "g-s")
+                runTest {
+                    f.service.mergeGenres(GenreId("g-s"), GenreId("g-t"))
+                    dbs.driver.execute(null, "UPDATE books SET deleted_at = 1 WHERE id = ?", 1) { bindString(0, "book2") }
+
+                    val result = f.service.undoGenreMerge(f.onlyReceiptInto("g-t"))
+
+                    result.shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>().data.booksSkipped shouldBe 1
+                    sql.genreIdsOf("book1") shouldBe listOf("g-s")
+                    sql.genreIdsOf("book2") shouldBe listOf("g-t")
+                }
+            }
+        }
+
+        test("undo is a no-op for an alias the curator deleted") {
+            withSqlDatabase {
+                val f = genreFixture(sql, driver)
+                sql.seedGenre("g-s", "Space Opera", "space-opera", "/space-opera")
+                sql.seedGenre("g-t", "Science Fiction", "science-fiction", "/science-fiction")
+                sql.genreAliasesQueries.insert(raw_string = "space opera", genre_id = "g-s")
+                runTest {
+                    f.service.mergeGenres(GenreId("g-s"), GenreId("g-t"))
+                    sql.genreAliasesQueries.deleteByRawString("space opera")
+
+                    f.service.undoGenreMerge(f.onlyReceiptInto("g-t")).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
+
+                    sql.genreAliasesQueries
+                        .resolve("space opera")
+                        .executeAsOneOrNull()
+                        .shouldBeNull()
                 }
             }
         }
@@ -345,6 +407,7 @@ private class GenreUndoFixture(
     val service: GenreServiceImpl,
     val genres: GenreRepository,
     val books: BookRepository,
+    val bus: ChangeBus,
     val clock: MutableClock,
 ) {
     /** The single open receipt naming [target] as the survivor. */
@@ -391,7 +454,7 @@ private fun genreFixture(
             principal = rootPrincipal(ROOT_USER),
             clock = clock,
         )
-    return GenreUndoFixture(service, genreRepo, bookRepo, clock)
+    return GenreUndoFixture(service, genreRepo, bookRepo, bus, clock)
 }
 
 private fun ListenUpDatabase.seedGenre(
