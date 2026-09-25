@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.dto.MergeReceipt
+import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -8,6 +10,7 @@ import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -17,6 +20,7 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.time.Clock
 
 private val logger = loggerFor<SeriesServiceImpl>()
 
@@ -67,10 +71,13 @@ internal class SeriesServiceImpl(
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    private val clock: Clock = Clock.System,
 ) : SeriesService {
+    private val mergeReceipts = SeriesMergeReceipts(sqlDb, seriesRepo, bookRepo, clock)
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal)
+        SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal, clock)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -128,22 +135,24 @@ internal class SeriesServiceImpl(
         target: SeriesId,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
+        val mergedBy = principal.current()?.userId?.value ?: return AppResult.Failure(AuthError.PermissionDenied())
         if (source.value == target.value) {
             return AppResult.Failure(SeriesError.MergeSelfTarget())
         }
-        val result = mergeCore(source, target)
+        val result = mergeCore(source, target, mergedBy)
         return result
     }
 
     /**
-     * The merge write sequence (no FTS reindex). The snapshot + membership relink are the one
-     * pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the source
+     * The merge write sequence (no FTS reindex). The receipt + snapshot + membership relink are
+     * kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the source
      * soft-delete are sequential aggregate writes over the single SQLDelight connection —
      * matching the established cutover shape.
      */
     private suspend fun mergeCore(
         source: SeriesId,
         target: SeriesId,
+        mergedBy: String,
     ): AppResult<Unit> {
         val sourcePayload =
             seriesRepo.findById(source.value)
@@ -156,14 +165,17 @@ internal class SeriesServiceImpl(
             )
         }
 
-        // Snapshot affected book IDs, then re-link all membership rows source → target — both
-        // over the single SQLDelight connection in one mini-transaction. A book already
-        // belonging to BOTH source and target series (duplicate series entries from sloppy
-        // embedded metadata) would collide on the composite (book_id, series_id) PK when the
-        // relink re-points the source row onto the target's — so the colliding source rows are
-        // dropped first; the target's existing membership row survives untouched.
+        // Record the receipt, snapshot affected book IDs, then re-link all membership rows
+        // source → target — all over the single SQLDelight connection in one mini-transaction.
+        // The receipt's snapshot reads the memberships this transaction is about to rewrite, so
+        // it must run first. A book already belonging to BOTH source and target series
+        // (duplicate series entries from sloppy embedded metadata) would collide on the
+        // composite (book_id, series_id) PK when the relink re-points the source row onto the
+        // target's — so the colliding source rows are dropped first; the target's existing
+        // membership row survives untouched.
         val affectedBookIds =
             sqlTransaction(sqlDb) {
+                mergeReceipts.record(source, target, mergedBy)
                 val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(source.value).executeAsList()
                 sqlDb.bookSeriesMembershipsQueries.deleteCollidingSourceSeriesMemberships(
                     to_id = target.value,
@@ -188,6 +200,16 @@ internal class SeriesServiceImpl(
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
         }
+    }
+
+    override suspend fun listMergeReceipts(target: SeriesId): AppResult<List<MergeReceipt>> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return AppResult.Success(mergeReceipts.openFor(target))
+    }
+
+    override suspend fun undoSeriesMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return AppResult.Failure(SeriesError.MergeReceiptNotFound(debugInfo = "undo lands in the next task"))
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {

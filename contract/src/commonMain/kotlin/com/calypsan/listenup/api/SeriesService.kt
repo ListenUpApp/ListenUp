@@ -1,9 +1,12 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.MergeReceipt
+import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
 import kotlinx.rpc.annotations.Rpc
 
@@ -86,4 +89,23 @@ interface SeriesService {
         source: SeriesId,
         target: SeriesId,
     ): AppResult<Unit>
+
+    /**
+     * Lists the open (not yet undone) merges into [target], newest first — the "Merged into this"
+     * section of series edit. Merges made before receipts existed are not listed and cannot be
+     * undone. Requires the caller's `canEdit` flag.
+     */
+    suspend fun listMergeReceipts(target: SeriesId): AppResult<List<MergeReceipt>>
+
+    /**
+     * Undoes the merge recorded by [receiptId]: revives the merged-away series under its original
+     * id, moves back every merged book still exactly as the merge left it (live, and still in the
+     * surviving series) with its original sequence, and leaves every later change alone.
+     *
+     * Returns [com.calypsan.listenup.api.error.SeriesError.MergeReceiptNotFound],
+     * [com.calypsan.listenup.api.error.SeriesError.MergeAlreadyUndone], or
+     * [com.calypsan.listenup.api.error.SeriesError.MergeTargetGone] (the surviving series has since
+     * been merged away — undo that first). Requires the caller's `canEdit` flag.
+     */
+    suspend fun undoSeriesMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult>
 }
