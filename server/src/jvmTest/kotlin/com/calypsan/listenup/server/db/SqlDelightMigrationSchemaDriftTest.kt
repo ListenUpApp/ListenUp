@@ -126,6 +126,11 @@ private val SQ_TABLES =
         "push_watch_tokens",
         "notifications",
         "notification_prefs",
+        "series_merge_receipts",
+        "series_merge_receipt_books",
+        "genre_merge_receipts",
+        "genre_merge_receipt_books",
+        "genre_merge_receipt_aliases",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

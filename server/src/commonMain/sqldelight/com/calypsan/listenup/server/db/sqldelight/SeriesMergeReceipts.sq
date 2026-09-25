@@ -1,0 +1,88 @@
+-- series_merge_receipts: what a series merge changed, recorded in the merge's own transaction
+-- (before the relink) so the merge can be undone. One row per merge. An undone receipt keeps its
+-- row with undone_at set — the record of the round trip.
+--
+-- series_merge_receipt_books: one row per book the source series held at merge time, with the
+-- membership it had there. was_in_target = 1 marks a book the target ALREADY held — the merge drops
+-- that book's source membership to resolve the PK collision, so its source sequence survives only
+-- here.
+--
+-- FKs to book_series / books live in the migration DDL (SQLDelight resolves FK targets only within
+-- one .sq file); the in-file receipt_id → receipt FK is declared here.
+CREATE TABLE series_merge_receipts (
+    id         TEXT    NOT NULL PRIMARY KEY,
+    source_id  TEXT    NOT NULL,
+    target_id  TEXT    NOT NULL,
+    merged_at  INTEGER NOT NULL,
+    merged_by  TEXT    NOT NULL,
+    undone_at  INTEGER
+);
+
+CREATE INDEX idx_series_merge_receipts_target ON series_merge_receipts(target_id, undone_at);
+
+CREATE TABLE series_merge_receipt_books (
+    receipt_id    TEXT    NOT NULL REFERENCES series_merge_receipts(id) ON DELETE CASCADE,
+    book_id       TEXT    NOT NULL,
+    sequence      REAL,
+    ordinal       INTEGER NOT NULL,
+    was_in_target INTEGER NOT NULL,
+    PRIMARY KEY (receipt_id, book_id)
+);
+
+-- ── writes ───────────────────────────────────────────────────────────────────
+
+insertReceipt:
+INSERT INTO series_merge_receipts (id, source_id, target_id, merged_at, merged_by, undone_at)
+VALUES (:id, :source_id, :target_id, :merged_at, :merged_by, NULL);
+
+-- Snapshots every source membership, with whether the target already held that book. Must run
+-- BEFORE the merge touches book_series_memberships.
+-- SQLDelight can't resolve a correlated EXISTS subquery against an outer alias from inside an
+-- INSERT ... SELECT's select list (the alias isn't yet in scope), so the presence check is a
+-- LEFT JOIN instead: t.book_id IS NOT NULL iff the target already held the book. Safe against
+-- duplication — t is keyed by (book_id, series_id) and series_id is pinned to :target_id, so the
+-- join matches at most one row per m.book_id.
+snapshotSourceMemberships:
+INSERT INTO series_merge_receipt_books (receipt_id, book_id, sequence, ordinal, was_in_target)
+SELECT :receipt_id, m.book_id, m.sequence, m.ordinal,
+       CASE WHEN t.book_id IS NOT NULL THEN 1 ELSE 0 END
+FROM book_series_memberships m
+LEFT JOIN book_series_memberships t ON t.book_id = m.book_id AND t.series_id = :target_id
+WHERE m.series_id = :source_id;
+
+-- Only an open receipt can be marked; returns 0 rows affected for one already undone.
+markUndone:
+UPDATE series_merge_receipts SET undone_at = :undone_at WHERE id = :id AND undone_at IS NULL;
+
+-- ── reads ────────────────────────────────────────────────────────────────────
+
+selectReceipt:
+SELECT * FROM series_merge_receipts WHERE id = :id;
+
+-- The "Merged into this" list: open receipts naming :target_id as the survivor, newest first.
+-- merged_by_name is null once the merging user is gone. book_count counts the receipt's surviving
+-- book rows — the most an undo could restore.
+selectOpenForTarget:
+SELECT r.id, s.name AS source_name, r.merged_at, u.display_name AS merged_by_name,
+       (SELECT COUNT(*) FROM series_merge_receipt_books b WHERE b.receipt_id = r.id) AS book_count
+FROM series_merge_receipts r
+JOIN book_series s ON s.id = r.source_id
+LEFT JOIN users u ON u.id = r.merged_by AND u.deleted_at IS NULL
+WHERE r.target_id = :target_id AND r.undone_at IS NULL
+ORDER BY r.merged_at DESC, r.id;
+
+countReceiptBooks:
+SELECT COUNT(*) FROM series_merge_receipt_books WHERE receipt_id = :receipt_id;
+
+-- Receipt books an undo can still restore: the book is live and still belongs to the target,
+-- exactly as the merge left it. Anything else is a later decision the undo leaves alone.
+selectRestorableBooks:
+SELECT rb.book_id, rb.sequence, rb.ordinal, rb.was_in_target
+FROM series_merge_receipt_books rb
+JOIN books b ON b.id = rb.book_id AND b.deleted_at IS NULL
+WHERE rb.receipt_id = :receipt_id
+  AND EXISTS (
+    SELECT 1 FROM book_series_memberships m
+    WHERE m.book_id = rb.book_id AND m.series_id = :target_id
+  )
+ORDER BY rb.book_id;

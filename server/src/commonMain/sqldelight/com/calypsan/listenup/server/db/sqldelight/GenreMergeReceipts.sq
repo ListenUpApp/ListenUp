@@ -1,0 +1,93 @@
+-- genre_merge_receipts: what a genre merge changed, recorded in the merge's own transaction (before
+-- the relink) so the merge can be undone. One row per merge; undone_at marks one already undone.
+--
+-- genre_merge_receipt_books: one row per book the source genre held at merge time.
+-- was_in_target = 1 marks a book the target ALREADY held — the merge's INSERT-OR-IGNORE collapses
+-- the two links into one, so this is the only record the book was in both.
+--
+-- genre_merge_receipt_aliases: the raw scanner strings that mapped to the source, which the merge
+-- re-points at the target.
+--
+-- FKs to genres / books live in the migration DDL; in-file receipt FKs are declared here.
+CREATE TABLE genre_merge_receipts (
+    id         TEXT    NOT NULL PRIMARY KEY,
+    source_id  TEXT    NOT NULL,
+    target_id  TEXT    NOT NULL,
+    merged_at  INTEGER NOT NULL,
+    merged_by  TEXT    NOT NULL,
+    undone_at  INTEGER
+);
+
+CREATE INDEX idx_genre_merge_receipts_target ON genre_merge_receipts(target_id, undone_at);
+
+CREATE TABLE genre_merge_receipt_books (
+    receipt_id    TEXT    NOT NULL REFERENCES genre_merge_receipts(id) ON DELETE CASCADE,
+    book_id       TEXT    NOT NULL,
+    was_in_target INTEGER NOT NULL,
+    PRIMARY KEY (receipt_id, book_id)
+);
+
+CREATE TABLE genre_merge_receipt_aliases (
+    receipt_id TEXT NOT NULL REFERENCES genre_merge_receipts(id) ON DELETE CASCADE,
+    raw_string TEXT NOT NULL COLLATE NOCASE,
+    PRIMARY KEY (receipt_id, raw_string)
+);
+
+-- ── writes ───────────────────────────────────────────────────────────────────
+
+insertReceipt:
+INSERT INTO genre_merge_receipts (id, source_id, target_id, merged_at, merged_by, undone_at)
+VALUES (:id, :source_id, :target_id, :merged_at, :merged_by, NULL);
+
+-- Snapshots every source link, with whether the target already held that book. Must run BEFORE
+-- the merge touches book_genres.
+-- Same LEFT JOIN rewrite as SeriesMergeReceipts.sq's snapshotSourceMemberships — SQLDelight can't
+-- resolve a correlated EXISTS against an outer alias from an INSERT ... SELECT's select list.
+snapshotSourceLinks:
+INSERT INTO genre_merge_receipt_books (receipt_id, book_id, was_in_target)
+SELECT :receipt_id, s.book_id,
+       CASE WHEN t.book_id IS NOT NULL THEN 1 ELSE 0 END
+FROM book_genres s
+LEFT JOIN book_genres t ON t.book_id = s.book_id AND t.genre_id = :target_id
+WHERE s.genre_id = :source_id;
+
+-- Snapshots the source's aliases. Must run BEFORE the merge re-points them.
+snapshotSourceAliases:
+INSERT INTO genre_merge_receipt_aliases (receipt_id, raw_string)
+SELECT :receipt_id, raw_string FROM genre_aliases WHERE genre_id = :source_id;
+
+markUndone:
+UPDATE genre_merge_receipts SET undone_at = :undone_at WHERE id = :id AND undone_at IS NULL;
+
+-- ── reads ────────────────────────────────────────────────────────────────────
+
+selectReceipt:
+SELECT * FROM genre_merge_receipts WHERE id = :id;
+
+-- The "Merged into this" list for a genre; see SeriesMergeReceipts.sq selectOpenForTarget.
+selectOpenForTarget:
+SELECT r.id, s.name AS source_name, r.merged_at, u.display_name AS merged_by_name,
+       (SELECT COUNT(*) FROM genre_merge_receipt_books b WHERE b.receipt_id = r.id) AS book_count
+FROM genre_merge_receipts r
+JOIN genres s ON s.id = r.source_id
+LEFT JOIN users u ON u.id = r.merged_by AND u.deleted_at IS NULL
+WHERE r.target_id = :target_id AND r.undone_at IS NULL
+ORDER BY r.merged_at DESC, r.id;
+
+countReceiptBooks:
+SELECT COUNT(*) FROM genre_merge_receipt_books WHERE receipt_id = :receipt_id;
+
+-- Receipt books an undo can still restore: live, and still linked to the target.
+selectRestorableBooks:
+SELECT rb.book_id, rb.was_in_target
+FROM genre_merge_receipt_books rb
+JOIN books b ON b.id = rb.book_id AND b.deleted_at IS NULL
+WHERE rb.receipt_id = :receipt_id
+  AND EXISTS (
+    SELECT 1 FROM book_genres g
+    WHERE g.book_id = rb.book_id AND g.genre_id = :target_id
+  )
+ORDER BY rb.book_id;
+
+selectReceiptAliases:
+SELECT raw_string FROM genre_merge_receipt_aliases WHERE receipt_id = :receipt_id;

@@ -86,3 +86,13 @@ liveBookCountForSeries:
 SELECT COUNT(DISTINCT bsm.book_id) FROM book_series_memberships bsm
 JOIN books b ON b.id = bsm.book_id AND b.deleted_at IS NULL
 WHERE bsm.series_id = :series_id;
+
+-- Merge undo: restores a source membership. OR IGNORE because the source may already hold the
+-- book (a rescan before merges left a redirect could have re-linked it).
+insertIfAbsent:
+INSERT OR IGNORE INTO book_series_memberships (book_id, series_id, sequence, ordinal)
+VALUES (:book_id, :series_id, :sequence, :ordinal);
+
+-- Merge undo: drops one book's membership of one series.
+deleteMembership:
+DELETE FROM book_series_memberships WHERE book_id = :book_id AND series_id = :series_id;
