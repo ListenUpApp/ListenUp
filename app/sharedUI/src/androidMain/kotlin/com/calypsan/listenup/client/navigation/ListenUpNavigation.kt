@@ -494,6 +494,14 @@ private fun LoginNavigation(
 }
 
 /**
+ * Whether the shell-level connection banner is drawn over [top]. Not over Login: its "Sign in"
+ * would point at the page already open, and the banner, pinned above the navigation stack, reads
+ * as floating loose while Login slides in beneath it. (iOS presents sign-in as a sheet over its
+ * banner; web signs in inline — neither shows the banner over a login page.)
+ */
+internal fun showsConnectionBannerOver(top: NavKey?): Boolean = top != Login
+
+/**
  * Resets navigation to the [Shell] root, clearing any detail screens on the way. No-op when the
  * shell is already the top of the back stack. Shared by shortcut routing and share-link routing so
  * "land the user on a known root before pushing a detail" has exactly one definition.
@@ -972,16 +980,18 @@ private fun BoxScope.AuthenticatedNavOverlays(
             }
         }
     }
-    ConnectionHealthBanner(
-        state = connectionHealth,
-        onSignIn = connectionHealthViewModel::signIn,
-        onDismiss = connectionHealthViewModel::dismiss,
-        modifier =
-            Modifier
-                .align(Alignment.TopCenter)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+    if (showsConnectionBannerOver(backStack.lastOrNull())) {
+        ConnectionHealthBanner(
+            state = connectionHealth,
+            onSignIn = connectionHealthViewModel::signIn,
+            onDismiss = connectionHealthViewModel::dismiss,
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
 
     // Single readiness gate for the non-shell startup states. Populating is handled inside the
     // Shell entry above (so the shell never mounts during import); everything else is covered
