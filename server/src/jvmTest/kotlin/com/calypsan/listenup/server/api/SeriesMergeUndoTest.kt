@@ -1,5 +1,3 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.MergeReceipt
@@ -8,6 +6,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -32,6 +31,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -142,7 +142,7 @@ class SeriesMergeUndoTest :
                         .deletedAt
                         .shouldBeNull()
                     f.membershipsOf("b1") shouldBe listOf(s.value to 1.0)
-                    f.membershipsOf("b2").toSet() shouldBe setOf(s.value to 2.0, t.value to 9.0)
+                    f.membershipsOf("b2") shouldBe listOf(s.value to 2.0, t.value to 9.0)
                     f.service
                         .listMergeReceipts(t)
                         .shouldBeInstanceOf<AppResult.Success<List<MergeReceipt>>>()
@@ -207,6 +207,67 @@ class SeriesMergeUndoTest :
 
                     f.service.undoSeriesMerge(f.onlyReceiptInto(t)).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
 
+                    f.membershipsOf("b1") shouldBe listOf(s.value to 1.0)
+                }
+            }
+        }
+
+        test("undo keeps a book's other series where the user put them") {
+            withSqlDatabase {
+                val f = undoFixture(this)
+                runTest {
+                    val x = f.series.resolveOrCreate("X")
+                    val s = f.series.resolveOrCreate("Source")
+                    val t = f.series.resolveOrCreate("Target")
+                    f.putBook("b1", BookSeriesPayload(x.value, "X", 1.0), BookSeriesPayload(s.value, "Source", 2.0))
+                    f.service.mergeSeries(s, t)
+
+                    f.service.undoSeriesMerge(f.onlyReceiptInto(t)).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
+
+                    f.membershipsOf("b1") shouldBe listOf(x.value to 1.0, s.value to 2.0)
+                }
+            }
+        }
+
+        test("undo re-publishes every restored book") {
+            withSqlDatabase {
+                val f = undoFixture(this)
+                runTest {
+                    val s = f.series.resolveOrCreate("Source")
+                    val t = f.series.resolveOrCreate("Target")
+                    f.putBook("b1", BookSeriesPayload(s.value, "Source", 1.0))
+                    f.service.mergeSeries(s, t)
+                    val revisionAfterMerge =
+                        f.books
+                            .findById(BookId("b1"))
+                            .shouldNotBeNull()
+                            .revision
+
+                    f.service.undoSeriesMerge(f.onlyReceiptInto(t)).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
+
+                    val revisionAfterUndo =
+                        f.books
+                            .findById(BookId("b1"))
+                            .shouldNotBeNull()
+                            .revision
+                    (revisionAfterUndo > revisionAfterMerge) shouldBe true
+                }
+            }
+        }
+
+        test("undo works when the source was already revived by other means") {
+            withSqlDatabase {
+                val f = undoFixture(this)
+                runTest {
+                    val s = f.series.resolveOrCreate("Source")
+                    val t = f.series.resolveOrCreate("Target")
+                    f.putBook("b1", BookSeriesPayload(s.value, "Source", 1.0))
+                    f.service.mergeSeries(s, t)
+                    f.series.revive(s)
+
+                    val result = f.service.undoSeriesMerge(f.onlyReceiptInto(t))
+
+                    result.shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
                     f.membershipsOf("b1") shouldBe listOf(s.value to 1.0)
                 }
             }
@@ -294,7 +355,7 @@ class SeriesMergeUndoTest :
                     f.service.mergeSeries(s, t).shouldBeInstanceOf<AppResult.Success<Unit>>()
                     val second = f.onlyReceiptInto(t)
 
-                    (second == first) shouldBe false
+                    second shouldNotBe first
                     f.service.undoSeriesMerge(second).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
                     f.membershipsOf("b1") shouldBe listOf(s.value to 1.0)
                 }

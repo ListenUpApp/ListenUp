@@ -87,8 +87,10 @@ SELECT COUNT(DISTINCT bsm.book_id) FROM book_series_memberships bsm
 JOIN books b ON b.id = bsm.book_id AND b.deleted_at IS NULL
 WHERE bsm.series_id = :series_id;
 
--- Merge undo: restores a source membership. OR IGNORE because the source may already hold the
--- book (a rescan before merges left a redirect could have re-linked it).
+-- Merge undo (book already held by the target at merge time): restores the source membership
+-- alongside the surviving target row. OR IGNORE because the source may already hold the book by
+-- the time undo runs — the target's redirect means a rescan can't have re-created it, but a manual
+-- re-add could have; that pre-existing row is a later decision this undo leaves alone.
 insertIfAbsent:
 INSERT OR IGNORE INTO book_series_memberships (book_id, series_id, sequence, ordinal)
 VALUES (:book_id, :series_id, :sequence, :ordinal);
@@ -96,3 +98,28 @@ VALUES (:book_id, :series_id, :sequence, :ordinal);
 -- Merge undo: drops one book's membership of one series.
 deleteMembership:
 DELETE FROM book_series_memberships WHERE book_id = :book_id AND series_id = :series_id;
+
+-- Merge undo (book NOT held by the target at merge time): whether book_id already carries a
+-- membership row for series_id. Used before repointToSource to detect the PK collision a plain
+-- UPDATE can't express — SQLite has no UPDATE ... ON CONFLICT for a composite PK.
+existsMembership:
+SELECT EXISTS(SELECT 1 FROM book_series_memberships WHERE book_id = :book_id AND series_id = :series_id);
+
+-- Merge undo (book NOT held by the target at merge time): re-points the target row back onto the
+-- source in place — the inverse of relinkSeries. Ordinal is left untouched, keeping whatever slot
+-- the book occupies now (including any reorder since the merge); only series_id and sequence move
+-- back. Callers must check existsMembership first — if a source row already exists for the book
+-- (e.g. a later manual re-add), this UPDATE would collide on the composite PK.
+repointToSource:
+UPDATE book_series_memberships
+SET series_id = :source_id, sequence = :sequence
+WHERE book_id = :book_id AND series_id = :target_id;
+
+-- Merge undo (book already held by the target at merge time): frees the recorded ordinal slot for
+-- the restored source row by shifting this book's OTHER series memberships at or after that ordinal
+-- up by one. Without this, insertIfAbsent's new row would tie with whatever now occupies that
+-- ordinal, and selectByBookIds (ordinal-only ORDER BY) would freeze an arbitrary order between them.
+shiftOrdinalsFrom:
+UPDATE book_series_memberships
+SET ordinal = ordinal + 1
+WHERE book_id = :book_id AND ordinal >= :ordinal;
