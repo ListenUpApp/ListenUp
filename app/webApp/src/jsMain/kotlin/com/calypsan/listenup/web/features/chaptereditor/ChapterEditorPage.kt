@@ -45,6 +45,9 @@ fun ChapterEditorPage(
     onRetitle: (String, String) -> Unit,
     onRemove: (String) -> Unit,
     onAddAt: (Long, String) -> Unit,
+    onRetime: (String, Long) -> Unit,
+    onInsertBelow: (String, String) -> Unit,
+    onPlayFrom: (String) -> Unit,
     onToggleLock: (String) -> Unit,
     onBeginDrift: () -> Unit,
     onPinAnchor: (String, Long) -> Unit,
@@ -83,6 +86,9 @@ fun ChapterEditorPage(
                     onRetitle = onRetitle,
                     onRemove = onRemove,
                     onAddAt = onAddAt,
+                    onRetime = onRetime,
+                    onInsertBelow = onInsertBelow,
+                    onPlayFrom = onPlayFrom,
                     onToggleLock = onToggleLock,
                     onBeginDrift = onBeginDrift,
                     onPinAnchor = onPinAnchor,
@@ -108,6 +114,9 @@ private fun EditingContent(
     onRetitle: (String, String) -> Unit,
     onRemove: (String) -> Unit,
     onAddAt: (Long, String) -> Unit,
+    onRetime: (String, Long) -> Unit,
+    onInsertBelow: (String, String) -> Unit,
+    onPlayFrom: (String) -> Unit,
     onToggleLock: (String) -> Unit,
     onBeginDrift: () -> Unit,
     onPinAnchor: (String, Long) -> Unit,
@@ -206,6 +215,9 @@ private fun EditingContent(
                     onNudge = { delta -> onNudge(numbered.chapter.id, delta) },
                     onSnapToPlayhead = { playheadMs?.let { onSnapToPlayhead(numbered.chapter.id, it) } },
                     onToggleLock = { onToggleLock(numbered.chapter.id) },
+                    onEditTime = { rowAction = RowAction.EditingTime(numbered.chapter.id) },
+                    onInsertBelow = { onInsertBelow(numbered.chapter.id, NEW_CHAPTER_TITLE) },
+                    onPlayFrom = { onPlayFrom(numbered.chapter.id) },
                     onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
                     onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
                 )
@@ -225,6 +237,17 @@ private fun EditingContent(
                         .orEmpty(),
                 onConfirm = {
                     onRetitle(action.chapterId, it)
+                    rowAction = null
+                },
+                onDismiss = { rowAction = null },
+            )
+        }
+
+        is RowAction.EditingTime -> {
+            ChapterTimeDialog(
+                initialMs = state.chapters.firstOrNull { it.id == action.chapterId }?.startTime ?: 0L,
+                onConfirm = {
+                    onRetime(action.chapterId, it)
                     rowAction = null
                 },
                 onDismiss = { rowAction = null },

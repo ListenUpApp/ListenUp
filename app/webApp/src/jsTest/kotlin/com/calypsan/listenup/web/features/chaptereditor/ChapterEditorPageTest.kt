@@ -74,6 +74,9 @@ private fun page(
     onRetitle: (String, String) -> Unit = { _, _ -> },
     onRemove: (String) -> Unit = {},
     onAddAt: (Long, String) -> Unit = { _, _ -> },
+    onRetime: (String, Long) -> Unit = { _, _ -> },
+    onInsertBelow: (String, String) -> Unit = { _, _ -> },
+    onPlayFrom: (String) -> Unit = {},
     onToggleLock: (String) -> Unit = {},
     onBeginDrift: () -> Unit = {},
     onPinAnchor: (String, Long) -> Unit = { _, _ -> },
@@ -97,6 +100,9 @@ private fun page(
             onRetitle = onRetitle,
             onRemove = onRemove,
             onAddAt = onAddAt,
+            onRetime = onRetime,
+            onInsertBelow = onInsertBelow,
+            onPlayFrom = onPlayFrom,
             onToggleLock = onToggleLock,
             onBeginDrift = onBeginDrift,
             onPinAnchor = onPinAnchor,
@@ -317,6 +323,63 @@ class ChapterEditorPageTest :
             awaitFrame()
 
             toggled shouldContainExactly listOf("c2")
+        }
+
+        // Spec 7.4: "precise time (tap to type to the ms)". The time is its own control.
+        test("the start time opens an exact-time field, and a typed time retimes the boundary") {
+            val retimes = mutableListOf<Pair<String, Long>>()
+            val host = page(editingChapters(), onRetime = { id, at -> retimes += id to at })
+
+            rowAction(host, 1, "Edit start time").shouldNotBeNull().click()
+            awaitFrame()
+
+            val field = host.querySelector("#ced-chapter-time") as HTMLInputElement
+            field.value shouldBe "0:01:00.0"
+            field.value = "0:01:02.345"
+            field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            dialogButton(host, "Set").shouldNotBeNull().click()
+            awaitFrame()
+
+            retimes shouldContainExactly listOf("c2" to 62_345L)
+        }
+
+        test("something that is not a time is refused where it was typed") {
+            val host = page(editingChapters())
+
+            rowAction(host, 1, "Edit start time").shouldNotBeNull().click()
+            awaitFrame()
+            val field = host.querySelector("#ced-chapter-time") as HTMLInputElement
+            field.value = "soon"
+            field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            host.textContent.orEmpty() shouldContain "Type a time like 1:02:03.4."
+            dialogButton(host, "Set").shouldNotBeNull().disabled shouldBe true
+        }
+
+        test("insert below adds a boundary under the row it was asked on") {
+            val inserts = mutableListOf<Pair<String, String>>()
+            val host = page(editingChapters(), onInsertBelow = { id, title -> inserts += id to title })
+
+            rowAction(host, 0, "Insert chapter below").shouldNotBeNull().click()
+            awaitFrame()
+
+            inserts shouldContainExactly listOf("c1" to "New chapter")
+        }
+
+        test("play from here is offered only while this book is the one playing") {
+            val plays = mutableListOf<String>()
+            page(editingChapters(), playheadMs = null).let { idle ->
+                rowAction(idle, 0, "Play from here").shouldBeNull()
+            }
+            val host = page(editingChapters(), playheadMs = 61_500L, onPlayFrom = { plays += it })
+
+            rowAction(host, 2, "Play from here").shouldNotBeNull().click()
+            awaitFrame()
+
+            plays shouldContainExactly listOf("c3")
         }
 
         test("renaming opens on the chapter's current title and reports the new one") {
