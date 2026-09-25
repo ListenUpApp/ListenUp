@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -213,6 +214,27 @@ class SeriesMergeUndoTest :
             }
         }
 
+        test("undo leaves alone a source row the user re-added by hand") {
+            withSqlDatabase {
+                val f = undoFixture(this)
+                runTest {
+                    val s = f.series.resolveOrCreate("Source")
+                    val t = f.series.resolveOrCreate("Target")
+                    f.putBook("b1", BookSeriesPayload(s.value, "Source", 1.0))
+                    f.service.mergeSeries(s, t)
+                    f.series.revive(s)
+                    // The user put b1 back in Source by hand (at a new sequence) while it was still
+                    // in Target too — the fallback this exercises must drop the redundant target row
+                    // and leave the user's own source row exactly as they made it.
+                    f.putBook("b1", BookSeriesPayload(t.value, "Target", 9.0), BookSeriesPayload(s.value, "Source", 5.0))
+
+                    f.service.undoSeriesMerge(f.onlyReceiptInto(t)).shouldBeInstanceOf<AppResult.Success<MergeUndoResult>>()
+
+                    f.membershipsOf("b1") shouldBe listOf(s.value to 5.0)
+                }
+            }
+        }
+
         test("undo keeps a book's other series where the user put them") {
             withSqlDatabase {
                 val f = undoFixture(this)
@@ -301,7 +323,7 @@ class SeriesMergeUndoTest :
                             .findById(BookId("b1"))
                             .shouldNotBeNull()
                             .revision
-                    (revisionAfterUndo > revisionAfterMerge) shouldBe true
+                    revisionAfterUndo shouldBeGreaterThan revisionAfterMerge
                 }
             }
         }

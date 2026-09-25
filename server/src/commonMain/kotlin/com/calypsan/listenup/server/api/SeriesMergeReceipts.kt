@@ -156,6 +156,15 @@ internal class SeriesMergeReceipts(
                 SeriesError.MergeTargetGone(debugInfo = "receipt=${receipt.id} target=${receipt.target_id}"),
             )
         }
+        // Step 2's revive ran outside this transaction, so the source could have been merged away
+        // again in the gap before we got here (an admin merging the just-revived source into a third
+        // series). Catch that here, before markUndone — a refusal after it would still commit it.
+        val source = sqlDb.seriesQueries.selectById(receipt.source_id).executeAsOneOrNull()
+        if (source == null || source.deleted_at != null) {
+            return SeriesUndoClaim.Refused(
+                SeriesError.NotFound(debugInfo = "receipt=${receipt.id} source=${receipt.source_id}"),
+            )
+        }
         val claimed = receipts.markUndone(undone_at = clock.now().toEpochMilliseconds(), id = receipt.id)
         if (claimed.value == 0L) {
             return SeriesUndoClaim.Refused(SeriesError.MergeAlreadyUndone(debugInfo = "receipt=${receipt.id}"))
@@ -165,8 +174,8 @@ internal class SeriesMergeReceipts(
         val recorded = receipts.countReceiptBooks(receipt.id).executeAsOne()
         for (book in restorable) {
             if (book.was_in_target == 0L) {
-                // The book's only row is the one the merge relinked — put it back in place rather
-                // than delete+insert, so any reorder since the merge survives.
+                // The target row is the one the merge relinked — put it back in place rather than
+                // delete+insert, so any reorder since the merge survives.
                 val sourceRowExists =
                     sqlDb.bookSeriesMembershipsQueries
                         .existsMembership(book_id = book.book_id, series_id = receipt.source_id)
@@ -187,9 +196,10 @@ internal class SeriesMergeReceipts(
                     )
                 }
             } else {
-                // The book kept both rows through the merge; restore the source row alongside the
-                // surviving target row, at its recorded ordinal — shifting later rows out of the way
-                // first so the restored row doesn't tie with whatever occupies that slot now.
+                // The merge dropped this book's source row (it already held the target); restore it
+                // at its recorded ordinal, alongside the surviving target row — shifting later rows
+                // out of the way first so the restored row doesn't tie with whatever occupies that
+                // slot now.
                 sqlDb.bookSeriesMembershipsQueries.shiftOrdinalsFrom(book_id = book.book_id, ordinal = book.ordinal)
                 sqlDb.bookSeriesMembershipsQueries.insertIfAbsent(
                     book_id = book.book_id,
