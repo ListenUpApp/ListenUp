@@ -119,10 +119,12 @@ SELECT id FROM books WHERE folder_id = :folder_id;
 selectIdsByFolderDeletedSince:
 SELECT id FROM books WHERE folder_id = :folder_id AND deleted_at IS NOT NULL AND deleted_at >= :deleted_at;
 
--- cover_source only — the sticky-UPLOADED check in writePayload reads just this
--- column before deciding whether to preserve the cover columns on re-scan.
-selectCoverSourceById:
-SELECT cover_source FROM books WHERE id = :id;
+-- The three cover columns — writePayload reads this once per update to decide both the
+-- sticky-UPLOADED preserve and, for every other source, whether an incoming cover that
+-- matches the stored source+hash should keep the stored cover_path (see resolveCoverColumns;
+-- the wire payload never carries a path, so a re-read-and-write must not null one out).
+selectCoverColumnsById:
+SELECT cover_source, cover_path, cover_hash FROM books WHERE id = :id;
 
 -- chapter_source only — the sticky-USER check in writePayload reads just this
 -- column before deciding whether to preserve the chapter rows on re-scan.
