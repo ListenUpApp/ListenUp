@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
+import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -343,12 +344,12 @@ class BookRepository(
             // (cover_source = 'uploaded'), preserve the cover columns so a re-scan does not
             // clobber an intentional user choice. Any other existing source (filesystem,
             // embedded, enriched) gets overwritten by the new scan data.
-            val existingCoverSource =
+            val existingCover =
                 db.booksQueries
-                    .selectCoverSourceById(value.id)
+                    .selectCoverColumnsById(value.id)
                     .executeAsOneOrNull()
-                    ?.cover_source
-            val isUploadedLocked = existingCoverSource == CoverSource.UPLOADED.name.lowercase()
+                    ?.let { ExistingCoverColumns(it.cover_source, it.cover_path, it.cover_hash) }
+            val isUploadedLocked = existingCover?.source == CoverSource.UPLOADED.name.lowercase()
 
             if (isUploadedLocked) {
                 db.booksQueries.updateContentPreserveCover(
@@ -376,7 +377,7 @@ class BookRepository(
                     id = value.id,
                 )
             } else {
-                val cover = resolveCoverColumns(value, managedCover)
+                val cover = resolveCoverColumns(value, managedCover, existingCover)
                 db.booksQueries.updateContent(
                     title = value.title,
                     sort_title = value.sortTitle,
@@ -410,7 +411,7 @@ class BookRepository(
             // explicit metadata edit (which sets this override) can move it.
             extras?.createdAtOverride?.let { db.booksQueries.updateCreatedAt(it, value.id) }
         } else {
-            val cover = resolveCoverColumns(value, managedCover)
+            val cover = resolveCoverColumns(value, managedCover, existing = null)
             db.booksQueries.insert(
                 id = value.id,
                 library_id = value.libraryId.value,
@@ -493,12 +494,24 @@ class BookRepository(
      *
      * When [managedCover] is non-null, the scan-time managed cover lands in the same
      * statement (source + relPath + hash). Otherwise the source/hash come from the wire
-     * payload's cover and the path is null — the managed path is set separately by
-     * [setManagedCover]. Mirrors the prior `applyBookFields` cover branch exactly.
+     * payload's cover — [CoverPayload] carries no path, only source + hash, so this method
+     * can never learn a path from `value` alone.
+     *
+     * In that no-[managedCover] case, [existing] (the row's cover columns before this write,
+     * `null` on INSERT) decides the path: if [value]'s cover has the SAME source + hash as the
+     * stored row, the write is a re-read-and-write of an aggregate that already has a managed
+     * cover on disk (a series/genre/contributor merge's re-upsert, or a user metadata edit both
+     * do `upsert(findById(id))` under the hood) — the path is carried forward unchanged rather
+     * than nulled, or the cover would silently stop resolving ([ManagedCoverFiles] needs the
+     * path for every source but UPLOADED). If the source or hash differs, the incoming payload
+     * describes cover bytes this write does not know the path to (a fresh scan or upload that
+     * hasn't called [setManagedCover] yet), so the path is null exactly as before — the same
+     * applies when [value]'s cover is null (the cover is being removed).
      */
     private fun resolveCoverColumns(
         value: BookSyncPayload,
         managedCover: StoredCoverInfo?,
+        existing: ExistingCoverColumns?,
     ): CoverColumns =
         if (managedCover != null) {
             CoverColumns(
@@ -507,18 +520,28 @@ class BookRepository(
                 hash = managedCover.hash,
             )
         } else {
+            val incoming = value.cover
+            val incomingSource = incoming?.source?.name?.lowercase()
+            val coverUnchangedFromStored =
+                incoming != null &&
+                    existing != null &&
+                    existing.source == incomingSource &&
+                    existing.hash == incoming.hash
             CoverColumns(
-                source =
-                    value.cover
-                        ?.source
-                        ?.name
-                        ?.lowercase(),
-                path = null,
-                hash = value.cover?.hash,
+                source = incomingSource,
+                path = if (coverUnchangedFromStored) existing.path else null,
+                hash = incoming?.hash,
             )
         }
 
     private data class CoverColumns(
+        val source: String?,
+        val path: String?,
+        val hash: String?,
+    )
+
+    /** The stored cover columns read before a write, so [resolveCoverColumns] can decide the path. */
+    private data class ExistingCoverColumns(
         val source: String?,
         val path: String?,
         val hash: String?,
