@@ -182,8 +182,9 @@ internal class SeriesServiceImpl(
             }
         }
 
-        // Soft-delete source — emits series.Deleted(source).
-        return when (val softDeleteResult = seriesRepo.softDelete(source)) {
+        // Tombstone the source AND record its merge redirect, so a rescan of a book whose files
+        // still carry the old name lands in the target instead of reviving the source.
+        return when (val softDeleteResult = seriesRepo.softDeleteMergedInto(source, target)) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
         }
