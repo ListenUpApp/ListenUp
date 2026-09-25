@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.metadata.audible
 
+import com.calypsan.listenup.server.scanner.pipeline.HtmlToMarkdown
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.logging.loggerFor
-import com.calypsan.listenup.server.metadata.providerHtmlToPlainText
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -350,7 +350,9 @@ private fun RawProduct.toBook(): AudibleBook {
         publisher = publisherName,
         releaseDate = releaseDate,
         runtimeMinutes = runtimeLengthMin,
-        description = fullDescription(),
+        // The full publisher summary, as Markdown like every other description source; the teaser only
+        // when Audible sends nothing fuller.
+        description = HtmlToMarkdown.convert(publisherSummary.ifBlank { merchandisingSummary }).trim(),
         coverUrl = selectCoverUrl(productImages),
         series =
             this.series.map {
@@ -419,15 +421,3 @@ private fun extractGenreLadders(ladders: List<RawCategoryLadder>): List<List<Str
     ladders
         .map { ladder -> ladder.ladder.map { it.name }.filter { it.isNotEmpty() } }
         .filter { it.isNotEmpty() }
-
-/**
- * Prefers Audible's full [RawProduct.publisherSummary] over the short
- * [RawProduct.merchandisingSummary] (which is sometimes absent outright) when
- * it is non-blank. Both arrive as HTML; [providerHtmlToPlainText] converts
- * whichever is chosen to plain text with paragraph breaks preserved.
- */
-private fun RawProduct.fullDescription(): String =
-    listOf(publisherSummary, merchandisingSummary)
-        .firstOrNull { it.isNotBlank() }
-        ?.let { providerHtmlToPlainText(it) }
-        ?: ""
