@@ -94,6 +94,7 @@ class ReconnectionSupervisorTest :
                 syncStreamClient = syncStreamClient,
                 authSession = authSession,
                 errorBus = ErrorBus(),
+                onServerReplaced = { _, _ -> },
                 reevaluate = { reevaluateCount++ },
                 scope = scope,
                 probeIntervalMillis = interval,
