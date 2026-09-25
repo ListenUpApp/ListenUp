@@ -54,6 +54,7 @@ class ChapterListSearchTest {
                     onSnapToPlayhead = {},
                     onToggleLock = {},
                     onMore = {},
+                    onEditTime = {},
                     onSeekFraction = {},
                     query = query,
                     onQueryChange = {},

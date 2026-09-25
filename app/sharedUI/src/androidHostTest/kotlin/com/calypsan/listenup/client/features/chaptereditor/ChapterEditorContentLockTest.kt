@@ -57,6 +57,7 @@ class ChapterEditorContentLockTest {
                     onSnapToPlayhead = {},
                     onToggleLock = onToggleLock,
                     onMore = {},
+                    onEditTime = {},
                     onSeekFraction = {},
                     lockedChapterIds = locked,
                 )

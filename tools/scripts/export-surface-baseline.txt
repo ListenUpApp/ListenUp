@@ -300,6 +300,7 @@ FacetKind
 FacetStats
 FileLogSink
 FileSource
+FineScrubStep
 FolderId
 ForgotPasswordUiState
 ForgotPasswordUiState_SealedType
@@ -570,6 +571,7 @@ ScanError_SealedType
 ScanIssue
 ScanIssueReason
 ScanProgressState
+ScrubDrag
 SearchFacets
 SearchHit
 SearchHitType
@@ -706,7 +708,10 @@ TagId
 TagRepository
 ThemeMode
 TierLabels
+TimelineChapter
+TimelineFileBoundary
 TimelineFileInput
+TimelineGeometry
 Timestamp
 TitleSortUtils
 TranscodeError

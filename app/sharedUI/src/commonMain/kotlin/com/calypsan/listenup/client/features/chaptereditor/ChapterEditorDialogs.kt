@@ -1,5 +1,15 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import listenup.composeapp.generated.resources.chapter_editor_play_from_here
+import listenup.composeapp.generated.resources.chapter_editor_insert_below
+import listenup.composeapp.generated.resources.chapter_editor_edit_time_invalid
+import listenup.composeapp.generated.resources.chapter_editor_edit_time_label
+import listenup.composeapp.generated.resources.chapter_editor_edit_time_title
+import com.calypsan.listenup.client.core.ChapterTimeFormat
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -116,7 +126,8 @@ internal fun RenameChapterDialog(
 }
 
 /**
- * A row's overflow, as a dialog rather than an anchored menu.
+ * A row's overflow, as a dialog rather than an anchored menu: rename, insert below, play from here,
+ * delete — the set the spec gives every row (§7.4).
  *
  * The row's actions have to be reachable identically on a phone, a desktop window and a browser,
  * and a dialog is the one shape that behaves the same in all three without each platform needing
@@ -125,6 +136,8 @@ internal fun RenameChapterDialog(
 @Composable
 internal fun ChapterActionsDialog(
     onRename: () -> Unit,
+    onInsertBelow: () -> Unit,
+    onPlayFromHere: (() -> Unit)?,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -136,10 +149,66 @@ internal fun ChapterActionsDialog(
         text = {
             Column {
                 TextButton(onClick = onRename) { Text(stringResource(Res.string.chapter_editor_rename_title)) }
+                TextButton(onClick = onInsertBelow) { Text(stringResource(Res.string.chapter_editor_insert_below)) }
+                // Disabled rather than absent while another book (or nothing) is loaded: playing
+                // from here then would replace what the listener has going, unasked.
+                TextButton(onClick = { onPlayFromHere?.invoke() }, enabled = onPlayFromHere != null) {
+                    Text(stringResource(Res.string.chapter_editor_play_from_here))
+                }
                 TextButton(onClick = onDelete) { Text(stringResource(Res.string.chapter_editor_delete_title)) }
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
+        },
+    )
+}
+
+/**
+ * Typing a chapter's start exactly (spec §7.4, "tap to type to the ms").
+ *
+ * Opens on the start as the row shows it and takes back that shape and the shorter ones people
+ * type; anything that is not a time is refused inline, with Save disabled, rather than guessed at.
+ * The value is applied through the ViewModel's retime, which clamps it between the neighbours.
+ */
+@Composable
+internal fun ChapterTimeDialog(
+    initialMs: Long,
+    onConfirm: (Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(ChapterTimeFormat.precise(initialMs)) }
+    val parsed = ChapterTimeFormat.parsePrecise(text)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = { Text(stringResource(Res.string.chapter_editor_edit_time_title)) },
+        text = {
+            Column {
+                ListenUpTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = stringResource(Res.string.chapter_editor_edit_time_label),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
+                if (parsed == null) {
+                    Text(
+                        text = stringResource(Res.string.chapter_editor_edit_time_invalid),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { parsed?.let(onConfirm) }, enabled = parsed != null) {
+                Text(stringResource(Res.string.common_save))
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
         },
     )

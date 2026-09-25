@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.BookError
@@ -78,6 +81,17 @@ class ChapterEditorViewModelTest :
                     Chapter(id = "c$i", title = "Chapter $i", duration = 0L, startTime = s)
                 }.withDerivedDurations(BOOK_MS)
 
+        var controller = FakePlaybackController()
+        val loadedTimeline = MutableStateFlow<PlaybackTimeline?>(null)
+
+        beforeTest {
+            controller = FakePlaybackController()
+            loadedTimeline.value = null
+        }
+
+        fun timelineFor(bookId: String): PlaybackTimeline =
+            PlaybackTimeline(bookId = BookId(bookId), totalDurationMs = BOOK_MS, files = emptyList())
+
         fun rig(
             initial: List<Chapter> = chapters(0L, 300_000L, 900_000L),
             saveResult: AppResult<Unit> = AppResult.Success(Unit),
@@ -95,12 +109,17 @@ class ChapterEditorViewModelTest :
                 saveResult
             }
 
+            val playback = mock<PlaybackManager>(MockMode.autoUnit)
+            every { playback.currentTimeline } returns loadedTimeline
+
             val vm =
                 ChapterEditorViewModel(
                     bookId = BOOK_ID,
                     bookRepository = books,
                     bookEditRepository = edits,
                     errorBus = ErrorBus(),
+                    playbackManager = playback,
+                    playbackController = controller,
                 )
             return Triple(vm, mirror, saved)
         }
@@ -416,6 +435,42 @@ class ChapterEditorViewModelTest :
                         .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
                         .chapters
                         .map { it.startTime } shouldBe listOf(0L, 300_000L, 900_000L, 1_050_000L)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // "Play from here" (spec §7.4) is how the playhead reaches a boundary so snap-to-playhead
+        // can take it — the precision instrument is useless if the listener cannot get there.
+        test("play from here plays this book from the chapter's start") {
+            loadedTimeline.value = timelineFor(BOOK_ID)
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.playFrom("c1")
+
+                    controller.seekCalls shouldBe listOf(300_000L)
+                    controller.playCount shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("play from here never takes over another book that is playing") {
+            loadedTimeline.value = timelineFor("some-other-book")
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.playFrom("c1")
+
+                    controller.seekCalls shouldBe emptyList()
+                    controller.playCount shouldBe 0
                     cancelAndIgnoreRemainingEvents()
                 }
             }

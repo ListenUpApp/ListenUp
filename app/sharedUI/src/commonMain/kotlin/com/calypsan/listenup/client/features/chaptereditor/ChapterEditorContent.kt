@@ -110,6 +110,7 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  *   is a picture of the audio and hiding parts of it would misrepresent what is there.
  * @param onQueryChange the search box changed.
  * @param onMore open a row's overflow.
+ * @param onEditTime type a row's start exactly.
  * @param onSeekFraction move the detail lane's window from the minimap.
  * @param onRetime a boundary was dragged to a new start.
  * @param modifier Modifier for the content.
@@ -130,6 +131,7 @@ fun ChapterEditorContent(
     onSnapToPlayhead: (String) -> Unit,
     onToggleLock: (String) -> Unit,
     onMore: (String) -> Unit,
+    onEditTime: (String) -> Unit,
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
     onAddAtPlayhead: (() -> Unit)? = null,
@@ -167,6 +169,7 @@ fun ChapterEditorContent(
             onSnapToPlayhead = onSnapToPlayhead,
             onToggleLock = onToggleLock,
             onMore = onMore,
+            onEditTime = onEditTime,
             lockedChapterIds = lockedChapterIds,
             query = query,
             onQueryChange = onQueryChange,
@@ -327,6 +330,7 @@ private fun ChapterListPane(
     onSnapToPlayhead: (String) -> Unit,
     onToggleLock: (String) -> Unit,
     onMore: (String) -> Unit,
+    onEditTime: (String) -> Unit,
     lockedChapterIds: Set<String>,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -380,6 +384,7 @@ private fun ChapterListPane(
                     onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
                     onToggleLock = { onToggleLock(numbered.chapter.id) },
                     onMore = { onMore(numbered.chapter.id) },
+                    onEditTime = { onEditTime(numbered.chapter.id) },
                     isLocked = numbered.chapter.id in lockedChapterIds,
                 )
             }

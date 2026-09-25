@@ -52,6 +52,7 @@ class ChapterEditorContentAddTest {
                     onSnapToPlayhead = {},
                     onToggleLock = {},
                     onMore = {},
+                    onEditTime = {},
                     onSeekFraction = {},
                     onAddAtPlayhead = onAddAtPlayhead,
                 )
