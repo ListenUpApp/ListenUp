@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.handoff.resolveHandoffTarget
 import com.calypsan.listenup.client.handoff.ViewedBookTracker
@@ -53,6 +54,7 @@ import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -85,7 +87,10 @@ class MainActivity : ComponentActivity() {
     private val deepLinkManager: DeepLinkManager by inject()
     private val shortcutActionManager: ShortcutActionManager by inject()
     private val viewedBookTracker: ViewedBookTracker by inject()
-    private val playbackStateProvider: PlaybackStateProvider by inject()
+
+    // The concrete PlaybackManager, narrowed: nothing binds PlaybackStateProvider on its own (iOS
+    // has no PlaybackManager at all), so injecting the interface crashed the first handoff request.
+    private val playbackStateProvider: PlaybackStateProvider by lazy { get<PlaybackManager>() }
     private val instanceRepository: InstanceRepository by inject()
 
     /**
