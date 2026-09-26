@@ -57,7 +57,7 @@ fun CategoriesPage(
 ) {
     Div(attrs = { classes("cat") }) {
         Button(attrs = {
-            classes("btn-o", "cat-back")
+            classes(BTN_SECONDARY, "cat-back")
             attr("type", VALUE_BUTTON)
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
@@ -110,7 +110,7 @@ private fun GenreMergeHistoryDialog(
         MergeHistoryList(state = open.history, onUndo = actions.undo, onRetry = actions.retry)
         Div(attrs = { classes("dlg-actions") }) {
             Button(attrs = {
-                classes("btn-o")
+                classes(BTN_SECONDARY)
                 attr("type", VALUE_BUTTON)
                 onClick { actions.close() }
             }) { Text("Done") }
@@ -154,12 +154,12 @@ private fun ReadyContent(
     Div(attrs = { classes("cat-bar") }) {
         Span(attrs = { classes("cat-count") }) { Text(genreSummary(state.genres.size, state.totalBookCount)) }
         Button(attrs = {
-            classes("btn-o", "cat-bar-b")
+            classes(BTN_SECONDARY, "cat-bar-b")
             attr("type", VALUE_BUTTON)
             onClick { onExpandAll() }
         }) { Text("Expand all") }
         Button(attrs = {
-            classes("btn-o", "cat-bar-b")
+            classes(BTN_SECONDARY, "cat-bar-b")
             attr("type", VALUE_BUTTON)
             onClick { onCollapseAll() }
         }) { Text("Collapse all") }
@@ -412,3 +412,5 @@ private const val SMALL_ICON = 16
 
 /** One step of indentation per level of the tree. */
 private const val INDENT_PX = 22
+
+private const val BTN_SECONDARY = "btn-o"
