@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
-import com.calypsan.listenup.server.util.KeyedMutex
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -34,8 +33,10 @@ sealed interface TokenLookup {
  *
  * Hardcover ROTATES refresh tokens: each refresh returns a new one, and presenting a spent one again
  * revokes the whole chain. Two rules follow:
- * - **Single flight.** Everything runs under a per-user [KeyedMutex], so callers racing near expiry
- *   produce exactly one refresh; the ones that waited re-read the row and find the fresh token.
+ * - **Single flight.** Everything runs under the user's connection lock ([HardcoverLinker.withUserLock]),
+ *   so callers racing near expiry produce exactly one refresh; the ones that waited re-read the row and
+ *   find the fresh token. A disconnect holds the same lock, so it can't delete the row mid-refresh and
+ *   leave the rotated pair live on Hardcover.
  * - **Rotate, then commit, then use.** The rotated pair is saved BEFORE the new access token is
  *   returned. A crash after the refresh but before the save would lose the only live refresh token.
  *
@@ -47,11 +48,9 @@ class HardcoverTokenProvider(
     private val linker: HardcoverLinker,
     private val clock: Clock = Clock.System,
 ) {
-    private val refreshLocks = KeyedMutex()
-
     /** A valid access token for [userId], refreshing (once, however many callers) when it's near expiry. */
     suspend fun accessToken(userId: String): TokenLookup =
-        refreshLocks.withLock(userId) {
+        linker.withUserLock(userId) {
             when (val stored = store.connectionFor(userId)) {
                 null -> TokenLookup.NotConnected
                 is StoredConnection.Broken -> TokenLookup.Broken(stored.reason)

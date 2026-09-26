@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkPrompt
 import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.util.KeyedMutex
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
@@ -35,6 +36,11 @@ private val SLOW_DOWN_STEP_MS = 5.seconds.inWholeMilliseconds
  *
  * States are held per user in memory, seeded lazily from [HardcoverConnectionStore], so one user's
  * state never reaches another's stream.
+ *
+ * Every token Hardcover issues ends up either stored or revoked, never orphaned: a disconnect and a
+ * refresh ([HardcoverTokenProvider]) serialize on the same per-user lock ([withUserLock]), so a
+ * disconnect that arrives mid-refresh revokes the pair the refresh just committed; and a grant whose
+ * owner can't be looked up is revoked rather than dropped.
  */
 class HardcoverLinker(
     private val oauth: HardcoverOAuthClient,
@@ -46,6 +52,17 @@ class HardcoverLinker(
     private val lock = SynchronizedObject()
     private val states = HashMap<String, MutableStateFlow<HardcoverConnection>>()
     private val pollJobs = HashMap<String, Job>()
+    private val userLocks = KeyedMutex()
+
+    /**
+     * Runs [block] holding [userId]'s connection lock — the one [disconnect] holds while it revokes
+     * and deletes. [HardcoverTokenProvider] refreshes under it, so the two never interleave. Not
+     * reentrant: [block] must not call [disconnect].
+     */
+    suspend fun <T> withUserLock(
+        userId: String,
+        block: suspend () -> T,
+    ): T = userLocks.withLock(userId, block)
 
     /**
      * Starts a device sign-in for [userId] and returns the code to show them. A broken connection may
@@ -96,17 +113,16 @@ class HardcoverLinker(
      * Disconnects [userId]: stops any pending sign-in, asks Hardcover to revoke the refresh token and
      * then the access token, deletes the row, and reports NotConnected. The revokes are best effort:
      * a failure or an outage on Hardcover's side never keeps someone connected against their wish.
-     * Idempotent.
+     * The row is read, revoked and deleted under [withUserLock], so an in-flight refresh commits its
+     * rotated pair first and that pair is the one revoked. Idempotent.
      */
     suspend fun disconnect(userId: String) {
         synchronized(lock) { pollJobs.remove(userId) }?.cancelAndJoin()
-        store.connectionFor(userId)?.credentials?.let { credentials ->
-            listOf(credentials.refreshToken, credentials.accessToken).forEach { token ->
-                runCatchingCancellable { oauth.revoke(token) }
-            }
+        withUserLock(userId) {
+            store.connectionFor(userId)?.credentials?.let { revokeBestEffort(it.accessToken, it.refreshToken) }
+            store.delete(userId)
+            stateFor(userId).value = HardcoverConnection.NotConnected()
         }
-        store.delete(userId)
-        stateFor(userId).value = HardcoverConnection.NotConnected()
     }
 
     /** Publishes that [userId]'s connection broke for [reason]. The token provider calls this after marking the row. */
@@ -141,7 +157,10 @@ class HardcoverLinker(
         }
     }
 
-    /** Learns who granted [tokens] and stores the connection; without an owner there is nothing to store. */
+    /**
+     * Learns who granted [tokens] and stores the connection. Without an owner there is nothing to
+     * store, so the just-issued tokens are revoked rather than left live on Hardcover with no record.
+     */
     private suspend fun connect(
         userId: String,
         tokens: HardcoverTokens,
@@ -152,11 +171,18 @@ class HardcoverLinker(
             }
 
             MeResult.Unauthorized, is MeResult.Unavailable -> {
-                HardcoverConnection.NotConnected(
-                    HardcoverLinkFailure.UNREACHABLE,
-                )
+                revokeBestEffort(tokens.accessToken, tokens.refreshToken)
+                HardcoverConnection.NotConnected(HardcoverLinkFailure.UNREACHABLE)
             }
         }
+
+    /** Revokes the refresh token, then the access token. Best effort: a failure never blocks the caller. */
+    private suspend fun revokeBestEffort(
+        accessToken: String,
+        refreshToken: String,
+    ) {
+        listOf(refreshToken, accessToken).forEach { token -> runCatchingCancellable { oauth.revoke(token) } }
+    }
 
     /** Drops [job] from the registry — unless a newer sign-in has already replaced it. */
     private fun forgetPollJob(

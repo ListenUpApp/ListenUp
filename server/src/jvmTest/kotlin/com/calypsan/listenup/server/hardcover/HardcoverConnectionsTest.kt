@@ -24,12 +24,16 @@ import io.ktor.client.request.forms.FormDataContent
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -403,6 +407,61 @@ class HardcoverConnectionsTest :
 
                 fake.count(FakeHardcover.POLL) shouldBe 0
                 state() shouldBe HardcoverConnection.NotConnected()
+            }
+        }
+
+        test("a disconnect that arrives mid-refresh waits for it, then revokes the rotated pair") {
+            hardcoverTest {
+                seedConnection(accessExpiresIn = 300)
+                fake.enqueue(FakeHardcover.REFRESH, HttpStatusCode.OK, tokenJson("hc_at_2", "hc_rt_2"))
+                val refreshInFlight = CompletableDeferred<Unit>()
+                val releaseRefresh = CompletableDeferred<Unit>()
+                fake.beforeAnswer = {
+                    if (it.endpoint == FakeHardcover.REFRESH) {
+                        refreshInFlight.complete(Unit)
+                        releaseRefresh.await()
+                    }
+                }
+
+                val lookup = async { provider.accessToken(USER) }
+                refreshInFlight.await()
+                val disconnecting = async { linker.disconnect(USER) }
+                // Give an unserialized disconnect (real SQLite and HTTP threads) time to run to completion
+                // while Hardcover still holds the refresh; a serialized one stays parked on the user's lock.
+                withContext(Dispatchers.Default) { withTimeoutOrNull(500) { disconnecting.join() } }
+                releaseRefresh.complete(Unit)
+                lookup.await()
+                disconnecting.await()
+
+                fake.seen.filter { it.endpoint == FakeHardcover.REVOKE }.map { it.form["token"] } shouldBe
+                    listOf("hc_rt_2", "hc_at_2")
+                store.connectionFor(USER).shouldBeNull()
+                state() shouldBe HardcoverConnection.NotConnected()
+            }
+        }
+
+        test("a refresh after a disconnect finds no connection and never calls Hardcover") {
+            hardcoverTest {
+                seedConnection(accessExpiresIn = 300)
+                linker.disconnect(USER)
+
+                provider.accessToken(USER) shouldBe TokenLookup.NotConnected
+                fake.count(FakeHardcover.REFRESH) shouldBe 0
+            }
+        }
+
+        test("a grant whose owner can't be looked up is revoked, and nothing is stored") {
+            hardcoverTest {
+                fake.enqueue(FakeHardcover.DEVICE, HttpStatusCode.OK, deviceJson())
+                fake.enqueue(FakeHardcover.POLL, HttpStatusCode.OK, tokenJson("hc_at_1", "hc_rt_1"))
+                fake.enqueue(FakeHardcover.ME, HttpStatusCode.InternalServerError, "{}")
+
+                linker.start(USER).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                settled() shouldBe HardcoverConnection.NotConnected(HardcoverLinkFailure.UNREACHABLE)
+                fake.seen.filter { it.endpoint == FakeHardcover.REVOKE }.map { it.form["token"] } shouldBe
+                    listOf("hc_rt_1", "hc_at_1")
+                store.connectionFor(USER).shouldBeNull()
             }
         }
     })
