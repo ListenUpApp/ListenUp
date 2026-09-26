@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
@@ -213,4 +214,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         syncStreamService = koinGet<SyncStreamService>(),
         pushService = koinGet<PushService>(),
         notificationService = koinGet<NotificationService>(),
+        hardcoverService = koinGet<HardcoverService>(),
     )

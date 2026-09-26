@@ -40,6 +40,8 @@ import org.koin.ktor.ext.inject
  *   (the flake `AudioRoutesTest`/`BookCoverRouteTest` hit). Tests that genuinely
  *   exercise the watcher (e.g. the watcher-unmount path) pass `true`. Same
  *   rationale as the `mdns.enabled = false` default above.
+ * @param hardcoverClientId when set, adds `hardcover.clientId` so the Hardcover integration boots
+ *   switched on. Unset (the default) boots it off, as a server with no client id does.
  */
 fun ApplicationTestBuilder.useIsolatedTestConfig(
     registrationPolicy: String? = "OPEN",
@@ -48,6 +50,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
     homeDir: String? = null,
     rescanOnStartup: Boolean = true,
     watchEnabled: Boolean = false,
+    hardcoverClientId: String? = null,
 ) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     environment {
@@ -79,6 +82,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)
                 if (seedProfile != null) put("seed.profile", seedProfile)
                 if (homeDir != null) put("listenup.home", homeDir)
+                if (hardcoverClientId != null) put("hardcover.clientId", hardcoverClientId)
             }
     }
 }

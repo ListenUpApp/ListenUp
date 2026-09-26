@@ -32,6 +32,7 @@ fun Application.module() {
     val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
     val pushRelayUrl = resolvePushRelayUrl()
     val pushSenderToken = resolvePushSenderToken()
+    val hardcoverClientId = resolveHardcoverClientId()
 
     installDependencies(
         seedProfile,
@@ -42,6 +43,7 @@ fun Application.module() {
         environment.config.watchEnabled(),
         pushRelayUrl,
         pushSenderToken,
+        hardcoverClientId,
     )
 
     backfillPublicProfiles()

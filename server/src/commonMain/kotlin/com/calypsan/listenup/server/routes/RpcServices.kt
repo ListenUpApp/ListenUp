@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
@@ -64,4 +65,6 @@ data class RpcServices(
     val syncStreamService: SyncStreamService,
     val pushService: PushService,
     val notificationService: NotificationService,
+    /** The caller's Hardcover connection: start a device sign-in, watch it, end it. */
+    val hardcoverService: HardcoverService,
 )

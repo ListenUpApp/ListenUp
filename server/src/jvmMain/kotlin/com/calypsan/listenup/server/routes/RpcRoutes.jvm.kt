@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.HardcoverService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.InviteServicePublic
@@ -38,6 +39,7 @@ import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
+import com.calypsan.listenup.server.api.HardcoverServiceImpl
 import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
@@ -163,6 +165,12 @@ private fun Route.authedRpc(services: RpcServices) {
         registerScoped<ImportService> {
             guard(
                 (services.importService as ImportServiceImpl).copyWith(it),
+                streamLiveness(it, services.sessionLiveness),
+            )
+        }
+        registerScoped<HardcoverService> {
+            guard(
+                (services.hardcoverService as HardcoverServiceImpl).copyWith(it),
                 streamLiveness(it, services.sessionLiveness),
             )
         }
