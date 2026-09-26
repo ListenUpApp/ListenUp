@@ -405,7 +405,7 @@ class AuthServiceImpl(
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> {
         enforceRate(AuthRateBucket.REFRESH)?.let { return AppResult.Failure(it) }
         val rotated =
-            sessions.rotate(request.refreshToken)
+            sessions.rotate(request.refreshToken, clientVersion = request.clientVersion)
                 ?: return AppResult.Failure(
                     AuthError.InvalidRefreshToken(familyRevoked = sessions.wasReplay(request.refreshToken)),
                 )

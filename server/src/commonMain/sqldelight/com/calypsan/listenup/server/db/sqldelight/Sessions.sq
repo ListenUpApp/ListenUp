@@ -83,7 +83,9 @@ SELECT * FROM sessions WHERE previous_hash = :previous_hash LIMIT 1;
 rotate:
 UPDATE sessions
 SET previous_hash = :previous_hash, refresh_token_hash = :refresh_token_hash,
-    last_used_at = :last_used_at, expires_at = :expires_at
+    last_used_at = :last_used_at, expires_at = :expires_at,
+    -- The version the device runs NOW; a client that does not say keeps what was recorded.
+    client_version = COALESCE(:client_version, client_version)
 WHERE id = :id;
 
 -- Revoke every still-live row in a rotation family (replay defense). Only un-revoked rows are

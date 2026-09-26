@@ -53,6 +53,8 @@ import java.nio.file.Files
 internal class AuthEndToEndFixture private constructor(
     private val server: EmbeddedServer<*, *>,
     private val koin: KoinApplication,
+    /** The server's SQLite file, for asserting what actually landed in the database. */
+    val databasePath: String,
 ) : AutoCloseable {
     val authRepository: AuthRepository = koin.koin.get()
     val authSession: AuthSession = koin.koin.get()
@@ -119,7 +121,7 @@ internal class AuthEndToEndFixture private constructor(
                     )
                 }
 
-            return AuthEndToEndFixture(server, koin)
+            return AuthEndToEndFixture(server, koin, tmpDb.absolutePath)
         }
 
         private fun testInfraModule(baseUrl: String) =
@@ -132,6 +134,8 @@ internal class AuthEndToEndFixture private constructor(
                 single<CoroutineScope>(qualifier = named("appScope")) {
                     CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 }
+                // The app version every refresh reports; appCoreModule derives it from the build.
+                single<String>(qualifier = named("clientVersion")) { E2E_CLIENT_VERSION }
                 // ApiClientFactory is bound by `clientApiClientFactoryTestModule()` (in :app:sharedLogic
                 // jvmMain) — the type is internal to :app:sharedLogic so it can't be bound from here.
                 // `UserRepository` and `PlaybackManager` are only needed by
@@ -141,6 +145,8 @@ internal class AuthEndToEndFixture private constructor(
                 // keeps the test surface minimal.
             }
 
+        /** The version the fixture's client reports on refresh. */
+        const val E2E_CLIENT_VERSION = "9.9.9-e2e"
         private const val JWT_SECRET_LENGTH = 32
         private const val REFRESH_PEPPER_LENGTH = 32
     }

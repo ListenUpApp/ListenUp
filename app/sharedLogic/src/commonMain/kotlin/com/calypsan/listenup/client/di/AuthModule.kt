@@ -111,6 +111,7 @@ internal val clientAuthModule: Module
                     // caller giving up on its own budget must never abort a rotation another caller
                     // (or the next call) is counting on. See AuthRepositoryImpl's KDoc.
                     scope = get(qualifier = named(APP_SCOPE)),
+                    clientVersion = get(qualifier = named("clientVersion")),
                 )
             }
 

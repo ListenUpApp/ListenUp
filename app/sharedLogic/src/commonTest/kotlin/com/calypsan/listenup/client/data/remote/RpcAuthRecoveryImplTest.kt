@@ -97,6 +97,7 @@ class RpcAuthRecoveryImplTest :
                         // becomes leader — so that caller's own withTimeoutOrNull can give up without
                         // aborting it. See AuthRepositoryImpl.refreshAccessToken's KDoc.
                         scope = backgroundScope,
+                        clientVersion = "test",
                     )
 
                 val apiClientFactory: ApiClientFactory = mock()
