@@ -122,6 +122,62 @@ class StatsRecorderRealStartTest :
                 }
             }
         }
+
+        test("a restart for a book with no books row is swallowed, not thrown") {
+            withSqlDatabase {
+                val f = fixture(this, clock)
+                runTest {
+                    // "ghost-book" is never seeded: the listen_throughs FK on book_id would violate.
+                    // Listen-through bookkeeping is best-effort — it must never fail the event that
+                    // triggered it (this call throwing would fail the test).
+                    f.recorder.record(
+                        StatsEvent.BookRestarted(
+                            userId = "u1",
+                            bookId = "ghost-book",
+                            occurredAt = Instant.fromEpochMilliseconds(t0),
+                            isReread = false,
+                        ),
+                    )
+
+                    f.startedActivities().shouldBeEmpty()
+                }
+            }
+        }
+
+        test("replaying the same restart after the announcement does not re-announce") {
+            withSqlDatabase {
+                val f = fixture(this, clock)
+                runTest {
+                    f.restart(atMs = t0, isReread = false)
+                    f.listen("e1", endedAtMs = t0 + 70_000L, wallMs = 70_000L) // crosses: announces once
+                    f.restart(atMs = t0, isReread = false) // the SAME restart, replayed
+
+                    f.startedActivities() shouldHaveSize 1
+                }
+            }
+        }
+
+        test("a finished listen-through does not announce later, even with a real listen afterward") {
+            withSqlDatabase {
+                val f = fixture(this, clock)
+                runTest {
+                    f.restart(atMs = t0, isReread = false)
+                    f.listen("e1", endedAtMs = t0 + 8_000L, wallMs = 8_000L) // an 8s tap: below threshold
+                    f.recorder.record(
+                        StatsEvent.BookCompleted(
+                            userId = "u1",
+                            bookId = "book-1",
+                            occurredAt = Instant.fromEpochMilliseconds(t0 + 8_000L),
+                        ),
+                    )
+                    // Spans belonging to the now-closed listen-through arriving later (a delayed sync,
+                    // an import) must not resurrect a STARTED_BOOK after the book already finished.
+                    f.listen("e2", endedAtMs = t0 + 8_000L + 70_000L, wallMs = 70_000L)
+
+                    f.startedActivities().shouldBeEmpty()
+                }
+            }
+        }
     })
 
 private class RealStartFixture(

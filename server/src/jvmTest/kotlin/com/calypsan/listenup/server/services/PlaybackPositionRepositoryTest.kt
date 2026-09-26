@@ -547,6 +547,7 @@ class PlaybackPositionRepositoryTest :
                     started shouldHaveSize 1
                     started.single().bookId shouldBe "book-1"
                     started.single().isReread shouldBe false
+                    started.single().occurredAt shouldBe 1_730_000_000_000L
                 }
             }
         }
@@ -623,6 +624,49 @@ class PlaybackPositionRepositoryTest :
                     started shouldHaveSize 1
                     started.single().bookId shouldBe "book-1"
                     started.single().isReread shouldBe true
+                    started.single().occurredAt shouldBe 1_730_000_999_000L
+                }
+            }
+        }
+
+        test("recordPosition for a book with no books row still returns Success") {
+            withSqlDatabase {
+                sql.seedTestUser("u1")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = activityRecorder(bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
+                    )
+                val repo =
+                    PlaybackPositionRepository(
+                        db = sql,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        statsRecorder = recorder,
+                    )
+                runTest {
+                    // "ghost-book" is never seeded — the listen_throughs FK on book_id would violate
+                    // here. The bookkeeping write is best-effort and must never fail the position
+                    // write that triggered it.
+                    val result =
+                        repo.recordPosition(
+                            userId = "u1",
+                            bookId = "ghost-book",
+                            positionMs = 10_000L,
+                            lastPlayedAt = 1_730_000_000_000L,
+                            finished = false,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
                 }
             }
         }

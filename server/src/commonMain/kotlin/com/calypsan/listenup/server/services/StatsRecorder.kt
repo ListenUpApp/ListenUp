@@ -6,9 +6,13 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.SelectAwaitingRealStart
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.util.KeyedMutex
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
+
+private val log = loggerFor<StatsRecorder>()
 
 /**
  * The single server-side write choke-point for every stats-affecting trigger. [record] runs ONE
@@ -74,6 +78,7 @@ class StatsRecorder(
         // The coverage rule decides append-vs-merge on `book_reads`; the re-derive then reads the new
         // count. booksFinished is a pure function of `book_reads`, so a merge leaves it unchanged.
         bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
+        closeAwaitingListenThrough(event.userId, event.bookId, finishedAtMs)
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
             val tz = sql.homeTimeZone(event.userId)
             val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)
@@ -96,17 +101,37 @@ class StatsRecorder(
      * moves no windowed stat). The `STARTED_BOOK` activity is NOT raised here: an eight-second tap is
      * not news. [announceRealStartIfCrossed] raises it once the listen-through holds a real listen —
      * checked here too, because an import can write a book's sessions before its restart.
+     *
+     * Best-effort ([runCatchingCancellable]): this bookkeeping is server-internal and must never fail
+     * the position/session write that triggered it — a book id whose `books` row has since vanished
+     * (the `listen_throughs` FK) would otherwise abort an already-committed RPC call, and inside
+     * [PlaybackPositionRepository.recordAllForImport]'s per-row hook loop, would abort every row after
+     * it. A failure here costs one listen-through's bookkeeping, never the caller.
      */
     private suspend fun recordBookRestarted(event: StatsEvent.BookRestarted) {
-        suspendTransaction(sql) {
-            sql.listenThroughsQueries.beginListenThrough(
-                user_id = event.userId,
-                book_id = event.bookId,
-                started_at = event.occurredAt.toEpochMilliseconds(),
-                is_reread = if (event.isReread) 1L else 0L,
-            )
+        runCatchingCancellable {
+            val startedAtMs = event.occurredAt.toEpochMilliseconds()
+            val isRereadFlag = if (event.isReread) 1L else 0L
+            suspendTransaction(sql) {
+                // Seeds the row on a genuine first restart (a no-op if one already exists), then
+                // resets an existing row only when this restart is genuinely new (see ListenThroughs.sq).
+                sql.listenThroughsQueries.beginListenThrough(
+                    user_id = event.userId,
+                    book_id = event.bookId,
+                    started_at = startedAtMs,
+                    is_reread = isRereadFlag,
+                )
+                sql.listenThroughsQueries.resetListenThroughIfChanged(
+                    started_at = startedAtMs,
+                    is_reread = isRereadFlag,
+                    user_id = event.userId,
+                    book_id = event.bookId,
+                )
+            }
+            announceRealStartIfCrossed(event.userId, event.bookId)
+        }.onFailure {
+            log.warn(it) { "listen-through bookkeeping failed on restart user=${event.userId} book=${event.bookId}" }
         }
-        announceRealStartIfCrossed(event.userId, event.bookId)
     }
 
     /**
@@ -147,7 +172,14 @@ class StatsRecorder(
             durationMs = span.endedAt - span.startedAt,
             occurredAt = span.endedAt,
         )
-        announceRealStartIfCrossed(userId, span.bookId)
+        // Best-effort — see recordBookRestarted's KDoc: this must never fail an already-committed
+        // listening-event write.
+        runCatchingCancellable { announceRealStartIfCrossed(userId, span.bookId) }
+            .onFailure {
+                log.warn(
+                    it,
+                ) { "listen-through bookkeeping failed on session-close user=$userId book=${span.bookId}" }
+            }
     }
 
     /**
@@ -175,11 +207,38 @@ class StatsRecorder(
     }
 
     /**
+     * A finished listen-through is over: closes it without announcing, so a book finished from a tap
+     * that never crossed [RealListen.THRESHOLD_MS] can't grow a `STARTED_BOOK` AFTER its
+     * `FINISHED_BOOK` when spans belonging to it are written later (a delayed sync, an import). A
+     * re-read begins its own new listen-through via [recordBookRestarted], not this.
+     *
+     * Best-effort — see [recordBookRestarted]'s KDoc.
+     */
+    private suspend fun closeAwaitingListenThrough(
+        userId: String,
+        bookId: String,
+        closedAtMs: Long,
+    ) {
+        runCatchingCancellable {
+            suspendTransaction(sql) {
+                sql.listenThroughsQueries.closeAwaitingListenThrough(
+                    closed_at = closedAtMs,
+                    user_id = userId,
+                    book_id = bookId,
+                )
+            }
+        }.onFailure {
+            log.warn(it) { "listen-through bookkeeping failed on completion user=$userId book=$bookId" }
+        }
+    }
+
+    /**
      * The non-suspend body of [announceRealStartIfCrossed]'s transaction: returns the listen-through
      * row that just crossed [RealListen.THRESHOLD_MS], or `null` if it hasn't (or there is none awaiting
-     * it). A regular function, not a lambda, so an early `return` is an ordinary local return rather
-     * than a labelled `return@suspendTransaction` — SQLDelight's `TransactionWithReturn` lambda is not
-     * suspend, so a labelled return out of it does not type-check.
+     * it). A plain function rather than a lambda with a labelled `return@suspendTransaction` — not
+     * because the label doesn't type-check (it does), but because a plain function keeps the early
+     * returns local and readable without depending on `suspendTransaction`'s type parameter being
+     * pinned by the call's context.
      */
     private fun claimRealStartIfCrossed(
         userId: String,
