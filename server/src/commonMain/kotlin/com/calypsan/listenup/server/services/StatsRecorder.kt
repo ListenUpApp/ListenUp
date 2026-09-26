@@ -163,7 +163,8 @@ class StatsRecorder(
         userId: String,
         bookId: String,
     ) {
-        val crossed = suspendTransaction<SelectAwaitingRealStart?>(sql) { claimRealStartIfCrossed(userId, bookId) } ?: return
+        val crossed =
+            suspendTransaction<SelectAwaitingRealStart?>(sql) { claimRealStartIfCrossed(userId, bookId) } ?: return
         activityRecorder.record(
             userId,
             ActivityType.STARTED_BOOK,
