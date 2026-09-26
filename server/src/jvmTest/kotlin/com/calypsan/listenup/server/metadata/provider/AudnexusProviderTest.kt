@@ -70,14 +70,14 @@ class AudnexusProviderTest :
             core.language.shouldBeNull()
         }
 
-        test("a full HTML summary is preferred over the short description, converted to plain text") {
+        test("a full HTML summary is preferred over the short description, stored as Markdown") {
             val core =
                 fullBook()
                     .copy(
                         description = "Stone and storms.",
-                        summary = "<p>Roshar is a world of stone and storms.</p><p>A second paragraph of detail.</p>",
+                        summary = "<p>Roshar is a world of stone and storms.</p><p><i>Speak again the ancient oaths</i> &amp; walk on.</p>",
                     ).toBookCoreMeta()
-            core.description shouldBe "Roshar is a world of stone and storms.\n\nA second paragraph of detail."
+            core.description shouldBe "Roshar is a world of stone and storms.\n\n_Speak again the ancient oaths_ & walk on."
         }
 
         test("a blank summary falls back to the short description") {

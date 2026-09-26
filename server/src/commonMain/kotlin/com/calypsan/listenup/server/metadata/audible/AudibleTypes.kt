@@ -148,10 +148,7 @@ data class RawProduct(
     val runtimeLengthMin: Int = 0,
     @SerialName("merchandising_summary")
     val merchandisingSummary: String = "",
-    /**
-     * The full publisher summary, as HTML. Preferred over [merchandisingSummary]
-     * (a short marketing blurb, sometimes absent outright) when non-blank.
-     */
+    /** The full description (the `product_desc` response group) — [merchandisingSummary] is Audible's cut-down teaser. */
     @SerialName("publisher_summary")
     val publisherSummary: String = "",
     @SerialName("product_images")
