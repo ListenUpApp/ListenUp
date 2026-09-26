@@ -547,6 +547,37 @@ class BookRepository(
         val hash: String?,
     )
 
+    /**
+     * The `cover` field a scan-time write should actually carry, for both [prepareBooks] and
+     * [upsertFromAnalyzed].
+     *
+     * A scan-built [BookSyncPayload.cover] is always null — [AnalyzedBookMapper] never fills it
+     * in; the scan-derived cover reaches [resolveCoverColumns] only via [storedCover]
+     * ([BookWriteExtras.managedCover]). That's harmless while [storedCover] is non-null:
+     * [resolveCoverColumns] takes source/path/hash from it and ignores the payload's own `cover`
+     * entirely. It stops being harmless when [storedCover] is null AND [analyzed]'s files DID
+     * carry cover art (`analyzed.cover != null`) — [resolveCoverColumns] then has nothing but a
+     * bare null to read, and a bare null means "the files lost their cover" to it. But a null
+     * [storedCover] alongside a non-null `analyzed.cover` isn't that — it's one of three failure
+     * modes that are nobody's fault (an unconfigured cover store, a cover file that couldn't be
+     * read, or a store that threw) and none of them should cost the book its existing cover.
+     * Handing back [existing]'s own cover in that situation is what lets [resolveCoverColumns]'s
+     * stored-path rule (matching source + hash) carry all three columns forward unchanged, with
+     * no new write path.
+     *
+     * [existing] null (a genuinely new book) always yields a null cover — there is nothing to
+     * carry forward, and a new book with no stored cover is exactly what a no-art scan produces
+     * anyway.
+     */
+    private fun scanCoverForWrite(
+        analyzed: AnalyzedBook,
+        storedCover: StoredCoverInfo?,
+        existing: BookSyncPayload?,
+    ): CoverPayload? {
+        val couldNotStoreFoundArt = analyzed.cover != null && storedCover == null
+        return if (couldNotStoreFoundArt) existing?.cover else null
+    }
+
     // --- Identity resolution -------------------------------------------------
 
     /**
@@ -915,8 +946,14 @@ class BookRepository(
                 val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
                 val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
                 val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
+                // The scan found cover art in the files but hasn't managed to store it yet (no
+                // configured store, or a file that couldn't be read — see [scanCoverForWrite]):
+                // pendingCoverHash is null in that situation, so it would never equal the stored
+                // hash and would force an otherwise-identical rescan into a write it doesn't need.
+                val coverUnavailable = analyzed.cover != null && pendingCover == null
                 val coverUnchanged =
                     existing?.cover?.source == CoverSource.UPLOADED ||
+                        coverUnavailable ||
                         pendingCoverHash == existing?.cover?.hash
                 // Revival guardrail: a byte-identical re-add over a TOMBSTONED book must never skip —
                 // matchesStoredContent normalizes deletedAt away, so an idempotent-content match would
@@ -939,7 +976,7 @@ class BookRepository(
 
                 PreparedBook(
                     bookId = bookId,
-                    payload = effectivePayload,
+                    payload = effectivePayload.copy(cover = scanCoverForWrite(analyzed, storedCover, existing)),
                     skip = skip,
                     genreIds = genreIds,
                     tags = analyzed.tags,
@@ -1264,8 +1301,14 @@ class BookRepository(
         val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
         val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
+        // The scan found cover art in the files but hasn't managed to store it yet (no configured
+        // store, or a file that couldn't be read — see [scanCoverForWrite]): pendingCoverHash is
+        // null in that situation, so it would never equal the stored hash and would force an
+        // otherwise-identical rescan into a write it doesn't need.
+        val coverUnavailable = analyzed.cover != null && pendingCover == null
         val coverUnchanged =
             existing?.cover?.source == CoverSource.UPLOADED ||
+                coverUnavailable ||
                 pendingCoverHash == existing?.cover?.hash
         val result: AppResult<BookSyncPayload> =
             if (existing != null && existing.deletedAt == null &&
@@ -1301,7 +1344,10 @@ class BookRepository(
                         ),
                     ),
                 ) {
-                    upsert(effectivePayload, clientOpId = null)
+                    upsert(
+                        effectivePayload.copy(cover = scanCoverForWrite(analyzed, storedCover, existing)),
+                        clientOpId = null,
+                    )
                 }
             }
         if (result is AppResult.Success) {
