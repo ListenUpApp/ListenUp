@@ -235,3 +235,27 @@ private struct GenrePickRow: View {
         .contentShape(Rectangle())
     }
 }
+
+/// One genre's "Merged into this" list with Undo (#1061), opened from the row menu.
+struct GenreMergeHistorySheet: View {
+    let open: GenreMergeHistoryModel
+    let onUndo: (String) -> Void
+    let onRetry: () -> Void
+    let onDone: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                MergeHistoryListView(model: open.history, onUndo: onUndo, onRetry: onRetry)
+                    .padding()
+            }
+            .navigationTitle(String(format: String(localized: "merge_history.genre_title"), open.genreName))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "common.done"), action: onDone)
+                }
+            }
+        }
+    }
+}
