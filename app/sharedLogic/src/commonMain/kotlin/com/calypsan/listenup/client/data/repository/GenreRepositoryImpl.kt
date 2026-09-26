@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeUndoResult
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreMutation
@@ -129,6 +132,12 @@ internal class GenreRepositoryImpl(
         id: GenreId,
         newParentId: GenreId?,
     ): AppResult<Unit> = channel.call { it.moveGenre(id, newParentId) }
+
+    override suspend fun listMergeReceipts(target: GenreId): AppResult<List<MergeReceipt>> =
+        channel.call(idempotent = true) { it.listMergeReceipts(target) }
+
+    override suspend fun undoMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> =
+        channel.call { it.undoGenreMerge(receiptId) }
 
     override suspend fun mergeGenres(
         source: GenreId,

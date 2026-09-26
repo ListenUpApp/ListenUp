@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
+import io.kotest.matchers.types.shouldBeInstanceOf
+import dev.mokkery.answering.calls
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeUndoResult
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.SeriesDao
@@ -46,7 +53,10 @@ class SeriesEditViewModelTest :
             val updateSeriesUseCase: UpdateSeriesUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
-            val seriesEditRepository: SeriesEditRepository = mock()
+            val seriesEditRepository: SeriesEditRepository =
+                mock {
+                    everySuspend { listMergeReceipts(any()) } returns AppResult.Success(emptyList())
+                }
             val seriesDao: SeriesDao =
                 mock {
                     every { observeAll() } returns flowOf(emptyList())
@@ -131,6 +141,56 @@ class SeriesEditViewModelTest :
                 viewModel.state.value.name shouldBe "Test Series"
                 viewModel.state.value.description shouldBe "A test series"
                 viewModel.state.value.bookCount shouldBe 1
+            }
+        }
+
+        // #1061: the merges folded into this series, and undoing one.
+        test("loading a series lists the merges folded into it") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                val receipt = MergeReceipt(MergeReceiptId("r1"), "Test Series (dup)", 1L, "Simon", 2)
+                everySuspend { fixture.seriesEditRepository.listMergeReceipts(SeriesId("series-1")) } returns
+                    AppResult.Success(listOf(receipt))
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.mergeHistory.value
+                    .shouldBeInstanceOf<MergeHistoryState.Ready>()
+                    .receipts shouldBe listOf(receipt)
+            }
+        }
+
+        test("undoing a merge goes through the repository and says what moved back") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                val receipt = MergeReceipt(MergeReceiptId("r1"), "Test Series (dup)", 1L, "Simon", 2)
+                var listed = listOf(receipt)
+                everySuspend { fixture.seriesEditRepository.listMergeReceipts(SeriesId("series-1")) } calls {
+                    AppResult.Success(listed)
+                }
+                everySuspend { fixture.seriesEditRepository.undoMerge(MergeReceiptId("r1")) } calls {
+                    listed = emptyList()
+                    AppResult.Success(MergeUndoResult("series-dup", booksRestored = 2, booksSkipped = 0, restoredAtTopLevel = false))
+                }
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.UndoMerge(MergeReceiptId("r1")))
+                advanceUntilIdle()
+
+                val ready = viewModel.mergeHistory.value.shouldBeInstanceOf<MergeHistoryState.Ready>()
+                ready.receipts shouldBe emptyList()
+                ready.outcome?.booksRestored shouldBe 2
+                verifySuspend { fixture.seriesEditRepository.undoMerge(MergeReceiptId("r1")) }
             }
         }
 
