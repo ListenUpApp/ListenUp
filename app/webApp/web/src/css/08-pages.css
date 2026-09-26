@@ -1118,3 +1118,17 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* Pushed to the hero's trailing edge, clear of the name block. */
 .luw .cd-edit { flex: none; align-self: flex-start; margin-left: auto; }
 
+/* "Merged into this" (#1061): the merges folded into a series or genre, each undoable. Shared by the
+   series editor's section and the categories admin's merge-history dialog. */
+.luw .mh { display: flex; flex-direction: column; gap: 10px; }
+.luw .mh-skel { height: 48px; border-radius: 12px; }
+.luw .mh-hint { margin: 0; font-size: 0.82rem; color: var(--ink-3); line-height: 1.45; }
+.luw .mh-retry { align-self: flex-start; }
+.luw .mh-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.luw .mh-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.luw .mh-name { font-size: 0.92rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .mh-detail { font-size: 0.78rem; color: var(--ink-3); }
+.luw .mh-undo { flex: none; }
+.luw .mh-outcome { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--coral-soft); }
+.luw .mh-outcome-t { margin: 0; font-size: 0.88rem; font-weight: 650; color: var(--ink); }
+

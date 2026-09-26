@@ -1,5 +1,10 @@
 package com.calypsan.listenup.web.features.seriesedit
 
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.presentation.merge.MergeUndoOutcome
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeReceipt
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
@@ -64,6 +69,7 @@ internal fun editingSeries(
 private fun page(
     state: SeriesEditUiState,
     mergeCandidates: List<SeriesCandidate> = emptyList(),
+    mergeHistory: MergeHistoryState = MergeHistoryState.Ready(emptyList()),
     onEvent: (SeriesEditUiEvent) -> Unit = {},
     onMergeQuery: (String) -> Unit = {},
 ): HTMLElement {
@@ -74,6 +80,7 @@ private fun page(
         SeriesEditPage(
             state = state,
             mergeCandidates = mergeCandidates,
+            mergeHistory = mergeHistory,
             onEvent = onEvent,
             onMergeQuery = onMergeQuery,
         )
@@ -290,14 +297,14 @@ class SeriesEditPageTest :
             button(host, "Merging…").shouldNotBeNull().hasAttribute("disabled") shouldBe true
         }
 
-        // ⛔ Both facts, not one. How many books move is what the decision costs; that it cannot be
-        // undone is why the decision is worth pausing over.
-        test("the picker says what the merge will cost and that it is final") {
+        // ⛔ Both facts, not one. How many books move is what the decision costs; where it can be
+        // undone is what makes a mis-pick recoverable (#1061).
+        test("the picker says what the merge will cost and where it can be undone") {
             val host = page(editingSeries(bookCount = 5, mergeDialogVisible = true))
 
             val dialog = host.querySelector("dialog").shouldNotBeNull()
             dialog.textContent.shouldNotBeNull() shouldContain "5 books move across"
-            host.querySelector(".sed-warn")?.textContent shouldBe "This cannot be undone."
+            host.querySelector(".sed-warn")?.textContent shouldBe "You can undo this later from its merge history."
         }
 
         test("a query that matches nothing says so, and says what was searched for") {
@@ -419,4 +426,69 @@ class SeriesEditPageTest :
 
             seen shouldContainExactly listOf(SeriesEditUiEvent.MergeDialogDismissed)
         }
+        // ---- Merged into this (#1061)
+
+        test("the merges folded into this series are listed with who merged them") {
+            val host = page(editingSeries(), mergeHistory = MergeHistoryState.Ready(listOf(mergeReceipt)))
+
+            host.querySelector(".mh-name")?.textContent shouldBe "Stormlite"
+            host.querySelector(".mh-detail")?.textContent.orEmpty() shouldContain "Up to 4 books"
+            host.querySelector(".mh-detail")?.textContent.orEmpty() shouldContain "by Simon"
+        }
+
+        test("undo is confirmed first, and only the confirmation sends it") {
+            val seen = mutableListOf<SeriesEditUiEvent>()
+            val host =
+                page(editingSeries(), mergeHistory = MergeHistoryState.Ready(listOf(mergeReceipt)), onEvent = { seen += it })
+
+            (host.querySelector(".mh-undo") as HTMLButtonElement).click()
+            awaitFrame()
+            seen shouldContainExactly emptyList()
+
+            dialogButton(host, "Undo merge").shouldNotBeNull().click()
+            awaitFrame()
+
+            seen shouldContainExactly listOf(SeriesEditUiEvent.UndoMerge(MergeReceiptId("r1")))
+        }
+
+        test("what an undo put back is said plainly, and stays said") {
+            val host =
+                page(
+                    editingSeries(),
+                    mergeHistory =
+                        MergeHistoryState.Ready(
+                            receipts = emptyList(),
+                            outcome = MergeUndoOutcome("Stormlite", booksRestored = 3, booksSkipped = 1, restoredAtTopLevel = false),
+                        ),
+                )
+
+            val outcome = host.querySelector(".mh-outcome").shouldNotBeNull()
+            outcome.getAttribute("role") shouldBe "status"
+            outcome.textContent.orEmpty() shouldContain "“Stormlite” is back. 3 books moved back."
+            outcome.textContent.orEmpty() shouldContain "1 book had changed since and stayed where it was."
+        }
+
+        test("a history that could not be read says why and can be asked for again") {
+            val seen = mutableListOf<SeriesEditUiEvent>()
+            val host =
+                page(
+                    editingSeries(),
+                    mergeHistory = MergeHistoryState.Unavailable(TransportError.NetworkUnavailable()),
+                    onEvent = { seen += it },
+                )
+
+            (host.querySelector(".mh-retry") as HTMLButtonElement).click()
+            awaitFrame()
+
+            seen shouldContainExactly listOf(SeriesEditUiEvent.RetryMergeHistory)
+        }
     })
+
+private val mergeReceipt =
+    MergeReceipt(
+        id = MergeReceiptId("r1"),
+        sourceName = "Stormlite",
+        mergedAt = 1_700_000_000_000L,
+        mergedByName = "Simon",
+        bookCount = 4,
+    )

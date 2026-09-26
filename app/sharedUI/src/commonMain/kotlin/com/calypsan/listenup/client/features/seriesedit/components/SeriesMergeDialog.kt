@@ -32,7 +32,7 @@ import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.core.SeriesId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
-import listenup.composeapp.generated.resources.common_cannot_be_undone
+import listenup.composeapp.generated.resources.merge_history_can_undo
 import listenup.composeapp.generated.resources.common_search
 import listenup.composeapp.generated.resources.series_merge_body
 import listenup.composeapp.generated.resources.series_merge_book_count
@@ -104,7 +104,7 @@ fun SeriesMergeDialog(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = stringResource(Res.string.common_cannot_be_undone),
+                    text = stringResource(Res.string.merge_history_can_undo),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )

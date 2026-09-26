@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
@@ -19,8 +21,25 @@ class CategoriesSession(
     val onMove: (id: String, newParentId: String?) -> Unit,
     val onMerge: (source: String, target: String) -> Unit,
     val onClearError: () -> Unit,
+    /** The merge history open for one genre (#1061), or null. */
+    val mergeHistory: StateFlow<GenreMergeHistory?>,
+    val mergeHistoryActions: MergeHistoryActions,
     val close: () -> Unit,
 )
+
+/** Everything the genre merge-history dialog asks of the ViewModel, carried as one value. */
+class MergeHistoryActions(
+    val open: (genreId: String) -> Unit,
+    val close: () -> Unit,
+    val undo: (MergeReceiptId) -> Unit,
+    val retry: () -> Unit,
+) {
+    /** Factories. */
+    companion object {
+        /** Actions that do nothing — for pages drawn without a live ViewModel. */
+        val None = MergeHistoryActions(open = {}, close = {}, undo = {}, retry = {})
+    }
+}
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenCategories = () -> CategoriesSession
@@ -46,6 +65,14 @@ fun graphCategories(koin: Koin): OpenCategories =
             onMove = viewModel::moveGenre,
             onMerge = viewModel::mergeGenres,
             onClearError = viewModel::clearError,
+            mergeHistory = viewModel.mergeHistory,
+            mergeHistoryActions =
+                MergeHistoryActions(
+                    open = viewModel::openMergeHistory,
+                    close = viewModel::closeMergeHistory,
+                    undo = viewModel::undoGenreMerge,
+                    retry = viewModel::retryMergeHistory,
+                ),
             close = store::clear,
         )
     }
@@ -63,6 +90,8 @@ fun fixedCategories(
     onMove: (String, String?) -> Unit = { _, _ -> },
     onMerge: (String, String) -> Unit = { _, _ -> },
     onClearError: () -> Unit = {},
+    mergeHistory: GenreMergeHistory? = null,
+    mergeHistoryActions: MergeHistoryActions = MergeHistoryActions.None,
 ): OpenCategories =
     {
         CategoriesSession(
@@ -76,6 +105,8 @@ fun fixedCategories(
             onMove = onMove,
             onMerge = onMerge,
             onClearError = onClearError,
+            mergeHistory = MutableStateFlow(mergeHistory),
+            mergeHistoryActions = mergeHistoryActions,
             close = {},
         )
     }

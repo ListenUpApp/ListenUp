@@ -1642,6 +1642,7 @@
     "skipped_plural": "%1$d books had changed since and stayed where they were.",
     "top_level": "Its old parent is gone, so it's at the top level now.",
     "retry": "Try again",
-    "open": "Merge history"
+    "open": "Merge history",
+    "can_undo": "You can undo this later from its merge history."
   }
 }

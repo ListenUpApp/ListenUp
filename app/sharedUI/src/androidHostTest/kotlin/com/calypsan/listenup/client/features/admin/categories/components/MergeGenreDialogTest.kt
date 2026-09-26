@@ -16,7 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Merging a genre is destructive and cannot be undone, so a single tap on a row in a
+ * Merging a genre is destructive (undoable only from its merge history), so a single tap on a row in a
  * scrolling list must never commit it. These tests pin the two-step shape.
  *
  * JUnit4 + Robolectric — the canonical shape for Compose UI tests in this module
@@ -67,7 +67,7 @@ class MergeGenreDialogTest {
         composeRule
             .onNodeWithText("Moving “$SOURCE_NAME” into “$TARGET_NAME”. $PLURAL_BOOK_COUNT books will move.")
             .assertIsDisplayed()
-        composeRule.onNodeWithText("This action cannot be undone.").assertIsDisplayed()
+        composeRule.onNodeWithText("You can undo this later from its merge history.").assertIsDisplayed()
     }
 
     @Test

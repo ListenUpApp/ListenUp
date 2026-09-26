@@ -31,7 +31,7 @@ import listenup.composeapp.generated.resources.admin_merge_into_named
 import listenup.composeapp.generated.resources.admin_no_merge_target_available
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_cancel
-import listenup.composeapp.generated.resources.common_cannot_be_undone
+import listenup.composeapp.generated.resources.merge_history_can_undo
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -179,7 +179,7 @@ private fun ConfirmBody(
         Text(text = body, style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringResource(Res.string.common_cannot_be_undone),
+            text = stringResource(Res.string.merge_history_can_undo),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )

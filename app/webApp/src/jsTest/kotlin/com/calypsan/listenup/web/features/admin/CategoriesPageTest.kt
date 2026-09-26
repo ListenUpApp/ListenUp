@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
+import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
@@ -67,6 +71,8 @@ private fun page(
     onMerge: (String, String) -> Unit = { _, _ -> },
     onClearError: () -> Unit = {},
     onOpenAdmin: () -> Unit = {},
+    mergeHistory: GenreMergeHistory? = null,
+    mergeHistoryActions: MergeHistoryActions = MergeHistoryActions.None,
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -84,6 +90,8 @@ private fun page(
             onMerge = onMerge,
             onClearError = onClearError,
             onOpenAdmin = onOpenAdmin,
+            mergeHistory = mergeHistory,
+            mergeHistoryActions = mergeHistoryActions,
         )
     }
     return host
@@ -476,5 +484,57 @@ class CategoriesPageTest :
 
             host.querySelector(".cat-tree").shouldBeNull()
             host.querySelector(".empty").shouldNotBeNull()
+        }
+        // ---- Merge history (#1061)
+
+        test("a genre's merge history is opened from its row") {
+            val opened = mutableListOf<String>()
+            val host =
+                page(
+                    readyCategories(),
+                    mergeHistoryActions = MergeHistoryActions(open = { opened += it }, close = {}, undo = {}, retry = {}),
+                )
+
+            action(host, "Merge history of Fantasy").shouldNotBeNull().click()
+            awaitFrame()
+
+            opened shouldBe listOf("g1")
+        }
+
+        test("the open history names its genre, and an undo is confirmed before it is sent") {
+            val undone = mutableListOf<MergeReceiptId>()
+            val receipt = MergeReceipt(MergeReceiptId("r1"), "Fantasie", 1_700_000_000_000L, null, 5)
+            val host =
+                page(
+                    readyCategories(),
+                    mergeHistory = GenreMergeHistory("g1", "Fantasy", MergeHistoryState.Ready(listOf(receipt))),
+                    mergeHistoryActions = MergeHistoryActions(open = {}, close = {}, undo = { undone += it }, retry = {}),
+                )
+
+            host.querySelector("dialog.dlg")?.textContent.orEmpty() shouldContain "Merged into Fantasy"
+            host.querySelector(".mh-name")?.textContent shouldBe "Fantasie"
+            (host.querySelector(".mh-undo") as HTMLElement).click()
+            awaitFrame()
+            undone shouldBe emptyList()
+
+            dialogButton(host, "Undo merge").shouldNotBeNull().click()
+            awaitFrame()
+
+            undone shouldBe listOf(MergeReceiptId("r1"))
+        }
+
+        test("Done closes the history") {
+            var closed = 0
+            val host =
+                page(
+                    readyCategories(),
+                    mergeHistory = GenreMergeHistory("g1", "Fantasy", MergeHistoryState.Ready(emptyList())),
+                    mergeHistoryActions = MergeHistoryActions(open = {}, close = { closed++ }, undo = {}, retry = {}),
+                )
+
+            dialogButton(host, "Done").shouldNotBeNull().click()
+            awaitFrame()
+
+            closed shouldBe 1
         }
     })

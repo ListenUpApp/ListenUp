@@ -11561,6 +11561,16 @@
         }
       }
     },
+    "merge_history.can_undo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can undo this later from its merge history."
+          }
+        }
+      }
+    },
     "merge_history.confirm_action": {
       "localizations": {
         "en": {

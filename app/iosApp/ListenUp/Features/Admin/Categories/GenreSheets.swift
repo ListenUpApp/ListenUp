@@ -208,7 +208,7 @@ struct GenreMergeSheet: View {
         return VStack(alignment: .leading, spacing: 12) {
             Text(body)
                 .font(.body)
-            Text(String(localized: "common.cannot_be_undone"))
+            Text(String(localized: "merge_history.can_undo"))
                 .font(.body)
                 .foregroundStyle(.red)
             Spacer()

@@ -1157,6 +1157,7 @@ One beautiful library.</string>
     <string name="licenses_version_prefix">v%1$s</string>
     <string name="licenses_view_license">View license</string>
     <string name="licenses_view_project">View project</string>
+    <string name="merge_history_can_undo">You can undo this later from its merge history.</string>
     <string name="merge_history_confirm_action">Undo merge</string>
     <string name="merge_history_confirm_body">“%1$s” comes back, and its books move back to it. Books changed since the merge stay where they are.</string>
     <string name="merge_history_confirm_title">Undo this merge?</string>
