@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.GenreError
+import com.calypsan.listenup.api.error.HardcoverError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
@@ -203,6 +204,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is BackupError -> toHttpStatus()
 
         is PushError -> toHttpStatus()
+
+        is HardcoverError -> toHttpStatus()
 
         is ValidationError -> HttpStatusCode.BadRequest
 
@@ -588,4 +591,11 @@ private fun BackupError.toHttpStatus(): HttpStatusCode =
 private fun PushError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is PushError.PushDisabled -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun HardcoverError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is HardcoverError.NotConfigured -> HttpStatusCode.ServiceUnavailable
+        is HardcoverError.Unavailable -> HttpStatusCode.ServiceUnavailable
+        is HardcoverError.AlreadyConnected -> HttpStatusCode.Conflict
     }

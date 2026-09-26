@@ -76,6 +76,8 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is PushError -> withCorrelationId(id)
 
+        is HardcoverError -> withCorrelationId(id)
+
         is ValidationError, is InternalError, is TransportError, is PlaybackError, is UnknownError,
         -> leafWithCorrelationId(id)
     }
@@ -414,4 +416,11 @@ private fun BackupError.withCorrelationId(id: String?): BackupError =
 private fun PushError.withCorrelationId(id: String?): PushError =
     when (this) {
         is PushError.PushDisabled -> copy(correlationId = id)
+    }
+
+private fun HardcoverError.withCorrelationId(id: String?): HardcoverError =
+    when (this) {
+        is HardcoverError.NotConfigured -> copy(correlationId = id)
+        is HardcoverError.Unavailable -> copy(correlationId = id)
+        is HardcoverError.AlreadyConnected -> copy(correlationId = id)
     }
