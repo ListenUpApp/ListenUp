@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.presentation.discover
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.dto.activity.RealListen
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 
@@ -135,5 +137,37 @@ class CoalesceListeningSessionsTest :
 
         test("an empty feed stays empty") {
             emptyList<ActivityUiModel>().coalesceListeningSessions() shouldBe emptyList()
+        }
+
+        test("a sitting shorter than a real listen is dropped from the feed") {
+            val feed = listOf(session("tap", occurredAt = 100 * MINUTE, durationMs = 8_000L))
+
+            feed.coalesceListeningSessions().withoutFleetingSittings().shouldBeEmpty()
+        }
+
+        test("short sessions that add up to a real listen in one sitting stay, as one line") {
+            // 40s and 30s five minutes apart: two fragments, one 70s sitting.
+            val feed =
+                listOf(
+                    session("newer", occurredAt = 105 * MINUTE, durationMs = 40_000L),
+                    session("older", occurredAt = 100 * MINUTE, durationMs = 30_000L),
+                )
+
+            val shown = feed.coalesceListeningSessions().withoutFleetingSittings()
+
+            shown shouldHaveSize 1
+            shown[0].durationMs shouldBe 70_000L
+        }
+
+        test("a sitting of exactly the threshold is a real listen") {
+            val feed = listOf(session("minute", occurredAt = 100 * MINUTE, durationMs = RealListen.THRESHOLD_MS))
+
+            feed.coalesceListeningSessions().withoutFleetingSittings() shouldHaveSize 1
+        }
+
+        test("non-listening activities are never dropped, however short") {
+            val started = session("started", occurredAt = 100 * MINUTE, durationMs = 0L).copy(type = ActivityType.STARTED_BOOK)
+
+            listOf(started).coalesceListeningSessions().withoutFleetingSittings() shouldBe listOf(started)
         }
     })

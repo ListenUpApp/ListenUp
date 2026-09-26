@@ -45,8 +45,14 @@ class ActivityFeedViewModel internal constructor(
             .map<_, ActivityFeedUiState> { activities ->
                 // One sitting reads as one line: the server records an activity per closed playback
                 // span, so an interrupted evening otherwise arrives as a wall of entries.
+                // …and a sitting too short to be news (an accidental tap) is not announced at all.
                 ActivityFeedUiState.Ready(
-                    activities = activities.map { it.toUiModel() }.coalesceListeningSessions(),
+                    activities =
+                        activities
+                            .map {
+                                it.toUiModel()
+                            }.coalesceListeningSessions()
+                            .withoutFleetingSittings(),
                 )
             }.onStart { emit(ActivityFeedUiState.Loading) }
             .fallbackTo { e ->
