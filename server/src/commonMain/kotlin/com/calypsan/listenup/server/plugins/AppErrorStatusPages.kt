@@ -203,9 +203,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is BackupError -> toHttpStatus()
 
-        is PushError -> toHttpStatus()
-
-        is HardcoverError -> toHttpStatus()
+        // PushError + HardcoverError share one branch (delegating to an exhaustive helper) to keep
+        // this function under the cyclomatic-complexity threshold. Both are the server reaching a
+        // service beyond itself: the push relay, and Hardcover.
+        is PushError, is HardcoverError -> outboundServiceHttpStatus()
 
         is ValidationError -> HttpStatusCode.BadRequest
 
@@ -598,4 +599,12 @@ private fun HardcoverError.toHttpStatus(): HttpStatusCode =
         is HardcoverError.NotConfigured -> HttpStatusCode.ServiceUnavailable
         is HardcoverError.Unavailable -> HttpStatusCode.ServiceUnavailable
         is HardcoverError.AlreadyConnected -> HttpStatusCode.Conflict
+    }
+
+/** [PushError] and [HardcoverError], split from [toHttpStatus] for its complexity ceiling. */
+private fun AppError.outboundServiceHttpStatus(): HttpStatusCode =
+    when (this) {
+        is PushError -> toHttpStatus()
+        is HardcoverError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch above
     }

@@ -74,9 +74,10 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is BackupError -> withCorrelationId(id)
 
-        is PushError -> withCorrelationId(id)
-
-        is HardcoverError -> withCorrelationId(id)
+        // PushError + HardcoverError share one branch (delegating to an exhaustive helper) to keep
+        // this function under the project's cyclomatic-complexity ceiling. They pair naturally —
+        // both are the server reaching a service beyond itself: the push relay, and Hardcover.
+        is PushError, is HardcoverError -> outboundServiceWithCorrelationId(id)
 
         is ValidationError, is InternalError, is TransportError, is PlaybackError, is UnknownError,
         -> leafWithCorrelationId(id)
@@ -423,4 +424,12 @@ private fun HardcoverError.withCorrelationId(id: String?): HardcoverError =
         is HardcoverError.NotConfigured -> copy(correlationId = id)
         is HardcoverError.Unavailable -> copy(correlationId = id)
         is HardcoverError.AlreadyConnected -> copy(correlationId = id)
+    }
+
+/** [PushError] and [HardcoverError], split from [withCorrelationId] for its complexity ceiling. */
+private fun AppError.outboundServiceWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is PushError -> withCorrelationId(id)
+        is HardcoverError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
     }
