@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
@@ -57,6 +58,8 @@ class ChapterEditorScreenNudgeTest {
                 bookRepository = books,
                 bookEditRepository = edits,
                 errorBus = ErrorBus(),
+                playbackManager = playback,
+                playbackController = mock<PlaybackController>(MockMode.autoUnit),
             )
 
         composeRule.setContent {
@@ -90,7 +93,15 @@ class ChapterEditorScreenNudgeTest {
         val playback = mock<PlaybackManager>(MockMode.autoUnit)
         every { playback.currentTimeline } returns MutableStateFlow<PlaybackTimeline?>(null)
         every { playback.currentPositionMs } returns MutableStateFlow(0L)
-        val viewModel = ChapterEditorViewModel(BOOK_ID, books, edits, ErrorBus())
+        val viewModel =
+            ChapterEditorViewModel(
+                bookId = BOOK_ID,
+                bookRepository = books,
+                bookEditRepository = edits,
+                errorBus = ErrorBus(),
+                playbackManager = playback,
+                playbackController = mock<PlaybackController>(MockMode.autoUnit),
+            )
         composeRule.setContent {
             MaterialTheme { ChapterEditorScreen(bookId = BOOK_ID, onBack = {}, viewModel = viewModel, playbackManager = playback) }
         }

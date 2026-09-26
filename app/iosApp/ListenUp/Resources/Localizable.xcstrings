@@ -6011,6 +6011,46 @@
         }
       }
     },
+    "chapter_editor.edit_time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit start time"
+          }
+        }
+      }
+    },
+    "chapter_editor.edit_time_invalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a time like 1:02:03.4."
+          }
+        }
+      }
+    },
+    "chapter_editor.edit_time_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start time"
+          }
+        }
+      }
+    },
+    "chapter_editor.edit_time_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set start time"
+          }
+        }
+      }
+    },
     "chapter_editor.empty_add_first": {
       "localizations": {
         "en": {
@@ -6067,6 +6107,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fix drift"
+          }
+        }
+      }
+    },
+    "chapter_editor.insert_below": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insert chapter below"
           }
         }
       }
@@ -6167,6 +6217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nudge forward"
+          }
+        }
+      }
+    },
+    "chapter_editor.play_from_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play from here"
           }
         }
       }
@@ -6356,7 +6416,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scroll to zoom · drag a marker, then pull away to fine-tune"
+            "value": "Pinch or scroll to zoom · drag a marker, then pull away to fine-tune"
           }
         }
       }

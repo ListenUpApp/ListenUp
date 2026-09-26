@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import com.calypsan.listenup.client.domain.model.Chapter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,9 +35,9 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
-import com.calypsan.listenup.client.design.timeline.TimelineFileBoundary
-import com.calypsan.listenup.client.design.timeline.TimelineChapter
-import com.calypsan.listenup.client.design.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
@@ -59,15 +60,6 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 /**
- * How much of the book the detail lane shows on open.
- *
- * Ten minutes rather than the whole book, because the whole book is exactly the view that does not
- * work: at 65 hours every boundary lands within a pixel or two of its neighbours and the lane can
- * neither be read nor aimed at. The minimap above it is what covers the whole book.
- */
-private const val DEFAULT_WINDOW_MS = 600_000L
-
-/**
  * The chapter editor, bound to its ViewModel.
  *
  * Everything here is either navigation, transport, or a dialog — the editing itself lives in the
@@ -81,7 +73,8 @@ private const val DEFAULT_WINDOW_MS = 600_000L
  * @param bookId the book whose chapters are being edited.
  * @param onBack leave the editor.
  * @param viewModel scoped to [bookId]; a fresh one per book, never switched.
- * @param playbackManager transport, read-only — the editor never starts or stops playback.
+ * @param playbackManager transport state — whether this book is loaded, and where its playhead is.
+ *   The editor only moves playback on an explicit "Play from here", through the ViewModel.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,19 +93,15 @@ fun ChapterEditorScreen(
     // screen, so it is absent rather than misleading.
     val isThisBookLoaded = timeline?.bookId == BookId(bookId)
     val playheadMs = if (isThisBookLoaded) positionMs else null
-    val fileBoundaries =
-        if (isThisBookLoaded) {
-            timeline?.files.orEmpty().map { TimelineFileBoundary(label = it.filename, startMs = it.startOffsetMs) }
-        } else {
-            emptyList()
-        }
 
     var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
-    var windowStartMs by remember { mutableStateOf(0L) }
+    var lane by remember { mutableStateOf<TimelineLane?>(null) }
     var query by remember { mutableStateOf("") }
 
     val editing = state as? ChapterEditorUiState.Editing
+    // From the shared state, which already knows whether this book is the one in the player.
+    val fileBoundaries = editing?.fileBoundaries.orEmpty()
     val isDirty = editing?.isDirty == true
     val leave = { if (isDirty) pendingDiscard = true else onBack() }
 
@@ -125,7 +114,10 @@ fun ChapterEditorScreen(
     // Open where the listener already is. A 65-hour book opened at 0:00 is technically correct and
     // useless; when this book is the one loaded, the interesting boundary is the one being heard.
     LaunchedEffect(isThisBookLoaded) {
-        if (isThisBookLoaded) windowStartMs = positionMs - DEFAULT_WINDOW_MS / 2
+        if (isThisBookLoaded) {
+            // Not yet opened: the lane opens around the playhead on its own (TimelineLane.opening).
+            lane = lane?.let { current -> editing?.let { current.centredOn(positionMs, it.bookDurationMs) } ?: current }
+        }
     }
 
     LaunchedEffect(viewModel) {
@@ -189,8 +181,8 @@ fun ChapterEditorScreen(
             padding = padding,
             playheadMs = playheadMs,
             fileBoundaries = fileBoundaries,
-            windowStartMs = windowStartMs,
-            onWindowStartChange = { windowStartMs = it },
+            lane = lane,
+            onLaneChange = { lane = it },
             query = query,
             onQueryChange = { query = it },
             onPinAnchor = {
@@ -201,6 +193,7 @@ fun ChapterEditorScreen(
             newChapterTitle = newChapterTitle,
             viewModel = viewModel,
             onMore = { rowAction = RowAction.Choosing(it) },
+            onEditTime = { rowAction = RowAction.EditingTime(it) },
         )
     }
 
@@ -217,15 +210,13 @@ fun ChapterEditorScreen(
 
     RowActionDialogs(
         action = rowAction,
-        titleOf = { id ->
-            editing
-                ?.chapters
-                ?.firstOrNull { it.id == id }
-                ?.title
-                .orEmpty()
-        },
+        chapterOf = { id -> editing?.chapters?.firstOrNull { it.id == id } },
+        canPlayFromHere = isThisBookLoaded,
         onAction = { rowAction = it },
         onRename = viewModel::retitle,
+        onRetime = viewModel::retime,
+        onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
+        onPlayFromHere = viewModel::playFrom,
         onDelete = viewModel::remove,
     )
 }
@@ -234,7 +225,7 @@ fun ChapterEditorScreen(
 private sealed interface RowAction {
     val chapterId: String
 
-    /** The overflow itself — rename or delete. */
+    /** The overflow itself — rename, insert below, play from here, delete. */
     data class Choosing(
         override val chapterId: String,
     ) : RowAction
@@ -248,6 +239,11 @@ private sealed interface RowAction {
     data class Deleting(
         override val chapterId: String,
     ) : RowAction
+
+    /** Typing the start exactly. */
+    data class EditingTime(
+        override val chapterId: String,
+    ) : RowAction
 }
 
 /**
@@ -259,9 +255,13 @@ private sealed interface RowAction {
 @Composable
 private fun RowActionDialogs(
     action: RowAction?,
-    titleOf: (String) -> String,
+    chapterOf: (String) -> Chapter?,
+    canPlayFromHere: Boolean,
     onAction: (RowAction?) -> Unit,
     onRename: (String, String) -> Unit,
+    onRetime: (String, Long) -> Unit,
+    onInsertBelow: (String) -> Unit,
+    onPlayFromHere: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
     when (action) {
@@ -270,14 +270,38 @@ private fun RowActionDialogs(
         is RowAction.Choosing -> {
             ChapterActionsDialog(
                 onRename = { onAction(RowAction.Renaming(action.chapterId)) },
+                onInsertBelow = {
+                    onInsertBelow(action.chapterId)
+                    onAction(null)
+                },
+                onPlayFromHere =
+                    if (canPlayFromHere) {
+                        {
+                            onPlayFromHere(action.chapterId)
+                            onAction(null)
+                        }
+                    } else {
+                        null
+                    },
                 onDelete = { onAction(RowAction.Deleting(action.chapterId)) },
+                onDismiss = { onAction(null) },
+            )
+        }
+
+        is RowAction.EditingTime -> {
+            ChapterTimeDialog(
+                initialMs = chapterOf(action.chapterId)?.startTime ?: 0L,
+                onConfirm = {
+                    onRetime(action.chapterId, it)
+                    onAction(null)
+                },
                 onDismiss = { onAction(null) },
             )
         }
 
         is RowAction.Renaming -> {
             RenameChapterDialog(
-                initialTitle = titleOf(action.chapterId),
+                initialTitle = chapterOf(action.chapterId)?.title.orEmpty(),
                 onConfirm = {
                     onRename(action.chapterId, it)
                     onAction(null)
@@ -310,14 +334,15 @@ private fun ChapterEditorBody(
     padding: PaddingValues,
     playheadMs: Long?,
     fileBoundaries: List<TimelineFileBoundary>,
-    windowStartMs: Long,
-    onWindowStartChange: (Long) -> Unit,
+    lane: TimelineLane?,
+    onLaneChange: (TimelineLane) -> Unit,
     query: String,
     onQueryChange: (String) -> Unit,
     onPinAnchor: () -> Unit,
     newChapterTitle: String,
     viewModel: ChapterEditorViewModel,
     onMore: (String) -> Unit,
+    onEditTime: (String) -> Unit,
 ) {
     when (state) {
         ChapterEditorUiState.Loading -> {
@@ -339,8 +364,7 @@ private fun ChapterEditorBody(
                     canLookUp = false,
                 )
             } else {
-                val windowLength = DEFAULT_WINDOW_MS.coerceAtMost(state.bookDurationMs)
-                val start = windowStartMs.coerceIn(0L, (state.bookDurationMs - windowLength).coerceAtLeast(0L))
+                val currentLane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs, widthPx = 0f)
                 Column(Modifier.padding(padding)) {
                     if (state.changedElsewhere) {
                         ChangedElsewhereBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
@@ -360,7 +384,8 @@ private fun ChapterEditorBody(
                     ChapterEditorContent(
                         chapters = state.chapters.numbered(),
                         bookDurationMs = state.bookDurationMs,
-                        geometry = TimelineGeometry(start, start + windowLength, 0f),
+                        lane = currentLane,
+                        onLaneChange = onLaneChange,
                         isWide =
                             currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
                                 WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
@@ -374,11 +399,7 @@ private fun ChapterEditorBody(
                         onSnapToPlayhead = { id -> playheadMs?.let { viewModel.snapToPlayhead(id, it) } },
                         onToggleLock = viewModel::toggleLock,
                         onMore = onMore,
-                        onSeekFraction = { fraction ->
-                            // The minimap hands back where in the book to look; centre the lane there.
-                            val centre = (fraction.toDouble() * state.bookDurationMs).toLong()
-                            onWindowStartChange(centre - windowLength / 2)
-                        },
+                        onEditTime = onEditTime,
                         fileBoundaries = fileBoundaries,
                         // The corrected positions, drawn beside the current ones. This is the
                         // parameter the lane has always accepted and nothing ever supplied.

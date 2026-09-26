@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import org.jetbrains.compose.web.dom.Text
+import org.jetbrains.compose.web.dom.P
+import com.calypsan.listenup.client.core.ChapterTimeFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +29,11 @@ internal sealed interface RowAction {
 
     /** Confirming removal. */
     data class Deleting(
+        override val chapterId: String,
+    ) : RowAction
+
+    /** Typing the start exactly. */
+    data class EditingTime(
         override val chapterId: String,
     ) : RowAction
 }
@@ -87,4 +95,37 @@ internal fun DiscardChapterEditsDialog(
         onConfirm = onDiscard,
         onDismiss = onDismiss,
     )
+}
+
+/**
+ * Type a chapter's start exactly — spec §7.4's "tap to type to the ms".
+ *
+ * Opens on the start as the row shows it and accepts that shape and the shorter ones people type.
+ * ⛔ Anything that is not a time is refused inline with Set disabled, never guessed at: a guessed
+ * boundary lands somewhere nobody asked for. The ViewModel's retime clamps between neighbours.
+ */
+@Composable
+internal fun ChapterTimeDialog(
+    initialMs: Long,
+    onConfirm: (Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember(initialMs) { mutableStateOf(ChapterTimeFormat.precise(initialMs)) }
+    val parsed = ChapterTimeFormat.parsePrecise(text)
+
+    ModalDialog(open = true, title = "Set start time", onDismiss = onDismiss) {
+        Field(label = "Start time", value = text, onInput = { text = it }, id = "ced-chapter-time")
+        if (parsed == null) {
+            P(attrs = {
+                classes("ched-field-err")
+                attr("role", "alert")
+            }) { Text("Type a time like 1:02:03.4.") }
+        }
+        DialogActions(
+            confirmLabel = "Set",
+            onConfirm = { parsed?.let(onConfirm) },
+            onDismiss = onDismiss,
+            confirmEnabled = parsed != null,
+        )
+    }
 }

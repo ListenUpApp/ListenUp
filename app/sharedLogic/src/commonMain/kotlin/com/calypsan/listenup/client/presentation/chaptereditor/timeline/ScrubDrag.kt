@@ -1,9 +1,5 @@
-package com.calypsan.listenup.client.features.chaptereditor
+package com.calypsan.listenup.client.presentation.chaptereditor.timeline
 
-import com.calypsan.listenup.client.design.timeline.FineScrubStep
-import com.calypsan.listenup.client.design.timeline.TimelineChapter
-import com.calypsan.listenup.client.design.timeline.TimelineGeometry
-import com.calypsan.listenup.client.design.timeline.fineScrubStepFor
 import kotlin.math.abs
 
 /** How near the press has to land, in pixels, for a marker to be the one being grabbed. */

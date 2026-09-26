@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.test.fake.FakePlaybackController
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.result.AppResult
@@ -91,6 +94,11 @@ class ChapterEditorDriftTest :
                 bookRepository = books,
                 bookEditRepository = edits,
                 errorBus = ErrorBus(),
+                playbackManager =
+                    mock<PlaybackManager>(MockMode.autoUnit) {
+                        every { currentTimeline } returns MutableStateFlow<PlaybackTimeline?>(null)
+                    },
+                playbackController = FakePlaybackController(),
             ) to saved
         }
 

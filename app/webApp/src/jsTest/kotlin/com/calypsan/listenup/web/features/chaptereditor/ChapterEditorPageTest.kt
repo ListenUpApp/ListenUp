@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import org.w3c.dom.events.KeyboardEventInit
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.pointerevents.PointerEventInit
+import org.w3c.dom.pointerevents.PointerEvent
 import com.calypsan.listenup.client.domain.chapter.ChapterAnchor
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
@@ -74,6 +78,9 @@ private fun page(
     onRetitle: (String, String) -> Unit = { _, _ -> },
     onRemove: (String) -> Unit = {},
     onAddAt: (Long, String) -> Unit = { _, _ -> },
+    onRetime: (String, Long) -> Unit = { _, _ -> },
+    onInsertBelow: (String, String) -> Unit = { _, _ -> },
+    onPlayFrom: (String) -> Unit = {},
     onToggleLock: (String) -> Unit = {},
     onBeginDrift: () -> Unit = {},
     onPinAnchor: (String, Long) -> Unit = { _, _ -> },
@@ -97,6 +104,9 @@ private fun page(
             onRetitle = onRetitle,
             onRemove = onRemove,
             onAddAt = onAddAt,
+            onRetime = onRetime,
+            onInsertBelow = onInsertBelow,
+            onPlayFrom = onPlayFrom,
             onToggleLock = onToggleLock,
             onBeginDrift = onBeginDrift,
             onPinAnchor = onPinAnchor,
@@ -110,6 +120,21 @@ private fun page(
     }
     return host
 }
+
+private fun pointer(
+    type: String,
+    x: Double,
+    y: Double,
+): PointerEvent =
+    PointerEvent(
+        type,
+        PointerEventInit(pointerId = 7, clientX = x.toInt(), clientY = y.toInt(), bubbles = true, cancelable = true),
+    )
+
+private fun key(
+    name: String,
+    shift: Boolean = false,
+): KeyboardEvent = KeyboardEvent("keydown", KeyboardEventInit(key = name, shiftKey = shift, bubbles = true, cancelable = true))
 
 private fun rows(host: HTMLElement) = host.querySelectorAll(".chr").asList().filterIsInstance<HTMLElement>()
 
@@ -135,6 +160,17 @@ private fun button(
         .asList()
         .filterIsInstance<HTMLButtonElement>()
         .firstOrNull { it.textContent?.trim() == label }
+
+/** The button whose accessible name is [label] — for icon-only controls with no text. */
+private fun labelled(
+    host: HTMLElement,
+    label: String,
+): HTMLButtonElement? =
+    host
+        .querySelectorAll("button")
+        .asList()
+        .filterIsInstance<HTMLButtonElement>()
+        .firstOrNull { it.getAttribute("aria-label") == label }
 
 private fun dialogButton(
     host: HTMLElement,
@@ -317,6 +353,145 @@ class ChapterEditorPageTest :
             awaitFrame()
 
             toggled shouldContainExactly listOf("c2")
+        }
+
+        // Spec 7.4: "precise time (tap to type to the ms)". The time is its own control.
+        test("the start time opens an exact-time field, and a typed time retimes the boundary") {
+            val retimes = mutableListOf<Pair<String, Long>>()
+            val host = page(editingChapters(), onRetime = { id, at -> retimes += id to at })
+
+            rowAction(host, 1, "Edit start time").shouldNotBeNull().click()
+            awaitFrame()
+
+            val field = host.querySelector("#ced-chapter-time") as HTMLInputElement
+            field.value shouldBe "0:01:00.0"
+            field.value = "0:01:02.345"
+            field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            dialogButton(host, "Set").shouldNotBeNull().click()
+            awaitFrame()
+
+            retimes shouldContainExactly listOf("c2" to 62_345L)
+        }
+
+        test("something that is not a time is refused where it was typed") {
+            val host = page(editingChapters())
+
+            rowAction(host, 1, "Edit start time").shouldNotBeNull().click()
+            awaitFrame()
+            val field = host.querySelector("#ced-chapter-time") as HTMLInputElement
+            field.value = "soon"
+            field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            host.textContent.orEmpty() shouldContain "Type a time like 1:02:03.4."
+            dialogButton(host, "Set").shouldNotBeNull().disabled shouldBe true
+        }
+
+        test("insert below adds a boundary under the row it was asked on") {
+            val inserts = mutableListOf<Pair<String, String>>()
+            val host = page(editingChapters(), onInsertBelow = { id, title -> inserts += id to title })
+
+            rowAction(host, 0, "Insert chapter below").shouldNotBeNull().click()
+            awaitFrame()
+
+            inserts shouldContainExactly listOf("c1" to "New chapter")
+        }
+
+        test("play from here is offered only while this book is the one playing") {
+            val plays = mutableListOf<String>()
+            page(editingChapters(), playheadMs = null).let { idle ->
+                rowAction(idle, 0, "Play from here").shouldBeNull()
+            }
+            val host = page(editingChapters(), playheadMs = 61_500L, onPlayFrom = { plays += it })
+
+            rowAction(host, 2, "Play from here").shouldNotBeNull().click()
+            awaitFrame()
+
+            plays shouldContainExactly listOf("c3")
+        }
+
+        // ---- The timeline (spec §7.3), on the shared TimelineLane the phones use.
+
+        test("the timeline draws every boundary on the lane and the whole book on the minimap") {
+            val host = page(editingChapters())
+
+            host.querySelectorAll(".ctl-lane .ctl-mk:not(.ctl-ghost)").length shouldBe 3
+            host.querySelectorAll(".ctl-map .ctl-bk").length shouldBe 90
+            host.querySelector(".ctl-lane")?.getAttribute("aria-label") shouldBe "Chapter timeline showing 3 chapters"
+        }
+
+        // 2026-09-25: Android committed every pointer move as its own edit, so Undo after a drag
+        // walked it back a pixel at a time. One drag is one edit, here as there.
+        test("dragging a boundary commits once, on release, later for a drag to the right") {
+            val retimes = mutableListOf<Pair<String, Long>>()
+            val host = page(editingChapters(), onRetime = { id, at -> retimes += id to at })
+            val lane = host.querySelector(".ctl-lane") as HTMLElement
+            // Aimed from the lane's own box and the boundary's time, not from the marker element:
+            // the grab is geometry, and this host is not inside `.luw`, so no stylesheet places it.
+            // The whole three-minute book is on screen, so chapter 2's 1:00 is a third of the way.
+            val box = lane.getBoundingClientRect()
+            val y = box.top + box.height / 2
+            var x = box.left + box.width / 3
+
+            lane.dispatchEvent(pointer("pointerdown", x, y))
+            repeat(5) {
+                x += 4.0
+                lane.dispatchEvent(pointer("pointermove", x, y))
+            }
+            awaitFrame()
+            host.querySelector(".ctl-hud").shouldNotBeNull()
+            lane.dispatchEvent(pointer("pointerup", x, y))
+            awaitFrame()
+
+            retimes.size shouldBe 1
+            retimes.single().first shouldBe "c2"
+            (retimes.single().second > 60_000L) shouldBe true
+            host.querySelector(".ctl-hud").shouldBeNull()
+        }
+
+        test("the zoom buttons narrow and widen the window the lane shows") {
+            val host = page(editingChapters())
+            val range = {
+                host
+                    .querySelectorAll(".ctl-head .ctl-sub")
+                    .asList()
+                    .last()
+                    .textContent
+            }
+            val before = range()
+
+            labelled(host, "Zoom in").shouldNotBeNull().click()
+            awaitFrame()
+            val zoomedIn = range()
+            labelled(host, "Zoom out").shouldNotBeNull().click()
+            awaitFrame()
+
+            (zoomedIn != before) shouldBe true
+            range() shouldBe before
+        }
+
+        test("the arrow keys nudge the selected boundary, and Shift nudges it finely") {
+            val nudges = mutableListOf<Pair<String, Long>>()
+            page(editingChapters(selectedChapterId = "c2"), onNudge = { id, by -> nudges += id to by })
+
+            document.body!!.dispatchEvent(key("ArrowRight"))
+            document.body!!.dispatchEvent(key("ArrowLeft", shift = true))
+            awaitFrame()
+
+            nudges shouldContainExactly listOf("c2" to 1_000L, "c2" to -100L)
+        }
+
+        test("the bracket keys step the selection to the neighbouring chapter") {
+            val selections = mutableListOf<String?>()
+            page(editingChapters(selectedChapterId = "c2"), onSelect = { selections += it })
+
+            document.body!!.dispatchEvent(key("]"))
+            document.body!!.dispatchEvent(key("["))
+            awaitFrame()
+
+            selections shouldContainExactly listOf("c3", "c1")
         }
 
         test("renaming opens on the chapter's current title and reports the new one") {

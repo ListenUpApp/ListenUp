@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.domain.model.Chapter
 
@@ -33,6 +34,8 @@ sealed interface ChapterEditorUiState {
      *   [chapters], so a lock naming a chapter that has since been removed cannot survive.
      * @property drift the guided drift flow, or null when it is not open. Its preview is derived
      *   from [chapters], so it cannot describe a set the user is no longer looking at.
+     * @property fileBoundaries where one audio file ends and the next begins, drawn as faint dividers
+     *   on the lane; empty unless this book is the one loaded in the player.
      */
     data class Editing(
         val bookTitle: String,
@@ -45,6 +48,7 @@ sealed interface ChapterEditorUiState {
         val changedElsewhere: Boolean = false,
         val lockedChapterIds: Set<String> = emptySet(),
         val drift: DriftState? = null,
+        val fileBoundaries: List<TimelineFileBoundary> = emptyList(),
     ) : ChapterEditorUiState {
         /** True when the book has no chapters at all — the "never stranded" empty state. */
         val isEmpty: Boolean get() = chapters.isEmpty()

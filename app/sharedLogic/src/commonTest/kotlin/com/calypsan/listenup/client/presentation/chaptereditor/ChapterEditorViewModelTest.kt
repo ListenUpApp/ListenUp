@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
+import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.BookError
@@ -78,6 +82,34 @@ class ChapterEditorViewModelTest :
                     Chapter(id = "c$i", title = "Chapter $i", duration = 0L, startTime = s)
                 }.withDerivedDurations(BOOK_MS)
 
+        var controller = FakePlaybackController()
+        val loadedTimeline = MutableStateFlow<PlaybackTimeline?>(null)
+
+        beforeTest {
+            controller = FakePlaybackController()
+            loadedTimeline.value = null
+        }
+
+        fun segment(
+            name: String,
+            startMs: Long,
+        ) = PlaybackTimeline.FileSegment(
+            audioFileId = "af-$name",
+            filename = name,
+            format = "mp3",
+            startOffsetMs = startMs,
+            durationMs = 600_000L,
+            size = 1L,
+            streamingUrl = "https://example.test/$name",
+            localPath = null,
+            mediaItemIndex = 0,
+        )
+
+        fun timelineFor(
+            bookId: String,
+            files: List<PlaybackTimeline.FileSegment> = emptyList(),
+        ): PlaybackTimeline = PlaybackTimeline(bookId = BookId(bookId), totalDurationMs = BOOK_MS, files = files)
+
         fun rig(
             initial: List<Chapter> = chapters(0L, 300_000L, 900_000L),
             saveResult: AppResult<Unit> = AppResult.Success(Unit),
@@ -95,12 +127,17 @@ class ChapterEditorViewModelTest :
                 saveResult
             }
 
+            val playback = mock<PlaybackManager>(MockMode.autoUnit)
+            every { playback.currentTimeline } returns loadedTimeline
+
             val vm =
                 ChapterEditorViewModel(
                     bookId = BOOK_ID,
                     bookRepository = books,
                     bookEditRepository = edits,
                     errorBus = ErrorBus(),
+                    playbackManager = playback,
+                    playbackController = controller,
                 )
             return Triple(vm, mirror, saved)
         }
@@ -382,6 +419,98 @@ class ChapterEditorViewModelTest :
             val (vm, _, _) = rig()
             vm.close()
             vm.close()
+        }
+
+        // The row overflow's "Insert below" (spec §7.4): a new boundary halfway through this
+        // chapter, so the split is visible in the list and can be refined from there.
+        test("insert below splits the chapter at the middle of its span") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.insertBelow("c1", title = "New chapter")
+
+                    val edited = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    edited.chapters.map { it.startTime } shouldBe listOf(0L, 300_000L, 600_000L, 900_000L)
+                    edited.chapters[2].title shouldBe "New chapter"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("insert below the last chapter splits what remains of the book") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.insertBelow("c2", title = "New chapter")
+
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .chapters
+                        .map { it.startTime } shouldBe listOf(0L, 300_000L, 900_000L, 1_050_000L)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // "Play from here" (spec §7.4) is how the playhead reaches a boundary so snap-to-playhead
+        // can take it — the precision instrument is useless if the listener cannot get there.
+        test("play from here plays this book from the chapter's start") {
+            loadedTimeline.value = timelineFor(BOOK_ID)
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.playFrom("c1")
+
+                    controller.seekCalls shouldBe listOf(300_000L)
+                    controller.playCount shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("play from here never takes over another book that is playing") {
+            loadedTimeline.value = timelineFor("some-other-book")
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.playFrom("c1")
+
+                    controller.seekCalls shouldBe emptyList()
+                    controller.playCount shouldBe 0
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // The lane's faint dividers (spec §7.3): where one audio file ends and the next begins.
+        // Read from the player, so only while this book is the one loaded — another book's files
+        // would draw boundaries that belong to different audio entirely.
+        test("audio-file boundaries are offered while this book is the one loaded, and only then") {
+            loadedTimeline.value = timelineFor(BOOK_ID, listOf(segment("01.mp3", 0L), segment("02.mp3", 600_000L)))
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().fileBoundaries shouldBe
+                        listOf(TimelineFileBoundary("01.mp3", 0L), TimelineFileBoundary("02.mp3", 600_000L))
+
+                    loadedTimeline.value = timelineFor("another-book", listOf(segment("x.mp3", 0L)))
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().fileBoundaries shouldBe emptyList()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
         }
 
         test("locking a boundary pins it, and locking it again lets it go") {

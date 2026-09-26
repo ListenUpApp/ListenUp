@@ -5,7 +5,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import com.calypsan.listenup.client.design.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.domain.model.Chapter
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -48,7 +49,8 @@ class ChapterEditorContentLockTest {
                 ChapterEditorContent(
                     chapters = chapters.numbered(),
                     bookDurationMs = BOOK_MS,
-                    geometry = TimelineGeometry(windowStartMs = 0L, windowEndMs = BOOK_MS, widthPx = 1_000f),
+                    lane = TimelineLane(TimelineGeometry(windowStartMs = 0L, windowEndMs = BOOK_MS, widthPx = 1_000f)),
+                    onLaneChange = {},
                     isWide = true,
                     selectedChapterId = null,
                     playheadMs = null,
@@ -57,7 +59,7 @@ class ChapterEditorContentLockTest {
                     onSnapToPlayhead = {},
                     onToggleLock = onToggleLock,
                     onMore = {},
-                    onSeekFraction = {},
+                    onEditTime = {},
                     lockedChapterIds = locked,
                 )
             }

@@ -15,7 +15,7 @@ import org.jetbrains.compose.web.dom.Text
  *
  * The list alone has to be sufficient — the spec calls the timeline "optional spatial sugar" — so
  * every operation the editor offers is reachable from a row: nudge either way, take the playhead,
- * pin against drift, rename, remove.
+ * pin against drift, type the start exactly, insert below, play from here, rename, remove.
  *
  * The start time is rendered to the tenth of a second. A boundary is aimed at by ear, and a whole
  * second is wider than the gap the ear is judging.
@@ -31,6 +31,9 @@ internal fun ChapterRow(
     onNudge: (Long) -> Unit,
     onSnapToPlayhead: () -> Unit,
     onToggleLock: () -> Unit,
+    onEditTime: () -> Unit,
+    onInsertBelow: () -> Unit,
+    onPlayFrom: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -47,7 +50,17 @@ internal fun ChapterRow(
         Div(attrs = { classes("chr-main") }) {
             Div(attrs = { classes("chr-t") }) { Text(chapter.title) }
             Div(attrs = { classes("chr-at") }) {
-                Text(ChapterTimeFormat.precise(chapter.startTime))
+                // The time is its own control: press it to type the start to the millisecond (§7.4).
+                Button(attrs = {
+                    classes("chr-time")
+                    attr("type", "button")
+                    attr("aria-label", "Edit start time")
+                    attr("title", "Edit start time")
+                    onClick { event ->
+                        event.stopPropagation()
+                        onEditTime()
+                    }
+                }) { Text(ChapterTimeFormat.precise(chapter.startTime)) }
                 // "NOW", not a progress bar: this says which boundary the listener is inside, which
                 // is the row worth aiming at, and nothing about how far through it they are.
                 if (isPlaying) Span(attrs = { classes("chr-now") }) { Text("NOW") }
@@ -60,7 +73,10 @@ internal fun ChapterRow(
             // from a different book would write a number from somewhere else entirely.
             if (playheadMs != null) {
                 RowAction(WebIcon.Target, "Set start at playhead", onClick = onSnapToPlayhead)
+                // Same rule: playing from here while another book is loaded would replace it unasked.
+                RowAction(WebIcon.Play, "Play from here", onClick = onPlayFrom)
             }
+            RowAction(WebIcon.Scissors, "Insert chapter below", onClick = onInsertBelow)
             RowAction(
                 icon = if (isLocked) WebIcon.Lock else WebIcon.Unlock,
                 label = if (isLocked) "Unlock chapter" else "Lock chapter",

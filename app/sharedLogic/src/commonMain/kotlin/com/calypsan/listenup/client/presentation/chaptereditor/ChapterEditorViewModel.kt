@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
+import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import com.calypsan.listenup.client.playback.PlaybackController
+import com.calypsan.listenup.client.playback.PlaybackManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.ChapterInput
@@ -48,6 +52,8 @@ class ChapterEditorViewModel(
     bookRepository: BookRepository,
     private val bookEditRepository: BookEditRepository,
     private val errorBus: ErrorBus,
+    private val playbackManager: PlaybackManager,
+    private val playbackController: PlaybackController,
 ) : ViewModel() {
     private var closed = false
 
@@ -88,7 +94,8 @@ class ChapterEditorViewModel(
             bookRepository.observeChapters(bookId),
             bookRepository.observeBookDetail(bookId),
             session,
-        ) { mirrored, book, current ->
+            playbackManager.currentTimeline,
+        ) { mirrored, book, current, loaded ->
             if (book == null) {
                 ChapterEditorUiState.Loading
             } else {
@@ -111,6 +118,7 @@ class ChapterEditorViewModel(
                     // no longer there cannot survive, by construction rather than by remembering.
                     lockedChapterIds = locked,
                     drift = current.driftAnchors?.let { driftStateFor(it, chapters, locked, book.duration) },
+                    fileBoundaries = fileBoundariesOf(loaded),
                 )
             }
         }.stateIn(
@@ -118,6 +126,14 @@ class ChapterEditorViewModel(
             SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
             ChapterEditorUiState.Loading,
         )
+
+    /** The loaded book's audio-file boundaries, or none when the player holds another book (or nothing). */
+    private fun fileBoundariesOf(loaded: PlaybackTimeline?): List<TimelineFileBoundary> =
+        if (loaded?.bookId != BookId(bookId)) {
+            emptyList()
+        } else {
+            loaded.files.map { TimelineFileBoundary(label = it.filename, startMs = it.startOffsetMs) }
+        }
 
     /** Pins or unpins [chapterId] against drift correction. */
     fun toggleLock(chapterId: String) {
@@ -166,6 +182,38 @@ class ChapterEditorViewModel(
         atMs: Long,
         title: String,
     ) = edit { chapters, duration -> chapters.added(Uuid.random().toString(), title, atMs, duration) }
+
+    /**
+     * Inserts a boundary halfway through [chapterId]'s span — the row overflow's "Insert below".
+     * The midpoint rather than the playhead, because the row being acted on is not necessarily the
+     * one playing; the new boundary is then refined like any other.
+     */
+    fun insertBelow(
+        chapterId: String,
+        title: String,
+    ) = edit { chapters, duration ->
+        val chapter = chapters.firstOrNull { it.id == chapterId } ?: return@edit chapters
+        val midpoint = chapter.startTime + chapter.duration / 2
+        chapters.added(Uuid.random().toString(), title, midpoint, duration)
+    }
+
+    /**
+     * Plays from [chapterId]'s start — the row overflow's "Play from here", which is how the playhead
+     * reaches a boundary for snap-to-playhead to take.
+     *
+     * Only while this book is the one loaded: starting it from cold would replace whatever the
+     * listener has going with no confirmation, so the screens disable the action until the book is
+     * playing, the same rule as "Add chapter at playhead".
+     */
+    fun playFrom(chapterId: String) {
+        if (playbackManager.currentTimeline.value?.bookId != BookId(bookId)) return
+        val editing = state.value as? ChapterEditorUiState.Editing ?: return
+        val startMs = editing.chapters.firstOrNull { it.id == chapterId }?.startTime ?: return
+        playbackController.seekTo(startMs)
+        // So the playhead reads the new position at once, even before the player reports it.
+        playbackManager.updatePosition(startMs)
+        playbackController.play()
+    }
 
     /** Removes [chapterId], merging its span into the chapter before it. */
     fun remove(chapterId: String) = edit { chapters, duration -> chapters.removed(chapterId, duration) }

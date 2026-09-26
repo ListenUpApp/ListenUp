@@ -60,6 +60,7 @@ enum ChapterEditorPhase: Equatable {
 final class ChapterEditorObserver {
     private(set) var phase: ChapterEditorPhase = .loading
     private(set) var bookTitle: String = ""
+    private(set) var bookDurationMs: Int64 = 0
     private(set) var chapters: [EditableChapterRow] = []
     private(set) var selectedChapterId: String?
     private(set) var isDirty: Bool = false
@@ -73,6 +74,9 @@ final class ChapterEditorObserver {
     /// save attempt, never on a timer: it names a row the reader still has to go and fix.
     private(set) var problem: String?
 
+    /// The timeline over the shared lane; a released drag lands back here as one `retime`.
+    let timeline = ChapterTimelineModel()
+
     /// True when the book has chapters to interpolate between — the drift flow's precondition.
     var canFixDrift: Bool { chapters.count > 1 && drift == nil }
 
@@ -81,6 +85,7 @@ final class ChapterEditorObserver {
 
     init(viewModel: ChapterEditorViewModel) {
         self.viewModel = viewModel
+        timeline.onRetime = { [weak self] chapterId, startMs in self?.retime(chapterId, toMs: startMs) }
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
     }
@@ -104,6 +109,11 @@ final class ChapterEditorObserver {
     func remove(_ chapterId: String) { viewModel.remove(chapterId: chapterId) }
     func addAt(_ atMs: Int64, title: String) { viewModel.addAt(atMs: atMs, title: title) }
     func toggleLock(_ chapterId: String) { viewModel.toggleLock(chapterId: chapterId) }
+    func retime(_ chapterId: String, toMs startMs: Int64) {
+        viewModel.retime(chapterId: chapterId, newStartMs: startMs)
+    }
+    func insertBelow(_ chapterId: String, title: String) { viewModel.insertBelow(chapterId: chapterId, title: title) }
+    func playFrom(_ chapterId: String) { viewModel.playFrom(chapterId: chapterId) }
     func beginDrift() { viewModel.beginDrift() }
     func pinAnchor(_ chapterId: String, atMs trueStartMs: Int64) {
         viewModel.pinAnchor(chapterId: chapterId, trueStartMs: trueStartMs)
@@ -130,6 +140,7 @@ final class ChapterEditorObserver {
             let editing = type.value
             phase = .editing
             bookTitle = editing.bookTitle
+            bookDurationMs = editing.bookDurationMs
             selectedChapterId = editing.selectedChapterId
             isDirty = editing.isDirty
             canUndo = editing.canUndo
@@ -137,6 +148,14 @@ final class ChapterEditorObserver {
             changedElsewhere = editing.changedElsewhere
             chapters = rowModels(editing)
             drift = driftModel(editing)
+            timeline.update(TimelineInput(
+                chapters: editing.chapters,
+                bookDurationMs: editing.bookDurationMs,
+                selectedId: editing.selectedChapterId,
+                lockedIds: editing.lockedChapterIds,
+                ghostStarts: ghostStarts(editing),
+                fileStarts: editing.fileBoundaries.map(\.startMs)
+            ))
         }
     }
 
@@ -197,6 +216,16 @@ final class ChapterEditorObserver {
             }
         }
         return model
+    }
+
+    /// The drift preview's corrected starts, drawn as ghosts on the lane; none without a ready preview.
+    /// Read off `editing` for the same reason as `driftModel`: the nested types cannot be named.
+    private func ghostStarts(_ editing: ChapterEditorUiStateEditing) -> [Int64] {
+        guard let preview = editing.drift?.preview else { return [] }
+        switch preview.sealedType() {
+        case .ready(let type): return type.value.corrected.map(\.startTime)
+        case .refused: return []
+        }
     }
 
     /// Names an anchor by the number the reader can see, and the time they pinned it at.

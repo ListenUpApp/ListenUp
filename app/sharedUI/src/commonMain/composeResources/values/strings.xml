@@ -602,12 +602,17 @@ One beautiful library.</string>
     <string name="chapter_editor_drift_summary">%1$d boundaries move. Drift spreads %2$s across the book.</string>
     <string name="chapter_editor_drift_summary_single">%1$d boundaries move by %2$s.</string>
     <string name="chapter_editor_drift_title">Fix drift</string>
+    <string name="chapter_editor_edit_time">Edit start time</string>
+    <string name="chapter_editor_edit_time_invalid">Type a time like 1:02:03.4.</string>
+    <string name="chapter_editor_edit_time_label">Start time</string>
+    <string name="chapter_editor_edit_time_title">Set start time</string>
     <string name="chapter_editor_empty_add_first">Add first chapter at playhead</string>
     <string name="chapter_editor_empty_body">This book was never chaptered. Add your first boundary at the playhead, or look one up.</string>
     <string name="chapter_editor_empty_detect_soon">Detect from silence · coming soon</string>
     <string name="chapter_editor_empty_lookup">Look up chapters</string>
     <string name="chapter_editor_empty_title">No chapters yet</string>
     <string name="chapter_editor_fix_drift">Fix drift</string>
+    <string name="chapter_editor_insert_below">Insert chapter below</string>
     <string name="chapter_editor_jump_to_title">Jump to title…</string>
     <string name="chapter_editor_lane_description">Chapter timeline showing %1$d chapters</string>
     <string name="chapter_editor_lock">Lock chapter</string>
@@ -618,6 +623,7 @@ One beautiful library.</string>
     <string name="chapter_editor_now_playing">NOW</string>
     <string name="chapter_editor_nudge_back">Nudge back</string>
     <string name="chapter_editor_nudge_forward">Nudge forward</string>
+    <string name="chapter_editor_play_from_here">Play from here</string>
     <string name="chapter_editor_problem_blank_title">Chapter %1$d needs a title.</string>
     <string name="chapter_editor_problem_not_increasing">Chapter %1$d starts at or before the one before it.</string>
     <string name="chapter_editor_problem_outside_book">Chapter %1$d starts outside the book.</string>
@@ -636,7 +642,7 @@ One beautiful library.</string>
     <string name="chapter_editor_unlock">Unlock chapter</string>
     <string name="chapter_editor_unsaved">Unsaved</string>
     <string name="chapter_editor_whole_book">Whole book</string>
-    <string name="chapter_editor_zoom_hint">Scroll to zoom · drag a marker, then pull away to fine-tune</string>
+    <string name="chapter_editor_zoom_hint">Pinch or scroll to zoom · drag a marker, then pull away to fine-tune</string>
     <string name="chapter_editor_zoom_in">Zoom in</string>
     <string name="chapter_editor_zoom_out">Zoom out</string>
     <string name="common_about">About</string>

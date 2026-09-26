@@ -26,6 +26,10 @@ struct ChapterEditorView: View {
     @State private var renaming: EditableChapterRow?
     @State private var deleting: EditableChapterRow?
     @State private var renameText: String = ""
+    @State private var retiming: EditableChapterRow?
+    @State private var timeText: String = ""
+    /// Bumped on every snap-to-playhead, so the snap lands with a tap under the thumb (spec §7.8).
+    @State private var snaps = 0
 
     var body: some View {
         NavigationStack {
@@ -72,6 +76,23 @@ struct ChapterEditorView: View {
             }
             .disabled(renameText.trimmingCharacters(in: .whitespaces).isEmpty)
         }
+        .alert(String(localized: "chapter_editor.edit_time_title"), isPresented: retimeBinding) {
+            TextField(String(localized: "chapter_editor.edit_time_label"), text: $timeText)
+                .keyboardType(TextEntry.timecode.keyboardType)
+                .textInputAutocapitalization(TextEntry.timecode.capitalization.textInput)
+                .autocorrectionDisabled(!TextEntry.timecode.autocorrects)
+            Button(String(localized: "common.cancel"), role: .cancel) { retiming = nil }
+            Button(String(localized: "common.save")) {
+                if let row = retiming, let ms = typedStartMs { observer?.retime(row.id, toMs: ms) }
+                retiming = nil
+            }
+            // ⛔ Refused rather than guessed at: a guessed boundary lands where nobody asked.
+            .disabled(typedStartMs == nil)
+        } message: {
+            if typedStartMs == nil {
+                Text(String(localized: "chapter_editor.edit_time_invalid"))
+            }
+        }
         .confirmationDialog(
             String(localized: "chapter_editor.delete_title"),
             isPresented: deleteBinding,
@@ -109,6 +130,23 @@ struct ChapterEditorView: View {
 
     @ViewBuilder
     private func editing(_ observer: ChapterEditorObserver) -> some View {
+        VStack(spacing: 0) {
+            if !observer.chapters.isEmpty {
+                ChapterTimelineView(
+                    model: observer.timeline,
+                    playheadMs: playheadMs,
+                    bookDurationMs: observer.bookDurationMs,
+                    chapterCount: observer.chapters.count
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+            chapterList(observer)
+        }
+    }
+
+    @ViewBuilder
+    private func chapterList(_ observer: ChapterEditorObserver) -> some View {
         List {
             if observer.changedElsewhere { Section { changedElsewhereNotice } }
             if let problem = observer.problem { Section { problemNotice(problem) } }
@@ -116,6 +154,7 @@ struct ChapterEditorView: View {
             chapterSection(observer)
         }
         .listStyle(.insetGrouped)
+        .haptic(.press, trigger: snaps)
         .searchable(text: $query, prompt: Text(String(localized: "chapter_editor.jump_to_title")))
         .safeAreaInset(edge: .bottom) { addAtPlayheadBar(observer) }
     }
@@ -185,8 +224,17 @@ struct ChapterEditorView: View {
             playheadMs: playheadMs,
             onSelect: { observer.select(row.id) },
             onNudge: { observer.nudge(row.id, byMs: $0) },
-            onSnapToPlayhead: { at in observer.snapToPlayhead(row.id, atMs: at) },
+            onSnapToPlayhead: { at in
+                observer.snapToPlayhead(row.id, atMs: at)
+                snaps += 1
+            },
             onToggleLock: { observer.toggleLock(row.id) },
+            onEditTime: {
+                timeText = ChapterTimeFormat.shared.precise(ms: row.startMs)
+                retiming = row
+            },
+            onInsertBelow: { observer.insertBelow(row.id, title: String(localized: "chapter_editor.new_chapter_title")) },
+            onPlayFrom: { observer.playFrom(row.id) },
             onRename: {
                 renameText = row.title
                 renaming = row
@@ -282,6 +330,15 @@ struct ChapterEditorView: View {
 
     private var renameBinding: Binding<Bool> {
         Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+    }
+
+    private var retimeBinding: Binding<Bool> {
+        Binding(get: { retiming != nil }, set: { if !$0 { retiming = nil } })
+    }
+
+    /// What the time field holds, read through the shared parser every client uses.
+    private var typedStartMs: Int64? {
+        ChapterTimeFormat.shared.parsePrecise(text: timeText)
     }
 
     private var deleteBinding: Binding<Bool> {
