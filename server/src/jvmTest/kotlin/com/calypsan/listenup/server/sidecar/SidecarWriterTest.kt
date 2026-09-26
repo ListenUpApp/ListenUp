@@ -47,6 +47,16 @@ class SidecarWriterTest :
 
         fun tempLibraryDir(): String = Files.createTempDirectory("sidecar-writer-test-").toString()
 
+        /** Seeds a book the way a scan finds one: a DB row AND the folder its audio lives in. */
+        fun SqlTestDatabases.seedBookInFolder(
+            libraryDir: String,
+            bookId: String,
+            folder: String,
+        ) {
+            sql.seedTestBook(bookId = bookId, rootRelPath = folder)
+            SystemFileSystem.createDirectories(Path(libraryDir, folder))
+        }
+
         fun SqlTestDatabases.writer(
             scope: CoroutineScope,
             libraryDir: String,
@@ -73,7 +83,7 @@ class SidecarWriterTest :
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    seedBookInFolder(lib, bookId = "book1", folder = "MyBook")
                     val target = Path(lib, "MyBook", "listenup.json")
 
                     writer.markDirty("book1")
@@ -97,7 +107,7 @@ class SidecarWriterTest :
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    seedBookInFolder(lib, bookId = "book1", folder = "MyBook")
 
                     writer.markDirty("book1")
                     advanceTimeBy(WINDOW_MS + 1)
@@ -121,7 +131,7 @@ class SidecarWriterTest :
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    seedBookInFolder(lib, bookId = "book1", folder = "MyBook")
                     sql.transaction {
                         sql.tagsQueries.insert("t1", "zeta", "zeta", 1L, 1L, 1L, null, null)
                         sql.tagsQueries.insert("t2", "alpha", "alpha", 1L, 1L, 1L, null, null)
@@ -147,7 +157,7 @@ class SidecarWriterTest :
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    seedBookInFolder(lib, bookId = "book1", folder = "MyBook")
                     val target = Path(lib, "MyBook", "listenup.json")
 
                     writer.markDirty("book1")
@@ -176,7 +186,7 @@ class SidecarWriterTest :
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    seedBookInFolder(lib, bookId = "book1", folder = "MyBook")
                     val target = Path(lib, "MyBook", "listenup.json")
 
                     writer.markDirty("book1")
@@ -206,8 +216,8 @@ class SidecarWriterTest :
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "BookOne")
-                    sql.seedTestBook(bookId = "book2", rootRelPath = "BookTwo")
+                    seedBookInFolder(lib, bookId = "book1", folder = "BookOne")
+                    seedBookInFolder(lib, bookId = "book2", folder = "BookTwo")
 
                     writer.backfillStaleSidecars()
                     advanceTimeBy(WINDOW_MS + 1)
@@ -229,12 +239,36 @@ class SidecarWriterTest :
             }
         }
 
+        // 2026-09-25: a test library trashed while its server was down came back on the next start as
+        // a tree of folders holding nothing but listenup.json — the startup backfill wrote a sidecar
+        // for every book the DB still knew, creating each missing folder (and the root) to do it.
+        // A missing folder is the scanner's news to deliver, not the sidecar writer's to undo.
+        test("a book whose folder is gone gets no sidecar, and its folder is not recreated") {
+            withSqlDatabase {
+                runTest {
+                    val lib = tempLibraryDir()
+                    val writer = writer(backgroundScope, lib)
+                    sql.seedTestBook(bookId = "book1", rootRelPath = "Deleted While Down")
+
+                    writer.backfillStaleSidecars()
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+
+                    SystemFileSystem.exists(Path(lib, "Deleted While Down")) shouldBe false
+                    SidecarWriteStateRepository(sql).findByBookId("book1").shouldBeNull()
+                    withClue("a folder that is gone is not a write failure to retry") {
+                        writer.pendingBookIds().shouldBeEmpty()
+                    }
+                }
+            }
+        }
+
         test("sidecar_writes_enabled=false makes markDirty a no-op — no write, no state row") {
             withSqlDatabase {
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    seedBookInFolder(lib, bookId = "book1", folder = "MyBook")
                     ServerSettingsRepository(sql, RegistrationPolicy.CLOSED)
                         .setValue("sidecar_writes_enabled", "false")
 
@@ -280,7 +314,7 @@ class SidecarWriterTest :
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
-                    sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
+                    seedBookInFolder(lib, bookId = "book1", folder = "MyBook")
                     // A read-only book directory makes the broker's staged write fail typed.
                     val bookDir =
                         java.nio.file.Path

@@ -228,6 +228,11 @@ class SidecarWriter(
      * to put `listenup.json` in. That case returns null (one info log) so the flush skips
      * cleanly instead of parking the book for a retry that can never succeed. Such books gain
      * a sidecar once the organizer (Trio Phase 3) moves them into their own folder.
+     *
+     * **A folder that is gone gets nothing.** Writing would create it, so a book deleted while the
+     * server was down (or a library share that is not mounted) came back as a folder holding only
+     * `listenup.json`. Returning null skips without parking: the scan reports the book missing, and
+     * if the folder returns, that scan's backfill queues it again.
      */
     private suspend fun resolveBookDir(bookId: String): Path? {
         val bookDir =
@@ -242,7 +247,12 @@ class SidecarWriter(
                         ?.root_path ?: return@suspendTransaction null
                 Path(folderRoot, bookRow.root_rel_path)
             } ?: return null
-        if (SystemFileSystem.metadataOrNull(bookDir)?.isRegularFile == true) {
+        val onDisk = SystemFileSystem.metadataOrNull(bookDir)
+        if (onDisk == null) {
+            logger.info { "book folder is gone — no listenup.json for book=$bookId; the next scan marks it missing" }
+            return null
+        }
+        if (onDisk.isRegularFile) {
             logger.info { "single-file books don't get sidecars in v1 — skipping listenup.json for book=$bookId" }
             return null
         }
