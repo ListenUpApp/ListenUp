@@ -314,6 +314,7 @@ GenreError
 GenreError_SealedType
 GenreId
 GenreIdentity
+GenreMergeHistory
 GenreRepository
 GenreShare
 GenreShareBar
@@ -417,6 +418,12 @@ LoudnessMeter
 MatchProvenance
 MatchTier
 MediaFocus
+MergeHistory
+MergeHistoryState
+MergeHistoryState_SealedType
+MergeReceipt
+MergeReceiptId
+MergeUndoOutcome
 MetadataApplySelection
 MetadataBook
 MetadataContributorHit

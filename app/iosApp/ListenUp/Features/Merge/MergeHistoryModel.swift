@@ -63,10 +63,9 @@ enum MergeHistoryModel: Equatable {
 enum MergeHistoryText {
     /// "Up to 4 books · September 25, 2026 · by Simon" — the name only while the account exists.
     static func detail(_ row: MergeRow) -> String {
-        let books = String(
-            format: String(localized: row.bookCount == 1 ? "merge_history.row_books" : "merge_history.row_books_plural"),
-            Int32(row.bookCount)
-        )
+        let booksKey: String.LocalizationValue =
+            row.bookCount == 1 ? "merge_history.row_books" : "merge_history.row_books_plural"
+        let books = String(format: String(localized: booksKey), Int32(row.bookCount))
         let date = row.mergedAt.formatted(date: .long, time: .omitted)
         let by = row.mergedByName.map { String(format: String(localized: "merge_history.row_by"), $0) }
         return [books, date, by].compactMap { $0 }.joined(separator: " · ")
