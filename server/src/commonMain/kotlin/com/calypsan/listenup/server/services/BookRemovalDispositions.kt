@@ -61,6 +61,12 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         // row is inert (the reader only consults it for hash-skip, and a matching hash on a
         // still-on-disk file is still the truth); a hard delete removes it via the FK.
         "sidecar_write_state" to RemovalDisposition.HARD_CHILD,
+        // Merge receipts: server-internal record of what a series/genre merge moved (FK ON DELETE
+        // CASCADE). Never rewritten on rescan, but inert under a tombstoned parent the same way —
+        // undo restores only LIVE books, so a removed book's receipt row is simply skipped — and a
+        // hard delete removes it via the FK.
+        "series_merge_receipt_books" to RemovalDisposition.HARD_CHILD,
+        "genre_merge_receipt_books" to RemovalDisposition.HARD_CHILD,
         // ── User-owned data that survives removal (never-stranded) ──
         "playback_positions" to RemovalDisposition.USER_DATA,
         "book_reads" to RemovalDisposition.USER_DATA,

@@ -1,18 +1,29 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.error.SeriesError
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.Book_series
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
+import com.calypsan.listenup.server.sync.FrameCapture
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
+import kotlinx.coroutines.currentCoroutineContext
+
+private val log = loggerFor<SeriesRepository>()
 
 /**
  * SQLDelight syncable repository for book series (Books-B1, SQLDelight cutover).
@@ -147,10 +158,10 @@ class SeriesRepository(
      * publishing `SyncEvent.Created`). Idempotent on the normalized name; the
      * display name preserves the first writer's casing.
      *
-     * A dedup hit on a TOMBSTONED row (a series purged by [OrphanParentPurger] after its last
-     * live book was removed) is revived in place — `deleted_at` cleared, revision bumped,
-     * `SyncEvent.Updated` published — so re-ingesting the same name resurrects the series under
-     * its original id. Live hits remain pure reads: no event, no revision bump.
+     * A dedup hit on a TOMBSTONED row first follows its `merged_into` redirect chain to the first
+     * live series (a merge must survive a rescan); only a hit with no live redirect — a series
+     * purged by [OrphanParentPurger], or one whose redirect target is itself dead — is revived in
+     * place.
      *
      * The find-miss → create window is a benign race only under SQLite's
      * single-writer model; the single-threaded scan never triggers it.
@@ -164,8 +175,11 @@ class SeriesRepository(
                     .executeAsOneOrNull()
             }
         if (existing != null) {
-            if (existing.deleted_at != null) reviveTombstonedHit(existing.id)
-            return SeriesId(existing.id)
+            return if (existing.deleted_at == null) {
+                SeriesId(existing.id)
+            } else {
+                resolveTombstonedHit(existing.id, existing.merged_into)
+            }
         }
 
         val id = SeriesId(Uuid.random().toString())
@@ -201,7 +215,7 @@ class SeriesRepository(
      * @return a `Map<normalizedKey, SeriesId>` keyed by [normalizeForDedup] — callers look an id up
      *   by recomputing that key for each book's series. Every supplied name's key is present.
      *
-     * Tombstoned hits are revived; see [resolveOrCreate].
+     * Tombstoned hits follow their merge redirect, else are revived; see [resolveOrCreate].
      */
     suspend fun resolveOrCreateAll(names: Collection<String>): Map<String, SeriesId> {
         if (names.isEmpty()) return emptyMap()
@@ -220,13 +234,17 @@ class SeriesRepository(
                     .chunked(SQLITE_IN_CHUNK)
                     .flatMap { chunk -> db.seriesQueries.selectByNormalizedNames(chunk).executeAsList() }
             }
-        // Revive tombstoned dedup hits before handing their ids back: a purged series returned by
-        // the dedup lookup must come back live (see reviveTombstonedHit). Rare — only ever after an
-        // orphan purge — so per-id upserts are fine here.
+        // A tombstoned hit follows its merge redirect to the first live series; only a hit with no
+        // live redirect (an orphan purge, or a dead redirect) is revived in place.
+        val existing = LinkedHashMap<String, SeriesId>(existingRows.size)
         for (row in existingRows) {
-            if (row.deleted_at != null) reviveTombstonedHit(row.id)
+            existing[row.normalized_name] =
+                if (row.deleted_at == null) {
+                    SeriesId(row.id)
+                } else {
+                    resolveTombstonedHit(row.id, row.merged_into)
+                }
         }
-        val existing = existingRows.associate { it.normalized_name to SeriesId(it.id) }
 
         val resolved = LinkedHashMap<String, SeriesId>(byKey.size)
         for ((key, name) in byKey) {
@@ -247,6 +265,111 @@ class SeriesRepository(
     private suspend fun reviveTombstonedHit(idStr: String) {
         val payload = findById(idStr) ?: return
         upsert(payload.copy(deletedAt = null), clientOpId = null)
+    }
+
+    /**
+     * Resolves a tombstoned dedup hit at [id] (whose row carries [mergedInto]): follows the merge
+     * redirect to the first live series when one exists, else revives the row in place under its
+     * own id. [resolveOrCreate] and [resolveOrCreateAll] both route every tombstoned hit through
+     * this single helper, so the single- and batch-resolution paths can never disagree.
+     */
+    private suspend fun resolveTombstonedHit(
+        id: String,
+        mergedInto: String?,
+    ): SeriesId = followRedirect(mergedInto) ?: SeriesId(id).also { reviveTombstonedHit(id) }
+
+    /**
+     * Walks a merge-redirect chain from [firstHop] to the first LIVE series, or null when the chain
+     * ends on a dead or missing row. Chains are walked rather than flattened at merge time so that
+     * undoing a middle merge re-routes the names that were merged into it. Relies on the invariant
+     * that a LIVE row always carries `merged_into = NULL` — `Series.sq`'s `update` clears it
+     * unconditionally, and only [softDeleteMergedInto]'s tombstone ever sets it — so the first live
+     * row the walk reaches is unambiguously the answer. Bounded, and guarded against a cycle, so a
+     * corrupt chain can never hang a scan; either case is logged, since a silent fallback would hide
+     * data corruption rather than surface it.
+     */
+    private suspend fun followRedirect(firstHop: String?): SeriesId? {
+        firstHop ?: return null
+        return suspendTransaction(db) {
+            val seen = HashSet<String>()
+            var hop: String? = firstHop
+            while (hop != null) {
+                if (!seen.add(hop) || seen.size > MAX_REDIRECT_HOPS) {
+                    log.warn {
+                        "series redirect chain from $firstHop is cyclic or exceeds $MAX_REDIRECT_HOPS hops; " +
+                            "reviving the original"
+                    }
+                    return@suspendTransaction null
+                }
+                val row = db.seriesQueries.selectById(hop).executeAsOneOrNull() ?: return@suspendTransaction null
+                if (row.deleted_at == null) return@suspendTransaction SeriesId(row.id)
+                hop = row.merged_into
+            }
+            null
+        }
+    }
+
+    /**
+     * Brings [id] back under its own id — merge undo. The base `upsert` bumps the revision and
+     * publishes `Updated`; [writePayload]'s update branch clears both `deleted_at` and the merge
+     * redirect. Re-upserting a series that is already live is harmless.
+     */
+    suspend fun revive(id: SeriesId): AppResult<Unit> {
+        val payload =
+            findById(id.value)
+                ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "series=${id.value}"))
+        return upsert(payload.copy(deletedAt = null), clientOpId = null).map { }
+    }
+
+    /**
+     * Merge-specific tombstone: soft-deletes the merged-away [source] AND records the server-only
+     * `merged_into` redirect to [target] in one UPDATE, so a merged-away series can never exist
+     * without the redirect that scan-time name resolution follows. Revision bump, timestamping, the
+     * [SyncEvent.Deleted] publication, and the [FirehoseSuppressed]/[FrameCapture] gates mirror the
+     * base [SqlSyncableRepository.softDelete] exactly — `merged_into` never crosses the wire.
+     */
+    suspend fun softDeleteMergedInto(
+        source: SeriesId,
+        target: SeriesId,
+    ): AppResult<Unit> {
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        val capture = currentCoroutineContext()[FrameCapture.Key]
+        val result =
+            suspendTransaction(db) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                val rowsAffected =
+                    db.seriesQueries
+                        .softDeleteMergedIntoById(
+                            revision = rev,
+                            updated_at = now,
+                            deleted_at = now,
+                            client_op_id = null,
+                            merged_into = target.value,
+                            id = source.value,
+                        ).value
+                if (rowsAffected == 0L) {
+                    AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = source.value))
+                } else {
+                    val event =
+                        SyncEvent.Deleted(
+                            id = source.value,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                        )
+                    if (!suppressed) {
+                        emitAfterCommit(event = event)
+                    } else {
+                        log.debug { "change suppressed (firehose): domain=$domainName id=${source.value}" }
+                    }
+                    AppResult.Success(event)
+                }
+            }
+        if (capture != null && !suppressed && result is AppResult.Success) {
+            capture.add(toSyncFrame(result.data))
+        }
+        return result.map { }
     }
 
     /** Reads a series by raw id outside substrate orchestration — test/diagnostic use. */
@@ -323,5 +446,8 @@ class SeriesRepository(
          * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
          */
         const val SQLITE_IN_CHUNK = 900
+
+        /** Upper bound on a merge-redirect walk; real chains are a handful of hops at most. */
+        const val MAX_REDIRECT_HOPS = 32
     }
 }

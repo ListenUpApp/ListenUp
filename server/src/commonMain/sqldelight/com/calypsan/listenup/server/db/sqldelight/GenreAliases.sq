@@ -41,3 +41,8 @@ DELETE FROM genre_aliases WHERE genre_id = :genre_id;
 -- subsequent scans of those raw strings resolve to the surviving genre.
 repointAliases:
 UPDATE genre_aliases SET genre_id = :to_genre_id WHERE genre_id = :from_genre_id;
+
+-- Merge undo: re-points one alias back to the source, ONLY if it still points where the merge
+-- left it — a curator who re-mapped the string since made a later decision undo leaves alone.
+repointAliasIfOwnedBy:
+UPDATE genre_aliases SET genre_id = :to_genre_id WHERE raw_string = :raw_string AND genre_id = :from_genre_id;

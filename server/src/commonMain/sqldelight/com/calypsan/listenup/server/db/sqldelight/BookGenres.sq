@@ -142,3 +142,7 @@ WHERE b.deleted_at IS NULL
     JOIN genres g ON g.id = bg.genre_id
     WHERE g.deleted_at IS NULL AND (g.path = :path_prefix OR g.path LIKE :path_prefix || '/%')
   );
+
+-- Merge undo: drops one book's link to one genre.
+deleteLink:
+DELETE FROM book_genres WHERE book_id = :book_id AND genre_id = :genre_id;

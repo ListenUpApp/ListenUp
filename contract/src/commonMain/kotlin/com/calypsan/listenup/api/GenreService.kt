@@ -3,11 +3,14 @@ package com.calypsan.listenup.api
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.dto.GenreUpdate
+import com.calypsan.listenup.api.dto.MergeReceipt
+import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.core.MergeReceiptId
 import kotlinx.rpc.annotations.Rpc
 
 /**
@@ -158,6 +161,27 @@ interface GenreService {
         source: GenreId,
         target: GenreId,
     ): AppResult<Unit>
+
+    /**
+     * Lists the open (not yet undone) merges into [target], newest first — the "Merged into this"
+     * section of the categories admin. Merges made before receipts existed are not listed and
+     * cannot be undone. Requires the caller's `canEdit` flag.
+     */
+    suspend fun listMergeReceipts(target: GenreId): AppResult<List<MergeReceipt>>
+
+    /**
+     * Undoes the merge recorded by [receiptId]: revives the merged-away genre under its original id
+     * (beneath its old parent's current path, or at the top level when that parent is gone), links
+     * back every merged book still exactly as the merge left it, re-points each moved alias that
+     * still points at the surviving genre, and leaves every later change alone.
+     *
+     * Returns [com.calypsan.listenup.api.error.GenreError.MergeReceiptNotFound],
+     * [com.calypsan.listenup.api.error.GenreError.MergeAlreadyUndone],
+     * [com.calypsan.listenup.api.error.GenreError.MergeTargetGone], or
+     * [com.calypsan.listenup.api.error.GenreError.MergeSourceNameTaken] (a live genre holds the
+     * name now). Requires the caller's `canEdit` flag.
+     */
+    suspend fun undoGenreMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult>
 
     // ── Unmapped curation ───────────────────────────────────────────────────
 

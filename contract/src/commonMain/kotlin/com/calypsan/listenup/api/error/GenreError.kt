@@ -20,6 +20,8 @@ import kotlinx.serialization.Serializable
  * - [NotFound], [UnmappedStringNotFound] → 404
  * - [InvalidInput], [MergeSelfTarget], [MoveSelfDescendant] → 400
  * - [HasDescendants], [SlugConflict] → 409
+ * - [MergeReceiptNotFound] → 404
+ * - [MergeAlreadyUndone], [MergeTargetGone], [MergeSourceNameTaken] → 409
  */
 @Serializable
 sealed interface GenreError : AppError {
@@ -129,6 +131,61 @@ sealed interface GenreError : AppError {
     ) : GenreError {
         override val message: String = "A genre with that name already exists."
         override val code: String = "GENRE_SLUG_CONFLICT"
+        override val isRetryable: Boolean = false
+    }
+
+    /** No merge receipt with the given id exists. */
+    @Serializable
+    @SerialName("GenreError.MergeReceiptNotFound")
+    data class MergeReceiptNotFound(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : GenreError {
+        override val message: String = "That merge can no longer be found."
+        override val code: String = "GENRE_MERGE_RECEIPT_NOT_FOUND"
+        override val isRetryable: Boolean = false
+    }
+
+    /** The merge has already been undone. Raised to the second of two admins undoing at once. */
+    @Serializable
+    @SerialName("GenreError.MergeAlreadyUndone")
+    data class MergeAlreadyUndone(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : GenreError {
+        override val message: String = "That merge has already been undone."
+        override val code: String = "GENRE_MERGE_ALREADY_UNDONE"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * The genre this merge went into has itself been merged away since. Undo the later merge
+     * first; this one becomes undoable again once its target is back.
+     */
+    @Serializable
+    @SerialName("GenreError.MergeTargetGone")
+    data class MergeTargetGone(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : GenreError {
+        override val message: String = "This genre has since been merged into another. Undo that merge first."
+        override val code: String = "GENRE_MERGE_TARGET_GONE"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * A live genre now holds the merged-away genre's name, so restoring it would create two genres
+     * with one name. The admin renames or merges the newcomer, then undoes — guessing that the two
+     * are the same genre would repeat the silent-merge mistake undo exists to fix.
+     */
+    @Serializable
+    @SerialName("GenreError.MergeSourceNameTaken")
+    data class MergeSourceNameTaken(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : GenreError {
+        override val message: String = "A genre with that name exists now. Rename or merge it, then undo."
+        override val code: String = "GENRE_MERGE_SOURCE_NAME_TAKEN"
         override val isRetryable: Boolean = false
     }
 }

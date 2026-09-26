@@ -20,6 +20,8 @@ import kotlinx.serialization.Serializable
  * - [NotFound] → 404
  * - [InvalidInput] → 400
  * - [MergeSelfTarget] → 400
+ * - [MergeReceiptNotFound] → 404
+ * - [MergeAlreadyUndone], [MergeTargetGone] → 409
  */
 @Serializable
 sealed interface SeriesError : AppError {
@@ -66,6 +68,45 @@ sealed interface SeriesError : AppError {
     ) : SeriesError {
         override val message: String = "A series can't be merged with itself."
         override val code: String = "SERIES_MERGE_SELF_TARGET"
+        override val isRetryable: Boolean = false
+    }
+
+    /** No merge receipt with the given id exists. */
+    @Serializable
+    @SerialName("SeriesError.MergeReceiptNotFound")
+    data class MergeReceiptNotFound(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SeriesError {
+        override val message: String = "That merge can no longer be found."
+        override val code: String = "SERIES_MERGE_RECEIPT_NOT_FOUND"
+        override val isRetryable: Boolean = false
+    }
+
+    /** The merge has already been undone. Raised to the second of two admins undoing at once. */
+    @Serializable
+    @SerialName("SeriesError.MergeAlreadyUndone")
+    data class MergeAlreadyUndone(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SeriesError {
+        override val message: String = "That merge has already been undone."
+        override val code: String = "SERIES_MERGE_ALREADY_UNDONE"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * The series this merge went into has itself been merged away since. Undo the later merge
+     * first; this one becomes undoable again once its target is back.
+     */
+    @Serializable
+    @SerialName("SeriesError.MergeTargetGone")
+    data class MergeTargetGone(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SeriesError {
+        override val message: String = "This series has since been merged into another. Undo that merge first."
+        override val code: String = "SERIES_MERGE_TARGET_GONE"
         override val isRetryable: Boolean = false
     }
 }
