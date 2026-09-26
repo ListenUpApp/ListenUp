@@ -1628,5 +1628,27 @@
     "search_tags": "Search tags",
     "search_moods": "Search moods",
     "add_trimmed": "Add \u201c%1$s\u201d"
+  },
+  "merge_history": {
+    "section_title": "Merged into this",
+    "genre_title": "Merged into %1$s",
+    "empty": "Nothing has been merged into this.",
+    "older_note": "Merges made before this version can't be undone.",
+    "row_books": "Up to %1$d book",
+    "row_books_plural": "Up to %1$d books",
+    "row_by": "by %1$s",
+    "undo": "Undo",
+    "undoing": "Undoing\u2026",
+    "confirm_title": "Undo this merge?",
+    "confirm_body": "\u201c%1$s\u201d comes back, and its books move back to it. Books changed since the merge stay where they are.",
+    "confirm_action": "Undo merge",
+    "outcome": "\u201c%1$s\u201d is back. %2$d book moved back.",
+    "outcome_plural": "\u201c%1$s\u201d is back. %2$d books moved back.",
+    "skipped": "%1$d book had changed since and stayed where it was.",
+    "skipped_plural": "%1$d books had changed since and stayed where they were.",
+    "top_level": "Its old parent is gone, so it's at the top level now.",
+    "retry": "Try again",
+    "open": "Merge history",
+    "can_undo": "You can undo this later from its merge history."
   }
 }

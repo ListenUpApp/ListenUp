@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.features.merge.MergeHistoryList
+import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,10 +52,12 @@ fun CategoriesPage(
     onMerge: (source: String, target: String) -> Unit,
     onClearError: () -> Unit,
     onOpenAdmin: () -> Unit,
+    mergeHistory: GenreMergeHistory?,
+    mergeHistoryActions: MergeHistoryActions,
 ) {
     Div(attrs = { classes("cat") }) {
         Button(attrs = {
-            classes("btn-o", "cat-back")
+            classes(BTN_SECONDARY, "cat-back")
             attr("type", VALUE_BUTTON)
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
@@ -83,8 +88,32 @@ fun CategoriesPage(
                     onMove = onMove,
                     onMerge = onMerge,
                     onClearError = onClearError,
+                    onOpenMergeHistory = mergeHistoryActions.open,
                 )
             }
+        }
+
+        mergeHistory?.let { open -> GenreMergeHistoryDialog(open, mergeHistoryActions) }
+    }
+}
+
+/**
+ * One genre's "Merged into this" list with Undo (#1061), opened from its row. A dialog: a short list
+ * with one action, over the tree it came from.
+ */
+@Composable
+private fun GenreMergeHistoryDialog(
+    open: GenreMergeHistory,
+    actions: MergeHistoryActions,
+) {
+    ModalDialog(open = true, title = "Merged into ${open.genreName}", onDismiss = actions.close) {
+        MergeHistoryList(state = open.history, onUndo = actions.undo, onRetry = actions.retry)
+        Div(attrs = { classes("dlg-actions") }) {
+            Button(attrs = {
+                classes(BTN_SECONDARY)
+                attr("type", VALUE_BUTTON)
+                onClick { actions.close() }
+            }) { Text("Done") }
         }
     }
 }
@@ -102,6 +131,7 @@ private fun ReadyContent(
     onMove: (String, String?) -> Unit,
     onMerge: (String, String) -> Unit,
     onClearError: () -> Unit,
+    onOpenMergeHistory: (String) -> Unit,
 ) {
     var dialog by remember { mutableStateOf<CategoryDialog?>(null) }
     val close = { dialog = null }
@@ -124,12 +154,12 @@ private fun ReadyContent(
     Div(attrs = { classes("cat-bar") }) {
         Span(attrs = { classes("cat-count") }) { Text(genreSummary(state.genres.size, state.totalBookCount)) }
         Button(attrs = {
-            classes("btn-o", "cat-bar-b")
+            classes(BTN_SECONDARY, "cat-bar-b")
             attr("type", VALUE_BUTTON)
             onClick { onExpandAll() }
         }) { Text("Expand all") }
         Button(attrs = {
-            classes("btn-o", "cat-bar-b")
+            classes(BTN_SECONDARY, "cat-bar-b")
             attr("type", VALUE_BUTTON)
             onClick { onCollapseAll() }
         }) { Text("Collapse all") }
@@ -157,7 +187,9 @@ private fun ReadyContent(
                     expandedIds = state.expandedIds,
                     isSaving = state.isSaving,
                     onToggleExpanded = onToggleExpanded,
-                    onAct = { dialog = it },
+                    onAct = { act ->
+                        if (act is CategoryDialog.History) onOpenMergeHistory(act.genre.id) else dialog = act
+                    },
                 )
             }
         }
@@ -223,6 +255,10 @@ private fun ReadyContent(
                 onDismiss = close,
             )
         }
+
+        // Held by the ViewModel, not here — see GenreMergeHistoryDialog.
+
+        is CategoryDialog.History -> {}
 
         is CategoryDialog.Merge -> {
             MergeDialog(
@@ -317,6 +353,9 @@ private fun GenreRow(
             RowAction("Merge ${genre.name} into another genre", WebIcon.Merge, isSaving) {
                 onAct(CategoryDialog.Merge(genre))
             }
+            RowAction("Merge history of ${genre.name}", WebIcon.Clock, isSaving) {
+                onAct(CategoryDialog.History(genre))
+            }
             RowAction("Delete ${genre.name}", WebIcon.Trash, isSaving) {
                 onAct(CategoryDialog.Delete(genre))
             }
@@ -373,3 +412,5 @@ private const val SMALL_ICON = 16
 
 /** One step of indentation per level of the tree. */
 private const val INDENT_PX = 22
+
+private const val BTN_SECONDARY = "btn-o"

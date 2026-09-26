@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.seriesedit
 
+import com.calypsan.listenup.web.features.merge.MergeHistoryList
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,12 +40,13 @@ import org.jetbrains.compose.web.dom.Text
  * moves every book across and deletes this one, and the server cannot put it back. So the picker
  * asks for a selection and then a second, deliberate press — unlike the contributor picker, where
  * a mis-pick is undone by splitting the alias back out. The dialog says how many books will move
- * and that it cannot be undone, because those are the two facts the decision turns on.
+ * and that it can be undone from the merge history, because those are the facts the decision turns on.
  */
 @Composable
 fun SeriesEditPage(
     state: SeriesEditUiState,
     mergeCandidates: List<SeriesCandidate>,
+    mergeHistory: MergeHistoryState,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onMergeQuery: (String) -> Unit,
 ) {
@@ -82,6 +85,13 @@ fun SeriesEditPage(
             FormSection(title = "Cover") { CoverSection(state, onEvent) }
             FormSection(title = "Identity") { IdentityFields(state, onEvent) }
             FormSection(title = "This series") { MergeSection(state, onEvent) }
+            FormSection(title = "Merged into this") {
+                MergeHistoryList(
+                    state = mergeHistory,
+                    onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
+                    onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
+                )
+            }
             EditActions(state, onEvent)
         }
 
@@ -184,7 +194,7 @@ private fun MergeSection(
  * Pick a series to fold this one into.
  *
  * Select, then confirm — two gestures, because the merge deletes this series and moves every book
- * out of it, and there is no un-merge. The list is capped at [MAX_MERGE_CANDIDATES] and opens
+ * out of it; undoing it later is possible, but only from the merge history. The list is capped at [MAX_MERGE_CANDIDATES] and opens
  * unfiltered, so a full page is the signal that more exist behind a search: a silently truncated
  * list reads as a complete one, and "it isn't in the list" is how the wrong series gets picked.
  */
@@ -203,7 +213,7 @@ private fun MergeDialog(
         P(attrs = { classes("dlg-p") }) {
             Text("This series is folded into the one you pick: ${bookCountLabel(bookCount)} move across.")
         }
-        P(attrs = { classes("sed-warn") }) { Text("This cannot be undone.") }
+        P(attrs = { classes("sed-warn") }) { Text("You can undo this later from its merge history.") }
         Field(
             label = "Search series",
             value = query,

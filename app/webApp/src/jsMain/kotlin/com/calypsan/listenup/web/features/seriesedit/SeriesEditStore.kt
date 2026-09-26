@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesedit
 
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
@@ -24,6 +25,8 @@ class SeriesEditSession(
     val state: StateFlow<SeriesEditUiState>,
     /** Recomputed only while the merge picker is open; empty otherwise, and capped at 30. */
     val mergeCandidates: StateFlow<List<SeriesCandidate>>,
+    /** The merges folded into this series, each undoable through [onEvent] (#1061). */
+    val mergeHistory: StateFlow<MergeHistoryState>,
     val navActions: Flow<SeriesEditNavAction>,
     val onEvent: (SeriesEditUiEvent) -> Unit,
     val onMergeQuery: (String) -> Unit,
@@ -47,6 +50,7 @@ fun graphSeriesEdit(koin: Koin): OpenSeriesEdit =
         SeriesEditSession(
             state = viewModel.state,
             mergeCandidates = viewModel.mergeCandidates,
+            mergeHistory = viewModel.mergeHistory,
             navActions = viewModel.navActions,
             onEvent = viewModel::onEvent,
             onMergeQuery = viewModel::onMergeQueryChange,
@@ -58,6 +62,7 @@ fun graphSeriesEdit(koin: Koin): OpenSeriesEdit =
 fun fixedSeriesEdit(
     state: SeriesEditUiState,
     mergeCandidates: List<SeriesCandidate> = emptyList(),
+    mergeHistory: MergeHistoryState = MergeHistoryState.Ready(emptyList()),
     navActions: Flow<SeriesEditNavAction> = emptyFlow(),
     onEvent: (SeriesEditUiEvent) -> Unit = {},
     onMergeQuery: (String) -> Unit = {},
@@ -66,6 +71,7 @@ fun fixedSeriesEdit(
         SeriesEditSession(
             state = MutableStateFlow(state),
             mergeCandidates = MutableStateFlow(mergeCandidates),
+            mergeHistory = MutableStateFlow(mergeHistory),
             navActions = navActions,
             onEvent = onEvent,
             onMergeQuery = onMergeQuery,

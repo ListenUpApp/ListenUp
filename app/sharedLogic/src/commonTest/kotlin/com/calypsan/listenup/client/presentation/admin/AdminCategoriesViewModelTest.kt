@@ -1,5 +1,14 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.nulls.shouldBeNull
+import dev.mokkery.answering.calls
+import com.calypsan.listenup.client.presentation.merge.MergeUndoOutcome
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
+import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeUndoResult
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -134,6 +143,60 @@ class AdminCategoriesViewModelTest :
                     .genre.id shouldBe "fantasy"
                 ready.expandedIds.isEmpty() shouldBe true
                 ready.error shouldBe null
+            }
+        }
+
+        // ========== Merge history (#1061) ==========
+
+        test("a genre's merge history opens on that genre, lists its merges, and closes") {
+            runTest {
+                val fixture = createFixture()
+                fixture.genresFlow.value = listOf(createGenre(id = "sf", name = "Science Fiction"))
+                val receipt = MergeReceipt(MergeReceiptId("r1"), "Scifi", 1L, null, 7)
+                everySuspend { fixture.genreRepository.listMergeReceipts(GenreId("sf")) } returns
+                    AppResult.Success(listOf(receipt))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.openMergeHistory("sf")
+                advanceUntilIdle()
+
+                val open = viewModel.mergeHistory.value.shouldNotBeNull()
+                open.genreId shouldBe "sf"
+                open.genreName shouldBe "Science Fiction"
+                open.history.shouldBeInstanceOf<MergeHistoryState.Ready>().receipts shouldBe listOf(receipt)
+
+                viewModel.closeMergeHistory()
+                viewModel.mergeHistory.value.shouldBeNull()
+            }
+        }
+
+        test("undoing a genre merge goes through the repository and says where it came back") {
+            runTest {
+                val fixture = createFixture()
+                fixture.genresFlow.value = listOf(createGenre(id = "sf", name = "Science Fiction"))
+                val receipt = MergeReceipt(MergeReceiptId("r1"), "Scifi", 1L, null, 7)
+                var listed = listOf(receipt)
+                everySuspend { fixture.genreRepository.listMergeReceipts(GenreId("sf")) } calls { AppResult.Success(listed) }
+                everySuspend { fixture.genreRepository.undoMerge(MergeReceiptId("r1")) } calls {
+                    listed = emptyList()
+                    AppResult.Success(MergeUndoResult("scifi", booksRestored = 7, booksSkipped = 0, restoredAtTopLevel = true))
+                }
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.openMergeHistory("sf")
+                advanceUntilIdle()
+
+                viewModel.undoGenreMerge(MergeReceiptId("r1"))
+                advanceUntilIdle()
+
+                val ready =
+                    viewModel.mergeHistory.value
+                        ?.history
+                        .shouldBeInstanceOf<MergeHistoryState.Ready>()
+                ready.receipts shouldBe emptyList()
+                ready.outcome shouldBe
+                    MergeUndoOutcome(sourceName = "Scifi", booksRestored = 7, booksSkipped = 0, restoredAtTopLevel = true)
             }
         }
 

@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeUndoResult
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
@@ -45,4 +48,17 @@ interface SeriesEditRepository {
         source: SeriesId,
         target: SeriesId,
     ): AppResult<Unit>
+
+    /**
+     * The merges folded into [target] that can still be undone, newest first (#1061). Server-only:
+     * the receipts live on the server, and merges made before receipts existed are not listed.
+     */
+    suspend fun listMergeReceipts(target: SeriesId): AppResult<List<MergeReceipt>>
+
+    /**
+     * Undoes the merge [receiptId]: the merged-away series comes back and the books that are still
+     * as the merge left them move back to it. Books changed since are left alone and counted in
+     * [MergeUndoResult.booksSkipped]. The effects reach Room through the firehose.
+     */
+    suspend fun undoMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult>
 }

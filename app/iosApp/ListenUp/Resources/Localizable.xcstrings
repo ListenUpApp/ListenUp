@@ -11621,6 +11621,206 @@
         }
       }
     },
+    "merge_history.can_undo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can undo this later from its merge history."
+          }
+        }
+      }
+    },
+    "merge_history.confirm_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo merge"
+          }
+        }
+      }
+    },
+    "merge_history.confirm_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” comes back, and its books move back to it. Books changed since the merge stay where they are."
+          }
+        }
+      }
+    },
+    "merge_history.confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo this merge?"
+          }
+        }
+      }
+    },
+    "merge_history.empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing has been merged into this."
+          }
+        }
+      }
+    },
+    "merge_history.genre_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merged into %1$@"
+          }
+        }
+      }
+    },
+    "merge_history.older_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merges made before this version can't be undone."
+          }
+        }
+      }
+    },
+    "merge_history.open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge history"
+          }
+        }
+      }
+    },
+    "merge_history.outcome": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” is back. %2$d book moved back."
+          }
+        }
+      }
+    },
+    "merge_history.outcome_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” is back. %2$d books moved back."
+          }
+        }
+      }
+    },
+    "merge_history.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
+          }
+        }
+      }
+    },
+    "merge_history.row_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to %1$d book"
+          }
+        }
+      }
+    },
+    "merge_history.row_books_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to %1$d books"
+          }
+        }
+      }
+    },
+    "merge_history.row_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by %1$@"
+          }
+        }
+      }
+    },
+    "merge_history.section_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merged into this"
+          }
+        }
+      }
+    },
+    "merge_history.skipped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book had changed since and stayed where it was."
+          }
+        }
+      }
+    },
+    "merge_history.skipped_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books had changed since and stayed where they were."
+          }
+        }
+      }
+    },
+    "merge_history.top_level": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its old parent is gone, so it's at the top level now."
+          }
+        }
+      }
+    },
+    "merge_history.undo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        }
+      }
+    },
+    "merge_history.undoing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undoing…"
+          }
+        }
+      }
+    },
     "metadata.all_n_selected": {
       "localizations": {
         "en": {

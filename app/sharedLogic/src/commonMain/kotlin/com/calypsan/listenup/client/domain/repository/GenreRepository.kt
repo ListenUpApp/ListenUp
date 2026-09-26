@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeUndoResult
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.result.AppResult
@@ -87,6 +90,18 @@ interface GenreRepository {
         source: GenreId,
         target: GenreId,
     ): AppResult<Unit>
+
+    /**
+     * The merges folded into [target] that can still be undone, newest first (#1061). Server-only;
+     * merges made before receipts existed are not listed.
+     */
+    suspend fun listMergeReceipts(target: GenreId): AppResult<List<MergeReceipt>>
+
+    /**
+     * Undoes the merge [receiptId]: the merged-away genre comes back (under its old parent, or at the
+     * top level if that parent is gone) with the books and scanner aliases still as the merge left them.
+     */
+    suspend fun undoMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult>
 
     /** Returns books linked to [genreId], optionally including the subtree. */
     suspend fun browseBooks(

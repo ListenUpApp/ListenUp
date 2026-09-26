@@ -14,7 +14,7 @@ import org.robolectric.RobolectricTestRunner
 /**
  * A series merge re-points every book at the target and soft-deletes the source, and
  * nothing in the product can reverse it. The dialog has to say both how much moves and
- * that it is permanent before the admin commits.
+ * where it can be undone before the admin commits.
  */
 @RunWith(RobolectricTestRunner::class)
 class SeriesMergeDialogTest {
@@ -22,7 +22,7 @@ class SeriesMergeDialogTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `the dialog states the book count and that the merge is permanent`() {
+    fun `the dialog states the book count and where the merge can be undone`() {
         composeRule.setContent {
             MaterialTheme {
                 SeriesMergeDialog(
@@ -38,7 +38,7 @@ class SeriesMergeDialogTest {
         }
 
         composeRule.onNodeWithText("$PLURAL_BOOK_COUNT books will move.").assertIsDisplayed()
-        composeRule.onNodeWithText("This action cannot be undone.").assertIsDisplayed()
+        composeRule.onNodeWithText("You can undo this later from its merge history.").assertIsDisplayed()
     }
 
     @Test

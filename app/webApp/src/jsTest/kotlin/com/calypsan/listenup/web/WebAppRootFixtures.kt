@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -511,6 +512,7 @@ internal class RecordingSeriesEdit(
         SeriesEditSession(
             state = MutableStateFlow(SeriesEditUiState(isLoading = false, seriesId = id, name = "Series $id")),
             mergeCandidates = MutableStateFlow(emptyList()),
+            mergeHistory = MutableStateFlow(MergeHistoryState.Ready(emptyList())),
             navActions = navActions,
             onEvent = {},
             onMergeQuery = {},

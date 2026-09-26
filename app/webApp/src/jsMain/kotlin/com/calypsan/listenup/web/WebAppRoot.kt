@@ -2562,6 +2562,8 @@ private fun CategoriesRoute(
         onMerge = session.onMerge,
         onClearError = session.onClearError,
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        mergeHistory = session.mergeHistory.collectAsState().value,
+        mergeHistoryActions = session.mergeHistoryActions,
     )
 }
 
@@ -2711,6 +2713,7 @@ private fun SeriesEditRoute(
     SeriesEditPage(
         state = session.state.collectAsState().value,
         mergeCandidates = session.mergeCandidates.collectAsState().value,
+        mergeHistory = session.mergeHistory.collectAsState().value,
         onEvent = session.onEvent,
         onMergeQuery = session.onMergeQuery,
     )

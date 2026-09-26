@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
+import com.calypsan.listenup.client.presentation.merge.MergeHistory
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -122,6 +125,14 @@ sealed interface SeriesEditUiEvent {
     /** User opened the merge-target picker; candidate computation starts. */
     data object MergeDialogOpened : SeriesEditUiEvent
 
+    /** Undo the merge [receiptId] from the "Merged into this" section (#1061). */
+    data class UndoMerge(
+        val receiptId: MergeReceiptId,
+    ) : SeriesEditUiEvent
+
+    /** Read the "Merged into this" list again, after it could not be loaded. */
+    data object RetryMergeHistory : SeriesEditUiEvent
+
     /** User dismissed the merge-target picker; candidates stop computing and the query clears. */
     data object MergeDialogDismissed : SeriesEditUiEvent
 
@@ -179,6 +190,21 @@ class SeriesEditViewModel internal constructor(
 ) : ViewModel() {
     val state: StateFlow<SeriesEditUiState>
         field = MutableStateFlow(SeriesEditUiState())
+
+    /**
+     * The merges folded into this series that can still be undone (#1061) — the "Merged into this"
+     * section. Read from the server when the series loads.
+     */
+    private val history =
+        MergeHistory(
+            scope = viewModelScope,
+            errorBus = errorBus,
+            load = { seriesEditRepository.listMergeReceipts(SeriesId(state.value.seriesId)) },
+            undo = seriesEditRepository::undoMerge,
+        )
+
+    /** What the "Merged into this" section shows. */
+    val mergeHistory: StateFlow<MergeHistoryState> = history.state
 
     private val _navActions = Channel<SeriesEditNavAction>(Channel.BUFFERED)
     val navActions: Flow<SeriesEditNavAction> = _navActions.receiveAsFlow()
@@ -249,6 +275,7 @@ class SeriesEditViewModel internal constructor(
                 state.update { it.copy(isLoading = false, error = "Series not found") }
                 return@launch
             }
+            history.refresh()
 
             val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
 
@@ -325,6 +352,14 @@ class SeriesEditViewModel internal constructor(
 
             is SeriesEditUiEvent.MergeInto -> {
                 mergeInto(event.targetId)
+            }
+
+            is SeriesEditUiEvent.UndoMerge -> {
+                history.undo(event.receiptId)
+            }
+
+            is SeriesEditUiEvent.RetryMergeHistory -> {
+                history.refresh()
             }
         }
     }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.MergeUndoResult
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreSummary
@@ -98,6 +101,34 @@ class GenreRepositoryImplTest :
                 repo(service = service).mergeGenres(GenreId("src"), GenreId("dst")).shouldBeInstanceOf<AppResult.Success<*>>()
 
                 verifySuspend(VerifyMode.exactly(1)) { service.mergeGenres(GenreId("src"), GenreId("dst")) }
+            }
+        }
+
+        // #1061: the merges folded into a genre, and undoing one.
+        test("the merges folded into a genre come from the server, and an undo returns what moved back") {
+            runTest {
+                val service = mock<GenreService>()
+                val receipt = MergeReceipt(MergeReceiptId("r1"), "Scifi", 1_700_000_000_000L, null, 12)
+                val undone = MergeUndoResult("g-old", booksRestored = 12, booksSkipped = 0, restoredAtTopLevel = true)
+                everySuspend { service.listMergeReceipts(GenreId("g1")) } returns WireAppResult.Success(listOf(receipt))
+                everySuspend { service.undoGenreMerge(MergeReceiptId("r1")) } returns WireAppResult.Success(undone)
+
+                repo(service = service).listMergeReceipts(GenreId("g1")) shouldBe AppResult.Success(listOf(receipt))
+                repo(service = service).undoMerge(MergeReceiptId("r1")) shouldBe AppResult.Success(undone)
+            }
+        }
+
+        test("a genre undo refused because the name is taken arrives as its typed error") {
+            runTest {
+                val service = mock<GenreService>()
+                everySuspend { service.undoGenreMerge(MergeReceiptId("r1")) } returns
+                    WireAppResult.Failure(GenreError.MergeSourceNameTaken())
+
+                repo(service = service)
+                    .undoMerge(MergeReceiptId("r1"))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<GenreError.MergeSourceNameTaken>()
             }
         }
 

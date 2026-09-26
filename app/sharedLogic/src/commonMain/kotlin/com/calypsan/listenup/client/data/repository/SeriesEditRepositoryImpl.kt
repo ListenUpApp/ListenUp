@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.api.dto.MergeUndoResult
+import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.SeriesUpdate
@@ -71,4 +74,10 @@ internal class SeriesEditRepositoryImpl(
         source: SeriesId,
         target: SeriesId,
     ): AppResult<Unit> = channel.call { it.mergeSeries(source, target) }
+
+    override suspend fun listMergeReceipts(target: SeriesId): AppResult<List<MergeReceipt>> =
+        channel.call(idempotent = true) { it.listMergeReceipts(target) }
+
+    override suspend fun undoMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult> =
+        channel.call { it.undoSeriesMerge(receiptId) }
 }

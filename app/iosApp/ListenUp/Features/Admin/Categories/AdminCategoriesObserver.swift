@@ -14,6 +14,8 @@ final class AdminCategoriesObserver {
     // MARK: - State
 
     private(set) var phase: AdminCategoriesPhase = .loading
+    /// The merge history open for one genre (#1061), or nil when none is.
+    private(set) var mergeHistory: GenreMergeHistoryModel?
 
     // MARK: - Dependencies
 
@@ -25,6 +27,9 @@ final class AdminCategoriesObserver {
     init(viewModel: AdminCategoriesViewModel) {
         self.viewModel = viewModel
         bridge.bind(viewModel.state) { [weak self] in self?.phase = Self.phase(from: $0) }
+        bridge.bind(viewModel.mergeHistory) { [weak self] open in
+            self?.mergeHistory = open.map(GenreMergeHistoryModel.init)
+        }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
@@ -40,6 +45,10 @@ final class AdminCategoriesObserver {
     func moveGenre(id: String, newParentId: String?) { viewModel.moveGenre(id: id, newParentId: newParentId) }
     func mergeGenres(source: String, target: String) { viewModel.mergeGenres(source: source, target: target) }
     func clearError() { viewModel.clearError() }
+    func openMergeHistory(id: String) { viewModel.openMergeHistory(genreId: id) }
+    func closeMergeHistory() { viewModel.closeMergeHistory() }
+    func undoGenreMerge(receiptId: String) { viewModel.undoGenreMerge(receiptId: MergeReceiptId(value: receiptId)) }
+    func retryMergeHistory() { viewModel.retryMergeHistory() }
 
     // MARK: - State mapping
 
@@ -90,5 +99,21 @@ struct AdminCategoriesReadyModel {
         self.totalBookCount = Int(ready.totalBookCount)
         self.allExpanded = !expandable.isEmpty && expandable.isSubset(of: expanded)
         self.error = ready.error?.message
+    }
+}
+
+// MARK: - Merge history
+
+/// One genre's merge history (#1061), flattened for the sheet. `Identifiable` by genre so
+/// `.sheet(item:)` keeps one sheet across the list's own updates.
+struct GenreMergeHistoryModel: Identifiable, Equatable {
+    let id: String
+    let genreName: String
+    let history: MergeHistoryModel
+
+    init(_ open: GenreMergeHistory) {
+        self.id = open.genreId
+        self.genreName = open.genreName
+        self.history = MergeHistoryModel.from(open.history)
     }
 }

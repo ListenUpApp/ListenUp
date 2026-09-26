@@ -208,7 +208,7 @@ struct GenreMergeSheet: View {
         return VStack(alignment: .leading, spacing: 12) {
             Text(body)
                 .font(.body)
-            Text(String(localized: "common.cannot_be_undone"))
+            Text(String(localized: "merge_history.can_undo"))
                 .font(.body)
                 .foregroundStyle(.red)
             Spacer()
@@ -233,5 +233,29 @@ private struct GenrePickRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+    }
+}
+
+/// One genre's "Merged into this" list with Undo (#1061), opened from the row menu.
+struct GenreMergeHistorySheet: View {
+    let open: GenreMergeHistoryModel
+    let onUndo: (String) -> Void
+    let onRetry: () -> Void
+    let onDone: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                MergeHistoryListView(model: open.history, onUndo: onUndo, onRetry: onRetry)
+                    .padding()
+            }
+            .navigationTitle(String(format: String(localized: "merge_history.genre_title"), open.genreName))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "common.done"), action: onDone)
+                }
+            }
+        }
     }
 }

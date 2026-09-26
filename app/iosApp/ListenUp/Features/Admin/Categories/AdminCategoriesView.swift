@@ -49,6 +49,16 @@ struct AdminCategoriesView: View {
                 observer?.moveGenre(id: source.id, newParentId: newParentId)
             }
         }
+        .sheet(
+            item: Binding(get: { observer?.mergeHistory }, set: { if $0 == nil { observer?.closeMergeHistory() } })
+        ) { open in
+            GenreMergeHistorySheet(
+                open: open,
+                onUndo: { observer?.undoGenreMerge(receiptId: $0) },
+                onRetry: { observer?.retryMergeHistory() },
+                onDone: { observer?.closeMergeHistory() }
+            )
+        }
         .sheet(item: $mergeSource) { source in
             GenreMergeSheet(source: source, candidates: mergeCandidates(for: source)) { targetId in
                 observer?.mergeGenres(source: source.id, target: targetId)
@@ -137,8 +147,8 @@ struct AdminCategoriesView: View {
         }
     }
 
-    /// Add Sub-genre, Rename, Merge into…, Move to…, Delete — the same five, in the same order,
-    /// as Compose's long-press menu.
+    /// Add Sub-genre, Rename, Merge into…, Merge history, Move to…, Delete — the same six, in the
+    /// same order, as Compose's long-press menu.
     @ViewBuilder
     private func rowMenu(row: GenreRowModel) -> some View {
         Button {
@@ -155,6 +165,11 @@ struct AdminCategoriesView: View {
             mergeSource = pick(for: row)
         } label: {
             Label(String(localized: "admin.merge_into"), systemImage: "arrow.triangle.merge")
+        }
+        Button {
+            observer?.openMergeHistory(id: row.id)
+        } label: {
+            Label(String(localized: "merge_history.open"), systemImage: "clock.arrow.circlepath")
         }
         Button {
             moveSource = pick(for: row)

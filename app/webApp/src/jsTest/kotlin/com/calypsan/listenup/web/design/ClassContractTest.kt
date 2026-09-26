@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.features.admin.MergeHistoryActions
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.web.features.admin.BackupsPage
 import com.calypsan.listenup.web.features.admin.ImportFlowPage
@@ -955,24 +958,28 @@ class ClassContractTest :
                         SeriesEditPage(
                             state = editingSeries(error = "That name is taken.", coverPath = "series/s.jpg"),
                             mergeCandidates = emptyList(),
+                            mergeHistory = contractMergeHistory,
                             onEvent = {},
                             onMergeQuery = {},
                         )
                         SeriesEditPage(
                             state = stagedCoverSeries,
                             mergeCandidates = emptyList(),
+                            mergeHistory = MergeHistoryState.Unavailable(TransportError.NetworkUnavailable()),
                             onEvent = {},
                             onMergeQuery = {},
                         )
                         SeriesEditPage(
                             state = editingSeries(isLoading = true),
                             mergeCandidates = emptyList(),
+                            mergeHistory = MergeHistoryState.Loading,
                             onEvent = {},
                             onMergeQuery = {},
                         )
                         SeriesEditPage(
                             state = editingSeries(mergeDialogVisible = true, mergeQuery = "Nothing"),
                             mergeCandidates = emptyList(),
+                            mergeHistory = MergeHistoryState.Ready(emptyList()),
                             onEvent = {},
                             onMergeQuery = {},
                         )
@@ -982,6 +989,7 @@ class ClassContractTest :
                                 (1..MAX_MERGE_CANDIDATES).map {
                                     seriesCandidate(id = "s$it", displayName = "Series $it")
                                 },
+                            mergeHistory = MergeHistoryState.Ready(emptyList()),
                             onEvent = {},
                             onMergeQuery = {},
                         )
@@ -1544,7 +1552,21 @@ private fun serverSettingsShapes(): List<@Composable () -> Unit> {
 private fun categoryShapes(): List<@Composable () -> Unit> {
     fun page(state: AdminCategoriesUiState): @Composable () -> Unit =
         {
-            CategoriesPage(state, {}, {}, {}, { _, _ -> }, { _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {})
+            CategoriesPage(
+                state,
+                {},
+                {},
+                {},
+                { _, _ -> },
+                { _, _ -> },
+                {},
+                { _, _ -> },
+                { _, _ -> },
+                {},
+                {},
+                null,
+                MergeHistoryActions.None,
+            )
         }
 
     val child = genre(id = "g2", name = "Fantasy", path = "/fiction/fantasy", bookCount = 3)
@@ -2384,4 +2406,28 @@ private val contractBulkActions =
         onMoods = {},
         onApply = {},
         onLeave = {},
+    )
+
+/** A merge history with a row and an undo outcome, so every class the section can draw is rendered. */
+private val contractMergeHistory =
+    MergeHistoryState.Ready(
+        receipts =
+            listOf(
+                com.calypsan.listenup.api.dto.MergeReceipt(
+                    id =
+                        com.calypsan.listenup.core
+                            .MergeReceiptId("r1"),
+                    sourceName = "Stormlite",
+                    mergedAt = 1_700_000_000_000L,
+                    mergedByName = "Simon",
+                    bookCount = 4,
+                ),
+            ),
+        outcome =
+            com.calypsan.listenup.client.presentation.merge.MergeUndoOutcome(
+                sourceName = "Mistborne",
+                booksRestored = 3,
+                booksSkipped = 1,
+                restoredAtTopLevel = true,
+            ),
     )

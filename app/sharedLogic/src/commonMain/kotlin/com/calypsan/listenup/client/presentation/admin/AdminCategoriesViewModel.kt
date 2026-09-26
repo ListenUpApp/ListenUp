@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import kotlinx.coroutines.Job
+import com.calypsan.listenup.core.MergeReceiptId
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
+import com.calypsan.listenup.client.presentation.merge.MergeHistory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.GenreUpdate
@@ -231,6 +235,57 @@ class AdminCategoriesViewModel(
         }
     }
 
+    private var openHistory: MergeHistory? = null
+    private var openHistoryWatch: Job? = null
+
+    /**
+     * The merge history open for one genre — "Merged into this" with Undo (#1061) — or null when none
+     * is open. Opened from a genre row; the receipts are read from the server when it opens.
+     */
+    val mergeHistory: StateFlow<GenreMergeHistory?>
+        field = MutableStateFlow<GenreMergeHistory?>(null)
+
+    /** Opens the merge history for [genreId], replacing any other that was open. */
+    fun openMergeHistory(genreId: String) {
+        val name =
+            (state.value as? AdminCategoriesUiState.Ready)
+                ?.genres
+                ?.firstOrNull { it.id == genreId }
+                ?.name ?: return
+        openHistoryWatch?.cancel()
+        val history =
+            MergeHistory(
+                scope = viewModelScope,
+                errorBus = errorBus,
+                load = { genreRepository.listMergeReceipts(GenreId(genreId)) },
+                undo = genreRepository::undoMerge,
+            )
+        openHistory = history
+        openHistoryWatch =
+            viewModelScope.launch {
+                history.state.collect { mergeHistory.value = GenreMergeHistory(genreId, name, it) }
+            }
+        history.refresh()
+    }
+
+    /** Closes the open merge history. */
+    fun closeMergeHistory() {
+        openHistoryWatch?.cancel()
+        openHistoryWatch = null
+        openHistory = null
+        mergeHistory.value = null
+    }
+
+    /** Undoes [receiptId] in the open merge history. */
+    fun undoGenreMerge(receiptId: MergeReceiptId) {
+        openHistory?.undo(receiptId)
+    }
+
+    /** Reads the open merge history again, after it could not be loaded. */
+    fun retryMergeHistory() {
+        openHistory?.refresh()
+    }
+
     /**
      * Clear the error state.
      */
@@ -330,3 +385,14 @@ sealed interface AdminCategoriesUiState {
         val error: AppError,
     ) : AdminCategoriesUiState
 }
+
+/**
+ * One genre's merge history, as the categories admin shows it.
+ *
+ * @property genreName for the sheet's title — "Merged into Science Fiction".
+ */
+data class GenreMergeHistory(
+    val genreId: String,
+    val genreName: String,
+    val history: MergeHistoryState,
+)

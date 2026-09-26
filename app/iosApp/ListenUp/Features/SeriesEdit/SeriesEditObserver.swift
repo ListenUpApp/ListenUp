@@ -22,6 +22,16 @@ final class SeriesEditObserver {
     /// Non-nil means the series this screen was editing has been deleted.
     private(set) var mergedIntoSeriesId: String?
 
+    // MARK: - Merge (#1061)
+
+    private(set) var bookCount: Int = 0
+    private(set) var mergeInProgress: Bool = false
+    private(set) var mergeQuery: String = ""
+    /// Recomputed by the VM only while the merge picker is open, and capped there.
+    private(set) var mergeCandidates: [MergeCandidate] = []
+    /// The merges folded into this series, each undoable — the "Merged into this" section.
+    private(set) var mergeHistory: MergeHistoryModel = .loading
+
     private let viewModel: SeriesEditViewModel
     private let bridge = FlowBridge()
 
@@ -29,6 +39,10 @@ final class SeriesEditObserver {
         self.viewModel = viewModel
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
+        bridge.bind(viewModel.mergeCandidates) { [weak self] candidates in
+            self?.mergeCandidates = candidates.map(MergeCandidate.init(series:))
+        }
+        bridge.bind(viewModel.mergeHistory) { [weak self] in self?.mergeHistory = MergeHistoryModel.from($0) }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
@@ -55,6 +69,18 @@ final class SeriesEditObserver {
     func onCancel() { viewModel.onEvent(event: SeriesEditUiEventCancelClicked.shared) }
     func onDismissError() { viewModel.onEvent(event: SeriesEditUiEventErrorDismissed.shared) }
 
+    /// Tells the VM the merge picker is open — candidate computation runs only while it is.
+    func onMergeDialogOpened() { viewModel.onEvent(event: SeriesEditUiEventMergeDialogOpened.shared) }
+    func onMergeDialogDismissed() { viewModel.onEvent(event: SeriesEditUiEventMergeDialogDismissed.shared) }
+    func onMergeQueryChange(_ value: String) { viewModel.onMergeQueryChange(query: value) }
+    func onMergeInto(_ targetId: String) {
+        viewModel.onEvent(event: SeriesEditUiEventMergeInto(targetId: SeriesId(value: targetId)))
+    }
+    func onUndoMerge(_ receiptId: String) {
+        viewModel.onEvent(event: SeriesEditUiEventUndoMerge(receiptId: MergeReceiptId(value: receiptId)))
+    }
+    func onRetryMergeHistory() { viewModel.onEvent(event: SeriesEditUiEventRetryMergeHistory.shared) }
+
     private func apply(_ state: SeriesEditUiState) {
         isLoading = state.isLoading
         name = state.name
@@ -64,6 +90,9 @@ final class SeriesEditObserver {
         isSaving = state.isSaving
         isUploadingCover = state.isUploadingCover
         error = state.error
+        bookCount = Int(state.bookCount)
+        mergeInProgress = state.mergeInProgress
+        mergeQuery = state.mergeQuery
     }
 
     private func applyNav(_ action: SeriesEditNavAction) {
@@ -79,5 +108,12 @@ final class SeriesEditObserver {
             mergedIntoSeriesId = merged.seriesId.value
             didFinish = true
         }
+    }
+}
+
+extension MergeCandidate {
+    /// Snapshot a Kotlin `SeriesCandidate` into native values for the series merge picker.
+    init(series candidate: SeriesCandidate) {
+        self.init(id: candidate.id.value, name: candidate.displayName)
     }
 }

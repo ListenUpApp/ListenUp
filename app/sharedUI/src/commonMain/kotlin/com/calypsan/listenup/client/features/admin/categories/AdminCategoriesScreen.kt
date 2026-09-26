@@ -1,6 +1,13 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import listenup.composeapp.generated.resources.common_done
+import listenup.composeapp.generated.resources.merge_history_genre_title
+import listenup.composeapp.generated.resources.merge_history_open
+import com.calypsan.listenup.client.features.merge.MergeHistoryList
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -207,6 +214,7 @@ fun AdminCategoriesScreen(
                 mergeSourceNameState.value = name
                 showMergeDialogState.value = true
             },
+            onMergeHistory = viewModel::openMergeHistory,
             onMove = { id, name ->
                 moveSourceIdState.value = id
                 moveSourceNameState.value = name
@@ -251,6 +259,34 @@ fun AdminCategoriesScreen(
         showDialogState = showMoveDialogState,
         sourceIdState = moveSourceIdState,
         sourceNameState = moveSourceNameState,
+    )
+    GenreMergeHistorySheet(viewModel)
+}
+
+/**
+ * One genre's "Merged into this" list with Undo (#1061), opened from the row menu. A dialog rather
+ * than a page: it is a short list with one action, and the tree it came from stays behind it.
+ */
+@Composable
+private fun GenreMergeHistorySheet(viewModel: AdminCategoriesViewModel) {
+    val open by viewModel.mergeHistory.collectAsStateWithLifecycle()
+    val current = open ?: return
+    AlertDialog(
+        onDismissRequest = viewModel::closeMergeHistory,
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = { Text(stringResource(Res.string.merge_history_genre_title, current.genreName)) },
+        text = {
+            MergeHistoryList(
+                state = current.history,
+                onUndo = viewModel::undoGenreMerge,
+                onRetry = viewModel::retryMergeHistory,
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = viewModel::closeMergeHistory) { Text(stringResource(Res.string.common_done)) }
+        },
     )
 }
 
@@ -318,6 +354,7 @@ private fun CategoriesScreenBody(
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
     onMerge: (String, String) -> Unit,
+    onMergeHistory: (String) -> Unit,
     onMove: (String, String) -> Unit,
     onMoveGenre: (String, String?) -> Unit,
 ) {
@@ -347,6 +384,7 @@ private fun CategoriesScreenBody(
                 onRename = onRename,
                 onDelete = onDelete,
                 onMerge = onMerge,
+                onMergeHistory = onMergeHistory,
                 onMove = onMove,
                 onMoveGenre = onMoveGenre,
                 modifier = Modifier.padding(innerPadding),
@@ -502,6 +540,7 @@ private fun AdminCategoriesReadyContent(
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
     onMerge: (String, String) -> Unit,
+    onMergeHistory: (String) -> Unit,
     onMove: (String, String) -> Unit,
     onMoveGenre: (String, String?) -> Unit,
     modifier: Modifier = Modifier,
@@ -521,6 +560,7 @@ private fun AdminCategoriesReadyContent(
         onRename = onRename,
         onDelete = onDelete,
         onMerge = onMerge,
+        onMergeHistory = onMergeHistory,
         onMove = onMove,
         onDragStart = { id, name ->
             draggedGenreId = id
@@ -636,6 +676,7 @@ private fun CategoriesContent(
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
     onMerge: (String, String) -> Unit,
+    onMergeHistory: (String) -> Unit,
     onMove: (String, String) -> Unit,
     onDragStart: (String, String) -> Unit,
     onDragEnd: () -> Unit,
@@ -687,6 +728,7 @@ private fun CategoriesContent(
                                 onRename = onRename,
                                 onDelete = onDelete,
                                 onMerge = onMerge,
+                                onMergeHistory = onMergeHistory,
                                 onMove = onMove,
                                 onDragStart = onDragStart,
                                 onDragEnd = onDragEnd,
@@ -719,6 +761,7 @@ private fun CategoryTreeNode(
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
     onMerge: (String, String) -> Unit,
+    onMergeHistory: (String) -> Unit,
     onMove: (String, String) -> Unit,
     onDragStart: (String, String) -> Unit,
     onDragEnd: () -> Unit,
@@ -741,6 +784,7 @@ private fun CategoryTreeNode(
             onRename = { onRename(node.genre.id, node.genre.name) },
             onDelete = { onDelete(node.genre.id, node.genre.name) },
             onMerge = { onMerge(node.genre.id, node.genre.name) },
+            onMergeHistory = { onMergeHistory(node.genre.id) },
             onMove = { onMove(node.genre.id, node.genre.name) },
             onDragStart = { onDragStart(node.genre.id, node.genre.name) },
             onDragEnd = onDragEnd,
@@ -774,6 +818,7 @@ private fun CategoryTreeNode(
                         onRename = onRename,
                         onDelete = onDelete,
                         onMerge = onMerge,
+                        onMergeHistory = onMergeHistory,
                         onMove = onMove,
                         onDragStart = onDragStart,
                         onDragEnd = onDragEnd,
@@ -801,6 +846,7 @@ private fun CategoryRow(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onMerge: () -> Unit,
+    onMergeHistory: () -> Unit,
     onMove: () -> Unit,
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
@@ -850,6 +896,7 @@ private fun CategoryRow(
             onAddChild = onAddChild,
             onRename = onRename,
             onMerge = onMerge,
+            onMergeHistory = onMergeHistory,
             onMove = onMove,
             onDelete = onDelete,
         )
@@ -957,6 +1004,7 @@ private fun CategoryContextMenu(
     onAddChild: () -> Unit,
     onRename: () -> Unit,
     onMerge: () -> Unit,
+    onMergeHistory: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -991,6 +1039,15 @@ private fun CategoryContextMenu(
                 onMerge()
             },
             leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.merge_history_open)) },
+            onClick = {
+                haptics.press()
+                onDismiss()
+                onMergeHistory()
+            },
+            leadingIcon = { Icon(Icons.Outlined.History, contentDescription = null) },
         )
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.admin_move_to)) },

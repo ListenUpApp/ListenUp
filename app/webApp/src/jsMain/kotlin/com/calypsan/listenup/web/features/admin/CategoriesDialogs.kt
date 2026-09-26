@@ -42,6 +42,14 @@ internal sealed interface CategoryDialog {
     data class Merge(
         val genre: Genre,
     ) : CategoryDialog
+
+    /**
+     * The merges folded into [genre], each undoable (#1061). Opened through the ViewModel, which
+     * reads the list from the server, so the page never holds this one itself.
+     */
+    data class History(
+        val genre: Genre,
+    ) : CategoryDialog
 }
 
 /**
