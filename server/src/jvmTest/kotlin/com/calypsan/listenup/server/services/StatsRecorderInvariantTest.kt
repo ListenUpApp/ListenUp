@@ -8,6 +8,8 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -132,10 +134,12 @@ class StatsRecorderInvariantTest :
             }
         }
 
-        test("BookRestarted: no counter or projection movement, exactly one STARTED_BOOK activity") {
+        test("BookRestarted: no counter or projection movement, no immediate STARTED_BOOK activity") {
             val nowMs = 1_700_000_000_000L
             withSqlDatabase {
                 sql.seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
                 val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, driver, nowMs)
                 val activities = ActivityRepository(db = sql)
 
@@ -151,8 +155,10 @@ class StatsRecorderInvariantTest :
 
                     userStatsRepo.getForUser("u1") shouldBe null
                     publicProfileRepo.pullSince(userId = null, cursor = 0L, limit = 10).items.shouldBeEmpty()
+                    // A restart is not news until the listen-through holds a real listen — see
+                    // StatsRecorderRealStartTest for the announcement itself.
                     val started = activities.page(before = null, limit = 10).filter { it.type == ActivityType.STARTED_BOOK }
-                    started shouldHaveSize 1
+                    started.shouldBeEmpty()
                 }
             }
         }

@@ -1,8 +1,11 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.dto.activity.RealListen
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.SelectAwaitingRealStart
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.util.KeyedMutex
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
@@ -88,18 +91,22 @@ class StatsRecorder(
     }
 
     /**
-     * No source row (the caller already wrote `playback_positions`), no `user_stats`/projection
-     * impact (a start moves no windowed stat) — just the `STARTED_BOOK` activity, dated
-     * [StatsEvent.BookRestarted.occurredAt].
+     * Begins a new listen-through — the first position on a book, or a finished book reopened. No
+     * source row beyond the listen-through marker, and no `user_stats`/projection impact (a start
+     * moves no windowed stat). The `STARTED_BOOK` activity is NOT raised here: an eight-second tap is
+     * not news. [announceRealStartIfCrossed] raises it once the listen-through holds a real listen —
+     * checked here too, because an import can write a book's sessions before its restart.
      */
     private suspend fun recordBookRestarted(event: StatsEvent.BookRestarted) {
-        activityRecorder.record(
-            event.userId,
-            ActivityType.STARTED_BOOK,
-            bookId = event.bookId,
-            isReread = event.isReread,
-            occurredAt = event.occurredAt.toEpochMilliseconds(),
-        )
+        suspendTransaction(sql) {
+            sql.listenThroughsQueries.beginListenThrough(
+                user_id = event.userId,
+                book_id = event.bookId,
+                started_at = event.occurredAt.toEpochMilliseconds(),
+                is_reread = if (event.isReread) 1L else 0L,
+            )
+        }
+        announceRealStartIfCrossed(event.userId, event.bookId)
     }
 
     /**
@@ -140,6 +147,59 @@ class StatsRecorder(
             durationMs = span.endedAt - span.startedAt,
             occurredAt = span.endedAt,
         )
+        announceRealStartIfCrossed(userId, span.bookId)
+    }
+
+    /**
+     * Raises `STARTED_BOOK` the first time the user's current listen-through of [bookId] holds a real
+     * listen ([RealListen.THRESHOLD_MS] of wall-clock listening since it began), dated at the
+     * listen-through's start — when they actually started, not when the minute ran out.
+     *
+     * Announces at most once per listen-through: `markRealStarted` only updates a row still awaiting
+     * its real start, and the announcement fires only when it changed one. A book with no
+     * listen-through row (already in progress before listen-throughs existed) never announces again.
+     */
+    private suspend fun announceRealStartIfCrossed(
+        userId: String,
+        bookId: String,
+    ) {
+        val crossed = suspendTransaction<SelectAwaitingRealStart?>(sql) { claimRealStartIfCrossed(userId, bookId) } ?: return
+        activityRecorder.record(
+            userId,
+            ActivityType.STARTED_BOOK,
+            bookId = bookId,
+            isReread = crossed.is_reread == 1L,
+            occurredAt = crossed.started_at,
+        )
+    }
+
+    /**
+     * The non-suspend body of [announceRealStartIfCrossed]'s transaction: returns the listen-through
+     * row that just crossed [RealListen.THRESHOLD_MS], or `null` if it hasn't (or there is none awaiting
+     * it). A regular function, not a lambda, so an early `return` is an ordinary local return rather
+     * than a labelled `return@suspendTransaction` — SQLDelight's `TransactionWithReturn` lambda is not
+     * suspend, so a labelled return out of it does not type-check.
+     */
+    private fun claimRealStartIfCrossed(
+        userId: String,
+        bookId: String,
+    ): SelectAwaitingRealStart? {
+        val awaiting =
+            sql.listenThroughsQueries.selectAwaitingRealStart(user_id = userId, book_id = bookId).executeAsOneOrNull()
+                ?: return null
+        val listenedMs =
+            sql.listeningEventsQueries
+                .sumWallMsForBookEndedAfter(userId = userId, bookId = bookId, sinceMs = awaiting.started_at)
+                .executeAsOne()
+        if (listenedMs < RealListen.THRESHOLD_MS) return null
+        val claimed =
+            sql.listenThroughsQueries
+                .markRealStarted(
+                    real_started_at = clock.now().toEpochMilliseconds(),
+                    user_id = userId,
+                    book_id = bookId,
+                ).value
+        return if (claimed == 1L) awaiting else null
     }
 
     /**

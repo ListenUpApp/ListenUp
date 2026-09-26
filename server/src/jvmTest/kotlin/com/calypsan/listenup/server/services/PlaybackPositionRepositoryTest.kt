@@ -3,7 +3,9 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.dto.activity.RealListen
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -11,6 +13,9 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -198,6 +203,9 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition false→true flip increments booksFinished via StatsRecorder") {
             withSqlDatabase {
+                sql.seedTestUser("u-flip")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-flip")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
@@ -420,6 +428,9 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition finish-flip records exactly one finished_book for (user, book)") {
             withSqlDatabase {
+                sql.seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val userStatsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
@@ -477,6 +488,9 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition first-ever in-progress position records one started_book (isReread=false)") {
             withSqlDatabase {
+                sql.seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
@@ -498,6 +512,7 @@ class PlaybackPositionRepositoryTest :
                         registry = SyncRegistry(),
                         statsRecorder = recorder,
                     )
+                val events = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition(
                         userId = "u1",
@@ -508,6 +523,25 @@ class PlaybackPositionRepositoryTest :
                         playbackSpeed = 1.0f,
                         currentChapterId = null,
                     )
+                    // The start is news only once the listen-through holds a real listen.
+                    val span =
+                        ListeningEventSyncPayload(
+                            id = "evt-1",
+                            bookId = "book-1",
+                            startPositionMs = 0L,
+                            endPositionMs = RealListen.THRESHOLD_MS,
+                            startedAt = 1_730_000_000_000L,
+                            endedAt = 1_730_000_000_000L + RealListen.THRESHOLD_MS,
+                            playbackSpeed = 1.0f,
+                            tz = "UTC",
+                            deviceLabel = null,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        )
+                    events.upsert(span, clientOpId = null, userId = "u1")
+                    recorder.record(StatsEvent.ListeningSessionClosed(userId = "u1", span = span))
 
                     val started = activities.page(before = null, limit = 50).filter { it.type == ActivityType.STARTED_BOOK }
                     started shouldHaveSize 1
@@ -519,6 +553,9 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition re-read (prior finished, new in-progress) records one started_book with isReread=true") {
             withSqlDatabase {
+                sql.seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
@@ -540,6 +577,7 @@ class PlaybackPositionRepositoryTest :
                         registry = SyncRegistry(),
                         statsRecorder = recorder,
                     )
+                val events = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // Seed a finished position
                     repo.recordPosition(
@@ -561,6 +599,25 @@ class PlaybackPositionRepositoryTest :
                         playbackSpeed = 1.0f,
                         currentChapterId = null,
                     )
+                    // The start is news only once the listen-through holds a real listen.
+                    val span =
+                        ListeningEventSyncPayload(
+                            id = "evt-1",
+                            bookId = "book-1",
+                            startPositionMs = 0L,
+                            endPositionMs = RealListen.THRESHOLD_MS,
+                            startedAt = 1_730_000_999_000L,
+                            endedAt = 1_730_000_999_000L + RealListen.THRESHOLD_MS,
+                            playbackSpeed = 1.0f,
+                            tz = "UTC",
+                            deviceLabel = null,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        )
+                    events.upsert(span, clientOpId = null, userId = "u1")
+                    recorder.record(StatsEvent.ListeningSessionClosed(userId = "u1", span = span))
 
                     val started = activities.page(before = null, limit = 50).filter { it.type == ActivityType.STARTED_BOOK }
                     started shouldHaveSize 1
