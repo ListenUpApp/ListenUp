@@ -1,0 +1,30 @@
+-- listen_throughs: each user's CURRENT listen-through of each book — the stretch from starting a book
+-- (or reopening a finished one) to finishing it. Server-only bookkeeping: it lets "started reading"
+-- wait until the listen-through holds a real listen (RealListen.THRESHOLD_MS) instead of announcing
+-- the first tap. real_started_at is set exactly once per listen-through, when that line is crossed.
+--
+-- FKs (→ users, → books) live in the migration DDL (SQLDelight resolves FK targets per .sq file).
+CREATE TABLE listen_throughs (
+    user_id         TEXT    NOT NULL,
+    book_id         TEXT    NOT NULL,
+    started_at      INTEGER NOT NULL,
+    is_reread       INTEGER NOT NULL,
+    real_started_at INTEGER,
+    PRIMARY KEY (user_id, book_id)
+);
+
+-- A (re)start begins a fresh listen-through, replacing the previous one for this book.
+beginListenThrough:
+INSERT OR REPLACE INTO listen_throughs (user_id, book_id, started_at, is_reread, real_started_at)
+VALUES (:user_id, :book_id, :started_at, :is_reread, NULL);
+
+-- The listen-through still waiting for its real start, or none.
+selectAwaitingRealStart:
+SELECT started_at, is_reread FROM listen_throughs
+WHERE user_id = :user_id AND book_id = :book_id AND real_started_at IS NULL;
+
+-- Claims the real start. Only a listen-through still awaiting it is updated, so the caller announces
+-- exactly once even if two checks race — it announces only when this changed a row.
+markRealStarted:
+UPDATE listen_throughs SET real_started_at = :real_started_at
+WHERE user_id = :user_id AND book_id = :book_id AND real_started_at IS NULL;

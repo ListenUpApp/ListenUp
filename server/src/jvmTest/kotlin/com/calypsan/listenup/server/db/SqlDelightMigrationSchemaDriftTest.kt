@@ -131,6 +131,7 @@ private val SQ_TABLES =
         "genre_merge_receipts",
         "genre_merge_receipt_books",
         "genre_merge_receipt_aliases",
+        "listen_throughs",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */
