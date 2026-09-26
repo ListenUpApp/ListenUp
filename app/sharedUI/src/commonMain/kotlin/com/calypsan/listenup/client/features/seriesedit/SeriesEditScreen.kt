@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import listenup.composeapp.generated.resources.merge_history_section_title
+import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
+import com.calypsan.listenup.client.features.merge.MergeHistoryList
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -122,6 +125,7 @@ fun SeriesEditScreen(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val mergeCandidates by viewModel.mergeCandidates.collectAsStateWithLifecycle()
+    val mergeHistory by viewModel.mergeHistory.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
         viewModel.navActions.collect { navAction ->
@@ -175,6 +179,7 @@ fun SeriesEditScreen(
                 else -> {
                     SeriesEditContent(
                         state = state,
+                        mergeHistory = mergeHistory,
                         onEvent = viewModel::onEvent,
                         // The VM owns the dialog flag so candidate computation can start
                         // and stop with it.
@@ -336,6 +341,7 @@ private fun ErrorContent(
 @Composable
 private fun SeriesEditContent(
     state: SeriesEditUiState,
+    mergeHistory: MergeHistoryState,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onMergeClick: () -> Unit,
     onBackClick: () -> Unit,
@@ -387,6 +393,15 @@ private fun SeriesEditContent(
                     onValueChange = { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) },
                     label = "Description",
                     placeholder = stringResource(Res.string.series_enter_a_description_for_this),
+                )
+            }
+
+            // The merges folded into this series, each undoable (#1061).
+            SeriesStudioCard(title = stringResource(Res.string.merge_history_section_title)) {
+                MergeHistoryList(
+                    state = mergeHistory,
+                    onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
+                    onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
                 )
             }
         }
