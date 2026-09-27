@@ -8,6 +8,9 @@ import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -119,6 +122,47 @@ class BookRepositoryBatchedPersistTest :
                     result.failed shouldBe 0
 
                     repo.findById(BookId(sql.idOf("books/b1")))!!.revision shouldBe firstRevision
+                }
+            }
+        }
+
+        test("a rescan whose only change is genres bumps the revision so clients can pull it") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
+                runTest {
+                    repo.persistAllBooks(listOf(book("books/b1", genres = listOf("Fantasy"))))
+                    val firstRevision = repo.findById(BookId(sql.idOf("books/b1")))!!.revision
+
+                    // Same files, same title — only metadata.json's genres changed.
+                    repo.persistAllBooks(listOf(book("books/b1", genres = listOf("Fantasy", "Horror"))))
+                    val stored = repo.findById(BookId(sql.idOf("books/b1")))!!
+
+                    // The revision is the pull cursor: unchanged means no client can ever receive it.
+                    (stored.revision > firstRevision) shouldBe true
+                    stored.genres.map { it.name } shouldContainExactlyInAnyOrder listOf("Fantasy", "Horror")
+                }
+            }
+        }
+
+        test("a batched rescan leaves user-protected genres alone") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
+                runTest {
+                    repo.persistAllBooks(listOf(book("books/b1", genres = listOf("Fantasy"))))
+                    val id = BookId(sql.idOf("books/b1"))
+                    // The listener curated the genres by hand: GENRES is now USER-tier.
+                    repo.upsert(
+                        repo.findById(id)!!.copy(
+                            fieldProvenance =
+                                mapOf(BookField.GENRES to FieldProvenance(FieldSourceKind.USER, at = 1L)),
+                        ),
+                    )
+
+                    repo.persistAllBooks(listOf(book("books/b1", genres = listOf("Horror"))))
+
+                    repo.findById(id)!!.genres.map { it.name } shouldContainExactly listOf("Fantasy")
                 }
             }
         }

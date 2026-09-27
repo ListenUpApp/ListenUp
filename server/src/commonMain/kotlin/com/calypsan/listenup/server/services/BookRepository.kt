@@ -58,6 +58,9 @@ private val log = loggerFor<BookRepository>()
  */
 private const val PERSIST_CHUNK_SIZE = 250
 
+/** SQLite caps a statement at 999 bound parameters; chunk `IN (…)` lists below it with headroom. */
+private const val SQLITE_IN_CHUNK = 900
+
 /**
  * A book resolved + prepared by [BookRepository.resolveOrInsertAll]'s suspend prepare phase, ready for
  * the synchronous chunked write loop. [payload] is the built aggregate; [extras] carries the
@@ -69,7 +72,6 @@ private class PreparedBook(
     val bookId: BookId,
     val payload: BookSyncPayload,
     val skip: Boolean,
-    val genreIds: List<String>,
     val tags: List<String>,
     val extras: BookWriteExtras,
     /**
@@ -293,11 +295,11 @@ class BookRepository(
      * substrate has already opened the transaction and resolved [existed]; this method issues
      * writes that bind to that transaction.
      *
-     * Genre writes do NOT happen here — they run as a separate, sequential Exposed transaction
-     * after this one commits (see [upsertFromAnalyzed]) so the not-yet-converted Exposed genre
-     * writer never nests inside the SQLDelight write lock. The system-collection membership, by
-     * contrast, is a SQLDelight write on the same engine, so it joins this transaction safely and
-     * atomically.
+     * Scan writes land their genre junctions here too, inside this transaction, from the ids both
+     * scan paths pre-resolve into [BookWriteExtras.genreIds] (auto-create is suspend, so it runs up
+     * front, outside the transaction). A null `genreIds` leaves the stored set alone — user-protected
+     * GENRES, or a non-scan write. The system-collection membership is likewise a SQLDelight write on
+     * the same engine, so it joins this transaction safely and atomically.
      */
     override fun writePayload(
         value: BookSyncPayload,
@@ -460,10 +462,8 @@ class BookRepository(
 
         replaceBookChildren(value, preserveContributors, preserveSeries, preserveChapters)
 
-        // Batched scan-persist path only: genre junctions ride INSIDE this transaction from the
-        // pre-resolved ids the prepare phase built, collapsing a genred book to a single commit. The
-        // single-book paths leave genreIds null and run the separate post-commit processGenreStrings
-        // pass in upsertFromAnalyzed instead (no double write — the two are mutually exclusive).
+        // Scan paths only: genre junctions ride INSIDE this transaction from the pre-resolved ids, so
+        // a genre change is atomic with the row and carried by its revision bump. Null leaves them be.
         extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
     }
 
@@ -711,6 +711,19 @@ class BookRepository(
             .distinct()
 
     /**
+     * Each of [bookIds]' currently-linked genre ids, read from the raw junction (tombstoned genres
+     * included) — the stored side of a rescan's genre-set comparison. A book with no links is absent.
+     */
+    private suspend fun storedGenreIds(bookIds: List<String>): Map<String, Set<String>> =
+        suspendTransaction(db) {
+            bookIds
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.bookGenresQueries.genreIdsByBookIds(chunk).executeAsList() }
+                .groupBy({ it.book_id }, { it.genre_id })
+                .mapValues { (_, ids) -> ids.toSet() }
+        }
+
+    /**
      * Batch-persists every changed book in [books] in chunked write transactions — the
      * performance-critical override of [BookIngestPort.resolveOrInsertAll].
      *
@@ -819,9 +832,9 @@ class BookRepository(
      * is genuine isolation. Only a real, separate [suspendTransaction] per book (a real BEGIN/COMMIT/
      * ROLLBACK on the connection) makes one book's failure incapable of touching another's.
      *
-     * A [book.skip][PreparedBook.skip] book writes only its genre junctions (the idempotent-content
-     * re-scan still reconciles genres without a revision bump — matchesStoredContent normalizes genres
-     * away, so a genre-only change is otherwise invisible); a non-skip book runs the full
+     * A [book.skip][PreparedBook.skip] book writes nothing — its content, cover and genre set all
+     * match what is stored (a genre-only change is NOT a skip, so it bumps the revision like any
+     * other change and reaches clients); a non-skip book runs the full
      * [upsertInOpenTransaction] aggregate write with its [PreparedBook.extras] (cover, system-collection
      * membership, genre ids) mirrored onto the transaction thread.
      *
@@ -844,10 +857,10 @@ class BookRepository(
         var failedInChunk = 0
         for (book in chunk) {
             try {
-                suspendTransaction<Unit>(db) {
-                    if (book.skip) {
-                        bookGenreWriter.writeJunctions(book.bookId.value, book.genreIds)
-                    } else {
+                // A skipped book's content, cover AND genre set all match what is stored, so it
+                // writes nothing — genres ride the same revision bump as every other change.
+                if (!book.skip) {
+                    suspendTransaction<Unit>(db) {
                         setTransactionLocal(book.extras)
                         try {
                             upsertInOpenTransaction(book.payload, suppressed)
@@ -921,14 +934,13 @@ class BookRepository(
 
         // One batched read of the existing aggregates — drives the idempotency + cover-sticky checks
         // (replacing the per-book findById in upsertFromAnalyzed).
-        val existingById =
-            findAllByIds(resolved.filterNot { it.isNew }.map { it.bookId.value })
-                .associateBy { it.id }
+        val existingIds = resolved.filterNot { it.isNew }.map { it.bookId.value }
+        val existingById = findAllByIds(existingIds).associateBy { it.id }
+        val storedGenreIdsById = storedGenreIds(existingIds)
 
         val prepared =
             resolved.map { (analyzed, bookId, isNew) ->
                 val pendingCover = coversByBook[analyzed.candidate.rootRelPath]
-                val genreIds = resolveBookGenreIds(analyzed, identityMaps.genres)
                 val payload =
                     buildPayloadFromAnalyzed(
                         bookId,
@@ -945,6 +957,12 @@ class BookRepository(
                 // the preserve flags ride into writePayload via the extras.
                 val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
                 val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
+                // Null when GENRES is user-protected (A7): the curated set is neither written nor
+                // compared, so a rescan can never revert it.
+                val genreIds =
+                    if (merge?.preserveGenres == true) null else resolveBookGenreIds(analyzed, identityMaps.genres)
+                val genresUnchanged =
+                    genreIds == null || genreIds.toSet() == storedGenreIdsById[bookId.value].orEmpty()
                 val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
                 // The scan found cover art in the files but hasn't managed to store it yet (no
                 // configured store, or a file that couldn't be read — see [scanCoverForWrite]):
@@ -961,7 +979,7 @@ class BookRepository(
                 // (updateContent sets deleted_at = NULL + bumps revision).
                 val skip =
                     existing != null && existing.deletedAt == null &&
-                        coverUnchanged && effectivePayload.matchesStoredContent(existing)
+                        coverUnchanged && genresUnchanged && effectivePayload.matchesStoredContent(existing)
 
                 val storedCover =
                     when {
@@ -978,7 +996,6 @@ class BookRepository(
                     bookId = bookId,
                     payload = effectivePayload.copy(cover = scanCoverForWrite(analyzed, storedCover, existing)),
                     skip = skip,
-                    genreIds = genreIds,
                     tags = analyzed.tags,
                     extras =
                         BookWriteExtras(
@@ -1300,6 +1317,23 @@ class BookRepository(
         // contributor/series preserve flags ride into writePayload via the extras.
         val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
         val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
+        // Genres resolve BEFORE the skip check so a genre-only rescan is a real change that bumps the
+        // revision (matchesStoredContent normalizes genres away — the scan payload never carries
+        // resolved ids). Auto-create runs here, outside the write transaction, exactly as the batched
+        // path's prepare phase does. Null when GENRES is user-protected (A7): the curated set is
+        // neither written nor compared, so a rescan can never revert it.
+        val genreIds =
+            if (merge?.preserveGenres == true) {
+                null
+            } else {
+                analyzed.genres
+                    .filter { it.isNotBlank() }
+                    .distinctBy { it.trim().lowercase() }
+                    .flatMap { raw -> bookGenreWriter.resolveGenreIds(raw) }
+                    .distinct()
+            }
+        val genresUnchanged =
+            genreIds == null || genreIds.toSet() == storedGenreIds(listOf(bookId.value))[bookId.value].orEmpty()
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
         // The scan found cover art in the files but hasn't managed to store it yet (no configured
         // store, or a file that couldn't be read — see [scanCoverForWrite]): pendingCoverHash is
@@ -1312,7 +1346,7 @@ class BookRepository(
                 pendingCoverHash == existing?.cover?.hash
         val result: AppResult<BookSyncPayload> =
             if (existing != null && existing.deletedAt == null &&
-                coverUnchanged && effectivePayload.matchesStoredContent(existing)
+                coverUnchanged && genresUnchanged && effectivePayload.matchesStoredContent(existing)
             ) {
                 // Idempotent re-scan: content identical to what's stored — skip the
                 // revision-bumping upsert AND the cover file-write. A tombstoned existing row
@@ -1339,6 +1373,7 @@ class BookRepository(
                         BookWriteExtras(
                             managedCover = storedCover,
                             systemCollectionId = if (isNew) systemCollectionId else null,
+                            genreIds = genreIds,
                             preserveContributors = merge?.preserveContributors == true,
                             preserveSeries = merge?.preserveSeries == true,
                         ),
@@ -1356,15 +1391,8 @@ class BookRepository(
             // book's cascade-tombstoned junctions too — floored at its own deleted_at — so a transient
             // remove→re-add never returns the book uncollected with its tags/moods lost.
             existing?.deletedAt?.let { floor -> reviveBookJunctions(listOf(bookId.value), floor) }
-            val now = clock.now().toEpochMilliseconds()
-            // Genres: a separate, sequential pass over SQLDelight (idempotent, no revision bump).
-            // The writer's synchronous junction queries auto-commit and the auto-create upsert runs
-            // its own transaction — sequential after the book write, so no SQLITE_BUSY contention.
-            // Skip when GENRES is user-protected (hand-edited or applied via enrichment): a rescan's
-            // file-derived genres must not silently revert the curated set (A7).
-            if (merge?.preserveGenres != true) {
-                bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now)
-            }
+            // Genres were written INSIDE the book transaction (BookWriteExtras.genreIds), atomic with
+            // the row and carried by its revision bump. Only scan tags remain a post-commit pass.
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result

@@ -47,6 +47,13 @@ JOIN genres g ON g.id = bg.genre_id
 WHERE bg.book_id IN :book_ids AND g.deleted_at IS NULL
 ORDER BY bg.book_id, g.name;
 
+-- Every linked genre id (tombstoned genres included) for the id-chunk — the stored side of a
+-- rescan's "did the genre set change?" comparison. Raw junction ids, not the live-filtered
+-- payload genres, so an alias that resolves to a tombstoned genre compares equal to itself
+-- instead of reading as a change on every scan.
+genreIdsByBookIds:
+SELECT book_id, genre_id FROM book_genres WHERE book_id IN :ids;
+
 -- Up to :limit book ids linked to a genre — curator screen + post-rename reindex.
 booksForGenre:
 SELECT book_id FROM book_genres WHERE genre_id = :genre_id LIMIT :limit;
