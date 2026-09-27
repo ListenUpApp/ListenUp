@@ -15,6 +15,10 @@ import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
  * Debug-only on-device gallery of a feature's components rendered with mock data, with dynamic
  * color off so the designed fallback palette shows. Not in the launcher.
  *
+ * Registered only by `:app:androidApp`'s debug manifest (this KMP library has no build types to
+ * hang a debug source set on), so release builds carry no entry for it and R8 strips it along
+ * with the galleries it renders.
+ *
  * Defaults to the Home gallery; pass `--es gallery <name>` to render a specific feature:
  * ```
  * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity

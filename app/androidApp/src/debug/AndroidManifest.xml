@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only: on-device component gallery (mock data). Declared here, not in
+             :app:sharedUI, so release builds never register it: with no manifest entry R8 finds
+             the activity and the galleries it renders unreachable, and strips them. Not exported,
+             so it is launchable only via `adb shell am start` against a debug build. -->
+        <activity
+            android:name="com.calypsan.listenup.client.PreviewGalleryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ListenUp" />
+    </application>
+</manifest>

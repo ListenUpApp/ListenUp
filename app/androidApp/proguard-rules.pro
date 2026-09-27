@@ -33,18 +33,31 @@
 # "couldn't verify the server" with zero network activity and, in a release build,
 # zero logs. Shipped in 0.8.0 (versionCode 2756) and reproduced on-device.
 #
-# These keeps are deliberately broader than this file's usual "narrowest possible"
-# policy, and the breadth is evidence-driven rather than defensive. Keeping only the
-# @Rpc interfaces was tried first and was NOT sufficient: the app still failed with no
-# socket opened. A DEX diff against a working debug build showed R8 had also stripped
-# the runtime that READS those interfaces — serviceDescriptorOf, rpcChannel,
-# RpcProxyCache, rpcResult were all present in debug and absent from release, leaving
-# only KrpcTransport. Keeping an interface is useless if the reflective machinery that
-# builds a proxy from it is gone, so the runtime and the generated per-service stubs
-# (which live alongside the interfaces in :contract) are kept too.
+# How a proxy is built (kotlinx.rpc 0.11, JVM): `serviceDescriptorOf<T>()` reads the
+# @WithServiceDescriptor annotation off the @Rpc interface with kotlin-reflect and takes the
+# `objectInstance` of the class it names — the plugin-generated `T$$rpcServiceStub$Companion`, which
+# holds the service's FQ name, its callables and `createInstance`, and builds the
+# `T$$rpcServiceStub` proxy. Every step is reflective, so the interface, both stub classes and the
+# runtime that performs the lookup are kept whole.
+#
+# Keeping only the @Rpc interfaces was tried first (0.8.0) and was NOT sufficient: R8 still
+# stripped the runtime that reads them, so kotlinx.rpc stays kept whole. The rest of :contract —
+# the DTOs, the AppError hierarchy, the sync payloads — is NOT reached reflectively by name:
+# kotlinx.serialization's own consumer rules keep every @Serializable class's companion and
+# serializer(), which is all kotlinx.rpc resolves from the generic signatures. It used to be kept
+# whole too (`com.calypsan.listenup.api.**`), which fenced ~1,650 classes off from R8; that rule
+# was narrowed to the stubs, and the minified app verified end to end against a live server.
 -keep @kotlinx.rpc.annotations.Rpc interface * { *; }
+-keep class **$$rpcServiceStub { *; }
+-keep class **$$rpcServiceStub$Companion { *; }
 -keep class kotlinx.rpc.** { *; }
--keep class com.calypsan.listenup.api.** { *; }
+
+# --- SLF4J provider ---
+# ListenUp.onCreate names this provider to SLF4J by class name (the `slf4j.provider` property), and
+# SLF4J instantiates it reflectively through its no-arg constructor. Nothing else references that
+# constructor, so R8 removed it and every release build logged "Failed to instantiate the specified
+# SLF4JServiceProvider" at startup, silently losing the on-device log tee.
+-keep class com.calypsan.listenup.client.logging.ListenUpAndroidLogProvider { <init>(); }
 
 # --- Ktor (OkHttp engine) ---
 # The authenticated client is built with a no-arg HttpClient { }, which resolves

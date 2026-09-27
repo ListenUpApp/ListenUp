@@ -68,13 +68,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Debug-only: on-device component gallery (mock data). Not exported — launchable via
-             `adb shell am start` only against a debuggable build. -->
-        <activity
-            android:name="com.calypsan.listenup.client.PreviewGalleryActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ListenUp" />
-
         <service
             android:name="com.calypsan.listenup.client.playback.PlaybackService"
             android:enabled="true"
