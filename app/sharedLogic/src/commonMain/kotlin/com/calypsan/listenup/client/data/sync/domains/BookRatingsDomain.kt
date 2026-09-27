@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.sync.TargetedFetch
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 
 /**
@@ -54,7 +55,8 @@ internal fun bookRatingsDomain(
         outboxKeying =
             OutboxKeying(
                 keysOf = { payload ->
-                    if (payload.userId == authSession.getUserId()) setOf(payload.bookId) else emptySet()
+                    val me = (authSession.authState.value as? AuthState.Authenticated)?.userId?.value
+                    if (me != null && payload.userId == me) setOf(payload.bookId) else emptySet()
                 },
                 refetchFor = { bookId -> TargetedFetch.ByBookIds(listOf(bookId)) },
             ),

@@ -126,14 +126,25 @@ internal class DrainReconciler(
     }
 }
 
-/** One fetch per kind, its values de-duplicated — so a wave's refs cost one fetch per match column. */
+/**
+ * One fetch per kind, its values de-duplicated — so a wave's refs cost one fetch per match column.
+ * The `when` is exhaustive, so a new [TargetedFetch] variant fails to compile here rather than being
+ * silently dropped.
+ */
 private fun List<TargetedFetch>.merged(): List<TargetedFetch> {
-    val ids = filterIsInstance<TargetedFetch.ByIds>().flatMap { it.ids }.distinct()
-    val collectionIds = filterIsInstance<TargetedFetch.ByCollectionIds>().flatMap { it.collectionIds }.distinct()
-    val bookIds = filterIsInstance<TargetedFetch.ByBookIds>().flatMap { it.bookIds }.distinct()
+    val ids = mutableListOf<String>()
+    val collectionIds = mutableListOf<String>()
+    val bookIds = mutableListOf<String>()
+    for (fetch in this) {
+        when (fetch) {
+            is TargetedFetch.ByIds -> ids += fetch.ids
+            is TargetedFetch.ByCollectionIds -> collectionIds += fetch.collectionIds
+            is TargetedFetch.ByBookIds -> bookIds += fetch.bookIds
+        }
+    }
     return listOfNotNull(
-        ids.takeIf { it.isNotEmpty() }?.let(TargetedFetch::ByIds),
-        collectionIds.takeIf { it.isNotEmpty() }?.let(TargetedFetch::ByCollectionIds),
-        bookIds.takeIf { it.isNotEmpty() }?.let(TargetedFetch::ByBookIds),
+        ids.takeIf { it.isNotEmpty() }?.let { TargetedFetch.ByIds(it.distinct()) },
+        collectionIds.takeIf { it.isNotEmpty() }?.let { TargetedFetch.ByCollectionIds(it.distinct()) },
+        bookIds.takeIf { it.isNotEmpty() }?.let { TargetedFetch.ByBookIds(it.distinct()) },
     )
 }

@@ -87,8 +87,9 @@ internal data class DrainOutcome(
  * The identity of an op that SENT successfully in a drain wave — the `(domainName, entityId)`
  * pair the engine feeds to a targeted [CatchUp.fetchTransient] so the just-sent entity reconciles
  * to current server state (re-landing any echo the in-flight anti-flicker shield dropped). The
- * `entityId` is the sync-domain row id (a book edit's `bookId`), so it lines up with the domain
- * handler's `?ids=` fetch.
+ * `entityId` is the op key the repository chose — a wire id for most domains (a book edit's
+ * `bookId`), but a book id for a rating and a `"parent:child"` pair for a junction, whose wire ids
+ * are opaque. [SyncDomainHandler.refetchForOutboxKey] turns it into a fetch the domain can serve.
  */
 internal data class SentEntityRef(
     val domainName: String,

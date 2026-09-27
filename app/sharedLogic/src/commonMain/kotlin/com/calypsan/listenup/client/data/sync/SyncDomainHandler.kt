@@ -42,8 +42,9 @@ internal interface SyncDomainHandler<T : Any> {
 
     /**
      * The stable sync id for [item] — the same id used on the firehose envelope and as the local
-     * row's identity. For most domains this is the payload's `id` field; composite-key domains
-     * (e.g. `collection_books`) synthesise it from their parts (`"$collectionId:$bookId"`).
+     * row's identity: the payload's `id` field. For junctions and ratings it is opaque
+     * (SERVER-SYNC-04) and encodes nothing, so it is not necessarily the key an outbox op is filed
+     * under — see [refetchForOutboxKey] and the domain's `OutboxKeying`.
      *
      * Used by [CatchUp.catchUpTransient] to collect the accessible id set during the
      * `AccessChanged` reconcile, so it must line up with [AccessFilteredSyncHandler.localLiveIds]

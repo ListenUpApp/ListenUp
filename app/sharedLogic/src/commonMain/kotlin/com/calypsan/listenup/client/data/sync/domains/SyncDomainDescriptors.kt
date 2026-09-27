@@ -30,9 +30,9 @@ internal class MirroredDomain<T : SyncPayload>(
     val accessGate: AccessGate? = null,
     /**
      * The stable sync id of a payload (matches the firehose envelope id). Defaults to the
-     * payload's own [SyncPayload.id] — composite-key junctions expose that as their
-     * synthetic `"a:b"` form, so the default covers every domain and no factory
-     * overrides it.
+     * payload's own [SyncPayload.id]. For junctions that id is opaque (SERVER-SYNC-04): it
+     * encodes neither half of the pair, so it is NOT the key a repository files its outbox ops
+     * under — [outboxKeying] maps between the two.
      */
     val syncIdOf: (T) -> String = { it.id },
     /**

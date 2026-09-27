@@ -15,6 +15,8 @@ import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.testing.registerTestSyncDomains
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -28,7 +30,7 @@ private const val ME = "u1"
  *
  * Since SERVER-SYNC-04 an inbound frame names a row by its opaque wire id, while these repositories
  * key their queued ops by the natural identity they write under — a rating by its book, a junction
- * by its `"parent:child"` pair, a shelf reorder by its shelf. Looking the op up by the wire id never
+ * by its `"parent:child"` pair. Looking the op up by the wire id never
  * found it, so a stale echo overwrote the optimistic edit. Proven here against the REAL queue and
  * the REAL production catalog's handlers, exactly as production wires them.
  */
@@ -48,10 +50,12 @@ class OutboxKeyedShieldTest :
                 ratings.onEvent(updated(rating(id = "r1", halfStars = 6, revision = 20)))
                 db.bookRatingDao().find("b1", ME)!!.halfStars shouldBe 8
 
-                // The op drains; its own echo carries 8.
+                // The op drains; its own echo carries 8 at rev 21 — the revision proves it applied.
                 db.pendingOperationV2Dao().delete(opId)
                 ratings.onEvent(updated(rating(id = "r1", halfStars = 8, revision = 21)))
-                db.bookRatingDao().find("b1", ME)!!.halfStars shouldBe 8
+                val converged = db.bookRatingDao().find("b1", ME)!!
+                converged.halfStars shouldBe 8
+                converged.revision shouldBe 21
             }
         }
 
@@ -167,42 +171,71 @@ class OutboxKeyedShieldTest :
             }
         }
 
-        test("shelf_books: a queued reorder, keyed by the shelf, is not undone by a stale junction echo") {
+        test("shelf_books: while a reorder is queued, another book's Created for that shelf applies") {
             withShield { db, queue, registry ->
                 val shelved = registry.handler<ShelfBookSyncPayload>("shelf_books")
                 shelved.onEvent(created(shelfBook(sortOrder = 0, revision = 5)))
-                val row = db.shelfBookDao().findByShelfAndBook("s1", "b1")!!
-                db.shelfBookDao().upsert(row.copy(sortOrder = 3))
                 queue.enqueue(OutboxChannels.ShelfBooks, "s1", OpKind.Update, "{}", ME, coalesce = true, signal = false)
 
-                shelved.onEvent(updated(shelfBook(sortOrder = 0, revision = 7)))
+                // Another device adds a different book: a reorder must not hold back the shelf's content.
+                shelved.onEvent(created(shelfBook(sortOrder = 1, revision = 6, id = "w2", bookId = "b2")))
 
-                db.shelfBookDao().findByShelfAndBook("s1", "b1")!!.sortOrder shouldBe 3
+                db.shelfBookDao().findByShelfAndBook("s1", "b2").shouldNotBeNull()
+            }
+        }
+
+        test("book_ratings: a dead-lettered op lifts the shield, so the echo applies") {
+            withShield { db, queue, registry ->
+                val ratings = registry.handler<BookRatingSyncPayload>("book_ratings")
+                ratings.onEvent(created(rating(id = "r1", halfStars = 6, revision = 19)))
+                db.bookRatingDao().upsert(localRating(syncId = "r1", halfStars = 8, revision = 19))
+                val opId = queue.enqueue(OutboxChannels.BookRatings, "b1", OpKind.Upsert, "{}", ME, signal = false)
+                val op = db.pendingOperationV2Dao().get(opId)!!
+                db.pendingOperationV2Dao().update(op.copy(failureCount = MAX_RETRYABLE_ATTEMPTS + 1))
+
+                ratings.onEvent(updated(rating(id = "r1", halfStars = 6, revision = 20)))
+
+                db.bookRatingDao().find("b1", ME)!!.halfStars shouldBe 6
+            }
+        }
+
+        test("book_ratings: with no signed-in user nothing is shielded") {
+            withShield(FakeAuthSession(userId = null, authState = AuthState.Initializing)) { db, queue, registry ->
+                val ratings = registry.handler<BookRatingSyncPayload>("book_ratings")
+                ratings.onEvent(created(rating(id = "r1", halfStars = 6, revision = 19)))
+                db.bookRatingDao().upsert(localRating(syncId = "r1", halfStars = 8, revision = 19))
+                queue.enqueue(OutboxChannels.BookRatings, "b1", OpKind.Upsert, "{}", ME, signal = false)
+
+                ratings.onEvent(updated(rating(id = "r1", halfStars = 6, revision = 20)))
+
+                db.bookRatingDao().find("b1", ME)!!.halfStars shouldBe 6
             }
         }
     })
 
-private fun withShield(block: suspend (ListenUpDatabase, PendingOperationQueue, ClientSyncDomainRegistry) -> Unit) =
-    runTest {
-        val db = createInMemoryTestDatabase()
-        try {
-            val queue =
-                PendingOperationQueue(
-                    dao = db.pendingOperationV2Dao(),
-                    sender = PendingOperationSender { AppResult.Success(Unit) },
-                )
-            val registry = ClientSyncDomainRegistry()
-            registerTestSyncDomains(
-                db = db,
-                registry = registry,
-                authSession = FakeAuthSession(userId = ME),
-                inFlightOutbox = OutboxInFlightQuery(queue::hasQueuedOpFor),
+private fun withShield(
+    authSession: AuthSession = FakeAuthSession(userId = ME),
+    block: suspend (ListenUpDatabase, PendingOperationQueue, ClientSyncDomainRegistry) -> Unit,
+) = runTest {
+    val db = createInMemoryTestDatabase()
+    try {
+        val queue =
+            PendingOperationQueue(
+                dao = db.pendingOperationV2Dao(),
+                sender = PendingOperationSender { AppResult.Success(Unit) },
             )
-            block(db, queue, registry)
-        } finally {
-            db.close()
-        }
+        val registry = ClientSyncDomainRegistry()
+        registerTestSyncDomains(
+            db = db,
+            registry = registry,
+            authSession = authSession,
+            inFlightOutbox = OutboxInFlightQuery(queue::hasQueuedOpFor),
+        )
+        block(db, queue, registry)
+    } finally {
+        db.close()
     }
+}
 
 @Suppress("UNCHECKED_CAST")
 private fun <T : Any> ClientSyncDomainRegistry.handler(name: String): SyncDomainHandler<T> = lookup(name) as SyncDomainHandler<T>
@@ -248,10 +281,12 @@ private fun localRating(
 private fun shelfBook(
     sortOrder: Int,
     revision: Long,
+    id: String = "w1",
+    bookId: String = "b1",
 ) = ShelfBookSyncPayload(
-    id = "w1",
+    id = id,
     shelfId = "s1",
-    bookId = "b1",
+    bookId = bookId,
     sortOrder = sortOrder,
     revision = revision,
     updatedAt = revision,

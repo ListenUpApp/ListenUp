@@ -64,6 +64,7 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
         outboxKeying =
             OutboxKeying(
                 keysOf = { setOf(junctionOutboxKey(it.collectionId, it.bookId)) },
+                // Correct but coarse: re-pulls the whole collection's membership per wave, costly on a large one.
                 refetchFor = { key -> TargetedFetch.ByCollectionIds(listOf(junctionOutboxParent(key))) },
             ),
     )

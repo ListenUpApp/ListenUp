@@ -19,10 +19,16 @@ import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
  *
  * **Outbox writes.** Adding and removing a book write the junction optimistically and queue a
  * durable op on [OutboxChannels.ShelfBooks], keyed by the `"$shelfId:$bookId"` pair — not the wire
- * id — and a reorder by the bare shelf id, so the in-flight shield looks a junction echo up under
- * both. Unlike book_tags/book_moods, add is offline-first too — the book already exists, so no server
- * id is minted. No targeted fetch can re-read a drained op: the server serves this user-scoped,
- * ungated domain nothing by id, so its echoes converge through `?since=` catch-up and the digest.
+ * id — so the in-flight shield looks a junction echo up by its pair. Unlike book_tags/book_moods,
+ * add is offline-first too — the book already exists, so no server id is minted. No targeted fetch
+ * can re-read a drained op: the server serves this user-scoped, ungated domain nothing by id, so its
+ * echoes converge through `?since=` catch-up and the digest.
+ *
+ * **A reorder is deliberately NOT shielded.** Its op is keyed by the bare shelf id, and shielding
+ * under that key would hold back every frame for the shelf — including another device adding a
+ * different book. With no targeted refetch here, that book would stay missing until the next
+ * lifecycle pass. A stale echo may briefly flicker a queued reorder instead; the reorder's own echo
+ * restores the order when it drains. Missing content is worse than a transient order.
  */
 internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfBookSyncPayload> {
     val apply = ShelfBookMirrorApply(database)
@@ -35,7 +41,7 @@ internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfB
         writes = WriteTier.Outbox(OutboxChannels.ShelfBooks),
         outboxKeying =
             OutboxKeying(
-                keysOf = { setOf(junctionOutboxKey(it.shelfId, it.bookId), it.shelfId) },
+                keysOf = { setOf(junctionOutboxKey(it.shelfId, it.bookId)) },
                 refetchFor = { null },
             ),
     )
