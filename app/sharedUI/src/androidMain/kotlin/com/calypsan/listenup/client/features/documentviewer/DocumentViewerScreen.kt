@@ -35,7 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -61,7 +61,11 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.core.IODispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -81,7 +85,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * Full-screen PDF viewer for a locally cached supplement document.
  *
  * Renders the file at [path] page-by-page using [PdfRendererWrapper] (backed by
- * [android.graphics.pdf.PdfRenderer]).  Each page is rendered lazily on [Dispatchers.Default]
+ * [android.graphics.pdf.PdfRenderer]), opened on the IO dispatcher behind a loading state.  Each page is rendered lazily on [Dispatchers.Default]
  * behind a [Mutex] (PdfRenderer is single-threaded), then displayed in a [LazyColumn].
  *
  * A pinch-to-zoom gesture layer wraps the page list. Chrome (top bar + bottom dock) is
@@ -102,13 +106,10 @@ internal fun DocumentViewerScreen(
     path: String,
     onBack: () -> Unit,
 ) {
-    // Open the renderer once per distinct path; close it when path changes or composable leaves.
-    val wrapper = remember(path) { runCatching { PdfRendererWrapper(path) }.getOrNull() }
-    DisposableEffect(path) {
-        onDispose { wrapper?.close() }
-    }
-
     val renderMutex = remember(path) { Mutex() }
+    val document by rememberPdfDocument(path, renderMutex)
+    val wrapper = (document as? PdfDocument.Ready)?.wrapper
+
     val listState = rememberLazyListState()
     val firstVisible = listState.firstVisibleItemIndex
     val scope = rememberCoroutineScope()
@@ -116,7 +117,9 @@ internal fun DocumentViewerScreen(
     // Playback state — reuse the process-singleton NowPlayingViewModel, same as the shell.
     val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
     val nowPlayingScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
-    val nowPlayingProgress by nowPlayingViewModel.progress.collectAsStateWithLifecycle()
+    // Held as a State and read only by the strip's time-left line, so the position tick does not
+    // recompose the page list — the same deferral NowPlayingHost uses.
+    val nowPlayingProgress = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
 
     var chromeVisible by remember { mutableStateOf(true) }
     var showGrid by remember { mutableStateOf(false) }
@@ -134,7 +137,7 @@ internal fun DocumentViewerScreen(
             ReaderBottomDock(
                 chromeVisible = chromeVisible,
                 nowPlayingState = nowPlayingScreenState.state,
-                nowPlayingProgress = nowPlayingProgress,
+                nowPlayingProgress = { nowPlayingProgress.value },
                 onPlayPause = nowPlayingViewModel::playPause,
                 wrapper = wrapper,
                 firstVisible = firstVisible,
@@ -149,7 +152,7 @@ internal fun DocumentViewerScreen(
                     .padding(paddingValues),
         ) {
             if (wrapper == null) {
-                ErrorContent()
+                if (document == PdfDocument.Opening) OpeningContent() else ErrorContent()
             } else {
                 val pageCount = wrapper.pageCount
                 // Outer Box: tap-to-toggle chrome without consuming zoom/pan gestures.
@@ -206,6 +209,65 @@ internal fun DocumentViewerScreen(
                 }
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Opening the document
+// ---------------------------------------------------------------------------
+
+/** Where the document is on its way to the screen. */
+private sealed interface PdfDocument {
+    /** The file is being opened off the main thread. */
+    data object Opening : PdfDocument
+
+    /** The file could not be opened as a PDF. */
+    data object Failed : PdfDocument
+
+    /** Open, and owned by the composition until it leaves. */
+    data class Ready(
+        val wrapper: PdfRendererWrapper,
+    ) : PdfDocument
+}
+
+/**
+ * Opens [path] on the IO dispatcher and closes it when the screen leaves or the path changes.
+ *
+ * Opening a PDF reads the file's cross-reference table, which on a large scan is long enough to
+ * drop frames if it runs in composition. The close waits for [renderMutex], so a page still being
+ * rendered on another thread finishes before the renderer under it is torn down.
+ */
+@Composable
+private fun rememberPdfDocument(
+    path: String,
+    renderMutex: Mutex,
+): State<PdfDocument> =
+    produceState<PdfDocument>(initialValue = PdfDocument.Opening, path, renderMutex) {
+        var opened: PdfRendererWrapper? = null
+        try {
+            // Assigned inside the block, so a wrapper opened just as the screen left is still seen
+            // by the finally below and closed rather than leaked.
+            withContext(IODispatcher) { opened = runCatching { PdfRendererWrapper(path) }.getOrNull() }
+            value = opened?.let { PdfDocument.Ready(it) } ?: PdfDocument.Failed
+            awaitCancellation()
+        } finally {
+            opened?.let { wrapper ->
+                withContext(NonCancellable + IODispatcher) { renderMutex.withLock { wrapper.close() } }
+            }
+        }
+    }
+
+@Composable
+private fun OpeningContent() {
+    val loadingDescription = stringResource(Res.string.book_detail_document_viewer_loading)
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .semantics { contentDescription = loadingDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        ListenUpLoadingIndicator()
     }
 }
 
@@ -301,7 +363,7 @@ private fun ReaderTopBar(
 private fun ReaderBottomDock(
     chromeVisible: Boolean,
     nowPlayingState: NowPlayingState,
-    nowPlayingProgress: PlaybackProgress,
+    nowPlayingProgress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     wrapper: PdfRendererWrapper?,
     firstVisible: Int,
