@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,6 +60,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +93,8 @@ import listenup.composeapp.generated.resources.common_read_more
 import listenup.composeapp.generated.resources.shelf_add_books_from_the_library
 import listenup.composeapp.generated.resources.shelf_books_in_shelf
 import listenup.composeapp.generated.resources.shelf_edit_shelf
+import listenup.composeapp.generated.resources.shelf_move_earlier
+import listenup.composeapp.generated.resources.shelf_move_later
 import listenup.composeapp.generated.resources.shelf_title_fallback
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -237,6 +241,8 @@ private fun ShelfDetailContent(
     // was it. See ShelfBookSort.MANUAL.
     val canReorder = isOwner && sort == ShelfBookSort.MANUAL
     var draggingKey by remember(sortedBooks, canReorder) { mutableStateOf<String?>(null) }
+    val moveEarlierLabel = stringResource(Res.string.shelf_move_earlier)
+    val moveLaterLabel = stringResource(Res.string.shelf_move_later)
     var dragPosition by remember { mutableStateOf(Offset.Zero) }
 
     fun dropAt(position: Offset) {
@@ -359,12 +365,23 @@ private fun ShelfDetailContent(
                 ShelfEmptyState(isOwner = isOwner)
             }
         } else {
-            items(items = sortedBooks, key = { it.id.value }) { book ->
+            itemsIndexed(items = sortedBooks, key = { _, book -> book.id.value }) { index, book ->
+                val reorderActions =
+                    if (canReorder) {
+                        shelfReorderActions(sortedBooks, index, moveEarlierLabel, moveLaterLabel) { reordered ->
+                            onReorder(reordered.map { it.id.value })
+                        }
+                    } else {
+                        emptyList()
+                    }
                 ShelfBookGridItem(
                     book = book,
                     isLifted = book.id.value == draggingKey,
                     onClick = { onBookClick(book.id.value) },
-                    modifier = Modifier.animateItem(),
+                    modifier =
+                        Modifier
+                            .animateItem()
+                            .semantics { if (reorderActions.isNotEmpty()) customActions = reorderActions },
                 )
             }
         }
