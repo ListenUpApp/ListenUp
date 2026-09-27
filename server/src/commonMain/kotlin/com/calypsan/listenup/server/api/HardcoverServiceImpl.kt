@@ -21,8 +21,9 @@ import kotlinx.coroutines.flow.map
  *
  * [clientIdConfigured] is false when the operator hasn't set `hardcover.clientId`: the integration
  * is off, and [startLink] answers [HardcoverError.NotConfigured] before anything reaches Hardcover.
- * Watching and disconnecting still work, so a connection made before the id was cleared can still
- * be seen and ended.
+ * A caller with no connection then watches [HardcoverConnection.NotOffered], so clients hide the
+ * entry instead of offering a dead end. Watching and disconnecting still work, so a connection made
+ * before the id was cleared can still be seen and ended.
  *
  * Route handlers call [copyWith] to bind each connection to the authenticated principal. Without
  * one, every method fails closed with [AuthError.PermissionDenied].
@@ -49,7 +50,7 @@ class HardcoverServiceImpl(
                 emit(RpcEvent.Error(AuthError.PermissionDenied()))
                 return@flow
             }
-            emitAll(linker.observe(userId).map { RpcEvent.Data(it) })
+            emitAll(linker.observe(userId).map { RpcEvent.Data(it.offeredOrNot()) })
         }
 
     override suspend fun disconnect(): AppResult<Unit> {
@@ -57,6 +58,9 @@ class HardcoverServiceImpl(
         linker.disconnect(userId)
         return AppResult.Success(Unit)
     }
+
+    private fun HardcoverConnection.offeredOrNot(): HardcoverConnection =
+        if (!clientIdConfigured && this is HardcoverConnection.NotConnected) HardcoverConnection.NotOffered else this
 
     private fun callerId(): String? = principal.current()?.userId?.value
 

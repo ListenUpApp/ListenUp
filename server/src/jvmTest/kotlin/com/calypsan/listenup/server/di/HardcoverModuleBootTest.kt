@@ -36,7 +36,7 @@ class HardcoverModuleBootTest :
                 .accessToken
                 .value
 
-        test("with no client id the server boots, and connecting answers NotConfigured") {
+        test("with no client id the server boots, Hardcover reads as not offered, and connecting answers NotConfigured") {
             testApplication {
                 useIsolatedTestConfig()
                 application {
@@ -47,7 +47,7 @@ class HardcoverModuleBootTest :
                 val service = authedService<HardcoverService>(rootToken())
 
                 service.startLink().shouldFailWith<HardcoverError.NotConfigured>()
-                service.observeConnection().first() shouldBe RpcEvent.Data(HardcoverConnection.NotConnected())
+                service.observeConnection().first() shouldBe RpcEvent.Data(HardcoverConnection.NotOffered)
                 service.disconnect().shouldSucceed()
             }
         }

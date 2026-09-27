@@ -22,6 +22,7 @@ class HardcoverContractTest :
             )
 
         listOf<HardcoverConnection>(
+            HardcoverConnection.NotOffered,
             HardcoverConnection.NotConnected(lastLinkFailure = null),
             HardcoverConnection.NotConnected(lastLinkFailure = HardcoverLinkFailure.DENIED),
             HardcoverConnection.Linking(prompt),

@@ -124,6 +124,26 @@ class HardcoverServiceImplTest :
             }
         }
 
+        test("with no Hardcover client id and no connection, the stream says Hardcover isn't offered here") {
+            serviceTest(clientIdConfigured = false) {
+                serviceFor(USER).observeConnection().test {
+                    awaitItem() shouldBe RpcEvent.Data(HardcoverConnection.NotOffered)
+                }
+            }
+        }
+
+        test("with no Hardcover client id, an existing connection still shows, so it can be ended") {
+            serviceTest(clientIdConfigured = false) {
+                seedConnected(USER)
+                serviceFor(USER).observeConnection().test {
+                    awaitItem()
+                        .shouldBeInstanceOf<RpcEvent.Data<HardcoverConnection>>()
+                        .value
+                        .shouldBeInstanceOf<HardcoverConnection.Connected>()
+                }
+            }
+        }
+
         test("without a principal every method is PermissionDenied, and the stream emits the denial and ends") {
             serviceTest {
                 unscoped

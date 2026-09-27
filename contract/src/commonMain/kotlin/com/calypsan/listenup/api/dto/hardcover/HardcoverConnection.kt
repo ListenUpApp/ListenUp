@@ -45,6 +45,14 @@ enum class HardcoverBrokenReason {
 /** The state of the calling user's Hardcover connection, as [com.calypsan.listenup.api.HardcoverService.observeConnection] streams it. */
 @Serializable
 sealed interface HardcoverConnection {
+    /**
+     * This server has no Hardcover app configured and the caller has no connection, so there is
+     * nothing to show: clients hide the Hardcover entry entirely rather than offer a dead end.
+     */
+    @Serializable
+    @SerialName("HardcoverConnection.NotOffered")
+    data object NotOffered : HardcoverConnection
+
     /** Not connected. [lastLinkFailure] says why the most recent attempt ended, if one just did. */
     @Serializable
     @SerialName("HardcoverConnection.NotConnected")
