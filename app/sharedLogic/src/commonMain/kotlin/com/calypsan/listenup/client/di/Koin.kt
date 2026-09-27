@@ -49,6 +49,7 @@ internal val sharedModules =
         shelfModule,
         genreTagModule,
         notificationClientModule,
+        hardcoverClientModule,
         searchModule,
         mediaModule,
         adminModule,
