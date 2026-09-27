@@ -34,15 +34,23 @@ class BookRatingRepositoryImplTest :
                 val db = createInMemoryTestDatabase()
                 val repo = repo(db)
 
-                repo.rate("b1", 6, null)
-                repo.rate("b1", 8, " Great. ")
-                repo.rate("b1", 7, "Great.")
+                repo.rate("b1", 6, null).shouldBeInstanceOf<AppResult.Success<*>>()
+                repo.rate("b1", 8, " Great. ").shouldBeInstanceOf<AppResult.Success<*>>()
+                repo.rate("b1", 7, "Great.").shouldBeInstanceOf<AppResult.Success<*>>()
 
                 val mine = repo.observeForBook("b1").first().single()
                 mine.userId shouldBe "me"
                 mine.halfStars shouldBe 7
                 mine.note shouldBe "Great."
-                db.pendingOperationV2Dao().nextDispatchable().size shouldBe 1
+                val syncId =
+                    db
+                        .bookRatingDao()
+                        .find("b1", "me")
+                        .shouldNotBeNull()
+                        .syncId
+                val op = db.pendingOperationV2Dao().nextDispatchable().single()
+                contractJson.decodeFromString<BookRatingMutation>(op.payload) shouldBe
+                    BookRatingMutation.Set(bookId = "b1", candidateId = syncId, halfStars = 7, note = "Great.")
                 db.close()
             }
         }
@@ -52,10 +60,26 @@ class BookRatingRepositoryImplTest :
                 val db = createInMemoryTestDatabase()
                 val repo = repo(db)
 
-                repo.rate("b1", 6, null)
-                repo.clear("b1")
+                repo.rate("b1", 6, null).shouldBeInstanceOf<AppResult.Success<*>>()
+                repo.clear("b1").shouldBeInstanceOf<AppResult.Success<*>>()
 
                 repo.observeForBook("b1").first() shouldBe emptyList()
+                val op = db.pendingOperationV2Dao().nextDispatchable().single()
+                op.domainName shouldBe OutboxChannels.BookRatings.name
+                contractJson.decodeFromString<BookRatingMutation>(op.payload) shouldBe BookRatingMutation.Clear("b1")
+                db.close()
+            }
+        }
+
+        test("clear on a never-rated book queues one Clear op and leaves no local row") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val repo = repo(db)
+
+                repo.clear("b1").shouldBeInstanceOf<AppResult.Success<*>>()
+
+                repo.observeForBook("b1").first() shouldBe emptyList()
+                db.bookRatingDao().find("b1", "me").shouldBeNull()
                 val op = db.pendingOperationV2Dao().nextDispatchable().single()
                 op.domainName shouldBe OutboxChannels.BookRatings.name
                 contractJson.decodeFromString<BookRatingMutation>(op.payload) shouldBe BookRatingMutation.Clear("b1")
@@ -68,15 +92,15 @@ class BookRatingRepositoryImplTest :
                 val db = createInMemoryTestDatabase()
                 val repo = repo(db)
 
-                repo.rate("b1", 6, null)
+                repo.rate("b1", 6, null).shouldBeInstanceOf<AppResult.Success<*>>()
                 val originalSyncId =
                     db
                         .bookRatingDao()
                         .find("b1", "me")
                         .shouldNotBeNull()
                         .syncId
-                repo.clear("b1")
-                repo.rate("b1", 9, null)
+                repo.clear("b1").shouldBeInstanceOf<AppResult.Success<*>>()
+                repo.rate("b1", 9, null).shouldBeInstanceOf<AppResult.Success<*>>()
 
                 val row = db.bookRatingDao().find("b1", "me").shouldNotBeNull()
                 row.syncId shouldBe originalSyncId
@@ -85,6 +109,29 @@ class BookRatingRepositoryImplTest :
                 val decoded = contractJson.decodeFromString<BookRatingMutation>(op.payload)
                 decoded.shouldBeInstanceOf<BookRatingMutation.Set>()
                 (decoded as BookRatingMutation.Set).candidateId shouldBe originalSyncId
+                db.close()
+            }
+        }
+
+        test("rate, clear, then rate again leaves exactly one queued op — the final Set") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val repo = repo(db)
+
+                repo.rate("b1", 6, null).shouldBeInstanceOf<AppResult.Success<*>>()
+                repo.clear("b1").shouldBeInstanceOf<AppResult.Success<*>>()
+                repo.rate("b1", 9, "Loved it.").shouldBeInstanceOf<AppResult.Success<*>>()
+
+                val syncId =
+                    db
+                        .bookRatingDao()
+                        .find("b1", "me")
+                        .shouldNotBeNull()
+                        .syncId
+                val ops = db.pendingOperationV2Dao().nextDispatchable()
+                ops.size shouldBe 1
+                contractJson.decodeFromString<BookRatingMutation>(ops.single().payload) shouldBe
+                    BookRatingMutation.Set(bookId = "b1", candidateId = syncId, halfStars = 9, note = "Loved it.")
                 db.close()
             }
         }

@@ -59,9 +59,14 @@ insert:
 INSERT INTO book_ratings (id, book_id, user_id, half_stars, note, rated_at, created_at, updated_at, revision, deleted_at, client_op_id)
 VALUES (:id, :book_id, :user_id, :half_stars, :note, :rated_at, :created_at, :updated_at, :revision, NULL, :client_op_id);
 
--- Re-rating (or reviving a cleared rating) keeps the row's id and first rated_at.
+-- Re-rating an already-live row keeps its first rated_at; reviving a TOMBSTONED one resets
+-- rated_at to :rated_at (the caller's "now") — a rate() that follows a clear() is a new rating
+-- event, not an edit of the old one. `deleted_at` on the right-hand side reads the pre-update
+-- (old) row, same as every other column referenced there, so this correctly tests the state this
+-- very statement's own `deleted_at = NULL` is about to reconcile away.
 update:
 UPDATE book_ratings
 SET half_stars = :half_stars, note = :note, updated_at = :updated_at, revision = :revision,
+    rated_at = CASE WHEN deleted_at IS NOT NULL THEN :rated_at ELSE rated_at END,
     deleted_at = NULL, client_op_id = :client_op_id
 WHERE book_id = :book_id AND user_id = :user_id;

@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Instant
 
 /**
  * Tests for [BookRatingRepository] — the `book_ratings` syncable repository. Covers the
@@ -99,6 +101,27 @@ class BookRatingRepositoryTest :
                         .first { it.userId == "u1" }
                         .deletedAt
                         .shouldBeNull()
+                }
+            }
+        }
+
+        test("re-rating after a clear is dated from the new rating, not the old one") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("u1")
+                val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                val repo =
+                    BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver, clock = clock)
+                runTest {
+                    repo.upsert(rating("u1", 6, candidate = "r1")).shouldBeInstanceOf<AppResult.Success<*>>()
+                    repo.clear(bookId = "book1", userId = "u1").shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    clock.instant = Instant.fromEpochMilliseconds(9_000L)
+                    val revived = repo.upsert(rating("u1", 8, candidate = "r1"))
+
+                    val stored = revived.shouldBeInstanceOf<AppResult.Success<BookRatingSyncPayload>>().data
+                    stored.ratedAt shouldBe 9_000L
                 }
             }
         }

@@ -56,7 +56,7 @@ internal class BookRatingRepositoryImpl(
             return AppResult.Failure(
                 ErrorMapper.map(
                     ClientValidationException(
-                        userMessage = "Choose a rating between half a star and five stars.",
+                        userMessage = "Choose a rating between one and five stars.",
                         field = "halfStars",
                     ),
                 ),

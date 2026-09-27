@@ -199,6 +199,7 @@ class BookRatingRepository(
                         note = value.note,
                         updated_at = now,
                         revision = rev,
+                        rated_at = now,
                         client_op_id = clientOpId,
                         book_id = value.bookId,
                         user_id = value.userId,
