@@ -185,18 +185,6 @@ private val EXCUSED =
         "SearchViewModel.setTypeFilter",
         // Web signs out through AuthGraph.signOut() — see AuthGate.
         "SettingsViewModel.signOut",
-        // ⛔ CORRECTION (2026-09-18). These five were filed as a GAP — "a book cannot be tagged
-        // from the browser" — and that was WRONG. No client wires BookDetailViewModel's tag API:
-        // not Android, not iOS, not web. It is dead code on the ViewModel. Tag editing lives on
-        // the Book EDIT screen, through BookEditViewModel, which web has in full (search, attach,
-        // detach, invent — see BookEditPage's RelationField). Wiring these on web would build a
-        // detail-page picker no other platform has AND give web a second tag surface. The
-        // derivation that found them cannot see a capability that lives on a different ViewModel.
-        "BookDetailViewModel.addTag",
-        "BookDetailViewModel.addNewTag",
-        "BookDetailViewModel.removeTag",
-        "BookDetailViewModel.showTagPicker",
-        "BookDetailViewModel.hideTagPicker",
         // Loaded by the ViewModel itself — from `init`, and again when an admin event says the
         // inbox changed. No client wires it because none needs to; it is public by accident.
         "AdminInboxViewModel.loadScanIssues",

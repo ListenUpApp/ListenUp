@@ -151,7 +151,6 @@ class BookDetailViewModel(
             isDiscardingProgress = previous.isDiscardingProgress,
             isRestarting = previous.isRestarting,
             isLoadingTags = previous.isLoadingTags,
-            showTagPicker = previous.showTagPicker,
             showShelfPicker = previous.showShelfPicker,
             isAddingToShelf = previous.isAddingToShelf,
             shelfError = previous.shelfError,
@@ -378,85 +377,6 @@ class BookDetailViewModel(
             tags = detail.tags,
             moods = detail.moods,
         )
-    }
-
-    /**
-     * Show the tag picker sheet.
-     */
-    fun showTagPicker() {
-        updateReady { it.copy(showTagPicker = true) }
-    }
-
-    /**
-     * Hide the tag picker sheet.
-     */
-    fun hideTagPicker() {
-        updateReady { it.copy(showTagPicker = false) }
-    }
-
-    /**
-     * Add a tag to the current book.
-     *
-     * @param slug The tag slug to add
-     */
-    fun addTag(slug: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
-        viewModelScope.launch {
-            when (val result = tagRepository.addTagToBook(bookId, slug)) {
-                is AppResult.Success -> { /* Observer will update UI automatically */ }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to add tag '$slug' to book $bookId: ${result.error.message}" }
-                }
-            }
-        }
-    }
-
-    /**
-     * Remove a tag from the current book.
-     *
-     * @param slug The tag slug to remove
-     */
-    fun removeTag(slug: String) {
-        val ready = state.value as? BookDetailUiState.Ready ?: return
-        val bookId = ready.book.id.value
-        val tag = ready.tags.find { it.slug == slug } ?: return
-        viewModelScope.launch {
-            when (val result = tagRepository.removeTagFromBook(bookId, slug, tag.id)) {
-                is AppResult.Success -> { /* Observer will update UI automatically */ }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to remove tag '$slug' from book $bookId: ${result.error.message}" }
-                }
-            }
-        }
-    }
-
-    /**
-     * Add a new tag to the current book.
-     *
-     * The raw input will be normalized to a slug by the server.
-     * If the tag doesn't exist, it will be created.
-     *
-     * @param rawInput The tag text to add (will be normalized)
-     */
-    fun addNewTag(rawInput: String) {
-        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
-        viewModelScope.launch {
-            when (val result = tagRepository.addTagToBook(bookId, rawInput)) {
-                is AppResult.Success -> {
-                    // Observer will update UI automatically
-                    hideTagPicker()
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to add tag '$rawInput' to book $bookId: ${result.error.message}" }
-                }
-            }
-        }
     }
 
     /**
@@ -805,7 +725,6 @@ sealed interface BookDetailUiState {
         val allTags: List<Tag> = emptyList(),
         val moods: List<Mood> = emptyList(),
         val isLoadingTags: Boolean = false,
-        val showTagPicker: Boolean = false,
         val showShelfPicker: Boolean = false,
         val isAddingToShelf: Boolean = false,
         val shelfError: String? = null,
