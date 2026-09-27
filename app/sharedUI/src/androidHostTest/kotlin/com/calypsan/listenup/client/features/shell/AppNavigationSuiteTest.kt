@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.features.shell
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -88,19 +90,55 @@ class AppNavigationSuiteTest {
     }
 
     @Test
-    fun tappingRailLogoutInvokesSignOut() {
-        var signedOut = false
+    fun tappingRailLogoutAsksBeforeSigningOut() {
+        var signOuts = 0
+        setRail(onSignOut = { signOuts++ })
+
+        composeRule.onNodeWithText("Logout").performClick()
+
+        composeRule.onNodeWithText(SIGN_OUT_BODY).assertIsDisplayed()
+        signOuts shouldBe 0
+    }
+
+    @Test
+    fun confirmingRailLogoutSignsOutOnce() {
+        var signOuts = 0
+        setRail(onSignOut = { signOuts++ })
+
+        composeRule.onNodeWithText("Logout").performClick()
+        composeRule.onNode(hasText("Sign Out") and hasClickAction()).performClick()
+
+        signOuts shouldBe 1
+        composeRule.onNodeWithText(SIGN_OUT_BODY).assertDoesNotExist()
+    }
+
+    @Test
+    fun dismissingRailLogoutStaysSignedIn() {
+        var signOuts = 0
+        setRail(onSignOut = { signOuts++ })
+
+        composeRule.onNodeWithText("Logout").performClick()
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        signOuts shouldBe 0
+        composeRule.onNodeWithText(SIGN_OUT_BODY).assertDoesNotExist()
+    }
+
+    private fun setRail(onSignOut: () -> Unit) {
         composeRule.setContent {
             MaterialTheme {
                 AppNavigationSuite(
                     navType = ShellNavType.RailExpanded,
                     currentDestination = ShellDestination.Home,
                     onDestinationSelected = {},
-                    onSignOut = { signedOut = true },
+                    onSignOut = onSignOut,
                 )
             }
         }
-        composeRule.onNodeWithText("Logout").performClick()
-        signedOut shouldBe true
+    }
+
+    private companion object {
+        const val SIGN_OUT_BODY =
+            "Are you sure you want to sign out? You'll need to sign in again to access your library."
     }
 }

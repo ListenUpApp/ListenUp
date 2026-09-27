@@ -46,7 +46,6 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,7 +55,6 @@ import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -73,6 +71,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.SettingToggleRow
+import com.calypsan.listenup.client.design.components.SignOutConfirmDialog
 import com.calypsan.listenup.client.design.components.ValuePill
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.ThemeMode
@@ -84,7 +83,6 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_account
 import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_library
 import listenup.composeapp.generated.resources.common_playback
 import listenup.composeapp.generated.resources.common_server
@@ -97,7 +95,6 @@ import listenup.composeapp.generated.resources.player_boost_db
 import listenup.composeapp.generated.resources.player_boost_off
 import listenup.composeapp.generated.resources.settings_app_version
 import listenup.composeapp.generated.resources.settings_appearance
-import listenup.composeapp.generated.resources.settings_are_you_sure_you_want
 import listenup.composeapp.generated.resources.settings_autorewind_on_resume
 import listenup.composeapp.generated.resources.settings_autostart_sleep_timer_when_playing
 import listenup.composeapp.generated.resources.settings_boost_used_for_new_books
@@ -223,39 +220,17 @@ fun SettingsScreen(
     showSleepTimer: Boolean = true,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
-    val haptics = LocalHaptics.current
     val platformActions: SettingsPlatformActions = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
-    // Sign out confirmation dialog
     if (showSignOutDialog) {
-        AlertDialog(
-            onDismissRequest = { showSignOutDialog = false },
-            shape = MaterialTheme.shapes.large,
-            title = { Text(stringResource(Res.string.common_sign_out)) },
-            text = { Text(stringResource(Res.string.settings_are_you_sure_you_want)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        haptics.commit()
-                        viewModel.signOut()
-                        showSignOutDialog = false
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_sign_out))
-                }
+        SignOutConfirmDialog(
+            onConfirm = {
+                viewModel.signOut()
+                showSignOutDialog = false
             },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        showSignOutDialog = false
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_cancel))
-                }
-            },
+            onDismiss = { showSignOutDialog = false },
         )
     }
 
