@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.admin.organize
 
-import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.components.SectionColumns
+import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.organize.OrganizeAuthorForm
 import com.calypsan.listenup.api.dto.organize.OrganizePreset
+import com.calypsan.listenup.api.dto.organize.OrganizeSettingsDto
 import com.calypsan.listenup.api.dto.organize.OrganizePreviewDto
 import com.calypsan.listenup.api.dto.organize.OrganizeSeriesPrefix
 import com.calypsan.listenup.client.design.components.ColorBlockHero
@@ -170,7 +174,10 @@ fun OrganizeSettingsScreen(
             is OrganizeSettingsUiState.Ready -> {
                 OrganizeSettingsContent(
                     state = current,
-                    viewModel = viewModel,
+                    onPresetChange = viewModel::setPreset,
+                    onSeriesPrefixChange = viewModel::setSeriesPrefix,
+                    onAuthorFormChange = viewModel::setAuthorForm,
+                    onOrganize = viewModel::organize,
                     innerPadding = innerPadding,
                 )
                 current.preview?.let { preview ->
@@ -192,101 +199,154 @@ fun OrganizeSettingsScreen(
     }
 }
 
+/**
+ * The schema pickers and the Organize Library sweep, under the hero. A phone stacks the pickers over
+ * a full-width sweep button. From the medium width up the pickers sit side by side in
+ * [SectionColumns] — each is a short list of choices, so a tablet sees the whole schema at once —
+ * with the sweep beneath them at its natural width, clear of the Save FAB.
+ */
 @Composable
-private fun OrganizeSettingsContent(
+internal fun OrganizeSettingsContent(
     state: OrganizeSettingsUiState.Ready,
-    viewModel: OrganizeSettingsViewModel,
+    onPresetChange: (OrganizePreset) -> Unit,
+    onSeriesPrefixChange: (OrganizeSeriesPrefix) -> Unit,
+    onAuthorFormChange: (OrganizeAuthorForm) -> Unit,
+    onOrganize: () -> Unit,
     innerPadding: PaddingValues,
 ) {
     val settings = state.settings
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    val structure: @Composable () -> Unit = { StructurePicker(settings = settings, onPresetChange = onPresetChange) }
+    val seriesPrefix: @Composable () -> Unit = { SeriesPrefixPicker(settings = settings, onSeriesPrefixChange = onSeriesPrefixChange) }
+    val authorForm: @Composable () -> Unit = { AuthorFormPicker(settings = settings, onAuthorFormChange = onAuthorFormChange) }
+    val showsSeriesPrefix = settings.preset == OrganizePreset.AUTHOR_SERIES_TITLE
+    val showsAuthorForm = settings.preset != OrganizePreset.FLAT_TITLE
+
     Column(
         modifier =
             Modifier
                 .padding(innerPadding)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = if (isWide) Spacing.screenMargin else 16.dp)
                 .padding(top = 12.dp, bottom = FabClearance),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Column(
-            modifier = Modifier.widthIn(max = ReadingMaxWidth),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            SectionGroup(
-                label = stringResource(Res.string.admin_organize_structure),
-                icon = Icons.Outlined.Folder,
-            ) {
-                RadioRow(
-                    label = stringResource(Res.string.admin_organize_preset_author_series_title),
-                    selected = settings.preset == OrganizePreset.AUTHOR_SERIES_TITLE,
-                ) { viewModel.setPreset(OrganizePreset.AUTHOR_SERIES_TITLE) }
-                RadioRow(
-                    label = stringResource(Res.string.admin_organize_preset_author_title),
-                    selected = settings.preset == OrganizePreset.AUTHOR_TITLE,
-                ) { viewModel.setPreset(OrganizePreset.AUTHOR_TITLE) }
-                RadioRow(
-                    label = stringResource(Res.string.admin_organize_preset_flat_title),
-                    selected = settings.preset == OrganizePreset.FLAT_TITLE,
-                ) { viewModel.setPreset(OrganizePreset.FLAT_TITLE) }
+        if (isWide) {
+            SectionColumns {
+                section(structure)
+                if (showsSeriesPrefix) section(seriesPrefix)
+                if (showsAuthorForm) section(authorForm)
             }
-
-            if (settings.preset == OrganizePreset.AUTHOR_SERIES_TITLE) {
-                SectionGroup(
-                    label = stringResource(Res.string.admin_organize_series_prefix),
-                    icon = Icons.Outlined.Tag,
-                ) {
-                    RadioRow(
-                        label = stringResource(Res.string.admin_organize_prefix_book_n_dash),
-                        selected = settings.seriesPrefix == OrganizeSeriesPrefix.BOOK_N_DASH,
-                    ) { viewModel.setSeriesPrefix(OrganizeSeriesPrefix.BOOK_N_DASH) }
-                    RadioRow(
-                        label = stringResource(Res.string.admin_organize_prefix_n_dash),
-                        selected = settings.seriesPrefix == OrganizeSeriesPrefix.N_DASH,
-                    ) { viewModel.setSeriesPrefix(OrganizeSeriesPrefix.N_DASH) }
-                    RadioRow(
-                        label = stringResource(Res.string.admin_organize_prefix_bracket_n),
-                        selected = settings.seriesPrefix == OrganizeSeriesPrefix.BRACKET_N,
-                    ) { viewModel.setSeriesPrefix(OrganizeSeriesPrefix.BRACKET_N) }
-                    RadioRow(
-                        label = stringResource(Res.string.admin_organize_prefix_none),
-                        selected = settings.seriesPrefix == OrganizeSeriesPrefix.NONE,
-                    ) { viewModel.setSeriesPrefix(OrganizeSeriesPrefix.NONE) }
-                }
-            }
-
-            if (settings.preset != OrganizePreset.FLAT_TITLE) {
-                SectionGroup(
-                    label = stringResource(Res.string.admin_organize_author_form),
-                    icon = Icons.Outlined.Person,
-                ) {
-                    RadioRow(
-                        label = stringResource(Res.string.admin_organize_author_first_last),
-                        selected = settings.authorForm == OrganizeAuthorForm.FIRST_LAST,
-                    ) { viewModel.setAuthorForm(OrganizeAuthorForm.FIRST_LAST) }
-                    RadioRow(
-                        label = stringResource(Res.string.admin_organize_author_last_first),
-                        selected = settings.authorForm == OrganizeAuthorForm.LAST_FIRST,
-                    ) { viewModel.setAuthorForm(OrganizeAuthorForm.LAST_FIRST) }
-                }
-            }
-
-            // A filled, full-width primary action rather than a trailing text link. This one
-            // moves files on disk, and the affordance should carry the weight of what it starts —
-            // as a right-aligned link it read as an afterthought and was missed entirely on first
-            // use. "Organize Library", not "Apply": the rules are already applied by the Save FAB;
-            // this is the sweep over books that already exist.
-            ListenUpButton(
-                text = stringResource(Res.string.admin_organize_run),
-                onClick = viewModel::organize,
-                enabled = !state.isWorking,
-                isLoading = state.isWorking,
-                // The Save FAB floats over the bottom-end corner, which is exactly where a
-                // full-width button's end sits — on device it covered the button's right edge.
-                // Yield that corner so the two peer actions sit side by side instead of stacked.
-                modifier = Modifier.padding(end = FabInlineGutter),
-            )
+        } else {
+            structure()
+            if (showsSeriesPrefix) seriesPrefix()
+            if (showsAuthorForm) authorForm()
         }
+
+        // A filled primary action (full width on a phone) rather than a trailing text link. This one
+        // moves files on disk, and the affordance should carry the weight of what it starts —
+        // as a right-aligned link it read as an afterthought and was missed entirely on first
+        // use. "Organize Library", not "Apply": the rules are already applied by the Save FAB;
+        // this is the sweep over books that already exist.
+        ListenUpButton(
+            text = stringResource(Res.string.admin_organize_run),
+            onClick = onOrganize,
+            enabled = !state.isWorking,
+            isLoading = state.isWorking,
+            fillMaxWidth = !isWide,
+            // The Save FAB floats over the bottom-end corner, which is exactly where a
+            // full-width button's end sits — on device it covered the button's right edge.
+            // Yield that corner so the two peer actions sit side by side instead of stacked.
+            // On a wide window the button keeps its natural width and never reaches the corner.
+            modifier =
+                if (isWide) {
+                    Modifier.widthIn(min = SweepButtonMinWidth)
+                } else {
+                    Modifier.padding(end = FabInlineGutter)
+                },
+        )
+    }
+}
+
+/** The wide layout's sweep button width floor, so the filled action keeps its weight at natural size. */
+private val SweepButtonMinWidth = 280.dp
+
+/** The folder layout books are filed into. */
+@Composable
+private fun StructurePicker(
+    settings: OrganizeSettingsDto,
+    onPresetChange: (OrganizePreset) -> Unit,
+) {
+    SectionGroup(
+        label = stringResource(Res.string.admin_organize_structure),
+        icon = Icons.Outlined.Folder,
+    ) {
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_preset_author_series_title),
+            selected = settings.preset == OrganizePreset.AUTHOR_SERIES_TITLE,
+        ) { onPresetChange(OrganizePreset.AUTHOR_SERIES_TITLE) }
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_preset_author_title),
+            selected = settings.preset == OrganizePreset.AUTHOR_TITLE,
+        ) { onPresetChange(OrganizePreset.AUTHOR_TITLE) }
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_preset_flat_title),
+            selected = settings.preset == OrganizePreset.FLAT_TITLE,
+        ) { onPresetChange(OrganizePreset.FLAT_TITLE) }
+    }
+}
+
+/** How a series number leads a book's folder name. */
+@Composable
+private fun SeriesPrefixPicker(
+    settings: OrganizeSettingsDto,
+    onSeriesPrefixChange: (OrganizeSeriesPrefix) -> Unit,
+) {
+    SectionGroup(
+        label = stringResource(Res.string.admin_organize_series_prefix),
+        icon = Icons.Outlined.Tag,
+    ) {
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_prefix_book_n_dash),
+            selected = settings.seriesPrefix == OrganizeSeriesPrefix.BOOK_N_DASH,
+        ) { onSeriesPrefixChange(OrganizeSeriesPrefix.BOOK_N_DASH) }
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_prefix_n_dash),
+            selected = settings.seriesPrefix == OrganizeSeriesPrefix.N_DASH,
+        ) { onSeriesPrefixChange(OrganizeSeriesPrefix.N_DASH) }
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_prefix_bracket_n),
+            selected = settings.seriesPrefix == OrganizeSeriesPrefix.BRACKET_N,
+        ) { onSeriesPrefixChange(OrganizeSeriesPrefix.BRACKET_N) }
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_prefix_none),
+            selected = settings.seriesPrefix == OrganizeSeriesPrefix.NONE,
+        ) { onSeriesPrefixChange(OrganizeSeriesPrefix.NONE) }
+    }
+}
+
+/** Whether author folders read first-last or last-first. */
+@Composable
+private fun AuthorFormPicker(
+    settings: OrganizeSettingsDto,
+    onAuthorFormChange: (OrganizeAuthorForm) -> Unit,
+) {
+    SectionGroup(
+        label = stringResource(Res.string.admin_organize_author_form),
+        icon = Icons.Outlined.Person,
+    ) {
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_author_first_last),
+            selected = settings.authorForm == OrganizeAuthorForm.FIRST_LAST,
+        ) { onAuthorFormChange(OrganizeAuthorForm.FIRST_LAST) }
+        RadioRow(
+            label = stringResource(Res.string.admin_organize_author_last_first),
+            selected = settings.authorForm == OrganizeAuthorForm.LAST_FIRST,
+        ) { onAuthorFormChange(OrganizeAuthorForm.LAST_FIRST) }
     }
 }
 
