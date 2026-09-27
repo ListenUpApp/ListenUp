@@ -1,9 +1,7 @@
 package com.calypsan.listenup.client.features.setup.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +39,12 @@ import listenup.composeapp.generated.resources.library_setup_item_count
 import listenup.composeapp.generated.resources.library_setup_item_count_one
 import listenup.composeapp.generated.resources.library_setup_open_folder
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
+import listenup.composeapp.generated.resources.library_setup_include_folder
 
 /** Soft decorative blob echoing the design hero. Purely cosmetic. */
 @Composable
@@ -120,39 +123,11 @@ fun SetupBreadcrumb(
     }
 }
 
-/** The M3 checkbox square: filled brand + white check when [on], outline ring otherwise. */
-@Composable
-fun SetupCheckbox(
-    on: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .size(26.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .then(
-                    if (on) {
-                        Modifier.background(MaterialTheme.colorScheme.primary)
-                    } else {
-                        Modifier.border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                    },
-                ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (on) {
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
-}
+/** Material's minimum touch target — the include checkbox is a real control, not a glyph. */
+private val MIN_TOUCH_TARGET = 48.dp
 
 /**
- * One folder row: icon tile + name + "N items" + checkbox + chevron. When [selected]
+ * One folder row: icon tile + name + "N items" + an "Include {name}" checkbox + chevron. When [selected]
  * the whole row sits on a [primaryContainer] highlight. The chevron only shows when
  * [entry] has children to drill into.
  */
@@ -222,16 +197,26 @@ fun FolderRow(
                 color = subtitleColor,
             )
         }
+        // For a folder with subfolders a tap on the row OPENS it, so this checkbox is the only way
+        // to include the folder: a named, 48dp Role.Checkbox — never a bare glyph.
+        val includeLabel = stringResource(Res.string.library_setup_include_folder, entry.name)
         Box(
             modifier =
                 Modifier
+                    .size(MIN_TOUCH_TARGET)
                     .clip(CircleShape)
-                    .clickableNoRipple {
-                        haptics.toggle(on = !selected)
+                    .toggleable(
+                        value = selected,
+                        interactionSource = null,
+                        indication = null,
+                        role = Role.Checkbox,
+                    ) { on ->
+                        haptics.toggle(on = on)
                         onToggle()
-                    }.padding(2.dp),
+                    }.semantics { contentDescription = includeLabel },
+            contentAlignment = Alignment.Center,
         ) {
-            SetupCheckbox(on = selected)
+            ExpressiveCheckbox(checked = selected)
         }
         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             if (entry.hasChildren) {
@@ -332,11 +317,3 @@ fun LibrarySummaryCard(
         }
     }
 }
-
-@Composable
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-    this.clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = null,
-        onClick = onClick,
-    )
