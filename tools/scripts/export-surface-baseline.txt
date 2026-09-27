@@ -322,6 +322,8 @@ GenreShareBar
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
+HardcoverError
+HardcoverError_SealedType
 HomeRepository
 HomeStatsUiState
 HomeStatsUiState_SealedType
