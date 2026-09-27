@@ -788,7 +788,10 @@ One beautiful library.</string>
     <string name="common_show_password">Show password</string>
     <string name="common_sign_out">Sign Out</string>
     <string name="common_something_went_wrong">Something went wrong</string>
+    <string name="common_step_done">Done</string>
+    <string name="common_step_in_progress">In progress</string>
     <string name="common_step_n">Step %1$d</string>
+    <string name="common_step_not_started">Not started</string>
     <string name="common_storage">Storage</string>
     <string name="common_tab_label">%1$s tab</string>
     <string name="common_theme">Theme</string>

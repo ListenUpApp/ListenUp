@@ -23,7 +23,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import listenup.composeapp.generated.resources.Res
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import listenup.composeapp.generated.resources.auth_reg_step_in_progress
+import listenup.composeapp.generated.resources.common_step_done
+import listenup.composeapp.generated.resources.common_step_in_progress
+import listenup.composeapp.generated.resources.common_step_not_started
 import org.jetbrains.compose.resources.stringResource
 
 /** Where a step sits in a multi-step flow: already done, the one under way, or still ahead. */
@@ -51,6 +57,14 @@ internal fun FlowStepRow(
             FlowStepState.ACTIVE -> MaterialTheme.colorScheme.primaryContainer
             FlowStepState.TODO -> MaterialTheme.colorScheme.surfaceVariant
         }
+    val stateLabel =
+        stringResource(
+            when (state) {
+                FlowStepState.DONE -> Res.string.common_step_done
+                FlowStepState.ACTIVE -> Res.string.common_step_in_progress
+                FlowStepState.TODO -> Res.string.common_step_not_started
+            },
+        )
     val iconColor =
         when (state) {
             FlowStepState.DONE -> MaterialTheme.colorScheme.onPrimary
@@ -58,7 +72,13 @@ internal fun FlowStepRow(
             FlowStepState.TODO -> MaterialTheme.colorScheme.onSurfaceVariant
         }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                // One step reads as one item, and says where it stands: the mark's colour and the
+                // "In progress" pill are visual only.
+                .semantics(mergeDescendants = true) { stateDescription = stateLabel }
+                .padding(horizontal = 16.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -81,7 +101,12 @@ internal fun FlowStepRow(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 if (state == FlowStepState.ACTIVE) {
-                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                        // The row's state description already says it; the pill would be read twice.
+                        modifier = Modifier.clearAndSetSemantics {},
+                    ) {
                         Text(
                             text = stringResource(Res.string.auth_reg_step_in_progress).uppercase(),
                             style = MaterialTheme.typography.labelSmall,

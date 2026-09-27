@@ -118,7 +118,10 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "expanded": "Expanded",
-    "collapsed": "Collapsed"
+    "collapsed": "Collapsed",
+    "step_done": "Done",
+    "step_in_progress": "In progress",
+    "step_not_started": "Not started"
   },
   "error": {
     "conflict": "That resource is in use or already exists.",

@@ -7871,12 +7871,42 @@
         }
       }
     },
+    "common.step_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "common.step_in_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In progress"
+          }
+        }
+      }
+    },
     "common.step_n": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Step %1$d"
+          }
+        }
+      }
+    },
+    "common.step_not_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not started"
           }
         }
       }
