@@ -2,14 +2,12 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
-import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -24,12 +22,12 @@ import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
-import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.makeBookAccessible
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -238,7 +236,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
                     // "book-a" reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val sessions = ActiveSessionRepository(db = sql, bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "book-a")
@@ -272,7 +270,7 @@ class SocialServiceTest :
                     // "private-book" is gated into alice's private collection; viewer can't see it.
                     makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
                     // "public-book" is reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
-                    makeBookAccessible(sql, driver, bookId = "public-book", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "public-book", viewerId = "viewer")
 
                     val sessions = ActiveSessionRepository(db = sql, bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "public-book")
@@ -303,7 +301,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
                     // "book-a" reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     setBookDuration("book-a", totalDuration = 10_000L)
                     sql.seedFinish("alice-1", userId = "alice", bookId = "book-a", finishedAt = 500L)
@@ -354,7 +352,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("u2", displayName = "User Two")
                 runTest {
                     // "b1" reachable to the caller (u1) the pure-union way (ALL_BOOKS membership + u1's grant).
-                    makeBookAccessible(sql, driver, bookId = "b1", viewer = "u1")
+                    makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
 
                     setBookDuration("b1", totalDuration = 10_000L)
                     // Caller u1 finished b1 twice (100L, 300L); u2 is in progress at 4_300/10_000.
@@ -386,7 +384,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 sql.seedPublicProfile("bob", displayName = "Bob")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
                     setBookDuration("book-a", totalDuration = 10_000L)
 
                     val nowMs = 1_800_000_000_000L
@@ -424,7 +422,7 @@ class SocialServiceTest :
                 sql.seedTestBook("book-a")
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
                     setBookDuration("book-a", totalDuration = 10_000L)
                     sql.seedInProgressPosition(
                         userId = "alice",
@@ -480,7 +478,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("bob", displayName = "Bob")
                 runTest {
                     listOf("book-old", "book-new", "book-done").forEach {
-                        makeBookAccessible(sql, driver, bookId = it, viewer = "viewer")
+                        makeBookAccessible(sql, driver, bookId = it, viewerId = "viewer")
                     }
                     // Bob is not listening now. His newest UNFINISHED book is book-new; book-done is
                     // newer still but finished, so it must not be what the fill shows.
@@ -506,7 +504,7 @@ class SocialServiceTest :
                 sql.seedTestBook("book-a")
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
                     sql.seedInProgressPosition("viewer", "book-a", positionMs = 10L, lastPlayedAt = 500L)
 
                     val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
@@ -526,8 +524,8 @@ class SocialServiceTest :
                 sql.seedTestBook("book-recent")
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-live", viewer = "viewer")
-                    makeBookAccessible(sql, driver, bookId = "book-recent", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-live", viewerId = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-recent", viewerId = "viewer")
                     sql.seedLiveSession("alice", "book-live", startedAt = 10L)
                     // A more recent position on a different book must NOT produce a second alice row.
                     sql.seedInProgressPosition("alice", "book-recent", positionMs = 10L, lastPlayedAt = 9_000L)
@@ -556,7 +554,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("bob", displayName = "Bob")
                 runTest {
                     makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
-                    makeBookAccessible(sql, driver, bookId = "public-book", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "public-book", viewerId = "viewer")
                     // Alice's most recent unfinished book is one the viewer cannot access; Bob's is fine.
                     sql.seedInProgressPosition("alice", "private-book", positionMs = 10L, lastPlayedAt = 900L)
                     sql.seedInProgressPosition("bob", "public-book", positionMs = 10L, lastPlayedAt = 500L)
@@ -605,7 +603,7 @@ class SocialServiceTest :
                 listOf("alice", "carol", "bob", "dave").forEach { sql.seedPublicProfile(it, displayName = it) }
                 runTest {
                     listOf("b-alice", "b-carol", "b-bob", "b-dave").forEach {
-                        makeBookAccessible(sql, driver, bookId = it, viewer = "viewer")
+                        makeBookAccessible(sql, driver, bookId = it, viewerId = "viewer")
                     }
                     // Two live listeners; carol started more recently than alice.
                     sql.seedLiveSession("alice", "b-alice", startedAt = 100L)
@@ -632,8 +630,8 @@ class SocialServiceTest :
                 sql.seedTestBook("book-late")
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-early", viewer = "viewer")
-                    makeBookAccessible(sql, driver, bookId = "book-late", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-early", viewerId = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-late", viewerId = "viewer")
                     sql.seedLiveSession("alice", "book-early", startedAt = 100L)
                     sql.seedLiveSession("alice", "book-late", startedAt = 200L)
 
@@ -654,7 +652,7 @@ class SocialServiceTest :
                 sql.seedTestUser("viewer")
                 sql.seedTestBook("book-a")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
                     // No seedPublicProfile("ghost") — there is nobody to display.
                     sql.seedInProgressPosition("ghost", "book-a", positionMs = 10L, lastPlayedAt = 500L)
 
@@ -677,7 +675,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val nowMs = 1_800_000_000_000L
                     // seedLiveSession stamps updated_at = startedAt. Six minutes old: past
@@ -703,7 +701,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val nowMs = 1_800_000_000_000L
                     sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = nowMs - 60_000L)
@@ -732,7 +730,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val nowMs = 1_800_000_000_000L
                     sql.seedInProgressPosition(
@@ -759,7 +757,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val nowMs = 1_800_000_000_000L
                     sql.seedInProgressPosition(
@@ -793,7 +791,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val nowMs = 1_800_000_000_000L
                     val twentyMinutesAgo = nowMs - 20 * 60_000L
@@ -864,79 +862,6 @@ private suspend fun makeBookInaccessible(
             bookId = bookId,
             createdAt = 0L,
             revision = 0L,
-        ),
-    )
-}
-
-/**
- * Makes [bookId] visible to [viewer] the pure-union way: adds it to the per-library
- * ALL_BOOKS system collection (owned by "system") and grants [viewer] a live Read share
- * on that collection. [viewer] MUST already be seeded via [seedTestUser] — the grant's
- * `principal_id` is a FK into `users(id)`. The ALL_BOOKS collection is created once and
- * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
- */
-private suspend fun makeBookAccessible(
-    sql: ListenUpDatabase,
-    driver: SqlDriver,
-    bookId: String,
-    viewer: String,
-    // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
-    // grant is unique, so repeated calls for the same viewer must reuse this row (upsert).
-    grantId: String = "grant-$viewer",
-    allBooksId: String = "all-books",
-) {
-    val bus = ChangeBus()
-    val registry = SyncRegistry()
-    val collectionRepo =
-        CollectionRepository(
-            db = sql,
-            bus = bus,
-            registry = registry,
-            driver = driver,
-        )
-    val collectionBookRepo =
-        CollectionBookRepository(
-            db = sql,
-            bus = bus,
-            registry = registry,
-            driver = driver,
-        )
-    val grantRepo =
-        CollectionGrantRepository(
-            db = sql,
-            bus = bus,
-            registry = registry,
-            driver = driver,
-        )
-    collectionRepo.upsert(
-        CollectionSyncPayload(
-            id = allBooksId,
-            libraryId = "test-library",
-            ownerId = "system",
-            name = "All Books",
-            isInbox = false,
-            revision = 0L,
-            updatedAt = 0L,
-        ),
-    )
-    collectionBookRepo.upsert(
-        CollectionBookSyncPayload(
-            id = "$allBooksId:$bookId",
-            collectionId = allBooksId,
-            bookId = bookId,
-            createdAt = 0L,
-            revision = 0L,
-        ),
-    )
-    grantRepo.upsert(
-        CollectionShareSyncPayload(
-            id = grantId,
-            collectionId = allBooksId,
-            sharedWithUserId = viewer,
-            sharedByUserId = "system",
-            permission = SharePermission.Read,
-            revision = 0L,
-            updatedAt = 0L,
         ),
     )
 }
