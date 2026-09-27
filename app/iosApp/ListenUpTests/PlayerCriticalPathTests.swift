@@ -57,7 +57,7 @@ struct PausePersistenceTests {
 @Suite("Finish truth")
 @MainActor
 struct FinishTruthTests {
-    private func coordinatorPlayingOneMinuteBook() async -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
+    private func playingOneMinuteBook() async -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
         let progress = FakeProgressReporting()
         let preparer = FakePlaybackPreparing()
@@ -79,7 +79,7 @@ struct FinishTruthTests {
     /// tracker ignores an end that is not near the end — passing the duration here, as this used
     /// to, would let a spurious end mark a half-listened book finished.
     @Test func bookEndedReportsTheRealPosition() async throws {
-        let (coordinator, engine, progress) = await coordinatorPlayingOneMinuteBook()
+        let (coordinator, engine, progress) = await playingOneMinuteBook()
         engine.emit(.position(ms: 24000, rate: 0.0))
         await awaitUntil { coordinator.bookPositionMs == 24000 }
 
@@ -93,7 +93,7 @@ struct FinishTruthTests {
     /// A pause carries the book's duration, so the shared tracker can tell a pause in the end
     /// credits (the book is finished) from any other pause.
     @Test func pauseCarriesTheBookDuration() async throws {
-        let (coordinator, engine, progress) = await coordinatorPlayingOneMinuteBook()
+        let (coordinator, engine, progress) = await playingOneMinuteBook()
         engine.emit(.position(ms: 59800, rate: 0.0))
         await awaitUntil { coordinator.bookPositionMs == 59800 }
 
