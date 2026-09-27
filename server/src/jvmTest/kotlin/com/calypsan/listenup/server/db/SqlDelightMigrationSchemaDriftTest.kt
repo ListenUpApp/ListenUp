@@ -98,6 +98,7 @@ private val SQ_TABLES =
         "book_genres",
         "moods",
         "book_moods",
+        "book_ratings",
         "shelves",
         "shelf_books",
         "libraries",
