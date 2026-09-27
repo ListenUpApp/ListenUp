@@ -86,12 +86,11 @@ internal val socialModule: Module =
             ActivityRepositoryImpl(dao = get())
         }
 
-        // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,
+        // ActiveSessionRepository for live sessions — SocialService RPC + a local-Room book join,
         // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
         single<ActiveSessionRepository> {
             ActiveSessionRepositoryImpl(
                 channel = rpcChannel(),
-                bookDao = get(),
                 imageStorage = get(),
                 presence = get(),
                 cachedSessionDao = get(),

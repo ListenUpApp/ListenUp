@@ -5,10 +5,9 @@ import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
+import com.calypsan.listenup.client.data.local.db.CachedActiveSessionWithBook
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
@@ -29,6 +28,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 
@@ -57,15 +57,7 @@ class ActiveSessionRepositoryImplTest :
             isLive = isLive,
         )
 
-        fun bookDaoReturning(vararg summaries: BookSummary): BookDao {
-            val dao = mock<BookDao>(MockMode.autoUnit)
-            val byId = summaries.associateBy { it.id }
-            everySuspend { dao.getBookSummary(any()) } returns null
-            summaries.forEach { summary ->
-                everySuspend { dao.getBookSummary(summary.id) } returns byId[summary.id]
-            }
-            return dao
-        }
+        fun libraryOf(vararg books: LibraryBook): Map<String, LibraryBook> = books.associateBy { it.id }
 
         fun imageStorage(): ImageStorage {
             val storage = mock<ImageStorage>()
@@ -75,17 +67,19 @@ class ActiveSessionRepositoryImplTest :
 
         fun repo(
             channel: RpcChannel<SocialService>,
-            bookDao: BookDao,
-            dao: CachedActiveSessionDao,
+            library: Map<String, LibraryBook>,
+            dao: FakeCachedActiveSessionDao,
             presence: PresenceRefreshSignal = PresenceRefreshSignal(),
             images: ImageStorage = imageStorage(),
-        ) = ActiveSessionRepositoryImpl(
-            channel = channel,
-            bookDao = bookDao,
-            imageStorage = images,
-            presence = presence,
-            cachedSessionDao = dao,
-        )
+        ): ActiveSessionRepositoryImpl {
+            dao.library.value = library
+            return ActiveSessionRepositoryImpl(
+                channel = channel,
+                imageStorage = images,
+                presence = presence,
+                cachedSessionDao = dao,
+            )
+        }
 
         test("maps currently-listening sessions and enriches title/author from local Room") {
             runTest {
@@ -94,9 +88,9 @@ class ActiveSessionRepositoryImplTest :
                         everySuspend { currentlyListening() } returns
                             AppResult.Success(listOf(session(userId = "u2", bookId = "bookA", displayName = "Bob")))
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(
+                val library =
+                    libraryOf(
+                        LibraryBook(
                             id = "bookA",
                             title = "The Way of Kings",
                             coverHash = "cover-hash-a",
@@ -104,7 +98,7 @@ class ActiveSessionRepositoryImplTest :
                         ),
                     )
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         val s = awaitNonEmpty().first()
@@ -130,17 +124,41 @@ class ActiveSessionRepositoryImplTest :
                                 ),
                             )
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(id = "present", title = "Present", coverHash = null, authorName = null),
+                val library =
+                    libraryOf(
+                        LibraryBook(id = "present", title = "Present", coverHash = null, authorName = null),
                     )
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         val sessions = awaitNonEmpty()
                         sessions.size shouldBe 1
                         sessions.first().bookId shouldBe "present"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("a session whose book syncs in after the snapshot appears as soon as the book arrives") {
+            runTest {
+                // The roster snapshot can land before the library has synced the book it names. The
+                // row is dropped then — but it must appear the moment the book arrives, not wait for
+                // the next presence ping. Reading the book per row, off the session flow alone,
+                // never re-emitted for a library change.
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns
+                            AppResult.Success(listOf(session(userId = "u2", bookId = "late")))
+                    }
+                val dao = FakeCachedActiveSessionDao()
+
+                repo(RpcChannel.forTest(service), libraryOf(), dao)
+                    .observeActiveSessions("u1")
+                    .test {
+                        awaitItem().shouldBeEmpty()
+                        dao.library.value = libraryOf(LibraryBook(id = "late", title = "Late", coverHash = null, authorName = null))
+                        awaitNonEmpty().single().book.title shouldBe "Late"
                         cancelAndIgnoreRemainingEvents()
                     }
             }
@@ -158,13 +176,13 @@ class ActiveSessionRepositoryImplTest :
                                 ),
                             )
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                val library =
+                    libraryOf(
+                        LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
                 val presence = PresenceRefreshSignal()
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao(), presence = presence)
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao(), presence = presence)
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -188,12 +206,12 @@ class ActiveSessionRepositoryImplTest :
                                 ),
                             )
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                val library =
+                    libraryOf(
+                        LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -212,12 +230,12 @@ class ActiveSessionRepositoryImplTest :
                         everySuspend { currentlyListening() } returns
                             AppResult.Success(listOf(session(userId = "u2", bookId = "bookA")))
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                val library =
+                    libraryOf(
+                        LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -240,13 +258,13 @@ class ActiveSessionRepositoryImplTest :
                                 AppResult.Failure(TransportError.NetworkUnavailable()),
                             )
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                val library =
+                    libraryOf(
+                        LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
                 val presence = PresenceRefreshSignal()
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao(), presence = presence)
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao(), presence = presence)
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -269,12 +287,12 @@ class ActiveSessionRepositoryImplTest :
                                 ),
                             )
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                val library =
+                    libraryOf(
+                        LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         val sessions = awaitNonEmpty()
@@ -307,12 +325,12 @@ class ActiveSessionRepositoryImplTest :
                                 ),
                             )
                     }
-                val bookDao =
-                    bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                val library =
+                    libraryOf(
+                        LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
 
-                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().map { it.userId } shouldBe
@@ -330,7 +348,7 @@ class ActiveSessionRepositoryImplTest :
                             AppResult.Failure(TransportError.NetworkUnavailable())
                     }
 
-                repo(RpcChannel.forTest(service), bookDaoReturning(), FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         awaitItem().shouldBeEmpty()
@@ -340,16 +358,38 @@ class ActiveSessionRepositoryImplTest :
         }
     })
 
+/** A book in the viewer's local library, as the roster's join reads it. */
+private data class LibraryBook(
+    val id: String,
+    val title: String,
+    val coverHash: String?,
+    val authorName: String?,
+)
+
 /**
- * In-memory [CachedActiveSessionDao] for commonTest — a single [MutableStateFlow] mirror.
- *
- * [observeAll] applies the real DAO's `ORDER BY isLive DESC, lastActiveAtMs DESC` so a fake read
- * cannot pass an ordering the SQL would fail.
+ * In-memory [CachedActiveSessionDao] for commonTest: the cached rows and the local [library] are two
+ * [MutableStateFlow]s, and [observeWithBooks] joins them the way the SQL does — rows whose book is
+ * absent drop out, and a change to EITHER side re-emits. It applies the real query's
+ * `ORDER BY isLive DESC, lastActiveAtMs DESC` so a fake read cannot pass an ordering the SQL would
+ * fail. The SQL itself is pinned against real Room in `CachedActiveSessionDaoTest`.
  */
 private class FakeCachedActiveSessionDao : CachedActiveSessionDao {
     private val flow = MutableStateFlow<List<CachedActiveSessionEntity>>(emptyList())
+    val library = MutableStateFlow<Map<String, LibraryBook>>(emptyMap())
 
-    override fun observeAll(): Flow<List<CachedActiveSessionEntity>> = flow.map { rows -> rows.sortedWith(readOrder) }
+    override fun observeWithBooks(): Flow<List<CachedActiveSessionWithBook>> =
+        combine(flow, library) { rows, books ->
+            rows.sortedWith(readOrder).mapNotNull { row ->
+                books[row.bookId]?.let { book ->
+                    CachedActiveSessionWithBook(
+                        session = row,
+                        bookTitle = book.title,
+                        bookCoverHash = book.coverHash,
+                        bookAuthorName = book.authorName,
+                    )
+                }
+            }
+        }
 
     override suspend fun upsertAll(rows: List<CachedActiveSessionEntity>) {
         flow.value = flow.value.filter { c -> rows.none { it.userId == c.userId } } + rows

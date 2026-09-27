@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room3.Dao
+import androidx.room3.Embedded
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
@@ -13,7 +14,8 @@ import kotlinx.coroutines.flow.Flow
  * `currentlyListening` snapshot, one row per other user. Persisted so the presence surface renders
  * (possibly stale) offline or on a transient RPC failure instead of blanking; [observedAt] records when
  * the snapshot was taken so the UI can flag staleness (presence is time-sensitive). Book identity is
- * enriched from the local library at read time, so only the wire fields are stored here. Refreshed
+ * joined from the local library at read time ([CachedActiveSessionDao.observeWithBooks]), so only the
+ * wire fields are stored here. Refreshed
  * wholesale on each presence ping while online; never cleared on failure.
  *
  * A row is either live ([isLive]) or a recent-listen fill; [lastActiveAtMs] carries the one timestamp
@@ -41,9 +43,27 @@ internal data class CachedActiveSessionEntity(
 
 @Dao
 internal interface CachedActiveSessionDao {
-    /** Live rows first, newest activity first within each half — the order the section renders in. */
-    @Query("SELECT * FROM cached_active_sessions ORDER BY isLive DESC, lastActiveAtMs DESC")
-    fun observeAll(): Flow<List<CachedActiveSessionEntity>>
+    /**
+     * Every cached row whose book is in the local library, with the book fields the roster shows —
+     * one query instead of a book read per row on every emission. Being a join, it also re-emits
+     * when the library changes, so a session whose book syncs in after the snapshot appears then
+     * rather than at the next presence ping. Live rows first, newest activity first within each half.
+     */
+    @Query(
+        """
+        SELECT s.*, b.title AS bookTitle, b.coverHash AS bookCoverHash,
+            (
+                SELECT c.name FROM book_contributors bc
+                INNER JOIN contributors c ON bc.contributorId = c.id
+                WHERE bc.bookId = b.id AND bc.role = 'author'
+                LIMIT 1
+            ) AS bookAuthorName
+        FROM cached_active_sessions s
+        INNER JOIN books b ON b.id = s.bookId AND b.deletedAt IS NULL
+        ORDER BY s.isLive DESC, s.lastActiveAtMs DESC
+        """,
+    )
+    fun observeWithBooks(): Flow<List<CachedActiveSessionWithBook>>
 
     @Upsert
     suspend fun upsertAll(rows: List<CachedActiveSessionEntity>)
@@ -58,3 +78,14 @@ internal interface CachedActiveSessionDao {
         upsertAll(rows)
     }
 }
+
+/**
+ * A cached presence row joined with the book it names — the read shape of
+ * [CachedActiveSessionDao.observeWithBooks].
+ */
+internal data class CachedActiveSessionWithBook(
+    @Embedded val session: CachedActiveSessionEntity,
+    val bookTitle: String,
+    val bookCoverHash: String?,
+    val bookAuthorName: String?,
+)

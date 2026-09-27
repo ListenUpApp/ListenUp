@@ -528,53 +528,7 @@ internal interface BookDao {
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
     @Query("SELECT revision FROM books WHERE id = :id LIMIT 1")
     suspend fun revisionOf(id: BookId): Long?
-
-    /**
-     * One-shot lightweight summary for a single book — title, cover hash, and primary
-     * author — used to enrich social presence sessions from the viewer's local library.
-     *
-     * Returns null when the book is absent from the local mirror (the viewer cannot access it),
-     * which the caller treats as "drop this session".
-     *
-     * @param id The book id to summarise.
-     * @return The summary row, or null if the book is not present locally.
-     */
-    @Query(
-        """
-        SELECT
-            b.id, b.title, b.coverHash,
-            (
-                SELECT c.name FROM book_contributors bc
-                INNER JOIN contributors c ON bc.contributorId = c.id
-                WHERE bc.bookId = b.id AND bc.role = 'author'
-                LIMIT 1
-            ) as authorName
-        FROM books b
-        WHERE b.id = :id AND b.deletedAt IS NULL
-        LIMIT 1
-    """,
-    )
-    suspend fun getBookSummary(id: String): BookSummary?
 }
-
-/**
- * Minimal book identity for enriching social presence sessions.
- *
- * Carries exactly what the "currently listening" UI needs beyond wire identity: the title,
- * the cover content hash for image-cache busting, and the primary author's name.
- *
- * @property id The book id.
- * @property title The book title.
- * @property coverHash Content hash of the cover, used to version the image-cache key so a
- *   re-imaged cover invalidates the stale cached bitmap; null when no cover is stored.
- * @property authorName Primary author's display name, or null when no author is linked.
- */
-internal data class BookSummary(
-    val id: String,
-    val title: String,
-    val coverHash: String?,
-    val authorName: String?,
-)
 
 /**
  * Lightweight book data for discovery sections.
