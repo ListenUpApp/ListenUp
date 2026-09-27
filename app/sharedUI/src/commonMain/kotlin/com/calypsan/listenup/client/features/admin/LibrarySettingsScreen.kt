@@ -1,6 +1,11 @@
 package com.calypsan.listenup.client.features.admin
 
-import com.calypsan.listenup.client.design.readingWidth
+import com.calypsan.listenup.client.design.components.SectionColumns
+import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.clickable
@@ -174,8 +179,13 @@ private fun LibrarySettingsBody(
     }
 }
 
+/**
+ * The screen's loaded body, hosted by its scaffold. A phone stacks the scan paths over the scanning
+ * controls; from the medium width up they sit side by side in [SectionColumns], the folders beside
+ * the scan that walks them.
+ */
 @Composable
-private fun LibrarySettingsContent(
+internal fun LibrarySettingsContent(
     state: LibrarySettingsUiState.Ready,
     onRemoveFolder: (String) -> Unit,
     onAddFolder: () -> Unit,
@@ -183,7 +193,6 @@ private fun LibrarySettingsContent(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
-    val library = state.library
     var folderToRemove by remember { mutableStateOf<LibraryFolderRef?>(null) }
 
     // Confirm removal dialog
@@ -218,75 +227,109 @@ private fun LibrarySettingsContent(
         )
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().readingWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    val onRemoveRequest: (LibraryFolderRef) -> Unit = { folderToRemove = it }
+    if (isWide) {
+        SectionColumns(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.screenMargin, vertical = 24.dp),
+        ) {
+            section { ScanPathsSection(state = state, onRemoveRequest = onRemoveRequest, onAddFolder = onAddFolder) }
+            section { ScanningSection(isScanning = state.isScanning, onTriggerScan = onTriggerScan) }
+        }
+    } else {
+        LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            item { ScanPathsSection(state = state, onRemoveRequest = onRemoveRequest, onAddFolder = onAddFolder) }
+            item { ScanningSection(isScanning = state.isScanning, onTriggerScan = onTriggerScan) }
+        }
+    }
+}
+
+/** The library's folders, each removable while another remains, plus the add-folder row. */
+@Composable
+private fun ScanPathsSection(
+    state: LibrarySettingsUiState.Ready,
+    onRemoveRequest: (LibraryFolderRef) -> Unit,
+    onAddFolder: () -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    val library = state.library
+    SectionGroup(
+        label = stringResource(Res.string.admin_scan_paths),
+        icon = Icons.Outlined.Folder,
+        accent = MaterialTheme.colorScheme.secondary,
     ) {
-        item {
-            SectionGroup(
-                label = stringResource(Res.string.admin_scan_paths),
+        library.folders.forEachIndexed { index, folder ->
+            val canRemove = library.folders.size > 1 && !state.isSaving
+            SettingRow(
+                title = folder.rootPath ?: folder.id,
                 icon = Icons.Outlined.Folder,
                 accent = MaterialTheme.colorScheme.secondary,
-            ) {
-                library.folders.forEachIndexed { index, folder ->
-                    val canRemove = library.folders.size > 1 && !state.isSaving
-                    SettingRow(
-                        title = folder.rootPath ?: folder.id,
-                        icon = Icons.Outlined.Folder,
-                        accent = MaterialTheme.colorScheme.secondary,
-                        showDivider = index > 0,
-                        trailing =
-                            if (canRemove) {
-                                {
-                                    IconButton(
-                                        onClick = {
-                                            haptics.press()
-                                            folderToRemove = folder
-                                        },
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Close,
-                                            contentDescription = stringResource(Res.string.admin_remove_path),
-                                            tint = MaterialTheme.colorScheme.error,
-                                        )
-                                    }
-                                }
-                            } else {
-                                null
-                            },
-                    )
-                }
-                SettingRow(
-                    title = stringResource(Res.string.admin_add_folder),
-                    icon = Icons.Outlined.Add,
-                    accent = MaterialTheme.colorScheme.primary,
-                    showDivider = true,
-                    onClick = if (state.isSaving) null else onAddFolder,
-                )
-            }
+                showDivider = index > 0,
+                trailing =
+                    if (canRemove) {
+                        {
+                            IconButton(
+                                onClick = {
+                                    haptics.press()
+                                    onRemoveRequest(folder)
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = stringResource(Res.string.admin_remove_path),
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    },
+            )
         }
+        SettingRow(
+            title = stringResource(Res.string.admin_add_folder),
+            icon = Icons.Outlined.Add,
+            accent = MaterialTheme.colorScheme.primary,
+            showDivider = true,
+            onClick = if (state.isSaving) null else onAddFolder,
+        )
+    }
+}
 
-        item {
-            SectionGroup(
-                label = stringResource(Res.string.admin_scanning),
-                icon = Icons.Outlined.Refresh,
-                accent = MaterialTheme.colorScheme.primary,
-            ) {
-                SettingRow(
-                    title = stringResource(Res.string.admin_rescan_library),
-                    subtitle = stringResource(Res.string.admin_scan_all_paths_for_new),
-                    icon = Icons.Outlined.Refresh,
-                    onClick = if (state.isScanning) null else onTriggerScan,
-                    trailing =
-                        if (state.isScanning) {
-                            { ListenUpLoadingIndicatorSmall() }
-                        } else {
-                            null
-                        },
-                )
-            }
-        }
+/** The rescan action, showing progress while a scan runs. */
+@Composable
+private fun ScanningSection(
+    isScanning: Boolean,
+    onTriggerScan: () -> Unit,
+) {
+    SectionGroup(
+        label = stringResource(Res.string.admin_scanning),
+        icon = Icons.Outlined.Refresh,
+        accent = MaterialTheme.colorScheme.primary,
+    ) {
+        SettingRow(
+            title = stringResource(Res.string.admin_rescan_library),
+            subtitle = stringResource(Res.string.admin_scan_all_paths_for_new),
+            icon = Icons.Outlined.Refresh,
+            onClick = if (isScanning) null else onTriggerScan,
+            trailing =
+                if (isScanning) {
+                    { ListenUpLoadingIndicatorSmall() }
+                } else {
+                    null
+                },
+        )
     }
 }
 

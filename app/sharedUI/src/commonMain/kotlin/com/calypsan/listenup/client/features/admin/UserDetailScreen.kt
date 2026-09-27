@@ -1,6 +1,11 @@
 package com.calypsan.listenup.client.features.admin
 
-import com.calypsan.listenup.client.design.readingWidth
+import com.calypsan.listenup.client.design.components.SectionColumns
+import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -165,66 +170,119 @@ private fun UserDetailBody(
     }
 }
 
+/**
+ * The screen's loaded body, hosted by its scaffold. A phone stacks who the user is over what they may
+ * do. From the medium width up the two sit side by side in [SectionColumns], so an admin reads the
+ * person and their permissions in one glance.
+ */
 @Composable
-private fun UserDetailContent(
+internal fun UserDetailContent(
     state: UserDetailUiState.Ready,
     onToggleCanEdit: () -> Unit,
     onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .readingWidth()
-                .padding(horizontal = 16.dp),
-    ) {
-        // User info section
-        item {
-            Text(
-                text = stringResource(Res.string.common_entity_information, "User"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-            )
-        }
-
-        item {
-            UserInfoCard(user = state.user)
-        }
-
-        // Permissions section
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(Res.string.common_permissions),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        item {
-            PermissionsCard(
-                canEdit = state.canEdit,
-                canShare = state.canShare,
-                isProtected = state.isProtected,
-                isSaving = state.isSaving,
-                onToggleCanEdit = onToggleCanEdit,
-                onToggleCanShare = onToggleCanShare,
-            )
-        }
-
-        // Protected user notice
-        if (state.isProtected) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                ProtectedUserNotice()
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    if (isWide) {
+        SectionColumns(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.screenMargin, vertical = 16.dp),
+        ) {
+            section {
+                Column {
+                    SectionHeading(stringResource(Res.string.common_entity_information, "User"))
+                    UserInfoCard(user = state.user)
+                }
+            }
+            section {
+                Column {
+                    SectionHeading(stringResource(Res.string.common_permissions))
+                    PermissionsSection(
+                        state = state,
+                        onToggleCanEdit = onToggleCanEdit,
+                        onToggleCanShare = onToggleCanShare,
+                    )
+                }
             }
         }
+    } else {
+        LazyColumn(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+        ) {
+            // User info section
+            item {
+                SectionHeading(
+                    text = stringResource(Res.string.common_entity_information, "User"),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
 
-        item {
+            item {
+                UserInfoCard(user = state.user)
+            }
+
+            // Permissions section
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                SectionHeading(stringResource(Res.string.common_permissions))
+            }
+
+            item {
+                PermissionsSection(
+                    state = state,
+                    onToggleCanEdit = onToggleCanEdit,
+                    onToggleCanShare = onToggleCanShare,
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeading(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.padding(bottom = 8.dp),
+    )
+}
+
+/** The permission switches, and — for a protected user — the notice saying why they are locked. */
+@Composable
+private fun PermissionsSection(
+    state: UserDetailUiState.Ready,
+    onToggleCanEdit: () -> Unit,
+    onToggleCanShare: () -> Unit,
+) {
+    Column {
+        PermissionsCard(
+            canEdit = state.canEdit,
+            canShare = state.canShare,
+            isProtected = state.isProtected,
+            isSaving = state.isSaving,
+            onToggleCanEdit = onToggleCanEdit,
+            onToggleCanShare = onToggleCanShare,
+        )
+        if (state.isProtected) {
             Spacer(modifier = Modifier.height(16.dp))
+            ProtectedUserNotice()
         }
     }
 }
