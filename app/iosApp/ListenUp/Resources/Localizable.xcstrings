@@ -2021,6 +2021,86 @@
         }
       }
     },
+    "admin.restore_step_choose": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a backup"
+          }
+        }
+      }
+    },
+    "admin.restore_step_choose_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One on this server, or a file you upload"
+          }
+        }
+      }
+    },
+    "admin.restore_step_restore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        }
+      }
+    },
+    "admin.restore_step_restore_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server swaps in the backup"
+          }
+        }
+      }
+    },
+    "admin.restore_step_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review"
+          }
+        }
+      }
+    },
+    "admin.restore_step_review_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check what the restore replaces"
+          }
+        }
+      }
+    },
+    "admin.restore_step_sign_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in again"
+          }
+        }
+      }
+    },
+    "admin.restore_step_sign_in_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With an account from the backup"
+          }
+        }
+      }
+    },
     "admin.restore_this_backup": {
       "localizations": {
         "en": {

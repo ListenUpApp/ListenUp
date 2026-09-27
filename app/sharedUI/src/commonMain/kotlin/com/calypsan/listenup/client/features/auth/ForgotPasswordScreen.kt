@@ -58,8 +58,8 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
-import com.calypsan.listenup.client.features.auth.components.AuthStepRow
-import com.calypsan.listenup.client.features.auth.components.AuthStepState
+import com.calypsan.listenup.client.design.components.FlowStepRow
+import com.calypsan.listenup.client.design.components.FlowStepState
 import com.calypsan.listenup.client.features.auth.components.CodeBoxes
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
@@ -409,20 +409,20 @@ private fun ResetTimeline(ticketId: String) {
                 .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        AuthStepRow(
-            state = AuthStepState.DONE,
+        FlowStepRow(
+            state = FlowStepState.DONE,
             icon = Icons.AutoMirrored.Outlined.Send,
             title = stringResource(Res.string.auth_forgot_password_step_sent),
             subtitle = stringResource(Res.string.auth_forgot_password_ticket, ticketReference),
         )
-        AuthStepRow(
-            state = AuthStepState.ACTIVE,
+        FlowStepRow(
+            state = FlowStepState.ACTIVE,
             icon = Icons.Outlined.Schedule,
             title = stringResource(Res.string.auth_forgot_password_step_approve),
             subtitle = stringResource(Res.string.auth_forgot_password_step_approve_sub),
         )
-        AuthStepRow(
-            state = AuthStepState.TODO,
+        FlowStepRow(
+            state = FlowStepState.TODO,
             icon = Icons.Outlined.Lock,
             title = stringResource(Res.string.auth_forgot_password_step_set),
             subtitle = stringResource(Res.string.auth_forgot_password_step_set_sub),

@@ -44,3 +44,14 @@ fun assertStacked(
     b.left shouldBe a.left
     b.top shouldBeGreaterThan a.top
 }
+
+/**
+ * Asserts [node] starts right of where [of] ends — it lives in a column beside [of]'s, whatever their
+ * heights. For a wide layout's action, which sits lower in its pane than anything in the side panel.
+ */
+fun assertRightOf(
+    node: SemanticsNodeInteraction,
+    of: SemanticsNodeInteraction,
+) {
+    node.getUnclippedBoundsInRoot().left shouldBeGreaterThanOrEqualTo of.getUnclippedBoundsInRoot().right
+}

@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.features.auth.components
+package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,35 +26,36 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.auth_reg_step_in_progress
 import org.jetbrains.compose.resources.stringResource
 
-/** Where a step sits in a waiting flow: already done, the one being waited on, or still ahead. */
-internal enum class AuthStepState { DONE, ACTIVE, TODO }
+/** Where a step sits in a multi-step flow: already done, the one under way, or still ahead. */
+internal enum class FlowStepState { DONE, ACTIVE, TODO }
 
 /**
- * One step of a "what happens next" list, shared by the app's two waiting rooms.
+ * One step of a "what happens next" list, shared by every flow that explains itself as steps.
  *
- * Registration and password reset both park the user while a human decides something, and both
- * explain the wait as an ordered list of steps. Rendering them from one component is what makes
- * the two read as the same app rather than two screens that happen to be waiting — which is the
+ * Registration and password reset park the user while a human decides something; restoring a backup
+ * and uploading books walk an admin through a long operation ([FlowStepsPanel]). All of them explain
+ * where they are as an ordered list of steps, and rendering them from one component is what makes
+ * them read as the same app rather than screens that each drew their own progress — which is the
  * whole reason the vocabulary is shared rather than copied.
  */
 @Composable
-internal fun AuthStepRow(
-    state: AuthStepState,
+internal fun FlowStepRow(
+    state: FlowStepState,
     icon: ImageVector,
     title: String,
     subtitle: String,
 ) {
     val circleColor =
         when (state) {
-            AuthStepState.DONE -> MaterialTheme.colorScheme.primary
-            AuthStepState.ACTIVE -> MaterialTheme.colorScheme.primaryContainer
-            AuthStepState.TODO -> MaterialTheme.colorScheme.surfaceVariant
+            FlowStepState.DONE -> MaterialTheme.colorScheme.primary
+            FlowStepState.ACTIVE -> MaterialTheme.colorScheme.primaryContainer
+            FlowStepState.TODO -> MaterialTheme.colorScheme.surfaceVariant
         }
     val iconColor =
         when (state) {
-            AuthStepState.DONE -> MaterialTheme.colorScheme.onPrimary
-            AuthStepState.ACTIVE -> MaterialTheme.colorScheme.onPrimaryContainer
-            AuthStepState.TODO -> MaterialTheme.colorScheme.onSurfaceVariant
+            FlowStepState.DONE -> MaterialTheme.colorScheme.onPrimary
+            FlowStepState.ACTIVE -> MaterialTheme.colorScheme.onPrimaryContainer
+            FlowStepState.TODO -> MaterialTheme.colorScheme.onSurfaceVariant
         }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp),
@@ -66,7 +67,7 @@ internal fun AuthStepRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (state == AuthStepState.DONE) Icons.Rounded.Check else icon,
+                imageVector = if (state == FlowStepState.DONE) Icons.Rounded.Check else icon,
                 contentDescription = null,
                 tint = iconColor,
                 modifier = Modifier.size(STEP_ICON_SIZE),
@@ -79,7 +80,7 @@ internal fun AuthStepRow(
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (state == AuthStepState.ACTIVE) {
+                if (state == FlowStepState.ACTIVE) {
                     Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape) {
                         Text(
                             text = stringResource(Res.string.auth_reg_step_in_progress).uppercase(),

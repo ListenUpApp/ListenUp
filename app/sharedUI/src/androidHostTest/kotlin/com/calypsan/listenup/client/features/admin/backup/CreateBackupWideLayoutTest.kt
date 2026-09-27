@@ -1,13 +1,12 @@
 package com.calypsan.listenup.client.features.admin.backup
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.testing.Windows
+import com.calypsan.listenup.client.testing.assertRightOf
 import com.calypsan.listenup.client.testing.assertSideBySide
 import com.calypsan.listenup.client.testing.assertStacked
-import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,9 +28,7 @@ class CreateBackupWideLayoutTest {
         setContent()
 
         assertSideBySide(composeRule.onNodeWithText(INTRO), composeRule.onNodeWithText(SUMMARY))
-        // The action closes the summary panel, so it sits in the panel's column, right of the options.
-        val options = composeRule.onNodeWithText("What to include").getUnclippedBoundsInRoot()
-        composeRule.onNodeWithText("Create Backup").getUnclippedBoundsInRoot().left shouldBeGreaterThanOrEqualTo options.right
+        assertRightOf(composeRule.onNodeWithText("Create Backup"), composeRule.onNodeWithText("What to include"))
     }
 
     @Test

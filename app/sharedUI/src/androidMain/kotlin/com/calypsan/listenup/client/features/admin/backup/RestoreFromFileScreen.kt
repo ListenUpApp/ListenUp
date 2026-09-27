@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.admin.backup
 
-import com.calypsan.listenup.client.design.readingWidth
+import androidx.compose.foundation.layout.widthIn
+import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.components.FlowWithSteps
+import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -108,29 +111,50 @@ fun RestoreFromFileScreen(
             )
         },
     ) { paddingValues ->
-        when (val s = state) {
+        RestoreFromFileContent(
+            state = state,
+            onChooseFile = { picker.launch() },
+            onTryAgain = {
+                viewModel.reset()
+                picker.launch()
+            },
+            modifier = Modifier.padding(paddingValues),
+        )
+    }
+}
+
+/**
+ * The restore-from-file body for each [RestoreFromFileUiState], hosted by its scaffold: the file
+ * choice, the upload in flight, or the failure with a way to try again.
+ */
+@Composable
+internal fun RestoreFromFileContent(
+    state: RestoreFromFileUiState,
+    onChooseFile: () -> Unit,
+    onTryAgain: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Every state here — the choice, its upload, a failed upload — is the flow's first step.
+    FlowWithSteps(
+        steps = restoreFlowSteps(),
+        currentStep = RestoreFlowStep.CHOOSE,
+        modifier = modifier,
+    ) { isWide, paneModifier ->
+        when (state) {
             is RestoreFromFileUiState.Idle -> {
-                IdleUploadContent(
-                    onChooseFile = { picker.launch() },
-                    modifier = Modifier.padding(paddingValues),
-                )
+                IdleUploadContent(onChooseFile = onChooseFile, isWide = isWide, modifier = paneModifier)
             }
 
             is RestoreFromFileUiState.Uploading -> {
-                UploadingContent(
-                    filename = s.filename,
-                    modifier = Modifier.padding(paddingValues),
-                )
+                UploadingContent(filename = state.filename, modifier = paneModifier)
             }
 
             is RestoreFromFileUiState.Error -> {
                 ErrorUploadContent(
-                    message = s.error.localized(),
-                    onTryAgain = {
-                        viewModel.reset()
-                        picker.launch()
-                    },
-                    modifier = Modifier.padding(paddingValues),
+                    message = state.error.localized(),
+                    onTryAgain = onTryAgain,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
         }
@@ -140,6 +164,7 @@ fun RestoreFromFileScreen(
 @Composable
 private fun IdleUploadContent(
     onChooseFile: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -147,7 +172,6 @@ private fun IdleUploadContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .readingWidth()
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -155,18 +179,22 @@ private fun IdleUploadContent(
             text = stringResource(Res.string.admin_restore_from_file_description),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(max = ReadingMaxWidth),
         )
         Text(
             text = stringResource(Res.string.admin_restore_from_file_detail),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(max = ReadingMaxWidth),
         )
-        Spacer(modifier = Modifier.weight(1f))
+        // A phone parks the action at the foot of the screen; the wide pane keeps it under the text.
+        if (!isWide) Spacer(modifier = Modifier.weight(1f))
         ListenUpButton(
             onClick = onChooseFile,
             text = stringResource(Res.string.admin_restore_from_file_choose),
             leadingIcon = Icons.Outlined.FolderOpen,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -181,7 +209,6 @@ private fun UploadingContent(
         modifier =
             modifier
                 .fillMaxSize()
-                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -201,7 +228,7 @@ private fun UploadingContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(38.dp))
-        LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+        LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth())
     }
 }
 
@@ -209,13 +236,13 @@ private fun UploadingContent(
 private fun ErrorUploadContent(
     message: String,
     onTryAgain: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxSize()
-                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -237,7 +264,7 @@ private fun ErrorUploadContent(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -256,7 +283,8 @@ private fun ErrorUploadContent(
             onClick = onTryAgain,
             text = stringResource(Res.string.admin_restore_from_file_choose),
             leadingIcon = Icons.Outlined.FolderOpen,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }

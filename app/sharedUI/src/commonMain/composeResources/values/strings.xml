@@ -202,6 +202,14 @@
     <string name="admin_restore_status_rolling_back">Rolling back…</string>
     <string name="admin_restore_status_swapping">Swapping in the restored database…</string>
     <string name="admin_restore_status_validating">Validating backup…</string>
+    <string name="admin_restore_step_choose">Choose a backup</string>
+    <string name="admin_restore_step_choose_sub">One on this server, or a file you upload</string>
+    <string name="admin_restore_step_restore">Restore</string>
+    <string name="admin_restore_step_restore_sub">The server swaps in the backup</string>
+    <string name="admin_restore_step_review">Review</string>
+    <string name="admin_restore_step_review_sub">Check what the restore replaces</string>
+    <string name="admin_restore_step_sign_in">Sign in again</string>
+    <string name="admin_restore_step_sign_in_sub">With an account from the backup</string>
     <string name="admin_restore_this_backup">Restore this backup</string>
     <string name="admin_restored_from">Restored from %1$s</string>
     <string name="admin_revoke_invite">Revoke Invite</string>

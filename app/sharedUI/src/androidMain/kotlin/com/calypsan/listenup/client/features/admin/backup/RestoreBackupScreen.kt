@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.admin.backup
 
-import com.calypsan.listenup.client.design.readingWidth
+import androidx.compose.foundation.layout.widthIn
+import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.components.FlowWithSteps
+import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -99,13 +102,51 @@ fun RestoreBackupScreen(
             )
         },
     ) { paddingValues ->
-        when (val s = state) {
+        RestoreBackupContent(
+            backupId = backupId,
+            state = state,
+            progress = progress,
+            onRestoreClick = viewModel::requestRestore,
+            onConfirmRestore = viewModel::confirmRestore,
+            onCancelRestore = viewModel::cancelRestore,
+            onDone = onComplete,
+            modifier = Modifier.padding(paddingValues),
+        )
+    }
+}
+
+/**
+ * The restore screen's body for each [RestoreBackupUiState], hosted by its scaffold: the review with
+ * its restore action, the confirmation over it, the live progress, and the result.
+ *
+ * The body forwards the ViewModel's three restore intents plus the exit; a parameter object would
+ * only add an indirection layer Compose tooling discourages.
+ */
+@Suppress("LongParameterList")
+@Composable
+internal fun RestoreBackupContent(
+    backupId: String,
+    state: RestoreBackupUiState,
+    progress: BackupEvent?,
+    onRestoreClick: () -> Unit,
+    onConfirmRestore: () -> Unit,
+    onCancelRestore: () -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowWithSteps(
+        steps = restoreFlowSteps(),
+        currentStep = state.flowStep(),
+        modifier = modifier,
+    ) { isWide, paneModifier ->
+        when (state) {
             is RestoreBackupUiState.Idle -> {
                 IdleContent(
                     backupId = backupId,
-                    error = s.error,
-                    onRestoreClick = viewModel::requestRestore,
-                    modifier = Modifier.padding(paddingValues),
+                    error = state.error,
+                    onRestoreClick = onRestoreClick,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
 
@@ -115,45 +156,59 @@ fun RestoreBackupScreen(
                 IdleContent(
                     backupId = backupId,
                     error = null,
-                    onRestoreClick = viewModel::requestRestore,
-                    modifier = Modifier.padding(paddingValues),
-                )
-                ListenUpDestructiveDialog(
-                    onDismissRequest = viewModel::cancelRestore,
-                    title = "Restore Backup?",
-                    text =
-                        "This replaces everything on this server, including all user accounts, with the " +
-                            "contents of this backup. You'll be signed out and must sign in again with an " +
-                            "account from this backup. This cannot be undone.",
-                    confirmText = "Restore",
-                    onConfirm = viewModel::confirmRestore,
-                    icon = Icons.Default.Warning,
+                    onRestoreClick = onRestoreClick,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
 
             RestoreBackupUiState.Restoring -> {
                 FullScreenLoadingIndicator(
                     message = restoreStatusLabel(progress),
-                    modifier = Modifier.padding(paddingValues),
+                    modifier = paneModifier,
                 )
             }
 
             is RestoreBackupUiState.Completed -> {
                 CompletedContent(
-                    result = s.result,
-                    onDone = onComplete,
-                    modifier = Modifier.padding(paddingValues),
+                    result = state.result,
+                    onDone = onDone,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
         }
     }
+
+    if (state == RestoreBackupUiState.Confirming) {
+        ListenUpDestructiveDialog(
+            onDismissRequest = onCancelRestore,
+            title = "Restore Backup?",
+            text =
+                "This replaces everything on this server, including all user accounts, with the " +
+                    "contents of this backup. You'll be signed out and must sign in again with an " +
+                    "account from this backup. This cannot be undone.",
+            confirmText = "Restore",
+            onConfirm = onConfirmRestore,
+            icon = Icons.Default.Warning,
+        )
+    }
 }
+
+/** Where this screen's state sits in the restore flow's steps. */
+private fun RestoreBackupUiState.flowStep(): Int =
+    when (this) {
+        is RestoreBackupUiState.Idle, RestoreBackupUiState.Confirming -> RestoreFlowStep.REVIEW
+        RestoreBackupUiState.Restoring -> RestoreFlowStep.RESTORE
+        is RestoreBackupUiState.Completed -> RestoreFlowStep.SIGN_IN
+    }
 
 @Composable
 private fun IdleContent(
     backupId: String,
     error: AppError?,
     onRestoreClick: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -161,12 +216,11 @@ private fun IdleContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .readingWidth()
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -190,7 +244,7 @@ private fun IdleContent(
         }
 
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -209,14 +263,16 @@ private fun IdleContent(
             }
         }
 
-        error?.let { ErrorCard(text = it.localized()) }
+        error?.let { ErrorCard(text = it.localized(), modifier = Modifier.widthIn(max = ReadingMaxWidth)) }
 
-        Spacer(modifier = Modifier.weight(1f))
+        // A phone parks the action at the foot of the screen; the wide pane keeps it under the cards.
+        if (!isWide) Spacer(modifier = Modifier.weight(1f))
 
         ListenUpButton(
             onClick = onRestoreClick,
             text = "Restore this backup",
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -225,6 +281,7 @@ private fun IdleContent(
 private fun CompletedContent(
     result: RestoreResult,
     onDone: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -232,12 +289,11 @@ private fun CompletedContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .readingWidth()
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -278,12 +334,13 @@ private fun CompletedContent(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        if (!isWide) Spacer(modifier = Modifier.weight(1f))
 
         ListenUpButton(
             onClick = onDone,
             text = "Done",
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
