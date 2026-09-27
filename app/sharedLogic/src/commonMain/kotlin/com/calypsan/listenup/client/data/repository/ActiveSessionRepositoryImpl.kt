@@ -6,10 +6,9 @@ import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.stableAvatarColorHex
-import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
+import com.calypsan.listenup.client.data.local.db.CachedActiveSessionWithBook
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.refreshTriggers
@@ -39,13 +38,13 @@ private val logger = KotlinLogging.logger {}
  * [com.calypsan.listenup.api.SocialService] `currentlyListening` RPC on first subscribe and on every
  * [PresenceRefreshSignal] ping, replacing the cache wholesale; on failure the cache is left untouched.
  *
- * Book identity is enriched at read time from the viewer's local Room library (which holds exactly the
- * books they can access); sessions whose book is absent locally are dropped. Because presence is
+ * Book identity is joined at read time from the viewer's local Room library (which holds exactly the
+ * books they can access) in the same query as the roster; sessions whose book is absent locally are
+ * dropped, and appear as soon as their book syncs in. Because presence is
  * time-sensitive, each cached row keeps an `observedAt` for a UI staleness affordance. The avatar
  * background colour is derived from the user id via [stableAvatarColorHex]; the wire DTO carries none.
  *
  * @property channel Dispatches the [com.calypsan.listenup.api.SocialService] presence RPC.
- * @property bookDao Local library reads for enriching each session's book fields.
  * @property imageStorage Resolves the local cover path when a cover is cached.
  * @property presence Pings whenever presence may have changed, driving a background refresh.
  * @property cachedSessionDao The Room mirror — the offline read source.
@@ -53,7 +52,6 @@ private val logger = KotlinLogging.logger {}
  */
 internal class ActiveSessionRepositoryImpl(
     private val channel: RpcChannel<SocialService>,
-    private val bookDao: BookDao,
     private val imageStorage: ImageStorage,
     private val presence: PresenceRefreshSignal,
     private val cachedSessionDao: CachedActiveSessionDao,
@@ -69,7 +67,7 @@ internal class ActiveSessionRepositoryImpl(
         observeActiveSessions(currentUserId).map { it.size }
 
     private fun cachedSessions(): Flow<List<ActiveSession>> =
-        cachedSessionDao.observeAll().map { rows -> rows.mapNotNull { deriveActiveSession(it) } }
+        cachedSessionDao.observeWithBooks().map { rows -> rows.map { it.toDomain() } }
 
     private fun refreshOnPing(): Flow<List<ActiveSession>> =
         presence
@@ -97,37 +95,30 @@ internal class ActiveSessionRepositoryImpl(
         }
     }
 
-    /**
-     * Resolve the cached row's book summary, then map. A plain function taking the entity, not a
-     * suspend extension on it: entity mappers stay pure ([NoSuspendExtensionOnRoomEntityRule]).
-     */
-    private suspend fun deriveActiveSession(entity: CachedActiveSessionEntity): ActiveSession? {
-        val summary = bookDao.getBookSummary(entity.bookId) ?: return null
-        return entity.toDomain(summary)
-    }
-
-    private fun CachedActiveSessionEntity.toDomain(summary: BookSummary): ActiveSession {
+    private fun CachedActiveSessionWithBook.toDomain(): ActiveSession {
+        val bookId = session.bookId
+        val userId = session.userId
         val coverPath = imageStorage.takeIf { it.exists(BookId(bookId)) }?.getCoverPath(BookId(bookId))
         return ActiveSession(
             sessionId = "$userId:$bookId",
             userId = userId,
             bookId = bookId,
-            lastActiveAtMs = lastActiveAtMs,
-            isLive = isLive,
+            lastActiveAtMs = session.lastActiveAtMs,
+            isLive = session.isLive,
             user =
                 ActiveSession.SessionUser(
-                    displayName = displayName,
-                    avatarType = avatarType,
+                    displayName = session.displayName,
+                    avatarType = session.avatarType,
                     avatarValue = null,
                     avatarColor = stableAvatarColorHex(userId),
                 ),
             book =
                 ActiveSession.SessionBook(
-                    id = summary.id,
-                    title = summary.title,
+                    id = bookId,
+                    title = bookTitle,
                     coverPath = coverPath,
-                    coverHash = summary.coverHash,
-                    authorName = summary.authorName,
+                    coverHash = bookCoverHash,
+                    authorName = bookAuthorName,
                 ),
         )
     }

@@ -23,14 +23,17 @@ class AutoRewindTest :
             autoRewindMs(3_599_999) shouldBe 5_000L
         }
 
-        test("a break of an hour to a day rewinds fifteen seconds") {
+        test("a break of an hour to a few hours rewinds fifteen seconds") {
             autoRewindMs(3_600_000) shouldBe 15_000L
-            autoRewindMs(12 * 3_600_000L) shouldBe 15_000L
-            autoRewindMs(86_399_999) shouldBe 15_000L
+            autoRewindMs(3 * 3_600_000L) shouldBe 15_000L
+            autoRewindMs(6 * 3_600_000L - 1) shouldBe 15_000L
         }
 
-        test("a break of a day or more rewinds the full thirty seconds") {
-            autoRewindMs(86_400_000) shouldBe 30_000L
+        test("a night away rewinds the full thirty seconds") {
+            // Someone who fell asleep listening comes back eight hours later. That is the overnight
+            // rung by name, and it used to start at a full day — so a night got fifteen seconds.
+            autoRewindMs(6 * 3_600_000L) shouldBe 30_000L
+            autoRewindMs(8 * 3_600_000L) shouldBe 30_000L
             autoRewindMs(30 * 86_400_000L) shouldBe 30_000L
         }
 
