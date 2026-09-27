@@ -113,7 +113,7 @@ class ClientKoinGraphE2ETest :
             // process-singleton playback controller via playbackController.acquire(), and it has two
             // koinViewModel() consumers in separate nav stores — the shell mini-player + the document
             // viewer — so a factory would have double-acquired). The acquisition now lives in
-            // PlaybackControllerActivator (a `single(createdAtStart = true)` in
+            // PlaybackControllerActivator (a process-lifetime `single` in
             // playbackPresentationModule) and expand/collapse state lives in NowPlayingSheetState, so
             // NowPlayingViewModel is a plain factory like every other VM. Every VM must be a factory.
             val allowedSingletonViewModels = emptySet<String>()

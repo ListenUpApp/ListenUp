@@ -12,8 +12,14 @@ import org.koin.dsl.module
  * playback through its own native `PlayerCoordinator`, not this module) — plus the two
  * process-lifetime collaborators that let it be a plain `factory` like every other ViewModel:
  *
- * - [PlaybackControllerActivator] (`createdAtStart = true`) acquires the `PlaybackController`
- *   connection once at Koin startup. This used to happen in `NowPlayingViewModel.init`, which
+ * - [PlaybackControllerActivator] acquires the `PlaybackController` connection exactly once, the
+ *   first time something resolves it. It is deliberately NOT `createdAtStart`: on Android the first
+ *   acquire binds `PlaybackService`, which builds ExoPlayer and the MediaSession, and doing that at
+ *   Koin startup put it ahead of the first frame and on every FCM or WorkManager wake. Android
+ *   resolves it from the two places a controller is actually needed — `MainActivity` (after its
+ *   first frame) and `PlaybackService.onCreate` (a media button, Android Auto or a resumption
+ *   request starting the process with no activity). Desktop's `acquire()` is a no-op, so nothing
+ *   there needs to resolve it. This used to happen in `NowPlayingViewModel.init`, which
  *   forced the VM itself to be a `single` — the app's one documented exception to the "VMs are
  *   `factory`" rule — because a `factory` would create a fresh instance (and double-acquire the
  *   controller) at each of its two `koinViewModel()` consumers (the shell mini-player and the
@@ -38,9 +44,7 @@ internal val playbackPresentationModule =
     module {
         single { NowPlayingSheetState() }
 
-        single(createdAtStart = true) {
-            PlaybackControllerActivator(playbackController = get())
-        }
+        single { PlaybackControllerActivator(playbackController = get()) }
 
         factory {
             NowPlayingViewModel(

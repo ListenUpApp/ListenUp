@@ -54,7 +54,10 @@ import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.di.activatePlaybackController
+import kotlinx.coroutines.android.awaitFrame
 import org.koin.android.ext.android.get
+import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -142,6 +145,16 @@ class MainActivity : ComponentActivity() {
             PostureProvider {
                 ListenUpApp()
             }
+        }
+
+        // Bind the playback service only once the first frame is on its way. Acquiring the
+        // controller binds PlaybackService, whose onCreate builds ExoPlayer, the MediaSession and
+        // the streaming client on this thread; waiting a frame keeps that off the cold-start path.
+        // A play command issued sooner still works — AndroidPlaybackController awaits the
+        // connection. Idempotent across recreations: the connection is process-lifetime.
+        lifecycleScope.launch {
+            awaitFrame()
+            getKoin().activatePlaybackController()
         }
 
         // Continue On (API 37). Guarded because minSdk is 33: the methods are final on Activity and

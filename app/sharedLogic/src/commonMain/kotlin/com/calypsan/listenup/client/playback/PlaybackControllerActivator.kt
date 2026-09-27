@@ -1,10 +1,12 @@
 package com.calypsan.listenup.client.playback
 
 /**
- * Acquires the process-lifetime [PlaybackController] connection at Koin startup.
+ * Acquires the process-lifetime [PlaybackController] connection the first time it is resolved.
  *
- * Bound `single(createdAtStart = true)` in `playbackPresentationModule`, so [PlaybackController.acquire]
- * runs exactly once per process, independent of any ViewModelStore. This used to live in
+ * Bound as a plain Koin `single` in `playbackPresentationModule`, so [PlaybackController.acquire]
+ * runs exactly once per process however many callers resolve it, independent of any
+ * ViewModelStore. It is not `createdAtStart`: see that module's KDoc for who resolves it on
+ * Android, and why binding the playback service at Koin startup was wrong. This used to live in
  * `NowPlayingViewModel.init`, which forced that ViewModel to be a Koin `single` — the only
  * ViewModel in the app not scoped per-store — because a `factory` VM would double-acquire across
  * its two `koinViewModel()` consumers (the shell mini-player and the document viewer). Acquiring
