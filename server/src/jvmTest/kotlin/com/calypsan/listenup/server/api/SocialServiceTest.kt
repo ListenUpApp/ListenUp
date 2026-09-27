@@ -130,6 +130,7 @@ class SocialServiceTest :
             positionMs: Long,
             lastPlayedAt: Long = 1L,
             finished: Boolean = false,
+            deletedAt: Long? = null,
         ) {
             playbackPositionsQueries.insert(
                 id = "$userId-$bookId",
@@ -148,7 +149,7 @@ class SocialServiceTest :
                 revision = 0L,
                 created_at = 1L,
                 updated_at = 1L,
-                deleted_at = null,
+                deleted_at = deletedAt,
                 client_op_id = null,
             )
         }
@@ -369,6 +370,65 @@ class SocialServiceTest :
 
                     readers.first { it.userId == "u2" }.currentProgressPct shouldBe 43
                     readers.first { it.userId == "u1" }.finishes shouldBe listOf(300L, 100L) // newest-first
+                }
+            }
+        }
+
+        test("bookReadership does not show a reader who abandoned the book months ago as reading it") {
+            // A book someone left at 40% in March is not something they are reading now. Showing
+            // "reading, 40%" forever tells the viewer something false about a friend.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("bob")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("bob", displayName = "Bob")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    setBookDuration("book-a", totalDuration = 10_000L)
+
+                    val nowMs = 1_800_000_000_000L
+                    val day = 24L * 60 * 60 * 1000
+                    sql.seedInProgressPosition(
+                        userId = "alice", bookId = "book-a", positionMs = 4_000L, lastPlayedAt = nowMs - 90 * day,
+                    )
+                    sql.seedInProgressPosition(
+                        userId = "bob", bookId = "book-a", positionMs = 2_000L, lastPlayedAt = nowMs - 3 * day,
+                    )
+
+                    val readers =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .bookReadership(BookId("book-a"))
+                            .value()
+                            .readers
+
+                    readers.map { it.userId } shouldBe listOf("bob")
+                    readers.single().currentProgressPct shouldBe 20
+                }
+            }
+        }
+
+        test("bookReadership ignores a deleted position") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    setBookDuration("book-a", totalDuration = 10_000L)
+                    sql.seedInProgressPosition(
+                        userId = "alice", bookId = "book-a", positionMs = 4_000L, deletedAt = 2L,
+                    )
+
+                    makeService(sql, driver, principalFor("viewer"))
+                        .bookReadership(BookId("book-a"))
+                        .value()
+                        .readers
+                        .shouldBeEmpty()
                 }
             }
         }

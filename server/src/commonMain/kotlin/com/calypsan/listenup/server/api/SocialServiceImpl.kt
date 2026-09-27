@@ -120,7 +120,8 @@ internal class SocialServiceImpl(
             return AppResult.Failure(SocialError.NotFound())
         }
         val totalDuration = books.findById(bookId)?.totalDuration ?: 0L
-        val inProgress = playbackPositions.listInProgressForBook(bookId.value) // List<userId, positionMs>
+        val readingSince = clock.now().toEpochMilliseconds() - READING_WINDOW.inWholeMilliseconds
+        val inProgress = playbackPositions.listInProgressForBook(bookId.value, readingSince) // List<userId, positionMs>
         val finishesByUser = bookReads.finishesForBook(bookId.value).groupBy { it.userId } // newest-first per user
 
         val userIds = (inProgress.map { it.first } + finishesByUser.keys).toSet()
@@ -194,5 +195,15 @@ internal class SocialServiceImpl(
          * current activity.
          */
         val RECENT_FILL_MAX_AGE = 14.days
+
+        /**
+         * How recently someone must have played a book to count as reading it in its readers row.
+         *
+         * Longer than [RECENT_FILL_MAX_AGE]: that asks "what are people listening to lately", this
+         * asks "is this person still reading this book" — a listener on a slow month is. A book left
+         * at 40% in March is not, and showing it as "reading" forever says something false about a
+         * friend. Finishes are unaffected; they are history, not a claim about now.
+         */
+        val READING_WINDOW = 30.days
     }
 }

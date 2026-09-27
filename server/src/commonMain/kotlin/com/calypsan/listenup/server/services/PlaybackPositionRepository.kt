@@ -589,11 +589,18 @@ class PlaybackPositionRepository(
                 }.executeAsList()
         }
 
-    /** (userId, positionMs) for every user with an in-progress (unfinished, positionMs>0) position on [bookId]. */
-    suspend fun listInProgressForBook(bookId: String): List<Pair<String, Long>> =
+    /**
+     * (userId, positionMs) for every user with a live, in-progress (unfinished, positionMs>0) position
+     * on [bookId] played at or after [playedSince]. The floor is the caller's decision, as with
+     * [mostRecentUnfinishedPerUser].
+     */
+    suspend fun listInProgressForBook(
+        bookId: String,
+        playedSince: Long,
+    ): List<Pair<String, Long>> =
         suspendTransaction(db) {
             db.playbackPositionsQueries
-                .listInProgressForBook(bookId) { userId, positionMs -> userId to positionMs }
+                .listInProgressForBook(bookId, playedSince) { userId, positionMs -> userId to positionMs }
                 .executeAsList()
         }
 

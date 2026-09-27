@@ -122,10 +122,13 @@ WHERE user_id != :excludeUserId AND deleted_at IS NULL AND finished = 0 AND posi
 GROUP BY user_id
 ORDER BY last_played_at DESC;
 
--- (user_id, position_ms) for every user in-progress on a book.
+-- (user_id, position_ms) for every user reading a book now: the same started-but-not-finished,
+-- not-deleted filter as the queries above, floored on :playedSince so a book abandoned months ago
+-- no longer reads as "reading, 40%" forever.
 listInProgressForBook:
 SELECT user_id, position_ms FROM playback_positions
-WHERE book_id = :bookId AND finished = 0 AND position_ms > 0;
+WHERE book_id = :bookId AND finished = 0 AND position_ms > 0 AND deleted_at IS NULL
+  AND last_played_at >= :playedSince;
 
 -- Stats support: count of finished, non-deleted positions for a user (books_finished).
 countFinishedForUser:
