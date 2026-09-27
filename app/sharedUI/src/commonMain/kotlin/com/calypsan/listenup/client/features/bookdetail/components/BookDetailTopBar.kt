@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,9 +20,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.LocalInDetailPane
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_close
 import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.common_back
 
@@ -29,7 +32,7 @@ import listenup.composeapp.generated.resources.common_back
  * Plain (non-collapsing) top app bar for the Book Detail screen.
  *
  * Shows a back arrow, the screen label ("Book details"), and a three-dot overflow that delegates
- * to [BookActionsMenu]. Container colour is [MaterialTheme.colorScheme.surface] so it blends
+ * to [BookActionsMenu]. Beside a list (see [LocalInDetailPane]) the back arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface] so it blends
  * seamlessly with the hero section below it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,10 +69,18 @@ fun BookDetailTopBar(
                     onBackClick()
                 },
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(Res.string.common_back),
-                )
+                // Beside its list, Back no longer leaves anything — it closes this pane.
+                if (LocalInDetailPane.current) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(Res.string.book_detail_close),
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(Res.string.common_back),
+                    )
+                }
             }
         },
         actions = {

@@ -3621,6 +3621,16 @@
         }
       }
     },
+    "book.detail_close": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close book"
+          }
+        }
+      }
+    },
     "book.detail_collection_picker_title": {
       "localizations": {
         "en": {

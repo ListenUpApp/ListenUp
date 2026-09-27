@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.GenreDestination
+import com.calypsan.listenup.client.navigation.ListDetailScene
 import com.calypsan.listenup.client.navigation.MatchPreview
 import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.SeriesDetail
@@ -44,7 +45,8 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
     snackbarHostState: SnackbarHostState,
     pendingSelectionExit: PendingSelectionExit,
 ) {
-    entry<BookDetail>(metadata = heroEntryTransitions) { args ->
+    // The detail pane: opened from a list pane on a wide window, it sits beside that list.
+    entry<BookDetail>(metadata = heroEntryTransitions + ListDetailScene.detailPane()) { args ->
         HeroEntry {
             com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
                 bookId = args.bookId,

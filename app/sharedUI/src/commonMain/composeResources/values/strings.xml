@@ -363,6 +363,7 @@ One beautiful library.</string>
     <string name="book_detail_chapter_count">%1$d chapters</string>
     <string name="book_detail_chapter_label">Ch. %1$d · %2$s</string>
     <string name="book_detail_chapters">Chapters</string>
+    <string name="book_detail_close">Close book</string>
     <string name="book_detail_collection_picker_title">Add to Collection</string>
     <string name="book_detail_contributors_overflow">%1$s &amp; %2$d others</string>
     <string name="book_detail_credits">Credits</string>

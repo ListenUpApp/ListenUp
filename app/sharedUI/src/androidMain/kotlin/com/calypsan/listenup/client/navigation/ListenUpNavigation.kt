@@ -758,6 +758,9 @@ private fun AuthenticatedNavigation(
                                     rememberSaveableStateHolderNavEntryDecorator(),
                                     rememberViewModelStoreNavEntryDecorator(),
                                 ),
+                            // From the two-pane width a book opened from a series or contributor sits
+                            // beside it; below that (and for every other stack) the single pane.
+                            sceneStrategies = listOf(rememberListDetailSceneStrategy()),
                             // Only handle back if we're not at root - let system handle back-to-home
                             onBack = {
                                 if (backStack.size > 1) {
