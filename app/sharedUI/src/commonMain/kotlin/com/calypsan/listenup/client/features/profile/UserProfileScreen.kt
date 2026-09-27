@@ -1,5 +1,18 @@
 package com.calypsan.listenup.client.features.profile
 
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.ui.unit.Dp
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -132,14 +145,29 @@ fun UserProfileScreen(
                 }
 
                 is UserProfileUiState.Ready -> {
-                    ProfileContent(
-                        state = current,
-                        onBack = onBack,
-                        onEditClick = onEditClick,
-                        onBookClick = onBookClick,
-                        onShelfClick = onShelfClick,
-                        onCreateShelfClick = onCreateShelfClick,
-                    )
+                    val wide =
+                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+                        )
+                    if (wide) {
+                        WideProfileContent(
+                            state = current,
+                            onBack = onBack,
+                            onEditClick = onEditClick,
+                            onBookClick = onBookClick,
+                            onShelfClick = onShelfClick,
+                            onCreateShelfClick = onCreateShelfClick,
+                        )
+                    } else {
+                        ProfileContent(
+                            state = current,
+                            onBack = onBack,
+                            onEditClick = onEditClick,
+                            onBookClick = onBookClick,
+                            onShelfClick = onShelfClick,
+                            onCreateShelfClick = onCreateShelfClick,
+                        )
+                    }
                 }
             }
         }
@@ -207,6 +235,143 @@ private fun ProfileContent(
     }
 }
 
+/**
+ * The medium-and-wider profile, after SeriesDetail's wide layout: the color-blocked identity as a
+ * rounded panel on the left, and the stats, recent covers and shelves as one grid on the right whose
+ * columns flow with the width.
+ */
+@Composable
+private fun WideProfileContent(
+    state: UserProfileUiState.Ready,
+    onBack: () -> Unit,
+    onEditClick: () -> Unit,
+    onBookClick: (String) -> Unit,
+    onShelfClick: (String) -> Unit,
+    onCreateShelfClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                // The scaffold hands this screen no insets (the phone hero bleeds behind the status
+                // bar); the wide panels don't, so they clear it themselves.
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        WideProfileHeroPanel(
+            state = state,
+            onBack = onBack,
+            onEditClick = onEditClick,
+            modifier = Modifier.weight(0.4f).fillMaxHeight(),
+        )
+        WideProfileGrid(
+            state = state,
+            onBookClick = onBookClick,
+            onShelfClick = onShelfClick,
+            onCreateShelfClick = onCreateShelfClick,
+            modifier = Modifier.weight(0.6f).fillMaxHeight(),
+        )
+    }
+}
+
+@Composable
+private fun WideProfileHeroPanel(
+    state: UserProfileUiState.Ready,
+    onBack: () -> Unit,
+    onEditClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        HeroBlob(
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(210.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+            shape = BlobShape,
+        )
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 28.dp),
+        ) {
+            // Already inside an inset panel, so the row must not re-apply the status-bar inset.
+            HeroNavRow(onBack = onBack, applyStatusBarInset = false) {
+                if (state.isOwnProfile) ProfileEditButton(onEditClick = onEditClick)
+            }
+            ProfileHeroIdentity(state = state)
+        }
+    }
+}
+
+@Composable
+private fun WideProfileGrid(
+    state: UserProfileUiState.Ready,
+    onBookClick: (String) -> Unit,
+    onShelfClick: (String) -> Unit,
+    onCreateShelfClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = RecentCoverWidth),
+        modifier = modifier,
+        contentPadding = PaddingValues(bottom = 28.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item(key = "stats", span = { GridItemSpan(maxLineSpan) }) {
+            StatsRow(
+                totalListenTime = DurationFormatter.hoursMinutes(state.totalListenTimeMs.milliseconds),
+                booksFinished = state.booksFinished,
+                currentStreak = state.currentStreak,
+                longestStreak = state.longestStreak,
+                horizontalPadding = 0.dp,
+            )
+        }
+
+        if (state.recentBooks.isNotEmpty()) {
+            item(key = "recent-header", span = { GridItemSpan(maxLineSpan) }) {
+                SectionHeader(
+                    title = stringResource(Res.string.profile_recently_finished),
+                    horizontalPadding = 0.dp,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            items(state.recentBooks, key = { "recent-${it.bookId}" }) { book ->
+                RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
+            }
+        }
+
+        if (state.publicShelves.isNotEmpty() || state.isOwnProfile) {
+            item(key = "shelves-header", span = { GridItemSpan(maxLineSpan) }) {
+                ShelvesSectionHeader(
+                    count = state.publicShelves.size,
+                    horizontalPadding = 0.dp,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            // A shelf tile carries a name and a count, so it takes two cover columns where there are two.
+            itemsIndexed(
+                state.publicShelves,
+                key = { _, shelf -> "shelf-${shelf.id}" },
+                span = { _, _ -> GridItemSpan(minOf(2, maxLineSpan)) },
+            ) { index, shelf ->
+                ShelfTile(shelf = shelf, colorIndex = index, onClick = { onShelfClick(shelf.id) })
+            }
+            if (state.isOwnProfile) {
+                item(key = "shelf-add", span = { GridItemSpan(minOf(2, maxLineSpan)) }) {
+                    AddShelfTile(onClick = onCreateShelfClick)
+                }
+            }
+        }
+    }
+}
+
 // region hero
 
 @Composable
@@ -215,8 +380,6 @@ private fun ProfileColorHero(
     onBack: () -> Unit,
     onEditClick: () -> Unit,
 ) {
-    val ink = MaterialTheme.colorScheme.onPrimaryContainer
-    val haptics = LocalHaptics.current
     Box(
         modifier =
             Modifier
@@ -237,50 +400,60 @@ private fun ProfileColorHero(
 
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
             HeroNavRow(onBack = onBack) {
-                if (state.isOwnProfile) {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onEditClick()
-                        },
-                        modifier =
-                            Modifier.size(48.dp).background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                CircleShape,
-                            ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = stringResource(Res.string.profile_edit_profile),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
+                if (state.isOwnProfile) ProfileEditButton(onEditClick = onEditClick)
             }
+            ProfileHeroIdentity(state = state)
+        }
+    }
+}
 
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                ProfileScallopAvatar(state = state)
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = state.displayName,
-                    style = MaterialTheme.typography.headlineMediumEmphasized,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = ink,
-                    textAlign = TextAlign.Center,
-                )
-                if (!state.tagline.isNullOrBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = state.tagline!!,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = ink.copy(alpha = 0.82f),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
+@Composable
+private fun ProfileEditButton(onEditClick: () -> Unit) {
+    val haptics = LocalHaptics.current
+    IconButton(
+        onClick = {
+            haptics.press()
+            onEditClick()
+        },
+        modifier =
+            Modifier.size(48.dp).background(
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                CircleShape,
+            ),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = stringResource(Res.string.profile_edit_profile),
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** The scallop avatar, name and tagline, centred on the color block. */
+@Composable
+private fun ProfileHeroIdentity(state: UserProfileUiState.Ready) {
+    val ink = MaterialTheme.colorScheme.onPrimaryContainer
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        ProfileScallopAvatar(state = state)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = state.displayName,
+            style = MaterialTheme.typography.headlineMediumEmphasized,
+            fontWeight = FontWeight.ExtraBold,
+            color = ink,
+            textAlign = TextAlign.Center,
+        )
+        if (!state.tagline.isNullOrBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = state.tagline!!,
+                style = MaterialTheme.typography.bodyLarge,
+                color = ink.copy(alpha = 0.82f),
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -364,6 +537,7 @@ private fun StatsRow(
     currentStreak: Int,
     longestStreak: Int,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
 ) {
     val scheme = MaterialTheme.colorScheme
     val tiles =
@@ -402,7 +576,7 @@ private fun StatsRow(
             ),
         )
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         tiles.forEach { StatTile(it, modifier = Modifier.weight(1f)) }
@@ -455,9 +629,10 @@ private fun StatTile(
 private fun ShelvesSectionHeader(
     count: Int,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -610,12 +785,13 @@ private fun AddShelfTile(
 private fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
 ) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.ExtraBold,
-        modifier = modifier.padding(horizontal = 16.dp),
+        modifier = modifier.padding(horizontal = horizontalPadding),
     )
 }
 
@@ -628,12 +804,12 @@ private fun RecentBooksRow(
     BrowseCarousel(
         items = books,
         modifier = modifier,
-        itemWidth = 140.dp,
+        itemWidth = RecentCoverWidth,
         itemSpacing = 16.dp,
         contentPadding = PaddingValues(horizontal = 16.dp),
         key = { it.bookId },
     ) { book ->
-        RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
+        RecentBookCard(book = book, onClick = { onBookClick(book.bookId) }, modifier = Modifier.width(RecentCoverWidth))
     }
 }
 
@@ -646,7 +822,7 @@ private fun RecentBookCard(
     val haptics = LocalHaptics.current
     Column(
         modifier =
-            modifier.width(140.dp).clickable {
+            modifier.clickable {
                 haptics.press()
                 onClick()
             },
@@ -676,6 +852,9 @@ private fun RecentBookCard(
         )
     }
 }
+
+/** A recent cover's width in the phone carousel, and the narrowest a wide grid's column gets. */
+private val RecentCoverWidth = 140.dp
 
 // endregion
 

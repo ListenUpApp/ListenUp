@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
+import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import com.calypsan.listenup.client.presentation.settings.SettingsEvent
@@ -185,9 +186,6 @@ object SleepTimerPresets {
         }
 }
 
-/** Max readable content width — wide windows centre the settings column rather than stretch it. */
-private val ContentMaxWidth = 640.dp
-
 /**
  * Settings screen.
  *
@@ -279,7 +277,7 @@ fun SettingsScreen(
             Column(
                 modifier =
                     Modifier
-                        .widthIn(max = ContentMaxWidth)
+                        .widthIn(max = ReadingMaxWidth)
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),

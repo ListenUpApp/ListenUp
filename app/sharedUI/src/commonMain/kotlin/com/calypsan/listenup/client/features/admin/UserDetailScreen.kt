@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
+import com.calypsan.listenup.client.design.readingWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -175,6 +176,7 @@ private fun UserDetailContent(
         modifier =
             modifier
                 .fillMaxSize()
+                .readingWidth()
                 .padding(horizontal = 16.dp),
     ) {
         // User info section

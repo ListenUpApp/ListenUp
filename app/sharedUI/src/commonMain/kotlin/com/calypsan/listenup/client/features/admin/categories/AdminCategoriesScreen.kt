@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import com.calypsan.listenup.client.design.readingWidth
 import androidx.compose.ui.semantics.heading
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.common_collapsed
@@ -697,6 +698,7 @@ private fun CategoriesContent(
             modifier =
                 modifier
                     .fillMaxSize()
+                    .readingWidth()
                     .padding(horizontal = 16.dp),
         ) {
             item {

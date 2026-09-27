@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import listenup.composeapp.generated.resources.merge_history_section_title
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.client.features.merge.MergeHistoryList
@@ -381,28 +383,26 @@ private fun SeriesEditContent(
             onBackClick = onBackClick,
         )
 
-        // Cards section
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            // Description card
-            SeriesStudioCard(title = stringResource(Res.string.common_description)) {
-                ListenUpTextArea(
-                    value = state.description,
-                    onValueChange = { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) },
-                    label = "Description",
-                    placeholder = stringResource(Res.string.series_enter_a_description_for_this),
-                )
+        // Cards section — side by side from medium width, like ContributorEdit's studio cards.
+        val isMediumOrLarger =
+            currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+            )
+        if (isMediumOrLarger) {
+            Row(
+                modifier = Modifier.padding(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                DescriptionCard(state = state, onEvent = onEvent, modifier = Modifier.weight(1f))
+                MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent, modifier = Modifier.weight(1f))
             }
-
-            // The merges folded into this series, each undoable (#1061).
-            SeriesStudioCard(title = stringResource(Res.string.merge_history_section_title)) {
-                MergeHistoryList(
-                    state = mergeHistory,
-                    onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
-                    onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
-                )
+        } else {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                DescriptionCard(state = state, onEvent = onEvent)
+                MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent)
             }
         }
 
@@ -584,16 +584,49 @@ private fun SeriesIdentityHeader(
 }
 
 // =============================================================================
-// STUDIO CARD
+// STUDIO CARDS
 // =============================================================================
+
+@Composable
+private fun DescriptionCard(
+    state: SeriesEditUiState,
+    onEvent: (SeriesEditUiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SeriesStudioCard(title = stringResource(Res.string.common_description), modifier = modifier) {
+        ListenUpTextArea(
+            value = state.description,
+            onValueChange = { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) },
+            label = "Description",
+            placeholder = stringResource(Res.string.series_enter_a_description_for_this),
+        )
+    }
+}
+
+/** The merges folded into this series, each undoable (#1061). */
+@Composable
+private fun MergeHistoryCard(
+    mergeHistory: MergeHistoryState,
+    onEvent: (SeriesEditUiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SeriesStudioCard(title = stringResource(Res.string.merge_history_section_title), modifier = modifier) {
+        MergeHistoryList(
+            state = mergeHistory,
+            onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
+            onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
+        )
+    }
+}
 
 @Composable
 private fun SeriesStudioCard(
     title: String,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors =
             CardDefaults.elevatedCardColors(

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.notifications
 
+import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.background
@@ -60,9 +61,6 @@ import listenup.composeapp.generated.resources.notifications_empty_title
 import listenup.composeapp.generated.resources.notifications_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-
-/** Max readable content width — wide windows centre the list rather than stretch it. */
-private val ContentMaxWidth = 640.dp
 
 /** Diameter of the unread indicator dot leading an unread row's title. */
 private val UnreadDotSize = 8.dp
@@ -133,7 +131,7 @@ fun NotificationsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     LazyColumn(
-                        modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth(),
+                        modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {

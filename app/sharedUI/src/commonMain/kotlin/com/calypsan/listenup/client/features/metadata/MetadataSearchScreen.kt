@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.metadata
 
+import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,9 +62,6 @@ import listenup.composeapp.generated.resources.metadata_search_audible
 import listenup.composeapp.generated.resources.metadata_title_author_narrator_or_asin
 import listenup.composeapp.generated.resources.metadata_try_a_different_search_term_or_region
 
-/** Readable centred-column width cap on expanded layouts. */
-private val CONTENT_MAX_WIDTH = 640.dp
-
 /**
  * Full-screen for searching books on Audible.
  *
@@ -108,7 +106,7 @@ fun MetadataSearchScreen(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .widthIn(max = CONTENT_MAX_WIDTH)
+                        .widthIn(max = ReadingMaxWidth)
                         .padding(horizontal = 18.dp),
             ) {
                 Spacer(modifier = Modifier.height(20.dp))

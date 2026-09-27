@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.metadata
 
+import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -112,8 +113,6 @@ import listenup.composeapp.generated.resources.metadata_select_metadata
 import listenup.composeapp.generated.resources.metadata_try_selecting_a_different_region
 import listenup.composeapp.generated.resources.metadata_your_book_already_has_all
 
-/** Readable centred-column width cap on expanded layouts. */
-private val PREVIEW_MAX_WIDTH = 640.dp
 private const val DESCRIPTION_PREVIEW_LIMIT = 200
 
 /**
@@ -192,7 +191,7 @@ fun MatchPreviewScreen(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .widthIn(max = PREVIEW_MAX_WIDTH),
+                        .widthIn(max = ReadingMaxWidth),
                 contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {

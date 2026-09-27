@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
+import com.calypsan.listenup.client.design.readingWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -113,6 +114,7 @@ fun ContributorMetadataSearchScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .readingWidth()
                     .padding(horizontal = 16.dp),
         ) {
             // Context - who we're searching for

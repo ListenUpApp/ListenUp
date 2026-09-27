@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.organize
 
+import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -81,8 +82,6 @@ import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
 import org.jetbrains.compose.resources.stringResource
 
-/** Content column width cap so the form reads well at medium/expanded window widths. */
-private val ContentMaxWidth = 640.dp
 
 /**
  * Bottom clearance under the scrolling form so the Organize Library button can always be scrolled
@@ -211,7 +210,7 @@ private fun OrganizeSettingsContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(
-            modifier = Modifier.widthIn(max = ContentMaxWidth),
+            modifier = Modifier.widthIn(max = ReadingMaxWidth),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             SectionGroup(

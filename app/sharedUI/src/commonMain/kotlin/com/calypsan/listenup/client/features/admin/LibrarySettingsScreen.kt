@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
+import com.calypsan.listenup.client.design.readingWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.clickable
@@ -218,7 +219,7 @@ private fun LibrarySettingsContent(
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().readingWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {

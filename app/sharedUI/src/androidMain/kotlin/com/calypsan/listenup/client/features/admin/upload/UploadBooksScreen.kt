@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.upload
 
+import com.calypsan.listenup.client.design.readingWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -307,6 +308,7 @@ private fun IdleContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .readingWidth()
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -345,6 +347,7 @@ private fun UploadingContent(
         modifier =
             modifier
                 .fillMaxSize()
+                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -404,6 +407,7 @@ private fun FinalizingContent(modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .fillMaxSize()
+                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -438,6 +442,7 @@ private fun FinishedContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -498,6 +503,7 @@ private fun FailedContent(
         modifier =
             modifier
                 .fillMaxSize()
+                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

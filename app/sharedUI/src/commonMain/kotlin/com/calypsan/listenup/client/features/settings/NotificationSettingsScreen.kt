@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
+import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,9 +59,6 @@ import listenup.composeapp.generated.resources.notifications_settings_switch_a11
 import listenup.composeapp.generated.resources.notifications_settings_row_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-
-/** Max readable content width — wide windows centre the settings column rather than stretch it. */
-private val ContentMaxWidth = 640.dp
 
 /**
  * Per-type notification delivery toggles, rendered from the registry — a new type gets its row
@@ -144,7 +142,7 @@ fun NotificationSettingsScreen(
                     Column(
                         modifier =
                             Modifier
-                                .widthIn(max = ContentMaxWidth)
+                                .widthIn(max = ReadingMaxWidth)
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {

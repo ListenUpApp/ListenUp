@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
+import com.calypsan.listenup.client.design.readingWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -238,7 +239,7 @@ private fun PreviewBottomBar(
     onChangeMatch: () -> Unit,
 ) {
     Surface(tonalElevation = 3.dp) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().readingWidth().padding(16.dp)) {
             applyError?.let { error ->
                 Text(
                     text = error,
@@ -279,7 +280,7 @@ private fun ReadyContent(
     padding: PaddingValues,
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding),
+        modifier = Modifier.fillMaxSize().padding(padding).readingWidth(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
