@@ -9661,6 +9661,36 @@
         }
       }
     },
+    "error.hardcover_already_connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're already connected to Hardcover."
+          }
+        }
+      }
+    },
+    "error.hardcover_not_configured": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover isn't set up on this server."
+          }
+        }
+      }
+    },
+    "error.hardcover_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover can't be reached right now. Try again shortly."
+          }
+        }
+      }
+    },
     "error.not_found": {
       "localizations": {
         "en": {
@@ -9847,6 +9877,256 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tap to narrow"
+          }
+        }
+      }
+    },
+    "hardcover.broken_cannot_decrypt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server can't read its saved Hardcover sign-in, which usually means it was restored from a backup. Reconnect to continue."
+          }
+        }
+      }
+    },
+    "hardcover.broken_missing_scope": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp is missing a permission it needs on Hardcover. Reconnect to grant it."
+          }
+        }
+      }
+    },
+    "hardcover.broken_revoked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover no longer accepts ListenUp's access — it may have been removed on Hardcover. Reconnect to continue."
+          }
+        }
+      }
+    },
+    "hardcover.cancel_linking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "hardcover.connect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.connected_as": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected as %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.connected_since": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Since %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.disconnect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect"
+          }
+        }
+      }
+    },
+    "hardcover.disconnect_confirm_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp will stop updating your Hardcover account. Nothing already on Hardcover is removed."
+          }
+        }
+      }
+    },
+    "hardcover.disconnect_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect Hardcover?"
+          }
+        }
+      }
+    },
+    "hardcover.failure_denied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You declined on Hardcover. Connect again whenever you like."
+          }
+        }
+      }
+    },
+    "hardcover.failure_expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code expired before it was approved. Try again."
+          }
+        }
+      }
+    },
+    "hardcover.failure_unreachable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover couldn't be reached. Try again."
+          }
+        }
+      }
+    },
+    "hardcover.intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect your Hardcover account and ListenUp will mark what you listen to as read there."
+          }
+        }
+      }
+    },
+    "hardcover.linking_instructions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve ListenUp on Hardcover. We opened the page for you — or go to %1$@ and enter this code:"
+          }
+        }
+      }
+    },
+    "hardcover.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking your Hardcover connection…"
+          }
+        }
+      }
+    },
+    "hardcover.not_offered": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover isn't set up on this server."
+          }
+        }
+      }
+    },
+    "hardcover.open_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.reconnect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect"
+          }
+        }
+      }
+    },
+    "hardcover.row_subtitle_connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected as %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.row_subtitle_connecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for you to approve on Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.row_subtitle_needs_attention": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs reconnecting"
+          }
+        }
+      }
+    },
+    "hardcover.row_subtitle_not_connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share what you finish with Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.row_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.screen_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover"
           }
         }
       }
