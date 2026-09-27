@@ -77,4 +77,7 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         // The current listen-through's start and whether its real start was announced — user history
         // like playback_positions: a removed-then-re-added book continues the same listen-through.
         "listen_throughs" to RemovalDisposition.USER_DATA,
+        // A listener's rating survives the book's removal and returns with it, like read history; a
+        // removed book's ratings are hidden because the access filter only admits live books.
+        "book_ratings" to RemovalDisposition.USER_DATA,
     )

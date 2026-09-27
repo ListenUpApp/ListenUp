@@ -119,17 +119,23 @@ class BookRatingRepository(
      * row, live or tombstoned): letting either through would either poison the table with an
      * ambiguous blank id (a later blank-candidate write for a DIFFERENT pair would silently claim it)
      * or hand a second listener's rating [BookRatingId.idAsString]-equivalence with a first listener's
-     * row, and the base's own INSERT would then violate `idx_book_ratings_id`'s UNIQUE constraint as
-     * an unhandled SQLite exception instead of a typed failure.
+     * row.
      *
      * The pre-check runs in its own short transaction ahead of the base's write (there is no shared
-     * base-class hook to splice a guard INTO that transaction), so a true concurrent race between two
-     * candidate-colliding writes is only caught by SQLite's UNIQUE index, not by this guard — this
-     * guard's job is turning the common case into a clean [AppResult.Failure] instead of a crash.
+     * base-class hook to splice a guard INTO that transaction), so it cannot by itself close a true
+     * concurrent race between two DIFFERENT pairs colliding on the same candidate: both can pass this
+     * check before either has written. SQLite serializes the actual write transactions, though, so
+     * whichever commits first genuinely wins the id via INSERT; the second sees `existed = true` (the
+     * id now exists — just not for ITS pair) and falls into [writePayload]'s UPDATE branch, where the
+     * `check` on the affected-row count — not `idx_book_ratings_id`'s UNIQUE index, which an UPDATE
+     * never touches — is what turns that residual race into a loud rollback instead of a silent
+     * no-op that reads back a stranger's row. See [writePayload]'s KDoc for that half.
      *
      * No existing [SyncError] subtype names "candidate collision"; [SyncError.NotFound] is reused
-     * here (its `isRetryable = false` is the property that matters — the caller must mint a fresh
-     * candidate and retry, not blindly resend the same one).
+     * here. A refusal here is **terminal**, not retryable with the same input: `isRetryable = false`
+     * matters because the candidate itself is what's wrong, so blindly resending the identical
+     * request only fails again — the client's outbox dead-letters the operation rather than looping
+     * it, and a new attempt (if any) must mint a fresh candidate from scratch.
      */
     override suspend fun upsertReturningEvent(
         value: BookRatingSyncPayload,
@@ -162,6 +168,21 @@ class BookRatingRepository(
         return super.upsertReturningEvent(value, clientOpId, userId)
     }
 
+    /**
+     * Writes [value]'s content columns for an existing row, or inserts a fresh one.
+     *
+     * The update branch requires its `UPDATE` to change **exactly one row** — see the guard in
+     * [upsertReturningEvent] for why this can still be zero: that guard's own "no row for this
+     * pair yet" check runs in its own short transaction, so two concurrent writers for two
+     * *different* `(bookId, userId)` pairs can both pass it with the SAME client-minted candidate
+     * id before either commits. Both then read `existed = true` (because [SqlSyncableRepository]'s
+     * `substrate.existsById` check, run inside the actual write transaction, now sees the first
+     * writer's already-inserted row) and race into this branch — but the second writer's `UPDATE …
+     * WHERE book_id = ? AND user_id = ?` matches nothing, because that id belongs to the FIRST
+     * writer's pair, not this one. `check` on the affected-row count catches exactly that: it
+     * throws, [suspendTransaction] rolls back, and nothing is emitted — a real crash instead of a
+     * silent no-op that would have told the second writer their rating saved when it didn't.
+     */
     override fun writePayload(
         value: BookRatingSyncPayload,
         rev: Long,
@@ -171,15 +192,18 @@ class BookRatingRepository(
         existed: Boolean,
     ) {
         if (existed) {
-            db.bookRatingsQueries.update(
-                half_stars = value.halfStars.toLong(),
-                note = value.note,
-                updated_at = now,
-                revision = rev,
-                client_op_id = clientOpId,
-                book_id = value.bookId,
-                user_id = value.userId,
-            )
+            val rowsChanged =
+                db.bookRatingsQueries
+                    .update(
+                        half_stars = value.halfStars.toLong(),
+                        note = value.note,
+                        updated_at = now,
+                        revision = rev,
+                        client_op_id = clientOpId,
+                        book_id = value.bookId,
+                        user_id = value.userId,
+                    ).value
+            requireSingleRatingRowUpdated(rowsChanged, value.bookId, value.userId)
         } else {
             db.bookRatingsQueries.insert(
                 id = idAsString(BookRatingId(value.bookId, value.userId, value.id)),
@@ -259,82 +283,6 @@ class BookRatingRepository(
             live.size
         }
 
-    /**
-     * Bulk soft-deletes every live rating of [bookId]. Used as a cascade step in book deletion —
-     * called inside the same transaction as the book's own soft-delete, exactly like
-     * [BookMoodRepository.softDeleteAllForBook].
-     *
-     * Each row gets its own revision bump and [SyncEvent.Deleted] publication so clients receive
-     * per-row tombstones. Returns the number of rows tombstoned.
-     */
-    suspend fun softDeleteAllForBook(bookId: String): Int =
-        suspendTransaction(db) {
-            val live = db.bookRatingsQueries.selectLiveIdsForBook(bookId).executeAsList()
-            for (id in live) {
-                val rev = nextRevision()
-                val now = clock.now().toEpochMilliseconds()
-                db.bookRatingsQueries.softDeleteById(
-                    revision = rev,
-                    updated_at = now,
-                    deleted_at = now,
-                    client_op_id = null,
-                    id = id,
-                )
-                emitAfterCommit(event = SyncEvent.Deleted(id = id, revision = rev, occurredAt = now, clientOpId = null))
-            }
-            live.size
-        }
-
-    /**
-     * Revives the tombstoned ratings for the books in [bookIds] that were tombstoned at or after
-     * [cascadeFloor] — the cascade counterpart to [softDeleteAllForBook], run when a removed book (or
-     * its folder) is re-added so a listener's rating returns with the book instead of being lost.
-     * [cascadeFloor] is the book's own `deleted_at`, flooring the revival exactly as
-     * [BookMoodRepository.reviveAllForBooks] floors it. All revives run in ONE transaction; each row
-     * gets its own revision bump and an after-commit [SyncEvent.Updated] (deleted_at cleared) so
-     * clients reflow the rating as live. Returns the number of rows revived. A no-op (returns 0) when
-     * [bookIds] is empty.
-     */
-    suspend fun reviveAllForBooks(
-        bookIds: List<String>,
-        cascadeFloor: Long,
-    ): Int {
-        if (bookIds.isEmpty()) return 0
-        return suspendTransaction(db) {
-            var count = 0
-            for (chunk in bookIds.chunked(SQLITE_IN_CHUNK)) {
-                for (row in db.bookRatingsQueries.selectDeletedForBooksSince(chunk, cascadeFloor).executeAsList()) {
-                    val rev = nextRevision()
-                    val now = clock.now().toEpochMilliseconds()
-                    db.bookRatingsQueries.reviveById(revision = rev, updated_at = now, id = row.id)
-                    emitAfterCommit(
-                        event =
-                            SyncEvent.Updated(
-                                id = row.id,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = null,
-                                payload =
-                                    BookRatingSyncPayload(
-                                        id = row.id,
-                                        bookId = row.book_id,
-                                        userId = row.user_id,
-                                        halfStars = row.half_stars.toInt(),
-                                        note = row.note,
-                                        ratedAt = row.rated_at,
-                                        updatedAt = now,
-                                        revision = rev,
-                                        deletedAt = null,
-                                    ),
-                            ),
-                    )
-                    count++
-                }
-            }
-            count
-        }
-    }
-
     private fun Book_ratings.toPayload(): BookRatingSyncPayload =
         BookRatingSyncPayload(
             id = id,
@@ -351,4 +299,26 @@ class BookRatingRepository(
     private companion object {
         const val SQLITE_IN_CHUNK = 900
     }
+}
+
+/**
+ * Requires that a `book_ratings` content `UPDATE` changed **exactly one row** — see
+ * [BookRatingRepository.writePayload]'s KDoc for the candidate-collision race this closes: the
+ * base's `existed = true` can be wrong for [bookId]/[userId] specifically, even though it's
+ * correct that a row now exists SOMEWHERE under that id. Throws [IllegalStateException] (rolling
+ * back the open [com.calypsan.listenup.server.db.sqldelight.suspendTransaction] and emitting
+ * nothing) rather than let a 0-row `UPDATE` silently read back as a successful write of someone
+ * else's rating.
+ *
+ * `internal`, not `private`, solely so `BookRatingRepositoryTest` can drive it directly: the guard
+ * in [BookRatingRepository.upsertReturningEvent] makes the failing state unreachable through the
+ * public `upsert` path in a non-concurrent test — this function is the one piece of the race-close
+ * that a single-threaded test CAN exercise deterministically.
+ */
+internal fun requireSingleRatingRowUpdated(
+    rowsChanged: Long,
+    bookId: String,
+    userId: String,
+) {
+    check(rowsChanged == 1L) { "rating write for $bookId/$userId matched no row" }
 }

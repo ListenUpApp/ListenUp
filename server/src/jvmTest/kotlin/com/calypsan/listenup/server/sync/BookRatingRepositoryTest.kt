@@ -5,11 +5,11 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
@@ -22,14 +22,12 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlin.time.Instant
 
 /**
  * Tests for [BookRatingRepository] — the `book_ratings` syncable repository. Covers the
  * "existing row's id wins" natural-pair rule, per-listener isolation, tombstone/revive on
  * clear + re-rate, the account-deletion sweep, tombstone minimization on the wire, the
- * candidate-id guards on a fresh insert, repeat-clear idempotency, and the book soft-delete /
- * revive cascade.
+ * candidate-id guards on a fresh insert, and repeat-clear idempotency.
  */
 class BookRatingRepositoryTest :
     FunSpec({
@@ -280,59 +278,22 @@ class BookRatingRepositoryTest :
             }
         }
 
-        // ── book soft-delete / revive cascade (item 3) ──────────────────────────
+        // ── writePayload's row-count guard (item 3, round 2) ────────────────────
+        //
+        // The state this guards — existed=true computed for a pair that has no row — is
+        // unreachable through the public upsert API in a single-threaded test: the guard in
+        // upsertReturningEvent always re-validates first and would refuse the write before
+        // writePayload ever ran. requireSingleRatingRowUpdated is `internal` precisely so this
+        // narrow slice can be driven directly, deterministically, without simulating real thread
+        // interleaving.
 
-        test("softDeleteAllForBook tombstones every rating for the book, and other books are unaffected") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                sql.seedTestBook("book2")
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                val repo = BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
-                runTest {
-                    repo.upsert(rating("u1", 6)).shouldBeInstanceOf<AppResult.Success<*>>()
-                    repo.upsert(rating("u2", 8)).shouldBeInstanceOf<AppResult.Success<*>>()
-                    repo
-                        .upsert(rating("u1", 6).copy(id = "b2", bookId = "book2"))
-                        .shouldBeInstanceOf<AppResult.Success<*>>()
-
-                    repo.softDeleteAllForBook("book1") shouldBe 2
-
-                    repo.findForBook("book1") shouldBe emptyList()
-                    repo.findForBook("book2") shouldHaveSize 1
-                }
+        test("requireSingleRatingRowUpdated throws when the update matched no row") {
+            shouldThrow<IllegalStateException> {
+                requireSingleRatingRowUpdated(rowsChanged = 0L, bookId = "book1", userId = "u1")
             }
         }
 
-        test("reviveAllForBooks revives only ratings tombstoned at or after the cascade floor") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                val repo =
-                    BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver, clock = clock)
-                runTest {
-                    repo.upsert(rating("u1", 6))
-                    repo.upsert(rating("u2", 8))
-
-                    // u1 clears manually BEFORE the book is removed — an older tombstone.
-                    clock.instant = Instant.fromEpochMilliseconds(5_000L)
-                    repo.clear("book1", "u1")
-
-                    // The book-removal cascade tombstones u2's rating at the removal instant.
-                    val bookRemovedAt = 10_000L
-                    clock.instant = Instant.fromEpochMilliseconds(bookRemovedAt)
-                    repo.softDeleteAllForBook("book1")
-
-                    // Re-add revives only the rating tombstoned at/after the book-removal floor.
-                    val revived = repo.reviveAllForBooks(listOf("book1"), cascadeFloor = bookRemovedAt)
-                    revived shouldBe 1
-
-                    repo.findForBook("book1").map { it.userId } shouldBe listOf("u2")
-                }
-            }
+        test("requireSingleRatingRowUpdated is silent when the update matched its one row") {
+            requireSingleRatingRowUpdated(rowsChanged = 1L, bookId = "book1", userId = "u1")
         }
     })
