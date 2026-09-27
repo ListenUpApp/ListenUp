@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.contributordetail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -160,39 +163,43 @@ private fun HybridLayout(
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 32.dp),
-    ) {
-        // Condensed header
-        item {
-            CondensedHeader(
-                roleDisplayName = state.roleDisplayName,
-                contributorName = state.contributorName,
-                totalBooks = state.totalBooks,
-                colorScheme = colorScheme,
-                surfaceColor = surfaceColor,
-                onBackClick = onBackClick,
-            )
-        }
-
-        // Series sections with horizontal carousels
-        items(
-            items = state.seriesGroups,
-            key = { it.seriesName },
-        ) { seriesGroup ->
-            SeriesCarouselSection(
-                seriesGroup = seriesGroup,
-                bookProgress = state.bookProgress,
-                onBookClick = onBookClick,
-            )
-        }
-
-        // Standalone books section
-        if (state.hasStandaloneBooks) {
+    // Measured so the standalone books can take as many columns as the width allows — the same
+    // count the grid-only layout's adaptive grid reaches — while each row stays its own lazy item.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val standaloneColumns = standaloneGridColumns(maxWidth - STANDALONE_GRID_MARGIN * 2)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 32.dp),
+        ) {
+            // Condensed header
             item {
-                StandaloneBooksGrid(
+                CondensedHeader(
+                    roleDisplayName = state.roleDisplayName,
+                    contributorName = state.contributorName,
+                    totalBooks = state.totalBooks,
+                    colorScheme = colorScheme,
+                    surfaceColor = surfaceColor,
+                    onBackClick = onBackClick,
+                )
+            }
+
+            // Series sections with horizontal carousels
+            items(
+                items = state.seriesGroups,
+                key = { it.seriesName },
+            ) { seriesGroup ->
+                SeriesCarouselSection(
+                    seriesGroup = seriesGroup,
+                    bookProgress = state.bookProgress,
+                    onBookClick = onBookClick,
+                )
+            }
+
+            // Standalone books section
+            if (state.hasStandaloneBooks) {
+                standaloneBooks(
                     books = state.standaloneBooks,
+                    columns = standaloneColumns,
                     bookProgress = state.bookProgress,
                     onBookClick = onBookClick,
                 )
@@ -405,69 +412,94 @@ private fun SeriesCarouselSection(
 // STANDALONE BOOKS GRID
 // =============================================================================
 
-@Composable
-private fun StandaloneBooksGrid(
+/** Side margin of the standalone grid, matching the grid-only layout's content padding. */
+private val STANDALONE_GRID_MARGIN = 24.dp
+
+/** Smallest a standalone cover may get, matching the grid-only layout's `GridCells.Adaptive`. */
+private val STANDALONE_GRID_MIN_CELL = 140.dp
+
+/** Gutter between standalone covers, across and down. */
+private val STANDALONE_GRID_GUTTER = 16.dp
+
+/**
+ * How many standalone covers fit across [availableWidth]: as many [STANDALONE_GRID_MIN_CELL] cells
+ * with [STANDALONE_GRID_GUTTER] between them as fit, and never fewer than one. The same arithmetic
+ * `GridCells.Adaptive` uses, so the hybrid and grid-only layouts show the same column count.
+ */
+internal fun standaloneGridColumns(availableWidth: Dp): Int {
+    val cellWithGutter = STANDALONE_GRID_MIN_CELL + STANDALONE_GRID_GUTTER
+    return ((availableWidth + STANDALONE_GRID_GUTTER) / cellWithGutter).toInt().coerceAtLeast(1)
+}
+
+/**
+ * The "other books" header and the standalone covers, one lazy item per row, so a contributor
+ * with hundreds of standalone books composes only the rows on screen.
+ */
+private fun LazyListScope.standaloneBooks(
     books: List<BookListItem>,
+    columns: Int,
     bookProgress: Map<BookId, Float>,
     onBookClick: (String) -> Unit,
 ) {
-    Column(
-        modifier = Modifier.padding(vertical = 16.dp),
-    ) {
-        // Section header
-        Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
+    item(key = "standalone-header") {
+        StandaloneBooksHeader(
+            bookCount = books.size,
+            modifier = Modifier.padding(start = STANDALONE_GRID_MARGIN, end = STANDALONE_GRID_MARGIN, top = 16.dp),
+        )
+    }
+    items(
+        items = books.chunked(columns),
+        key = { row -> "standalone-row-" + row.first().id.value },
+    ) { rowBooks ->
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(STANDALONE_GRID_GUTTER),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = STANDALONE_GRID_MARGIN)
+                    .padding(top = STANDALONE_GRID_GUTTER),
         ) {
-            Text(
-                text = stringResource(Res.string.contributor_other_books),
-                style =
-                    MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
-                    ),
-            )
-            Text(
-                text =
-                    if (books.size == 1) {
-                        stringResource(Res.string.common_book_count, books.size)
-                    } else {
-                        stringResource(Res.string.common_books_count, books.size)
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Responsive grid using chunked rows
-        // This provides a clean grid while staying inside LazyColumn
-        Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Calculate items per row based on available space
-            // Using 3 for phones, works well with 24dp horizontal padding
-            books.chunked(3).forEach { rowBooks ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    rowBooks.forEach { book ->
-                        BookCard(
-                            cover = book.toCoverModel(),
-                            onClick = { onBookClick(book.id.value) },
-                            duration = book.formatDuration(),
-                            progress = bookProgress[book.id],
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    // Fill remaining slots with spacers
-                    repeat(3 - rowBooks.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
+            rowBooks.forEach { book ->
+                BookCard(
+                    cover = book.toCoverModel(),
+                    onClick = { onBookClick(book.id.value) },
+                    duration = book.formatDuration(),
+                    progress = bookProgress[book.id],
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            // Fill remaining slots with spacers, so a short last row keeps the grid's cell width.
+            repeat(columns - rowBooks.size) {
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
+    }
+    item(key = "standalone-footer") { Spacer(modifier = Modifier.height(16.dp)) }
+}
+
+@Composable
+private fun StandaloneBooksHeader(
+    bookCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = stringResource(Res.string.contributor_other_books),
+            style =
+                MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Bold,
+                ),
+        )
+        Text(
+            text =
+                if (bookCount == 1) {
+                    stringResource(Res.string.common_book_count, bookCount)
+                } else {
+                    stringResource(Res.string.common_books_count, bookCount)
+                },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
