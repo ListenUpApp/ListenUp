@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.local.db.AdminUserRosterEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.BookMoodEntity
+import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookTagEntity
 import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
@@ -151,6 +152,23 @@ class LibraryResetHelperTest :
                                 )
                             },
                             isGone = { db.bookMoodDao().findByKey("b1", "m1") == null },
+                        ),
+                        DomainProbe(
+                            domainName = "book_ratings",
+                            seed = {
+                                db.bookRatingDao().upsert(
+                                    BookRatingEntity(
+                                        bookId = "b1",
+                                        userId = "u1",
+                                        syncId = "b1:u1",
+                                        halfStars = 8,
+                                        note = null,
+                                        ratedAt = 0L,
+                                        updatedAt = 0L,
+                                    ),
+                                )
+                            },
+                            isGone = { db.bookRatingDao().find("b1", "u1") == null },
                         ),
                         DomainProbe(
                             domainName = "libraries",

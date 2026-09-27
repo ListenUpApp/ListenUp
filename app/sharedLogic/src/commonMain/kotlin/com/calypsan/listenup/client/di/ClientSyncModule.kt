@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.sync.describeSupersededPositionWrite
+import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
@@ -67,12 +68,14 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.dto.BookMutation
+import com.calypsan.listenup.api.dto.BookRatingMutation
 import com.calypsan.listenup.api.dto.BookTagMutation
 import com.calypsan.listenup.api.dto.CollectionBookMutation
 import com.calypsan.listenup.api.dto.CollectionMutation
 import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.GenreMutation
 import com.calypsan.listenup.api.dto.NotificationMutation
+import com.calypsan.listenup.api.dto.RateBookRequest
 import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
@@ -163,11 +166,16 @@ internal val clientSyncModule =
             )
         }
 
+        // A listener's rating — no dedicated feature module of its own yet, so the channel is
+        // declared here beside PlaybackService's, next to the outbox binding that dispatches it.
+        rpcChannel<BookRatingService>()
+
         // The outbox sender map derives from OutboxChannels.all and is completeness-
         // checked at construction: a declared channel with no binding (or vice versa)
         // is an immediate require() failure, not a silent op drop.
         single<PendingOperationSender> {
             val bookChannel = rpcChannel<BookService>()
+            val bookRatingChannel = rpcChannel<BookRatingService>()
             val collectionChannel = rpcChannel<CollectionService>()
             val seriesChannel = rpcChannel<SeriesService>()
             val contributorChannel = rpcChannel<ContributorService>()
@@ -311,6 +319,26 @@ internal val clientSyncModule =
                                         MoodId(mutation.moodId),
                                     )
                                 }
+                            }
+                        }
+                    },
+                    outboxBinding(OutboxChannels.BookRatings) { _, mutation ->
+                        when (mutation) {
+                            is BookRatingMutation.Set -> {
+                                bookRatingChannel.call {
+                                    it.rate(
+                                        BookId(mutation.bookId),
+                                        RateBookRequest(
+                                            candidateId = mutation.candidateId,
+                                            halfStars = mutation.halfStars,
+                                            note = mutation.note,
+                                        ),
+                                    )
+                                }
+                            }
+
+                            is BookRatingMutation.Clear -> {
+                                bookRatingChannel.call { it.clearRating(BookId(mutation.bookId)) }
                             }
                         }
                     },
