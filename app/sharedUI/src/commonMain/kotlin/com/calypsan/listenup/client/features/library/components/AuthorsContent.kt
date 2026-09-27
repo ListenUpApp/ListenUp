@@ -25,11 +25,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,19 +99,7 @@ fun AuthorsContent(
             }
 
             // Track scroll direction for button visibility
-            var previousScrollOffset by remember { mutableIntStateOf(0) }
-            val showSortButton by remember {
-                derivedStateOf {
-                    val firstVisible = listState.firstVisibleItemIndex
-                    val currentOffset = listState.firstVisibleItemScrollOffset
-
-                    val isAtTop = firstVisible == 0 && currentOffset < 50
-                    val isScrollingUp = currentOffset < previousScrollOffset
-
-                    previousScrollOffset = currentOffset
-                    isAtTop || isScrollingUp || !listState.isScrollInProgress
-                }
-            }
+            val showSortButton by rememberSortButtonVisibility(listState)
 
             LazyColumn(
                 state = listState,
