@@ -51,7 +51,7 @@ class BookRepositoryServerPrivateColumnsTest :
 
                             path.apply(WriteContext(service, repo, db, bookId))
 
-                            (db.guardedColumns(bookId) - path.mayChange) shouldBe before
+                            db.guardedColumns(bookId) - path.mayChange shouldBe before
                         }
                     }
                 }

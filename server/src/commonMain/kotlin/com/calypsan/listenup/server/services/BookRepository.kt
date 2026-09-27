@@ -1344,9 +1344,10 @@ class BookRepository(
             existing?.cover?.source == CoverSource.UPLOADED ||
                 coverUnavailable ||
                 pendingCoverHash == existing?.cover?.hash
+        val filesUnchanged = coverUnchanged && genresUnchanged
         val result: AppResult<BookSyncPayload> =
             if (existing != null && existing.deletedAt == null &&
-                coverUnchanged && genresUnchanged && effectivePayload.matchesStoredContent(existing)
+                filesUnchanged && effectivePayload.matchesStoredContent(existing)
             ) {
                 // Idempotent re-scan: content identical to what's stored — skip the
                 // revision-bumping upsert AND the cover file-write. A tombstoned existing row
