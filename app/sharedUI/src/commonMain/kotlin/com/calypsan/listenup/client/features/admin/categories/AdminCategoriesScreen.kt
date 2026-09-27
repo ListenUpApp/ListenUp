@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import androidx.compose.ui.semantics.heading
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.common_collapsed
 import listenup.composeapp.generated.resources.common_expanded
@@ -305,7 +306,7 @@ private fun CategoriesTopBar(
     val haptics = LocalHaptics.current
     Column {
         TopAppBar(
-            title = { Text(stringResource(Res.string.common_categories)) },
+            title = { Text(stringResource(Res.string.common_categories), modifier = Modifier.semantics { heading() }) },
             navigationIcon = {
                 IconButton(
                     onClick = {

@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.client.features.bookreaders
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,7 +73,12 @@ fun BookReadersScreen(
     ListenUpScaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.book_detail_readers)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.book_detail_readers),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {

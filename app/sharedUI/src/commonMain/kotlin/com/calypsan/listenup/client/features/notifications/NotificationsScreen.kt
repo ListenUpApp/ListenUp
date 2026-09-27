@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.notifications
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,7 +91,12 @@ fun NotificationsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.notifications_title)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.notifications_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {

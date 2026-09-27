@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin.backup
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -82,7 +84,12 @@ fun CreateBackupScreen(
     ListenUpScaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.admin_create_backup)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.admin_create_backup),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {

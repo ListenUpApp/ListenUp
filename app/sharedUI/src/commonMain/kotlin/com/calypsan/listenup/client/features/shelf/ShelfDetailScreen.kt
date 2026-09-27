@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.ui.semantics.heading
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -145,6 +146,7 @@ fun ShelfDetailScreen(
                         text = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.semantics { heading() },
                     )
                 },
                 navigationIcon = {

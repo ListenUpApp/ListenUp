@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -56,7 +58,7 @@ fun BookDetailTopBar(
     var showMenu by remember { mutableStateOf(false) }
 
     TopAppBar(
-        title = { Text(text = title) },
+        title = { Text(text = title, modifier = Modifier.semantics { heading() }) },
         navigationIcon = {
             IconButton(
                 onClick = {

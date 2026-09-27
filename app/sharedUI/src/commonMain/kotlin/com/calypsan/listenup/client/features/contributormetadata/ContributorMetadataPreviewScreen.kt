@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,7 +89,12 @@ fun ContributorMetadataPreviewScreen(
     ListenUpScaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.contributor_preview_changes)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.contributor_preview_changes),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import com.calypsan.listenup.client.domain.model.Chapter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -433,7 +435,12 @@ private fun driftGhosts(state: ChapterEditorUiState.Editing): List<TimelineChapt
 @Composable
 private fun EditorTitle(editing: ChapterEditorUiState.Editing?) {
     Column {
-        Text(stringResource(Res.string.chapter_editor_title), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            stringResource(Res.string.chapter_editor_title),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { heading() },
+        )
         if (editing != null) {
             Text(
                 stringResource(Res.string.chapter_editor_subtitle, editing.bookTitle, editing.chapters.size),

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.documentviewer
 
+import androidx.compose.ui.semantics.heading
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -232,7 +233,14 @@ private fun ReaderTopBar(
         exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
     ) {
         TopAppBar(
-            title = { Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            title = {
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics { heading() },
+                )
+            },
             navigationIcon = {
                 IconButton(
                     onClick = {

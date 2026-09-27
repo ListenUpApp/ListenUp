@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin.backup
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,7 +74,12 @@ fun RestoreBackupScreen(
     ListenUpScaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.admin_restore_backup)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.admin_restore_backup),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     if (canNavigateBack) {
                         IconButton(

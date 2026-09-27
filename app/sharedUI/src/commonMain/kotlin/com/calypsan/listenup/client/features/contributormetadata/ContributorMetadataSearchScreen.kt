@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -84,7 +86,12 @@ fun ContributorMetadataSearchScreen(
     ListenUpScaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.contributor_find_on_audible)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.contributor_find_on_audible),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {

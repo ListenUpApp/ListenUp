@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -307,7 +309,12 @@ private fun FolderBrowserDialog(
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header
                 TopAppBar(
-                    title = { Text(stringResource(Res.string.admin_select_folder)) },
+                    title = {
+                        Text(
+                            stringResource(Res.string.admin_select_folder),
+                            modifier = Modifier.semantics { heading() },
+                        )
+                    },
                     navigationIcon = {
                         if (!state.browserIsRoot) {
                             IconButton(

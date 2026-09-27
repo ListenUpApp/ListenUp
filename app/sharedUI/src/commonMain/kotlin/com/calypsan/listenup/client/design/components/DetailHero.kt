@@ -15,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -105,6 +107,7 @@ fun DetailHero(
                 modifier =
                     Modifier
                         .padding(horizontal = 32.dp)
+                        .semantics { heading() }
                         .then(
                             if (collapsing) {
                                 Modifier.graphicsLayer { alpha = (1f - collapseFraction()).coerceIn(0f, 1f) }

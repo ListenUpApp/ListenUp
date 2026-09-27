@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,7 +84,12 @@ fun NotificationSettingsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.notifications_settings_row_title)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.notifications_settings_row_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(

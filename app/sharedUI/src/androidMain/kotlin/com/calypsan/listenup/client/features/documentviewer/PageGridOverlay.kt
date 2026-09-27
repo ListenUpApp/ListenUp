@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.documentviewer
 
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,7 +87,12 @@ internal fun PageGridOverlay(
     ) {
         Column {
             TopAppBar(
-                title = { Text(text = stringResource(Res.string.book_detail_document_pages_title)) },
+                title = {
+                    Text(
+                        text = stringResource(Res.string.book_detail_document_pages_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {

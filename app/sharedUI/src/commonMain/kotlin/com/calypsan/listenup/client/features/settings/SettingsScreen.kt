@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import com.calypsan.listenup.client.presentation.settings.SettingsEvent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.SnackbarHostState
@@ -274,7 +276,12 @@ fun SettingsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.common_settings)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.common_settings),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(

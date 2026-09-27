@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,7 +100,7 @@ fun UserDetailScreen(
                     val title =
                         (state as? UserDetailUiState.Ready)?.user?.displayableName
                             ?: "User Details"
-                    Text(title)
+                    Text(title, modifier = Modifier.semantics { heading() })
                 },
                 navigationIcon = {
                     IconButton(

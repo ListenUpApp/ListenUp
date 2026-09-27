@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin.upload
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -154,7 +156,12 @@ fun UploadBooksScreen(
     ListenUpScaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.admin_upload_books)) },
+                title = {
+                    Text(
+                        stringResource(Res.string.admin_upload_books),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     if (!busy) {
                         IconButton(

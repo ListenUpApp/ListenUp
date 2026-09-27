@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,7 +45,7 @@ fun LicenseDetailScreen(
     ListenUpScaffold(
         topBar = {
             TopAppBar(
-                title = { Text(row?.name ?: "") },
+                title = { Text(row?.name ?: "", modifier = Modifier.semantics { heading() }) },
                 navigationIcon = {
                     IconButton(
                         onClick = {
