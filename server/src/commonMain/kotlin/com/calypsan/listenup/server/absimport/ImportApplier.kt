@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.absimport
 
+import com.calypsan.listenup.domain.FinishedPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.dto.imports.ImportResult
@@ -281,7 +282,7 @@ class ImportApplier internal constructor(
                         bookId = targetBook.value,
                         positionMs = (row.currentTimeSeconds * MILLIS_PER_SECOND).toLong(),
                         lastPlayedAt = row.lastUpdateMs,
-                        finished = row.isFinished || row.progress >= FINISHED_THRESHOLD,
+                        finished = FinishedPolicy.isFinished(row.progress, row.isFinished),
                         playbackSpeed = DEFAULT_PLAYBACK_SPEED,
                         currentChapterId = null,
                         // Date the imported start strictly before this book's earliest session, and never
@@ -369,8 +370,6 @@ class ImportApplier internal constructor(
     }
 
     private companion object {
-        /** Belt-and-suspenders finished fallback: ABS `isFinished` is authoritative, this backs it up. */
-        const val FINISHED_THRESHOLD = 0.99
         const val MILLIS_PER_SECOND = 1_000.0
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
 

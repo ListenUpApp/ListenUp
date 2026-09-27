@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.seriesdetail
 
+import com.calypsan.listenup.domain.FinishedPolicy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
@@ -91,8 +92,13 @@ class SeriesDetailViewModel(
                     0f
                 }
             when {
-                position?.isFinished == true || fraction >= FINISHED_THRESHOLD -> finishedBookIds += book.id
-                fraction > 0f -> bookProgress[book.id] = fraction
+                FinishedPolicy.isFinished(position?.positionMs ?: 0L, book.duration, position?.isFinished == true) -> {
+                    finishedBookIds += book.id
+                }
+
+                fraction > 0f -> {
+                    bookProgress[book.id] = fraction
+                }
             }
         }
 
@@ -146,11 +152,6 @@ class SeriesDetailViewModel(
             return imageRepository.getSeriesCoverPath(seriesId)
         }
         return series.coverPath ?: books.firstOrNull()?.coverPath
-    }
-
-    private companion object {
-        /** Progress fraction at or above which a book counts as finished. */
-        const val FINISHED_THRESHOLD = 0.99f
     }
 }
 
