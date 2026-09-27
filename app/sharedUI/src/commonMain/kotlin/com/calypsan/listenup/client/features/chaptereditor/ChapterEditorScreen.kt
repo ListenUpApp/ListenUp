@@ -88,13 +88,17 @@ fun ChapterEditorScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val timeline by playbackManager.currentTimeline.collectAsStateWithLifecycle()
-    val positionMs by playbackManager.currentPositionMs.collectAsStateWithLifecycle()
+    // Held as a State and never read here: the position ticks many times a second, and a read at
+    // this level would redraw the whole editor on every one. Only the leaves that show the playhead
+    // read it, and the actions that use it read it at the moment they run.
+    val position = playbackManager.currentPositionMs.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Only this book's transport counts. Anything else and the playhead is not about what is on
     // screen, so it is absent rather than misleading.
     val isThisBookLoaded = timeline?.bookId == BookId(bookId)
-    val playheadMs = if (isThisBookLoaded) positionMs else null
+    val playheadMs: () -> Long? =
+        remember(isThisBookLoaded, position) { { if (isThisBookLoaded) position.value else null } }
 
     var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
@@ -118,7 +122,10 @@ fun ChapterEditorScreen(
     LaunchedEffect(isThisBookLoaded) {
         if (isThisBookLoaded) {
             // Not yet opened: the lane opens around the playhead on its own (TimelineLane.opening).
-            lane = lane?.let { current -> editing?.let { current.centredOn(positionMs, it.bookDurationMs) } ?: current }
+            lane =
+                lane?.let { current ->
+                    editing?.let { current.centredOn(position.value, it.bookDurationMs) } ?: current
+                }
         }
     }
 
@@ -182,6 +189,7 @@ fun ChapterEditorScreen(
             state = state,
             padding = padding,
             playheadMs = playheadMs,
+            hasPlayhead = isThisBookLoaded,
             fileBoundaries = fileBoundaries,
             lane = lane,
             onLaneChange = { lane = it },
@@ -189,7 +197,7 @@ fun ChapterEditorScreen(
             onQueryChange = { query = it },
             onPinAnchor = {
                 val selected = editing?.selectedChapterId
-                val at = playheadMs
+                val at = playheadMs()
                 if (selected != null && at != null) viewModel.pinAnchor(selected, at)
             },
             newChapterTitle = newChapterTitle,
@@ -334,7 +342,8 @@ private fun RowActionDialogs(
 private fun ChapterEditorBody(
     state: ChapterEditorUiState,
     padding: PaddingValues,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
+    hasPlayhead: Boolean,
     fileBoundaries: List<TimelineFileBoundary>,
     lane: TimelineLane?,
     onLaneChange: (TimelineLane) -> Unit,
@@ -358,7 +367,7 @@ private fun ChapterEditorBody(
         is ChapterEditorUiState.Editing -> {
             if (state.isEmpty) {
                 ChapterEditorEmptyState(
-                    onAddFirst = { viewModel.addAt(playheadMs ?: 0L, newChapterTitle) },
+                    onAddFirst = { viewModel.addAt(playheadMs() ?: 0L, newChapterTitle) },
                     onLookUp = {},
                     modifier = Modifier.padding(padding),
                     // Lookup is not built yet. Offering a button that does nothing would be a
@@ -366,7 +375,7 @@ private fun ChapterEditorBody(
                     canLookUp = false,
                 )
             } else {
-                val currentLane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs, widthPx = 0f)
+                val currentLane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs(), widthPx = 0f)
                 Column(Modifier.padding(padding)) {
                     if (state.changedElsewhere) {
                         ChangedElsewhereBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
@@ -376,7 +385,7 @@ private fun ChapterEditorBody(
                             drift = drift,
                             chapters = state.chapters,
                             hasSelection = state.selectedChapterId != null,
-                            hasPlayhead = playheadMs != null,
+                            hasPlayhead = hasPlayhead,
                             onPin = onPinAnchor,
                             onApply = viewModel::applyDrift,
                             onCancel = viewModel::cancelDrift,
@@ -397,8 +406,8 @@ private fun ChapterEditorBody(
                         onSelect = viewModel::select,
                         // The row already speaks milliseconds (COARSE_NUDGE_MS); nothing scales it here.
                         onNudge = viewModel::nudge,
-                        onAddAtPlayhead = { viewModel.addAt(playheadMs ?: 0L, newChapterTitle) },
-                        onSnapToPlayhead = { id -> playheadMs?.let { viewModel.snapToPlayhead(id, it) } },
+                        onAddAtPlayhead = { viewModel.addAt(playheadMs() ?: 0L, newChapterTitle) },
+                        onSnapToPlayhead = { id -> playheadMs()?.let { viewModel.snapToPlayhead(id, it) } },
                         onToggleLock = viewModel::toggleLock,
                         onMore = onMore,
                         onEditTime = onEditTime,

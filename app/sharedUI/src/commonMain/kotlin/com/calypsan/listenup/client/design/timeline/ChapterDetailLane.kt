@@ -70,7 +70,8 @@ private val DASH_OFF = 5.dp
  * @param fileBoundaries read-only audio-file dividers.
  * @param ghosts corrected positions previewed during drift, drawn dashed alongside the current ones.
  * @param peaks per-column amplitudes in `0f..1f`. Empty until waveform data exists.
- * @param playheadMs current transport position, or null when nothing is playing.
+ * @param playheadMs reads the current transport position, or null when nothing is playing. Read in
+ *   the draw phase, so a playback tick redraws the line without recomposing the lane.
  * @param height lane height; the mobile layout draws this shorter.
  * @param contentDescription spoken summary — the lane is pure geometry and says nothing on its own.
  */
@@ -82,7 +83,7 @@ fun ChapterDetailLane(
     fileBoundaries: List<TimelineFileBoundary> = emptyList(),
     ghosts: List<TimelineChapter> = emptyList(),
     peaks: List<Float> = emptyList(),
-    playheadMs: Long? = null,
+    playheadMs: () -> Long? = { null },
     height: Dp = LANE_HEIGHT,
     contentDescription: String? = null,
 ) {
@@ -125,7 +126,7 @@ fun ChapterDetailLane(
                     alpha = if (chapter.selected) 1f else UNSELECTED_MARKER_ALPHA,
                 )
             }
-            playheadMs?.let { drawPlayhead(lane.xOf(it), playheadColor) }
+            playheadMs()?.let { drawPlayhead(lane.xOf(it), playheadColor) }
         }
     }
 }

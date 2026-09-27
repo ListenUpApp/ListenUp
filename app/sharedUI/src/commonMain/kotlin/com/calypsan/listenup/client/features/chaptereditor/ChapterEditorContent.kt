@@ -30,6 +30,8 @@ import listenup.composeapp.generated.resources.chapter_editor_no_matches
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -99,7 +101,9 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param geometry the detail lane's current window.
  * @param isWide whether there is room for two panes.
  * @param selectedChapterId the boundary the list and lane share focus on.
- * @param playheadMs transport position, or null when nothing is playing.
+ * @param playheadMs reads the transport position, or null when nothing is playing. A reader rather
+ *   than a value, so a playback tick redraws only what shows the playhead — the lane's line and the
+ *   row whose "Now" badge actually changes — instead of the whole editor.
  * @param onSelect focus a boundary.
  * @param onNudge move a boundary by a signed step.
  * @param onSnapToPlayhead take the playhead's exact millisecond.
@@ -126,7 +130,7 @@ fun ChapterEditorContent(
     onLaneChange: (TimelineLane) -> Unit,
     isWide: Boolean,
     selectedChapterId: String?,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
     onSelect: (String) -> Unit,
     onNudge: (String, Long) -> Unit,
     onSnapToPlayhead: (String) -> Unit,
@@ -200,7 +204,7 @@ fun ChapterEditorContent(
 private fun ChapterListPane(
     chapters: List<NumberedChapter>,
     selectedChapterId: String?,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
     onSelect: (String) -> Unit,
     onNudge: (String, Long) -> Unit,
     onSnapToPlayhead: (String) -> Unit,
@@ -216,6 +220,13 @@ private fun ChapterListPane(
     // Filtered here, after numbering: `chapters` arrives numbered against the whole book, so a
     // narrowed list still calls chapter 213 by its real number. See [matching].
     val visible = chapters.matching(query)
+    // Derived, so a tick inside the same chapter changes nothing a row can see. The rows recompose
+    // when the playing chapter changes, not every time the playhead moves.
+    val currentChapters by rememberUpdatedState(chapters)
+    val playingIds by remember(playheadMs) {
+        derivedStateOf { playingChapterIds(currentChapters, playheadMs()) }
+    }
+    val hasPlayhead by remember(playheadMs) { derivedStateOf { playheadMs() != null } }
 
     Column(
         modifier
@@ -254,7 +265,7 @@ private fun ChapterListPane(
                     chapter = numbered.chapter,
                     number = numbered.number,
                     isSelected = numbered.chapter.id == selectedChapterId,
-                    isPlaying = playheadMs != null && playheadMs.isInside(numbered.chapter),
+                    isPlaying = numbered.chapter.id in playingIds,
                     onSelect = { onSelect(numbered.chapter.id) },
                     onNudge = { step -> onNudge(numbered.chapter.id, step) },
                     onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
@@ -269,7 +280,7 @@ private fun ChapterListPane(
             // state had it on Android, so a book missing one chapter could not gain it.
             // Absent, not disabled, without a playhead — the same call iOS and web made: with no
             // playhead the add would land on the first chapter's boundary and be refused silently.
-            if (onAddAtPlayhead != null && playheadMs != null) {
+            if (onAddAtPlayhead != null && hasPlayhead) {
                 item(key = "add-at-playhead") {
                     TextButton(
                         onClick = onAddAtPlayhead,
@@ -284,6 +295,22 @@ private fun ChapterListPane(
                 }
             }
         }
+    }
+}
+
+/**
+ * The chapters the playhead is inside, or none without one.
+ *
+ * A set rather than a single id because a draft mid-edit can briefly overlap two spans, and every
+ * row that contains the playhead has always said so.
+ */
+internal fun playingChapterIds(
+    chapters: List<NumberedChapter>,
+    playheadMs: Long?,
+): Set<String> {
+    if (playheadMs == null) return emptySet()
+    return chapters.mapNotNullTo(mutableSetOf()) { numbered ->
+        numbered.chapter.id.takeIf { playheadMs.isInside(numbered.chapter) }
     }
 }
 

@@ -50,7 +50,7 @@ class ChapterListSearchTest {
                     onLaneChange = {},
                     isWide = true,
                     selectedChapterId = null,
-                    playheadMs = null,
+                    playheadMs = { null },
                     onSelect = {},
                     onNudge = { _, _ -> },
                     onSnapToPlayhead = {},

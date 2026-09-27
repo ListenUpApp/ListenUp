@@ -1,15 +1,13 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.onAllNodesWithText
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineGeometry
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
-import com.calypsan.listenup.client.domain.model.Chapter
-import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,14 +17,13 @@ import org.robolectric.annotation.Config
 private const val BOOK_MS = 30_000L
 
 /**
- * A book that already has chapters must still offer a way to add one. iOS has a bottom bar and web
- * a button under the list; Android only offered it from the empty state, so a listener with 300
- * chapters and one missing could not add it. The control is the list's last item, where the spec
- * draws it.
+ * The playhead reaches the editor as a reader, not a value, so the caller never recomposes on a
+ * tick. The rows derive their "NOW" badge from it, and that badge must still come and go as the
+ * playhead moves.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w1280dp-h2400dp")
-class ChapterEditorContentAddTest {
+class ChapterEditorPlayheadTest {
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -35,10 +32,9 @@ class ChapterEditorContentAddTest {
             Chapter(id = "c$i", title = "Chapter ${i + 1}", duration = 15_000L, startTime = i * 15_000L)
         }
 
-    private fun render(
-        onAddAtPlayhead: () -> Unit,
-        playheadMs: Long? = 7_000L,
-    ) {
+    @Test
+    fun `the NOW badge follows a playhead the editor reads rather than receives`() {
+        val position = mutableLongStateOf(1_000L)
         composeRule.setContent {
             MaterialTheme {
                 ChapterEditorContent(
@@ -48,35 +44,26 @@ class ChapterEditorContentAddTest {
                     onLaneChange = {},
                     isWide = true,
                     selectedChapterId = null,
-                    playheadMs = { playheadMs },
+                    playheadMs = { position.longValue },
                     onSelect = {},
                     onNudge = { _, _ -> },
                     onSnapToPlayhead = {},
                     onToggleLock = {},
                     onMore = {},
                     onEditTime = {},
-                    onAddAtPlayhead = onAddAtPlayhead,
                 )
             }
         }
         composeRule.waitForIdle()
-    }
+        composeRule.onAllNodesWithText("NOW").assertCountEquals(1)
 
-    @Test
-    fun `a populated list still offers to add a chapter at the playhead`() {
-        var added = 0
-        render(onAddAtPlayhead = { added++ })
+        // Past the end: no chapter contains it, so the badge must go — read live, not captured.
+        position.longValue = 40_000L
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithText("NOW").assertCountEquals(0)
 
-        composeRule.onNodeWithText("Add chapter at playhead").assertIsDisplayed()
-        composeRule.onNodeWithText("Add chapter at playhead").performSemanticsAction(SemanticsActions.OnClick)
-
-        assertEquals(1, added)
-    }
-
-    @Test
-    fun `without a playhead the add control is absent, as on iOS and web`() {
-        render(onAddAtPlayhead = {}, playheadMs = null)
-
-        composeRule.onNodeWithText("Add chapter at playhead").assertDoesNotExist()
+        position.longValue = 16_000L
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithText("NOW").assertCountEquals(1)
     }
 }

@@ -77,7 +77,7 @@ internal fun ChapterTimelinePane(
     lane: TimelineLane,
     onLaneChange: (TimelineLane) -> Unit,
     selectedChapterId: String?,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
     fileBoundaries: List<TimelineFileBoundary>,
     ghosts: List<TimelineChapter>,
     lockedChapterIds: Set<String>,
