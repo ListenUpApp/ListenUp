@@ -97,7 +97,7 @@ class OnBookFinishedPreservesDownloadsTest :
                             errorBus = ErrorBus(),
                         )
 
-                    tracker.onBookFinished(BookId("b1"), finalPositionMs = 1_000L)
+                    tracker.onBookFinished(BookId("b1"), positionMs = 1_000L, durationMs = 1_000L)
                     advanceUntilIdle()
 
                     // COMPLETED downloads survive — getLocalPath still resolves, so the book plays offline.

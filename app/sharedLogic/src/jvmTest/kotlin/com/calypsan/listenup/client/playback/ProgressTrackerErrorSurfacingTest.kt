@@ -125,7 +125,7 @@ class ProgressTrackerErrorSurfacingTest :
                 val tracker = buildProgressTracker(scope = this, positionRepository = repo, errorBus = errorBus)
 
                 errorBus.errors.test {
-                    tracker.onPlaybackPaused(BOOK_ID, positionMs = 1_000L, speed = 1.0f)
+                    tracker.onPlaybackPaused(BOOK_ID, positionMs = 1_000L, speed = 1.0f, durationMs = 3_600_000L)
                     advanceUntilIdle()
                     awaitItem() shouldBe InternalError(debugInfo = "boom")
                     cancelAndIgnoreRemainingEvents()

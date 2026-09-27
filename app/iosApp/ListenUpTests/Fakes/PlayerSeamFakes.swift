@@ -141,7 +141,9 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     private(set) var boostChanges: [(String, Int64, Float)] = []
     private(set) var boostResets: [(String, Int64, Float)] = []
     private(set) var measuredGains: [(String, Int64, Float)] = []
-    private(set) var finished: [(String, Int64)] = []
+    private(set) var finished: [(bookId: String, positionMs: Int64, durationMs: Int64)] = []
+    /// The `durationMs` each pause carried, in call order (kept apart so `pausedCalls` stays a triple).
+    private(set) var pausedDurations: [Int64] = []
     private(set) var savedNow: [(String, Int64)] = []
 
     /// Fires on each recorded call. The fake is `@MainActor`, so the coordinator's `signal()`
@@ -154,7 +156,8 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
         startedCalls.append((bookId, positionMs, speed)); gate.signal()
     }
-    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float) {
+    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64) {
+        pausedDurations.append(durationMs)
         pausedCalls.append((bookId, positionMs, speed)); gate.signal()
     }
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
@@ -175,8 +178,8 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     func onMeasuredGain(bookId: String, positionMs: Int64, gainDb: Float) {
         measuredGains.append((bookId, positionMs, gainDb)); gate.signal()
     }
-    func onBookFinished(bookId: String, finalPositionMs: Int64) {
-        finished.append((bookId, finalPositionMs)); gate.signal()
+    func onBookFinished(bookId: String, positionMs: Int64, durationMs: Int64) {
+        finished.append((bookId, positionMs, durationMs)); gate.signal()
     }
     func savePositionNow(bookId: String, positionMs: Int64) async {
         savedNow.append((bookId, positionMs)); gate.signal()

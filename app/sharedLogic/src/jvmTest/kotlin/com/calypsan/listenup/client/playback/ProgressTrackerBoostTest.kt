@@ -94,7 +94,7 @@ class ProgressTrackerBoostTest :
                 val positionRepository = defaultPositionRepository()
                 val tracker = buildProgressTracker(scope = this, positionRepository = positionRepository)
 
-                tracker.onBookFinished(BOOK_ID, finalPositionMs = 123_000L)
+                tracker.onBookFinished(BOOK_ID, positionMs = 123_000L, durationMs = 123_000L)
                 advanceUntilIdle()
 
                 verifySuspend(VerifyMode.exactly(1)) {

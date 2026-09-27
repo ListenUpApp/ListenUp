@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
+import com.calypsan.listenup.domain.FinishedPolicy
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
@@ -119,13 +120,15 @@ open class ProgressTracker(
     }
 
     /**
-     * Called when playback pauses/stops.
-     * Saves position immediately.
+     * Called when playback pauses/stops. Saves the position immediately — or, when the listener
+     * stopped inside the end credits ([FinishedPolicy.isFinished] on [positionMs] of [durationMs]),
+     * finishes the book: the credits are not the story, and no end-of-book signal will ever come.
      */
     open fun onPlaybackPaused(
         bookId: BookId,
         positionMs: Long,
         speed: Float,
+        durationMs: Long,
     ) {
         val now = nowMillis()
 
@@ -147,6 +150,10 @@ open class ProgressTracker(
 
         logPausedTransition(bookId, positionMs, priorState)
 
+        if (FinishedPolicy.isFinished(positionMs, durationMs, flag = false)) {
+            markFinished(bookId, finalPositionMs = durationMs)
+            return
+        }
         scope.launch {
             // Save position immediately
             savePosition(bookId, positionMs, speed)
@@ -450,13 +457,43 @@ open class ProgressTracker(
     }
 
     /**
-     * Mark a book as finished.
-     * Called when playback reaches the end.
+     * Playback reports the end of the book. The guard lives HERE, not at the call sites: Android's
+     * `STATE_ENDED`, iOS's book-ended handler and the shared player's `Ended` all arrive through this
+     * method, and a player can report end-of-media on release or stop. Returns whether the signal
+     * was accepted — when it was, the book is marked finished at its full [durationMs].
      *
-     * @param bookId The book that finished
-     * @param finalPositionMs The final position (typically the book's total duration)
+     * @param positionMs where the listener actually was when the signal arrived
+     * @param durationMs the book's total duration
      */
     fun onBookFinished(
+        bookId: BookId,
+        positionMs: Long,
+        durationMs: Long,
+    ): Boolean {
+        if (!FinishedPolicy.acceptsEndedSignal(positionMs, durationMs)) {
+            logger.warn {
+                "Ignoring end-of-book for ${bookId.value}: position=${positionMs}ms is not near the end " +
+                    "(duration=${durationMs}ms)"
+            }
+            return false
+        }
+        markFinished(bookId, finalPositionMs = durationMs)
+        return true
+    }
+
+    /**
+     * A re-listen of a finished book is starting: clear the finished flag so this listen-through
+     * resumes where the listener gets to, instead of taking the re-read branch (start at 0) on
+     * every open. The earlier finish stays in the book's reading history on the server.
+     */
+    suspend fun startRelisten(bookId: BookId) {
+        when (val r = positionRepository.savePlaybackState(bookId, PlaybackUpdate.Restart)) {
+            is AppResult.Success -> logger.info { "Re-listen started: ${bookId.value}" }
+            is AppResult.Failure -> logger.warn { "Failed to start re-listen for ${bookId.value}: ${r.error.message}" }
+        }
+    }
+
+    private fun markFinished(
         bookId: BookId,
         finalPositionMs: Long,
     ) {

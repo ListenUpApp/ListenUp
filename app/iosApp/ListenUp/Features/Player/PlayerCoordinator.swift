@@ -308,7 +308,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 pausedByInterruption = true
                 await engine.pause()
                 phase = .paused(loaded)
-                progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+                progress.onPlaybackPaused(
+                    bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed, durationMs: bookDurationMs
+                )
                 updateNowPlaying()
             }
         case .resume:
@@ -342,7 +344,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await engine.pause()
         await engine.setVolume(1.0) // restore for next play
         phase = .paused(loaded)
-        progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+        progress.onPlaybackPaused(
+            bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed, durationMs: bookDurationMs
+        )
         updateNowPlaying()
         sleep.onFadeCompleted()
     }
@@ -372,7 +376,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // engine's pause signal and desynchronizes the interruption fixtures.
         let hadLoadedBook = phase.playingState != nil
         if let outgoing = phase.playingState {
-            progress.onPlaybackPaused(bookId: outgoing.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+            progress.onPlaybackPaused(
+                bookId: outgoing.bookId, positionMs: bookPositionMs, speed: playbackSpeed, durationMs: bookDurationMs
+            )
         }
 
         // RC-1(a): clear the metadata surface synchronously, before the async prepare, so that
@@ -444,7 +450,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         if isPlaybackActive {
             Task { await engine.pause() }
             phase = .paused(loaded)
-            progress.onPlaybackPaused(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
+            progress.onPlaybackPaused(
+                bookId: id, positionMs: bookPositionMs, speed: playbackSpeed, durationMs: bookDurationMs
+            )
         } else {
             Task { await engine.play() }
             phase = .playing(loaded)
@@ -756,7 +764,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private func handleBookEnded() {
         guard let loaded = phase.playingState else { return }
-        progress.onBookFinished(bookId: loaded.bookId, finalPositionMs: bookDurationMs)
+        // The near-end guard lives in the shared tracker, which every platform's end-of-book signal
+        // reaches: pass where the listener actually is, so a spurious end cannot finish the book.
+        progress.onBookFinished(bookId: loaded.bookId, positionMs: bookPositionMs, durationMs: bookDurationMs)
         phase = .paused(loaded)
         updateNowPlaying()
     }

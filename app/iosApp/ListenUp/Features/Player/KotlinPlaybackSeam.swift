@@ -63,8 +63,10 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
         reporter.onPlaybackStarted(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
     }
-    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float) {
-        reporter.onPlaybackPaused(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
+    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64) {
+        reporter.onPlaybackPaused(
+            bookId: BookId(value: bookId), positionMs: positionMs, speed: speed, durationMs: durationMs
+        )
     }
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
         reporter.onPositionUpdate(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
@@ -84,8 +86,8 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
     func onMeasuredGain(bookId: String, positionMs: Int64, gainDb: Float) {
         reporter.onMeasuredGain(bookId: BookId(value: bookId), positionMs: positionMs, gainDb: gainDb)
     }
-    func onBookFinished(bookId: String, finalPositionMs: Int64) {
-        reporter.onBookFinished(bookId: BookId(value: bookId), finalPositionMs: finalPositionMs)
+    func onBookFinished(bookId: String, positionMs: Int64, durationMs: Int64) {
+        _ = reporter.onBookFinished(bookId: BookId(value: bookId), positionMs: positionMs, durationMs: durationMs)
     }
     func savePositionNow(bookId: String, positionMs: Int64) async {
         // The Kotlin suspend fun is exposed as `async throws`; it never throws in

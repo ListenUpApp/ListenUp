@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback as ContractPreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
+import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -31,6 +32,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -51,6 +53,7 @@ import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -345,6 +348,33 @@ class PlaybackPreparerTest :
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe 0L
+            }
+        }
+
+        test("a re-listen of a finished book resumes where the listener got to, not from the start again") {
+            runTest {
+                // Play a finished book: it starts at 0 for the re-listen. Listen to 40%, stop, play
+                // again — the second open must resume at 40%. Before the fix the finished flag was
+                // never cleared, so every open took the re-read branch and restarted at 0 forever.
+                val positions =
+                    FakePlaybackPositionRepository(
+                        initialPositions = mapOf(bookId.value to localPosition(pos600, baseTime, isFinished = true)),
+                        nowMs = { laterTime },
+                    )
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = tracker,
+                        autoRewindEnabled = false,
+                    )
+
+                preparer.prepare(bookId).shouldNotBeNull().resumePositionMs shouldBe 0L
+                tracker.onPlaybackPaused(bookId, positionMs = pos430, speed = 1.0f, durationMs = 2 * pos600)
+                advanceUntilIdle()
+
+                preparer.prepare(bookId).shouldNotBeNull().resumePositionMs shouldBe pos430
             }
         }
 
@@ -862,7 +892,7 @@ private class FakePlaybackService(
         return getPositionResult
     }
 
-    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> = stubFailure
+    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult> = stubFailure
 
     override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = stubFailure
 

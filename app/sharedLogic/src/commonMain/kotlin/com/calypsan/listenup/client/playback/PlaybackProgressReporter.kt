@@ -78,13 +78,17 @@ class PlaybackProgressReporter(
         record { it.onPlay(bookId.value, positionMs, speed) }
     }
 
-    /** Playback paused or stopped: save the position and finalize the open span. */
+    /**
+     * Playback paused or stopped: save the position (or finish the book, when [positionMs] is in the
+     * end credits of [durationMs] — see [ProgressTracker.onPlaybackPaused]) and finalize the open span.
+     */
     fun onPlaybackPaused(
         bookId: BookId,
         positionMs: Long,
         speed: Float,
+        durationMs: Long,
     ) {
-        progressTracker.onPlaybackPaused(bookId, positionMs, speed)
+        progressTracker.onPlaybackPaused(bookId, positionMs, speed, durationMs)
         record { it.onPause(positionMs) }
     }
 
@@ -151,18 +155,23 @@ class PlaybackProgressReporter(
     ) = progressTracker.onMeasuredGain(bookId, positionMs, gainDb)
 
     /**
-     * Playback reached the end of the book: mark it complete and finalize the open span at
-     * [finalPositionMs]. The recorder's [ListeningEventRecorder.onPause] is the "finalize the
-     * current span at this position" operation; book finish is just another trigger for it.
-     * This is required because iOS does not fire a pause at a natural end — without it the span
-     * would be left open and only recovered (lossily) on the next launch.
+     * Playback reports the end of the book. The tracker decides whether the signal is genuine
+     * ([ProgressTracker.onBookFinished]); either way the open span is finalized — at the full
+     * [durationMs] when accepted, at the real [positionMs] when the signal was spurious. The
+     * recorder's [ListeningEventRecorder.onPause] is the "finalize the current span at this
+     * position" operation, and it is needed because iOS does not fire a pause at a natural end —
+     * without it the span would be left open and only recovered (lossily) on the next launch.
+     *
+     * @return whether the book was marked finished
      */
     fun onBookFinished(
         bookId: BookId,
-        finalPositionMs: Long,
-    ) {
-        progressTracker.onBookFinished(bookId, finalPositionMs)
-        record { it.onPause(finalPositionMs) }
+        positionMs: Long,
+        durationMs: Long,
+    ): Boolean {
+        val accepted = progressTracker.onBookFinished(bookId, positionMs, durationMs)
+        record { it.onPause(if (accepted) durationMs else positionMs) }
+        return accepted
     }
 
     /**
