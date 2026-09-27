@@ -240,7 +240,11 @@
     <string name="admin_upload_books_finalizing">Adding to your library</string>
     <string name="admin_upload_books_finished_title">Upload finished</string>
     <string name="admin_upload_books_imported">%1$d added</string>
+    <string name="admin_upload_books_keep_uploading">Keep uploading</string>
     <string name="admin_upload_books_nothing_found">Nothing to upload — that selection had no files in it.</string>
+    <string name="admin_upload_books_stop_body">The files sent so far will be discarded, and nothing will be added to your library.</string>
+    <string name="admin_upload_books_stop_confirm">Stop upload</string>
+    <string name="admin_upload_books_stop_title">Stop upload?</string>
     <string name="admin_upload_books_subtitle">Add audiobooks from this device to your library</string>
     <string name="admin_upload_books_too_large_body">One upload can carry %1$s. That selection is %2$s, so try it in smaller batches.</string>
     <string name="admin_upload_books_too_large_title">That's too much at once</string>

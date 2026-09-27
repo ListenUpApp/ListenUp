@@ -2401,12 +2401,52 @@
         }
       }
     },
+    "admin.upload_books_keep_uploading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep uploading"
+          }
+        }
+      }
+    },
     "admin.upload_books_nothing_found": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Nothing to upload — that selection had no files in it."
+          }
+        }
+      }
+    },
+    "admin.upload_books_stop_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The files sent so far will be discarded, and nothing will be added to your library."
+          }
+        }
+      }
+    },
+    "admin.upload_books_stop_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop upload"
+          }
+        }
+      }
+    },
+    "admin.upload_books_stop_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop upload?"
           }
         }
       }

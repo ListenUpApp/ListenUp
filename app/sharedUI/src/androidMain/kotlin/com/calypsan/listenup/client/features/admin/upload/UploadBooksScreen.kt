@@ -144,14 +144,26 @@ fun UploadBooksScreen(
     val pickFolder = rememberUploadFolderPicker(::offer)
     val pickFiles = rememberUploadFilePicker(::offer)
 
-    val busy = state is UploadBooksUiState.Uploading || state is UploadBooksUiState.Finalizing
+    val uploading = state is UploadBooksUiState.Uploading
+    val finalizing = state is UploadBooksUiState.Finalizing
+    var confirmingStop by remember { mutableStateOf(false) }
 
-    // Hiding the toolbar arrow while busy stops one way out; the back GESTURE is the other, and
-    // it fires from an edge touch as easily as from intent. Without this, forty minutes into an
-    // upload a reflexive swipe pops the entry, clears the ViewModel, cancels the collector and
-    // abandons the session — every staged byte gone, with no confirmation and no notice. Swallow
-    // it: Cancel is the deliberate way to stop, and it says what it does.
-    PlatformBackHandler(enabled = busy) { /* deliberately inert while a transfer is in flight */ }
+    // Leaving mid-upload abandons the session, so Back — the gesture or the arrow — asks first,
+    // and confirming does exactly what Cancel does before leaving.
+    StopUploadGuard(
+        uploading = uploading,
+        confirming = confirmingStop,
+        onConfirmingChange = { confirmingStop = it },
+        onStop = {
+            viewModel.cancel()
+            onBackClick()
+        },
+    )
+
+    // Finalizing is the server importing what already arrived. There is no Cancel for it, because
+    // abandoning the session would race the import it has already started; it lasts moments, so
+    // Back waits it out rather than offering a stop with no clean meaning.
+    PlatformBackHandler(enabled = finalizing) { /* deliberately inert while the server imports */ }
 
     ListenUpScaffold(
         topBar = {
@@ -163,11 +175,11 @@ fun UploadBooksScreen(
                     )
                 },
                 navigationIcon = {
-                    if (!busy) {
+                    if (!finalizing) {
                         IconButton(
                             onClick = {
                                 haptics.press()
-                                onBackClick()
+                                if (uploading) confirmingStop = true else onBackClick()
                             },
                         ) {
                             Icon(
