@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -376,7 +377,8 @@ private fun ChapterEditorBody(
                 )
             } else {
                 val currentLane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs(), widthPx = 0f)
-                Column(Modifier.padding(padding)) {
+                // Consumed, so the list pane's imePadding adds only the keyboard beyond the scaffold's inset.
+                Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
                     if (state.changedElsewhere) {
                         ChangedElsewhereBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                     }

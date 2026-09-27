@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.shell
 
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -332,10 +334,14 @@ fun AppShell(
                 onClearTypeFilters = {
                     searchViewModel.clearTypeFilters()
                 },
+                // The keyboard is up whenever this is: lift the results above it. The scaffold's
+                // padding already clears the bottom bar, so only the rest of the keyboard is added.
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(padding)
+                        .consumeWindowInsets(padding)
+                        .imePadding(),
             )
         }
     }

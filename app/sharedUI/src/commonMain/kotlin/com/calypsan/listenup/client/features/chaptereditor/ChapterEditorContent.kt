@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.ScrubDrag
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.chapterGrabbedAt
 import androidx.compose.foundation.background
@@ -183,19 +185,29 @@ fun ChapterEditorContent(
 
     if (isWide) {
         Row(
-            modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 24.dp),
+            modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .consumeWindowInsets(contentPadding)
+                .padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             timeline(Modifier.weight(1f))
-            list(Modifier.width(LIST_PANE_WIDTH))
+            // The search field lives in the list, so the list rises above the keyboard; the
+            // timeline beside it keeps its height.
+            list(Modifier.width(LIST_PANE_WIDTH).imePadding())
         }
     } else {
         Column(
-            modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 12.dp),
+            modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .consumeWindowInsets(contentPadding)
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             timeline(Modifier.fillMaxWidth())
-            list(Modifier.fillMaxWidth().weight(1f))
+            list(Modifier.fillMaxWidth().weight(1f).imePadding())
         }
     }
 }
