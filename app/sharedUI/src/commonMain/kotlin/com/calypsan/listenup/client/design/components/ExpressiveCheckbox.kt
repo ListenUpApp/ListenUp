@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.design.components
 
+import com.calypsan.listenup.client.design.compactTouchTarget
+import androidx.compose.runtime.remember
+import androidx.compose.material3.ripple
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -33,8 +38,8 @@ private const val CHECK_ICON_RATIO = 0.7f
  * [androidx.compose.material3.Checkbox] inside the metadata-match field list and chapter-review sheet
  * so selection reads as a bold coral tile rather than a hairline tick.
  *
- * The whole tile is a [Role.Checkbox] toggle when [onCheckedChange] is supplied; pass null to render
- * a read-only indicator (the parent row owns the click — make that row `toggleable` so it is the
+ * The whole tile is a [Role.Checkbox] toggle when [onCheckedChange] is supplied, with a 48dp touch
+ * target around its 26dp tile; pass null to render a read-only indicator (the parent row owns the click — make that row `toggleable` so it is the
  * checkbox TalkBack announces). Either way the checked state is exposed to accessibility services.
  *
  * @param checked Whether the box is in its filled, selected state.
@@ -49,24 +54,56 @@ fun ExpressiveCheckbox(
     onCheckedChange: ((Boolean) -> Unit)? = null,
     accent: Color = MaterialTheme.colorScheme.primary,
 ) {
+    if (onCheckedChange == null) {
+        // Read-only: the parent row owns the click, but the state is still announced — and
+        // merges up into that row, so "checked" reaches TalkBack either way.
+        CheckboxTile(
+            checked = checked,
+            accent = accent,
+            modifier = modifier.semantics { toggleableState = ToggleableState(checked) },
+        )
+        return
+    }
     val haptics = LocalHaptics.current
-    val stateModifier =
-        if (onCheckedChange != null) {
-            Modifier.toggleable(value = checked, role = Role.Checkbox) { on ->
-                haptics.toggle(on = on)
-                onCheckedChange(on)
-            }
-        } else {
-            // Read-only: the parent row owns the click, but the state is still announced — and
-            // merges up into that row, so "checked" reaches TalkBack either way.
-            Modifier.semantics { toggleableState = ToggleableState(checked) }
-        }
+    val interactionSource = remember { MutableInteractionSource() }
+    // A full 48dp target centred on the 26dp tile; it overlaps the row's padding, so the row keeps
+    // its height. The press ripple stays on the tile.
     Box(
         modifier =
             modifier
+                .compactTouchTarget(footprint = CHECKBOX_SIZE)
+                .toggleable(
+                    value = checked,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    role = Role.Checkbox,
+                ) { on ->
+                    haptics.toggle(on = on)
+                    onCheckedChange(on)
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        CheckboxTile(
+            checked = checked,
+            accent = accent,
+            modifier = Modifier.indication(interactionSource, ripple()),
+        )
+    }
+}
+
+/** The drawn tile: filled with a check when [checked], an outline when not. */
+@Composable
+private fun CheckboxTile(
+    checked: Boolean,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            Modifier
                 .size(CHECKBOX_SIZE)
                 .clip(RoundedCornerShape(CHECKBOX_RADIUS))
-                .then(stateModifier)
+                .then(modifier)
                 .then(
                     if (checked) {
                         Modifier.background(accent)

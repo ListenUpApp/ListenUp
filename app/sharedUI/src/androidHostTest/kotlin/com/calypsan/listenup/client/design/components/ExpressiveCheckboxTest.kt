@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,7 +80,27 @@ class ExpressiveCheckboxTest {
         composeRule.onNodeWithTag(TAG).assertIsOn()
     }
 
+    @Test
+    fun `an interactive box keeps its 26dp tile but takes a 48dp touch target`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Row(Modifier.testTag(ROW)) {
+                    ExpressiveCheckbox(
+                        checked = false,
+                        onCheckedChange = {},
+                        modifier = Modifier.testTag(TAG),
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(TAG).assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
+        // The row the box sits in doesn't grow: the target overlaps the row's own padding.
+        composeRule.onNodeWithTag(ROW).assertHeightIsEqualTo(26.dp)
+    }
+
     private companion object {
         const val TAG = "expressive_checkbox"
+        const val ROW = "row"
     }
 }
