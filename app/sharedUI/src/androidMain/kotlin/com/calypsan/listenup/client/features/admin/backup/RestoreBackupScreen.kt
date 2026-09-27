@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.admin.backup
 
 import androidx.compose.foundation.layout.widthIn
-import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
 import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.ui.semantics.semantics
@@ -220,7 +220,7 @@ private fun IdleContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
-            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -244,7 +244,7 @@ private fun IdleContent(
         }
 
         Card(
-            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -263,7 +263,7 @@ private fun IdleContent(
             }
         }
 
-        error?.let { ErrorCard(text = it.localized(), modifier = Modifier.widthIn(max = ReadingMaxWidth)) }
+        error?.let { ErrorCard(text = it.localized(), modifier = Modifier.widthIn(max = ReadableMeasure)) }
 
         // A phone parks the action at the foot of the screen; the wide pane keeps it under the cards.
         if (!isWide) Spacer(modifier = Modifier.weight(1f))
@@ -293,7 +293,7 @@ private fun CompletedContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
-            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,

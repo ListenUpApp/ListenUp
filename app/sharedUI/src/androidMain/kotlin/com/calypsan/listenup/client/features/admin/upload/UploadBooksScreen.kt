@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.admin.upload
 
 import androidx.compose.foundation.layout.widthIn
-import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
 import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.ui.semantics.semantics
@@ -348,7 +348,7 @@ private fun IdleContent(
             text = stringResource(Res.string.admin_upload_books_description),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.widthIn(max = ReadingMaxWidth),
+            modifier = Modifier.widthIn(max = ReadableMeasure),
         )
         // A phone parks the actions at the foot of the screen; the wide pane keeps them under the text.
         if (!isWide) Spacer(modifier = Modifier.weight(1f))
@@ -421,10 +421,10 @@ private fun UploadingContent(
         if (fraction != null) {
             LinearWavyProgressIndicator(
                 progress = { fraction },
-                modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
+                modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             )
         } else {
-            LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth())
+            LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth())
         }
         Spacer(modifier = Modifier.height(32.dp))
         ListenUpButton(
@@ -463,7 +463,7 @@ private fun FinalizingContent(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(38.dp))
-        LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth())
+        LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth())
     }
 }
 

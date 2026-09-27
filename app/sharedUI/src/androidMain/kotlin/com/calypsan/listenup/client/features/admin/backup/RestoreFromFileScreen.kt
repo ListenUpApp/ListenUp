@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.admin.backup
 
 import androidx.compose.foundation.layout.widthIn
-import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
 import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.ui.semantics.semantics
@@ -179,13 +179,13 @@ private fun IdleUploadContent(
             text = stringResource(Res.string.admin_restore_from_file_description),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.widthIn(max = ReadingMaxWidth),
+            modifier = Modifier.widthIn(max = ReadableMeasure),
         )
         Text(
             text = stringResource(Res.string.admin_restore_from_file_detail),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.widthIn(max = ReadingMaxWidth),
+            modifier = Modifier.widthIn(max = ReadableMeasure),
         )
         // A phone parks the action at the foot of the screen; the wide pane keeps it under the text.
         if (!isWide) Spacer(modifier = Modifier.weight(1f))
@@ -228,7 +228,7 @@ private fun UploadingContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(38.dp))
-        LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth())
+        LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth())
     }
 }
 
@@ -264,7 +264,7 @@ private fun ErrorUploadContent(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Card(
-            modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
