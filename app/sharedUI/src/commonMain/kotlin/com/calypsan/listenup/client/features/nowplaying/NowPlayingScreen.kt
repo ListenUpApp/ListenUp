@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
@@ -142,10 +141,7 @@ fun NowPlayingScreen(
         if (backProgress.value != 0f && dragOffset.value != 0f) dragOffset.snapTo(0f)
     }
 
-    val expanded =
-        currentWindowAdaptiveInfo()
-            .windowSizeClass
-            .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+    val expanded = useWideNowPlaying(currentWindowAdaptiveInfo().windowSizeClass)
 
     Surface(
         modifier =
