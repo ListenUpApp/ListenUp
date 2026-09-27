@@ -188,13 +188,13 @@ class HomeRepositoryTest :
             }
         }
 
-        test("getContinueListening includes books at 99 percent progress when not marked finished") {
+        test("getContinueListening includes a long book at 99 percent progress when not marked finished") {
             runTest {
-                // Given: A book at 99% progress but NOT marked as finished
-                // This tests the new behavior where isFinished is authoritative, not calculated progress
+                // Given: 99% of a twenty-hour book — twelve minutes of story left, not the credits
                 val fixture = createFixture()
-                val almostDone = createPlaybackPosition("book-1", positionMs = 9900L, isFinished = false) // 99% but not marked finished
-                val book = createBook(id = "book-1", duration = 10_000L)
+                val twentyHours = 20L * 60 * 60 * 1000
+                val almostDone = createPlaybackPosition("book-1", positionMs = twentyHours * 99 / 100, isFinished = false)
+                val book = createBook(id = "book-1", duration = twentyHours)
 
                 everySuspend { fixture.playbackPositionDao.getRecentPositions(10) } returns listOf(almostDone)
                 everySuspend { fixture.bookRepository.getBookListItems(any()) } returns listOf(book)
@@ -203,7 +203,7 @@ class HomeRepositoryTest :
                 // When
                 val result = repository.getContinueListening(10)
 
-                // Then: Book should be included because isFinished=false (progress doesn't matter)
+                // Then: still in Continue Listening — only the credits count as finished without the flag
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val books = success.data as List<*>
                 books.size shouldBe 1

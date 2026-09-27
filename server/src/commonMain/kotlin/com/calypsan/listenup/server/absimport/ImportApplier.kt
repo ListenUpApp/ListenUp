@@ -282,7 +282,12 @@ class ImportApplier internal constructor(
                         bookId = targetBook.value,
                         positionMs = (row.currentTimeSeconds * MILLIS_PER_SECOND).toLong(),
                         lastPlayedAt = row.lastUpdateMs,
-                        finished = FinishedPolicy.isFinished(row.progress, row.isFinished),
+                        finished =
+                            FinishedPolicy.isFinished(
+                                positionMs = (row.currentTimeSeconds * MILLIS_PER_SECOND).toLong(),
+                                durationMs = row.durationMs(),
+                                flag = row.isFinished,
+                            ),
                         playbackSpeed = DEFAULT_PLAYBACK_SPEED,
                         currentChapterId = null,
                         // Date the imported start strictly before this book's earliest session, and never
@@ -368,6 +373,13 @@ class ImportApplier internal constructor(
         }
         return imported
     }
+
+    /**
+     * The item's duration, derived from ABS's computed `progress = currentTime / duration`; 0 (unknown)
+     * when nothing has been played, which [FinishedPolicy] never treats as finished on its own.
+     */
+    private fun AbsProgress.durationMs(): Long =
+        if (progress > 0.0) (currentTimeSeconds / progress * MILLIS_PER_SECOND).toLong() else 0L
 
     private companion object {
         const val MILLIS_PER_SECOND = 1_000.0

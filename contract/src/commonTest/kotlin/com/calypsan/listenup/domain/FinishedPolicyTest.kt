@@ -21,9 +21,18 @@ class FinishedPolicyTest :
             FinishedPolicy.isFinished(positionMs = 5_000L, durationMs = 0L, flag = false) shouldBe false
         }
 
-        test("a progress fraction follows the same rule") {
-            FinishedPolicy.isFinished(progressFraction = 0.995, flag = false) shouldBe true
-            FinishedPolicy.isFinished(progressFraction = 0.5, flag = false) shouldBe false
+        test("in a long book the credits are capped at a minute, so twelve minutes from the end is not finished") {
+            val twentyHours = 20L * 60 * 60 * 1000
+            // 99% of twenty hours leaves twelve minutes — the last chapter, not the credits.
+            FinishedPolicy.isFinished(positionMs = twentyHours - 12 * 60_000L, durationMs = twentyHours, flag = false) shouldBe
+                false
+            FinishedPolicy.isFinished(positionMs = twentyHours - 45_000L, durationMs = twentyHours, flag = false) shouldBe true
+        }
+
+        test("in a short book the credits are the last one percent") {
+            val tenMinutes = 10L * 60_000
+            FinishedPolicy.isFinished(positionMs = tenMinutes - 5_000L, durationMs = tenMinutes, flag = false) shouldBe true
+            FinishedPolicy.isFinished(positionMs = tenMinutes - 7_000L, durationMs = tenMinutes, flag = false) shouldBe false
         }
 
         test("an end-of-media signal is accepted only near the end") {
