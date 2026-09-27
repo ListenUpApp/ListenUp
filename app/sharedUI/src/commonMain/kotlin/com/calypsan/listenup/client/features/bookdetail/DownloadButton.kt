@@ -88,6 +88,7 @@ fun DownloadButton(
                             onDownloadClick()
                         },
                         enabled = enabled,
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         Icon(
                             Icons.Outlined.Download,
@@ -98,7 +99,7 @@ fun DownloadButton(
                 }
 
                 is BookDownloadStatus.InProgress -> {
-                    IconButton(onClick = onCancelClick) {
+                    IconButton(onClick = onCancelClick, modifier = Modifier.fillMaxSize()) {
                         when {
                             status.downloadingFiles > 0 -> {
                                 Box(contentAlignment = Alignment.Center) {
@@ -134,7 +135,7 @@ fun DownloadButton(
                 }
 
                 is BookDownloadStatus.Completed -> {
-                    IconButton(onClick = onDeleteClick) {
+                    IconButton(onClick = onDeleteClick, modifier = Modifier.fillMaxSize()) {
                         Icon(
                             Icons.Outlined.Delete,
                             contentDescription = stringResource(Res.string.book_delete_download),
@@ -152,6 +153,7 @@ fun DownloadButton(
                             onDownloadClick()
                         },
                         enabled = enabled,
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         Icon(
                             Icons.Default.Refresh,

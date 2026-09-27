@@ -95,6 +95,8 @@ fun PlayPauseFab(
  * @param contentDescription Accessibility label.
  * @param onClick Click callback.
  * @param size Touch-target diameter.
+ * @param iconSize The glyph's size — the control's visual size, so a compact bar can keep a small
+ * glyph on a full 48dp target. Half of [size] by default.
  * @param tint Icon colour.
  * @param pressFeedback Whether tapping fires
  * [com.calypsan.listenup.client.design.haptics.Haptics.press]. Defaults to true because every
@@ -108,6 +110,7 @@ fun Ctrl(
     contentDescription: String,
     onClick: () -> Unit,
     size: Dp = 60.dp,
+    iconSize: Dp = size * 0.5f,
     tint: Color = MaterialTheme.colorScheme.onSurface,
     pressFeedback: Boolean = true,
 ) {
@@ -122,7 +125,7 @@ fun Ctrl(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            modifier = Modifier.size(size * 0.5f),
+            modifier = Modifier.size(iconSize),
             tint = tint,
         )
     }

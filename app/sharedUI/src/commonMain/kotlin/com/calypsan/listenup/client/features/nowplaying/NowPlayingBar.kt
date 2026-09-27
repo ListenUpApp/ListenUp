@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.design.MinTouchTarget
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -44,6 +45,9 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
 import listenup.composeapp.generated.resources.player_skip_backward
 import org.jetbrains.compose.resources.stringResource
+
+/** A mini-player control's glyph — the size the bars were drawn at, kept while the targets grew to 48dp. */
+internal val MiniPlayerGlyphSize = 20.dp
 
 /**
  * Floating mini-player card docked above the bottom navigation.
@@ -193,7 +197,8 @@ private fun MiniPlayerContent(
                 icon = SkipGlyphs.backward(skipBackwardSec),
                 contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
                 onClick = onSkipBack,
-                size = 40.dp,
+                size = MinTouchTarget,
+                iconSize = MiniPlayerGlyphSize,
                 tint = MaterialTheme.colorScheme.onSurface,
             )
 

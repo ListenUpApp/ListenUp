@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.design.MinTouchTarget
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -207,7 +208,8 @@ private fun ActiveDockedContent(
             icon = SkipGlyphs.backward(skipBackwardSec),
             contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
             onClick = onSkipBack,
-            size = 40.dp,
+            size = MinTouchTarget,
+            iconSize = MiniPlayerGlyphSize,
         )
         // isPlayPending piggybacks on the same buffering spinner: a play request in flight for
         // another book is visual feedback the user asked for, without hiding this bar.
@@ -215,14 +217,15 @@ private fun ActiveDockedContent(
             isPlaying = state.isPlaying,
             isBuffering = state.isBuffering || isPlayPending,
             onClick = onPlayPause,
-            size = 44.dp,
+            size = MinTouchTarget,
             shadowElevation = 0.dp,
         )
         Ctrl(
             icon = SkipGlyphs.forward(skipForwardSec),
             contentDescription = stringResource(Res.string.player_skip_forward, skipForwardSec),
             onClick = onSkipForward,
-            size = 40.dp,
+            size = MinTouchTarget,
+            iconSize = MiniPlayerGlyphSize,
         )
 
         // Inline scrubber — fills the remaining width. It reads [progress] internally so a
@@ -243,7 +246,8 @@ private fun ActiveDockedContent(
             icon = Icons.Default.OpenInFull,
             contentDescription = stringResource(Res.string.player_expand),
             onClick = onExpand,
-            size = 40.dp,
+            size = MinTouchTarget,
+            iconSize = MiniPlayerGlyphSize,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             pressFeedback = false,
         )

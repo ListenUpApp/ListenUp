@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.discover.components
 
+import com.calypsan.listenup.client.design.compactTouchTarget
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -58,7 +59,7 @@ fun DiscoverBooksSection(
             trailing = {
                 IconButton(
                     onClick = { viewModel.refresh() },
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.compactTouchTarget(footprint = 32.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,

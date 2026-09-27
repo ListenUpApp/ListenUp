@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.genredestination
 
+import com.calypsan.listenup.client.design.compactTouchTarget
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -133,14 +134,17 @@ internal fun HeroIconButton(
     contentDescription: String?,
     onClick: () -> Unit,
 ) {
+    // A 40dp disc on a full 48dp target: the disc is drawn inside, so the hero row keeps its height.
     IconButton(
         onClick = onClick,
-        modifier =
-            Modifier
-                .size(40.dp)
-                .background(HeroInk.copy(alpha = 0.14f), CircleShape),
+        modifier = Modifier.compactTouchTarget(footprint = 40.dp),
     ) {
-        Icon(imageVector = icon, contentDescription = contentDescription, tint = HeroInk)
+        Box(
+            modifier = Modifier.size(40.dp).background(HeroInk.copy(alpha = 0.14f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(imageVector = icon, contentDescription = contentDescription, tint = HeroInk)
+        }
     }
 }
 
