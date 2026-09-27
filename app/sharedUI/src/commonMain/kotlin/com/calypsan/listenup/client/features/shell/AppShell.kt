@@ -11,6 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,9 @@ import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.features.search.SearchResultsOverlay
 import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
 import com.calypsan.listenup.client.presentation.search.SearchViewModel
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.client.domain.model.SearchHit
+import com.calypsan.listenup.client.domain.model.SearchHitType
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
@@ -151,8 +155,14 @@ fun AppShell(
 
     // Collect reactive state - use collectAsState for multiplatform compatibility
     val syncState by syncRepository.syncState.collectAsStateWithLifecycle()
-    val user by userRepository.observeCurrentUser().collectAsStateWithLifecycle(initialValue = null)
-    val searchState by searchViewModel.state.collectAsStateWithLifecycle()
+    // Remembered: a flow built in composition is a new flow on every recomposition, and collecting
+    // a new flow re-subscribes the Room query each time.
+    val currentUserFlow = remember(userRepository) { userRepository.observeCurrentUser() }
+    val user by currentUserFlow.collectAsStateWithLifecycle(initialValue = null)
+    // Held as a State and read only inside the search subtree — the header's field and the results
+    // overlay — so a keystroke recomposes those, not the shell around them.
+    val searchState = searchViewModel.state.collectAsStateWithLifecycle()
+    val searchQuery = remember(searchState) { derivedStateOf { searchState.value.query } }
     val syncIndicatorState by syncIndicatorViewModel.state.collectAsStateWithLifecycle()
     val isSyncDetailsExpanded by syncIndicatorViewModel.isExpanded.collectAsStateWithLifecycle()
     val unreadNotificationCount by notificationBellViewModel.unreadCount.collectAsStateWithLifecycle()
@@ -251,7 +261,7 @@ fun AppShell(
             syncState = syncState,
             user = user,
             isSearchExpanded = isSearchExpanded,
-            searchQuery = searchState.query,
+            searchQuery = searchQuery.value,
             onSearchExpandedChange = { expanded ->
                 if (expanded) isSearchExpanded = true else collapseSearch()
             },
@@ -309,8 +319,8 @@ fun AppShell(
             }
 
             // Search results overlay (floats above content when search is active)
-            SearchResultsOverlay(
-                state = searchState,
+            SearchResultsOverlayHost(
+                state = { searchState.value },
                 isExpanded = isSearchExpanded,
                 onClose = collapseSearch,
                 onResultClick = { hit ->
@@ -369,4 +379,29 @@ fun AppShell(
             )
         }
     }
+}
+
+/**
+ * The results overlay, reading search state itself so each keystroke and each batch of results
+ * recomposes the overlay alone rather than the shell content it floats over.
+ */
+@Composable
+private fun SearchResultsOverlayHost(
+    state: () -> SearchUiState,
+    isExpanded: Boolean,
+    onClose: () -> Unit,
+    onResultClick: (SearchHit) -> Unit,
+    onTypeFilterToggle: (SearchHitType) -> Unit,
+    onClearTypeFilters: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SearchResultsOverlay(
+        state = state(),
+        isExpanded = isExpanded,
+        onClose = onClose,
+        onResultClick = onResultClick,
+        onTypeFilterToggle = onTypeFilterToggle,
+        onClearTypeFilters = onClearTypeFilters,
+        modifier = modifier,
+    )
 }

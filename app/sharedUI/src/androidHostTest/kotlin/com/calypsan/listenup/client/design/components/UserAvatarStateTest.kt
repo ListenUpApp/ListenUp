@@ -76,6 +76,26 @@ class UserAvatarStateTest :
             ).shouldBeInstanceOf<UserAvatarUiState.Initials>()
         }
 
+        // The disk check runs off the main thread, so for a moment it has no answer. An image avatar
+        // waits on the placeholder rather than flashing initials it is about to replace.
+        test("image type whose disk check has not answered yet stays on the placeholder") {
+            userAvatarUiState(
+                profile = profile(avatarType = "image"),
+                hasLocalAvatar = null,
+                localPath = "/p",
+                userId = "u1",
+            ) shouldBe UserAvatarUiState.Loading
+        }
+
+        test("auto type does not wait on the disk check") {
+            userAvatarUiState(
+                profile = profile(avatarType = "auto"),
+                hasLocalAvatar = null,
+                localPath = "/p",
+                userId = "u1",
+            ).shouldBeInstanceOf<UserAvatarUiState.Initials>()
+        }
+
         test("auto type maps to Initials regardless of local file") {
             userAvatarUiState(
                 profile = profile(avatarType = "auto"),
