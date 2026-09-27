@@ -54,6 +54,57 @@ struct PausePersistenceTests {
     }
 }
 
+@Suite("Finish truth")
+@MainActor
+struct FinishTruthTests {
+    private func playingOneMinuteBook() async -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine)
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+        return (coordinator, engine, progress)
+    }
+
+    /// End-of-media reports where the listener actually was, not the book's duration. The shared
+    /// tracker ignores an end that is not near the end — passing the duration here, as this used
+    /// to, would let a spurious end mark a half-listened book finished.
+    @Test func bookEndedReportsTheRealPosition() async throws {
+        let (coordinator, engine, progress) = await playingOneMinuteBook()
+        engine.emit(.position(ms: 24000, rate: 0.0))
+        await awaitUntil { coordinator.bookPositionMs == 24000 }
+
+        engine.emit(.ended)
+
+        await awaitUntil { !progress.finished.isEmpty }
+        #expect(progress.finished.first?.positionMs == 24000)
+        #expect(progress.finished.first?.durationMs == 60000)
+    }
+
+    /// A pause carries the book's duration, so the shared tracker can tell a pause in the end
+    /// credits (the book is finished) from any other pause.
+    @Test func pauseCarriesTheBookDuration() async throws {
+        let (coordinator, engine, progress) = await playingOneMinuteBook()
+        engine.emit(.position(ms: 59800, rate: 0.0))
+        await awaitUntil { coordinator.bookPositionMs == 59800 }
+
+        coordinator.togglePlayback()
+        await engine.waitUntilPaused()
+
+        await awaitUntil { !progress.pausedDurations.isEmpty }
+        #expect(progress.pausedDurations.last == 60000)
+    }
+}
+
 @Suite("Buffering promotion")
 @MainActor
 struct BufferingPromotionTests {

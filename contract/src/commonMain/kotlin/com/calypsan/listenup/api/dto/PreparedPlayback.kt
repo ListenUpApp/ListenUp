@@ -73,6 +73,23 @@ data class RecordPositionRequest(
 )
 
 /**
+ * The server's answer to a [RecordPositionRequest]. Positions are `lastPlayedAt`-wins, so a write can
+ * lose to the stored row and still get that row back; [accepted] says which happened, instead of
+ * leaving a rejected write indistinguishable from success. [serverNowMs] lets the client measure its
+ * own clock offset — a device whose clock runs behind is exactly the one whose writes lose.
+ */
+@Serializable
+@SerialName("RecordPositionResult")
+data class RecordPositionResult(
+    /** The row the server holds after this call — the caller's write when [accepted], else the stored row. */
+    @SerialName("position") val position: PlaybackPositionSyncPayload,
+    /** False when an equal-or-newer stored `lastPlayedAt` won and this write changed nothing. */
+    @SerialName("accepted") val accepted: Boolean,
+    /** The server's clock when it decided, epoch ms. */
+    @SerialName("serverNowMs") val serverNowMs: Long,
+)
+
+/**
  * A client→server listening-event write. The owning user is NOT carried — the
  * server takes it from the authenticated principal. `id` is client-assigned
  * (a `Uuid.random().toString()` matching the local tentative-span row's id);

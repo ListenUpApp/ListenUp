@@ -121,11 +121,14 @@ class HomeRepositoryObserveTest :
         // B) No undercount: isFinished=false at high progress stays included
         // ====================================================================
 
-        test("B: isFinished=false at 99% progress is included (no undercount)") {
+        test("B: isFinished=false at 99% of a long book is included (no undercount)") {
             runTest {
-                // 99% but the server hasn't marked it finished
-                val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 9_900L, isFinished = false)))
-                val bookFlow = MutableStateFlow(listOf(book("b1", duration = 10_000L)))
+                // 99% of a twenty-hour book is twelve minutes from the end: the last chapter, not
+                // the credits, so it is still being read.
+                val twentyHours = 20L * 60 * 60 * 1000
+                val posFlow =
+                    MutableStateFlow(listOf(position("b1", positionMs = twentyHours * 99 / 100, isFinished = false)))
+                val bookFlow = MutableStateFlow(listOf(book("b1", duration = twentyHours)))
                 val repo =
                     HomeRepositoryImpl(
                         bookRepository = makeBookRepo(bookFlow),

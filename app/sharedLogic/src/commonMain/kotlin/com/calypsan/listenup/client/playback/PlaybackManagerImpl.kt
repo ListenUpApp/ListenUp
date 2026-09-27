@@ -30,13 +30,6 @@ import kotlinx.coroutines.launch
 private val logger = KotlinLogging.logger {}
 
 /**
- * Fraction of total duration a position must reach for an `Ended` state to count
- * as genuine completion. Guards against spurious `Ended` events on player
- * release/stop falsely marking a book finished.
- */
-private const val BOOK_FINISHED_THRESHOLD = 0.90f
-
-/**
  * Content-position delta (ms) between periodic durable persists on the built-in-player
  * (Desktop) observation path. The built-in player advances [AudioPlayer.positionMs]
  * continuously while playing, so persisting every time the position has moved this far
@@ -391,19 +384,13 @@ internal class PlaybackManagerImpl(
                         }
 
                         if (playbackState == PlaybackState.Ended) {
-                            val duration = totalDurationMs.value
-                            val position = currentPositionMs.value
-                            // Guard: only mark finished if position is actually near the end.
-                            // Prevents false completion from spurious Ended events on player
-                            // release/stop.
-                            if (duration > 0 && position.toFloat() / duration >= BOOK_FINISHED_THRESHOLD) {
-                                reporter.onBookFinished(bookId, duration)
-                            } else {
-                                logger.warn {
-                                    "Ignoring Ended state: position=${position}ms " +
-                                        "not near end (duration=${duration}ms)"
-                                }
-                            }
+                            // The near-end guard lives in the tracker, which every platform's
+                            // end-of-book signal reaches; a spurious Ended is ignored there.
+                            reporter.onBookFinished(
+                                bookId,
+                                positionMs = currentPositionMs.value,
+                                durationMs = totalDurationMs.value,
+                            )
                         }
                     }
                 }
@@ -487,6 +474,7 @@ internal class PlaybackManagerImpl(
                             activeBookId,
                             currentPositionMs.value,
                             playbackSpeed.value,
+                            durationMs = totalDurationMs.value,
                         )
                     }
                 }

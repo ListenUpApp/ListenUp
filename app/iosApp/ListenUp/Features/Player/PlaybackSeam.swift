@@ -110,7 +110,8 @@ protocol PlaybackPreparing: Sendable {
 @MainActor
 protocol PlaybackProgressReporting {
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float)
-    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float)
+    /// A pause in the end credits of `durationMs` finishes the book (the shared tracker decides).
+    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64)
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float)
     /// A seek splits the listening span so the jumped-over range isn't counted as listened.
     func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float)
@@ -121,7 +122,8 @@ protocol PlaybackProgressReporting {
     func onBoostReset(bookId: String, positionMs: Int64, defaultBoostDb: Float)
     /// A refined R128 loudness measurement became available for this book.
     func onMeasuredGain(bookId: String, positionMs: Int64, gainDb: Float)
-    func onBookFinished(bookId: String, finalPositionMs: Int64)
+    /// The engine reported end-of-media at `positionMs`; the shared tracker ignores it unless it is near `durationMs`.
+    func onBookFinished(bookId: String, positionMs: Int64, durationMs: Int64)
     /// Blocking critical save — used on pause, seek, and app backgrounding.
     func savePositionNow(bookId: String, positionMs: Int64) async
 }

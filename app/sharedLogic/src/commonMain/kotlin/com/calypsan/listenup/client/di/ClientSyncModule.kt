@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.di
 
+import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.api.result.onSuccess
+import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.data.sync.describeSupersededPositionWrite
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
@@ -85,6 +89,9 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
+
+/** Logs position writes the server superseded — see [describeSupersededPositionWrite]. */
+private val positionLogger = KotlinLogging.logger("PositionOutbox")
 
 private const val APP_SCOPE = "appScope"
 
@@ -175,7 +182,10 @@ internal val clientSyncModule =
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
-                        playbackChannel.call { it.recordPosition(request) }
+                        playbackChannel.call { it.recordPosition(request) }.onSuccess { result ->
+                            describeSupersededPositionWrite(request, result, currentEpochMilliseconds())
+                                ?.let { line -> positionLogger.warn { line } }
+                        }
                     },
                     outboxBinding(OutboxChannels.ListeningEvents) { _, request ->
                         playbackChannel.call { it.recordListeningEvent(request) }

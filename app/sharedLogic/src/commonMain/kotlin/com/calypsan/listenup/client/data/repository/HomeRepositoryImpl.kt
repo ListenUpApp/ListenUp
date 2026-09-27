@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.domain.FinishedPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
@@ -90,16 +91,8 @@ internal class HomeRepositoryImpl(
                         0f
                     }
 
-                // Derive finished state from position vs duration
-                // A book is finished if position >= duration OR (flag set AND near-complete)
                 val effectivelyFinished =
-                    book.duration > 0 && (
-                        position.positionMs >= book.duration ||
-                            (
-                                position.isFinished &&
-                                    position.positionMs.toFloat() / book.duration >= 0.95f
-                            )
-                    )
+                    FinishedPolicy.isFinished(position.positionMs, book.duration, position.isFinished)
                 if (effectivelyFinished) {
                     booksFiltered++
                     logger.debug {
@@ -180,10 +173,9 @@ internal class HomeRepositoryImpl(
                         // D: sync in-flight — show Loading placeholder so shelf size stays stable
                         ContinueListeningItem.Loading(pos.bookId.value)
                     } else {
-                        // A: trust isFinished (authoritative from server); defense-in-depth on
-                        // positionMs >= duration to catch the in-flight finished edge case
+                        // A: the flag, or a position in the end credits — one rule, FinishedPolicy
                         val effectivelyFinished =
-                            pos.isFinished || (book.duration > 0 && pos.positionMs >= book.duration)
+                            FinishedPolicy.isFinished(pos.positionMs, book.duration, pos.isFinished)
                         if (effectivelyFinished) {
                             null // exclude
                         } else {

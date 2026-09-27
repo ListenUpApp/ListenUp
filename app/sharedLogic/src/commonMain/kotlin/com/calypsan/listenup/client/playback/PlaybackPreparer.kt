@@ -264,6 +264,9 @@ class PlaybackPreparer internal constructor(
         val resolved = resolveResumePosition(savedPosition, serverPosition)
 
         val resumePositionMs = resumeStartPositionMs(resolved)
+        // Starting a finished book over is a new listen-through: clear the flag now, or every later
+        // open would take the re-read branch again and throw away how far the listener got.
+        if (resolved?.isFinished == true) progressTracker.startRelisten(bookId)
 
         val resumeSpeed =
             if (savedPosition != null && savedPosition.hasCustomSpeed) {

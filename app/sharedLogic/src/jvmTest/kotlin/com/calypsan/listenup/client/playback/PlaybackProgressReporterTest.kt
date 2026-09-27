@@ -39,6 +39,9 @@ private const val BOOK_ID = "book-test-1"
 private const val USER_ID = "user-test-1"
 private const val SPEED = 1.0f
 
+/** A duration far past every pause in this file, so no pause here lands in the end credits. */
+private const val LONG_BOOK_MS = 3_600_000L
+
 /**
  * Tests for [PlaybackProgressReporter] — the single playback-session seam for iOS/Desktop.
  *
@@ -59,7 +62,7 @@ class PlaybackProgressReporterTest :
                     db.tentativeSpanDao().get().shouldNotBeNull()
 
                     setNow(61_000L)
-                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED)
+                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
 
                     val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
@@ -81,7 +84,7 @@ class PlaybackProgressReporterTest :
                     setNow(1_000L)
                     reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED)
                     setNow(61_000L)
-                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED)
+                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
 
                     db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
@@ -99,7 +102,7 @@ class PlaybackProgressReporterTest :
                     advanceUntilIdle()
 
                     setNow(120_000L)
-                    reporter.onBookFinished(BookId(BOOK_ID), finalPositionMs = 119_000L)
+                    reporter.onBookFinished(BookId(BOOK_ID), positionMs = 119_000L, durationMs = 119_000L)
                     advanceUntilIdle()
 
                     val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
@@ -132,7 +135,7 @@ class PlaybackProgressReporterTest :
             runTest {
                 withReporterFixture(this, recorderEnabled = true) { reporter, _, _, tracker, _ ->
                     reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED)
-                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 2_000L, speed = SPEED)
+                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 2_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
 
                     tracker.onPlaybackStartedCalls.size shouldBe 1

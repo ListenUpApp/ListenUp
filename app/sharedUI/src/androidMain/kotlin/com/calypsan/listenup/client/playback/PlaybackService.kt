@@ -193,6 +193,16 @@ class PlaybackService :
     }
 
     /**
+     * The whole book's duration in milliseconds: the timeline's total, else the player's own
+     * duration when it knows it (`C.TIME_UNSET` is negative), else 0 — which the tracker reads as
+     * "unknown" and never treats as finished.
+     */
+    private fun getBookDurationMs(): Long =
+        playbackManager.currentTimeline.value?.totalDurationMs
+            ?: activeTransportPlayer()?.duration?.takeIf { it > 0 }
+            ?: 0L
+
+    /**
      * The player actually producing audio right now — the cast player while [casting],
      * otherwise the raw local ExoPlayer.
      *
@@ -725,6 +735,7 @@ class PlaybackService :
             bookId = bookId,
             positionMs = getBookRelativePosition(),
             speed = player.playbackParameters.speed,
+            durationMs = getBookDurationMs(),
         )
     }
 
@@ -936,6 +947,7 @@ class PlaybackService :
                     bookId = bookId,
                     positionMs = positionMs,
                     speed = player.playbackParameters.speed,
+                    durationMs = getBookDurationMs(),
                 )
                 serviceScope.launch {
                     listeningEventRecorder.onPause(positionMs = positionMs)
@@ -989,15 +1001,15 @@ class PlaybackService :
 
             when (playbackState) {
                 Player.STATE_ENDED -> {
-                    // Book finished - longer grace period
+                    // Book finished - longer grace period. The near-end guard lives in the tracker:
+                    // pass where the listener actually is, so an ENDED reported on release or stop
+                    // cannot mark a half-read book finished.
                     currentBookId?.let { bookId ->
-                        val p = this@PlaybackService.player
-                        val timeline = playbackManager.currentTimeline.value
-                        val finalPosition =
-                            timeline?.totalDurationMs
-                                ?: p?.duration
-                                ?: 0L
-                        progressTracker.onBookFinished(bookId, finalPosition)
+                        progressTracker.onBookFinished(
+                            bookId,
+                            positionMs = getBookRelativePosition(),
+                            durationMs = getBookDurationMs(),
+                        )
                     }
                     startIdleTimer(IDLE_TIMEOUT_LONG, "book_finished")
                 }
