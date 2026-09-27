@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -16,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
@@ -30,8 +33,9 @@ private const val CHECK_ICON_RATIO = 0.7f
  * [androidx.compose.material3.Checkbox] inside the metadata-match field list and chapter-review sheet
  * so selection reads as a bold coral tile rather than a hairline tick.
  *
- * The whole tile is the tap target when [onCheckedChange] is supplied; pass null to render a
- * read-only indicator (the parent row owns the click).
+ * The whole tile is a [Role.Checkbox] toggle when [onCheckedChange] is supplied; pass null to render
+ * a read-only indicator (the parent row owns the click — make that row `toggleable` so it is the
+ * checkbox TalkBack announces). Either way the checked state is exposed to accessibility services.
  *
  * @param checked Whether the box is in its filled, selected state.
  * @param modifier Modifier for the box.
@@ -46,21 +50,23 @@ fun ExpressiveCheckbox(
     accent: Color = MaterialTheme.colorScheme.primary,
 ) {
     val haptics = LocalHaptics.current
-    val clickModifier =
+    val stateModifier =
         if (onCheckedChange != null) {
-            Modifier.clickable(role = Role.Checkbox) {
-                haptics.toggle(on = !checked)
-                onCheckedChange(!checked)
+            Modifier.toggleable(value = checked, role = Role.Checkbox) { on ->
+                haptics.toggle(on = on)
+                onCheckedChange(on)
             }
         } else {
-            Modifier
+            // Read-only: the parent row owns the click, but the state is still announced — and
+            // merges up into that row, so "checked" reaches TalkBack either way.
+            Modifier.semantics { toggleableState = ToggleableState(checked) }
         }
     Box(
         modifier =
             modifier
                 .size(CHECKBOX_SIZE)
                 .clip(RoundedCornerShape(CHECKBOX_RADIUS))
-                .then(clickModifier)
+                .then(stateModifier)
                 .then(
                     if (checked) {
                         Modifier.background(accent)

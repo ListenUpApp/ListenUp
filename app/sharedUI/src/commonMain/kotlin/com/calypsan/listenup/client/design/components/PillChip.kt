@@ -16,6 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -30,45 +33,80 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
  * @param label Text shown in the pill.
  * @param onClick Invoked when the pill is tapped.
  * @param modifier Modifier for the pill surface.
- * @param selected Whether the pill is in its filled, selected state.
+ * @param selected The pill's state in a choice set — filled when true. Null (the default) means the
+ *   pill is a plain action (Invite, +5 min) and claims no selection state; a Boolean exposes it as
+ *   selected/not selected to TalkBack, not only by colour.
  * @param leadingIcon Optional icon rendered before the label, tinted to the content colour.
+ * @param selectionRole The role a selectable pill announces: [Role.RadioButton] for a single-choice
+ *   set (speed, boost, region), [Role.Checkbox] for a multi-select filter. Ignored for actions.
  */
 @Composable
 fun PillChip(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selected: Boolean = false,
+    selected: Boolean? = null,
     leadingIcon: ImageVector? = null,
+    selectionRole: Role = Role.RadioButton,
 ) {
     val haptics = LocalHaptics.current
+    val isSelected = selected == true
     val contentColor =
-        if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    Surface(
-        onClick = {
-            haptics.selectionTick()
-            onClick()
-        },
-        modifier = modifier,
-        shape = RoundedCornerShape(percent = 50),
-        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        contentColor = contentColor,
-        border = if (selected) null else BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val shape = RoundedCornerShape(percent = 50)
+    val color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+    val border = if (isSelected) null else BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant)
+    val tap = {
+        haptics.selectionTick()
+        onClick()
+    }
+    val content: @Composable () -> Unit = {
+        PillChipContent(label = label, leadingIcon = leadingIcon, isSelected = isSelected, contentColor = contentColor)
+    }
+    if (selected == null) {
+        Surface(
+            onClick = tap,
+            modifier = modifier.semantics { role = Role.Button },
+            shape = shape,
+            color = color,
+            contentColor = contentColor,
+            border = border,
+            content = content,
+        )
+    } else {
+        Surface(
+            selected = selected,
+            onClick = tap,
+            modifier = modifier.semantics { role = selectionRole },
+            shape = shape,
+            color = color,
+            contentColor = contentColor,
+            border = border,
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun PillChipContent(
+    label: String,
+    leadingIcon: ImageVector?,
+    isSelected: Boolean,
+    contentColor: Color,
+) {
+    Row(
+        modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            leadingIcon?.let { icon ->
-                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = contentColor)
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
-                color = contentColor,
-            )
+        leadingIcon?.let { icon ->
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = contentColor)
         }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+            color = contentColor,
+        )
     }
 }

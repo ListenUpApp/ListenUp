@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.admin.inbox
 
+import listenup.composeapp.generated.resources.selection_select_name
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -747,9 +750,12 @@ private fun InboxRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(15.dp),
     ) {
+        // The row itself opens the book for review, so the box is its own named checkbox.
+        val selectLabel = stringResource(Res.string.selection_select_name, book.title)
         ExpressiveCheckbox(
             checked = isSelected,
             onCheckedChange = { if (!isReleasing) onSelectionToggle() },
+            modifier = Modifier.semantics { contentDescription = selectLabel },
         )
 
         BookCoverImage(

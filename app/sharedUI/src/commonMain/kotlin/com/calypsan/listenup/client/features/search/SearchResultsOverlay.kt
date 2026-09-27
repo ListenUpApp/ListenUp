@@ -59,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -306,30 +307,35 @@ private fun TypeFilterRow(
             label = stringResource(Res.string.search_tab_all),
             onClick = onSelectAll,
             selected = selectedTypes.isEmpty(),
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Apps,
         )
         PillChip(
             label = stringResource(Res.string.library_books),
             onClick = { onToggle(SearchHitType.BOOK) },
             selected = SearchHitType.BOOK in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Book,
         )
         PillChip(
             label = stringResource(Res.string.search_people),
             onClick = { onToggle(SearchHitType.CONTRIBUTOR) },
             selected = SearchHitType.CONTRIBUTOR in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Person,
         )
         PillChip(
             label = stringResource(Res.string.common_series),
             onClick = { onToggle(SearchHitType.SERIES) },
             selected = SearchHitType.SERIES in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.AutoMirrored.Filled.PlaylistPlay,
         )
         PillChip(
             label = stringResource(Res.string.book_detail_tags),
             onClick = { onToggle(SearchHitType.TAG) },
             selected = SearchHitType.TAG in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Tag,
         )
     }

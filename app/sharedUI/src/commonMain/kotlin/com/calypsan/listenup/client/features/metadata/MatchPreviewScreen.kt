@@ -1,8 +1,12 @@
 package com.calypsan.listenup.client.features.metadata
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -871,14 +875,23 @@ private fun CoverFieldRow(
     coverResolution: String?,
     showDivider: Boolean,
 ) {
+    val haptics = LocalHaptics.current
     Column(modifier = Modifier.fillMaxWidth()) {
         FieldRowDivider(show = showDivider)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 15.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 15.dp)
+                    // The box and its "Cover" label are one checkbox, so TalkBack names what it applies.
+                    .toggleable(value = isCoverEnabled, role = Role.Checkbox) { on ->
+                        haptics.toggle(on = on)
+                        onToggleCover()
+                    },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            ExpressiveCheckbox(checked = isCoverEnabled, onCheckedChange = { onToggleCover() })
+            ExpressiveCheckbox(checked = isCoverEnabled)
             Column {
                 Text(
                     text = stringResource(Res.string.metadata_cover),
@@ -965,7 +978,7 @@ private fun CoverOptionCard(
             modifier =
                 Modifier
                     .size(100.dp)
-                    .clickable {
+                    .selectable(selected = isSelected, role = Role.RadioButton) {
                         haptics.selectionTick()
                         onClick()
                     },
@@ -1124,8 +1137,8 @@ private fun SimpleFieldRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        haptics.toggle(on = !isSelected)
+                    .toggleable(value = isSelected, role = Role.Checkbox) { on ->
+                        haptics.toggle(on = on)
                         onToggle()
                     }.padding(15.dp),
             verticalAlignment = Alignment.Top,
@@ -1251,8 +1264,8 @@ private fun ValueCheckRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable {
-                    haptics.toggle(on = !checked)
+                .toggleable(value = checked, role = Role.Checkbox) { on ->
+                    haptics.toggle(on = on)
                     onToggle()
                 }.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1374,10 +1387,12 @@ private fun GenreToggleChip(
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHaptics.current
     Surface(
+        selected = selected,
         onClick = {
             haptics.selectionTick()
             onClick()
         },
+        modifier = Modifier.semantics { role = Role.Checkbox },
         shape = RoundedCornerShape(percent = 50),
         color = if (selected) colors.tertiaryContainer else colors.surfaceContainerHighest,
         contentColor = if (selected) colors.onTertiaryContainer else colors.onSurfaceVariant,

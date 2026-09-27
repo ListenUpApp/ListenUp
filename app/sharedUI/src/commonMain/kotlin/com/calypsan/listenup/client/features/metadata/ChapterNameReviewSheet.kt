@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.metadata
 
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -164,7 +165,7 @@ private fun ChapterReviewRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable {
+                    .toggleable(value = checked, role = Role.Checkbox) {
                         haptics.press()
                         onToggle()
                     }.padding(horizontal = 16.dp, vertical = 13.dp),
