@@ -392,10 +392,16 @@ class SocialServiceTest :
                     val nowMs = 1_800_000_000_000L
                     val day = 24L * 60 * 60 * 1000
                     sql.seedInProgressPosition(
-                        userId = "alice", bookId = "book-a", positionMs = 4_000L, lastPlayedAt = nowMs - 90 * day,
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 4_000L,
+                        lastPlayedAt = nowMs - 90 * day,
                     )
                     sql.seedInProgressPosition(
-                        userId = "bob", bookId = "book-a", positionMs = 2_000L, lastPlayedAt = nowMs - 3 * day,
+                        userId = "bob",
+                        bookId = "book-a",
+                        positionMs = 2_000L,
+                        lastPlayedAt = nowMs - 3 * day,
                     )
 
                     val readers =
@@ -421,7 +427,10 @@ class SocialServiceTest :
                     makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
                     setBookDuration("book-a", totalDuration = 10_000L)
                     sql.seedInProgressPosition(
-                        userId = "alice", bookId = "book-a", positionMs = 4_000L, deletedAt = 2L,
+                        userId = "alice",
+                        bookId = "book-a",
+                        positionMs = 4_000L,
+                        deletedAt = 2L,
                     )
 
                     makeService(sql, driver, principalFor("viewer"))

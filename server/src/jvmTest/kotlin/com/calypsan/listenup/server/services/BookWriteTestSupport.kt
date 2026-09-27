@@ -90,7 +90,8 @@ internal fun coverPathAnalyzedBook(rootRelPath: String): AnalyzedBook {
 internal inline fun withCoverStore(block: (CoverImageStore, IoPath) -> Unit) {
     val homeDir = Files.createTempDirectory("listenup-cover-path-test-")
     try {
-        val coverStore = CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MANAGED_COVER_TEST_MAX_BYTES))
+        val coverStore =
+            CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MANAGED_COVER_TEST_MAX_BYTES))
         block(coverStore, IoPath(homeDir.toString()))
     } finally {
         homeDir.toFile().deleteRecursively()
@@ -132,7 +133,11 @@ internal suspend fun seedManagedCover(
         val bookId = BookId("b-${source.name.lowercase()}")
         val hash = "hash-${source.name}"
         repo.upsert(
-            bookPayloadFixture(id = bookId.value, title = "Seed Title", cover = CoverPayload(source = source, hash = hash)),
+            bookPayloadFixture(
+                id = bookId.value,
+                title = "Seed Title",
+                cover = CoverPayload(source = source, hash = hash),
+            ),
         )
         val relPath = "covers/${bookId.value}/cover.jpg"
         repo
