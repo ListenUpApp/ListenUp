@@ -7,6 +7,9 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -23,6 +26,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
@@ -171,6 +175,96 @@ class BookRepositoryScannerGenreIngestTest :
                         .executeAsList()
                         .map { it.name } shouldContainExactly
                         listOf("C")
+                }
+            }
+        }
+
+        test("a rescan whose only change is genres bumps the revision so clients can pull it") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
+                runTest {
+                    val first =
+                        repo.upsertFromAnalyzed(
+                            BookId("b1"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzedFixture(rootRelPath = "books/b1", genres = listOf("Fantasy")),
+                        )
+                    first.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+
+                    // Same files, same title — only metadata.json's genres changed.
+                    val second =
+                        repo.upsertFromAnalyzed(
+                            BookId("b1"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzedFixture(rootRelPath = "books/b1", genres = listOf("Fantasy", "Horror")),
+                        )
+                    second.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+
+                    // The revision is the pull cursor: unchanged means no client can ever receive it.
+                    (second.data.revision > first.data.revision) shouldBe true
+                    second.data.genres.map { it.name } shouldContainExactlyInAnyOrder listOf("Fantasy", "Horror")
+                }
+            }
+        }
+
+        test("a rescan with the same genre set, in any order or case, still skips") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
+                runTest {
+                    val first =
+                        repo.upsertFromAnalyzed(
+                            BookId("b1"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzedFixture(rootRelPath = "books/b1", genres = listOf("Fantasy", "Horror")),
+                        )
+                    first.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+
+                    val second =
+                        repo.upsertFromAnalyzed(
+                            BookId("b1"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzedFixture(rootRelPath = "books/b1", genres = listOf("horror", "FANTASY")),
+                        )
+                    second.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+
+                    second.data.revision shouldBe first.data.revision
+                }
+            }
+        }
+
+        test("a rescan leaves user-protected genres alone") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
+                runTest {
+                    repo.upsertFromAnalyzed(
+                        BookId("b1"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzedFixture(rootRelPath = "books/b1", genres = listOf("Fantasy")),
+                    )
+                    // The listener curated the genres by hand: GENRES is now USER-tier.
+                    repo.upsert(
+                        repo.findById(BookId("b1"))!!.copy(
+                            fieldProvenance =
+                                mapOf(BookField.GENRES to FieldProvenance(FieldSourceKind.USER, at = 1L)),
+                        ),
+                    )
+
+                    repo.upsertFromAnalyzed(
+                        BookId("b1"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzedFixture(rootRelPath = "books/b1", genres = listOf("Horror")),
+                    )
+
+                    repo.findById(BookId("b1"))!!.genres.map { it.name } shouldContainExactly listOf("Fantasy")
                 }
             }
         }

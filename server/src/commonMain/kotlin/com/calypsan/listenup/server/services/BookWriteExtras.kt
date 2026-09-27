@@ -36,14 +36,14 @@ class BookWriteExtras(
      */
     val createdAtOverride: Long? = null,
     /**
-     * Pre-resolved genre ids for this book (#batched-scan persist). Non-null only on the batched
-     * scan-persist path, where every distinct raw genre string was resolved ONCE up front (alias →
-     * normalize → auto-create) in the suspend prepare phase. When present,
-     * [BookRepository.writePayload] writes the `book_genres` junctions IN the same SQLDelight
-     * transaction as the book row (via [BookGenreWriter.writeJunctions]) instead of the per-book
-     * post-commit `processGenreStrings` pass — so a genred book is one commit, not ~6. Null on every
-     * single-book path (metadata apply / `setBookGenres`), which keeps the separate `processGenreStrings`
-     * call. An empty list is meaningful: it wipes the book's genres (a rescan that dropped every string).
+     * Pre-resolved genre ids for this book, set by both scan paths (the batched persist and
+     * `upsertFromAnalyzed`), which resolve every raw genre string (alias → normalize → auto-create)
+     * up front, outside the transaction. When present, [BookRepository.writePayload] writes the
+     * `book_genres` junctions IN the same SQLDelight transaction as the book row (via
+     * [BookGenreWriter.writeJunctions]), so a genre change is atomic with the row and rides its
+     * revision bump. Null leaves the stored set alone: user-protected GENRES, and every non-scan write
+     * path (metadata apply / `setBookGenres`, which pair `processGenreStrings` with their own upsert).
+     * An empty list is meaningful: it wipes the book's genres (a rescan that dropped every string).
      */
     val genreIds: List<String>? = null,
     /**
