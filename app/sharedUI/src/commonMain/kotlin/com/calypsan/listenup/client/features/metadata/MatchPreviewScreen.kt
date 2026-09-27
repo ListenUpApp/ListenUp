@@ -1,6 +1,13 @@
 package com.calypsan.listenup.client.features.metadata
 
-import com.calypsan.listenup.client.design.ReadingMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.SectionColumns
+import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -21,9 +28,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -121,6 +126,11 @@ private const val DESCRIPTION_PREVIEW_LIMIT = 200
  * Shows all available metadata fields with checkboxes so users can
  * select which fields to apply. Supports region selection for
  * trying different Audible markets.
+ *
+ * A phone stacks the matched edition, the region and the field sections in one list above an apply
+ * bar. From the expanded width the matched edition, its region and the apply action become a side
+ * panel — what is being applied stays next to the button that applies it — and the field sections
+ * flow into [SectionColumns] beside it, so identity and classification are read side by side.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 // Screen entry point hoists every metadata field's state + toggle callback; a parameter object
@@ -161,6 +171,47 @@ fun MatchPreviewScreen(
     onBack: () -> Unit,
 ) {
     val hasAnySelected = selections.hasAnySelected()
+    val panelBeside =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
+        )
+    // Identity is always present, so an empty list means exactly "the match carries no data".
+    val sections =
+        if (newMetadata.hasAnyData()) {
+            metadataFieldSections(
+                currentBook = currentBook,
+                newMetadata = newMetadata,
+                selections = selections,
+                coverOptions = coverOptions,
+                isLoadingCovers = isLoadingCovers,
+                selectedCoverUrl = selectedCoverUrl,
+                onSelectCover = onSelectCover,
+                chapterSuggestion = chapterSuggestion,
+                onReviewChapters = onReviewChapters,
+                fallbackSources = fallbackSources,
+                coverSourceLabel = coverSourceLabel,
+                coverResolution = coverResolution,
+                onToggleField = onToggleField,
+                onToggleAuthor = onToggleAuthor,
+                onToggleNarrator = onToggleNarrator,
+                onToggleSeries = onToggleSeries,
+                onToggleGenre = onToggleGenre,
+                onToggleMood = onToggleMood,
+                onToggleTag = onToggleTag,
+            )
+        } else {
+            emptyList()
+        }
+    val applyActions: @Composable (Modifier) -> Unit = { modifier ->
+        ApplyActions(
+            applyError = applyError,
+            isApplying = isApplying,
+            hasAnySelected = hasAnySelected,
+            contributingSources = contributingSources,
+            onApply = onApply,
+            modifier = modifier,
+        )
+    }
 
     ListenUpScaffold(
         topBar = {
@@ -171,84 +222,155 @@ fun MatchPreviewScreen(
             )
         },
         bottomBar = {
-            ApplyBottomBar(
-                applyError = applyError,
-                isApplying = isApplying,
-                hasAnySelected = hasAnySelected,
-                contributingSources = contributingSources,
-                onApply = onApply,
-            )
-        },
-    ) { padding ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .widthIn(max = ReadingMaxWidth),
-                contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                // Matched edition hero
-                item {
-                    MatchedEditionHero(
-                        match = newMetadata,
-                        coverUrl = newMetadata.coverUrl,
-                        selectedRegion = selectedRegion,
-                    )
-                }
-
-                // Region selector
-                item {
-                    Column {
-                        Overline(text = stringResource(Res.string.metadata_audible_region))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        RegionSelector(
-                            selectedRegion = selectedRegion,
-                            onRegionSelected = onRegionSelected,
-                        )
-                    }
-                }
-
-                if (!newMetadata.hasAnyData()) {
-                    item {
-                        if (previewNotFound) {
-                            NoMetadataAvailableMessage(selectedRegion = selectedRegion)
-                        } else {
-                            AlreadyUpToDateMessage()
-                        }
-                    }
-                } else {
-                    metadataFieldsSection(
-                        currentBook = currentBook,
-                        newMetadata = newMetadata,
-                        selections = selections,
-                        coverOptions = coverOptions,
-                        isLoadingCovers = isLoadingCovers,
-                        selectedCoverUrl = selectedCoverUrl,
-                        onSelectCover = onSelectCover,
-                        chapterSuggestion = chapterSuggestion,
-                        onReviewChapters = onReviewChapters,
-                        fallbackSources = fallbackSources,
-                        coverSourceLabel = coverSourceLabel,
-                        coverResolution = coverResolution,
-                        onToggleField = onToggleField,
-                        onToggleAuthor = onToggleAuthor,
-                        onToggleNarrator = onToggleNarrator,
-                        onToggleSeries = onToggleSeries,
-                        onToggleGenre = onToggleGenre,
-                        onToggleMood = onToggleMood,
-                        onToggleTag = onToggleTag,
-                    )
+            if (!panelBeside) {
+                Surface(tonalElevation = 3.dp) {
+                    applyActions(Modifier.padding(18.dp))
                 }
             }
+        },
+    ) { padding ->
+        val hero: @Composable () -> Unit = {
+            MatchedEditionHero(
+                match = newMetadata,
+                coverUrl = newMetadata.coverUrl,
+                selectedRegion = selectedRegion,
+            )
         }
+        val regionPicker: @Composable () -> Unit = {
+            RegionPicker(selectedRegion = selectedRegion, onRegionSelected = onRegionSelected)
+        }
+        val noDataMessage: @Composable () -> Unit = {
+            NoMatchDataMessage(previewNotFound = previewNotFound, selectedRegion = selectedRegion)
+        }
+        if (panelBeside) {
+            MatchPreviewWideLayout(
+                padding = padding,
+                hero = hero,
+                regionPicker = regionPicker,
+                applyActions = { applyActions(Modifier) },
+                sections = sections,
+                noDataMessage = noDataMessage,
+            )
+        } else {
+            MatchPreviewPhoneList(
+                padding = padding,
+                hero = hero,
+                regionPicker = regionPicker,
+                sections = sections,
+                noDataMessage = noDataMessage,
+            )
+        }
+    }
+}
+
+/**
+ * The expanded layout: the matched edition, its region and the apply action in a side panel; the
+ * field [sections] as [SectionColumns] beside it, or [noDataMessage] when the match has none.
+ */
+@Suppress("LongParameterList")
+@Composable
+private fun MatchPreviewWideLayout(
+    padding: PaddingValues,
+    hero: @Composable () -> Unit,
+    regionPicker: @Composable () -> Unit,
+    applyActions: @Composable () -> Unit,
+    sections: List<@Composable () -> Unit>,
+    noDataMessage: @Composable () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .width(MatchPanelWidth)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 20.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            hero()
+            regionPicker()
+            applyActions()
+        }
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 20.dp, bottom = 16.dp),
+        ) {
+            if (sections.isEmpty()) {
+                noDataMessage()
+            } else {
+                SectionColumns { sections.forEach { section(it) } }
+            }
+        }
+    }
+}
+
+/** The phone layout: hero, region, then one list item per field section (or [noDataMessage]). */
+@Composable
+private fun MatchPreviewPhoneList(
+    padding: PaddingValues,
+    hero: @Composable () -> Unit,
+    regionPicker: @Composable () -> Unit,
+    sections: List<@Composable () -> Unit>,
+    noDataMessage: @Composable () -> Unit,
+) {
+    LazyColumn(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        item { hero() }
+        item { regionPicker() }
+        if (sections.isEmpty()) {
+            item { noDataMessage() }
+        } else {
+            sections.forEach { section -> item { section() } }
+        }
+    }
+}
+
+/** Width of the expanded layout's match panel — one comfortable card column. */
+private val MatchPanelWidth = 360.dp
+
+/** The Audible-region overline over its [RegionSelector]. */
+@Composable
+private fun RegionPicker(
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
+) {
+    Column {
+        Overline(text = stringResource(Res.string.metadata_audible_region))
+        Spacer(modifier = Modifier.height(12.dp))
+        RegionSelector(
+            selectedRegion = selectedRegion,
+            onRegionSelected = onRegionSelected,
+        )
+    }
+}
+
+/** Why there are no field sections: the match was not found in this region, or nothing would change. */
+@Composable
+private fun NoMatchDataMessage(
+    previewNotFound: Boolean,
+    selectedRegion: MetadataLocale,
+) {
+    if (previewNotFound) {
+        NoMetadataAvailableMessage(selectedRegion = selectedRegion)
+    } else {
+        AlreadyUpToDateMessage()
     }
 }
 
@@ -401,56 +523,57 @@ private fun SourceChip(region: MetadataLocale) {
     }
 }
 
+/** The provenance line, the apply error if any, and the apply button — the phone's bottom bar, or the foot of the wide panel. */
 @Composable
-private fun ApplyBottomBar(
+private fun ApplyActions(
     applyError: String?,
     isApplying: Boolean,
     hasAnySelected: Boolean,
     contributingSources: List<String>,
     onApply: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        tonalElevation = 3.dp,
+    Column(
+        modifier = modifier.fillMaxWidth(),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-        ) {
-            if (contributingSources.size > 1) {
-                Text(
-                    text = stringResource(Res.string.metadata_merged_from, contributingSources.joinToString(", ")),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            applyError?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            ListenUpButton(
-                text = stringResource(Res.string.metadata_apply_selected_metadata),
-                onClick = onApply,
-                enabled = hasAnySelected,
-                isLoading = isApplying,
-                leadingIcon = Icons.Outlined.Check,
+        if (contributingSources.size > 1) {
+            Text(
+                text = stringResource(Res.string.metadata_merged_from, contributingSources.joinToString(", ")),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
             )
         }
+
+        applyError?.let { error ->
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        ListenUpButton(
+            text = stringResource(Res.string.metadata_apply_selected_metadata),
+            onClick = onApply,
+            enabled = hasAnySelected,
+            isLoading = isApplying,
+            leadingIcon = Icons.Outlined.Check,
+        )
     }
 }
 
-// Emits one LazyColumn item per available metadata field; the callback set is fanned straight
-// to each row, so a parameter object would only add an indirection layer Compose tooling discourages.
+/**
+ * The field sections that apply — identity always, classification, details and chapter names when the
+ * match carries them — in reading order, each a self-contained block. The phone emits one list item
+ * per section; the wide layout lays the same blocks out as [SectionColumns].
+ *
+ * The callback set is fanned straight to each row, so a parameter object would only add an
+ * indirection layer Compose tooling discourages.
+ */
 @Suppress("LongParameterList")
-private fun LazyListScope.metadataFieldsSection(
+private fun metadataFieldSections(
     currentBook: BookDetail,
     newMetadata: MetadataBook,
     selections: MetadataSelections,
@@ -470,96 +593,99 @@ private fun LazyListScope.metadataFieldsSection(
     onToggleGenre: (String) -> Unit,
     onToggleMood: (String) -> Unit,
     onToggleTag: (String) -> Unit,
-) {
-    // ── IDENTITY ──
-    item {
-        FieldGroup(
-            label = stringResource(Res.string.metadata_section_identity),
-            icon = Icons.AutoMirrored.Outlined.MenuBook,
-        ) {
-            IdentitySectionContent(
-                currentBook = currentBook,
-                newMetadata = newMetadata,
-                selections = selections,
-                coverOptions = coverOptions,
-                isLoadingCovers = isLoadingCovers,
-                selectedCoverUrl = selectedCoverUrl,
-                onSelectCover = onSelectCover,
-                fallbackSources = fallbackSources,
-                coverSourceLabel = coverSourceLabel,
-                coverResolution = coverResolution,
-                onToggleField = onToggleField,
-                onToggleAuthor = onToggleAuthor,
-                onToggleNarrator = onToggleNarrator,
-                onToggleSeries = onToggleSeries,
-            )
-        }
-    }
-
-    // ── CLASSIFICATION ──
-    val hasClassification =
-        newMetadata.genres.isNotEmpty() ||
-            newMetadata.moods.isNotEmpty() ||
-            newMetadata.tags.isNotEmpty()
-    if (hasClassification) {
-        item {
+): List<@Composable () -> Unit> =
+    buildList {
+        // ── IDENTITY ──
+        add {
             FieldGroup(
-                label = stringResource(Res.string.metadata_section_classification),
-                icon = Icons.Outlined.Category,
-                accent = MaterialTheme.colorScheme.tertiary,
+                label = stringResource(Res.string.metadata_section_identity),
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
             ) {
-                if (newMetadata.genres.isNotEmpty()) {
-                    GenreFieldRow(
-                        genres = newMetadata.genres,
-                        selectedGenres = selections.selectedGenres,
-                        onToggle = onToggleGenre,
-                        sourceLabel = fallbackSources[BookField.GENRES],
-                    )
-                }
-                if (newMetadata.moods.isNotEmpty()) {
-                    MoodFieldRow(
-                        moods = newMetadata.moods,
-                        selectedMoods = selections.selectedMoods,
-                        onToggle = onToggleMood,
-                    )
-                }
-                if (newMetadata.tags.isNotEmpty()) {
-                    TagFieldRow(
-                        tags = newMetadata.tags,
-                        selectedTags = selections.selectedTags,
-                        onToggle = onToggleTag,
-                    )
-                }
-            }
-        }
-    }
-
-    // ── DETAILS ──
-    val hasDetails =
-        !newMetadata.description.isNullOrBlank() ||
-            !newMetadata.publisher.isNullOrBlank() ||
-            !newMetadata.releaseDate.isNullOrBlank() ||
-            !newMetadata.language.isNullOrBlank()
-    if (hasDetails) {
-        item {
-            FieldGroup(
-                label = stringResource(Res.string.metadata_section_details),
-                icon = Icons.Outlined.Info,
-                accent = MaterialTheme.colorScheme.secondary,
-            ) {
-                DetailsSectionContent(
+                IdentitySectionContent(
+                    currentBook = currentBook,
                     newMetadata = newMetadata,
                     selections = selections,
+                    coverOptions = coverOptions,
+                    isLoadingCovers = isLoadingCovers,
+                    selectedCoverUrl = selectedCoverUrl,
+                    onSelectCover = onSelectCover,
                     fallbackSources = fallbackSources,
+                    coverSourceLabel = coverSourceLabel,
+                    coverResolution = coverResolution,
                     onToggleField = onToggleField,
+                    onToggleAuthor = onToggleAuthor,
+                    onToggleNarrator = onToggleNarrator,
+                    onToggleSeries = onToggleSeries,
                 )
             }
         }
-    }
 
-    // Chapter names (count-gated; renders nothing when unavailable)
-    chapterNamesSection(chapterSuggestion, onReviewChapters)
-}
+        // ── CLASSIFICATION ──
+        val hasClassification =
+            newMetadata.genres.isNotEmpty() ||
+                newMetadata.moods.isNotEmpty() ||
+                newMetadata.tags.isNotEmpty()
+        if (hasClassification) {
+            add {
+                FieldGroup(
+                    label = stringResource(Res.string.metadata_section_classification),
+                    icon = Icons.Outlined.Category,
+                    accent = MaterialTheme.colorScheme.tertiary,
+                ) {
+                    if (newMetadata.genres.isNotEmpty()) {
+                        GenreFieldRow(
+                            genres = newMetadata.genres,
+                            selectedGenres = selections.selectedGenres,
+                            onToggle = onToggleGenre,
+                            sourceLabel = fallbackSources[BookField.GENRES],
+                        )
+                    }
+                    if (newMetadata.moods.isNotEmpty()) {
+                        MoodFieldRow(
+                            moods = newMetadata.moods,
+                            selectedMoods = selections.selectedMoods,
+                            onToggle = onToggleMood,
+                        )
+                    }
+                    if (newMetadata.tags.isNotEmpty()) {
+                        TagFieldRow(
+                            tags = newMetadata.tags,
+                            selectedTags = selections.selectedTags,
+                            onToggle = onToggleTag,
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── DETAILS ──
+        val hasDetails =
+            !newMetadata.description.isNullOrBlank() ||
+                !newMetadata.publisher.isNullOrBlank() ||
+                !newMetadata.releaseDate.isNullOrBlank() ||
+                !newMetadata.language.isNullOrBlank()
+        if (hasDetails) {
+            add {
+                FieldGroup(
+                    label = stringResource(Res.string.metadata_section_details),
+                    icon = Icons.Outlined.Info,
+                    accent = MaterialTheme.colorScheme.secondary,
+                ) {
+                    DetailsSectionContent(
+                        newMetadata = newMetadata,
+                        selections = selections,
+                        fallbackSources = fallbackSources,
+                        onToggleField = onToggleField,
+                    )
+                }
+            }
+        }
+
+        // Chapter names (count-gated; no section when unavailable)
+        if (chapterSuggestion !is ChapterSuggestion.Unavailable) {
+            add { ChapterNamesItem(suggestion = chapterSuggestion, onReview = onReviewChapters) }
+        }
+    }
 
 /** Identity-section field rows: cover, title, subtitle, authors, narrators, series. */
 @Suppress("LongParameterList")
@@ -755,26 +881,10 @@ private fun FieldGroup(
 }
 
 /**
- * Emits the count-gated chapter-names row, if any.
- *
- * Renders nothing for [ChapterSuggestion.Unavailable], a disabled reason for
- * [ChapterSuggestion.CountMismatch], and a Review action for
- * [ChapterSuggestion.Available] that opens the per-chapter review sheet.
- */
-private fun LazyListScope.chapterNamesSection(
-    suggestion: ChapterSuggestion,
-    onReviewChapters: () -> Unit,
-) {
-    if (suggestion is ChapterSuggestion.Unavailable) return
-    item {
-        ChapterNamesItem(suggestion = suggestion, onReview = onReviewChapters)
-    }
-}
-
-/**
- * Count-gated chapter-name suggestion row body. Only [ChapterSuggestion.CountMismatch]
- * and [ChapterSuggestion.Available] reach here; [ChapterSuggestion.Unavailable] is
- * filtered out by [chapterNamesSection].
+ * Count-gated chapter-name suggestion row body: a disabled reason for
+ * [ChapterSuggestion.CountMismatch], and a Review action for [ChapterSuggestion.Available]
+ * that opens the per-chapter review sheet. [ChapterSuggestion.Unavailable] never reaches
+ * here; [metadataFieldSections] adds no section for it.
  */
 @Composable
 private fun ChapterNamesItem(
