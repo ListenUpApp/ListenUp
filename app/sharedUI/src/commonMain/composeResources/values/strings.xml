@@ -679,6 +679,7 @@ One beautiful library.</string>
     <string name="common_clear_search">Clear search</string>
     <string name="common_clear_selection">Clear selection</string>
     <string name="common_collapse">Collapse</string>
+    <string name="common_collapsed">Collapsed</string>
     <string name="common_collection_name_hint">e.g., Staff Picks, Sci-Fi, New Releases...</string>
     <string name="common_collections">Collections</string>
     <string name="common_completed">Completed</string>
@@ -704,6 +705,7 @@ One beautiful library.</string>
     <string name="common_entity_information">%1$s Information</string>
     <string name="common_error">Error</string>
     <string name="common_expand">Expand</string>
+    <string name="common_expanded">Expanded</string>
     <string name="common_genres">Genres</string>
     <string name="common_hide_password">Hide password</string>
     <string name="common_home">Home</string>
@@ -1151,6 +1153,7 @@ One beautiful library.</string>
     <string name="library_setup_folder_selected_count">%1$d folder selected</string>
     <string name="library_setup_folders_selected">%1$d folder(s) selected</string>
     <string name="library_setup_folders_selected_count">%1$d folders selected</string>
+    <string name="library_setup_include_folder">Include %1$s</string>
     <string name="library_setup_item_count">%1$d items</string>
     <string name="library_setup_item_count_one">%1$d item</string>
     <string name="library_setup_loading_folders">Loading folders...</string>
@@ -1291,6 +1294,7 @@ One beautiful library.</string>
     <string name="notifications_settings_push">Push</string>
     <string name="notifications_settings_row_subtitle">Choose what reaches you, in-app and by push</string>
     <string name="notifications_settings_row_title">Notifications</string>
+    <string name="notifications_settings_switch_a11y">%1$s notifications for %2$s</string>
     <string name="notifications_title">Notifications</string>
     <string name="notifications_type_campfire_invite">Campfire invites</string>
     <string name="notifications_type_registration_approval">Pending registrations</string>
@@ -1337,6 +1341,7 @@ One beautiful library.</string>
     <string name="player_open_pdf">Open PDF</string>
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
+    <string name="player_play_chapter">Play chapter</string>
     <string name="player_playback_speed">Playback speed</string>
     <string name="player_playing">Playing...</string>
     <string name="player_previous_chapter">Previous chapter</string>
@@ -1429,6 +1434,8 @@ One beautiful library.</string>
     <string name="selection_created_with_books_one">Created "%1$s" with 1 book</string>
     <string name="selection_created_with_books_plural">Created "%1$s" with %2$d books</string>
     <string name="selection_n_selected">%1$d selected</string>
+    <string name="selection_select">Select</string>
+    <string name="selection_select_name">Select %1$s</string>
     <string name="series_book_finished">Finished</string>
     <string name="series_book_number">Book %1$s</string>
     <string name="series_book_position">Book %1$s</string>
@@ -1548,6 +1555,8 @@ One beautiful library.</string>
     <string name="shelf_edit_shelf">Edit shelf</string>
     <string name="shelf_edit_shelf_title">Edit Shelf</string>
     <string name="shelf_form_name">Name</string>
+    <string name="shelf_move_earlier">Move earlier</string>
+    <string name="shelf_move_later">Move later</string>
     <string name="shelf_no_books_description">Add books from your library to build this shelf.</string>
     <string name="shelf_no_books_title">No books yet</string>
     <string name="shelf_preview">Preview</string>

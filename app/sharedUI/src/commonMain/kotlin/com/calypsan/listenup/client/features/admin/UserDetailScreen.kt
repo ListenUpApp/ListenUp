@@ -29,7 +29,8 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
+import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -398,40 +399,21 @@ private fun PermissionRow(
     isSaving: Boolean,
     onToggle: () -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (isSaving) {
+    if (isSaving) {
+        // While the change is in flight the row shows progress rather than a switch that could be
+        // flipped again mid-save.
+        SettingRow(icon = icon, title = title, subtitle = subtitle) {
             ListenUpLoadingIndicatorSmall()
-        } else {
-            Switch(
-                checked = checked,
-                onCheckedChange = { onToggle() },
-                enabled = !isProtected,
-            )
         }
+    } else {
+        SettingToggleRow(
+            icon = icon,
+            title = title,
+            subtitle = subtitle,
+            checked = checked,
+            enabled = !isProtected,
+            onCheckedChange = { onToggle() },
+        )
     }
 }
 

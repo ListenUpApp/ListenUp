@@ -53,7 +53,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -71,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.ValuePill
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.ThemeMode
@@ -369,7 +369,7 @@ private fun AppearanceSection(
             onValueSelected = viewModel::setThemeMode,
         )
         if (showDynamicColors) {
-            ToggleRow(
+            SettingToggleRow(
                 icon = Icons.Default.Palette,
                 accent = MaterialTheme.colorScheme.primary,
                 title = "Dynamic colors",
@@ -464,7 +464,7 @@ private fun PlaybackSection(
             pillContentColor = pillContent,
             showDivider = true,
         )
-        ToggleRow(
+        SettingToggleRow(
             icon = Icons.Default.History,
             accent = accent,
             title = stringResource(Res.string.settings_autorewind_on_resume),
@@ -513,7 +513,7 @@ private fun LibrarySection(
         label = stringResource(Res.string.common_library),
         accent = accent,
     ) {
-        ToggleRow(
+        SettingToggleRow(
             icon = Icons.Default.SortByAlpha,
             accent = accent,
             title = stringResource(Res.string.settings_ignore_articles_when_sorting),
@@ -521,7 +521,7 @@ private fun LibrarySection(
             checked = state.ignoreTitleArticles,
             onCheckedChange = viewModel::setIgnoreTitleArticles,
         )
-        ToggleRow(
+        SettingToggleRow(
             icon = Icons.Default.FilterNone,
             accent = accent,
             title = stringResource(Res.string.settings_hide_singlebook_series),
@@ -565,7 +565,7 @@ private fun AccountSection(
                 showDivider = hasServerRow,
             )
         }
-        ToggleRow(
+        SettingToggleRow(
             icon = Icons.Default.Vibration,
             accent = accent,
             title = stringResource(Res.string.settings_haptic_feedback),
@@ -589,7 +589,7 @@ private fun DownloadsSection(
         label = stringResource(Res.string.settings_downloads),
         accent = accent,
     ) {
-        ToggleRow(
+        SettingToggleRow(
             icon = Icons.Default.Wifi,
             accent = accent,
             title = stringResource(Res.string.settings_wifi_only_downloads),
@@ -734,34 +734,6 @@ private fun <T> SelectorRow(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ToggleRow(
-    icon: ImageVector,
-    accent: Color,
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    showDivider: Boolean = false,
-) {
-    val haptics = LocalHaptics.current
-    SettingRow(
-        icon = icon,
-        accent = accent,
-        title = title,
-        subtitle = subtitle,
-        showDivider = showDivider,
-    ) {
-        Switch(
-            checked = checked,
-            onCheckedChange = { newValue ->
-                haptics.toggle(on = newValue)
-                onCheckedChange(newValue)
-            },
-        )
     }
 }
 

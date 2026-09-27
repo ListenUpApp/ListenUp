@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
+import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -51,7 +52,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -663,28 +663,22 @@ private fun ServerSettingsSection(
             isToggling = state.isTogglingRegistrationPolicy,
             onChange = onRegistrationPolicyChange,
         )
-        SettingRow(
+        SettingToggleRow(
             icon = Icons.Outlined.Inbox,
             title = stringResource(Res.string.admin_inbox_setting_title),
             subtitle = stringResource(Res.string.admin_inbox_setting_subtitle),
+            checked = holdNewBooksForReview,
+            onCheckedChange = onHoldNewBooksForReviewChange,
             showDivider = true,
-        ) {
-            Switch(
-                checked = holdNewBooksForReview,
-                onCheckedChange = onHoldNewBooksForReviewChange,
-            )
-        }
-        SettingRow(
+        )
+        SettingToggleRow(
             icon = Icons.Outlined.Notifications,
             title = stringResource(Res.string.admin_push_setting_title),
             subtitle = stringResource(Res.string.admin_push_setting_subtitle),
+            checked = pushNotificationsEnabled,
+            onCheckedChange = onPushNotificationsEnabledChange,
             showDivider = true,
-        ) {
-            Switch(
-                checked = pushNotificationsEnabled,
-                onCheckedChange = onPushNotificationsEnabledChange,
-            )
-        }
+        )
     }
 }
 

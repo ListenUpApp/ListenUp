@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.shelf
 
+import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
@@ -57,7 +57,6 @@ import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
-import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
@@ -588,7 +587,7 @@ private fun ShelfVisibilitySection(
         accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
     ) {
-        SettingRow(
+        SettingToggleRow(
             title = stringResource(Res.string.shelf_private_shelf),
             subtitle =
                 if (isPrivate) {
@@ -598,12 +597,8 @@ private fun ShelfVisibilitySection(
                 },
             icon = if (isPrivate) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
             accent = MaterialTheme.colorScheme.tertiary,
-            trailing = {
-                Switch(
-                    checked = isPrivate,
-                    onCheckedChange = onPrivateChange,
-                )
-            },
+            checked = isPrivate,
+            onCheckedChange = onPrivateChange,
         )
     }
 }

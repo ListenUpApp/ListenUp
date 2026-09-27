@@ -6781,6 +6781,16 @@
         }
       }
     },
+    "common.collapsed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapsed"
+          }
+        }
+      }
+    },
     "common.collection_name_hint": {
       "localizations": {
         "en": {
@@ -7027,6 +7037,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Expand"
+          }
+        }
+      }
+    },
+    "common.expanded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expanded"
           }
         }
       }
@@ -11501,6 +11521,16 @@
         }
       }
     },
+    "library_setup.include_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include %1$@"
+          }
+        }
+      }
+    },
     "library_setup.item_count": {
       "localizations": {
         "en": {
@@ -12901,6 +12931,16 @@
         }
       }
     },
+    "notifications.settings_switch_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ notifications for %2$@"
+          }
+        }
+      }
+    },
     "notifications.title": {
       "localizations": {
         "en": {
@@ -13357,6 +13397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play"
+          }
+        }
+      }
+    },
+    "player.play_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play chapter"
           }
         }
       }
@@ -14277,6 +14327,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d selected"
+          }
+        }
+      }
+    },
+    "selection.select": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select"
+          }
+        }
+      }
+    },
+    "selection.select_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select %1$@"
           }
         }
       }
@@ -15467,6 +15537,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Name"
+          }
+        }
+      }
+    },
+    "shelf.move_earlier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move earlier"
+          }
+        }
+      }
+    },
+    "shelf.move_later": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move later"
           }
         }
       }

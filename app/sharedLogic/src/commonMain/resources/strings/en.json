@@ -116,7 +116,9 @@
     "read_more": "Read more",
     "read_less": "Read less",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "expanded": "Expanded",
+    "collapsed": "Collapsed"
   },
   "error": {
     "conflict": "That resource is in use or already exists.",
@@ -680,7 +682,9 @@
     "added_to_collection_one": "1 book added to collection",
     "added_to_collection_plural": "%1$d books added to collection",
     "created_with_books_one": "Created \"%1$s\" with 1 book",
-    "created_with_books_plural": "Created \"%1$s\" with %2$d books"
+    "created_with_books_plural": "Created \"%1$s\" with %2$d books",
+    "select": "Select",
+    "select_name": "Select %1$s"
   },
   "discover": {
     "activity": "Activity",
@@ -805,7 +809,9 @@
     "visibility": "Visibility",
     "visible_to_anyone": "Visible to anyone on the server.",
     "whats_this_shelf_for": "What's this shelf for?",
-    "title_fallback": "Shelf"
+    "title_fallback": "Shelf",
+    "move_earlier": "Move earlier",
+    "move_later": "Move later"
   },
   "shell": {
     "all_synced": "All synced",
@@ -1282,6 +1288,7 @@
     "skip_backward": "Skip backward %1$s seconds",
     "speed": "Speed",
     "chapters": "Chapters",
+    "play_chapter": "Play chapter",
     "chapters_count_summary": "%1$d chapters · %2$s",
     "airplay": "AirPlay",
     "sleep_timer": "Sleep timer",
@@ -1363,7 +1370,8 @@
     "building_title": "Building your library",
     "item_count_one": "%1$d item",
     "folder_selected_count": "%1$d folder selected",
-    "folders_selected_count": "%1$d folders selected"
+    "folders_selected_count": "%1$d folders selected",
+    "include_folder": "Include %1$s"
   },
   "scan": {
     "building_subtitle": "Building your library.",
@@ -1494,7 +1502,8 @@
     "type_campfire_invite": "Campfire invites",
     "type_registration_decision": "Registration decisions",
     "type_registration_approval": "Pending registrations",
-    "unread_count_a11y": "%1$d unread"
+    "unread_count_a11y": "%1$d unread",
+    "settings_switch_a11y": "%1$s notifications for %2$s"
   },
   "push": {
     "test_title": "Test notification",

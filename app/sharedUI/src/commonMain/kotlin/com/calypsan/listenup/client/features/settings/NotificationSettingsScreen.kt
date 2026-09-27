@@ -29,6 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.components.switchRow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,6 +53,7 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.notifications_settings_in_app
 import listenup.composeapp.generated.resources.notifications_settings_push
+import listenup.composeapp.generated.resources.notifications_settings_switch_a11y
 import listenup.composeapp.generated.resources.notifications_settings_row_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -166,16 +171,16 @@ fun NotificationSettingsScreen(
  * disabled for types the registry declares push-ineligible.
  */
 @Composable
-private fun NotificationPrefRow(
+internal fun NotificationPrefRow(
     pref: NotificationPreferenceDto,
     showDivider: Boolean,
     onChange: (NotificationPreference) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val nameRes = notificationTypeNameRes(pref.type) ?: return
-    val haptics = LocalHaptics.current
+    val typeName = stringResource(nameRes)
     SettingRow(
-        title = stringResource(nameRes),
+        title = typeName,
         icon = notificationTypeIcon(pref.type),
         showDivider = showDivider,
         modifier = modifier,
@@ -183,47 +188,55 @@ private fun NotificationPrefRow(
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LabeledSwitch(
                 label = stringResource(Res.string.notifications_settings_in_app),
+                typeName = typeName,
                 checked = pref.preference.inApp,
-                onCheckedChange = { checked ->
-                    haptics.toggle(on = checked)
-                    onChange(pref.preference.copy(inApp = checked))
-                },
+                onCheckedChange = { checked -> onChange(pref.preference.copy(inApp = checked)) },
             )
             LabeledSwitch(
                 label = stringResource(Res.string.notifications_settings_push),
+                typeName = typeName,
                 checked = pref.preference.push,
                 enabled = pref.pushEligible,
-                onCheckedChange = { checked ->
-                    haptics.toggle(on = checked)
-                    onChange(pref.preference.copy(push = checked))
-                },
+                onCheckedChange = { checked -> onChange(pref.preference.copy(push = checked)) },
             )
         }
     }
 }
 
-/** A switch with its delivery-channel label above it, so the dual-switch row reads at a glance. */
+/**
+ * A switch with its delivery-channel label above it, so the dual-switch row reads at a glance. Label
+ * and switch are one [switchRow] target, and TalkBack hears the channel AND the type ("Push
+ * notifications for Campfire invites") — two bare "Push" switches per screen would be ambiguous.
+ */
 @Composable
 private fun LabeledSwitch(
     label: String,
+    typeName: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    val haptics = LocalHaptics.current
+    val description = stringResource(Res.string.notifications_settings_switch_a11y, label, typeName)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier,
+        modifier =
+            modifier
+                .switchRow(checked = checked, haptics = haptics, enabled = enabled, onCheckedChange)
+                .semantics { contentDescription = description },
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // The visible label is already inside the description; don't read it twice.
+            modifier = Modifier.clearAndSetSemantics {},
         )
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             enabled = enabled,
         )
     }
