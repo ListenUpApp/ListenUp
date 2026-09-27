@@ -1,13 +1,7 @@
 package com.calypsan.listenup.client.presentation.discover
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
-
-/**
- * Longest idle stretch that still counts as the same sitting. Pausing to make coffee, take a call,
- * or walk between rooms does not end your evening with a book — but picking it up again after lunch
- * is a genuinely separate act worth its own line in the feed.
- */
-private const val SAME_SITTING_GAP_MS = 60 * 60_000L
+import com.calypsan.listenup.api.dto.activity.RealListen
 
 /**
  * Collapse consecutive listening sessions on the same book into one entry per sitting.
@@ -58,5 +52,17 @@ private fun ActivityUiModel.continuesInto(older: ActivityUiModel): Boolean {
     if (userId != older.userId) return false
     val newerSpanStart = occurredAt - durationMs
     val idleMs = newerSpanStart - older.occurredAt
-    return idleMs in 0..SAME_SITTING_GAP_MS
+    return idleMs in 0..RealListen.SITTING_GAP_MS
 }
+
+/**
+ * Drop listening sittings too short to be news — the eight-second tap, the wrong book opened by
+ * mistake. Run AFTER [coalesceListeningSessions]: a sitting of several short fragments is judged by
+ * its total, so a stop-start evening still shows while a lone accidental tap does not.
+ *
+ * The listening itself still counts everywhere else (stats, streaks, progress); this only decides
+ * what the feed announces. [RealListen.THRESHOLD_MS] is the same line the server uses for "started
+ * a book", so the two can never disagree about what counts.
+ */
+internal fun List<ActivityUiModel>.withoutFleetingSittings(): List<ActivityUiModel> =
+    filterNot { it.type == ActivityType.LISTENING_SESSION && it.durationMs < RealListen.THRESHOLD_MS }

@@ -7,10 +7,12 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.activityRecorder
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -18,9 +20,11 @@ import kotlinx.coroutines.test.runTest
 class StatsRecorderBookRestartedTest :
     FunSpec({
 
-        test("BookRestarted records STARTED_BOOK with the given isReread flag and touches no stats") {
+        test("BookRestarted alone announces nothing and touches no stats") {
             withSqlDatabase {
                 sql.seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val userStatsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
@@ -49,9 +53,9 @@ class StatsRecorderBookRestartedTest :
                         ),
                     )
 
-                    val started = activities.page(before = null, limit = 10).filter { it.type == ActivityType.STARTED_BOOK }
-                    started shouldHaveSize 1
-                    started.single().isReread shouldBe true
+                    // A restart is not news until the listen-through holds a real listen — see
+                    // StatsRecorderRealStartTest for the announcement itself.
+                    activities.page(before = null, limit = 10).filter { it.type == ActivityType.STARTED_BOOK }.shouldBeEmpty()
                     userStatsRepo.getForUser("u1") shouldBe null
                 }
             }

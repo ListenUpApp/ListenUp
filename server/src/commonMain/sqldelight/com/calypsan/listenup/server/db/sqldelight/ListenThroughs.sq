@@ -1,0 +1,52 @@
+-- listen_throughs: each user's CURRENT listen-through of each book — the stretch from starting a book
+-- (or reopening a finished one) to finishing it. Server-only bookkeeping: it lets "started reading"
+-- wait until the listen-through holds a real listen (RealListen.THRESHOLD_MS) instead of announcing
+-- the first tap. real_started_at is set exactly once per listen-through, when that line is crossed.
+--
+-- FKs (→ users, → books) live in the migration DDL (SQLDelight resolves FK targets per .sq file).
+CREATE TABLE listen_throughs (
+    user_id         TEXT    NOT NULL,
+    book_id         TEXT    NOT NULL,
+    started_at      INTEGER NOT NULL,
+    is_reread       INTEGER NOT NULL,
+    real_started_at INTEGER,
+    PRIMARY KEY (user_id, book_id)
+);
+
+-- Seeds the row on a genuine first restart; a no-op if one already exists — the paired
+-- resetListenThroughIfChanged below decides whether an existing row actually needs to move. Two
+-- statements instead of one INSERT OR REPLACE / ON CONFLICT ... DO UPDATE ... WHERE, because this
+-- project's SQLDelight dialect (sqlite_3_18, no dialect module configured) rejects the partial-upsert
+-- WHERE clause outright (see PushTokens.sq, NotificationPrefs.sq for the same constraint elsewhere;
+-- confirmed here too: "',' expected, got 'ON'" against the ON CONFLICT form).
+beginListenThrough:
+INSERT OR IGNORE INTO listen_throughs (user_id, book_id, started_at, is_reread, real_started_at)
+VALUES (:user_id, :book_id, :started_at, :is_reread, NULL);
+
+-- Resets an EXISTING row for a genuinely new restart (a different started_at) — clearing
+-- real_started_at so the new listen-through can announce on its own. A no-op when started_at is
+-- unchanged: a duplicate BookRestarted (e.g. a retried RPC op replaying the exact same restart) must
+-- not reset an already-announced listen-through and cause a second STARTED_BOOK.
+resetListenThroughIfChanged:
+UPDATE listen_throughs
+SET started_at = :started_at, is_reread = :is_reread, real_started_at = NULL
+WHERE user_id = :user_id AND book_id = :book_id AND started_at <> :started_at;
+
+-- The listen-through still waiting for its real start, or none.
+selectAwaitingRealStart:
+SELECT started_at, is_reread FROM listen_throughs
+WHERE user_id = :user_id AND book_id = :book_id AND real_started_at IS NULL;
+
+-- Claims the real start. Only a listen-through still awaiting it is updated, so the caller announces
+-- exactly once even if two checks race — it announces only when this changed a row.
+markRealStarted:
+UPDATE listen_throughs SET real_started_at = :real_started_at
+WHERE user_id = :user_id AND book_id = :book_id AND real_started_at IS NULL;
+
+-- A finished listen-through is over: closes it WITHOUT announcing, so a book finished from a tap
+-- (never having crossed the real-listen threshold) can't grow a stray STARTED_BOOK AFTER its
+-- FINISHED_BOOK when spans belonging to it are written later (a delayed sync, an import). A re-read
+-- begins its OWN new listen-through via beginListenThrough/resetListenThroughIfChanged, not this query.
+closeAwaitingListenThrough:
+UPDATE listen_throughs SET real_started_at = :closed_at
+WHERE user_id = :user_id AND book_id = :book_id AND real_started_at IS NULL;

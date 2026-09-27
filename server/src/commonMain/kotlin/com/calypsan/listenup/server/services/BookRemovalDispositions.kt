@@ -74,4 +74,7 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "activities" to RemovalDisposition.USER_DATA,
         "shelf_books" to RemovalDisposition.USER_DATA,
         "active_sessions" to RemovalDisposition.USER_DATA,
+        // The current listen-through's start and whether its real start was announced — user history
+        // like playback_positions: a removed-then-re-added book continues the same listen-through.
+        "listen_throughs" to RemovalDisposition.USER_DATA,
     )

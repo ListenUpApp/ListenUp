@@ -1,11 +1,18 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.dto.activity.RealListen
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.SelectAwaitingRealStart
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.util.KeyedMutex
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
+
+private val log = loggerFor<StatsRecorder>()
 
 /**
  * The single server-side write choke-point for every stats-affecting trigger. [record] runs ONE
@@ -71,6 +78,7 @@ class StatsRecorder(
         // The coverage rule decides append-vs-merge on `book_reads`; the re-derive then reads the new
         // count. booksFinished is a pure function of `book_reads`, so a merge leaves it unchanged.
         bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
+        closeAwaitingListenThrough(event.userId, event.bookId, finishedAtMs)
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
             val tz = sql.homeTimeZone(event.userId)
             val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)
@@ -88,18 +96,42 @@ class StatsRecorder(
     }
 
     /**
-     * No source row (the caller already wrote `playback_positions`), no `user_stats`/projection
-     * impact (a start moves no windowed stat) — just the `STARTED_BOOK` activity, dated
-     * [StatsEvent.BookRestarted.occurredAt].
+     * Begins a new listen-through — the first position on a book, or a finished book reopened. No
+     * source row beyond the listen-through marker, and no `user_stats`/projection impact (a start
+     * moves no windowed stat). The `STARTED_BOOK` activity is NOT raised here: an eight-second tap is
+     * not news. [announceRealStartIfCrossed] raises it once the listen-through holds a real listen —
+     * checked here too, because an import can write a book's sessions before its restart.
+     *
+     * Best-effort ([runCatchingCancellable]): this bookkeeping is server-internal and must never fail
+     * the position/session write that triggered it — a book id whose `books` row has since vanished
+     * (the `listen_throughs` FK) would otherwise abort an already-committed RPC call, and inside
+     * [PlaybackPositionRepository.recordAllForImport]'s per-row hook loop, would abort every row after
+     * it. A failure here costs one listen-through's bookkeeping, never the caller.
      */
     private suspend fun recordBookRestarted(event: StatsEvent.BookRestarted) {
-        activityRecorder.record(
-            event.userId,
-            ActivityType.STARTED_BOOK,
-            bookId = event.bookId,
-            isReread = event.isReread,
-            occurredAt = event.occurredAt.toEpochMilliseconds(),
-        )
+        runCatchingCancellable {
+            val startedAtMs = event.occurredAt.toEpochMilliseconds()
+            val isRereadFlag = if (event.isReread) 1L else 0L
+            suspendTransaction(sql) {
+                // Seeds the row on a genuine first restart (a no-op if one already exists), then
+                // resets an existing row only when this restart is genuinely new (see ListenThroughs.sq).
+                sql.listenThroughsQueries.beginListenThrough(
+                    user_id = event.userId,
+                    book_id = event.bookId,
+                    started_at = startedAtMs,
+                    is_reread = isRereadFlag,
+                )
+                sql.listenThroughsQueries.resetListenThroughIfChanged(
+                    started_at = startedAtMs,
+                    is_reread = isRereadFlag,
+                    user_id = event.userId,
+                    book_id = event.bookId,
+                )
+            }
+            announceRealStartIfCrossed(event.userId, event.bookId)
+        }.onFailure {
+            log.warn(it) { "listen-through bookkeeping failed on restart user=${event.userId} book=${event.bookId}" }
+        }
     }
 
     /**
@@ -140,6 +172,94 @@ class StatsRecorder(
             durationMs = span.endedAt - span.startedAt,
             occurredAt = span.endedAt,
         )
+        // Best-effort — see recordBookRestarted's KDoc: this must never fail an already-committed
+        // listening-event write.
+        runCatchingCancellable { announceRealStartIfCrossed(userId, span.bookId) }
+            .onFailure {
+                log.warn(
+                    it,
+                ) { "listen-through bookkeeping failed on session-close user=$userId book=${span.bookId}" }
+            }
+    }
+
+    /**
+     * Raises `STARTED_BOOK` the first time the user's current listen-through of [bookId] holds a real
+     * listen ([RealListen.THRESHOLD_MS] of wall-clock listening since it began), dated at the
+     * listen-through's start — when they actually started, not when the minute ran out.
+     *
+     * Announces at most once per listen-through: `markRealStarted` only updates a row still awaiting
+     * its real start, and the announcement fires only when it changed one. A book with no
+     * listen-through row (already in progress before listen-throughs existed) never announces again.
+     */
+    private suspend fun announceRealStartIfCrossed(
+        userId: String,
+        bookId: String,
+    ) {
+        val crossed =
+            suspendTransaction<SelectAwaitingRealStart?>(sql) { claimRealStartIfCrossed(userId, bookId) } ?: return
+        activityRecorder.record(
+            userId,
+            ActivityType.STARTED_BOOK,
+            bookId = bookId,
+            isReread = crossed.is_reread == 1L,
+            occurredAt = crossed.started_at,
+        )
+    }
+
+    /**
+     * A finished listen-through is over: closes it without announcing, so a book finished from a tap
+     * that never crossed [RealListen.THRESHOLD_MS] can't grow a `STARTED_BOOK` AFTER its
+     * `FINISHED_BOOK` when spans belonging to it are written later (a delayed sync, an import). A
+     * re-read begins its own new listen-through via [recordBookRestarted], not this.
+     *
+     * Best-effort — see [recordBookRestarted]'s KDoc.
+     */
+    private suspend fun closeAwaitingListenThrough(
+        userId: String,
+        bookId: String,
+        closedAtMs: Long,
+    ) {
+        runCatchingCancellable {
+            suspendTransaction(sql) {
+                sql.listenThroughsQueries.closeAwaitingListenThrough(
+                    closed_at = closedAtMs,
+                    user_id = userId,
+                    book_id = bookId,
+                )
+            }
+        }.onFailure {
+            log.warn(it) { "listen-through bookkeeping failed on completion user=$userId book=$bookId" }
+        }
+    }
+
+    /**
+     * The non-suspend body of [announceRealStartIfCrossed]'s transaction: returns the listen-through
+     * row that just crossed [RealListen.THRESHOLD_MS], or `null` if it hasn't (or there is none awaiting
+     * it). A plain function rather than a lambda with a labelled `return@suspendTransaction` — not
+     * because the label doesn't type-check (it does), but because a plain function keeps the early
+     * returns local and readable without depending on `suspendTransaction`'s type parameter being
+     * pinned by the call's context.
+     */
+    private fun claimRealStartIfCrossed(
+        userId: String,
+        bookId: String,
+    ): SelectAwaitingRealStart? {
+        val awaiting =
+            sql.listenThroughsQueries.selectAwaitingRealStart(user_id = userId, book_id = bookId).executeAsOneOrNull()
+                ?: return null
+        val listenedMs =
+            sql.listeningEventsQueries
+                .sumWallMsForBookEndedAfter(userId = userId, bookId = bookId, sinceMs = awaiting.started_at)
+                .executeAsOne()
+        if (listenedMs < RealListen.THRESHOLD_MS) return null
+        val claimed =
+            sql.listenThroughsQueries
+                .markRealStarted(
+                    real_started_at = clock.now().toEpochMilliseconds(),
+                    user_id = userId,
+                    book_id = bookId,
+                ).value
+        return if (claimed == 1L) awaiting else null
     }
 
     /**
