@@ -1,6 +1,12 @@
 package com.calypsan.listenup.client.features.notifications
 
-import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.components.SectionColumnMinWidth
+import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.background
@@ -11,11 +17,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -126,26 +130,60 @@ fun NotificationsScreen(
             }
 
             is NotificationsUiState.Data -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    LazyColumn(
-                        modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(s.notifications, key = { it.id }) { notification ->
-                            NotificationRow(
-                                notification = notification,
-                                onClick = {
-                                    viewModel.markRead(notification.id)
-                                    notification.toShortcutAction()?.let(onAction)
-                                },
-                            )
-                        }
-                    }
-                }
+                NotificationList(
+                    notifications = s.notifications,
+                    onNotificationClick = { notification ->
+                        viewModel.markRead(notification.id)
+                        notification.toShortcutAction()?.let(onAction)
+                    },
+                    modifier = Modifier.padding(padding),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The inbox's rows, newest first as the ViewModel orders them. A phone lists them; from the medium
+ * width up they flow into a [GridCells.Adaptive] grid of cards, so a tablet shows a screenful of
+ * notifications instead of one narrow strip.
+ */
+@Composable
+internal fun NotificationList(
+    notifications: List<AppNotification>,
+    onNotificationClick: (AppNotification) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    if (isWide) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = SectionColumnMinWidth),
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+            verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+        ) {
+            items(notifications, key = { it.id }) { notification ->
+                NotificationRow(
+                    notification = notification,
+                    onClick = { onNotificationClick(notification) },
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(notifications, key = { it.id }) { notification ->
+                NotificationRow(
+                    notification = notification,
+                    onClick = { onNotificationClick(notification) },
+                )
             }
         }
     }
