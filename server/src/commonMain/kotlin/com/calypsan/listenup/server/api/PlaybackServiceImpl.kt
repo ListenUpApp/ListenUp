@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedAudioFile
@@ -163,14 +164,14 @@ internal class PlaybackServiceImpl(
         return AppResult.Success(playbackPositionRepository.getPosition(p.userId.value, bookId.value))
     }
 
-    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> {
+    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult> {
         val p =
             principal.current()
                 ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
         if (!accessPolicy.canAccess(p.userId.value, p.role, request.bookId)) {
             return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = request.bookId))
         }
-        return playbackPositionRepository.recordPosition(
+        return playbackPositionRepository.recordPositionDetailed(
             userId = p.userId.value,
             bookId = request.bookId,
             positionMs = request.positionMs,

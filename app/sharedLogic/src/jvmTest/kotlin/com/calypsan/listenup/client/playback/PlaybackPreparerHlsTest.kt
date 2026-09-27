@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback as ContractPreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
+import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -336,7 +337,7 @@ private class FakeHlsPlaybackService(
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = stubFailure
 
-    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> = stubFailure
+    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult> = stubFailure
 
     override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = stubFailure
 

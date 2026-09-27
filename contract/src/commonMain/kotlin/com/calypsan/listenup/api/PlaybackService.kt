@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
+import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
@@ -47,9 +48,9 @@ interface PlaybackService {
     /**
      * Record the caller's playback position. Idempotent and `lastPlayedAt`-wins
      * server-side — safe for the client's pending-operation queue to re-fire.
-     * Returns the authoritative stored position after the write.
+     * Returns the row the server now holds and whether this write produced it.
      */
-    suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload>
+    suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult>
 
     /**
      * The caller's materialized listening stats, or null if they have no listening

@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -165,6 +166,75 @@ class PlaybackPositionClockSkewTest :
                     val stored = repo.getPosition("u1", "book-1").shouldNotBeNull()
                     stored.positionMs shouldBe 99_000L
                     stored.lastPlayedAt shouldBe now0 + 60_000L
+                }
+            }
+        }
+
+        test("a write from a device whose clock runs behind is reported as not accepted, with the server's clock") {
+            // Device B's clock is ten minutes slow. It finishes the book two real minutes after
+            // device A's last write — but its timestamp is older, so lastPlayedAt-wins keeps A's row.
+            // That used to come back as a plain success, indistinguishable from an accepted write.
+            withSqlDatabase {
+                val now0 = 1_730_000_000_000L
+                val clock = MutableClock(Instant.fromEpochMilliseconds(now0))
+                val repo =
+                    PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
+                runTest {
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 50_000L,
+                        lastPlayedAt = now0,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    clock.instant = Instant.fromEpochMilliseconds(now0 + 2 * 60_000L)
+
+                    val result =
+                        repo.recordPositionDetailed(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 100_000L,
+                            lastPlayedAt = now0 + 2 * 60_000L - 10 * 60_000L,
+                            finished = true,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                        )
+
+                    val outcome = result.shouldBeInstanceOf<AppResult.Success<RecordPositionResult>>().data
+                    outcome.accepted shouldBe false
+                    outcome.position.positionMs shouldBe 50_000L
+                    outcome.serverNowMs shouldBe now0 + 2 * 60_000L
+                }
+            }
+        }
+
+        test("an accepted write is reported as accepted") {
+            withSqlDatabase {
+                val now0 = 1_730_000_000_000L
+                val repo =
+                    PlaybackPositionRepository(
+                        db = sql,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        clock = MutableClock(Instant.fromEpochMilliseconds(now0)),
+                    )
+                runTest {
+                    val result =
+                        repo.recordPositionDetailed(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 1_000L,
+                            lastPlayedAt = now0,
+                            finished = false,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                        )
+
+                    val outcome = result.shouldBeInstanceOf<AppResult.Success<RecordPositionResult>>().data
+                    outcome.accepted shouldBe true
+                    outcome.position.positionMs shouldBe 1_000L
                 }
             }
         }

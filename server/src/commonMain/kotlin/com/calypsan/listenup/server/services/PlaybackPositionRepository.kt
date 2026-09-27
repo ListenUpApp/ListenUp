@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
@@ -244,7 +246,43 @@ class PlaybackPositionRepository(
         hasCustomSpeed: Boolean = false,
         hasCustomBoost: Boolean = false,
         startedBookOccurredAt: Long? = null,
-    ): AppResult<PlaybackPositionSyncPayload> {
+    ): AppResult<PlaybackPositionSyncPayload> =
+        recordPositionDetailed(
+            userId,
+            bookId,
+            positionMs,
+            lastPlayedAt,
+            finished,
+            playbackSpeed,
+            currentChapterId,
+            volumeBoostDb,
+            measuredGainDb,
+            finishedAt,
+            hasCustomSpeed,
+            hasCustomBoost,
+            startedBookOccurredAt,
+        ).map { it.position }
+
+    /**
+     * [recordPosition], also saying whether this write was [accepted][RecordPositionResult.accepted]
+     * or lost to an equal-or-newer stored `lastPlayedAt` — the answer the RPC surface returns so a
+     * client can tell a superseded write from a landed one.
+     */
+    suspend fun recordPositionDetailed(
+        userId: String,
+        bookId: String,
+        positionMs: Long,
+        lastPlayedAt: Long,
+        finished: Boolean,
+        playbackSpeed: Float,
+        currentChapterId: String?,
+        volumeBoostDb: Float = 0f,
+        measuredGainDb: Float? = null,
+        finishedAt: Long? = null,
+        hasCustomSpeed: Boolean = false,
+        hasCustomBoost: Boolean = false,
+        startedBookOccurredAt: Long? = null,
+    ): AppResult<RecordPositionResult> {
         val now = clock.now().toEpochMilliseconds()
         // Clamp #1 (persisted): a device with a clock set into the future must not be able to plant
         // a `lastPlayedAt` that permanently outranks every honest write that follows — that write
@@ -266,7 +304,7 @@ class PlaybackPositionRepository(
         val existingIsPoisoned = existing != null && existing.lastPlayedAt > now + SKEW_TOLERANCE_MS
         // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
         if (existing != null && !existingIsPoisoned && existing.lastPlayedAt >= clampedLastPlayedAt) {
-            return AppResult.Success(existing)
+            return AppResult.Success(RecordPositionResult(position = existing, accepted = false, serverNowMs = now))
         }
 
         val priorFinished = existing?.finished ?: false
@@ -290,8 +328,11 @@ class PlaybackPositionRepository(
                 createdAt = 0L,
                 deletedAt = null,
             )
-        val result = upsert(payload, clientOpId = null, userId = userId)
-        if (result !is AppResult.Success) return result
+        val written =
+            when (val result = upsert(payload, clientOpId = null, userId = userId)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return result
+            }
 
         // De-nested cascade (post-commit). Fire the finished flip when false → true; the caller is
         // responsible for detecting the flip condition. Each event routes through StatsRecorder,
@@ -327,7 +368,7 @@ class PlaybackPositionRepository(
                 )
             }
         }
-        return result
+        return AppResult.Success(RecordPositionResult(position = written, accepted = true, serverNowMs = now))
     }
 
     /**
