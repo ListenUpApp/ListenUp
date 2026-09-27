@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.settings
 
-import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,7 +41,11 @@ import com.calypsan.listenup.api.dto.NotificationPreferenceDto
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.notifications.notificationTypeNameRes
@@ -131,42 +133,92 @@ fun NotificationSettingsScreen(
             }
 
             is NotificationPrefsUiState.Data -> {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Column(
-                        modifier =
-                            Modifier
-                                .widthIn(max = ReadingMaxWidth)
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                    ) {
-                        SectionGroup(
-                            icon = Icons.Default.Notifications,
-                            label = stringResource(Res.string.notifications_settings_row_title),
-                            accent = MaterialTheme.colorScheme.primary,
-                        ) {
-                            // Unknown type keys get no row — a newer server's types wait for the
-                            // client update; there is nothing to toggle blind.
-                            val knownPrefs =
-                                s.prefs.filter { notificationTypeNameRes(it.type) != null }
-                            knownPrefs.forEachIndexed { index, pref ->
-                                NotificationPrefRow(
-                                    pref = pref,
-                                    showDivider = index > 0,
-                                    onChange = { viewModel.setPreference(pref.type, it) },
-                                )
-                            }
-                        }
-                    }
+                NotificationPrefsContent(
+                    prefs = s.prefs,
+                    onChange = viewModel::setPreference,
+                    modifier = Modifier.padding(padding),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The per-type delivery toggles. Unknown type keys get no row — a newer server's types wait for the
+ * client update; there is nothing to toggle blind.
+ *
+ * A phone lists the types as rows of one group. From the medium width up each type becomes its own
+ * card in [SectionColumns], its two channel switches side by side under its name, so the choices
+ * spread across a tablet instead of trailing a long way from the names they belong to.
+ */
+@Composable
+internal fun NotificationPrefsContent(
+    prefs: List<NotificationPreferenceDto>,
+    onChange: (type: String, preference: NotificationPreference) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val knownPrefs = prefs.filter { notificationTypeNameRes(it.type) != null }
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    if (isWide) {
+        SectionColumns(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.screenMargin, vertical = 16.dp),
+        ) {
+            knownPrefs.forEach { pref ->
+                section { NotificationPrefCard(pref = pref, onChange = { onChange(pref.type, it) }) }
+            }
+        }
+    } else {
+        Column(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            SectionGroup(
+                icon = Icons.Default.Notifications,
+                label = stringResource(Res.string.notifications_settings_row_title),
+                accent = MaterialTheme.colorScheme.primary,
+            ) {
+                knownPrefs.forEachIndexed { index, pref ->
+                    NotificationPrefRow(
+                        pref = pref,
+                        showDivider = index > 0,
+                        onChange = { onChange(pref.type, it) },
+                    )
                 }
             }
         }
+    }
+}
+
+/** One registry type as a wide-layout card: the type heads the group, its channel switches below. */
+@Composable
+private fun NotificationPrefCard(
+    pref: NotificationPreferenceDto,
+    onChange: (NotificationPreference) -> Unit,
+) {
+    val nameRes = notificationTypeNameRes(pref.type) ?: return
+    val typeName = stringResource(nameRes)
+    SectionGroup(
+        icon = notificationTypeIcon(pref.type),
+        label = typeName,
+        accent = MaterialTheme.colorScheme.primary,
+    ) {
+        ChannelSwitches(
+            pref = pref,
+            typeName = typeName,
+            onChange = onChange,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        )
     }
 }
 
@@ -189,21 +241,36 @@ internal fun NotificationPrefRow(
         showDivider = showDivider,
         modifier = modifier,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            LabeledSwitch(
-                label = stringResource(Res.string.notifications_settings_in_app),
-                typeName = typeName,
-                checked = pref.preference.inApp,
-                onCheckedChange = { checked -> onChange(pref.preference.copy(inApp = checked)) },
-            )
-            LabeledSwitch(
-                label = stringResource(Res.string.notifications_settings_push),
-                typeName = typeName,
-                checked = pref.preference.push,
-                enabled = pref.pushEligible,
-                onCheckedChange = { checked -> onChange(pref.preference.copy(push = checked)) },
-            )
-        }
+        ChannelSwitches(pref = pref, typeName = typeName, onChange = onChange)
+    }
+}
+
+/**
+ * A type's In-app and Push switches, side by side. The Push switch is disabled for types the
+ * registry declares push-ineligible.
+ */
+@Composable
+private fun ChannelSwitches(
+    pref: NotificationPreferenceDto,
+    typeName: String,
+    onChange: (NotificationPreference) -> Unit,
+    modifier: Modifier = Modifier,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(16.dp),
+) {
+    Row(modifier = modifier, horizontalArrangement = horizontalArrangement) {
+        LabeledSwitch(
+            label = stringResource(Res.string.notifications_settings_in_app),
+            typeName = typeName,
+            checked = pref.preference.inApp,
+            onCheckedChange = { checked -> onChange(pref.preference.copy(inApp = checked)) },
+        )
+        LabeledSwitch(
+            label = stringResource(Res.string.notifications_settings_push),
+            typeName = typeName,
+            checked = pref.preference.push,
+            enabled = pref.pushEligible,
+            onCheckedChange = { checked -> onChange(pref.preference.copy(push = checked)) },
+        )
     }
 }
 
