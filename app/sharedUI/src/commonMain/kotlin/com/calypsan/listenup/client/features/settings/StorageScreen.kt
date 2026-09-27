@@ -1,6 +1,14 @@
 package com.calypsan.listenup.client.features.settings
 
-import com.calypsan.listenup.client.design.readingWidth
+import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -193,8 +201,14 @@ fun StorageScreen(
     }
 }
 
+/**
+ * The screen's loaded body, hosted by its scaffold. A phone stacks the usage summary over the list of
+ * downloads. From the medium width up the summary becomes a side panel and the downloads flow into a
+ * [GridCells.Adaptive] grid beside it — the tablet sees what is using the space and how much is left
+ * at once, without the summary scrolling away.
+ */
 @Composable
-private fun StorageContent(
+internal fun StorageContent(
     state: StorageUiState,
     onDeleteBook: (DownloadedBookSummary) -> Unit,
     modifier: Modifier = Modifier,
@@ -209,8 +223,25 @@ private fun StorageContent(
         return
     }
 
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    if (isWide) {
+        StorageWideLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+    } else {
+        StoragePhoneLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+    }
+}
+
+@Composable
+private fun StoragePhoneLayout(
+    state: StorageUiState,
+    onDeleteBook: (DownloadedBookSummary) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(
-        modifier = modifier.fillMaxSize().readingWidth(),
+        modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -229,11 +260,7 @@ private fun StorageContent(
             }
         } else {
             item {
-                Text(
-                    text = stringResource(Res.string.settings_downloaded_books),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
             }
 
             items(
@@ -250,17 +277,80 @@ private fun StorageContent(
     }
 }
 
+/** Width of the wide layout's summary panel — one comfortable card column. */
+private val SummaryPanelWidth = 360.dp
+
+@Composable
+private fun StorageWideLayout(
+    state: StorageUiState,
+    onDeleteBook: (DownloadedBookSummary) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+    ) {
+        StorageSummaryCard(
+            totalUsed = state.totalStorageUsed,
+            available = state.availableStorage,
+            bookCount = state.downloadedBooks.size,
+            modifier = Modifier.width(SummaryPanelWidth).padding(vertical = 16.dp),
+        )
+
+        if (state.downloadedBooks.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                EmptyDownloadsMessage()
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = DownloadGridMinColumn),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+                verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+            ) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    DownloadedBooksHeading()
+                }
+                items(
+                    items = state.downloadedBooks,
+                    key = { it.bookId },
+                ) { book ->
+                    DownloadedBookItem(
+                        book = book,
+                        onDelete = { onDeleteBook(book) },
+                        isDeleting = state.isDeleting,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** The narrowest a downloaded-book card gets in the wide grid before the column count drops. */
+private val DownloadGridMinColumn = 320.dp
+
+@Composable
+private fun DownloadedBooksHeading(modifier: Modifier = Modifier) {
+    Text(
+        text = stringResource(Res.string.settings_downloaded_books),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = modifier,
+    )
+}
+
 @Composable
 private fun StorageSummaryCard(
     totalUsed: Long,
     available: Long,
     bookCount: Int,
+    modifier: Modifier = Modifier,
 ) {
     val total = totalUsed + available
     val usagePercent = if (total > 0) totalUsed.toFloat() / total else 0f
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
