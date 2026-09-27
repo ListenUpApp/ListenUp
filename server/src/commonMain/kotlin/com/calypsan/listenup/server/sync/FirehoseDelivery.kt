@@ -133,6 +133,10 @@ private suspend fun isActivityEventHidden(
  * Mirrors [isActivityEventHidden]: ROOT/ADMIN and Deleted tombstones always pass — a tombstone
  * strands no secret, and its payload is minimized to strip the pair anyway. Content events gate on
  * the payload's `bookId`, never the row id (which is opaque and encodes neither side of the pair).
+ *
+ * **Fails closed.** A gated domain whose content payload [junctionBookIdOf] can't resolve to a
+ * `bookId` — i.e. an unrecognised payload type — is withheld, not delivered: the next junction
+ * domain added here must not leak silently just because [junctionPayloadBookId] forgot its branch.
  */
 private suspend fun isBookJunctionEventHidden(
     busEvent: BusEvent<*>,
@@ -144,7 +148,7 @@ private suspend fun isBookJunctionEventHidden(
     if (domain != BOOK_TAGS_DOMAIN && domain != BOOK_MOODS_DOMAIN && domain != BOOK_RATINGS_DOMAIN) return false
     if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
     if (busEvent.event is SyncEvent.Deleted) return false
-    val bookId = junctionBookIdOf(busEvent.event) ?: return false
+    val bookId = junctionBookIdOf(busEvent.event) ?: return true
     return !bookAccessPolicy().canAccess(userId, role, bookId)
 }
 

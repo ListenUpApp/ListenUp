@@ -1,9 +1,5 @@
 package com.calypsan.listenup.server.sync
 
-import io.ktor.server.testing.ApplicationTestBuilder
-
-import com.calypsan.listenup.server.testing.publicAuthService
-
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -22,6 +18,7 @@ import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.memberPrincipal
+import com.calypsan.listenup.server.testing.publicAuthService
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -30,6 +27,7 @@ import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.flow.filter

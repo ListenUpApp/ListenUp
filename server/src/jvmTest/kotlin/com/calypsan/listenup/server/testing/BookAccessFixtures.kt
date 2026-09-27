@@ -19,11 +19,8 @@ import kotlinx.coroutines.runBlocking
  * already be FK-seeded via [seedTestUser] — `collection_grants.principal_id` references
  * `users(id)`.
  *
- * The single shared copy of a fixture that used to live, verbatim in behaviour but diverging in
- * signature, in both `SocialServiceTest` and `ShelfServiceUserShelvesTest`. Deliberately **not**
- * `suspend`: it runs its writes through its own [runBlocking] so it can be called from either a
- * plain `withSqlDatabase { }` block or from inside a `runTest { }` — both call shapes exist across
- * the two original copies, and this is the one signature compatible with both.
+ * Deliberately **not** `suspend`: it runs its writes through its own [runBlocking] so it is
+ * callable from either a plain `withSqlDatabase { }` block or from inside a `runTest { }`.
  *
  * Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal) grant
  * is unique, so repeated calls for the same viewer must reuse this row (upsert).
