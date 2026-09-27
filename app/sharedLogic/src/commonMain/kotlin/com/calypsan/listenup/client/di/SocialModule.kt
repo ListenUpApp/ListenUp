@@ -106,6 +106,8 @@ internal val socialModule: Module =
                 presence = get(),
                 userRepository = get(),
                 readershipDao = get(),
+                ratingDao = get(),
+                publicProfileDao = get(),
             )
         }
     }

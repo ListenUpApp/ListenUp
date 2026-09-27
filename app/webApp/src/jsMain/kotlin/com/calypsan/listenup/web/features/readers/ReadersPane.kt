@@ -167,7 +167,12 @@ internal fun stateLine(
 ): String =
     when (kind) {
         is ReaderLineKind.Reading -> kind.progressPct?.let { "$it% through" } ?: "Listening now"
+
         is ReaderLineKind.Finished -> "Finished ${relativeOrMonthYear(kind.finishedAtMs, nowMs)}"
+
+        // Minimal honest mapping for now — the real rated-line treatment lands with the Book
+        // Detail rating UI (Tasks 13-15).
+        ReaderLineKind.Rated -> "Rated"
     }
 
 private const val COLLAPSED_READERS = 5

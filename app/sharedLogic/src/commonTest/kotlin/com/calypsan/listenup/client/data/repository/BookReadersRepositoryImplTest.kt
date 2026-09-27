@@ -7,8 +7,14 @@ import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.dto.social.BookReadership
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.BookRatingAverageRow
+import com.calypsan.listenup.client.data.local.db.BookRatingDao
+import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookReadershipDao
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
+import com.calypsan.listenup.client.data.local.db.IdRevision
+import com.calypsan.listenup.client.data.local.db.PublicProfileDao
+import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
@@ -28,10 +34,12 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.runTest
 
@@ -84,16 +92,51 @@ class BookReadersRepositoryImplTest :
                 override suspend fun refreshCurrentUser(): User? = current
             }
 
+        fun rating(
+            bookId: String,
+            userId: String,
+            halfStars: Int,
+            note: String? = null,
+        ) = BookRatingEntity(
+            bookId = bookId,
+            userId = userId,
+            syncId = "$bookId:$userId",
+            halfStars = halfStars,
+            note = note,
+            ratedAt = 1L,
+            updatedAt = 1L,
+        )
+
+        fun profile(
+            id: String,
+            displayName: String,
+        ) = PublicProfileEntity(
+            id = id,
+            displayName = displayName,
+            avatarType = "auto",
+            totalSecondsAllTime = 0,
+            totalSecondsLast7Days = 0,
+            totalSecondsLast30Days = 0,
+            totalSecondsLast365Days = 0,
+            booksFinished = 0,
+            currentStreakDays = 0,
+            longestStreakDays = 0,
+        )
+
         fun repo(
             channel: RpcChannel<SocialService>,
             dao: BookReadershipDao,
             presence: PresenceRefreshSignal = PresenceRefreshSignal(),
             currentUser: User? = user(),
+            ratingDao: BookRatingDao = FakeBookRatingDao(),
+            profileDao: PublicProfileDao = FakeReaderPublicProfileDao(),
         ) = BookReadersRepositoryImpl(
             channel = channel,
             presence = presence,
             userRepository = fakeUsers(currentUser),
             readershipDao = dao,
+            ratingDao = ratingDao,
+            publicProfileDao = profileDao,
         )
 
         test("maps a fetched readership to domain readers and flags the current user") {
@@ -283,6 +326,57 @@ class BookReadersRepositoryImplTest :
                     }
             }
         }
+
+        test("a cached reader gains their rating from Room") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Success(BookReadership(listOf(entry("u2", "Jake", currentProgressPct = 43))))
+                    }
+                val ratingDao = FakeBookRatingDao()
+                ratingDao.upsert(rating(bookId = "b1", userId = "u2", halfStars = 8, note = "Superb."))
+
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), ratingDao = ratingDao, currentUser = null)
+                    .observeReadersFor("b1")
+                    .test {
+                        val jake = awaitNonEmpty().first { it.userId == "u2" }
+                        jake.rating.shouldNotBeNull()
+                        jake.rating?.halfStars shouldBe 8
+                        jake.rating?.note shouldBe "Superb."
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("a rater who isn't in the readership snapshot appears with their public-profile name") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Success(BookReadership(emptyList()))
+                    }
+                val ratingDao = FakeBookRatingDao()
+                ratingDao.upsert(rating(bookId = "b1", userId = "u9", halfStars = 6))
+                val profileDao = FakeReaderPublicProfileDao()
+                profileDao.upsert(profile(id = "u9", displayName = "Nadia"))
+
+                repo(
+                    RpcChannel.forTest(service),
+                    FakeBookReadershipDao(),
+                    ratingDao = ratingDao,
+                    profileDao = profileDao,
+                    currentUser = null,
+                ).observeReadersFor("b1")
+                    .test {
+                        val nadia = awaitNonEmpty().first { it.userId == "u9" }
+                        nadia.displayName shouldBe "Nadia"
+                        nadia.isYou shouldBe false
+                        nadia.rating?.halfStars shouldBe 6
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
     })
 
 /** In-memory [BookReadershipDao] for commonTest — a per-book [MutableStateFlow] mirror. */
@@ -347,3 +441,77 @@ private suspend fun app.cash.turbine.TurbineTestContext<com.calypsan.listenup.cl
         while (readers.isEmpty()) readers = awaitItem().readers
         readers
     }
+
+/** In-memory [BookRatingDao] for commonTest — a per-book [MutableStateFlow] mirror, live rows only. */
+private class FakeBookRatingDao : BookRatingDao {
+    private val byBook = mutableMapOf<String, MutableStateFlow<List<BookRatingEntity>>>()
+
+    private fun flowFor(bookId: String) = byBook.getOrPut(bookId) { MutableStateFlow(emptyList()) }
+
+    override suspend fun upsert(entity: BookRatingEntity) {
+        flowFor(entity.bookId).update { existing -> existing.filter { it.userId != entity.userId } + entity }
+    }
+
+    override suspend fun find(
+        bookId: String,
+        userId: String,
+    ): BookRatingEntity? = flowFor(bookId).value.firstOrNull { it.userId == userId }
+
+    override fun observeForBook(bookId: String): Flow<List<BookRatingEntity>> =
+        flowFor(bookId).map { rows -> rows.filter { it.deletedAt == null } }
+
+    override fun observeAverages(): Flow<List<BookRatingAverageRow>> = error("unused")
+
+    override suspend fun tombstone(
+        bookId: String,
+        userId: String,
+        deletedAt: Long,
+    ) = error("unused")
+
+    override suspend fun tombstoneBySyncId(
+        syncId: String,
+        deletedAt: Long,
+    ): Int = error("unused")
+
+    override suspend fun liveIds(): List<String> = error("unused")
+
+    override suspend fun liveSyncIdsForBooks(bookIds: List<String>): List<String> = error("unused")
+
+    override suspend fun tombstoneByIds(
+        ids: List<String>,
+        now: Long,
+    ) = error("unused")
+
+    override suspend fun digestRows(max: Long): List<IdRevision> = error("unused")
+
+    override suspend fun revisionOfSyncId(syncId: String): Long? = error("unused")
+
+    override suspend fun deleteAll() = error("unused")
+}
+
+/** In-memory [PublicProfileDao] for commonTest — a single [MutableStateFlow] roster, live rows only. */
+private class FakeReaderPublicProfileDao : PublicProfileDao {
+    private val flow = MutableStateFlow<List<PublicProfileEntity>>(emptyList())
+
+    override fun observeAll(): Flow<List<PublicProfileEntity>> = flow
+
+    override fun observeById(userId: String): Flow<PublicProfileEntity?> = error("unused")
+
+    override suspend fun upsert(entity: PublicProfileEntity) {
+        flow.update { existing -> existing.filter { it.id != entity.id } + entity }
+    }
+
+    override suspend fun findById(userId: String): PublicProfileEntity? = error("unused")
+
+    override suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    ) = error("unused")
+
+    override suspend fun digestRows(max: Long): List<IdRevision> = error("unused")
+
+    override suspend fun revisionOf(id: String): Long? = error("unused")
+
+    override suspend fun deleteAll() = error("unused")
+}

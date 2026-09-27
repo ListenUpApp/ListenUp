@@ -115,6 +115,18 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
                 )
             }
+
+            // A rated-without-reading line renders like a finished line with no date, for now —
+            // the real rated-line treatment lands with the Book Detail rating UI (Tasks 13-15).
+            ReaderLineKind.Rated -> {
+                ReaderRowUi(
+                    userId = line.userId,
+                    name = name,
+                    isReading = false,
+                    progressPct = null,
+                    finishedWhen = null,
+                )
+            }
         }
     }
 

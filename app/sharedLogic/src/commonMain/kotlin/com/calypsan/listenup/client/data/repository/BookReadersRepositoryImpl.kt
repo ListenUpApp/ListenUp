@@ -5,11 +5,15 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.BookRatingDao
+import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookReadershipDao
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
+import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.refreshTriggers
+import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
@@ -42,6 +46,9 @@ private val logger = KotlinLogging.logger {}
  * @property presence Pings whenever presence may have changed, driving a background refresh.
  * @property userRepository Source of the current user's identity, used to flag [Reader.isYou].
  * @property readershipDao The Room mirror — the offline read source.
+ * @property ratingDao The `book_ratings` Room mirror, joined in so each reader carries their rating.
+ * @property publicProfileDao The book-agnostic social roster, used to name a rater who isn't in the
+ *   readership snapshot (e.g. imported history) — see [ratedOnlyReaders].
  * @property clock Supplies `observedAt` for each cached row; injected for tests.
  */
 internal class BookReadersRepositoryImpl(
@@ -49,6 +56,8 @@ internal class BookReadersRepositoryImpl(
     private val presence: PresenceRefreshSignal,
     private val userRepository: UserRepository,
     private val readershipDao: BookReadershipDao,
+    private val ratingDao: BookRatingDao,
+    private val publicProfileDao: PublicProfileDao,
     private val clock: Clock = Clock.System,
 ) : BookReadersRepository {
     override fun observeReadersFor(bookId: String): Flow<BookReaders> =
@@ -62,11 +71,47 @@ internal class BookReadersRepositoryImpl(
     private fun cachedReaders(bookId: String): Flow<BookReaders> =
         combine(
             readershipDao.observeForBook(bookId),
+            ratingDao.observeForBook(bookId),
+            publicProfileDao.observeAll(),
             userRepository.observeCurrentUser(),
-        ) { rows, currentUser ->
+        ) { rows, ratings, profiles, currentUser ->
             val myId = currentUser?.id?.value
-            BookReaders(readers = rows.map { it.toReader(myId) })
+            val ratingByUser = ratings.associate { it.userId to it.toListenerRating() }
+            val readers = rows.map { it.toReader(myId).copy(rating = ratingByUser[it.userId]) }
+            val readerIds = readers.mapTo(mutableSetOf()) { it.userId }
+            val names = profiles.associate { it.id to it.displayName }
+            val ratedOnly = ratedOnlyReaders(ratingByUser, readerIds, names, myId, currentUser?.displayName)
+            BookReaders(readers = readers + ratedOnly)
         }
+
+    /**
+     * Readers for people who rated this book but never appear in the readership snapshot (e.g.
+     * imported history rated but not read on this server). Named from [PublicProfileDao]'s
+     * book-agnostic roster, or the current user's own display name; a rater whose name we can't
+     * resolve at all is dropped rather than shown blank.
+     */
+    private fun ratedOnlyReaders(
+        ratingByUser: Map<String, ListenerRating>,
+        readerIds: Set<String>,
+        names: Map<String, String>,
+        myId: String?,
+        myDisplayName: String?,
+    ): List<Reader> =
+        ratingByUser.values
+            .filter { it.userId !in readerIds }
+            .mapNotNull { rating ->
+                val name = if (rating.userId == myId) myDisplayName else names[rating.userId]
+                name?.let {
+                    Reader(
+                        userId = rating.userId,
+                        displayName = it,
+                        isYou = rating.userId == myId,
+                        currentProgressPct = null,
+                        finishes = emptyList(),
+                        rating = rating,
+                    )
+                }
+            }
 
     private fun refreshOnPing(bookId: String): Flow<BookReaders> =
         presence
@@ -116,4 +161,13 @@ private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
         isYou = userId == currentUserId,
         currentProgressPct = currentProgressPct,
         finishes = if (finishesJson.isEmpty()) emptyList() else finishesJson.split(",").map { it.toLong() },
+    )
+
+private fun BookRatingEntity.toListenerRating(): ListenerRating =
+    ListenerRating(
+        bookId = bookId,
+        userId = userId,
+        halfStars = halfStars,
+        note = note,
+        ratedAtMs = ratedAt,
     )
