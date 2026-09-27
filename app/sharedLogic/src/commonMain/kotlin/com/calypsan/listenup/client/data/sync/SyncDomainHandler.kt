@@ -52,6 +52,14 @@ internal interface SyncDomainHandler<T : Any> {
     fun syncId(item: T): String
 
     /**
+     * The targeted fetch that re-reads current server truth for the entity behind an outbox op keyed
+     * [outboxKey] — what reconcile-on-drain and the DRIFT-1 heal send. Defaults to reading the key as
+     * a wire id; a domain whose ops are keyed otherwise (a rating by its book, a junction by its pair)
+     * translates it, and returns null when no targeted fetch can serve the entity.
+     */
+    fun refetchForOutboxKey(outboxKey: String): TargetedFetch? = TargetedFetch.ByIds(listOf(outboxKey))
+
+    /**
      * Apply a firehose-driven event.
      *
      * Anti-flicker is structural, not per-call: the engine's apply choke point shields an inbound

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -45,7 +46,7 @@ class BookRatingsDomainTest :
         test("the domain is access-gated, like every book-scoped domain") {
             val db = createInMemoryTestDatabase()
             try {
-                bookRatingsDomain(db).accessGate.shouldNotBeNull()
+                bookRatingsDomain(db, FakeAuthSession()).accessGate.shouldNotBeNull()
             } finally {
                 db.close()
             }

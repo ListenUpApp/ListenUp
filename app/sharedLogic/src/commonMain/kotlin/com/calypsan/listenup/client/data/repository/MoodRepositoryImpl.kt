@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.domains.junctionOutboxKey
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import kotlin.uuid.Uuid
@@ -32,7 +33,7 @@ import kotlinx.coroutines.flow.map
  *
  * **Mutation**: `removeMoodFromBook` is offline-first — it tombstones the junction in Room
  * optimistically and enqueues a durable op (via [OfflineEditor.edit]) on the `book_moods` channel,
- * keyed by the `"$bookId:$moodId"` envelope id, so an edit made offline persists and replays on
+ * keyed by the `"$bookId:$moodId"` pair, so an edit made offline persists and replays on
  * reconnect rather than failing with a [com.calypsan.listenup.api.error.ServerConnectError]; the
  * in-flight shield defers the junction's own echo until the op drains, then it reconciles through
  * [com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain]. `addMoodToBook` is offline-first
@@ -73,13 +74,13 @@ internal class MoodRepositoryImpl(
     /**
      * Adding a mood to a book is find-or-create by slug server-side, so its offline-first eligibility
      * turns on whether the target mood already exists locally:
-     * - **Name hit** (a live mood with [name] already in Room, case-insensitive): its slug equals the
-     *   server's `normalize(name)`, so find-or-create for the same `name` resolves to THIS mood id — a
-     *   false hit is impossible (two moods can't share a slug). So it's offline-first: upsert the
-     *   `(bookId, moodId)` junction optimistically (revision-0, clearing any tombstone for re-add
-     *   semantics) and enqueue a durable [BookMoodMutation.Add] on the `book_moods` channel, keyed by
-     *   the same `"$bookId:$moodId"` envelope id the junction's mirror row uses so the in-flight shield
-     *   and reconcile-on-drain align. The known mood is returned immediately.
+     * - **Name hit** (a live mood with [name] already in Room, case-insensitive): its slug equals the server's
+     *   `normalize(name)`, so find-or-create for the same `name` resolves to THIS mood id — a false hit is
+     *   impossible (two moods can't share a slug). So it's offline-first: upsert the `(bookId, moodId)`
+     *   junction optimistically (revision-0, clearing any tombstone for re-add semantics) and enqueue a durable
+     *   [BookMoodMutation.Add] on the `book_moods` channel, keyed by the `"$bookId:$moodId"` pair — not the
+     *   row's wire id; the domain's `OutboxKeying` maps echoes and drained ops onto it. The known mood is
+     *   returned immediately.
      * - **Miss** (no same-name mood locally): a brand-new mood's id/slug are minted server-side and
      *   unknown until the echo, so it stays ONLINE via the [RpcChannel]. This also covers the rare case
      *   where the server would slug-match a *differently-named* existing mood; the echo reconciles Room.
@@ -99,7 +100,7 @@ internal class MoodRepositoryImpl(
         return offlineEditor
             .edit(
                 OutboxChannels.BookMoods,
-                "$bookId:${existing.id}",
+                junctionOutboxKey(bookId, existing.id),
                 BookMoodMutation.Add(bookId = bookId, moodId = existing.id, name = name),
                 op = OpKind.Create,
             ) {
@@ -123,9 +124,9 @@ internal class MoodRepositoryImpl(
     ): AppResult<Mood> = channel.call { it.addMoodToBook(BookId(bookId), name) }.map { it.toDomain() }
 
     /**
-     * Offline-first: tombstone the junction optimistically and enqueue a durable op on the
-     * `book_moods` channel, keyed by the same `"$bookId:$moodId"` envelope id the junction's mirror
-     * row uses so the in-flight shield and reconcile-on-drain align. Removal is idempotent server-side.
+     * Offline-first: tombstone the junction optimistically and enqueue a durable op on the `book_moods`
+     * channel, keyed by the `"$bookId:$moodId"` pair — not the row's wire id; the domain's `OutboxKeying` maps
+     * echoes and drained ops onto it. Removal is idempotent server-side.
      */
     override suspend fun removeMoodFromBook(
         bookId: String,
@@ -133,7 +134,7 @@ internal class MoodRepositoryImpl(
     ): AppResult<Unit> =
         offlineEditor.edit(
             OutboxChannels.BookMoods,
-            "$bookId:$moodId",
+            junctionOutboxKey(bookId, moodId),
             BookMoodMutation.Remove(bookId = bookId, moodId = moodId),
             op = OpKind.Delete,
         ) {

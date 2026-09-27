@@ -59,6 +59,13 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
                         },
                     ),
             ),
+        // Ops are keyed by the `(collectionId, bookId)` pair, not the opaque wire id; a drained op
+        // re-reads its collection's membership.
+        outboxKeying =
+            OutboxKeying(
+                keysOf = { setOf(junctionOutboxKey(it.collectionId, it.bookId)) },
+                refetchFor = { key -> TargetedFetch.ByCollectionIds(listOf(junctionOutboxParent(key))) },
+            ),
     )
 }
 

@@ -35,6 +35,11 @@ internal class MirroredDomain<T : SyncPayload>(
      * overrides it.
      */
     val syncIdOf: (T) -> String = { it.id },
+    /**
+     * How the domain's outbox keys map to its rows, when its repository keys queued ops by something
+     * other than the wire id (see [OutboxKeying]). Null means the wire id IS the outbox key.
+     */
+    val outboxKeying: OutboxKeying<T>? = null,
 )
 
 /**

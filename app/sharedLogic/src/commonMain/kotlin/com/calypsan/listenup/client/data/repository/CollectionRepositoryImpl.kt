@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.domains.junctionOutboxKey
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionShare
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -42,8 +43,8 @@ import kotlinx.coroutines.flow.map
  * **Mutation:** offline-first where it can be mirrored, online where it can't.
  * - `rename`, `delete`, `addBook`, `removeBook` write Room optimistically and enqueue a durable op
  *   (via [OfflineEditor.edit]) — lifecycle edits on the `collections` channel keyed by collection id,
- *   junction edits on the `collection_books` channel keyed by the `"$collectionId:$bookId"` envelope
- *   id — so an edit made offline persists and replays on reconnect. The entity-level in-flight shield
+ *   junction edits on the `collection_books` channel keyed by the `"$collectionId:$bookId"` pair —
+ *   so an edit made offline persists and replays on reconnect. The entity-level in-flight shield
  *   defers each row's own echo until its op drains.
  * - `create` stays online (the server mints the collection's id); `share`/`revokeShare`
  *   stay online (ACL changes are genuinely server-required).
@@ -121,7 +122,7 @@ internal class CollectionRepositoryImpl(
     /**
      * Offline-first: upsert the junction optimistically (revision-0 stub, clearing any tombstone) and
      * enqueue a durable op on the `collection_books` channel keyed by the `"$collectionId:$bookId"`
-     * envelope id. Idempotent server-side; the book already exists so no server id is minted.
+     * pair. Idempotent server-side; the book already exists so no server id is minted.
      *
      * A book that is already a live member is left untouched — re-upserting it would mint a new
      * syncId and reset the revision of a row the server already knows, and enqueue an op with
@@ -137,7 +138,7 @@ internal class CollectionRepositoryImpl(
         return offlineEditor
             .edit(
                 OutboxChannels.CollectionBooks,
-                "$collectionId:$bookId",
+                junctionOutboxKey(collectionId, bookId),
                 CollectionBookMutation.Add(collectionId = collectionId, bookId = bookId),
                 op = OpKind.Create,
             ) {
@@ -155,9 +156,9 @@ internal class CollectionRepositoryImpl(
     }
 
     /**
-     * Offline-first: tombstone the junction optimistically and enqueue a durable op on the
-     * `collection_books` channel keyed by the same `"$collectionId:$bookId"` envelope id the junction's
-     * mirror row uses so the in-flight shield and reconcile-on-drain align. Idempotent server-side.
+     * Offline-first: tombstone the junction optimistically and enqueue a durable op on the `collection_books`
+     * channel keyed by the `"$collectionId:$bookId"` pair — not the row's wire id; the domain's `OutboxKeying`
+     * maps echoes and drained ops onto it. Idempotent server-side.
      */
     override suspend fun removeBook(
         collectionId: String,
@@ -165,7 +166,7 @@ internal class CollectionRepositoryImpl(
     ): AppResult<Unit> =
         offlineEditor.edit(
             OutboxChannels.CollectionBooks,
-            "$collectionId:$bookId",
+            junctionOutboxKey(collectionId, bookId),
             CollectionBookMutation.Remove(collectionId = collectionId, bookId = bookId),
             op = OpKind.Delete,
         ) {

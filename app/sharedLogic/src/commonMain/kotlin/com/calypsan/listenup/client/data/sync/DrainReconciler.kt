@@ -28,9 +28,10 @@ internal class DrainReconciler(
      * Re-fetch current server truth for [ref]'s entity and apply it over a never-accepted optimistic
      * edit (DRIFT-1). Triggered when an outbox op dead-lettered or was dismissed: the local row's
      * `(id, revision)` is unchanged, so no digest reconcile, `?since=` catch-up, or firehose echo repairs
-     * a content-only divergence — only a targeted by-id re-fetch does. The equal-revision re-fetch
-     * applies through the normal `ServerWins` strict-`>` guard (equal revisions are not stale), so no
-     * force override is needed.
+     * a content-only divergence — only a targeted re-fetch does, translated from the op's key through
+     * [SyncDomainHandler.refetchForOutboxKey] (skipped when the domain declares none can serve it).
+     * The equal-revision re-fetch applies through the normal `ServerWins` strict-`>` guard (equal
+     * revisions are not stale), so no force override is needed.
      *
      * Gated on [PendingOperationQueue.hasQueuedOpFor] so a fresh in-flight edit for the same entity
      * is never clobbered — its own echo is the authority then. Runs the fetch under [catchUpMutex]
@@ -46,9 +47,15 @@ internal class DrainReconciler(
                 return
             }
 
+        val fetch =
+            handler.refetchForOutboxKey(ref.entityId) ?: run {
+                logger.debug { "heal: '${ref.domainName}' has no targeted fetch for ${ref.entityId}; skipping" }
+                return
+            }
+
         @Suppress("UNCHECKED_CAST")
         val typed = handler as SyncDomainHandler<Any>
-        val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, TargetedFetch.ByIds(listOf(ref.entityId))) }
+        val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, fetch) }
         if (result is AppResult.Failure) {
             logger.warn {
                 "heal fetch failed for '${ref.domainName}' entity ${ref.entityId}: ${result.error.code}; " +
@@ -62,7 +69,8 @@ internal class DrainReconciler(
      * anti-flicker shield dropped lands promptly instead of waiting for the next lifecycle digest.
      *
      * Bounded to ONE targeted fetch per access-gated domain per wave: the sent refs are grouped by
-     * domain and fetched by their id list via the existing [CatchUp.fetchTransient] `?ids=` path —
+     * domain, translated through [SyncDomainHandler.refetchForOutboxKey] (an op key is not always a wire
+     * id), and fetched via the existing [CatchUp.fetchTransient] targeted path —
      * the same primitive the `AccessChanged` delta uses, so the fetch inherits the domain handler's
      * revision guard and in-flight shield. Two classes are skipped:
      *  - A client-only channel (`profile`/`preferences`) has no registered [SyncDomainHandler] — its
@@ -101,17 +109,31 @@ internal class DrainReconciler(
                 }
                 continue
             }
-            val ids = refs.map { it.entityId }.distinct()
+            val fetches = refs.mapNotNull { handler.refetchForOutboxKey(it.entityId) }.merged()
 
             @Suppress("UNCHECKED_CAST")
             val typed = handler as SyncDomainHandler<Any>
-            val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, TargetedFetch.ByIds(ids)) }
-            if (result is AppResult.Failure) {
-                logger.warn {
-                    "reconcile-on-drain fetch failed for '$domainName' (${ids.size} id(s)): ${result.error.code}; " +
-                        "digest reconcile is the backstop"
+            for (fetch in fetches) {
+                val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, fetch) }
+                if (result is AppResult.Failure) {
+                    logger.warn {
+                        "reconcile-on-drain fetch failed for '$domainName' ($fetch): ${result.error.code}; " +
+                            "digest reconcile is the backstop"
+                    }
                 }
             }
         }
     }
+}
+
+/** One fetch per kind, its values de-duplicated — so a wave's refs cost one fetch per match column. */
+private fun List<TargetedFetch>.merged(): List<TargetedFetch> {
+    val ids = filterIsInstance<TargetedFetch.ByIds>().flatMap { it.ids }.distinct()
+    val collectionIds = filterIsInstance<TargetedFetch.ByCollectionIds>().flatMap { it.collectionIds }.distinct()
+    val bookIds = filterIsInstance<TargetedFetch.ByBookIds>().flatMap { it.bookIds }.distinct()
+    return listOfNotNull(
+        ids.takeIf { it.isNotEmpty() }?.let(TargetedFetch::ByIds),
+        collectionIds.takeIf { it.isNotEmpty() }?.let(TargetedFetch::ByCollectionIds),
+        bookIds.takeIf { it.isNotEmpty() }?.let(TargetedFetch::ByBookIds),
+    )
 }

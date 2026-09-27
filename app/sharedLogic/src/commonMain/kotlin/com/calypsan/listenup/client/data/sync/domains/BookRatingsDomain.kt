@@ -5,14 +5,23 @@ import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.sync.TargetedFetch
+import com.calypsan.listenup.client.domain.repository.AuthSession
 
 /**
  * The `book_ratings` domain: one listener's rating of one book, mirrored under the server's opaque
  * wire id. Server-wins apply, soft tombstones, full digest, outbox writes (coalesced — a rating is
  * terminal state), and the book access gate every book-scoped domain carries, so a rating on a book
  * that leaves the viewer's scope is pruned locally rather than lingering.
+ *
+ * **Outbox key.** The listener's ops are keyed by bookId, not by the row's wire id: the server may
+ * re-id a row, and per-book coalescing and FIFO must survive that. So the shield keys an inbound
+ * rating by its book — only when it is [authSession]'s own, since another listener's rating of the
+ * same book is not what the queued edit will echo — and a drained op re-reads its book's ratings.
  */
-internal fun bookRatingsDomain(database: ListenUpDatabase): MirroredDomain<BookRatingSyncPayload> {
+internal fun bookRatingsDomain(
+    database: ListenUpDatabase,
+    authSession: AuthSession,
+): MirroredDomain<BookRatingSyncPayload> {
     val apply = BookRatingMirrorApply(database)
     return MirroredDomain(
         key = SyncDomains.BOOK_RATINGS,
@@ -41,6 +50,13 @@ internal fun bookRatingsDomain(database: ListenUpDatabase): MirroredDomain<BookR
                                 .flatMapTo(mutableSetOf()) { database.bookRatingDao().liveSyncIdsForBooks(it) }
                         },
                     ),
+            ),
+        outboxKeying =
+            OutboxKeying(
+                keysOf = { payload ->
+                    if (payload.userId == authSession.getUserId()) setOf(payload.bookId) else emptySet()
+                },
+                refetchFor = { bookId -> TargetedFetch.ByBookIds(listOf(bookId)) },
             ),
     )
 }
