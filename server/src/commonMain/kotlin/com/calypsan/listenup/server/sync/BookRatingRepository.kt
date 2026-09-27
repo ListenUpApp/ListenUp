@@ -15,6 +15,12 @@ import kotlin.time.Clock
  * Natural-pair identity of a `book_ratings` row: one listener, one book. [candidateWireId] is the
  * wire id to use only when no row exists yet — see [BookMoodId] for the "existing row's id wins"
  * rule this repeats.
+ *
+ * [candidateWireId] is **client-minted and untrusted**: it arrives on `RateBookRequest` from
+ * whichever device is rating, so it can be blank or can name a row that already belongs to a
+ * different `(bookId, userId)` pair (by accident or by a malicious client). [BookRatingRepository]
+ * guards both cases before it ever reaches [SqlSyncableRepository.upsert] — see
+ * [BookRatingRepository.upsertReturningEvent].
  */
 data class BookRatingId(
     val bookId: String,
@@ -27,6 +33,10 @@ data class BookRatingId(
  * exactly like [BookMoodRepository] (the [driver] carries the caller's visible-book subquery into
  * the filtered pull). Writes arrive only through `BookRatingServiceImpl`, which fixes `userId` to
  * the principal — this class trusts its callers to have done that.
+ *
+ * [Book_ratings.rated_at] is the server's [clock] at the row's first write, never a client-supplied
+ * instant — so a rating made offline is dated when it syncs, not when the listener tapped the star,
+ * mirroring every other `created_at`-shaped sync field in this codebase.
  */
 class BookRatingRepository(
     db: ListenUpDatabase,
@@ -101,6 +111,57 @@ class BookRatingRepository(
     override fun minimizeTombstone(payload: BookRatingSyncPayload): BookRatingSyncPayload =
         payload.copy(bookId = "", userId = "", note = null)
 
+    /**
+     * Guards every upsert that would otherwise INSERT a fresh row — no live-or-tombstoned row yet
+     * exists for `(value.bookId, value.userId)` — against [value]'s client-minted `id` (see
+     * [BookRatingId]'s KDoc for why it's untrusted). Refused when the candidate is blank, or when
+     * [SyncableSubstrateQueries.existsById]-by-that-id is already true (it names some OTHER pair's
+     * row, live or tombstoned): letting either through would either poison the table with an
+     * ambiguous blank id (a later blank-candidate write for a DIFFERENT pair would silently claim it)
+     * or hand a second listener's rating [BookRatingId.idAsString]-equivalence with a first listener's
+     * row, and the base's own INSERT would then violate `idx_book_ratings_id`'s UNIQUE constraint as
+     * an unhandled SQLite exception instead of a typed failure.
+     *
+     * The pre-check runs in its own short transaction ahead of the base's write (there is no shared
+     * base-class hook to splice a guard INTO that transaction), so a true concurrent race between two
+     * candidate-colliding writes is only caught by SQLite's UNIQUE index, not by this guard — this
+     * guard's job is turning the common case into a clean [AppResult.Failure] instead of a crash.
+     *
+     * No existing [SyncError] subtype names "candidate collision"; [SyncError.NotFound] is reused
+     * here (its `isRetryable = false` is the property that matters — the caller must mint a fresh
+     * candidate and retry, not blindly resend the same one).
+     */
+    override suspend fun upsertReturningEvent(
+        value: BookRatingSyncPayload,
+        clientOpId: String?,
+        userId: String?,
+    ): AppResult<Pair<BookRatingSyncPayload, SyncEvent<BookRatingSyncPayload>>> {
+        val guardError =
+            suspendTransaction(db) {
+                val existingId =
+                    db.bookRatingsQueries.selectIdByNaturalPair(value.bookId, value.userId).executeAsOneOrNull()
+                when {
+                    existingId != null -> {
+                        null
+                    }
+
+                    value.id.isBlank() -> {
+                        SyncError.NotFound(domain = domainName, entityId = value.id)
+                    }
+
+                    db.bookRatingsQueries.existsById(value.id).executeAsOne() -> {
+                        SyncError.NotFound(domain = domainName, entityId = value.id)
+                    }
+
+                    else -> {
+                        null
+                    }
+                }
+            }
+        if (guardError != null) return AppResult.Failure(guardError)
+        return super.upsertReturningEvent(value, clientOpId, userId)
+    }
+
     override fun writePayload(
         value: BookRatingSyncPayload,
         rev: Long,
@@ -150,21 +211,31 @@ class BookRatingRepository(
      * Tombstone [userId]'s rating of [bookId]. Clearing a rating that doesn't exist succeeds —
      * the only documented failure mode of the base's [softDelete] is [SyncError.NotFound], which
      * this treats as an already-cleared no-op rather than surfacing it to the caller.
+     *
+     * Resolves the natural pair to its REAL stored id itself, first — **never** falling through to
+     * [BookRatingId]'s blank default candidate the way a bare `BookRatingId(bookId, userId)` would.
+     * That fallback exists only for [upsertReturningEvent]'s insert path; here, with no row for the
+     * pair, "" is not a candidate to mint — it is [SyncableSubstrateQueries.softDeleteById]'s literal
+     * `id = ''` predicate, which would tombstone an unrelated row that happens to carry a blank id
+     * (legacy data, or an id a pre-guard client once slipped through). Finding no id means finding
+     * nothing to clear, full stop.
      */
     suspend fun clear(
         bookId: String,
         userId: String,
         clientOpId: String? = null,
-    ): AppResult<Unit> =
-        when (val result = softDelete(BookRatingId(bookId, userId), clientOpId = clientOpId)) {
-            is AppResult.Success -> {
-                result
-            }
-
-            is AppResult.Failure -> {
-                if (result.error is SyncError.NotFound) AppResult.Success(Unit) else result
-            }
+    ): AppResult<Unit> {
+        val existingId =
+            suspendTransaction<String?>(db) {
+                db.bookRatingsQueries.selectIdByNaturalPair(bookId, userId).executeAsOneOrNull()
+            } ?: return AppResult.Success(Unit)
+        return when (
+            val result = softDelete(BookRatingId(bookId, userId, existingId), clientOpId = clientOpId)
+        ) {
+            is AppResult.Success -> result
+            is AppResult.Failure -> if (result.error is SyncError.NotFound) AppResult.Success(Unit) else result
         }
+    }
 
     /**
      * Tombstone every live rating [userId] made — the account-deletion sweep. Each row gets its own

@@ -26,10 +26,13 @@ CREATE INDEX idx_book_ratings_revision ON book_ratings(revision);
 existsById:
 SELECT EXISTS(SELECT 1 FROM book_ratings WHERE id = :id);
 
+-- `AND deleted_at IS NULL` (unlike book_moods' softDeleteById) so a repeat clear of an
+-- already-tombstoned row matches zero rows: the base's softDelete then reports NotFound instead of
+-- re-stamping the tombstone, bumping a revision, and re-publishing a Deleted event for nothing.
 softDeleteById:
 UPDATE book_ratings
 SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
-WHERE id = :id;
+WHERE id = :id AND deleted_at IS NULL;
 
 selectIdsAboveRevision:
 SELECT id, revision FROM book_ratings WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;

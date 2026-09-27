@@ -44,6 +44,11 @@ class BookRatingContractTest :
             shouldThrow<IllegalArgumentException> { RateBookRequest(candidateId = "c", halfStars = 11, note = null) }
         }
 
+        test("RateBookRequest rejects a blank candidateId") {
+            shouldThrow<IllegalArgumentException> { RateBookRequest(candidateId = "", halfStars = 6, note = null) }
+            shouldThrow<IllegalArgumentException> { RateBookRequest(candidateId = "   ", halfStars = 6, note = null) }
+        }
+
         test("RateBookRequest rejects a note longer than the cap") {
             shouldThrow<IllegalArgumentException> {
                 RateBookRequest(candidateId = "c", halfStars = 6, note = "x".repeat(281))
