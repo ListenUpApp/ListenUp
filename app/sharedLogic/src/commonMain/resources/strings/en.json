@@ -968,6 +968,7 @@
     "can_edit": "Can Edit Metadata",
     "allow_editing_content_metadata": "Allow editing tags, moods, genres, series and contributors",
     "categories_books_count": "%1$d categories • %2$d books",
+    "categories_select_hint": "Select a category to rename, move, merge or delete it.",
     "collection_details": "Collection Details",
     "collection_name": "Collection Name",
     "collection_updated": "Collection updated",

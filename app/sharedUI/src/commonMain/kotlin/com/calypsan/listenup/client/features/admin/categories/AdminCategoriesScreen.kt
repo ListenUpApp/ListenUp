@@ -1,7 +1,13 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
-import com.calypsan.listenup.client.design.readingWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.selected
+import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.semantics.heading
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.common_collapsed
@@ -27,6 +33,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -79,6 +86,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -539,8 +547,16 @@ private fun MoveGenreDialogHost(
     }
 }
 
+/**
+ * The loaded category tree with its drag-to-reparent state. A phone shows the tree alone; from the
+ * medium width up the tree sits beside a [CategoryDetailPanel] for the category the admin selects.
+ *
+ * The Ready body forwards the tree's per-row actions and the reparent intent; a parameter object
+ * would only add an indirection layer Compose tooling discourages.
+ */
+@Suppress("LongParameterList")
 @Composable
-private fun AdminCategoriesReadyContent(
+internal fun AdminCategoriesReadyContent(
     state: AdminCategoriesUiState.Ready,
     onToggleExpanded: (String) -> Unit,
     onAddChild: (String, String) -> Unit,
@@ -552,6 +568,15 @@ private fun AdminCategoriesReadyContent(
     onMoveGenre: (String, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    // The wide layout's selection: which category the detail panel shows. Kept across rotation, and
+    // dropped naturally when the category disappears (the panel then asks for a new selection).
+    var selectedGenreId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectCategory: (String) -> Unit = { id -> selectedGenreId = id }
+
     // Drag state is local to the Ready content — it is only meaningful while
     // the tree is interactive.
     var draggedGenreId by remember { mutableStateOf<String?>(null) }
@@ -559,40 +584,70 @@ private fun AdminCategoriesReadyContent(
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
     var dropTargetId by remember { mutableStateOf<String?>(null) }
 
-    CategoriesContent(
-        state = state,
-        onToggleExpanded = onToggleExpanded,
-        dropTargetId = dropTargetId,
-        onAddChild = onAddChild,
-        onRename = onRename,
-        onDelete = onDelete,
-        onMerge = onMerge,
-        onMergeHistory = onMergeHistory,
-        onMove = onMove,
-        onDragStart = { id, name ->
-            draggedGenreId = id
-            draggedGenreName = name
-        },
-        onDragEnd = {
-            val dragged = draggedGenreId
-            val target = dropTargetId
-            if (dragged != null && target != null && dragged != target) {
-                onMoveGenre(dragged, target)
-            }
-            draggedGenreId = null
-            draggedGenreName = null
-            dragOffset = Offset.Zero
-            dropTargetId = null
-        },
-        onDragCancel = {
-            draggedGenreId = null
-            draggedGenreName = null
-            dragOffset = Offset.Zero
-            dropTargetId = null
-        },
-        onDropTargetChange = { dropTargetId = it },
-        modifier = modifier,
-    )
+    val tree: @Composable (Modifier) -> Unit = { treeModifier ->
+        CategoriesContent(
+            state = state,
+            onToggleExpanded = onToggleExpanded,
+            dropTargetId = dropTargetId,
+            onAddChild = onAddChild,
+            onRename = onRename,
+            onDelete = onDelete,
+            onMerge = onMerge,
+            onMergeHistory = onMergeHistory,
+            onMove = onMove,
+            onDragStart = { id, name ->
+                draggedGenreId = id
+                draggedGenreName = name
+            },
+            onDragEnd = {
+                val dragged = draggedGenreId
+                val target = dropTargetId
+                if (dragged != null && target != null && dragged != target) {
+                    onMoveGenre(dragged, target)
+                }
+                draggedGenreId = null
+                draggedGenreName = null
+                dragOffset = Offset.Zero
+                dropTargetId = null
+            },
+            onDragCancel = {
+                draggedGenreId = null
+                draggedGenreName = null
+                dragOffset = Offset.Zero
+                dropTargetId = null
+            },
+            onDropTargetChange = { dropTargetId = it },
+            selectedGenreId = if (isWide) selectedGenreId else null,
+            onSelect = selectCategory.takeIf { isWide },
+            horizontalPadding = if (isWide) 0.dp else 16.dp,
+            modifier = treeModifier,
+        )
+    }
+
+    if (!isWide || state.tree.isEmpty()) {
+        tree(modifier)
+        return
+    }
+
+    // The wide form: the tree keeps one column — a hierarchy read top to bottom, whose rows reparent
+    // by dragging onto one another, does not survive being dealt into columns — and the selected
+    // category gets a detail panel beside it, its actions as visible rows rather than a long-press.
+    Row(
+        modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+    ) {
+        tree(Modifier.weight(1f))
+        CategoryDetailPanel(
+            genre = state.genres.firstOrNull { it.id == selectedGenreId },
+            onAddChild = onAddChild,
+            onRename = onRename,
+            onDelete = onDelete,
+            onMerge = onMerge,
+            onMergeHistory = onMergeHistory,
+            onMove = onMove,
+            modifier = Modifier.width(CategoryDetailPanelWidth).fillMaxHeight(),
+        )
+    }
 }
 
 /**
@@ -689,6 +744,9 @@ private fun CategoriesContent(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
     onDropTargetChange: (String?) -> Unit,
+    selectedGenreId: String?,
+    onSelect: ((String) -> Unit)?,
+    horizontalPadding: Dp,
     modifier: Modifier = Modifier,
 ) {
     if (state.tree.isEmpty()) {
@@ -698,8 +756,7 @@ private fun CategoriesContent(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .readingWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = horizontalPadding),
         ) {
             item {
                 Text(
@@ -742,6 +799,8 @@ private fun CategoriesContent(
                                 onDragEnd = onDragEnd,
                                 onDragCancel = onDragCancel,
                                 onDropTargetChange = onDropTargetChange,
+                                selectedGenreId = selectedGenreId,
+                                onSelect = onSelect,
                             )
                         }
                     }
@@ -775,6 +834,8 @@ private fun CategoryTreeNode(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
     onDropTargetChange: (String?) -> Unit,
+    selectedGenreId: String?,
+    onSelect: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val isExpanded = expandedIds.contains(node.genre.id)
@@ -798,6 +859,8 @@ private fun CategoryTreeNode(
             onDragEnd = onDragEnd,
             onDragCancel = onDragCancel,
             onDropTargetChange = onDropTargetChange,
+            isSelected = selectedGenreId == node.genre.id,
+            onSelect = onSelect?.let { select -> { select(node.genre.id) } },
         )
 
         // Show divider if not last item at root level, or if expanded with children
@@ -832,6 +895,8 @@ private fun CategoryTreeNode(
                         onDragEnd = onDragEnd,
                         onDragCancel = onDragCancel,
                         onDropTargetChange = onDropTargetChange,
+                        selectedGenreId = selectedGenreId,
+                        onSelect = onSelect,
                     )
                 }
             }
@@ -860,6 +925,8 @@ private fun CategoryRow(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
     onDropTargetChange: (String?) -> Unit,
+    isSelected: Boolean,
+    onSelect: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val rotation by animateFloatAsState(
@@ -872,30 +939,44 @@ private fun CategoryRow(
     var rowHeight by remember { mutableStateOf(0) }
 
     val dropHighlightColor = MaterialTheme.colorScheme.primaryContainer
+    val selectedColor = MaterialTheme.colorScheme.secondaryContainer
 
     Box(
         modifier =
             modifier
                 .fillMaxWidth()
                 .then(
-                    if (isDropTarget) {
-                        Modifier.background(dropHighlightColor, RoundedCornerShape(8.dp))
-                    } else {
-                        Modifier
+                    when {
+                        isDropTarget -> Modifier.background(dropHighlightColor, RoundedCornerShape(8.dp))
+                        isSelected -> Modifier.background(selectedColor, RoundedCornerShape(8.dp))
+                        else -> Modifier
                     },
                 ).onGloballyPositioned { coordinates ->
                     rowPosition = coordinates.positionInRoot()
                     rowHeight = coordinates.size.height
                 },
     ) {
-        CategoryRowContent(
-            node = node,
-            isExpanded = isExpanded,
-            hasChildren = hasChildren,
-            rotation = rotation,
-            onToggleExpanded = onToggleExpanded,
-            onLongClick = { showContextMenu = true },
-        )
+        if (onSelect == null) {
+            CategoryRowContent(
+                node = node,
+                isExpanded = isExpanded,
+                hasChildren = hasChildren,
+                rotation = rotation,
+                onToggleExpanded = onToggleExpanded,
+                onLongClick = { showContextMenu = true },
+            )
+        } else {
+            SelectableCategoryRowContent(
+                node = node,
+                isExpanded = isExpanded,
+                hasChildren = hasChildren,
+                rotation = rotation,
+                isSelected = isSelected,
+                onSelect = onSelect,
+                onToggleExpanded = onToggleExpanded,
+                onLongClick = { showContextMenu = true },
+            )
+        }
 
         // Context menu
         CategoryContextMenu(
@@ -972,42 +1053,116 @@ private fun CategoryRowContent(
             Spacer(modifier = Modifier.width(20.dp))
         }
 
-        // Category icon
-        Icon(
-            imageVector = Icons.Outlined.Category,
-            contentDescription = null,
-            tint =
-                if (node.depth == 0) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            modifier = Modifier.size(20.dp),
-        )
+        CategoryRowLabel(node = node)
+    }
+}
 
-        // Category name
-        Text(
-            text = node.genre.name,
-            style =
-                if (node.depth == 0) {
-                    MaterialTheme.typography.bodyLarge
-                } else {
-                    MaterialTheme.typography.bodyMedium
+/**
+ * The wide layout's row: a tap selects the category for the detail panel, so expanding moves to its
+ * own chevron button — named for TalkBack, carrying the expanded state. The long-press menu stays,
+ * so the phone's gesture still works on a tablet.
+ *
+ * Mirrors CategoryRowContent's inputs plus the selection pair; a parameter object would only add an
+ * indirection layer Compose tooling discourages.
+ */
+@Suppress("LongParameterList")
+@Composable
+private fun SelectableCategoryRowContent(
+    node: GenreTreeNode,
+    isExpanded: Boolean,
+    hasChildren: Boolean,
+    rotation: Float,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    onToggleExpanded: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    val expandLabel = stringResource(if (isExpanded) Res.string.common_collapse else Res.string.common_expand)
+    val expansionState = stringResource(if (isExpanded) Res.string.common_expanded else Res.string.common_collapsed)
+    val moreActionsLabel = stringResource(Res.string.common_more_actions)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .combinedClickable(
+                    hapticFeedbackEnabled = false,
+                    onLongClickLabel = moreActionsLabel,
+                    onClick = {
+                        haptics.selectionTick()
+                        onSelect()
+                    },
+                    onLongClick = {
+                        haptics.longPress()
+                        onLongClick()
+                    },
+                ).semantics { selected = isSelected }
+                // The chevron button's own 14dp inset takes the place of the phone row's padding.
+                .padding(start = (2 + node.depth * 24).dp, end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (hasChildren) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onToggleExpanded()
                 },
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-
-        // Book count badge
-        if (node.genre.bookCount > 0) {
-            Text(
-                text = stringResource(Res.string.admin_book_count, node.genre.bookCount),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                modifier = Modifier.semantics { stateDescription = expansionState },
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ExpandMore,
+                    contentDescription = expandLabel,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp).rotate(rotation),
+                )
+            }
+        } else {
+            Spacer(modifier = Modifier.width(48.dp))
         }
+        CategoryRowLabel(node = node)
+    }
+}
+
+/** A category row's icon, name and book count — the part the phone and wide rows share. */
+@Composable
+private fun RowScope.CategoryRowLabel(node: GenreTreeNode) {
+    // Category icon
+    Icon(
+        imageVector = Icons.Outlined.Category,
+        contentDescription = null,
+        tint =
+            if (node.depth == 0) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        modifier = Modifier.size(20.dp),
+    )
+
+    // Category name
+    Text(
+        text = node.genre.name,
+        style =
+            if (node.depth == 0) {
+                MaterialTheme.typography.bodyLarge
+            } else {
+                MaterialTheme.typography.bodyMedium
+            },
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f),
+    )
+
+    // Book count badge
+    if (node.genre.bookCount > 0) {
+        Text(
+            text = stringResource(Res.string.admin_book_count, node.genre.bookCount),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -32,6 +32,7 @@
     <string name="admin_can_manage_users_and_invites">Can manage users and invites</string>
     <string name="admin_can_share">Can Share</string>
     <string name="admin_categories_books_count">%1$d categories • %2$d books</string>
+    <string name="admin_categories_select_hint">Select a category to rename, move, merge or delete it.</string>
     <string name="admin_collapse_all">Collapse All</string>
     <string name="admin_collection_count">%1$d collection</string>
     <string name="admin_collection_details">Collection Details</string>

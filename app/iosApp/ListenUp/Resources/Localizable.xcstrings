@@ -321,6 +321,16 @@
         }
       }
     },
+    "admin.categories_select_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a category to rename, move, merge or delete it."
+          }
+        }
+      }
+    },
     "admin.collapse_all": {
       "localizations": {
         "en": {
