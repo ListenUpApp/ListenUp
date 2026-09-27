@@ -1,6 +1,10 @@
 package com.calypsan.listenup.client.features.admin.backup
 
-import com.calypsan.listenup.client.design.readingWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -320,7 +324,7 @@ private fun AdminBackupBody(
 }
 
 @Composable
-private fun AdminBackupReadyContent(
+internal fun AdminBackupReadyContent(
     state: AdminBackupUiState.Ready,
     absImports: List<ImportSummary>,
     isLoadingImports: Boolean,
@@ -333,8 +337,13 @@ private fun AdminBackupReadyContent(
     onDeleteImportClick: (ImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
 ) {
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
     if (state.backups.isEmpty() && absImports.isEmpty()) {
         EmptyBackupState(
+            isWide = isWide,
             modifier = modifier,
             onUploadABSBackup = onUploadABSBackup,
             onRestoreFromFileClick = onRestoreFromFileClick,
@@ -342,66 +351,128 @@ private fun AdminBackupReadyContent(
         return
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().readingWidth(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // Backups section
-        item(key = "backups_header") {
-            SectionHeader(title = stringResource(Res.string.admin_backups))
-        }
+    val backupsLane: LazyListScope.() -> Unit = {
+        backupsSection(
+            backups = state.backups,
+            onRestoreClick = onRestoreClick,
+            onRestoreFromFileClick = onRestoreFromFileClick,
+            onDownloadClick = onDownloadClick,
+            onDeleteClick = onDeleteClick,
+        )
+    }
+    val importsLane: LazyListScope.() -> Unit = {
+        importsSection(
+            // In one list the imports need a rule to part them from the backups above; a lane doesn't.
+            dividerAbove = !isWide && state.backups.isNotEmpty(),
+            imports = absImports,
+            isLoading = isLoadingImports,
+            onUploadABSBackup = onUploadABSBackup,
+            onABSImportClick = onABSImportClick,
+            onDeleteImportClick = onDeleteImportClick,
+        )
+    }
 
-        // Restore-from-file card — prominent entry point, always shown at the top of the section.
-        item(key = "restore_from_file") {
-            RestoreFromFileCard(onClick = onRestoreFromFileClick)
+    if (isWide) {
+        // Two lanes: the server's own backups and the Audiobookshelf imports are separate jobs with
+        // separate lists, so a tablet runs them side by side, each scrolling on its own.
+        Row(
+            modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+        ) {
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = LanePadding,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = backupsLane,
+            )
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = LanePadding,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = importsLane,
+            )
         }
+    } else {
+        LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            backupsLane()
+            importsLane()
+        }
+    }
+}
 
-        if (state.backups.isNotEmpty()) {
-            items(state.backups, key = { "backup_${it.id}" }) { backup ->
-                BackupCard(
-                    backup = backup,
-                    onRestoreClick = { onRestoreClick(backup.id) },
-                    onDownloadClick = { onDownloadClick(backup) },
-                    onDeleteClick = { onDeleteClick(backup) },
-                )
+/** A wide lane's padding: clear of the app bar at the top, and of the create FAB at the bottom. */
+private val LanePadding = PaddingValues(top = 16.dp, bottom = 88.dp)
+
+private fun LazyListScope.backupsSection(
+    backups: List<BackupInfo>,
+    onRestoreClick: (String) -> Unit,
+    onRestoreFromFileClick: () -> Unit,
+    onDownloadClick: (BackupInfo) -> Unit,
+    onDeleteClick: (BackupInfo) -> Unit,
+) {
+    item(key = "backups_header") {
+        SectionHeader(title = stringResource(Res.string.admin_backups))
+    }
+
+    // Restore-from-file card — prominent entry point, always shown at the top of the section.
+    item(key = "restore_from_file") {
+        RestoreFromFileCard(onClick = onRestoreFromFileClick)
+    }
+
+    items(backups, key = { "backup_${it.id}" }) { backup ->
+        BackupCard(
+            backup = backup,
+            onRestoreClick = { onRestoreClick(backup.id) },
+            onDownloadClick = { onDownloadClick(backup) },
+            onDeleteClick = { onDeleteClick(backup) },
+        )
+    }
+}
+
+private fun LazyListScope.importsSection(
+    dividerAbove: Boolean,
+    imports: List<ImportSummary>,
+    isLoading: Boolean,
+    onUploadABSBackup: () -> Unit,
+    onABSImportClick: (String) -> Unit,
+    onDeleteImportClick: (ImportSummary) -> Unit,
+) {
+    item(key = "abs_header") {
+        if (dividerAbove) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        }
+        SectionHeader(title = stringResource(Res.string.import_audiobookshelf_imports))
+    }
+
+    // Upload new import card
+    item(key = "upload_new") {
+        UploadABSBackupCard(onClick = onUploadABSBackup)
+    }
+
+    // Existing imports
+    if (isLoading) {
+        item(key = "loading_imports") {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                ListenUpLoadingIndicatorSmall()
             }
         }
-
-        // ABS Imports section
-        item(key = "abs_header") {
-            if (state.backups.isNotEmpty()) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            }
-            SectionHeader(title = stringResource(Res.string.import_audiobookshelf_imports))
-        }
-
-        // Upload new import card
-        item(key = "upload_new") {
-            UploadABSBackupCard(onClick = onUploadABSBackup)
-        }
-
-        // Existing imports
-        if (isLoadingImports) {
-            item(key = "loading_imports") {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ListenUpLoadingIndicatorSmall()
-                }
-            }
-        } else {
-            items(absImports, key = { "import_${it.id}" }) { import ->
-                ABSImportSummaryCard(
-                    import = import,
-                    onClick = { onABSImportClick(import.id.value) },
-                    onDeleteClick = { onDeleteImportClick(import) },
-                )
-            }
+    } else {
+        items(imports, key = { "import_${it.id}" }) { import ->
+            ABSImportSummaryCard(
+                import = import,
+                onClick = { onABSImportClick(import.id.value) },
+                onDeleteClick = { onDeleteImportClick(import) },
+            )
         }
     }
 }
@@ -527,8 +598,12 @@ private fun BackupCard(
  * [UploadABSBackupCard] so this entry point is equally prominent in the Backups section.
  */
 @Composable
-private fun RestoreFromFileCard(onClick: () -> Unit) {
+private fun RestoreFromFileCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     ActionTile(
+        modifier = modifier,
         title = stringResource(Res.string.admin_restore_from_file),
         subtitle = stringResource(Res.string.admin_restore_from_file_description),
         icon = Icons.Default.Restore,
@@ -544,8 +619,12 @@ private fun RestoreFromFileCard(onClick: () -> Unit) {
  * [ActionTile] so the upload call-to-action matches the app's other big management tiles.
  */
 @Composable
-private fun UploadABSBackupCard(onClick: () -> Unit) {
+private fun UploadABSBackupCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     ActionTile(
+        modifier = modifier,
         title = stringResource(Res.string.admin_upload_new_import),
         subtitle = stringResource(Res.string.admin_migrate_listening_history),
         icon = Icons.Outlined.CloudUpload,
@@ -698,6 +777,7 @@ private fun StatusBadge(status: ImportStatus) {
 
 @Composable
 private fun EmptyBackupState(
+    isWide: Boolean,
     modifier: Modifier = Modifier,
     onUploadABSBackup: () -> Unit,
     onRestoreFromFileClick: () -> Unit,
@@ -706,7 +786,6 @@ private fun EmptyBackupState(
         modifier =
             modifier
                 .fillMaxSize()
-                .readingWidth()
                 .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -734,8 +813,16 @@ private fun EmptyBackupState(
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(32.dp))
-        RestoreFromFileCard(onClick = onRestoreFromFileClick)
-        Spacer(modifier = Modifier.height(12.dp))
-        UploadABSBackupCard(onClick = onUploadABSBackup)
+        if (isWide) {
+            // The two ways to get a first backup in, side by side rather than one tile over another.
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) {
+                RestoreFromFileCard(onClick = onRestoreFromFileClick, modifier = Modifier.weight(1f))
+                UploadABSBackupCard(onClick = onUploadABSBackup, modifier = Modifier.weight(1f))
+            }
+        } else {
+            RestoreFromFileCard(onClick = onRestoreFromFileClick)
+            Spacer(modifier = Modifier.height(12.dp))
+            UploadABSBackupCard(onClick = onUploadABSBackup)
+        }
     }
 }
