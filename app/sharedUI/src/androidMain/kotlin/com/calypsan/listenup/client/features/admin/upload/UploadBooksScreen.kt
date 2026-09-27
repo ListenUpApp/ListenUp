@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.admin.upload
 
-import com.calypsan.listenup.client.design.readingWidth
+import androidx.compose.foundation.layout.widthIn
+import com.calypsan.listenup.client.design.ReadingMaxWidth
+import com.calypsan.listenup.client.design.components.FlowWithSteps
+import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -193,49 +196,21 @@ fun UploadBooksScreen(
             )
         },
     ) { padding ->
-        when (val s = state) {
-            is UploadBooksUiState.Idle -> {
-                IdleContent(
-                    onChooseFolder = pickFolder,
-                    onChooseFiles = pickFiles,
-                    modifier = Modifier.padding(padding),
-                )
-            }
-
-            is UploadBooksUiState.Uploading -> {
-                UploadingContent(
-                    state = s,
-                    onCancel = viewModel::cancel,
-                    modifier = Modifier.padding(padding),
-                )
-            }
-
-            is UploadBooksUiState.Finalizing -> {
-                FinalizingContent(modifier = Modifier.padding(padding))
-            }
-
-            is UploadBooksUiState.Finished -> {
-                FinishedContent(
-                    state = s,
-                    onDone = {
-                        viewModel.reset()
-                        onBackClick()
-                    },
-                    modifier = Modifier.padding(padding),
-                )
-            }
-
-            is UploadBooksUiState.Error -> {
-                FailedContent(
-                    message = s.error.localized(),
-                    onTryAgain = {
-                        viewModel.reset()
-                        pickFolder()
-                    },
-                    modifier = Modifier.padding(padding),
-                )
-            }
-        }
+        UploadBooksContent(
+            state = state,
+            onChooseFolder = pickFolder,
+            onChooseFiles = pickFiles,
+            onCancel = viewModel::cancel,
+            onDone = {
+                viewModel.reset()
+                onBackClick()
+            },
+            onTryAgain = {
+                viewModel.reset()
+                pickFolder()
+            },
+            modifier = Modifier.padding(padding),
+        )
     }
 
     refusal?.let { refused ->
@@ -297,10 +272,68 @@ private fun SelectionRefusal.body(): String =
         }
     }
 
+/**
+ * The upload screen's body for each [UploadBooksUiState], hosted by its scaffold: the choice of what
+ * to send, the upload in flight, the server's import, the outcome, or the failure.
+ *
+ * The body forwards one callback per state's action; a parameter object would only add an
+ * indirection layer Compose tooling discourages.
+ */
+@Suppress("LongParameterList")
+@Composable
+internal fun UploadBooksContent(
+    state: UploadBooksUiState,
+    onChooseFolder: () -> Unit,
+    onChooseFiles: () -> Unit,
+    onCancel: () -> Unit,
+    onDone: () -> Unit,
+    onTryAgain: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowWithSteps(
+        steps = uploadFlowSteps(),
+        currentStep = state.flowStep(),
+        modifier = modifier,
+    ) { isWide, paneModifier ->
+        when (state) {
+            is UploadBooksUiState.Idle -> {
+                IdleContent(
+                    onChooseFolder = onChooseFolder,
+                    onChooseFiles = onChooseFiles,
+                    isWide = isWide,
+                    modifier = paneModifier,
+                )
+            }
+
+            is UploadBooksUiState.Uploading -> {
+                UploadingContent(state = state, onCancel = onCancel, isWide = isWide, modifier = paneModifier)
+            }
+
+            is UploadBooksUiState.Finalizing -> {
+                FinalizingContent(modifier = paneModifier)
+            }
+
+            is UploadBooksUiState.Finished -> {
+                FinishedContent(state = state, onDone = onDone, isWide = isWide, modifier = paneModifier)
+            }
+
+            is UploadBooksUiState.Error -> {
+                FailedContent(
+                    message = state.error.localized(),
+                    onTryAgain = onTryAgain,
+                    isWide = isWide,
+                    modifier = paneModifier,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun IdleContent(
     onChooseFolder: () -> Unit,
     onChooseFiles: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -308,7 +341,6 @@ private fun IdleContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .readingWidth()
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -316,13 +348,16 @@ private fun IdleContent(
             text = stringResource(Res.string.admin_upload_books_description),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(max = ReadingMaxWidth),
         )
-        Spacer(modifier = Modifier.weight(1f))
+        // A phone parks the actions at the foot of the screen; the wide pane keeps them under the text.
+        if (!isWide) Spacer(modifier = Modifier.weight(1f))
         ListenUpButton(
             onClick = onChooseFolder,
             text = stringResource(Res.string.admin_upload_books_choose_folder),
             leadingIcon = Icons.Outlined.FolderOpen,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
         ListenUpButton(
             onClick = onChooseFiles,
@@ -331,7 +366,8 @@ private fun IdleContent(
             // Secondary: a folder is the better answer almost always, so only one of these two
             // should read as the primary action.
             filled = false,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -341,13 +377,13 @@ private fun IdleContent(
 private fun UploadingContent(
     state: UploadBooksUiState.Uploading,
     onCancel: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxSize()
-                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -385,17 +421,18 @@ private fun UploadingContent(
         if (fraction != null) {
             LinearWavyProgressIndicator(
                 progress = { fraction },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth(),
             )
         } else {
-            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth())
         }
         Spacer(modifier = Modifier.height(32.dp))
         ListenUpButton(
             onClick = onCancel,
             text = stringResource(Res.string.admin_upload_books_cancel),
             filled = false,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -407,7 +444,6 @@ private fun FinalizingContent(modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .fillMaxSize()
-                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -427,7 +463,7 @@ private fun FinalizingContent(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(38.dp))
-        LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+        LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadingMaxWidth).fillMaxWidth())
     }
 }
 
@@ -435,6 +471,7 @@ private fun FinalizingContent(modifier: Modifier = Modifier) {
 private fun FinishedContent(
     state: UploadBooksUiState.Finished,
     onDone: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -442,7 +479,6 @@ private fun FinishedContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -488,7 +524,8 @@ private fun FinishedContent(
         ListenUpButton(
             onClick = onDone,
             text = stringResource(Res.string.admin_upload_books_done),
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -497,13 +534,13 @@ private fun FinishedContent(
 private fun FailedContent(
     message: String,
     onTryAgain: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxSize()
-                .readingWidth()
                 .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -535,7 +572,8 @@ private fun FailedContent(
             onClick = onTryAgain,
             text = stringResource(Res.string.admin_upload_books_choose_folder),
             leadingIcon = Icons.Outlined.FolderOpen,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }

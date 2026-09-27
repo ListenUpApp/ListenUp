@@ -251,6 +251,14 @@
     <string name="admin_upload_books_imported">%1$d added</string>
     <string name="admin_upload_books_keep_uploading">Keep uploading</string>
     <string name="admin_upload_books_nothing_found">Nothing to upload — that selection had no files in it.</string>
+    <string name="admin_upload_books_step_choose">Choose books</string>
+    <string name="admin_upload_books_step_choose_sub">A folder keeps its shape; loose files arrive flat</string>
+    <string name="admin_upload_books_step_import">Import</string>
+    <string name="admin_upload_books_step_import_sub">The server reads the tags and sorts out the books</string>
+    <string name="admin_upload_books_step_listen">Ready to listen</string>
+    <string name="admin_upload_books_step_listen_sub">New books appear in the library</string>
+    <string name="admin_upload_books_step_upload">Upload</string>
+    <string name="admin_upload_books_step_upload_sub">Files stream from this device to the server</string>
     <string name="admin_upload_books_stop_body">The files sent so far will be discarded, and nothing will be added to your library.</string>
     <string name="admin_upload_books_stop_confirm">Stop upload</string>
     <string name="admin_upload_books_stop_title">Stop upload?</string>

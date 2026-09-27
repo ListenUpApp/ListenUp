@@ -2511,6 +2511,86 @@
         }
       }
     },
+    "admin.upload_books_step_choose": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose books"
+          }
+        }
+      }
+    },
+    "admin.upload_books_step_choose_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A folder keeps its shape; loose files arrive flat"
+          }
+        }
+      }
+    },
+    "admin.upload_books_step_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import"
+          }
+        }
+      }
+    },
+    "admin.upload_books_step_import_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server reads the tags and sorts out the books"
+          }
+        }
+      }
+    },
+    "admin.upload_books_step_listen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready to listen"
+          }
+        }
+      }
+    },
+    "admin.upload_books_step_listen_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New books appear in the library"
+          }
+        }
+      }
+    },
+    "admin.upload_books_step_upload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload"
+          }
+        }
+      }
+    },
+    "admin.upload_books_step_upload_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files stream from this device to the server"
+          }
+        }
+      }
+    },
     "admin.upload_books_stop_body": {
       "localizations": {
         "en": {
