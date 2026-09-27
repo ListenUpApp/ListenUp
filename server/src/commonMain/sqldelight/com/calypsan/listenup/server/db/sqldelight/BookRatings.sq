@@ -55,6 +55,19 @@ SELECT * FROM book_ratings WHERE book_id = :book_id AND deleted_at IS NULL;
 selectLiveIdsForUser:
 SELECT id FROM book_ratings WHERE user_id = :user_id AND deleted_at IS NULL;
 
+selectLiveIdsForBook:
+SELECT id FROM book_ratings WHERE book_id = :book_id AND deleted_at IS NULL;
+
+-- Tombstoned ratings for a batch of books at or after :floor — the revive counterpart to
+-- selectLiveIdsForBook, floored on the book-removal cascade instant (mirrors BookMoods): only
+-- ratings tombstoned BY the book removal return with the book on re-add.
+selectDeletedForBooksSince:
+SELECT * FROM book_ratings WHERE book_id IN :book_ids AND deleted_at IS NOT NULL AND deleted_at >= :floor;
+
+-- Revives a tombstoned rating (clears deleted_at, bumps revision) so clients reflow it as live.
+reviveById:
+UPDATE book_ratings SET revision = :revision, updated_at = :updated_at, deleted_at = NULL WHERE id = :id;
+
 insert:
 INSERT INTO book_ratings (id, book_id, user_id, half_stars, note, rated_at, created_at, updated_at, revision, deleted_at, client_op_id)
 VALUES (:id, :book_id, :user_id, :half_stars, :note, :rated_at, :created_at, :updated_at, :revision, NULL, :client_op_id);

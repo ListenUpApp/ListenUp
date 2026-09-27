@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -21,12 +22,14 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Instant
 
 /**
  * Tests for [BookRatingRepository] — the `book_ratings` syncable repository. Covers the
  * "existing row's id wins" natural-pair rule, per-listener isolation, tombstone/revive on
  * clear + re-rate, the account-deletion sweep, tombstone minimization on the wire, the
- * candidate-id guards on a fresh insert, and repeat-clear idempotency.
+ * candidate-id guards on a fresh insert, repeat-clear idempotency, and the book soft-delete /
+ * revive cascade.
  */
 class BookRatingRepositoryTest :
     FunSpec({
@@ -273,6 +276,62 @@ class BookRatingRepositoryTest :
                             .items
                             .first { it.id == afterFirstClear.id }
                     afterSecondClear.revision shouldBe afterFirstClear.revision
+                }
+            }
+        }
+
+        // ── book soft-delete / revive cascade (item 3) ──────────────────────────
+
+        test("softDeleteAllForBook tombstones every rating for the book, and other books are unaffected") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                val repo = BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.upsert(rating("u1", 6)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    repo.upsert(rating("u2", 8)).shouldBeInstanceOf<AppResult.Success<*>>()
+                    repo
+                        .upsert(rating("u1", 6).copy(id = "b2", bookId = "book2"))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    repo.softDeleteAllForBook("book1") shouldBe 2
+
+                    repo.findForBook("book1") shouldBe emptyList()
+                    repo.findForBook("book2") shouldHaveSize 1
+                }
+            }
+        }
+
+        test("reviveAllForBooks revives only ratings tombstoned at or after the cascade floor") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                val repo =
+                    BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver, clock = clock)
+                runTest {
+                    repo.upsert(rating("u1", 6))
+                    repo.upsert(rating("u2", 8))
+
+                    // u1 clears manually BEFORE the book is removed — an older tombstone.
+                    clock.instant = Instant.fromEpochMilliseconds(5_000L)
+                    repo.clear("book1", "u1")
+
+                    // The book-removal cascade tombstones u2's rating at the removal instant.
+                    val bookRemovedAt = 10_000L
+                    clock.instant = Instant.fromEpochMilliseconds(bookRemovedAt)
+                    repo.softDeleteAllForBook("book1")
+
+                    // Re-add revives only the rating tombstoned at/after the book-removal floor.
+                    val revived = repo.reviveAllForBooks(listOf("book1"), cascadeFloor = bookRemovedAt)
+                    revived shouldBe 1
+
+                    repo.findForBook("book1").map { it.userId } shouldBe listOf("u2")
                 }
             }
         }

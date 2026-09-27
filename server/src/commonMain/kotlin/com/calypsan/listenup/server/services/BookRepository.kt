@@ -156,6 +156,7 @@ class BookRepository(
     private val tagRepository: com.calypsan.listenup.server.sync.TagRepository? = null,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val bookMoodRepository: com.calypsan.listenup.server.sync.BookMoodRepository? = null,
+    private val bookRatingRepository: com.calypsan.listenup.server.sync.BookRatingRepository? = null,
     private val orphanParentPurger: OrphanParentPurger? = null,
     private val homeDir: Path? = null,
     private val coverImageStore: CoverImageStore? = null,
@@ -1090,6 +1091,7 @@ class BookRepository(
         if (result is AppResult.Success) {
             bookTagRepository?.softDeleteAllForBook(id.value)
             bookMoodRepository?.softDeleteAllForBook(id.value)
+            bookRatingRepository?.softDeleteAllForBook(id.value)
             collectionBookRepository?.softDeleteAllForBook(id.value)
             if (linkedParents != null) orphanParentPurger.purgeOrphaned(linkedParents)
         }
@@ -1097,7 +1099,7 @@ class BookRepository(
     }
 
     /**
-     * Revives the junction rows (`book_tags` / `book_moods` / `collection_books`) for [bookIds] that
+     * Revives the junction rows (`book_tags` / `book_moods` / `book_ratings` / `collection_books`) for [bookIds] that
      * were tombstoned at or after [cascadeFloor] — the same cascade [reviveByIds] runs for a folder
      * re-add, reused by the scan revival paths.
      *
@@ -1116,6 +1118,7 @@ class BookRepository(
         if (bookIds.isEmpty()) return
         bookTagRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         bookMoodRepository?.reviveAllForBooks(bookIds, cascadeFloor)
+        bookRatingRepository?.reviveAllForBooks(bookIds, cascadeFloor)
         collectionBookRepository?.reviveAllForBooks(bookIds, cascadeFloor)
     }
 
@@ -1270,12 +1273,13 @@ class BookRepository(
             }
         }
         // Symmetric with softDelete's junction tombstone cascade: restore each book's user tags,
-        // moods, and collection memberships (each its own transaction, exactly as the tombstone
+        // moods, ratings, and collection memberships (each its own transaction, exactly as the tombstone
         // cascade is a separate call after the book write), floored on the folder-removal instant so
         // a remove-then-rescan keeps a book's memberships instead of losing them.
         val idValues = ids.map { it.value }
         bookTagRepository?.reviveAllForBooks(idValues, cascadeFloor)
         bookMoodRepository?.reviveAllForBooks(idValues, cascadeFloor)
+        bookRatingRepository?.reviveAllForBooks(idValues, cascadeFloor)
         collectionBookRepository?.reviveAllForBooks(idValues, cascadeFloor)
     }
 

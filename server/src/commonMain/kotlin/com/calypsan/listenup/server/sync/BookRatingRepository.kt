@@ -259,6 +259,82 @@ class BookRatingRepository(
             live.size
         }
 
+    /**
+     * Bulk soft-deletes every live rating of [bookId]. Used as a cascade step in book deletion —
+     * called inside the same transaction as the book's own soft-delete, exactly like
+     * [BookMoodRepository.softDeleteAllForBook].
+     *
+     * Each row gets its own revision bump and [SyncEvent.Deleted] publication so clients receive
+     * per-row tombstones. Returns the number of rows tombstoned.
+     */
+    suspend fun softDeleteAllForBook(bookId: String): Int =
+        suspendTransaction(db) {
+            val live = db.bookRatingsQueries.selectLiveIdsForBook(bookId).executeAsList()
+            for (id in live) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                db.bookRatingsQueries.softDeleteById(
+                    revision = rev,
+                    updated_at = now,
+                    deleted_at = now,
+                    client_op_id = null,
+                    id = id,
+                )
+                emitAfterCommit(event = SyncEvent.Deleted(id = id, revision = rev, occurredAt = now, clientOpId = null))
+            }
+            live.size
+        }
+
+    /**
+     * Revives the tombstoned ratings for the books in [bookIds] that were tombstoned at or after
+     * [cascadeFloor] — the cascade counterpart to [softDeleteAllForBook], run when a removed book (or
+     * its folder) is re-added so a listener's rating returns with the book instead of being lost.
+     * [cascadeFloor] is the book's own `deleted_at`, flooring the revival exactly as
+     * [BookMoodRepository.reviveAllForBooks] floors it. All revives run in ONE transaction; each row
+     * gets its own revision bump and an after-commit [SyncEvent.Updated] (deleted_at cleared) so
+     * clients reflow the rating as live. Returns the number of rows revived. A no-op (returns 0) when
+     * [bookIds] is empty.
+     */
+    suspend fun reviveAllForBooks(
+        bookIds: List<String>,
+        cascadeFloor: Long,
+    ): Int {
+        if (bookIds.isEmpty()) return 0
+        return suspendTransaction(db) {
+            var count = 0
+            for (chunk in bookIds.chunked(SQLITE_IN_CHUNK)) {
+                for (row in db.bookRatingsQueries.selectDeletedForBooksSince(chunk, cascadeFloor).executeAsList()) {
+                    val rev = nextRevision()
+                    val now = clock.now().toEpochMilliseconds()
+                    db.bookRatingsQueries.reviveById(revision = rev, updated_at = now, id = row.id)
+                    emitAfterCommit(
+                        event =
+                            SyncEvent.Updated(
+                                id = row.id,
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = null,
+                                payload =
+                                    BookRatingSyncPayload(
+                                        id = row.id,
+                                        bookId = row.book_id,
+                                        userId = row.user_id,
+                                        halfStars = row.half_stars.toInt(),
+                                        note = row.note,
+                                        ratedAt = row.rated_at,
+                                        updatedAt = now,
+                                        revision = rev,
+                                        deletedAt = null,
+                                    ),
+                            ),
+                    )
+                    count++
+                }
+            }
+            count
+        }
+    }
+
     private fun Book_ratings.toPayload(): BookRatingSyncPayload =
         BookRatingSyncPayload(
             id = id,

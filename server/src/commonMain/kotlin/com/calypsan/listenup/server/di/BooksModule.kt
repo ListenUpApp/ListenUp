@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.sync.BookMoodRepository
+import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
@@ -129,27 +130,7 @@ fun booksModule(
         single(createdAtStart = true) { SeriesRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { GenreRepository(get<ListenUpDatabase>(), get(), get()) }
         single { AnalyzedBookMapper(clock = get()) }
-        single(createdAtStart = true) {
-            BookRepository(
-                db = get<ListenUpDatabase>(),
-                bus = get(),
-                registry = get(),
-                driver = get<SqlDriver>(),
-                contributorRepository = get(),
-                seriesRepository = get(),
-                genreRepository = get<GenreRepository>(),
-                analyzedBookMapper = get(),
-                clock = get(),
-                collectionBookRepository = get(),
-                tagRepository = getOrNull<TagRepository>(),
-                bookTagRepository = getOrNull<BookTagRepository>(),
-                bookMoodRepository = getOrNull<BookMoodRepository>(),
-                orphanParentPurger = get<OrphanParentPurger>(),
-                homeDir = homeDir,
-                coverImageStore = get<CoverImageStore>(),
-            )
-        }
-        single<BookIngestPort> { get<BookRepository>() }
+        bookRepositoryBindings(homeDir)
         single { CoverStorage() }
         single { UserPermissionPolicy(db = get<ListenUpDatabase>()) }
         single {
@@ -242,6 +223,35 @@ fun booksModule(
         genreBootstrapBindings()
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
+
+/**
+ * [BookRepository] + its [BookIngestPort] binding. Split out of [booksModule] to keep that
+ * module body under the length budget — the same reason [moodBindings] is split out.
+ */
+private fun Module.bookRepositoryBindings(homeDir: Path) {
+    single(createdAtStart = true) {
+        BookRepository(
+            db = get<ListenUpDatabase>(),
+            bus = get(),
+            registry = get(),
+            driver = get<SqlDriver>(),
+            contributorRepository = get(),
+            seriesRepository = get(),
+            genreRepository = get<GenreRepository>(),
+            analyzedBookMapper = get(),
+            clock = get(),
+            collectionBookRepository = get(),
+            tagRepository = getOrNull<TagRepository>(),
+            bookTagRepository = getOrNull<BookTagRepository>(),
+            bookMoodRepository = getOrNull<BookMoodRepository>(),
+            bookRatingRepository = getOrNull<BookRatingRepository>(),
+            orphanParentPurger = get<OrphanParentPurger>(),
+            homeDir = homeDir,
+            coverImageStore = get<CoverImageStore>(),
+        )
+    }
+    single<BookIngestPort> { get<BookRepository>() }
+}
 
 /**
  * Moods slice bindings — the affective axis, mirroring tags (flat, syncable, soft-delete):
