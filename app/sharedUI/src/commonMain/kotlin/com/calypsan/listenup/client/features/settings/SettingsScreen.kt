@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.settings
 
-import com.calypsan.listenup.client.design.ReadingMaxWidth
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import com.calypsan.listenup.client.presentation.settings.SettingsEvent
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -69,7 +67,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.theme.Spacing
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.SignOutConfirmDialog
@@ -245,6 +247,24 @@ fun SettingsScreen(
         }
     }
 
+    val actions =
+        remember(viewModel) {
+            SettingsActions(
+                onThemeModeChange = viewModel::setThemeMode,
+                onDynamicColorsChange = viewModel::setDynamicColorsEnabled,
+                onPlaybackSpeedChange = viewModel::setDefaultPlaybackSpeed,
+                onVolumeBoostChange = viewModel::setDefaultVolumeBoostDb,
+                onSkipForwardChange = viewModel::setDefaultSkipForwardSec,
+                onSkipBackwardChange = viewModel::setDefaultSkipBackwardSec,
+                onAutoRewindChange = viewModel::setAutoRewindEnabled,
+                onSleepTimerChange = viewModel::setDefaultSleepTimerMin,
+                onIgnoreTitleArticlesChange = viewModel::setIgnoreTitleArticles,
+                onHideSingleBookSeriesChange = viewModel::setHideSingleBookSeries,
+                onHapticFeedbackChange = viewModel::setHapticFeedbackEnabled,
+                onWifiOnlyDownloadsChange = viewModel::setWifiOnlyDownloads,
+            )
+        }
+
     ListenUpScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -266,57 +286,126 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
+        SettingsContent(
+            state = state,
+            actions = actions,
+            showDynamicColors = showDynamicColors,
+            showSleepTimer = showSleepTimer,
+            onNavigateToDevices = onNavigateToDevices,
+            onNavigateToStorage = onNavigateToStorage,
+            onNavigateToLicenses = onNavigateToLicenses,
+            onNavigateToNotificationSettings = onNavigateToNotificationSettings,
+            onSignOutClick = { showSignOutDialog = true },
+            onShareLogs = platformActions::shareLogs,
+            onSendTestNotification = viewModel::sendTestNotification,
+            modifier = Modifier.padding(padding),
+        )
+    }
+}
+
+/**
+ * The setting changes the Settings sections make, bound once to [SettingsViewModel] by
+ * [SettingsScreen] — so [SettingsContent] renders from state alone and can be hosted without Koin.
+ */
+internal class SettingsActions(
+    val onThemeModeChange: (ThemeMode) -> Unit,
+    val onDynamicColorsChange: (Boolean) -> Unit,
+    val onPlaybackSpeedChange: (Float) -> Unit,
+    val onVolumeBoostChange: (Float) -> Unit,
+    val onSkipForwardChange: (Int) -> Unit,
+    val onSkipBackwardChange: (Int) -> Unit,
+    val onAutoRewindChange: (Boolean) -> Unit,
+    val onSleepTimerChange: (Int?) -> Unit,
+    val onIgnoreTitleArticlesChange: (Boolean) -> Unit,
+    val onHideSingleBookSeriesChange: (Boolean) -> Unit,
+    val onHapticFeedbackChange: (Boolean) -> Unit,
+    val onWifiOnlyDownloadsChange: (Boolean) -> Unit,
+)
+
+/**
+ * The Settings sections under the top bar. A phone gets them as one column; from the medium width
+ * up they spread into [SectionColumns] — as many columns as the window affords — so a tablet reads
+ * Settings as a page of grouped cards rather than a phone column adrift in the middle.
+ */
+@Composable
+internal fun SettingsContent(
+    state: SettingsUiState,
+    actions: SettingsActions,
+    showDynamicColors: Boolean,
+    showSleepTimer: Boolean,
+    onNavigateToDevices: (() -> Unit)?,
+    onNavigateToStorage: (() -> Unit)?,
+    onNavigateToLicenses: (() -> Unit)?,
+    onNavigateToNotificationSettings: (() -> Unit)?,
+    onSignOutClick: () -> Unit,
+    onShareLogs: () -> Unit,
+    onSendTestNotification: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    val appearance: @Composable () -> Unit = {
+        AppearanceSection(state = state, showDynamicColors = showDynamicColors, actions = actions)
+    }
+    val playback: @Composable () -> Unit = { PlaybackSection(state = state, actions = actions) }
+    val sleepTimer: @Composable () -> Unit = { SleepTimerSection(state = state, actions = actions) }
+    val library: @Composable () -> Unit = { LibrarySection(state = state, actions = actions) }
+    val account: @Composable () -> Unit = {
+        AccountSection(
+            state = state,
+            onNavigateToDevices = onNavigateToDevices,
+            onSignOutClick = onSignOutClick,
+            actions = actions,
+        )
+    }
+    val downloads: @Composable () -> Unit = { DownloadsSection(state = state, actions = actions) }
+    val about: @Composable () -> Unit = {
+        AboutSection(
+            state = state,
+            onNavigateToLicenses = onNavigateToLicenses,
+            onShareLogs = onShareLogs,
+            onSendTestNotification = onSendTestNotification,
+            onNavigateToNotificationSettings = onNavigateToNotificationSettings,
+        )
+    }
+
+    if (isWide) {
+        SectionColumns(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.screenMargin, vertical = 16.dp),
+        ) {
+            section(appearance)
+            section(playback)
+            if (showSleepTimer) section(sleepTimer)
+            section(library)
+            // The sign-out tile belongs to its account group; one section keeps them together.
+            section { Column(verticalArrangement = Arrangement.spacedBy(24.dp)) { account() } }
+            section(downloads)
+            onNavigateToStorage?.let { section { StorageSection(onNavigateToStorage = it) } }
+            section(about)
+        }
+    } else {
         Column(
             modifier =
-                Modifier
+                modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            Column(
-                modifier =
-                    Modifier
-                        .widthIn(max = ReadingMaxWidth)
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-            ) {
-                AppearanceSection(
-                    state = state,
-                    showDynamicColors = showDynamicColors,
-                    viewModel = viewModel,
-                )
-
-                PlaybackSection(state = state, viewModel = viewModel)
-
-                if (showSleepTimer) {
-                    SleepTimerSection(state = state, viewModel = viewModel)
-                }
-
-                LibrarySection(state = state, viewModel = viewModel)
-
-                AccountSection(
-                    state = state,
-                    onNavigateToDevices = onNavigateToDevices,
-                    onSignOutClick = { showSignOutDialog = true },
-                    viewModel = viewModel,
-                )
-
-                DownloadsSection(state = state, viewModel = viewModel)
-
-                if (onNavigateToStorage != null) {
-                    StorageSection(onNavigateToStorage = onNavigateToStorage)
-                }
-
-                AboutSection(
-                    state = state,
-                    onNavigateToLicenses = onNavigateToLicenses,
-                    onShareLogs = platformActions::shareLogs,
-                    onSendTestNotification = viewModel::sendTestNotification,
-                    onNavigateToNotificationSettings = onNavigateToNotificationSettings,
-                )
-            }
+            appearance()
+            playback()
+            if (showSleepTimer) sleepTimer()
+            library()
+            account()
+            downloads()
+            onNavigateToStorage?.let { StorageSection(onNavigateToStorage = it) }
+            about()
         }
     }
 }
@@ -325,7 +414,7 @@ fun SettingsScreen(
 private fun AppearanceSection(
     state: SettingsUiState,
     showDynamicColors: Boolean,
-    viewModel: SettingsViewModel,
+    actions: SettingsActions,
 ) {
     SectionGroup(
         icon = Icons.Default.Palette,
@@ -346,7 +435,7 @@ private fun AppearanceSection(
                     ThemeMode.DARK -> "Dark"
                 }
             },
-            onValueSelected = viewModel::setThemeMode,
+            onValueSelected = actions.onThemeModeChange,
         )
         if (showDynamicColors) {
             SettingToggleRow(
@@ -355,7 +444,7 @@ private fun AppearanceSection(
                 title = "Dynamic colors",
                 subtitle = "Use colors from your wallpaper (Material You)",
                 checked = state.dynamicColorsEnabled,
-                onCheckedChange = viewModel::setDynamicColorsEnabled,
+                onCheckedChange = actions.onDynamicColorsChange,
                 showDivider = true,
             )
         }
@@ -365,7 +454,7 @@ private fun AppearanceSection(
 @Composable
 private fun PlaybackSection(
     state: SettingsUiState,
-    viewModel: SettingsViewModel,
+    actions: SettingsActions,
 ) {
     val accent = MaterialTheme.colorScheme.tertiary
     val pillContainer = MaterialTheme.colorScheme.tertiaryContainer
@@ -383,7 +472,7 @@ private fun PlaybackSection(
             selectedValue = state.defaultPlaybackSpeed,
             options = PLAYBACK_SPEED_STEPS,
             formatValue = { formatPlaybackSpeed(it) },
-            onValueSelected = viewModel::setDefaultPlaybackSpeed,
+            onValueSelected = actions.onPlaybackSpeedChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
         )
@@ -413,7 +502,7 @@ private fun PlaybackSection(
             selectedValue = state.defaultVolumeBoostDb,
             options = VolumeBoostPresets.presets,
             formatValue = { boostLabels[it] ?: currentBoostLabel },
-            onValueSelected = viewModel::setDefaultVolumeBoostDb,
+            onValueSelected = actions.onVolumeBoostChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
             showDivider = true,
@@ -426,7 +515,7 @@ private fun PlaybackSection(
             selectedValue = state.defaultSkipForwardSec,
             options = SkipForwardPresets.presets,
             formatValue = { SkipForwardPresets.format(it) },
-            onValueSelected = viewModel::setDefaultSkipForwardSec,
+            onValueSelected = actions.onSkipForwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
             showDivider = true,
@@ -439,7 +528,7 @@ private fun PlaybackSection(
             selectedValue = state.defaultSkipBackwardSec,
             options = SkipBackwardPresets.presets,
             formatValue = { SkipBackwardPresets.format(it) },
-            onValueSelected = viewModel::setDefaultSkipBackwardSec,
+            onValueSelected = actions.onSkipBackwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
             showDivider = true,
@@ -450,7 +539,7 @@ private fun PlaybackSection(
             title = stringResource(Res.string.settings_autorewind_on_resume),
             subtitle = stringResource(Res.string.settings_rewind_a_few_seconds_when),
             checked = state.autoRewindEnabled,
-            onCheckedChange = viewModel::setAutoRewindEnabled,
+            onCheckedChange = actions.onAutoRewindChange,
             showDivider = false,
         )
     }
@@ -459,7 +548,7 @@ private fun PlaybackSection(
 @Composable
 private fun SleepTimerSection(
     state: SettingsUiState,
-    viewModel: SettingsViewModel,
+    actions: SettingsActions,
 ) {
     val accent = MaterialTheme.colorScheme.secondary
     SectionGroup(
@@ -475,7 +564,7 @@ private fun SleepTimerSection(
             selectedValue = state.defaultSleepTimerMin,
             options = SleepTimerPresets.presets,
             formatValue = { SleepTimerPresets.format(it) },
-            onValueSelected = viewModel::setDefaultSleepTimerMin,
+            onValueSelected = actions.onSleepTimerChange,
             pillContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             pillContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         )
@@ -485,7 +574,7 @@ private fun SleepTimerSection(
 @Composable
 private fun LibrarySection(
     state: SettingsUiState,
-    viewModel: SettingsViewModel,
+    actions: SettingsActions,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     SectionGroup(
@@ -499,7 +588,7 @@ private fun LibrarySection(
             title = stringResource(Res.string.settings_ignore_articles_when_sorting),
             subtitle = stringResource(Res.string.settings_sort_ignoring_leading_articles_a),
             checked = state.ignoreTitleArticles,
-            onCheckedChange = viewModel::setIgnoreTitleArticles,
+            onCheckedChange = actions.onIgnoreTitleArticlesChange,
         )
         SettingToggleRow(
             icon = Icons.Default.FilterNone,
@@ -507,7 +596,7 @@ private fun LibrarySection(
             title = stringResource(Res.string.settings_hide_singlebook_series),
             subtitle = stringResource(Res.string.settings_hide_series_with_only_one),
             checked = state.hideSingleBookSeries,
-            onCheckedChange = viewModel::setHideSingleBookSeries,
+            onCheckedChange = actions.onHideSingleBookSeriesChange,
             showDivider = true,
         )
     }
@@ -518,7 +607,7 @@ private fun AccountSection(
     state: SettingsUiState,
     onNavigateToDevices: (() -> Unit)?,
     onSignOutClick: () -> Unit,
-    viewModel: SettingsViewModel,
+    actions: SettingsActions,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     SectionGroup(
@@ -551,7 +640,7 @@ private fun AccountSection(
             title = stringResource(Res.string.settings_haptic_feedback),
             subtitle = stringResource(Res.string.settings_haptic_feedback_subtitle),
             checked = state.hapticFeedbackEnabled,
-            onCheckedChange = viewModel::setHapticFeedbackEnabled,
+            onCheckedChange = actions.onHapticFeedbackChange,
             showDivider = hasServerRow || onNavigateToDevices != null,
         )
     }
@@ -561,7 +650,7 @@ private fun AccountSection(
 @Composable
 private fun DownloadsSection(
     state: SettingsUiState,
-    viewModel: SettingsViewModel,
+    actions: SettingsActions,
 ) {
     val accent = MaterialTheme.colorScheme.tertiary
     SectionGroup(
@@ -575,7 +664,7 @@ private fun DownloadsSection(
             title = stringResource(Res.string.settings_wifi_only_downloads),
             subtitle = stringResource(Res.string.settings_wifi_only_downloads_subtitle),
             checked = state.wifiOnlyDownloads,
-            onCheckedChange = viewModel::setWifiOnlyDownloads,
+            onCheckedChange = actions.onWifiOnlyDownloadsChange,
         )
     }
 }
