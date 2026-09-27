@@ -43,6 +43,8 @@ import androidx.compose.material3.SnackbarHostState
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.features.permission.rememberPostNotificationsPermission
 import com.calypsan.listenup.client.features.shell.components.GlobalErrorSnackbar
+import com.calypsan.listenup.client.features.shell.components.SignOutConfirmationHost
+import com.calypsan.listenup.client.features.shell.components.rememberSignOutConfirmation
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -76,7 +78,7 @@ private val logger = KotlinLogging.logger {}
  * @param onAdminClick Callback when administration is clicked (only shown for admin users)
  * @param onSettingsClick Callback when settings is clicked
  * @param onNotificationsClick Callback when the header's notification bell is clicked
- * @param onSignOut Callback when sign out is triggered
+ * @param onSignOut Signs out, once the user has confirmed the shell's sign-out question
  * @param onUserProfileClick Callback when a user profile is clicked
  * @param homeContent Content composable for Home destination
  * @param libraryContent Content composable for Library destination
@@ -186,6 +188,11 @@ fun AppShell(
     // Local UI state
     var isAvatarMenuExpanded by remember { mutableStateOf(false) }
 
+    // Every sign-out in the shell — the rail's Logout and the avatar menu's "Sign out" — asks this
+    // one question first; neither signs out directly.
+    val signOutConfirmation = rememberSignOutConfirmation()
+    SignOutConfirmationHost(signOutConfirmation, onSignOut = onSignOut)
+
     // Library mismatch dialog state
     var libraryMismatchToShow by remember { mutableStateOf<SyncState.LibraryMismatch?>(null) }
 
@@ -255,7 +262,7 @@ fun AppShell(
             onAvatarMenuExpandedChange = { isAvatarMenuExpanded = it },
             onAdminClick = onAdminClick,
             onSettingsClick = onSettingsClick,
-            onSignOutClick = onSignOut,
+            onSignOutClick = signOutConfirmation::request,
             onMyProfileClick = { user?.id?.value?.let(onUserProfileClick) },
             unreadNotificationCount = unreadNotificationCount,
             onNotificationsClick = onNotificationsClick,
@@ -336,7 +343,7 @@ fun AppShell(
                         navType = navType,
                         currentDestination = currentDestination,
                         onDestinationSelected = onDestinationChange,
-                        onSignOut = onSignOut,
+                        onSignOutRequest = signOutConfirmation::request,
                     )
                 }
             },
@@ -352,7 +359,7 @@ fun AppShell(
                 navType = navType,
                 currentDestination = currentDestination,
                 onDestinationSelected = onDestinationChange,
-                onSignOut = onSignOut,
+                onSignOutRequest = signOutConfirmation::request,
             )
             Scaffold(
                 modifier = Modifier.weight(1f),

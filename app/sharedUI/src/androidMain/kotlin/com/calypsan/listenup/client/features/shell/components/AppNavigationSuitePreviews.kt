@@ -29,7 +29,7 @@ private fun RailLight() {
             navType = ShellNavType.RailExpanded,
             currentDestination = ShellDestination.Library,
             onDestinationSelected = {},
-            onSignOut = {},
+            onSignOutRequest = {},
             modifier = Modifier.fillMaxHeight(),
         )
     }
@@ -43,7 +43,7 @@ private fun RailDark() {
             navType = ShellNavType.RailExpanded,
             currentDestination = ShellDestination.Library,
             onDestinationSelected = {},
-            onSignOut = {},
+            onSignOutRequest = {},
             modifier = Modifier.fillMaxHeight(),
         )
     }
@@ -57,7 +57,7 @@ private fun BottomBarLight() {
             navType = ShellNavType.BottomBar,
             currentDestination = ShellDestination.Home,
             onDestinationSelected = {},
-            onSignOut = {},
+            onSignOutRequest = {},
         )
     }
 }
@@ -70,7 +70,7 @@ private fun BottomBarDark() {
             navType = ShellNavType.BottomBar,
             currentDestination = ShellDestination.Home,
             onDestinationSelected = {},
-            onSignOut = {},
+            onSignOutRequest = {},
         )
     }
 }

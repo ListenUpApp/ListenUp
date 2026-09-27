@@ -24,16 +24,11 @@ import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.ShortNavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.SignOutConfirmDialog
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.ShellNavType
@@ -59,7 +54,8 @@ private val BrandTile = 52.dp
  * @param navType which surface to render for the current window size
  * @param currentDestination the selected destination (null guarded to Home)
  * @param onDestinationSelected invoked when a destination is tapped
- * @param onSignOut invoked once the rail's Logout action has been confirmed
+ * @param onSignOutRequest invoked when the rail's Logout is tapped; it asks, it does not sign out
+ *   (the shell's [SignOutConfirmation] confirms first)
  * @param modifier optional modifier
  */
 @Composable
@@ -67,23 +63,11 @@ fun AppNavigationSuite(
     navType: ShellNavType,
     currentDestination: ShellDestination?,
     onDestinationSelected: (ShellDestination) -> Unit,
-    onSignOut: () -> Unit,
+    onSignOutRequest: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
     val safeDestination = currentDestination ?: ShellDestination.Home
-    // A rail item sits where a stray tap lands, so Logout asks first — the same question Settings asks.
-    var confirmingSignOut by remember { mutableStateOf(false) }
-
-    if (confirmingSignOut) {
-        SignOutConfirmDialog(
-            onConfirm = {
-                confirmingSignOut = false
-                onSignOut()
-            },
-            onDismiss = { confirmingSignOut = false },
-        )
-    }
 
     when (navType) {
         ShellNavType.BottomBar -> {
@@ -146,7 +130,7 @@ fun AppNavigationSuite(
                     selected = false,
                     onClick = {
                         haptics.press()
-                        confirmingSignOut = true
+                        onSignOutRequest()
                     },
                     icon = {
                         Icon(
