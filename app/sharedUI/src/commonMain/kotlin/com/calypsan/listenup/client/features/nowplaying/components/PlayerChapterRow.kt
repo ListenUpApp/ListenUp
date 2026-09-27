@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import listenup.composeapp.generated.resources.player_play_chapter
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -83,7 +85,10 @@ fun PlayerChapterRow(
                 .clip(shape)
                 .drawBehind {
                     if (isCurrent) drawRect(containerColor)
-                }.clickable {
+                }.clickable(
+                    onClickLabel = stringResource(Res.string.player_play_chapter),
+                    role = Role.Button,
+                ) {
                     haptics.press()
                     onClick()
                 }.padding(horizontal = 14.dp, vertical = 12.dp),

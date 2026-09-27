@@ -1,6 +1,11 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import listenup.composeapp.generated.resources.common_more_actions
+import listenup.composeapp.generated.resources.common_collapsed
+import listenup.composeapp.generated.resources.common_expanded
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import listenup.composeapp.generated.resources.common_done
@@ -913,6 +918,11 @@ private fun CategoryRowContent(
     onLongClick: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    // The tap expands/collapses and the long-press opens the actions menu — both named for TalkBack,
+    // with the expanded state carried as a state rather than baked into the icon's description.
+    val expandLabel = stringResource(if (isExpanded) Res.string.common_collapse else Res.string.common_expand)
+    val expansionState = stringResource(if (isExpanded) Res.string.common_expanded else Res.string.common_collapsed)
+    val moreActionsLabel = stringResource(Res.string.common_more_actions)
     Row(
         modifier =
             Modifier
@@ -921,6 +931,8 @@ private fun CategoryRowContent(
                     // Our gated haptics.longPress() owns the feel; suppress combinedClickable's
                     // built-in long-press haptic so it doesn't double up (same as BookCard).
                     hapticFeedbackEnabled = false,
+                    onClickLabel = if (hasChildren) expandLabel else null,
+                    onLongClickLabel = moreActionsLabel,
                     onClick = {
                         if (hasChildren) {
                             haptics.press()
@@ -931,6 +943,8 @@ private fun CategoryRowContent(
                         haptics.longPress()
                         onLongClick()
                     },
+                ).then(
+                    if (hasChildren) Modifier.semantics { stateDescription = expansionState } else Modifier,
                 ).padding(
                     start = (16 + node.depth * 24).dp,
                     end = 16.dp,
@@ -944,10 +958,7 @@ private fun CategoryRowContent(
         if (hasChildren) {
             Icon(
                 imageVector = Icons.Outlined.ExpandMore,
-                contentDescription =
-                    stringResource(
-                        if (isExpanded) Res.string.common_collapse else Res.string.common_expand,
-                    ),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier =
                     Modifier

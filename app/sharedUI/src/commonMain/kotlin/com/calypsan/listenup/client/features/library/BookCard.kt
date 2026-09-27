@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import listenup.composeapp.generated.resources.selection_select
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -159,6 +162,7 @@ fun BookCard(
     )
 
     val widthModifier = if (cardWidth != null) Modifier.width(cardWidth) else Modifier
+    val selectLabel = stringResource(Res.string.selection_select)
 
     Column(
         modifier =
@@ -175,6 +179,8 @@ fun BookCard(
                             // Our gated haptics.longPress() owns the feel; suppress
                             // combinedClickable's built-in long-press haptic so it doesn't double up.
                             hapticFeedbackEnabled = false,
+                            // Long-press enters multi-select; say so, or TalkBack offers a bare "long press".
+                            onLongClickLabel = selectLabel,
                             onClick = {
                                 haptics.press()
                                 onClick()
@@ -194,6 +200,9 @@ fun BookCard(
                             },
                         )
                     },
+                ).then(
+                    // In multi-select a tap toggles the book, so its selection is state, not just a border.
+                    if (isInSelectionMode) Modifier.semantics { selected = isSelected } else Modifier,
                 ),
     ) {
         // Cover with optional overlays and indicators

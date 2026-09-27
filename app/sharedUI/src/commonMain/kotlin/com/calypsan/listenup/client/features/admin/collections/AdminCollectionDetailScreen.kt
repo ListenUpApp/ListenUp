@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import listenup.composeapp.generated.resources.common_remove_name
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -657,9 +660,13 @@ private fun BookCoverTile(
     val haptics = LocalHaptics.current
     Box(
         // Fill the adaptive grid slot and stay square, matching the canonical BookCard cover.
-        // A fixed .size() here fought the slot's width and rendered landscape.
+        // A fixed .size() here fought the slot's width and rendered landscape. The click label says
+        // a tap removes the book (after a confirmation), which the title alone never did.
         modifier =
-            modifier.fillMaxWidth().aspectRatio(1f).clickable {
+            modifier.fillMaxWidth().aspectRatio(1f).clickable(
+                onClickLabel = stringResource(Res.string.admin_remove_book),
+                role = Role.Button,
+            ) {
                 haptics.press()
                 onRemoveClick()
             },
@@ -777,8 +784,9 @@ private fun MemberRow(
         .observeProfile(share.userId)
         .collectAsStateWithLifecycle(initialValue = null)
 
+    val memberName = profile?.displayName?.ifBlank { null } ?: share.userId
     SettingRow(
-        title = profile?.displayName?.ifBlank { null } ?: share.userId,
+        title = memberName,
         subtitle = share.permission,
         showDivider = showDivider,
         modifier = modifier,
@@ -789,16 +797,20 @@ private fun MemberRow(
             if (isRemoving) {
                 ListenUpLoadingIndicatorSmall()
             } else {
-                TonalIconTile(
-                    icon = Icons.Outlined.Delete,
-                    size = DELETE_TILE_SIZE_DP.dp,
-                    danger = true,
-                    modifier =
-                        Modifier.clickable {
-                            haptics.press()
-                            onRemoveClick()
-                        },
-                )
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onRemoveClick()
+                    },
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    TonalIconTile(
+                        icon = Icons.Outlined.Delete,
+                        size = DELETE_TILE_SIZE_DP.dp,
+                        danger = true,
+                        contentDescription = stringResource(Res.string.common_remove_name, memberName),
+                    )
+                }
             }
         },
     )

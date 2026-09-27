@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -352,6 +353,7 @@ private fun CollectionCard(
         Column(modifier = Modifier.padding(padDp)) {
             CollectionCardTopRow(
                 badgeSize = badgeSize,
+                collectionName = collection.name,
                 isSystem = collection.isSystem,
                 isDeleting = isDeleting,
                 onDeleteClick = onDeleteClick,
@@ -365,6 +367,7 @@ private fun CollectionCard(
 @Composable
 private fun CollectionCardTopRow(
     badgeSize: Dp,
+    collectionName: String,
     isSystem: Boolean,
     isDeleting: Boolean,
     onDeleteClick: () -> Unit,
@@ -402,16 +405,20 @@ private fun CollectionCardTopRow(
             }
 
             else -> {
-                TonalIconTile(
-                    icon = Icons.Outlined.Delete,
-                    size = DELETE_TILE_SIZE_DP.dp,
-                    danger = true,
-                    modifier =
-                        Modifier.clickable {
-                            haptics.press()
-                            onDeleteClick()
-                        },
-                )
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onDeleteClick()
+                    },
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    TonalIconTile(
+                        icon = Icons.Outlined.Delete,
+                        size = DELETE_TILE_SIZE_DP.dp,
+                        danger = true,
+                        contentDescription = stringResource(Res.string.common_delete_name, collectionName),
+                    )
+                }
             }
         }
     }

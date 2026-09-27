@@ -29,6 +29,9 @@ private const val TILE_ICON_RATIO = 0.5f
  * @param size Edge length of the square tile.
  * @param accent Accent colour driving both the tinted fill and the icon tint.
  * @param danger When true, uses an error-container fill and error-tinted icon instead of [accent].
+ * @param contentDescription What the glyph means, when it carries meaning on its own — e.g. the
+ *   label of an [androidx.compose.material3.IconButton] wrapping the tile. Null for a decorative
+ *   leading tile whose row already names it.
  */
 @Composable
 fun TonalIconTile(
@@ -37,6 +40,7 @@ fun TonalIconTile(
     size: Dp = 44.dp,
     accent: Color = MaterialTheme.colorScheme.primary,
     danger: Boolean = false,
+    contentDescription: String? = null,
 ) {
     val background =
         if (danger) MaterialTheme.colorScheme.errorContainer else accent.copy(alpha = ACCENT_TILE_ALPHA)
@@ -51,7 +55,7 @@ fun TonalIconTile(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = contentDescription,
             modifier = Modifier.size(size * TILE_ICON_RATIO),
             tint = tint,
         )
