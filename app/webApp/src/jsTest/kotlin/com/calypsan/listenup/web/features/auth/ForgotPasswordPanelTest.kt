@@ -121,7 +121,9 @@ class ForgotPasswordPanelTest :
             awaitFrame()
 
             completions shouldBe 0
-            (host.querySelector(".auth-err") as HTMLElement).textContent.orEmpty() shouldContain "do not match"
+            // The mismatch belongs to the confirm field, so the field speaks it.
+            (host.querySelector("#auth-reset-confirm-err") as HTMLElement).textContent.orEmpty() shouldContain "do not match"
+            (host.querySelector("#auth-reset-confirm") as HTMLElement).getAttribute("aria-describedby") shouldBe "auth-reset-confirm-err"
         }
 
         test("a wrong code keeps the form and says how many tries are left") {

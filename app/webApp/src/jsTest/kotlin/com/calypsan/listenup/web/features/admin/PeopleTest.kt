@@ -16,6 +16,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
@@ -212,7 +213,9 @@ class PeopleTest :
             otherError(CreateInviteErrorType.EmailInUse).shouldBeNull()
 
             val host = invitePage(CreateInviteUiState.Ready(CreateInviteStatus.Error(CreateInviteErrorType.EmailInUse)))
-            host.querySelectorAll(".inv-err").length shouldBe 1
+            host.querySelectorAll(".f-err, .inv-err").length shouldBe 1
+            // …and it is the field's own message, so the input points at it.
+            host.querySelector(".f-input[aria-describedby]") shouldNotBe null
         }
 
         test("a malformed address highlights the field it is about") {

@@ -241,16 +241,14 @@ private fun CodeStep(
                 confirm = it
                 mismatch = false
             },
-            error = mismatch,
+            errorText = "The two passwords do not match.".takeIf { mismatch },
             id = RESET_CONFIRM_ID,
             autocomplete = "new-password",
         )
 
-        if (mismatch) {
-            Div(attrs = { classes("auth-err") }) { Text("The two passwords do not match.") }
-        } else {
+        if (!mismatch) {
             serverError?.let { message ->
-                Div(attrs = { classes("auth-err") }) {
+                FormAlert {
                     Text(message)
                     state.attemptsRemaining?.let { remaining ->
                         Text(" ")
@@ -284,7 +282,7 @@ private fun OutcomeStep(
 ) {
     Div(attrs = { classes(FIELDS_CLASS) }) {
         if (isError) {
-            Div(attrs = { classes("auth-err") }) { Text(message) }
+            FormAlert(message)
         } else {
             P { Text(message) }
         }

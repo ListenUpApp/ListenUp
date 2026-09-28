@@ -54,6 +54,44 @@ class FieldTest :
             host.querySelectorAll(".f-box.err").length shouldBe 1
         }
 
+        test("an error message is tied to its field, so a screen reader reads it with the field") {
+            // A red border alone is invisible to a screen reader, and a message floating below the
+            // form belongs to nothing. `aria-describedby` is what makes the message the field's own.
+            val host =
+                mount {
+                    Field(label = "Email", value = "", id = "probe", errorText = "Enter a valid email address.", onInput = {})
+                }
+            val input = host.querySelector(".f-input") as HTMLInputElement
+            val message = host.querySelector(".f-err") as HTMLElement
+
+            input.getAttribute("aria-invalid") shouldBe "true"
+            input.getAttribute("aria-describedby") shouldBe message.id
+            message.id shouldBe "probe-err"
+            message.textContent.orEmpty() shouldContain "valid email"
+            host.querySelectorAll(".f-box.err").length shouldBe 1
+        }
+
+        test("a field with no error claims no error") {
+            val host = mount { Field(label = "Email", value = "", onInput = {}) }
+            val input = host.querySelector(".f-input") as HTMLInputElement
+
+            input.hasAttribute("aria-invalid") shouldBe false
+            input.hasAttribute("aria-describedby") shouldBe false
+            host.querySelector(".f-err") shouldBe null
+        }
+
+        test("a password field ties its error message to the input too") {
+            val host =
+                mount {
+                    PasswordField(label = "Confirm", value = "", id = "pw", errorText = "The two passwords do not match.", onInput = {})
+                }
+            val input = host.querySelector(".f-input") as HTMLInputElement
+
+            input.getAttribute("aria-invalid") shouldBe "true"
+            input.getAttribute("aria-describedby") shouldBe "pw-err"
+            (host.querySelector("#pw-err") as HTMLElement).textContent.orEmpty() shouldContain "do not match"
+        }
+
         test("a password field hides its value until the eye is clicked") {
             val host = mount { PasswordField(label = "Password", value = "hunter2", onInput = {}) }
             val input = host.querySelector(".f-input") as HTMLInputElement

@@ -39,6 +39,9 @@ fun SetupForm(
 
     val error = (state as? SetupUiState.Error)?.type
     val badField = (error as? SetupErrorType.ValidationError)?.field
+    // A validation problem is spoken by the field it is about; anything else is announced once.
+    val fieldProblem = error?.takeIf { badField != null }?.userMessage()
+    val formProblem = error?.takeIf { badField == null }?.userMessage()
 
     val submit = onSubmit
 
@@ -62,7 +65,7 @@ fun SetupForm(
                 label = "First name",
                 value = firstName,
                 onInput = { firstName = it },
-                error = badField == SetupField.FIRST_NAME,
+                errorText = fieldProblem.takeIf { badField == SetupField.FIRST_NAME },
                 id = FIRST_NAME_ID,
                 autocomplete = "given-name",
             )
@@ -70,7 +73,7 @@ fun SetupForm(
                 label = "Last name",
                 value = lastName,
                 onInput = { lastName = it },
-                error = badField == SetupField.LAST_NAME,
+                errorText = fieldProblem.takeIf { badField == SetupField.LAST_NAME },
                 id = LAST_NAME_ID,
                 autocomplete = "family-name",
             )
@@ -82,7 +85,7 @@ fun SetupForm(
             leading = WebIcon.Mail,
             placeholder = "you@example.com",
             type = InputType.Email,
-            error = badField == SetupField.EMAIL,
+            errorText = fieldProblem.takeIf { badField == SetupField.EMAIL },
             id = EMAIL_ID,
             autocomplete = "username",
         )
@@ -91,7 +94,7 @@ fun SetupForm(
                 label = "Password",
                 value = password,
                 onInput = { password = it },
-                error = badField == SetupField.PASSWORD,
+                errorText = fieldProblem.takeIf { badField == SetupField.PASSWORD },
                 id = PASSWORD_ID,
                 autocomplete = "new-password",
             )
@@ -99,13 +102,13 @@ fun SetupForm(
                 label = "Confirm",
                 value = confirm,
                 onInput = { confirm = it },
-                error = badField == SetupField.PASSWORD_CONFIRM,
+                errorText = fieldProblem.takeIf { badField == SetupField.PASSWORD_CONFIRM },
                 id = CONFIRM_ID,
                 autocomplete = "new-password",
             )
         }
 
-        error?.let { Div(attrs = { classes("auth-err") }) { Text(it.userMessage()) } }
+        formProblem?.let { FormAlert(it) }
 
         Button(attrs = {
             classes("btn")

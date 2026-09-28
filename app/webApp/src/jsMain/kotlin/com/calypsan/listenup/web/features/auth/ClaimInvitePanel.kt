@@ -202,14 +202,10 @@ private fun ClaimStep(
                     confirm = it
                     mismatch = false
                 },
-                error = mismatch,
+                errorText = MISMATCH_MESSAGE.takeIf { mismatch },
                 id = INVITE_CONFIRM_ID,
                 autocomplete = "new-password",
             )
-        }
-
-        if (mismatch) {
-            Div(attrs = { classes("auth-err") }) { Text("The two passwords do not match.") }
         }
 
         Button(attrs = {
@@ -255,7 +251,7 @@ private fun DeadEnd(
     onBackToSignIn: () -> Unit,
 ) {
     Div(attrs = { classes(CLAIM_FIELDS_CLASS) }) {
-        Div(attrs = { classes("auth-err") }) { Text(message) }
+        FormAlert(message)
         ClaimBackLink(onBackToSignIn)
     }
 }
@@ -285,3 +281,5 @@ internal const val INVITE_PASSWORD_ID = "auth-invite-password"
 internal const val INVITE_CONFIRM_ID = "auth-invite-confirm"
 
 private const val CLAIM_ICON_SIZE = 19
+
+private const val MISMATCH_MESSAGE = "The two passwords do not match."

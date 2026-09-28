@@ -53,6 +53,10 @@ fun LoginForm(
 
     val error = (state as? LoginUiState.Error)?.type?.takeUnless { edited }
     val badField = (error as? LoginErrorType.ValidationError)?.field
+    // A validation problem belongs to one field and is spoken by it; anything else is about the
+    // attempt as a whole and is announced once, above the button.
+    val fieldProblem = error?.takeIf { badField != null }?.userMessage()
+    val formProblem = error?.takeIf { badField == null }?.userMessage()
 
     val submit = onSubmit
 
@@ -83,7 +87,7 @@ fun LoginForm(
             leading = WebIcon.Mail,
             placeholder = "you@example.com",
             type = InputType.Email,
-            error = badField == LoginField.EMAIL,
+            errorText = fieldProblem.takeIf { badField == LoginField.EMAIL },
             id = EMAIL_ID,
             autocomplete = "username",
         )
@@ -94,7 +98,7 @@ fun LoginForm(
                 password = it
                 edited = true
             },
-            error = badField == LoginField.PASSWORD,
+            errorText = fieldProblem.takeIf { badField == LoginField.PASSWORD },
             id = PASSWORD_ID,
             autocomplete = "current-password",
         )
@@ -106,7 +110,7 @@ fun LoginForm(
             LinkButton("Forgot your password?", onClick = onForgotPassword)
         }
 
-        error?.let { Div(attrs = { classes("auth-err") }) { Text(it.userMessage()) } }
+        formProblem?.let { FormAlert(it) }
 
         Button(attrs = {
             classes("btn")

@@ -60,7 +60,7 @@ fun PendingApprovalPanel(
             }
 
             is PendingApprovalUiState.Denied -> {
-                Div(attrs = { classes("auth-err") }) { Text(state.message) }
+                FormAlert(state.message)
                 Div(attrs = { classes("auth-alt") }) {
                     LinkButton("Back to sign in", onClick = onCancel)
                 }

@@ -148,6 +148,44 @@ class LoginFormTest :
             (host.querySelector(".auth-err") as HTMLElement).textContent.orEmpty() shouldContain "Email or password"
         }
 
+        test("a sign-in failure is announced the moment it appears") {
+            // The message arrives after a submit, away from focus. Without an alert role a screen
+            // reader user presses Sign in and hears nothing at all.
+            val host =
+                mount {
+                    LoginForm(
+                        state = LoginUiState.Error(LoginErrorType.InvalidCredentials),
+                        openRegistration = false,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = {},
+                        onClaimInvite = {},
+                    )
+                }
+
+            (host.querySelector(".auth-err") as HTMLElement).getAttribute("role") shouldBe "alert"
+        }
+
+        test("a field-specific problem is carried by the field it is about") {
+            val host =
+                mount {
+                    LoginForm(
+                        state = LoginUiState.Error(LoginErrorType.ValidationError(LoginField.EMAIL)),
+                        openRegistration = false,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = {},
+                        onClaimInvite = {},
+                    )
+                }
+            val email = host.querySelector("#auth-email") as HTMLInputElement
+
+            email.getAttribute("aria-invalid") shouldBe "true"
+            val described = host.querySelector("#" + email.getAttribute("aria-describedby")) as HTMLElement
+            described.textContent.orEmpty() shouldContain "valid email"
+            (host.querySelector("#auth-password") as HTMLInputElement).hasAttribute("aria-invalid") shouldBe false
+        }
+
         test("a field validation error marks that field and no other") {
             val host =
                 mount {

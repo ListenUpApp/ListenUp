@@ -89,7 +89,10 @@ private fun ReadyUser(
             onChange = { onToggleCanShare() },
             enabled = live,
         )
-        state.error?.let { failure -> P(attrs = { classes("usr-err") }) { Text(failure.message) } }
+        state.error?.let { failure -> P(attrs = {
+            classes("usr-err")
+            attr("role", "alert")
+        }) { Text(failure.message) } }
     }
 }
 

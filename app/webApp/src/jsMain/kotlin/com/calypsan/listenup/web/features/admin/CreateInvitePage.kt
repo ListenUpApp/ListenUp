@@ -80,7 +80,7 @@ private fun InviteForm(
             // sabotage could not make it observable — so the spec pins the type instead.
             type = InputType.Email,
             autocomplete = "email",
-            error = emailProblem != null,
+            errorText = emailProblem,
             onInput = { typed ->
                 email = typed
                 // The typed error is about the value that was submitted; the moment it changes,
@@ -88,7 +88,6 @@ private fun InviteForm(
                 if (error != null) onClearError()
             },
         )
-        emailProblem?.let { message -> P(attrs = { classes("inv-err") }) { Text(message) } }
     }
 
     Panel(title = "Access level") {
@@ -112,7 +111,12 @@ private fun InviteForm(
         }
     }
 
-    otherError(error)?.let { message -> P(attrs = { classes("inv-err") }) { Text(message) } }
+    otherError(error)?.let { message ->
+        P(attrs = {
+            classes("inv-err")
+            attr("role", "alert")
+        }) { Text(message) }
+    }
 
     Button(attrs = {
         classes("btn-c", "inv-go")

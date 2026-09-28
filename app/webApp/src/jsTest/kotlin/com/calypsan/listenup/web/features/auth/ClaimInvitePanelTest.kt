@@ -130,7 +130,9 @@ class ClaimInvitePanelTest :
             awaitFrame()
 
             claims shouldBe 0
-            (host.querySelector(".auth-err") as HTMLElement).textContent.orEmpty() shouldContain "do not match"
+            // The mismatch belongs to the confirm field, so the field speaks it.
+            (host.querySelector("#auth-invite-confirm-err") as HTMLElement).textContent.orEmpty() shouldContain "do not match"
+            (host.querySelector("#auth-invite-confirm") as HTMLElement).getAttribute("aria-describedby") shouldBe "auth-invite-confirm-err"
         }
 
         test("an invite the server rejected shows the reason instead of a form") {

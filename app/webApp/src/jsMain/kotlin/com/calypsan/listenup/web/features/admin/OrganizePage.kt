@@ -90,7 +90,10 @@ private fun ReadyOrganize(
         }
     }
 
-    state.error?.let { failure -> P(attrs = { classes("org-err") }) { Text(failure.message) } }
+    state.error?.let { failure -> P(attrs = {
+            classes("org-err")
+            attr("role", "alert")
+        }) { Text(failure.message) } }
 
     Div(attrs = { classes("org-actions") }) {
         Button(attrs = {

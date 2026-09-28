@@ -89,20 +89,17 @@ fun RegisterForm(
             label = "Confirm password",
             value = confirm,
             onInput = { confirm = it },
-            error = mismatch,
+            errorText = "Passwords don't match.".takeIf { mismatch },
             id = REGISTER_CONFIRM_ID,
             autocomplete = "new-password",
         )
-        if (mismatch) {
-            Div(attrs = { classes("auth-err") }) { Text("Passwords don't match") }
-        }
 
         // The shared state carries a raw String here rather than a semantic error type, unlike
         // LoginUiState and SetupUiState. Rendered verbatim on purpose: substituting our own copy
         // would hide what the server actually said, and normalising the shared type belongs in
         // its own change.
         (state as? RegisterUiState.Error)?.let {
-            Div(attrs = { classes("auth-err") }) { Text(it.message) }
+            FormAlert(it.message)
         }
 
         Button(attrs = {

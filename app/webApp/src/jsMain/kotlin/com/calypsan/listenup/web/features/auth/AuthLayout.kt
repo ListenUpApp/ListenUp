@@ -44,6 +44,28 @@ fun AuthLayout(
     }
 }
 
+/**
+ * A failure that is about the whole attempt rather than one field — bad credentials, a server
+ * refusal, a dead invite.
+ *
+ * `role="alert"` because it appears after a submit, away from focus: without it a screen reader user
+ * presses the button and hears nothing. A problem with one field belongs on that field instead
+ * (`Field`'s `errorText`), where the input can point at it.
+ */
+@Composable
+internal fun FormAlert(content: @Composable () -> Unit) {
+    Div(attrs = {
+        classes("auth-err")
+        attr("role", "alert")
+    }) { content() }
+}
+
+/** [FormAlert] for a message that is only words. */
+@Composable
+internal fun FormAlert(message: String) {
+    FormAlert { Text(message) }
+}
+
 private const val BRAND_HEADLINE = "Thousands of audiobooks. One beautiful library."
 
 private const val BRAND_SUBTITLE =
