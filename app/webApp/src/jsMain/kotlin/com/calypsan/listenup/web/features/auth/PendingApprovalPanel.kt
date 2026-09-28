@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.auth
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -42,10 +43,7 @@ fun PendingApprovalPanel(
                     Text("Check again")
                 }
                 Div(attrs = { classes("auth-alt") }) {
-                    Span(attrs = {
-                        classes("lnk")
-                        onClick { onCancel() }
-                    }) { Text("Cancel this request") }
+                    LinkButton("Cancel this request", onClick = onCancel)
                 }
             }
 
@@ -64,10 +62,7 @@ fun PendingApprovalPanel(
             is PendingApprovalUiState.Denied -> {
                 Div(attrs = { classes("auth-err") }) { Text(state.message) }
                 Div(attrs = { classes("auth-alt") }) {
-                    Span(attrs = {
-                        classes("lnk")
-                        onClick { onCancel() }
-                    }) { Text("Back to sign in") }
+                    LinkButton("Back to sign in", onClick = onCancel)
                 }
             }
         }

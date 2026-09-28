@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -17,7 +18,6 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.P
-import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -305,10 +305,7 @@ private fun OutcomeStep(
 @Composable
 private fun BackToSignIn(onBackToSignIn: () -> Unit) {
     Div(attrs = { classes("auth-alt") }) {
-        Span(attrs = {
-            classes("lnk")
-            onClick { onBackToSignIn() }
-        }) { Text("Back to sign in") }
+        LinkButton("Back to sign in", onClick = onBackToSignIn)
     }
 }
 

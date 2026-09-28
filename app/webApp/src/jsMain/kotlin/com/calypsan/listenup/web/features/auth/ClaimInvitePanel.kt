@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.disabled
@@ -262,10 +263,7 @@ private fun DeadEnd(
 @Composable
 private fun ClaimBackLink(onBackToSignIn: () -> Unit) {
     Div(attrs = { classes("auth-alt") }) {
-        Span(attrs = {
-            classes("lnk")
-            onClick { onBackToSignIn() }
-        }) { Text("Back to sign in") }
+        LinkButton("Back to sign in", onClick = onBackToSignIn)
     }
 }
 

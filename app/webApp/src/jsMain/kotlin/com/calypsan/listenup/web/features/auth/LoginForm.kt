@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.auth.LoginField
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -102,10 +103,7 @@ fun LoginForm(
         // links: someone reaching for this has already failed to sign in, and the whole point is
         // that they find it without reading the page again.
         Div(attrs = { classes("auth-aside") }) {
-            Span(attrs = {
-                classes("lnk")
-                onClick { onForgotPassword() }
-            }) { Text("Forgot your password?") }
+            LinkButton("Forgot your password?", onClick = onForgotPassword)
         }
 
         error?.let { Div(attrs = { classes("auth-err") }) { Text(it.userMessage()) } }
@@ -124,10 +122,7 @@ fun LoginForm(
         if (openRegistration) {
             Div(attrs = { classes("auth-alt") }) {
                 Span { Text("New to ListenUp?") }
-                Span(attrs = {
-                    classes("lnk")
-                    onClick { onRegister() }
-                }) { Text("Create account") }
+                LinkButton("Create account", onClick = onRegister)
             }
         }
 
@@ -136,10 +131,7 @@ fun LoginForm(
         // would leave an invited reader with a code and no field to type it into.
         Div(attrs = { classes("auth-alt") }) {
             Span { Text("Have an invite code?") }
-            Span(attrs = {
-                classes("lnk")
-                onClick { onClaimInvite() }
-            }) { Text("Redeem it") }
+            LinkButton("Redeem it", onClick = onClaimInvite)
         }
     }
 }

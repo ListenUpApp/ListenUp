@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.auth.RegisterUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LinkButton
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.InputType
@@ -116,10 +117,7 @@ fun RegisterForm(
 
         Div(attrs = { classes("auth-alt") }) {
             Span { Text("Already have an account?") }
-            Span(attrs = {
-                classes("lnk")
-                onClick { onBack() }
-            }) { Text("Sign in") }
+            LinkButton("Sign in", onClick = onBack)
         }
     }
 }
