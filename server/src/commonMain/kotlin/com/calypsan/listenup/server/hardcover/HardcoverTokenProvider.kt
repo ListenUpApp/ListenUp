@@ -54,14 +54,15 @@ class HardcoverTokenProvider(
             when (val stored = store.connectionFor(userId)) {
                 null -> TokenLookup.NotConnected
                 is StoredConnection.Broken -> TokenLookup.Broken(stored.reason)
-                is StoredConnection.Healthy -> freshToken(userId, stored.credentials)
+                is StoredConnection.Healthy -> freshToken(userId, stored)
             }
         }
 
     private suspend fun freshToken(
         userId: String,
-        credentials: StoredCredentials,
+        stored: StoredConnection.Healthy,
     ): TokenLookup {
+        val credentials = stored.credentials
         val now = clock.now().toEpochMilliseconds()
         if (credentials.accessExpiresAt - now > REFRESH_MARGIN_MS) return TokenLookup.Valid(credentials.accessToken)
         return when (val refreshed = oauth.refresh(credentials.refreshToken)) {
@@ -72,7 +73,7 @@ class HardcoverTokenProvider(
 
             RefreshResult.InvalidGrant -> {
                 store.markBroken(userId, HardcoverBrokenReason.REVOKED)
-                linker.onBroken(userId, HardcoverBrokenReason.REVOKED)
+                linker.onBroken(userId, HardcoverBrokenReason.REVOKED, stored.hardcoverUsername)
                 TokenLookup.Broken(HardcoverBrokenReason.REVOKED)
             }
 

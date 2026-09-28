@@ -55,9 +55,13 @@ sealed interface HardcoverSettingsUiState {
         val isDisconnecting: Boolean,
     ) : HardcoverSettingsUiState
 
-    /** Needs a reconnect for [reason]. [isStarting] while Reconnect is in flight. */
+    /**
+     * Was connected as [username] (null when unknown), and needs a reconnect for [reason].
+     * [isStarting] while Reconnect is in flight.
+     */
     data class Broken(
         val reason: HardcoverBrokenReason,
+        val username: String?,
         val isStarting: Boolean,
     ) : HardcoverSettingsUiState
 }
@@ -188,6 +192,6 @@ private fun HardcoverConnection.toUiState(
         }
 
         is HardcoverConnection.Broken -> {
-            HardcoverSettingsUiState.Broken(reason = reason, isStarting = isStarting)
+            HardcoverSettingsUiState.Broken(reason = reason, username = hardcoverUsername, isStarting = isStarting)
         }
     }

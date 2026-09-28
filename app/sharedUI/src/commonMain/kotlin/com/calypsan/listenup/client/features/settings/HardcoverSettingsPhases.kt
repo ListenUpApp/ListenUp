@@ -86,6 +86,7 @@ import listenup.composeapp.generated.resources.hardcover_shares_finished
 import listenup.composeapp.generated.resources.hardcover_shares_no_password
 import listenup.composeapp.generated.resources.hardcover_waiting_detail
 import listenup.composeapp.generated.resources.hardcover_waiting_title
+import listenup.composeapp.generated.resources.hardcover_was_connected_as
 import listenup.composeapp.generated.resources.hardcover_what_is_shared
 import listenup.composeapp.generated.resources.hardcover_your_code
 import org.jetbrains.compose.resources.StringResource
@@ -157,7 +158,7 @@ internal fun hardcoverPhase(
 
         is HardcoverSettingsUiState.Broken -> {
             HardcoverPhase(
-                lead = { BrokenExplanation(reason = state.reason) },
+                lead = { BrokenExplanation(reason = state.reason, username = state.username) },
                 detail = null,
                 actions = {
                     ListenUpButton(
@@ -430,7 +431,10 @@ private fun WhatIsShared() {
 // ─────────────────────────────── Broken ──────────────────────────────
 
 @Composable
-private fun BrokenExplanation(reason: HardcoverBrokenReason) {
+private fun BrokenExplanation(
+    reason: HardcoverBrokenReason,
+    username: String?,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -463,6 +467,13 @@ private fun BrokenExplanation(reason: HardcoverBrokenReason) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (username != null) {
+                Text(
+                    text = stringResource(Res.string.hardcover_was_connected_as, username),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

@@ -168,7 +168,13 @@ class HardcoverSettingsContentTest {
 
     @Test
     fun `broken explains the reason and offers a reconnect and a confirmed disconnect`() {
-        render(HardcoverSettingsUiState.Broken(reason = HardcoverBrokenReason.CANNOT_DECRYPT, isStarting = false))
+        render(
+            HardcoverSettingsUiState.Broken(
+                reason = HardcoverBrokenReason.CANNOT_DECRYPT,
+                username = "simon",
+                isStarting = false,
+            ),
+        )
 
         composeRule.onNodeWithText("Reconnect to keep sharing").assertIsDisplayed()
         composeRule
@@ -176,6 +182,7 @@ class HardcoverSettingsContentTest {
                 "This server can't read its saved Hardcover sign-in, which usually means it was restored " +
                     "from a backup. Reconnect to continue.",
             ).assertIsDisplayed()
+        composeRule.onNodeWithText("Was connected as simon.").assertIsDisplayed()
         composeRule.onNodeWithText("Reconnect").performClick()
         connects shouldBe 1
 
@@ -183,6 +190,14 @@ class HardcoverSettingsContentTest {
         disconnects shouldBe 0
         composeRule.onNode(hasText("Disconnect") and hasAnyAncestor(isDialog())).performClick()
         disconnects shouldBe 1
+    }
+
+    @Test
+    fun `broken with no known username leaves out the was-connected-as line`() {
+        render(HardcoverSettingsUiState.Broken(reason = HardcoverBrokenReason.REVOKED, username = null, isStarting = false))
+
+        composeRule.onNodeWithText("Reconnect to keep sharing").assertIsDisplayed()
+        composeRule.onNodeWithText("Was connected as", substring = true).assertDoesNotExist()
     }
 
     private companion object {

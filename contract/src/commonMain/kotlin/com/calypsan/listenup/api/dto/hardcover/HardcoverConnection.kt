@@ -75,10 +75,14 @@ sealed interface HardcoverConnection {
         @SerialName("since") val since: Long,
     ) : HardcoverConnection
 
-    /** Was connected, and now needs a reconnect for [reason]. */
+    /**
+     * Was connected as [hardcoverUsername], and now needs a reconnect for [reason]. The name is null
+     * only when it is genuinely unknown, including a payload from a server that predates it.
+     */
     @Serializable
     @SerialName("HardcoverConnection.Broken")
     data class Broken(
         @SerialName("reason") val reason: HardcoverBrokenReason,
+        @SerialName("hardcoverUsername") val hardcoverUsername: String? = null,
     ) : HardcoverConnection
 }

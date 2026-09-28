@@ -86,9 +86,21 @@ class HardcoverSettingsViewModelTest :
                     awaitItem() shouldBe
                         HardcoverSettingsUiState.Connected(username = "reader", since = SINCE, isDisconnecting = false)
 
-                    repo.connection.value = HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED)
+                    repo.connection.value = HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED, "reader")
                     awaitItem() shouldBe
-                        HardcoverSettingsUiState.Broken(reason = HardcoverBrokenReason.REVOKED, isStarting = false)
+                        HardcoverSettingsUiState.Broken(
+                            reason = HardcoverBrokenReason.REVOKED,
+                            username = "reader",
+                            isStarting = false,
+                        )
+
+                    repo.connection.value = HardcoverConnection.Broken(HardcoverBrokenReason.MISSING_SCOPE, null)
+                    awaitItem() shouldBe
+                        HardcoverSettingsUiState.Broken(
+                            reason = HardcoverBrokenReason.MISSING_SCOPE,
+                            username = null,
+                            isStarting = false,
+                        )
 
                     repo.connection.value = HardcoverConnection.NotOffered
                     awaitItem() shouldBe HardcoverSettingsUiState.NotOffered
@@ -157,22 +169,22 @@ class HardcoverSettingsViewModelTest :
             runTest {
                 val gate = CompletableDeferred<Unit>()
                 val repo =
-                    FakeHardcoverRepository(HardcoverConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT)).apply {
+                    FakeHardcoverRepository(HardcoverConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, "reader")).apply {
                         startLinkGate = gate
                     }
                 val vm = HardcoverSettingsViewModel(repo)
 
                 vm.uiState.test {
                     awaitSettled() shouldBe
-                        HardcoverSettingsUiState.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, isStarting = false)
+                        HardcoverSettingsUiState.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, "reader", isStarting = false)
 
                     vm.connect()
                     awaitItem() shouldBe
-                        HardcoverSettingsUiState.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, isStarting = true)
+                        HardcoverSettingsUiState.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, "reader", isStarting = true)
 
                     gate.complete(Unit)
                     awaitItem() shouldBe
-                        HardcoverSettingsUiState.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, isStarting = false)
+                        HardcoverSettingsUiState.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, "reader", isStarting = false)
                 }
                 repo.startLinkCalls shouldBe 1
             }
