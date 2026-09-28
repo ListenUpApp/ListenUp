@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Card
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -604,14 +605,14 @@ private fun SeriesStudioCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    ElevatedCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
         shape = ContentShapes.card,
         colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            CardDefaults.cardColors(
+                // High, as the book editor's StudioCard: with the shadow gone, the lift is the container level.
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),

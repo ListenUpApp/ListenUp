@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.CardDefaults
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
@@ -25,7 +27,7 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -319,15 +321,21 @@ private fun FolderBrowserDialog(
     BasicAlertDialog(
         onDismissRequest = onDismiss,
     ) {
-        ElevatedCard(
+        // A dialog is chrome: tonal, at the dialog container level, with no shadow of its own.
+        Card(
             modifier = Modifier.fillMaxWidth().height(500.dp),
             shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header
                 ListenUpTopAppBar(
                     title = stringResource(Res.string.admin_select_folder),
                     onBack = if (state.browserIsRoot) null else onNavigateUp,
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
                     actions = {
                         IconButton(
                             onClick = {

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,22 +16,21 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.ContentShapes
 
 /**
- * Elevated card container for edit sections.
- * Uses surfaceContainerHigh for visual pop against the gradient background.
+ * Tonal card container for edit sections: surfaceContainerHigh lifts it off the gradient
+ * background by container level, not by shadow — DESIGN.md keeps shadows for covers.
  */
 @Composable
 fun StudioCard(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
         shape = ContentShapes.card,
         colors =
-            CardDefaults.elevatedCardColors(
+            CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
