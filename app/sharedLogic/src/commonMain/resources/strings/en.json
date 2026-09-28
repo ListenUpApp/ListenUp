@@ -957,6 +957,8 @@
     "backup_downloaded": "Backup saved to your device.",
     "backup_restore": "Backup & Restore",
     "backup_size": "Size: %1$s",
+    "backup_info_with_images": "Backup will include images. This may take a while and result in a larger file.",
+    "backup_info_without_images": "Backup will not include images. Estimated size depends on your library.",
     "backups": "Backups",
     "book_count": "%1$d",
     "books_awaiting_review_count": "%1$d book awaiting review",

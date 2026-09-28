@@ -50,6 +50,8 @@ import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
 import com.calypsan.listenup.client.presentation.error.localized
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.admin_backup_info_with_images
+import listenup.composeapp.generated.resources.admin_backup_info_without_images
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.admin_book_covers_and_user_avatars
@@ -304,11 +306,13 @@ private fun BackupSummaryCard(includeImages: Boolean) {
             )
             Text(
                 text =
-                    if (includeImages) {
-                        "Backup will include images. This may take a while and result in a larger file."
-                    } else {
-                        "Backup will not include images. Estimated size depends on your library."
-                    },
+                    stringResource(
+                        if (includeImages) {
+                            Res.string.admin_backup_info_with_images
+                        } else {
+                            Res.string.admin_backup_info_without_images
+                        },
+                    ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )

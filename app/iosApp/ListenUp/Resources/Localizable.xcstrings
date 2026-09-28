@@ -181,6 +181,26 @@
         }
       }
     },
+    "admin.backup_info_with_images": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup will include images. This may take a while and result in a larger file."
+          }
+        }
+      }
+    },
+    "admin.backup_info_without_images": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup will not include images. Estimated size depends on your library."
+          }
+        }
+      }
+    },
     "admin.backup_restore": {
       "localizations": {
         "en": {

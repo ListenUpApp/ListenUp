@@ -18,6 +18,8 @@
     <string name="admin_backup_created_at">Created: %1$s at %2$s</string>
     <string name="admin_backup_download_failed">Couldn't save the backup to your device.</string>
     <string name="admin_backup_downloaded">Backup saved to your device.</string>
+    <string name="admin_backup_info_with_images">Backup will include images. This may take a while and result in a larger file.</string>
+    <string name="admin_backup_info_without_images">Backup will not include images. Estimated size depends on your library.</string>
     <string name="admin_backup_restore">Backup &amp; Restore</string>
     <string name="admin_backup_size">Size: %1$s</string>
     <string name="admin_backups">Backups</string>
