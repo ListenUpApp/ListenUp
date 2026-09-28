@@ -77,19 +77,21 @@ fun LicensesScreen(
         remember(rows, query) {
             if (query.isBlank()) rows else rows.filter { it.name.contains(query, ignoreCase = true) }
         }
-    val segments =
+    val familyCounts =
         remember(rows) {
             rows
                 .groupBy { it.spdxId }
                 .entries
                 .sortedByDescending { it.value.size }
-                .map { (spdxId, libs) ->
-                    MeterSegment(
-                        label = spdxId,
-                        weight = libs.size.toFloat(),
-                        color = licenseFamilyColor(spdxId),
-                    )
-                }
+                .map { (spdxId, libs) -> spdxId to libs.size }
+        }
+    val segments =
+        familyCounts.map { (spdxId, count) ->
+            MeterSegment(
+                label = spdxId,
+                weight = count.toFloat(),
+                color = licenseFamilyColor(spdxId).current.content,
+            )
         }
 
     val isWide =

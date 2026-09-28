@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.settings
 
-import androidx.compose.ui.graphics.Color
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe

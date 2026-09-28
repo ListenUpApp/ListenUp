@@ -5,7 +5,8 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
+import com.calypsan.listenup.client.design.theme.CategoryColor
+import com.calypsan.listenup.client.design.theme.CategoryPalette
 import com.mikepenz.aboutlibraries.ui.compose.produceLibraries
 import listenup.composeapp.generated.resources.Res
 
@@ -20,33 +21,32 @@ data class LicenseRow(
 )
 
 /**
- * Neutral fallback color for SPDX identifiers not present in [LICENSE_FAMILY_COLORS].
- * Rendered as a muted gray that reads clearly on both light and dark surfaces.
+ * Neutral fallback colour for SPDX identifiers not present in [LICENSE_FAMILY_COLORS].
  */
-val LICENSE_FALLBACK_COLOR = Color(0xFF8A8A8E)
+val LICENSE_FALLBACK_COLOR: CategoryColor = CategoryPalette.Neutral
 
 /**
- * Stable color palette keyed by SPDX identifier.
- * Colors are chosen to be visually distinct and accessible; they do not change between
- * recompositions (they are top-level constants).
+ * Stable category colour keyed by SPDX identifier, drawn from [CategoryPalette] so each family
+ * has a composed tone in both light and dark. The chip also carries the identifier as text, so
+ * colour is never the only cue.
  */
-val LICENSE_FAMILY_COLORS: Map<String, Color> =
+val LICENSE_FAMILY_COLORS: Map<String, CategoryColor> =
     mapOf(
-        "Apache-2.0" to Color(0xFF2A6FDB),
-        "MIT" to Color(0xFF1F8A5B),
-        "BSD-3-Clause" to Color(0xFF7A5AF8),
-        "BSD-2-Clause" to Color(0xFF5A7AF8),
-        "ISC" to Color(0xFF1F8A8A),
-        "LGPL-2.1-or-later" to Color(0xFFC2562A),
-        "GPL-3.0" to Color(0xFFC23A3A),
-        "OFL-1.1" to Color(0xFFC2389B),
+        "Apache-2.0" to CategoryPalette.Blue,
+        "MIT" to CategoryPalette.Green,
+        "BSD-3-Clause" to CategoryPalette.Violet,
+        "BSD-2-Clause" to CategoryPalette.Periwinkle,
+        "ISC" to CategoryPalette.Teal,
+        "LGPL-2.1-or-later" to CategoryPalette.Orange,
+        "GPL-3.0" to CategoryPalette.Red,
+        "OFL-1.1" to CategoryPalette.Magenta,
     )
 
 /**
- * Returns the display [Color] for the given SPDX identifier.
+ * Returns the [CategoryColor] for the given SPDX identifier.
  * Falls back to [LICENSE_FALLBACK_COLOR] for unrecognised identifiers.
  */
-fun licenseFamilyColor(spdxId: String): Color = LICENSE_FAMILY_COLORS[spdxId] ?: LICENSE_FALLBACK_COLOR
+fun licenseFamilyColor(spdxId: String): CategoryColor = LICENSE_FAMILY_COLORS[spdxId] ?: LICENSE_FALLBACK_COLOR
 
 /**
  * Loads the bundled `aboutlibraries.json` from Compose resources and maps each

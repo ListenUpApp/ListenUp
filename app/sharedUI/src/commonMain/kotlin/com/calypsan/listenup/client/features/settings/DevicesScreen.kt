@@ -488,13 +488,14 @@ private fun ThisDeviceCardContent(
             MaterialTheme.colorScheme.onSurface
         }
     val subColor = inkColor.copy(alpha = 0.75f)
+    val tone = visual.color.current
     val tileBg =
         if (inHero) {
             MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
         } else {
-            visual.tint.copy(alpha = 0.14f)
+            tone.container
         }
-    val tileIconTint = if (inHero) inkColor else visual.tint
+    val tileIconTint = if (inHero) inkColor else tone.content
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -691,8 +692,8 @@ private fun DeviceRowItem(
         // Tinted icon tile
         TonalIconTile(
             icon = visual.icon,
+            tone = visual.color.current,
             size = 52.dp,
-            accent = visual.tint,
         )
 
         // Device info

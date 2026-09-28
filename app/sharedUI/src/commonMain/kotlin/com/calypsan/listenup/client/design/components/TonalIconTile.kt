@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.theme.CategoryTone
 
 private const val ACCENT_TILE_ALPHA = 0.14f
 private const val TILE_ICON_RATIO = 0.5f
@@ -42,22 +43,68 @@ fun TonalIconTile(
     danger: Boolean = false,
     contentDescription: String? = null,
 ) {
-    val background =
-        if (danger) MaterialTheme.colorScheme.errorContainer else accent.copy(alpha = ACCENT_TILE_ALPHA)
-    val tint = if (danger) MaterialTheme.colorScheme.error else accent
+    IconTile(
+        icon = icon,
+        containerColor =
+            if (danger) MaterialTheme.colorScheme.errorContainer else accent.copy(alpha = ACCENT_TILE_ALPHA),
+        contentColor = if (danger) MaterialTheme.colorScheme.error else accent,
+        modifier = modifier,
+        size = size,
+        contentDescription = contentDescription,
+    )
+}
+
+/**
+ * The [TonalIconTile] for a categorical colour — a device type, say — drawn with the category's
+ * composed [tone] for the current theme rather than a translucent accent, so the glyph's contrast
+ * against its fill is fixed and known in both light and dark.
+ *
+ * @param icon The glyph to render, centred and tinted with [CategoryTone.content].
+ * @param tone The category tone, typically [com.calypsan.listenup.client.design.theme.CategoryColor.current].
+ * @param modifier Modifier for the tile.
+ * @param size Edge length of the square tile.
+ * @param contentDescription What the glyph means when it carries meaning on its own; null when decorative.
+ */
+@Composable
+fun TonalIconTile(
+    icon: ImageVector,
+    tone: CategoryTone,
+    modifier: Modifier = Modifier,
+    size: Dp = 44.dp,
+    contentDescription: String? = null,
+) {
+    IconTile(
+        icon = icon,
+        containerColor = tone.container,
+        contentColor = tone.content,
+        modifier = modifier,
+        size = size,
+        contentDescription = contentDescription,
+    )
+}
+
+@Composable
+private fun IconTile(
+    icon: ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier,
+    size: Dp,
+    contentDescription: String?,
+) {
     Box(
         modifier =
             modifier
                 .size(size)
                 .clip(MaterialTheme.shapes.medium)
-                .background(background),
+                .background(containerColor),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             modifier = Modifier.size(size * TILE_ICON_RATIO),
-            tint = tint,
+            tint = contentColor,
         )
     }
 }
