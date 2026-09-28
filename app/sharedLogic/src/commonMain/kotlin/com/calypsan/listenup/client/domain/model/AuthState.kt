@@ -2,6 +2,10 @@ package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNot
+import kotlinx.coroutines.flow.map
 
 /**
  * Authentication state for the application.
@@ -100,3 +104,20 @@ val AuthState.isInShell: Boolean
             is AuthState.PendingApproval,
             -> false
         }
+
+/**
+ * The signed-in listener's id, from the same [AuthState] the repositories and the outbox key their
+ * writes by: the id while the shell is up ([AuthState.Authenticated] or [AuthState.SessionLapsed]),
+ * null once signed out — and nothing at all while [AuthState.Initializing], so a consumer waits for
+ * the answer rather than treating the listener as nobody for a frame (and, say, offering "Rate" to
+ * someone who has rated).
+ */
+internal fun Flow<AuthState>.signedInUserId(): Flow<String?> =
+    filterNot { it is AuthState.Initializing }
+        .map { state ->
+            when (state) {
+                is AuthState.Authenticated -> state.userId.value
+                is AuthState.SessionLapsed -> state.userId.value
+                else -> null
+            }
+        }.distinctUntilChanged()

@@ -117,6 +117,9 @@ enum class WebIcon(
 
     // Not mirrored from the design project either — it carries no speaker glyph. The cone plus
     // two arcs is the standard shape for the category; reconcile if the design project grows one.
+    // Not mirrored either — the design project has no star. The standard five-point outline, for
+    // a reader line that is a rating and nothing else; reconcile if the design project grows one.
+    Star("M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z"),
     Volume("M4 9.5h3.5L12 5.5v13l-4.5-4H4z M16 9.5a4 4 0 0 1 0 5 M18.5 7a7.5 7.5 0 0 1 0 10"),
     X("M6 6l12 12 M18 6L6 18"),
     ;

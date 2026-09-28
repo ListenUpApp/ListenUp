@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
+import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -25,6 +26,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
+import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
 
@@ -46,6 +48,12 @@ import org.koin.test.verify.verify
  *  - [ServerReachability] — owned by `clientSyncModule`.
  *  - [DocumentRepository] — owned by `mediaModule`.
  *  - [BookReadersRepository] — owned by `socialModule`.
+ *  - [BookRatingRepository] — owned by `shelfModule`.
+ *  - [Flow] — Koin's verify resolves `BookRatingsViewModel`'s required `currentUserId:
+ *    Flow<String?>` constructor param against the erased raw type (no default value to fall
+ *    back on). The factory itself passes `get<AuthSession>().authState.signedInUserId()` at
+ *    construction, not a Koin-resolved `Flow` — same shape as `ClientSyncModuleVerifyTest`'s
+ *    `StateFlow` entry for `ConnectionHealthStore`.
  *  - [LoadBookForEditUseCase] — owned by `bookModule`.
  *  - [UpdateBookUseCase] — owned by `bookModule`.
  *  - [ContributorRepository] — owned by `contributorModule`.
@@ -81,6 +89,8 @@ class BookPresentationModuleVerifyTest :
                         ServerReachability::class,
                         DocumentRepository::class,
                         BookReadersRepository::class,
+                        BookRatingRepository::class,
+                        Flow::class,
                         LoadBookForEditUseCase::class,
                         UpdateBookUseCase::class,
                         ContributorRepository::class,

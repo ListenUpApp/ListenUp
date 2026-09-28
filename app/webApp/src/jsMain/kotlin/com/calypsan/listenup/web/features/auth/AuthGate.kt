@@ -34,6 +34,7 @@ import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
 import com.calypsan.listenup.web.features.browse.OpenGenreDestination
 import com.calypsan.listenup.web.features.readers.OpenBookReaders
+import com.calypsan.listenup.web.features.ratings.OpenBookRatings
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 import com.calypsan.listenup.web.features.search.OpenSeeAll
 import com.calypsan.listenup.web.features.metadata.OpenMetadata
@@ -115,6 +116,7 @@ fun AuthGate(
     openBrowseFacet: OpenBrowseFacet,
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
+    openBookRatings: OpenBookRatings,
     openSeeAll: OpenSeeAll,
     openDeadLetters: OpenDeadLetters,
     openPlayback: OpenPlayback,
@@ -243,6 +245,7 @@ fun AuthGate(
                         openBrowseFacet = openBrowseFacet,
                         openGenreDestination = openGenreDestination,
                         openBookReaders = openBookReaders,
+                        openBookRatings = openBookRatings,
                         openSeeAll = openSeeAll,
                         openDeadLetters = openDeadLetters,
                         // A confirmed bulk action is exactly the kind of thing a toast is for:

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.dto.BookMutation
+import com.calypsan.listenup.api.dto.BookRatingMutation
 import com.calypsan.listenup.api.dto.BookTagMutation
 import com.calypsan.listenup.api.dto.CollectionBookMutation
 import com.calypsan.listenup.api.dto.CollectionMutation
@@ -118,6 +119,17 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    // A listener's rating: Set and Clear both carry the whole terminal state for (book, listener),
+    // under one kind, so the queue coalesces them — three taps offline send one op. Idempotent
+    // server-side (re-rating overwrites; clearing an absent rating succeeds).
+    val BookRatings =
+        OutboxChannel(
+            SyncDomains.BOOK_RATINGS.name,
+            BookRatingMutation.serializer(),
+            setOf(OpKind.Upsert),
+            idempotent = true,
+        )
+
     // Shelf lifecycle: update (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
     // idempotent — a re-fire re-applies the same terminal state. Creating a shelf stays online (server-minted id).
     val Shelves =
@@ -184,6 +196,7 @@ internal object OutboxChannels {
             Tags,
             BookTags,
             BookMoods,
+            BookRatings,
             Shelves,
             ShelfBooks,
             Collections,

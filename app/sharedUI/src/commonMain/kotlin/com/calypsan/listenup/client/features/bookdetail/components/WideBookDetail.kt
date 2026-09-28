@@ -398,6 +398,13 @@ private fun WideRightColumn(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
+        // Rating card — your listeners' stars and your own, right above the Readers card.
+        BookRatingBlock(
+            bookId = bookId,
+            isCard = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         // Readers card — social reading activity. Self-cards only when populated, so no
         // hollow surface is drawn on the common no-readers / Loading / Error paths.
         BookReadersSection(

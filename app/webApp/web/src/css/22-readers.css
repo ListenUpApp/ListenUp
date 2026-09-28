@@ -26,3 +26,40 @@
 .luw .rdr-all:focus { outline: none; }
 .luw .rdr-all:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 
+
+/* ============================================================
+   RATINGS — five stars in halves, the Book Detail panel, the rate dialog
+   ============================================================ */
+/* The stars are one glyph each; a half is the same glyph painted half and half, so a half star
+   is exactly as wide as a whole one and the row never shifts as the rating moves. Not prefixed with
+   .luw: the rate dialog is a <dialog>, which the dialog rules below style on its own. */
+.rs { display: inline-flex; flex: none; gap: 1px; font-size: 0.8rem; line-height: 1; color: var(--line); white-space: nowrap; }
+.rs-s.is-full { color: var(--coral); }
+.rs-s.is-empty { color: var(--line); }
+.rs-s.is-half { background: linear-gradient(90deg, var(--coral) 50%, var(--line) 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rs-input { gap: 4px; font-size: 2.2rem; padding: 4px 6px; border-radius: 10px; cursor: pointer; user-select: none; }
+.rs-input:focus { outline: none; }
+.rs-input:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+.luw .rt { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+.luw .rt-avg { font-size: 0.86rem; font-weight: 600; color: var(--ink-2); }
+.luw .rt-avg-star { color: var(--coral); }
+.luw .rt-rate { align-self: flex-start; }
+.luw .rt-mine { display: flex; align-items: center; gap: 10px; }
+.luw .rt-mine-l { font-size: 0.88rem; font-weight: 700; color: var(--ink); }
+.luw .rt-mine .rs { font-size: 0.95rem; }
+.luw .rt-edit { margin-left: auto; }
+/* Read by a screen reader in place of the average's glyph-and-brackets shorthand. */
+.rt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+dialog.dlg .rt-input { display: flex; justify-content: center; }
+dialog.dlg .rt-count { align-self: flex-end; margin-top: -8px; font-size: 0.75rem; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+dialog.dlg .rt-remove { align-self: flex-start; padding: 4px 8px; border: none; border-radius: 8px; background: transparent; color: var(--coral-deep); font-family: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+@media (hover: hover) { dialog.dlg .rt-remove:hover { background: var(--coral-soft); } }
+dialog.dlg .rt-remove:active { transform: translateY(1px); }
+dialog.dlg .rt-remove:focus { outline: none; }
+dialog.dlg .rt-remove:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+/* A rating on a reader line: small stars beside the name, the note underneath, two lines at most. */
+.luw .rdr-nl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.luw .rdr-note { font-size: 0.76rem; font-style: italic; color: var(--ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }

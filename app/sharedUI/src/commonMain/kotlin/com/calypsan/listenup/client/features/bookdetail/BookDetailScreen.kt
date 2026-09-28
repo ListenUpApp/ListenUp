@@ -61,6 +61,7 @@ import com.calypsan.listenup.client.features.library.CollectionPickerSheet
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
+import com.calypsan.listenup.client.features.bookdetail.components.BookRatingBlock
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
@@ -842,6 +843,14 @@ private fun ImmersiveBookDetail(
                     onMoodClick = { mood -> onMoodClick(mood.id, mood.displayName()) },
                     creditsSlot = null,
                     modifier = screenPadding.padding(top = 24.dp),
+                )
+            }
+
+            // Rating — your listeners' stars and your own, right above the people who left them.
+            item {
+                BookRatingBlock(
+                    bookId = bookId,
+                    modifier = screenPadding.padding(vertical = 8.dp),
                 )
             }
 

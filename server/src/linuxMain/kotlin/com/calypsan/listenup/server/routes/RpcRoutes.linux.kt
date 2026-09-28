@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BackupService
+import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
@@ -35,6 +36,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BackupServiceImpl
+import com.calypsan.listenup.server.api.BookRatingServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
@@ -134,6 +136,7 @@ private fun Route.authedRpc(services: RpcServices) {
         }
         registerScoped<TagService> { guard((services.tagService as TagServiceImpl).copyWith(it)) }
         registerScoped<MoodService> { guard((services.moodService as MoodServiceImpl).copyWith(it)) }
+        registerScoped<BookRatingService> { guard((services.bookRatingService as BookRatingServiceImpl).copyWith(it)) }
         registerScoped<OrganizeService> { guard((services.organizeService as OrganizeServiceImpl).copyWith(it)) }
         registerScoped<GenreService> { guard((services.genreService as GenreServiceImpl).copyWith(it)) }
         registerScoped<CollectionService> { guard((services.collectionService as CollectionServiceImpl).copyWith(it)) }

@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -23,9 +24,13 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.makeBookAccessible
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.tempAvatarImageStore
 import com.calypsan.listenup.server.testing.testPasswordResetService
@@ -70,7 +75,10 @@ class PublicProfileLifecycleTest :
                 UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
             }
 
-        fun ListenUpDatabase.makeAdminUserService(maintainer: PublicProfileMaintainer): AdminUserServiceImpl {
+        fun ListenUpDatabase.makeAdminUserService(
+            maintainer: PublicProfileMaintainer,
+            bookRatingRepository: BookRatingRepository? = null,
+        ): AdminUserServiceImpl {
             val sessions =
                 SessionService(this, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(this, default = RegistrationPolicy.OPEN)
@@ -83,6 +91,7 @@ class PublicProfileLifecycleTest :
                 registrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
                 bus = ChangeBus(),
                 publicProfileMaintainer = maintainer,
+                bookRatingRepository = bookRatingRepository,
                 passwordResetService = testPasswordResetService(this, fixedClock),
             )
         }
@@ -193,6 +202,46 @@ class PublicProfileLifecycleTest :
                     val row = rows.find { it.id == "m1" }
                     row.shouldNotBeNull()
                     row.deletedAt.shouldNotBeNull()
+                }
+            }
+        }
+
+        // ── Case 4: deleteUser tombstones the doomed user's ratings ───────────────
+
+        test("deleteUser tombstones the ratings the deleted user left behind") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "m1")
+                val (maintainer, _) = sql.buildMaintainerAndRepo()
+                val ratingRepo = BookRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+
+                runTest {
+                    ratingRepo.upsert(
+                        BookRatingSyncPayload(
+                            id = "rating-1",
+                            bookId = "b1",
+                            userId = "m1",
+                            halfStars = 8,
+                            note = "Loved it.",
+                            ratedAt = 0L,
+                            updatedAt = 0L,
+                            revision = 0L,
+                        ),
+                    )
+
+                    val svc =
+                        sql
+                            .makeAdminUserService(maintainer, bookRatingRepository = ratingRepo)
+                            .copyWith(principalFor("root1", UserRole.ROOT))
+
+                    svc
+                        .deleteUser(UserId("m1"))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    ratingRepo.findForBook("b1") shouldBe emptyList()
                 }
             }
         }

@@ -35,6 +35,9 @@ object SyncDomains {
     /** Book–mood junction rows. */
     val BOOK_MOODS = SyncDomainKey("book_moods", BookMoodSyncPayload.serializer())
 
+    /** One listener's rating of one book, readable by everyone who can open the book. */
+    val BOOK_RATINGS = SyncDomainKey("book_ratings", BookRatingSyncPayload.serializer())
+
     /** Per-user, per-book playback position checkpoints. */
     val PLAYBACK_POSITIONS = SyncDomainKey("playback_positions", PlaybackPositionSyncPayload.serializer())
 
@@ -98,6 +101,7 @@ object SyncDomains {
             BOOK_TAGS,
             MOODS,
             BOOK_MOODS,
+            BOOK_RATINGS,
             PLAYBACK_POSITIONS,
             LISTENING_EVENTS,
             USER_STATS,

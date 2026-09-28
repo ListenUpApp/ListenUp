@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.domains.junctionOutboxKey
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -41,7 +42,7 @@ private val logger = KotlinLogging.logger {}
  * **Mutation**: offline-first where it can be mirrored, online where it can't.
  * - `renameTag`, `deleteTag`, `removeTagFromBook` write Room optimistically and enqueue a durable
  *   op (via [OfflineEditor.edit]) — `renameTag`/`deleteTag` on the `tags` channel keyed by tag id,
- *   `removeTagFromBook` on the `book_tags` channel keyed by the `"$bookId:$tagId"` envelope id — so
+ *   `removeTagFromBook` on the `book_tags` channel keyed by the `"$bookId:$tagId"` pair — so
  *   an edit made offline persists and replays on reconnect rather than failing with a
  *   [com.calypsan.listenup.api.error.ServerConnectError]. The entity-level in-flight shield defers
  *   each row's own echo until its op drains; the authoritative state then reconciles through
@@ -95,13 +96,13 @@ internal class TagRepositoryImpl(
     /**
      * Adding a tag to a book is find-or-create by slug server-side, so its offline-first eligibility
      * turns on whether the target tag already exists locally:
-     * - **Name hit** (a live tag with [name] already in Room, case-insensitive): its slug equals the
-     *   server's `normalize(name)`, so the server's find-or-create for the same `name` resolves to THIS
-     *   tag id — a false hit is impossible (two tags can't share a slug). So it's offline-first: upsert
-     *   the `(bookId, tagId)` junction optimistically (revision-0, clearing any tombstone for re-add
-     *   semantics) and enqueue a durable [BookTagMutation.Add] on the `book_tags` channel, keyed by the
-     *   same `"$bookId:$tagId"` envelope id the junction's mirror row uses so the in-flight shield and
-     *   reconcile-on-drain align. The known tag is returned immediately.
+     * - **Name hit** (a live tag with [name] already in Room, case-insensitive): its slug equals the server's
+     *   `normalize(name)`, so the server's find-or-create for the same `name` resolves to THIS tag id — a false
+     *   hit is impossible (two tags can't share a slug). So it's offline-first: upsert the `(bookId, tagId)`
+     *   junction optimistically (revision-0, clearing any tombstone for re-add semantics) and enqueue a durable
+     *   [BookTagMutation.Add] on the `book_tags` channel, keyed by the `"$bookId:$tagId"` pair — not the row's
+     *   wire id; the domain's `OutboxKeying` maps echoes and drained ops onto it. The known tag is returned
+     *   immediately.
      * - **Miss** (no same-name tag locally): a brand-new tag's id/slug are minted server-side and unknown
      *   until the echo, so it stays ONLINE via the [RpcChannel]. This also correctly covers the rare case
      *   where the server would slug-match a *differently-named* existing tag (e.g. "sci-fi" vs "Sci-Fi"
@@ -122,7 +123,7 @@ internal class TagRepositoryImpl(
         return offlineEditor
             .edit(
                 OutboxChannels.BookTags,
-                "$bookId:${existing.id}",
+                junctionOutboxKey(bookId, existing.id),
                 BookTagMutation.Add(bookId = bookId, tagId = existing.id, name = name),
                 op = OpKind.Create,
             ) {
@@ -146,9 +147,9 @@ internal class TagRepositoryImpl(
     ): AppResult<Tag> = channel.call { it.addTagToBook(BookId(bookId), name) }.map { it.toDomain() }
 
     /**
-     * Offline-first: tombstone the junction optimistically and enqueue a durable op on the
-     * `book_tags` channel, keyed by the same `"$bookId:$tagId"` envelope id the junction's mirror row
-     * uses so the in-flight shield and reconcile-on-drain align. Removal is idempotent server-side.
+     * Offline-first: tombstone the junction optimistically and enqueue a durable op on the `book_tags` channel,
+     * keyed by the `"$bookId:$tagId"` pair — not the row's wire id; the domain's `OutboxKeying` maps echoes and
+     * drained ops onto it. Removal is idempotent server-side.
      */
     override suspend fun removeTagFromBook(
         bookId: String,
@@ -156,7 +157,7 @@ internal class TagRepositoryImpl(
     ): AppResult<Unit> =
         offlineEditor.edit(
             OutboxChannels.BookTags,
-            "$bookId:$tagId",
+            junctionOutboxKey(bookId, tagId),
             BookTagMutation.Remove(bookId = bookId, tagId = tagId),
             op = OpKind.Delete,
         ) {

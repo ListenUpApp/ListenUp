@@ -128,8 +128,12 @@ class WebSessionCoversItsViewModelRule :
         }
     })
 
-/** `koin.get<SomeViewModel>()` — how a factory names the ViewModel it is the seam for. */
-private val RESOLVED_VIEW_MODEL = Regex("""koin\.get<(\w+ViewModel)>\(\)""")
+/**
+ * `koin.get<SomeViewModel>()`, or `koin.get<SomeViewModel> { parametersOf(id) }` — how a factory
+ * names the ViewModel it is the seam for. The lambda form is how every book- or id-scoped
+ * ViewModel is resolved; matching only `()` left all seven of those factories unpoliced.
+ */
+private val RESOLVED_VIEW_MODEL = Regex("""koin\.get<(\w+ViewModel)>\s*(?:\(\)|\{)""")
 
 /**
  * Actions a web session deliberately does not wire, or that it reaches by another route.
@@ -213,6 +217,10 @@ private val EXCUSED =
         // Admin.
         "OrganizeSettingsViewModel.clearError",
         "SyncIndicatorViewModel.toggleExpanded",
+        // Surfaced 2026-09-27, when the rule learned to see `koin.get<X> { parametersOf(…) }`.
+        "AdminCollectionDetailViewModel.clearSaveSuccess",
+        "AdminCollectionDetailViewModel.loadUsersForSharing",
+        "ChapterEditorViewModel.replaceAll",
         // Manual refresh: check whether web refreshes on navigation before building a control.
         "HomeViewModel.refresh",
         "DiscoverViewModel.refresh",

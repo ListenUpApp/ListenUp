@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -38,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.CountBadge
+import com.calypsan.listenup.client.design.components.RatingStars
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -53,6 +55,8 @@ import listenup.composeapp.generated.resources.book_detail_readers
 import listenup.composeapp.generated.resources.book_detail_readers_finished
 import listenup.composeapp.generated.resources.book_detail_progresspercent
 import listenup.composeapp.generated.resources.book_detail_readers_listening_now
+import listenup.composeapp.generated.resources.book_detail_readers_note
+import listenup.composeapp.generated.resources.book_detail_readers_rated
 import listenup.composeapp.generated.resources.common_see_all
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -76,6 +80,11 @@ private const val MAX_COLLAPSED_READERS = 5
  *   but the percentage is unknown — the ring + [Icons.Default.GraphicEq] still show, but no bar.
  * @property finishedWhen Human-readable completion marker (e.g. `"Apr 12"`) when finished; `null`
  *   while reading.
+ * @property halfStars The person's rating (2..10) on their first row; `null` on later rows and for
+ *   people who have not rated the book.
+ * @property note The note left with [halfStars], if any.
+ * @property isRatedOnly `true` for a person who rated the book without reading it here: the row
+ *   reads "Rated", with no progress bar and no finished date.
  */
 data class ReaderRowUi(
     val userId: String,
@@ -83,6 +92,9 @@ data class ReaderRowUi(
     val isReading: Boolean,
     val progressPct: Int?,
     val finishedWhen: String?,
+    val halfStars: Int? = null,
+    val note: String? = null,
+    val isRatedOnly: Boolean = false,
 )
 
 /**
@@ -103,6 +115,8 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     isReading = true,
                     progressPct = k.progressPct,
                     finishedWhen = null,
+                    halfStars = line.rating?.halfStars,
+                    note = line.rating?.note,
                 )
             }
 
@@ -113,6 +127,21 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
                     isReading = false,
                     progressPct = null,
                     finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
+                    halfStars = line.rating?.halfStars,
+                    note = line.rating?.note,
+                )
+            }
+
+            ReaderLineKind.Rated -> {
+                ReaderRowUi(
+                    userId = line.userId,
+                    name = name,
+                    isReading = false,
+                    progressPct = null,
+                    finishedWhen = null,
+                    halfStars = line.rating?.halfStars,
+                    note = line.rating?.note,
+                    isRatedOnly = true,
                 )
             }
         }
@@ -282,7 +311,8 @@ fun BookReadersContent(
  * ring offset 2dp from the circle, a thin progress bar + percentage label show when
  * [ReaderRowUi.progressPct] is known, and a trailing [Icons.Default.GraphicEq] indicates active
  * listening. When finished, a "Finished {when}" line shows under the name with a trailing
- * [Icons.Default.CheckCircle].
+ * [Icons.Default.CheckCircle]. A rated-only row reads "Rated" with a trailing star. When the row
+ * carries a rating, small stars sit beside the name and the note, in quotes, beneath it.
  *
  * @param reader The reader row model to display.
  * @param onUserClick Callback when the row is clicked.
@@ -325,13 +355,20 @@ internal fun ReaderRow(
         Spacer(modifier = Modifier.width(13.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = reader.name,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = reader.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (reader.halfStars != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    RatingStars(halfStars = reader.halfStars)
+                }
+            }
 
             if (reader.isReading) {
                 if (reader.progressPct != null) {
@@ -359,6 +396,24 @@ internal fun ReaderRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 1.dp),
                 )
+            } else if (reader.isRatedOnly) {
+                Text(
+                    text = stringResource(Res.string.book_detail_readers_rated),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 1.dp),
+                )
+            }
+
+            if (reader.note != null) {
+                Text(
+                    text = stringResource(Res.string.book_detail_readers_note, reader.note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
         }
 
@@ -369,6 +424,13 @@ internal fun ReaderRow(
                 imageVector = Icons.Default.GraphicEq,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp),
+            )
+        } else if (reader.isRatedOnly) {
+            Icon(
+                imageVector = Icons.Rounded.Star,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.size(22.dp),
             )
         } else {

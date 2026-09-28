@@ -199,3 +199,32 @@ internal val MIGRATION_7_8 =
             connection.executeDdl("ALTER TABLE `chapters` ADD COLUMN `bookTitle` TEXT")
         }
     }
+
+/**
+ * v8 → v9: the `book_ratings` table arrives.
+ *
+ * One row per (book, listener): a 2..10 half-star rating plus an optional note, syncing like any
+ * other book-scoped junction — mirroring `book_moods`' shape but keyed to the listener instead of
+ * a shared tag. Non-destructive by construction — pure `CREATE TABLE`/`CREATE INDEX`, touching no
+ * existing rows, per the migration policy in [ListenUpDatabase].
+ *
+ * DDL is copied verbatim from the exported `schemas/…/9.json` `createSql` entries so
+ * `runMigrationsAndValidate` sees an identical schema to a fresh v9 install.
+ */
+internal val MIGRATION_8_9 =
+    object : Migration(8, 9) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `book_ratings` (`bookId` TEXT NOT NULL, `userId` TEXT NOT NULL, " +
+                    "`syncId` TEXT NOT NULL, `halfStars` INTEGER NOT NULL, `note` TEXT, `ratedAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, " +
+                    "PRIMARY KEY(`bookId`, `userId`))",
+            )
+            connection.executeDdl(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_book_ratings_syncId` ON `book_ratings` (`syncId`)",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_book_ratings_deletedAt` ON `book_ratings` (`deletedAt`)",
+            )
+        }
+    }

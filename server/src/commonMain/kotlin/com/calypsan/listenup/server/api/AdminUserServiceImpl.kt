@@ -38,8 +38,10 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.deleteNotificationRowsForUser
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -79,6 +81,12 @@ class AdminUserServiceImpl(
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val publicProfileMaintainer: PublicProfileMaintainer? = null,
+    /**
+     * Nullable so the auth module assembles without the sync module (tests, phased startup). When
+     * present, a deleted account's ratings are tombstoned so every device drops them rather than
+     * showing stars from someone who no longer exists.
+     */
+    private val bookRatingRepository: BookRatingRepository? = null,
     private val activityRecorder: ActivityRecorder? = null,
     /**
      * Nullable so the auth module assembles independently of the collections module
@@ -136,6 +144,7 @@ class AdminUserServiceImpl(
             clock = clock,
             principal = provider,
             publicProfileMaintainer = publicProfileMaintainer,
+            bookRatingRepository = bookRatingRepository,
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
             pushNotifier = pushNotifier,
@@ -292,6 +301,12 @@ class AdminUserServiceImpl(
             sessions.revokeAll(id)
             publicProfileMaintainer?.tombstoneBestEffort(id.value)
             adminUserRosterMaintainer?.removeBestEffort(id.value)
+            // Best-effort: the account deletion has already committed, so a ratings sweep
+            // failure must never fail it. Every device drops the stranger's stars once the
+            // tombstone syncs; a failed sweep here just means the ratings linger (no self-heal
+            // path exists yet, unlike the roster/profile projections above).
+            runCatchingCancellable { bookRatingRepository?.softDeleteAllForUser(id.value) }
+                .onFailure { log.warn(it) { "book ratings sweep failed for ${id.value}" } }
         }
         return outcome
     }

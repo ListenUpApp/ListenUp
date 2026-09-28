@@ -65,6 +65,12 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
                         },
                     ),
             ),
+        // Ops are keyed by the `(bookId, moodId)` pair, not the opaque wire id; a drained op re-reads its book.
+        outboxKeying =
+            OutboxKeying(
+                keysOf = { setOf(junctionOutboxKey(it.bookId, it.moodId)) },
+                refetchFor = { key -> TargetedFetch.ByBookIds(listOf(junctionOutboxParent(key))) },
+            ),
     )
 }
 

@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.domains.junctionOutboxKey
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
@@ -48,7 +49,7 @@ import kotlinx.coroutines.flow.map
  * - `updateShelf`, `deleteShelf`, `addBooksToShelf`, `removeBookFromShelf` write Room optimistically
  *   and enqueue a durable op (via [OfflineEditor.edit]) — lifecycle edits on the `shelves` channel
  *   keyed by shelf id, junction edits on the `shelf_books` channel keyed by the `"$shelfId:$bookId"`
- *   envelope id — so an edit made offline persists and replays on reconnect rather than failing with
+ *   pair — so an edit made offline persists and replays on reconnect rather than failing with
  *   a [com.calypsan.listenup.api.error.ServerConnectError]. The entity-level in-flight shield defers
  *   each row's own echo until its op drains.
  * - `createShelf` stays online (the server mints the shelf's id); `reorderBooks`, `getUserShelves`,
@@ -189,7 +190,7 @@ internal class ShelfRepositoryImpl(
         bookIds.forEach { bookId ->
             val existing = shelfBookDao.findByShelfAndBook(shelfId.value, bookId.value)
             if (existing != null && existing.deletedAt == null) return@forEach
-            val outboxKey = "${shelfId.value}:${bookId.value}"
+            val outboxKey = junctionOutboxKey(shelfId.value, bookId.value)
             val result =
                 offlineEditor.edit(
                     OutboxChannels.ShelfBooks,
@@ -219,15 +220,15 @@ internal class ShelfRepositoryImpl(
     }
 
     /**
-     * Offline-first: tombstone the junction optimistically (preserving its revision) and enqueue a
-     * durable op on the `shelf_books` channel, keyed by the same `"$shelfId:$bookId"` envelope id the
-     * junction's mirror row uses so the in-flight shield and reconcile-on-drain align. Idempotent server-side.
+     * Offline-first: tombstone the junction optimistically (preserving its revision) and enqueue a durable op
+     * on the `shelf_books` channel, keyed by the `"$shelfId:$bookId"` pair — not the row's wire id; the
+     * domain's `OutboxKeying` maps echoes and drained ops onto it. Idempotent server-side.
      */
     override suspend fun removeBookFromShelf(
         shelfId: ShelfId,
         bookId: BookId,
     ): AppResult<Unit> {
-        val outboxKey = "${shelfId.value}:${bookId.value}"
+        val outboxKey = junctionOutboxKey(shelfId.value, bookId.value)
         return offlineEditor.edit(
             OutboxChannels.ShelfBooks,
             outboxKey,

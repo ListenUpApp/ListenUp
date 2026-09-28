@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.domain.readers
 
+import com.calypsan.listenup.client.domain.model.ListenerRating
+
 /**
  * Readers state for one book.
  *
@@ -26,6 +28,7 @@ data class BookReaders(
  * @property currentProgressPct 0..100 when the user has an in-progress (unfinished) position; null
  *   otherwise. Non-null ⇒ reading now.
  * @property finishes Dated completions (epoch ms), newest-first; may be empty.
+ * @property rating This reader's rating of the book, when they left one.
  */
 data class Reader(
     val userId: String,
@@ -33,4 +36,5 @@ data class Reader(
     val isYou: Boolean,
     val currentProgressPct: Int?,
     val finishes: List<Long>,
+    val rating: ListenerRating? = null,
 )

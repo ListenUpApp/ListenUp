@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
+import com.calypsan.listenup.api.sync.BookRatingSyncPayload
 import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
@@ -36,11 +37,13 @@ internal const val COLLECTION_BOOKS_DOMAIN = "collection_books"
 // to reconcile and tombstones need not pass through.
 
 /**
- * Book↔tag / book↔mood junction rows. Access-gated: a row is `(bookId, tagId)`, so an ungated one
- * tells a member the id of a book they cannot see and how it is classified.
+ * Book↔tag / book↔mood / book↔rating junction rows. Access-gated: a row is keyed to a book (plus
+ * a tag, mood, or listener), so an ungated one tells a member the id of a book they cannot see —
+ * and, for a rating, that a stranger rated it and by how much.
  */
 internal const val BOOK_TAGS_DOMAIN = "book_tags"
 internal const val BOOK_MOODS_DOMAIN = "book_moods"
+internal const val BOOK_RATINGS_DOMAIN = "book_ratings"
 
 internal const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
 
@@ -124,11 +127,16 @@ private suspend fun isActivityEventHidden(
 }
 
 /**
- * Whether a live `book_tags`/`book_moods` junction event must be withheld from `(userId, role)`.
+ * Whether a live `book_tags`/`book_moods`/`book_ratings` junction event must be withheld from
+ * `(userId, role)`.
  *
  * Mirrors [isActivityEventHidden]: ROOT/ADMIN and Deleted tombstones always pass — a tombstone
  * strands no secret, and its payload is minimized to strip the pair anyway. Content events gate on
  * the payload's `bookId`, never the row id (which is opaque and encodes neither side of the pair).
+ *
+ * **Fails closed.** A gated domain whose content payload [junctionBookIdOf] can't resolve to a
+ * `bookId` — i.e. an unrecognised payload type — is withheld, not delivered: the next junction
+ * domain added here must not leak silently just because [junctionPayloadBookId] forgot its branch.
  */
 private suspend fun isBookJunctionEventHidden(
     busEvent: BusEvent<*>,
@@ -137,10 +145,10 @@ private suspend fun isBookJunctionEventHidden(
     bookAccessPolicy: () -> BookAccessPolicy,
 ): Boolean {
     val domain = busEvent.repo.domainName
-    if (domain != BOOK_TAGS_DOMAIN && domain != BOOK_MOODS_DOMAIN) return false
+    if (domain != BOOK_TAGS_DOMAIN && domain != BOOK_MOODS_DOMAIN && domain != BOOK_RATINGS_DOMAIN) return false
     if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
     if (busEvent.event is SyncEvent.Deleted) return false
-    val bookId = junctionBookIdOf(busEvent.event) ?: return false
+    val bookId = junctionBookIdOf(busEvent.event) ?: return true
     return !bookAccessPolicy().canAccess(userId, role, bookId)
 }
 
@@ -159,6 +167,7 @@ private fun junctionPayloadBookId(payload: Any?): String? =
     when (payload) {
         is BookTagSyncPayload -> payload.bookId
         is BookMoodSyncPayload -> payload.bookId
+        is BookRatingSyncPayload -> payload.bookId
         else -> null
     }
 

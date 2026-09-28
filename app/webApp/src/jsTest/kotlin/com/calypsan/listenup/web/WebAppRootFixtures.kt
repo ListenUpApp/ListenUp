@@ -69,9 +69,12 @@ import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
 import com.calypsan.listenup.web.features.browse.OpenGenreDestination
 import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
 import com.calypsan.listenup.web.features.browse.fixedGenreDestination
 import com.calypsan.listenup.web.features.readers.OpenBookReaders
+import com.calypsan.listenup.web.features.ratings.OpenBookRatings
+import com.calypsan.listenup.web.features.ratings.fixedBookRatings
 import com.calypsan.listenup.web.features.readers.fixedBookReaders
 import com.calypsan.listenup.web.features.search.OpenSeeAll
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
@@ -210,6 +213,7 @@ internal fun mountAt(
     openBrowseFacet: OpenBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
     openGenreDestination: OpenGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
     openBookReaders: OpenBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+    openBookRatings: OpenBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
     openSeeAll: OpenSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
     openDeadLetters: OpenDeadLetters = fixedDeadLetters(),
     openCreateInvite: OpenCreateInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
@@ -272,6 +276,7 @@ internal fun mountAt(
                 openBrowseFacet = openBrowseFacet,
                 openGenreDestination = openGenreDestination,
                 openBookReaders = openBookReaders,
+                openBookRatings = openBookRatings,
                 openSeeAll = openSeeAll,
                 openDeadLetters = openDeadLetters,
                 onToast = onToast,

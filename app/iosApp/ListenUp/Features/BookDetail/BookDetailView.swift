@@ -16,6 +16,8 @@ struct BookDetailView: View {
     @Environment(\.horizontalSizeClass) private var hSize
     @State var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
+    @State private var ratingsObserver: BookRatingsObserver?
+    @State private var showRateSheet = false
     /// Counts completed book actions (download, delete download, mark finished) so `commit`
     /// fires once per deliberate action.
     @State private var bookActionCount = 0
@@ -73,6 +75,16 @@ struct BookDetailView: View {
                 )
             }
         }
+        .sheet(isPresented: $showRateSheet) {
+            if let ratingsObserver, case .ready(let snapshot) = ratingsObserver.phase {
+                RateBookSheet(
+                    current: snapshot.mine,
+                    onSave: { ratingsObserver.rate(halfStars: $0, note: $1) },
+                    onClear: { ratingsObserver.clear() },
+                    onClose: { showRateSheet = false }
+                )
+            }
+        }
         .sheet(isPresented: $showCast) {
             if let observer, let book = observer.book {
                 CastCreditsSheet(book: book) { showCast = false }
@@ -109,6 +121,7 @@ struct BookDetailView: View {
             // The Readers VM is bookId-parameterized at construction and observes immediately —
             // no separate load call needed.
             readersObserver = BookReadersObserver(viewModel: deps.createBookReadersViewModel(bookId: bookId))
+            ratingsObserver = BookRatingsObserver(viewModel: deps.createBookRatingsViewModel(bookId: bookId))
         }
     }
 
@@ -169,6 +182,8 @@ struct BookDetailView: View {
 
                 BookChaptersSection(chapters: observer.chapters)
 
+                ratingSection
+
                 readersSection
 
                 Divider()
@@ -227,6 +242,8 @@ struct BookDetailView: View {
                 Divider()
 
                 BookChaptersSection(chapters: observer.chapters)
+
+                ratingSection
 
                 readersSection
 
@@ -295,6 +312,16 @@ struct BookDetailView: View {
                 observer.markFinished()
             }
         )
+    }
+
+    /// The rating block, directly above Readers. Renders nothing while the ratings are loading, so
+    /// it never flashes "Rate" at someone who already has.
+    @ViewBuilder
+    private var ratingSection: some View {
+        if case .ready(let snapshot) = ratingsObserver?.phase {
+            Divider()
+            BookRatingSection(snapshot: snapshot, onOpenSheet: { showRateSheet = true })
+        }
     }
 
     /// The social "Readers" block. Renders only when the readers VM has data; loading, empty,

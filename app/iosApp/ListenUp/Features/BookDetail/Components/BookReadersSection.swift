@@ -6,7 +6,9 @@ import SwiftUI
 /// A heading with a "{N} listening now" subtitle leads, then flat display-only rows: a
 /// tinted initials avatar (with a coral ring when the reader is listening now), the name,
 /// and either a progress bar + percent (reading) or a "Finished {date}" line. The current
-/// user's row gets a "(You)" suffix. Tapping a row opens that reader's profile.
+/// user's row gets a "(You)" suffix. A reader's rating sits beside their name as small stars, with
+/// their note in quotes beneath (two lines at most); someone who rated the book without reading it
+/// here reads "Rated". Tapping a row opens that reader's profile.
 ///
 /// Pure/presentational: it takes the projected rows. Renders nothing when empty (the
 /// observer's `.empty` phase keeps it out of the layout entirely).
@@ -58,10 +60,15 @@ struct BookReadersSection: View {
             avatar(reader)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(name(for: reader))
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(name(for: reader))
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    if let halfStars = reader.halfStars {
+                        RatingStarsView(halfStars: halfStars, starSize: 11)
+                    }
+                }
 
                 if reader.isReading {
                     progress(reader)
@@ -72,6 +79,17 @@ struct BookReadersSection: View {
                     ))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                } else if reader.isRatedOnly {
+                    Text(String(localized: "book.detail_readers_rated"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let note = reader.note {
+                    Text(String(format: String(localized: "book.detail_readers_note"), note))
+                        .font(.footnote.italic())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
             }
 
@@ -124,6 +142,10 @@ struct BookReadersSection: View {
             Image(systemName: "sparkles")
                 .font(.body)
                 .foregroundStyle(Color.listenUpOrange)
+        } else if reader.isRatedOnly {
+            Image(systemName: "star")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.tertiary)
         } else {
             Image(systemName: "checkmark")
                 .font(.body.weight(.semibold))
@@ -140,6 +162,12 @@ struct BookReadersSection: View {
     }
 
     private func accessibilityLabel(for reader: BookReaderRow) -> String {
+        [activityLabel(for: reader), ratingLabel(for: reader)]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+    }
+
+    private func activityLabel(for reader: BookReaderRow) -> String {
         if let pct = reader.progressPercent {
             return String(
                 format: String(localized: "book.detail_readers_a11y_reading"),
@@ -154,7 +182,19 @@ struct BookReadersSection: View {
                 finished.formatted(date: .abbreviated, time: .omitted)
             )
         }
+        if reader.isRatedOnly {
+            return "\(name(for: reader)), \(String(localized: "book.detail_readers_rated"))"
+        }
         return name(for: reader)
+    }
+
+    /// "3.5 out of 5 stars, “Loved it”" — the row's combined label replaces its children, so the
+    /// stars and the note are spoken here.
+    private func ratingLabel(for reader: BookReaderRow) -> String? {
+        guard let halfStars = reader.halfStars else { return nil }
+        let stars = RatingStarsView.starsA11y(halfStars: halfStars)
+        guard let note = reader.note else { return stars }
+        return "\(stars), \(String(format: String(localized: "book.detail_readers_note"), note))"
     }
 }
 
@@ -174,7 +214,13 @@ struct BookReadersSection: View {
             BookReaderRow(
                 id: "u3", displayName: "David Warren", initials: "DW",
                 isYou: false, progressPercent: nil,
-                lastFinished: Date(timeIntervalSince1970: 1_712_000_000)
+                lastFinished: Date(timeIntervalSince1970: 1_712_000_000),
+                halfStars: 9, note: "The last hour is worth the whole thing."
+            ),
+            BookReaderRow(
+                id: "u4", displayName: "Ana Ruiz", initials: "AR",
+                isYou: false, progressPercent: nil, lastFinished: nil,
+                halfStars: 6
             )
         ]
     )

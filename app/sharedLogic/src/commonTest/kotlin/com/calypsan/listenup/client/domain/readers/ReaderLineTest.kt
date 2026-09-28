@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.readers
 
+import com.calypsan.listenup.client.domain.model.ListenerRating
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -46,5 +47,28 @@ class ReaderLineTest :
             lines[0].userId shouldBe "u1"
             lines[0].name shouldBe "Alice"
             lines[0].isYou shouldBe false
+        }
+
+        test("a reader's rating rides on their first line only") {
+            val rating = ListenerRating(bookId = "b", userId = "u1", halfStars = 8, note = "Superb.", ratedAtMs = 1L)
+            val reader = Reader("u1", "Ann", isYou = false, currentProgressPct = 40, finishes = listOf(5L, 3L), rating = rating)
+
+            val lines = flattenToLines(listOf(reader))
+
+            lines.map { it.rating } shouldBe listOf(rating, null, null)
+        }
+
+        test("someone who rated without reading gets a Rated line, after every other line") {
+            val rating = ListenerRating(bookId = "b", userId = "u2", halfStars = 6, note = null, ratedAtMs = 1L)
+            val lines =
+                flattenToLines(
+                    listOf(
+                        Reader("u1", "Ann", false, currentProgressPct = null, finishes = listOf(5L)),
+                        Reader("u2", "Bo", false, currentProgressPct = null, finishes = emptyList(), rating = rating),
+                    ),
+                )
+
+            lines.map { it.kind::class } shouldBe listOf(ReaderLineKind.Finished::class, ReaderLineKind.Rated::class)
+            lines.last().rating shouldBe rating
         }
     })

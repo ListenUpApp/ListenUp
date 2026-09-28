@@ -14,11 +14,13 @@ import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
@@ -167,6 +169,7 @@ class LibraryViewModelTest :
             val libraryPreferences: LibraryPreferences = mock()
             val syncStatusRepository: SyncStatusRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
+            val bookRatingRepository: BookRatingRepository = mock()
 
             val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
 
@@ -180,6 +183,7 @@ class LibraryViewModelTest :
                     authSession = authSession,
                     libraryPreferences = libraryPreferences,
                     syncStatusRepository = syncStatusRepository,
+                    bookRatingRepository = bookRatingRepository,
                     backgroundDispatcher = testDispatcher,
                 )
         }
@@ -199,6 +203,7 @@ class LibraryViewModelTest :
             every { fixture.syncRepository.scanProgress } returns MutableStateFlow(null)
             every { fixture.syncRepository.isBuildingInitialLibrary } returns MutableStateFlow(false)
             every { fixture.playbackPositionRepository.observeAll() } returns flowOf(emptyMap())
+            every { fixture.bookRatingRepository.observeAverages() } returns flowOf(emptyMap())
 
             // Default library preferences stubs (no persisted state)
             everySuspend { fixture.libraryPreferences.getBooksSortState() } returns null
@@ -726,6 +731,50 @@ class LibraryViewModelTest :
                 // Then - Should handle 1 < 1.5 < 2
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
                 loaded.books.map { it.title } shouldBe listOf("Book 1", "Book 1.5", "Book 2")
+            }
+        }
+
+        test("Listener rating sorts highest first, equal ratings by title, and unrated books come last in either direction") {
+            runTest {
+                // Given - a "Zebra" (avg 9), b (unrated), c (avg 5), d "apple" (avg 9, tied with a).
+                // "apple" before "Zebra" only case-insensitively, and d comes after a in the input,
+                // so the order below needs the title tie-breaker — a stable sort alone keeps a first.
+                val books =
+                    listOf(
+                        createTestBook(id = "a", title = "Zebra"),
+                        createTestBook(id = "b", title = "B"),
+                        createTestBook(id = "c", title = "C"),
+                        createTestBook(id = "d", title = "apple"),
+                    )
+                val averages =
+                    mapOf(
+                        "a" to ListenerAverage(averageHalfStars = 9.0, count = 1),
+                        "c" to ListenerAverage(averageHalfStars = 5.0, count = 1),
+                        "d" to ListenerAverage(averageHalfStars = 9.0, count = 2),
+                    )
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
+                every { fixture.bookRatingRepository.observeAverages() } returns flowOf(averages)
+                everySuspend { fixture.libraryPreferences.setBooksSortState(any()) } returns Unit
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                // When - LISTENER_RATING defaults to DESCENDING
+                viewModel.onEvent(LibraryUiEvent.BooksCategoryChanged(SortCategory.LISTENER_RATING))
+                advanceUntilIdle()
+
+                // Then - DESC: d, a (tied, by title), c, b (unrated last)
+                val descLoaded = viewModel.uiState.value as LibraryUiState.Loaded
+                descLoaded.books.map { it.id.value } shouldBe listOf("d", "a", "c", "b")
+
+                // When - toggle to ASCENDING
+                viewModel.onEvent(LibraryUiEvent.BooksDirectionToggled)
+                advanceUntilIdle()
+
+                // Then - ASC: c, d, a (ties still by title), b (unrated STILL last, not first)
+                val ascLoaded = viewModel.uiState.value as LibraryUiState.Loaded
+                ascLoaded.books.map { it.id.value } shouldBe listOf("c", "d", "a", "b")
             }
         }
 

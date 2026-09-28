@@ -131,6 +131,12 @@ class BookAccessPolicy(
         role: UserRole,
     ): SqlFragment? = junctionIdsSql("book_moods", userId, role)
 
+    /** Visible `book_ratings` row ids — a rating is visible iff its book is. */
+    fun accessibleBookRatingIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? = junctionIdsSql("book_ratings", userId, role)
+
     /**
      * Shared shape for a book-keyed junction table: its row is visible iff its book is.
      *

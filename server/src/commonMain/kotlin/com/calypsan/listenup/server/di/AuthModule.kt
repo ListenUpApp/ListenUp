@@ -72,6 +72,7 @@ private fun org.koin.core.module.Module.adminUserServiceSingle(applicationScope:
             bus = get(),
             clock = get(),
             publicProfileMaintainer = getOrNull(),
+            bookRatingRepository = getOrNull(),
             activityRecorder = getOrNull(),
             defaultGrantIssuer = getOrNull(),
             pushNotifier = getOrNull(),

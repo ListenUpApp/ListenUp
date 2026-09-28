@@ -158,7 +158,9 @@ class ClientKoinGraphE2ETest :
             // preference surface) — so 26 → 27.
             // The organizer domain added rpcChannel<OrganizeService>() (admin file-organizer settings,
             // preview and run progress) — so 27 → 28.
-            defaultInvalidator.caches shouldHaveSize 28
+            // The book_ratings domain added rpcChannel<BookRatingService>() (rate/clearRating, the
+            // outbox sender for the BookRatings channel) — so 28 → 29.
+            defaultInvalidator.caches shouldHaveSize 29
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

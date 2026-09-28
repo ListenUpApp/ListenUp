@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.BackupService
+import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
@@ -49,6 +50,7 @@ data class RpcServices(
     val libraryAdminService: LibraryAdminService,
     val tagService: TagService,
     val moodService: MoodService,
+    val bookRatingService: BookRatingService,
     val organizeService: OrganizeService,
     val genreService: GenreService,
     val collectionService: CollectionService,

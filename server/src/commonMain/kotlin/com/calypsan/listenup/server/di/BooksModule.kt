@@ -6,12 +6,14 @@ import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
 import com.calypsan.listenup.server.seed.MoodDomainSeeder
+import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.BookRatingServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
@@ -23,6 +25,7 @@ import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.sync.BookMoodRepository
+import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
@@ -270,6 +273,13 @@ private fun Module.moodBindings() {
             accessPolicy = get<BookAccessPolicy>(),
             permissionPolicy = get<UserPermissionPolicy>(),
             principal = unscopedPlaceholder("MoodService"),
+        )
+    }
+    single<BookRatingService> {
+        BookRatingServiceImpl(
+            ratings = get<BookRatingRepository>(),
+            accessPolicy = get<BookAccessPolicy>(),
+            principal = unscopedPlaceholder("BookRatingService"),
         )
     }
     single { MoodDomainSeeder(sql = get(), moodRepository = get<MoodRepository>()) }

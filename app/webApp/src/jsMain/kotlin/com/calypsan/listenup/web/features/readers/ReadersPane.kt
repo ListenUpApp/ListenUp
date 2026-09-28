@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.util.relativeOrMonthYear
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
@@ -144,11 +145,22 @@ private fun ReaderRow(
     }) {
         UserAvatar(userId = line.userId, name = name, size = AVATAR_SIZE)
         Div(attrs = { classes("rdr-who") }) {
-            Span(attrs = { classes("rdr-n") }) { Text(name) }
+            Div(attrs = { classes("rdr-nl") }) {
+                Span(attrs = { classes("rdr-n") }) { Text(name) }
+                // The rating rides on a person's first line only — see `flattenToLines`.
+                line.rating?.let { RatingStars(halfStars = it.halfStars) }
+            }
             Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
+            line.rating?.note?.let { note ->
+                Span(attrs = { classes("rdr-note") }) { Text("\u201C$note\u201D") }
+            }
         }
         Icon(
-            if (kind is ReaderLineKind.Reading) WebIcon.Volume else WebIcon.Check,
+            when (kind) {
+                is ReaderLineKind.Reading -> WebIcon.Volume
+                is ReaderLineKind.Finished -> WebIcon.Check
+                ReaderLineKind.Rated -> WebIcon.Star
+            },
             size = MARK_SIZE,
         )
     }
@@ -167,7 +179,11 @@ internal fun stateLine(
 ): String =
     when (kind) {
         is ReaderLineKind.Reading -> kind.progressPct?.let { "$it% through" } ?: "Listening now"
+
         is ReaderLineKind.Finished -> "Finished ${relativeOrMonthYear(kind.finishedAtMs, nowMs)}"
+
+        // Rated without reading it here (imported history, say): no progress and no date to give.
+        ReaderLineKind.Rated -> "Rated"
     }
 
 private const val COLLAPSED_READERS = 5

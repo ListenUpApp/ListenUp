@@ -2,26 +2,24 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
-import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
-import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.makeBookAccessible
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -137,81 +135,6 @@ class ShelfServiceUserShelvesTest :
                         bookId = bookId,
                         createdAt = 0L,
                         revision = 0L,
-                    ),
-                )
-            }
-        }
-
-        /**
-         * Makes [bookId] visible to [viewerId] the pure-union way: places it in the per-library
-         * ALL_BOOKS system collection and grants [viewerId] a read share on it. [viewerId] MUST
-         * already be FK-seeded via [seedTestUser] — `collection_grants.principal_id` references
-         * `users(id)`.
-         */
-        fun makeBookAccessible(
-            sql: ListenUpDatabase,
-            driver: SqlDriver,
-            bookId: String,
-            viewerId: String,
-            collectionId: String = "all-books",
-        ) {
-            val bus = ChangeBus()
-            val registry = SyncRegistry()
-            val collectionRepo =
-                CollectionRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val collectionBookRepo =
-                CollectionBookRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            val grantRepo =
-                CollectionGrantRepository(
-                    db = sql,
-                    bus = bus,
-                    registry = registry,
-                    driver = driver,
-                )
-            kotlinx.coroutines.runBlocking {
-                collectionRepo.upsert(
-                    CollectionSyncPayload(
-                        id = collectionId,
-                        libraryId = "test-library",
-                        ownerId = "system",
-                        name = "All Books",
-                        isInbox = false,
-                        revision = 0L,
-                        updatedAt = 0L,
-                    ),
-                )
-                collectionBookRepo.upsert(
-                    CollectionBookSyncPayload(
-                        id = "$collectionId:$bookId",
-                        collectionId = collectionId,
-                        bookId = bookId,
-                        createdAt = 0L,
-                        revision = 0L,
-                    ),
-                )
-                // Grant id is keyed on (collection, viewer) — NOT the book — so adding a second
-                // book to the same ALL_BOOKS collection re-upserts the SAME grant (idempotent)
-                // instead of inserting a duplicate that would violate the unique active-grant
-                // index on (collection_id, principal_type, principal_id).
-                grantRepo.upsert(
-                    CollectionShareSyncPayload(
-                        id = "$collectionId-grant-$viewerId",
-                        collectionId = collectionId,
-                        sharedWithUserId = viewerId,
-                        sharedByUserId = "system",
-                        permission = SharePermission.Read,
-                        revision = 0L,
-                        updatedAt = 0L,
                     ),
                 )
             }

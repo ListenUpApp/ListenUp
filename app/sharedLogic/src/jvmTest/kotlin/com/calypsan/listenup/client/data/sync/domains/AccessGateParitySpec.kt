@@ -49,6 +49,7 @@ class AccessGateParitySpec :
                         // names a book the member cannot see and classifies it.
                         "book_tags",
                         "book_moods",
+                        "book_ratings",
                     )
             }
 

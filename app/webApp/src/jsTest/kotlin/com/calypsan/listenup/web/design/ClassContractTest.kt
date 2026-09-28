@@ -1,5 +1,10 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.client.domain.model.ListenerAverage
+import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
+import com.calypsan.listenup.web.features.ratings.RateBookDialog
+import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.admin.MergeHistoryActions
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
@@ -1373,6 +1378,7 @@ class ClassContractTest :
                         playerShapes().forEach { it() }
                         browseShapes().forEach { it() }
                         readerShapes().forEach { it() }
+                        ratingShapes().forEach { it() }
                         seeAllShapes().forEach { it() }
                         peopleShapes().forEach { it() }
                         adminToolShapes().forEach { it() }
@@ -2431,3 +2437,20 @@ private val contractMergeHistory =
                 restoredAtTopLevel = true,
             ),
     )
+
+/**
+ * The rating panel in both of its drawn forms, the rate dialog with a rating to remove, and a
+ * reader line carrying stars and a note. Loading draws nothing, so it carries no classes.
+ */
+private fun ratingShapes(): List<@Composable () -> Unit> {
+    val mine = ListenerRating(bookId = "b1", userId = "me", halfStars = 7, note = "Loved it", ratedAtMs = 0L)
+    val rated =
+        BookRatingsUiState.Ready(listeners = ListenerAverage(averageHalfStars = 8.0, count = 3), mine = mine)
+    val ratedReader = reader(userId = "me", displayName = "Ada Lovelace", rating = mine)
+    return listOf(
+        { RatingsPanel(state = rated, onRate = { _, _ -> }, onClear = {}) },
+        { RatingsPanel(state = BookRatingsUiState.Ready(listeners = null, mine = null), onRate = { _, _ -> }, onClear = {}) },
+        { RateBookDialog(open = true, current = mine, onSave = { _, _ -> }, onClear = {}, onDismiss = {}) },
+        { ReadersPanel(state = readersData(ratedReader), nowMs = 0L, onOpenProfile = {}, onSeeAll = {}) },
+    )
+}

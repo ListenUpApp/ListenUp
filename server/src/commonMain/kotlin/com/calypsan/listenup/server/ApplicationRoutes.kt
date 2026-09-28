@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BackupService
+import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
@@ -199,6 +200,7 @@ private fun Application.rpcServiceBundle(): RpcServices =
         libraryAdminService = koinGet<LibraryAdminService>(),
         tagService = koinGet<TagService>(),
         moodService = koinGet<MoodService>(),
+        bookRatingService = koinGet<BookRatingService>(),
         organizeService = koinGet<OrganizeServiceImpl>(),
         genreService = koinGet<GenreService>(),
         collectionService = koinGet<CollectionService>(),

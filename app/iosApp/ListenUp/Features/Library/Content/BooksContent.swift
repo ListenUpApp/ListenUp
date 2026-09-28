@@ -55,7 +55,7 @@ struct BooksContent: View {
     }
 
     /// Available sort categories for books
-    private let sortCategories: [SortCategory] = [.title, .author, .duration, .year, .added, .series]
+    private let sortCategories: [SortCategory] = [.title, .author, .duration, .year, .added, .listenerRating, .series]
 
     var body: some View {
         Group {

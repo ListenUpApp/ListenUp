@@ -119,6 +119,8 @@ class SyncDomainCompletenessSpec :
                 // went offline-first (create stays online — the server mints the shelf/collection id).
                 // genres joined when update/delete went offline-first (create/move/merge stay online).
                 // notifications joined with the inbox — markRead is its one (idempotent) write.
+                // book_ratings is outbox-backed from the start — rate/clear is offline-first terminal
+                // state, coalesced under one op kind (see OutboxChannels.BookRatings).
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -130,6 +132,7 @@ class SyncDomainCompletenessSpec :
                         "tags",
                         "book_tags",
                         "book_moods",
+                        "book_ratings",
                         "shelves",
                         "shelf_books",
                         "collections",
@@ -329,6 +332,7 @@ class SyncDomainCompletenessSpec :
                         "collection_shares",
                         "book_tags",
                         "book_moods",
+                        "book_ratings",
                     )
 
                 // The Targeted domains, in their declared dependency order. Changing an order or moving a
@@ -340,7 +344,15 @@ class SyncDomainCompletenessSpec :
                         (domain.accessGate!!.delta as? AccessDeltaPolicy.Targeted)?.let { domain.key.name to it.order }
                     }.sortedBy { it.second }
                     .map { it.first } shouldBe
-                    listOf("collections", "collection_books", "books", "activities", "book_tags", "book_moods")
+                    listOf(
+                        "collections",
+                        "collection_books",
+                        "books",
+                        "activities",
+                        "book_tags",
+                        "book_moods",
+                        "book_ratings",
+                    )
 
                 // The one LiveTailOnly domain — deliberately NOT fetched in the delta.
                 gated

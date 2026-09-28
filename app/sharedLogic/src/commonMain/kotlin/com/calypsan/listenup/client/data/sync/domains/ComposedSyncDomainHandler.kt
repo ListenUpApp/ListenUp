@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.data.sync.TargetedFetch
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.KSerializer
 
@@ -35,6 +36,12 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
     override val hasDigestBackstop: Boolean = domain.digest is DigestParticipation.Full
 
     override fun syncId(item: T): String = domain.syncIdOf(item)
+
+    override fun refetchForOutboxKey(outboxKey: String): TargetedFetch? =
+        when (val keying = domain.outboxKeying) {
+            null -> TargetedFetch.ByIds(listOf(outboxKey))
+            else -> keying.refetchFor(outboxKey)
+        }
 
     init {
         registry.register(this)
@@ -95,7 +102,8 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
 
     /**
      * The single anti-flicker shield point for both firehose echoes and catch-up snapshots. When a local
-     * edit for this entity is still in flight (a queued, non-dead-letter outbox op), the inbound
+     * edit for this entity is still in flight (a queued, non-dead-letter outbox op, looked up under every
+     * outbox key the domain's [OutboxKeying] derives from [payload], else under the wire [id]), the inbound
      * server state is shielded: its authoritative post-edit form arrives via that op's own echo once
      * it drains, so applying this (possibly stale) snapshot now would only flicker the optimistic
      * local edit. Once the op drains (success → removed; or dead-letter → no longer counted), the
@@ -105,7 +113,8 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
         id: String,
         payload: T,
     ) {
-        if (inFlightOutbox.isQueued(domainName, id)) {
+        val outboxKeys = domain.outboxKeying?.keysOf(payload) ?: setOf(id)
+        if (outboxKeys.any { inFlightOutbox.isQueued(domainName, it) }) {
             logger.debug { "[$domainName] shielding apply for $id — local edit in flight, deferring to its own echo" }
             return
         }

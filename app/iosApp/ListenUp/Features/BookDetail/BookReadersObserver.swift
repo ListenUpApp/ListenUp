@@ -72,7 +72,8 @@ enum BookReadersPhase: Equatable {
 ///
 /// `isReading` is `progressPercent != nil` — the shared model encodes "reading now" as a
 /// non-null `currentProgressPct`. When not reading, `lastFinished` carries the most recent dated
-/// completion (newest-first in the source list) for the "Finished {date}" label.
+/// completion (newest-first in the source list) for the "Finished {date}" label. The rating is the
+/// person's, not a line's: iOS draws one row per reader, so it rides on that row.
 struct BookReaderRow: Identifiable, Equatable {
     let id: String
     let displayName: String
@@ -82,8 +83,16 @@ struct BookReaderRow: Identifiable, Equatable {
     let progressPercent: Int?
     /// Most recent completion, when finished and not currently reading; nil otherwise.
     let lastFinished: Date?
+    /// This reader's rating in half stars (2...10), when they left one.
+    let halfStars: Int?
+    /// The note left with the rating, if any.
+    let note: String?
 
     var isReading: Bool { progressPercent != nil }
+
+    /// Rated the book without reading it here (imported history, say): the row reads "Rated", with
+    /// no progress bar and no finished date.
+    var isRatedOnly: Bool { progressPercent == nil && lastFinished == nil && halfStars != nil }
 
     init(from reader: Reader) {
         self.id = reader.userId
@@ -95,6 +104,8 @@ struct BookReaderRow: Identifiable, Equatable {
         self.lastFinished = reader.finishes.first.map {
             Date(timeIntervalSince1970: Double($0) / 1000)
         }
+        self.halfStars = reader.rating.map { Int($0.halfStars) }
+        self.note = reader.rating?.note
     }
 
     init(
@@ -103,7 +114,9 @@ struct BookReaderRow: Identifiable, Equatable {
         initials: String,
         isYou: Bool,
         progressPercent: Int?,
-        lastFinished: Date?
+        lastFinished: Date?,
+        halfStars: Int? = nil,
+        note: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -111,6 +124,8 @@ struct BookReaderRow: Identifiable, Equatable {
         self.isYou = isYou
         self.progressPercent = progressPercent
         self.lastFinished = lastFinished
+        self.halfStars = halfStars
+        self.note = note
     }
 
     /// Up to two uppercase initials from the first and last words of a display name.

@@ -6,10 +6,9 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
 
 /**
- * The `shelf_books` junction domain (Shelves — Room v26): the synthetic
- * `"$shelfId:$bookId"` envelope id IS the local primary key, so events apply by id
- * alone — no composite parsing. Server-wins apply, soft tombstones, full digest,
- * outbox-backed writes.
+ * The `shelf_books` junction domain (Shelves — Room v26): mirrored under the server's opaque
+ * per-row wire id (SERVER-SYNC-04), which is the local primary key, so events apply by id alone.
+ * Server-wins apply, soft tombstones, full digest, outbox-backed writes.
  *
  * Shelf membership is user-scoped own-data — no [AccessGate] (the collections
  * junction is access-filtered; shelves are not). Junction rule: tombstones keep the
@@ -19,9 +18,17 @@ import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
  * `deletedAt = null`; the upsert clears the tombstone.
  *
  * **Outbox writes.** Adding and removing a book write the junction optimistically and queue a
- * durable op on [OutboxChannels.ShelfBooks], keyed by the same `"$shelfId:$bookId"` envelope id;
- * the in-flight shield defers the junction's own echo until that op drains. Unlike
- * book_tags/book_moods, add is offline-first too — the book already exists, so no server id is minted.
+ * durable op on [OutboxChannels.ShelfBooks], keyed by the `"$shelfId:$bookId"` pair — not the wire
+ * id — so the in-flight shield looks a junction echo up by its pair. Unlike book_tags/book_moods,
+ * add is offline-first too — the book already exists, so no server id is minted. No targeted fetch
+ * can re-read a drained op: the server serves this user-scoped, ungated domain nothing by id, so its
+ * echoes converge through `?since=` catch-up and the digest.
+ *
+ * **A reorder is deliberately NOT shielded.** Its op is keyed by the bare shelf id, and shielding
+ * under that key would hold back every frame for the shelf — including another device adding a
+ * different book. With no targeted refetch here, that book would stay missing until the next
+ * lifecycle pass. A stale echo may briefly flicker a queued reorder instead; the reorder's own echo
+ * restores the order when it drains. Missing content is worse than a transient order.
  */
 internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfBookSyncPayload> {
     val apply = ShelfBookMirrorApply(database)
@@ -32,6 +39,11 @@ internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfB
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.shelfBookDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.ShelfBooks),
+        outboxKeying =
+            OutboxKeying(
+                keysOf = { setOf(junctionOutboxKey(it.shelfId, it.bookId)) },
+                refetchFor = { null },
+            ),
     )
 }
 
