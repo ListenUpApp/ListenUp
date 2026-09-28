@@ -744,7 +744,7 @@ private fun AuthenticatedNavigation(
             LocalSnackbarHostState provides snackbarHostState,
             LocalDeviceContext provides koinInject<DeviceContext>(),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+            AppKeyboardShortcuts(nowPlayingViewModel, backStack) {
                 // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
                 // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
                 // now-playing bar is not an entry, and a cover flying past it should pass under it.
@@ -810,6 +810,58 @@ private fun AuthenticatedNavigation(
         }
     }
 }
+
+/**
+ * The app's root surface, answering the hardware-keyboard shortcuts ([ShellKeyboardShortcuts]) with
+ * the player and the shell's search. The search requests the `/` shortcut makes reach the shell
+ * through [LocalShellSearchRequests]. Not on TV, where the D-pad's arrows and centre key must only
+ * move focus.
+ */
+@Composable
+private fun AppKeyboardShortcuts(
+    nowPlayingViewModel: NowPlayingViewModel,
+    backStack: NavBackStack<NavKey>,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val nowPlaying by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
+    val searchRequests = remember { ShellSearchRequests() }
+    ShellKeyboardShortcuts(
+        enabled = !LocalDeviceContext.current.isLeanback,
+        onShortcut = { shortcut ->
+            answerShellShortcut(
+                shortcut = shortcut,
+                nowPlayingViewModel = nowPlayingViewModel,
+                hasBook = nowPlaying.state is NowPlayingState.Active,
+                canOpenSearch = backStack.lastOrNull() == Shell && !nowPlaying.isExpanded,
+                searchRequests = searchRequests,
+            )
+        },
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+    ) {
+        CompositionLocalProvider(LocalShellSearchRequests provides searchRequests.requests) {
+            content()
+        }
+    }
+}
+
+/**
+ * Acts on a keyboard [shortcut], returning whether it did. The transport shortcuts need a loaded
+ * book, and skip by the user's configured intervals (the view model's own [NowPlayingViewModel.skipBack]
+ * and [NowPlayingViewModel.skipForward]). Search opens only where the shell's search is on screen.
+ */
+private fun answerShellShortcut(
+    shortcut: ShellShortcut,
+    nowPlayingViewModel: NowPlayingViewModel,
+    hasBook: Boolean,
+    canOpenSearch: Boolean,
+    searchRequests: ShellSearchRequests,
+): Boolean =
+    when (shortcut) {
+        ShellShortcut.PlayPause -> hasBook.also { if (it) nowPlayingViewModel.playPause() }
+        ShellShortcut.SkipBack -> hasBook.also { if (it) nowPlayingViewModel.skipBack() }
+        ShellShortcut.SkipForward -> hasBook.also { if (it) nowPlayingViewModel.skipForward() }
+        ShellShortcut.OpenSearch -> canOpenSearch.also { if (it) searchRequests.request() }
+    }
 
 /**
  * Builds the dispatch lambda the notification inbox entries consume: every action routes through

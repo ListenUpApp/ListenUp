@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import com.calypsan.listenup.client.design.util.onSecondaryClick
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -62,6 +64,9 @@ import listenup.composeapp.generated.resources.common_completed
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.library_has_documents_badge
 import listenup.composeapp.generated.resources.player_now_playing_wide
+
+// Material 3's hover state-layer opacity.
+private const val HOVER_STATE_LAYER_ALPHA = 0.08f
 
 /**
  * Data for an avatar overlay on a book cover.
@@ -125,6 +130,7 @@ fun BookCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val isHovered by interactionSource.collectIsHoveredAsState()
     val haptics = LocalHaptics.current
 
     // Animate scale for press, focus, and selection
@@ -171,7 +177,16 @@ fun BookCard(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }.then(
+                }
+                // A right-click is the pointer's long press: it opens selection, never the book.
+                .onSecondaryClick(
+                    onLongPress?.let { longPress ->
+                        {
+                            haptics.longPress()
+                            longPress()
+                        }
+                    },
+                ).then(
                     if (onLongPress != null) {
                         Modifier.combinedClickable(
                             interactionSource = interactionSource,
@@ -221,6 +236,7 @@ fun BookCard(
                 progress = if (isCompleted) null else progress,
                 timeRemaining = if (isCompleted) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
+                isHovered = isHovered,
                 isSelected = isSelected || isFocused || isPlaying,
                 borderColor =
                     when {
@@ -366,6 +382,7 @@ private fun BookCardCover(
     progress: Float? = null,
     timeRemaining: String? = null,
     avatarOverlay: AvatarOverlayData? = null,
+    isHovered: Boolean = false,
     isSelected: Boolean = false,
     borderColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
@@ -407,6 +424,16 @@ private fun BookCardCover(
                 heroClipShape = shape,
                 modifier = Modifier.matchParentSize(),
             )
+
+            // Hover state layer: the Material hover tint over the cover, so a pointer knows what it is on.
+            if (isHovered) {
+                Box(
+                    modifier =
+                        Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = HOVER_STATE_LAYER_ALPHA)),
+                )
+            }
 
             // Progress overlay
             if (progress != null && progress > 0f) {

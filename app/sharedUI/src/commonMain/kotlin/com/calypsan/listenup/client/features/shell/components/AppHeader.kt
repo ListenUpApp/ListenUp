@@ -75,6 +75,9 @@ typealias AppHeaderSlot = @Composable (leadingContent: @Composable () -> Unit) -
  * @param syncState Current sync status.
  * @param user Current user entity.
  * @param isSearchExpanded Whether search is expanded.
+ * @param isSearchFocusRequested Whether something (the `/` shortcut) has asked for the cursor in the
+ *   search field; the field takes focus and calls [onSearchFocusRequestHandled].
+ * @param onSearchFocusRequestHandled Called once the search field has taken a requested focus.
  * @param searchQuery Current search query.
  * @param onSearchExpandedChange Callback when search expand state changes.
  * @param onSearchQueryChange Callback when search query changes.
@@ -126,6 +129,8 @@ fun AppHeader(
     onSyncDetailsDismiss: () -> Unit = {},
     showAvatar: Boolean = true,
     showAvatarLabel: Boolean = false,
+    isSearchFocusRequested: Boolean = false,
+    onSearchFocusRequestHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
@@ -164,6 +169,8 @@ fun AppHeader(
                     query = searchQuery,
                     onQueryChange = onSearchQueryChange,
                     onClose = { onSearchExpandedChange(false) },
+                    isFocusRequested = isSearchFocusRequested,
+                    onFocusRequestHandled = onSearchFocusRequestHandled,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -179,6 +186,8 @@ fun AppHeader(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
                         onExpandedChange = onSearchExpandedChange,
+                        isFocusRequested = isSearchFocusRequested,
+                        onFocusRequestHandled = onSearchFocusRequestHandled,
                         modifier = Modifier.width(320.dp).height(52.dp).padding(end = 8.dp),
                     )
                 } else {
@@ -236,6 +245,8 @@ private fun SearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
+    isFocusRequested: Boolean,
+    onFocusRequestHandled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -243,6 +254,13 @@ private fun SearchField(
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+    // Again whenever the `/` shortcut asks, as focus may have wandered while search was open.
+    LaunchedEffect(isFocusRequested) {
+        if (isFocusRequested) {
+            focusRequester.requestFocus()
+            onFocusRequestHandled()
+        }
     }
 
     TextField(
@@ -279,8 +297,18 @@ private fun HeaderSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     onExpandedChange: (Boolean) -> Unit,
+    isFocusRequested: Boolean,
+    onFocusRequestHandled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // The persistent field takes focus only when asked (the `/` shortcut), never on first showing.
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(isFocusRequested) {
+        if (isFocusRequested) {
+            focusRequester.requestFocus()
+            onFocusRequestHandled()
+        }
+    }
     TextField(
         value = query,
         onValueChange = {
@@ -304,7 +332,7 @@ private fun HeaderSearchField(
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
             ),
-        modifier = modifier,
+        modifier = modifier.focusRequester(focusRequester),
     )
 }
 

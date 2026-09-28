@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.Notifications
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.Settings
+import com.calypsan.listenup.client.navigation.LocalShellSearchRequests
 import com.calypsan.listenup.client.navigation.Shell
 import com.calypsan.listenup.client.navigation.ShelfDetail
 import com.calypsan.listenup.client.navigation.UserProfile
@@ -74,6 +75,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
             AppShell(
                 currentDestination = currentShellDestination(),
                 onDestinationChange = onDestinationChange,
+                searchRequests = LocalShellSearchRequests.current,
                 nowPlayingContent = {
                     val nowPlayingScreenState by nowPlayingViewModel
                         .screenState

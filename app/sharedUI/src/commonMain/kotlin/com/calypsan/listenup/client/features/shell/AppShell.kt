@@ -52,6 +52,8 @@ import com.calypsan.listenup.client.features.shell.components.GlobalErrorSnackba
 import com.calypsan.listenup.client.features.shell.components.SignOutConfirmationHost
 import com.calypsan.listenup.client.features.shell.components.rememberSignOutConfirmation
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -89,6 +91,8 @@ private val logger = KotlinLogging.logger {}
  * @param homeContent Content composable for Home destination
  * @param libraryContent Content composable for Library destination
  * @param discoverContent Content composable for Discover destination
+ * @param searchRequests Asks from outside the shell (the `/` keyboard shortcut) to open search and
+ *   put the cursor in its field.
  */
 @Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod", "CognitiveComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,6 +113,7 @@ fun AppShell(
     libraryContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
     nowPlayingContent: @Composable () -> Unit = {},
     discoverContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
+    searchRequests: Flow<Unit> = emptyFlow(),
 ) {
     // Inject dependencies
     val syncRepository: SyncRepository = koinInject()
@@ -177,6 +182,16 @@ fun AppShell(
     val collapseSearch: () -> Unit = {
         isSearchExpanded = false
         searchViewModel.clearQuery()
+    }
+
+    // Each request from outside (the `/` shortcut) opens search and moves the cursor into its field,
+    // even when it is already open and focus has wandered. The field clears the request once focused.
+    var isSearchFocusRequested by remember { mutableStateOf(false) }
+    LaunchedEffect(searchRequests) {
+        searchRequests.collect {
+            isSearchExpanded = true
+            isSearchFocusRequested = true
+        }
     }
 
     // The search overlay is a full-screen layer over the shell, not a nav-stack entry, so the system
@@ -263,6 +278,8 @@ fun AppShell(
             syncState = syncState,
             user = user,
             isSearchExpanded = isSearchExpanded,
+            isSearchFocusRequested = isSearchFocusRequested,
+            onSearchFocusRequestHandled = { isSearchFocusRequested = false },
             searchQuery = searchQuery.value,
             onSearchExpandedChange = { expanded ->
                 if (expanded) isSearchExpanded = true else collapseSearch()
