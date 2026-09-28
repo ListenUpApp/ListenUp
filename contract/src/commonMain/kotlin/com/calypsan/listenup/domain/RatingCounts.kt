@@ -36,3 +36,13 @@ private fun scaled(
 }
 
 private fun halfUp(value: Double): Double = floor(value + HALF_UP_OFFSET)
+
+/**
+ * [average] (0–5) as every platform shows it beside a star: always one decimal, half-up — "4.4",
+ * and "4.0" rather than "4". Built from integer tenths, never from `Double.toString`, because
+ * Kotlin/JS renders a whole double without its ".0".
+ */
+fun averageLabel(average: Double): String {
+    val tenths = halfUp(average * 10).toLong()
+    return "${tenths / 10}.${tenths % 10}"
+}

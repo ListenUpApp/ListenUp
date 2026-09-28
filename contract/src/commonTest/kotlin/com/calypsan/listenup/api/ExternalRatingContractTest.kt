@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.ExternalRatingSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.domain.averageLabel
 import com.calypsan.listenup.domain.compactCount
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -54,6 +55,15 @@ class ExternalRatingContractTest :
             compactCount(12_345) shouldBe "12k"
             compactCount(999_999) shouldBe "1M"
             compactCount(1_250_000) shouldBe "1.3M"
+        }
+
+        test("an average is said with one decimal everywhere, even a whole one") {
+            averageLabel(4.4) shouldBe "4.4"
+            averageLabel(4.0) shouldBe "4.0"
+            averageLabel(4.45) shouldBe "4.5"
+            averageLabel(4.449) shouldBe "4.4"
+            averageLabel(5.0) shouldBe "5.0"
+            averageLabel(0.0) shouldBe "0.0"
         }
 
         test("the domain is in the catalog") {
