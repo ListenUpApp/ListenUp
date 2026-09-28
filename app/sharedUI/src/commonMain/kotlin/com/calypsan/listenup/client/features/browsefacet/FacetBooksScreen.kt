@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.browsefacet
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +20,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
@@ -276,7 +276,7 @@ private fun FloatingBackButton(
                 .padding(8.dp),
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
             contentDescription = stringResource(Res.string.common_back),
             tint = MaterialTheme.colorScheme.onSurface,
         )

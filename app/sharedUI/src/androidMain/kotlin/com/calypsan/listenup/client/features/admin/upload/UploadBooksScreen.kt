@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin.upload
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.layout.widthIn
 import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
@@ -17,8 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.FolderOpen
@@ -188,7 +188,7 @@ fun UploadBooksScreen(
                             },
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
+                                Icons.AutoMirrored.Outlined.ArrowBack,
                                 contentDescription = stringResource(Res.string.common_back),
                             )
                         }
@@ -548,7 +548,7 @@ private fun FailedContent(
     ) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
             Icon(
-                imageVector = Icons.Filled.Close,
+                imageVector = Icons.Outlined.Close,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.error,

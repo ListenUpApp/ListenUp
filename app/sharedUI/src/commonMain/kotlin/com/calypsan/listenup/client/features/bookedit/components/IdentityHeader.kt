@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.animation.AnimatedVisibility
@@ -25,7 +26,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -174,7 +174,7 @@ fun IdentityHeader(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.Default.CameraAlt,
+                                imageVector = Icons.Outlined.CameraAlt,
                                 contentDescription = stringResource(Res.string.book_edit_change_cover),
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.onPrimary,

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.documentviewer
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -16,7 +17,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,7 +101,7 @@ internal fun PageGridOverlay(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(Res.string.book_detail_document_pages_back),
                         )
                     }

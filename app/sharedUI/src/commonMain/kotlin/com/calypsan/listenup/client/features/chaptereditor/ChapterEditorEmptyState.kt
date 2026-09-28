@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.outlined.GraphicEq
@@ -103,7 +103,7 @@ fun ChapterEditorEmptyState(
             ListenUpButton(
                 onClick = onAddFirst,
                 text = stringResource(Res.string.chapter_editor_empty_add_first),
-                leadingIcon = Icons.Filled.Add,
+                leadingIcon = Icons.Outlined.Add,
                 modifier = Modifier.fillMaxWidth(),
             )
             ListenUpButton(

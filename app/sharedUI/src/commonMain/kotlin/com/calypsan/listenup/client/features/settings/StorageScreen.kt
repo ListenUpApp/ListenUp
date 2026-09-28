@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
@@ -25,9 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -113,7 +113,7 @@ fun StorageScreen(
                     confirmText = stringResource(Res.string.common_delete),
                     onConfirm = viewModel::executeDelete,
                     onDismiss = viewModel::cancelDelete,
-                    icon = Icons.Default.Delete,
+                    icon = Icons.Outlined.Delete,
                 )
             }
 
@@ -128,7 +128,7 @@ fun StorageScreen(
                     confirmText = stringResource(Res.string.settings_clear_all),
                     onConfirm = viewModel::executeDelete,
                     onDismiss = viewModel::cancelDelete,
-                    icon = Icons.Default.DeleteSweep,
+                    icon = Icons.Outlined.DeleteSweep,
                 )
             }
         }
@@ -165,7 +165,7 @@ fun StorageScreen(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(Res.string.common_back),
                         )
                     }
@@ -545,7 +545,7 @@ private fun DownloadedBookItem(
                 enabled = !isDeleting,
             ) {
                 Icon(
-                    imageVector = Icons.Default.Delete,
+                    imageVector = Icons.Outlined.Delete,
                     contentDescription = stringResource(Res.string.book_delete_download),
                     tint = MaterialTheme.colorScheme.error,
                 )

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.setup.scan
 
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -22,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -72,7 +72,7 @@ private const val PATH_TAIL_LENGTH = 48
 /**
  * The hero scan animation — three concentric [cookieScallopShape] scallops behind a soft radial
  * brand glow: an outer container scallop rotating one way, an inner tertiary scallop counter-rotating,
- * and a pulsing brand-coloured core holding the [Icons.Rounded.GraphicEq] glyph. Purely decorative;
+ * and a pulsing brand-coloured core holding the [Icons.Outlined.GraphicEq] glyph. Purely decorative;
  * communicates "work is happening" without claiming a specific progress value.
  */
 @Composable
@@ -137,7 +137,7 @@ fun ScanLoader(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.GraphicEq,
+                imageVector = Icons.Outlined.GraphicEq,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(size * 0.22f),

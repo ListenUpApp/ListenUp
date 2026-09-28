@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import androidx.compose.material.icons.automirrored.outlined.CallMerge
+import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.window.core.layout.WindowSizeClass
@@ -28,10 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -247,7 +247,7 @@ private fun SeriesOverflowMenu(
             },
         ) {
             Icon(
-                imageVector = Icons.Default.MoreVert,
+                imageVector = Icons.Outlined.MoreVert,
                 contentDescription = stringResource(Res.string.book_detail_more_options),
             )
         }
@@ -257,7 +257,7 @@ private fun SeriesOverflowMenu(
         ) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.series_merge_into)) },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, null) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, null) },
                 onClick = {
                     expanded = false
                     onMergeClick()
@@ -515,7 +515,7 @@ private fun SeriesIdentityHeader(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.CameraAlt,
+                                    imageVector = Icons.Outlined.CameraAlt,
                                     contentDescription = stringResource(Res.string.book_edit_change_cover),
                                     modifier = Modifier.size(18.dp),
                                     tint = MaterialTheme.colorScheme.onPrimary,

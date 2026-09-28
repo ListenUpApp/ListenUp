@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
@@ -10,8 +12,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -158,7 +158,7 @@ fun ChapterEditorScreen(
                 title = { EditorTitle(editing) },
                 navigationIcon = {
                     IconButton(onClick = leave) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back))
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
                     }
                 },
                 actions = {
@@ -173,7 +173,7 @@ fun ChapterEditorScreen(
                         )
                     }
                     IconButton(onClick = viewModel::undo, enabled = editing?.canUndo == true) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, stringResource(Res.string.chapter_editor_undo))
+                        Icon(Icons.AutoMirrored.Outlined.Undo, stringResource(Res.string.chapter_editor_undo))
                     }
                     EditorStatus(editing)
                     TextButton(

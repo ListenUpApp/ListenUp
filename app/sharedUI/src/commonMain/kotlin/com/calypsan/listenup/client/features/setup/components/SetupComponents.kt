@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.setup.components
 
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,10 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -86,7 +86,7 @@ fun SetupBreadcrumb(
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.Home,
+                imageVector = Icons.Outlined.Home,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(19.dp),
@@ -100,7 +100,7 @@ fun SetupBreadcrumb(
         }
         segments.forEachIndexed { index, segment ->
             Icon(
-                imageVector = Icons.Rounded.ChevronRight,
+                imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
@@ -166,7 +166,7 @@ fun FolderRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Folder,
+                imageVector = Icons.Outlined.Folder,
                 contentDescription = null,
                 tint = tileTint,
                 modifier = Modifier.size(26.dp),
@@ -220,7 +220,7 @@ fun FolderRow(
         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             if (entry.hasChildren) {
                 Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
+                    imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = stringResource(Res.string.library_setup_open_folder),
                     tint = chevronTint,
                     modifier = Modifier.size(24.dp),
@@ -307,7 +307,7 @@ fun LibrarySummaryCard(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Check,
+                imageVector = Icons.Outlined.Check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.size(20.dp),

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.genredestination
 
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -10,9 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -67,12 +67,12 @@ internal fun GenreDestinationHero(
         trailingActions = {
             // Search and overflow are chrome-only for now — no destination is wired yet.
             HeroIconButton(
-                icon = Icons.Filled.Search,
+                icon = Icons.Outlined.Search,
                 contentDescription = stringResource(Res.string.common_search),
                 onClick = {},
             )
             HeroIconButton(
-                icon = Icons.Filled.MoreVert,
+                icon = Icons.Outlined.MoreVert,
                 contentDescription = stringResource(Res.string.genre_destination_more_options),
                 onClick = {},
             )
@@ -147,7 +147,7 @@ private fun BreadcrumbRow(
         breadcrumb.forEachIndexed { index, crumb ->
             if (index > 0) {
                 Icon(
-                    imageVector = Icons.Filled.ChevronRight,
+                    imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = null,
                     tint = FacetHeroInk.copy(alpha = 0.6f),
                     modifier = Modifier.size(16.dp),

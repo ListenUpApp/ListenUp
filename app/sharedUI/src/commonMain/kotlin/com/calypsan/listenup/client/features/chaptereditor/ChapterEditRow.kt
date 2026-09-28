@@ -1,5 +1,13 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,16 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -206,15 +206,15 @@ private fun ChapterRowActions(
     val haptics = LocalHaptics.current
     val colors = MaterialTheme.colorScheme
 
-    RowAction(Icons.Filled.Remove, stringResource(Res.string.chapter_editor_nudge_back)) {
+    RowAction(Icons.Outlined.Remove, stringResource(Res.string.chapter_editor_nudge_back)) {
         haptics.press()
         onNudge(-nudgeStepMs)
     }
-    RowAction(Icons.Filled.Add, stringResource(Res.string.chapter_editor_nudge_forward)) {
+    RowAction(Icons.Outlined.Add, stringResource(Res.string.chapter_editor_nudge_forward)) {
         haptics.press()
         onNudge(nudgeStepMs)
     }
-    RowAction(Icons.Filled.MyLocation, stringResource(Res.string.chapter_editor_snap_to_playhead)) {
+    RowAction(Icons.Outlined.MyLocation, stringResource(Res.string.chapter_editor_snap_to_playhead)) {
         haptics.press()
         onSnapToPlayhead()
     }
@@ -266,19 +266,19 @@ private fun ChapterOverflowMenu(
     }
 
     Box {
-        RowAction(Icons.Filled.MoreVert, stringResource(Res.string.chapter_editor_more_for, chapter.title)) {
+        RowAction(Icons.Outlined.MoreVert, stringResource(Res.string.chapter_editor_more_for, chapter.title)) {
             haptics.press()
             expanded = true
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_rename_title)) },
-                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                 onClick = { choose { menu.onRename(chapter.id) } },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_insert_below)) },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null) },
                 onClick = { choose { menu.onInsertBelow(chapter.id) } },
             )
             // Disabled rather than absent while another book (or nothing) is loaded, so the menu
@@ -286,14 +286,14 @@ private fun ChapterOverflowMenu(
             val onPlayFromHere = menu.onPlayFromHere
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_play_from_here)) },
-                leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
                 enabled = onPlayFromHere != null,
                 onClick = { choose { onPlayFromHere?.invoke(chapter.id) } },
             )
             val destructive = MaterialTheme.colorScheme.error
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_delete_chapter), color = destructive) },
-                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = destructive) },
+                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = destructive) },
                 onClick = { choose { menu.onDelete(chapter.id) } },
             )
         }

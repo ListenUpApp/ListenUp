@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.auth.components
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilledIconButton
@@ -274,7 +274,7 @@ private fun BackButton(onBack: () -> Unit) {
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
     ) {
-        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(Res.string.common_back))
+        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(Res.string.common_back))
     }
 }
 

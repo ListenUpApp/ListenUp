@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.admin.backup
 
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Restore
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyListScope
@@ -22,12 +28,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Card
@@ -153,7 +153,7 @@ fun AdminBackupScreen(
             if (readyState != null) {
                 ListenUpFab(
                     onClick = onCreateClick,
-                    icon = Icons.Default.Add,
+                    icon = Icons.Outlined.Add,
                     contentDescription = stringResource(Res.string.admin_create_backup),
                 )
             }
@@ -163,7 +163,7 @@ fun AdminBackupScreen(
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             ColorBlockHero(
                 title = stringResource(Res.string.admin_backups),
-                badgeIcon = Icons.Default.Archive,
+                badgeIcon = Icons.Outlined.Archive,
                 onBack = onBackClick,
                 modifier = Modifier.fillMaxWidth(),
                 overline = stringResource(Res.string.import_flow_eyebrow),
@@ -468,7 +468,7 @@ private fun BackupCard(
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(
-                        Icons.Default.Archive,
+                        Icons.Outlined.Archive,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp),
@@ -488,7 +488,7 @@ private fun BackupCard(
                             showMenu = true
                         },
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.common_menu))
+                        Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(Res.string.common_menu))
                     }
                     DropdownMenu(
                         expanded = showMenu,
@@ -500,7 +500,7 @@ private fun BackupCard(
                                 showMenu = false
                                 onRestoreClick()
                             },
-                            leadingIcon = { Icon(Icons.Default.Restore, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(Res.string.admin_download_backup)) },
@@ -508,7 +508,7 @@ private fun BackupCard(
                                 showMenu = false
                                 onDownloadClick()
                             },
-                            leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Outlined.Download, contentDescription = null) },
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(Res.string.common_delete)) },
@@ -518,7 +518,7 @@ private fun BackupCard(
                             },
                             leadingIcon = {
                                 Icon(
-                                    Icons.Default.Delete,
+                                    Icons.Outlined.Delete,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.error,
                                 )
@@ -561,7 +561,7 @@ private fun RestoreFromFileCard(
         modifier = modifier,
         title = stringResource(Res.string.admin_restore_from_file),
         subtitle = stringResource(Res.string.admin_restore_from_file_description),
-        icon = Icons.Default.Restore,
+        icon = Icons.Outlined.Restore,
         onClick = onClick,
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         badgeColor = MaterialTheme.colorScheme.secondary,
@@ -638,7 +638,7 @@ private fun ABSImportSummaryCard(
                                 showMenu = true
                             },
                         ) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.common_menu))
+                            Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(Res.string.common_menu))
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -659,7 +659,7 @@ private fun ABSImportSummaryCard(
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        Icons.Default.Delete,
+                                        Icons.Outlined.Delete,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
                                     )

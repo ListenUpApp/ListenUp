@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.home.components
 
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -131,7 +131,7 @@ fun ShelfCard(
                 ) {
                     if (shelf.isPrivate) {
                         Icon(
-                            imageVector = Icons.Default.Lock,
+                            imageVector = Icons.Outlined.Lock,
                             contentDescription = stringResource(Res.string.home_private_shelf),
                             tint = contentColor.copy(alpha = 0.8f),
                             modifier = Modifier.size(14.dp),

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.documentviewer
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.ui.semantics.heading
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
@@ -21,9 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -311,7 +311,7 @@ private fun ReaderTopBar(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = stringResource(Res.string.common_back),
                     )
                 }
@@ -324,7 +324,7 @@ private fun ReaderTopBar(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.GridView,
+                        imageVector = Icons.Outlined.GridView,
                         contentDescription = stringResource(Res.string.book_detail_document_reader_toggle_grid),
                     )
                 }
@@ -336,7 +336,7 @@ private fun ReaderTopBar(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
+                            imageVector = Icons.Outlined.MoreVert,
                             contentDescription = stringResource(Res.string.book_detail_more_options),
                         )
                     }

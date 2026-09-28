@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.setup.scan
 
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,9 +22,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -360,19 +360,19 @@ private fun ScanStatsBlock(
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatChip(
-            icon = Icons.AutoMirrored.Rounded.MenuBook,
+            icon = Icons.AutoMirrored.Outlined.MenuBook,
             value = progress.books,
             label = "Books",
             modifier = Modifier.weight(1f),
         )
         StatChip(
-            icon = Icons.Rounded.Person,
+            icon = Icons.Outlined.Person,
             value = progress.authors,
             label = "Authors",
             modifier = Modifier.weight(1f),
         )
         StatChip(
-            icon = Icons.Rounded.Schedule,
+            icon = Icons.Outlined.Schedule,
             value = progress.hours,
             label = "Hours",
             modifier = Modifier.weight(1f),

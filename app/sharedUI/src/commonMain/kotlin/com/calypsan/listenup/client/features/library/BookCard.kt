@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import listenup.composeapp.generated.resources.selection_select
@@ -28,8 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
@@ -334,7 +334,7 @@ private fun DocumentsBadge(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+            imageVector = Icons.AutoMirrored.Outlined.MenuBook,
             contentDescription = stringResource(Res.string.library_has_documents_badge),
             tint = MaterialTheme.colorScheme.onSecondary,
             modifier = Modifier.size(16.dp),
@@ -354,7 +354,7 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Rounded.GraphicEq,
+            imageVector = Icons.Outlined.GraphicEq,
             contentDescription = stringResource(Res.string.player_now_playing_wide),
             tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(16.dp),

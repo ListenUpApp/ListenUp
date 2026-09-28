@@ -1,15 +1,15 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FormatListNumbered
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -80,7 +80,7 @@ fun BookActionsMenu(
         // Edit Book
         ActionMenuItem(
             label = stringResource(Res.string.book_detail_edit_book),
-            icon = Icons.Default.Edit,
+            icon = Icons.Outlined.Edit,
             onClick = onEditClick,
             enabled = actionsEnabled,
         )
@@ -88,7 +88,7 @@ fun BookActionsMenu(
         // Find Metadata
         ActionMenuItem(
             label = stringResource(Res.string.metadata_match_on_audible),
-            icon = Icons.Default.Search,
+            icon = Icons.Outlined.Search,
             onClick = onFindMetadataClick,
             enabled = actionsEnabled,
         )
@@ -109,7 +109,7 @@ fun BookActionsMenu(
         if (!isComplete) {
             ActionMenuItem(
                 label = stringResource(Res.string.book_detail_mark_as_finished),
-                icon = Icons.Default.CheckCircle,
+                icon = Icons.Outlined.CheckCircle,
                 onClick = onMarkCompleteClick,
                 enabled = actionsEnabled,
             )
@@ -119,7 +119,7 @@ fun BookActionsMenu(
         if (hasProgress || isComplete) {
             ActionMenuItem(
                 label = stringResource(Res.string.book_detail_mark_as_not_started),
-                icon = Icons.Default.RadioButtonUnchecked,
+                icon = Icons.Outlined.RadioButtonUnchecked,
                 onClick = onMarkNotStartedClick,
                 enabled = actionsEnabled,
             )
@@ -129,7 +129,7 @@ fun BookActionsMenu(
         if (hasProgress || isComplete) {
             ActionMenuItem(
                 label = stringResource(Res.string.book_detail_restart_book),
-                icon = Icons.Default.RestartAlt,
+                icon = Icons.Outlined.RestartAlt,
                 onClick = onRestartClick,
                 enabled = actionsEnabled,
             )
@@ -138,7 +138,7 @@ fun BookActionsMenu(
         // Add to Shelf
         ActionMenuItem(
             label = stringResource(Res.string.book_detail_add_to_shelf),
-            icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+            icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
             onClick = onAddToShelfClick,
             enabled = actionsEnabled,
         )
@@ -147,7 +147,7 @@ fun BookActionsMenu(
         if (isAdmin) {
             ActionMenuItem(
                 label = stringResource(Res.string.book_detail_add_to_collection),
-                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
                 onClick = onAddToCollectionClick,
                 enabled = actionsEnabled,
             )
@@ -156,7 +156,7 @@ fun BookActionsMenu(
         // Share
         ActionMenuItem(
             label = stringResource(Res.string.common_share),
-            icon = Icons.Default.Share,
+            icon = Icons.Outlined.Share,
             onClick = onShareClick,
             enabled = actionsEnabled,
         )
@@ -172,7 +172,7 @@ fun BookActionsMenu(
                 text = { Text(text = stringResource(Res.string.common_delete_name, "Book")) },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = Icons.Outlined.Delete,
                         contentDescription = null,
                     )
                 },
