@@ -36,10 +36,12 @@ data class BookExternalRatingId(
  * by book exactly like [BookRatingRepository] (the [driver] carries the caller's visible-book
  * subquery into the filtered pull — wired in a follow-up commit alongside `BookAccessPolicy`).
  *
- * The server is the sole writer. There is no outbox and no client-supplied id: every write arrives
- * through [recordFetch] (a successful fetch) or [recordError] (a failed one, health-only — see its
- * KDoc for why it neither bumps a revision nor emits a [SyncEvent]), called by `ExternalRatingsFetcher`
- * on a match, a nightly sweep, or an admin's refresh request.
+ * The server is the sole writer. There is no outbox and no client-supplied id: every successful
+ * write arrives through [recordFetch], called by `ExternalRatingsFetcher` on a match, a nightly
+ * sweep, or an admin's refresh request. Per-source *health* (last success, last error) is not
+ * tracked here — see `com.calypsan.listenup.server.ratings.RatingSourceSettings` for why it lives
+ * in server settings instead: a row only exists once a source has succeeded at least once, so
+ * row-derived health would be blind to a source that has never worked at all.
  */
 class BookExternalRatingRepository(
     db: ListenUpDatabase,
@@ -204,29 +206,6 @@ class BookExternalRatingRepository(
             )
         }
 
-    /**
-     * Records that fetching [source] for [bookId] failed — health-only, matching [minimizeTombstone]'s
-     * note that health detail never crosses the wire: **no revision bump, no [SyncEvent]**. A row
-     * that doesn't exist yet (a book/source pair that has never once succeeded) is left untouched —
-     * there is nothing to attach the error to, and [health] reads across a source's existing rows,
-     * not per-book state, so nothing is lost for that aggregate view.
-     */
-    suspend fun recordError(
-        bookId: String,
-        source: ExternalRatingSource,
-        message: String,
-        now: Long,
-    ) {
-        suspendTransaction(db) {
-            db.bookExternalRatingsQueries.recordError(
-                last_error = message,
-                updated_at = now,
-                book_id = bookId,
-                source = source.name,
-            )
-        }
-    }
-
     /** Live external ratings of [bookId]. */
     suspend fun findForBook(bookId: String): List<ExternalRatingSyncPayload> =
         suspendTransaction(db) {
@@ -288,18 +267,6 @@ class BookExternalRatingRepository(
     suspend fun countBooksWithAsin(): Long =
         suspendTransaction(db) {
             db.bookExternalRatingsQueries.countBooksWithAsin().executeAsOne()
-        }
-
-    /** [source]'s most recent successful fetch instant, and its most recent error message, if any. */
-    suspend fun health(source: ExternalRatingSource): Pair<Long?, String?> =
-        suspendTransaction(db) {
-            val fetchedAt =
-                db.bookExternalRatingsQueries
-                    .selectLatestFetchedAtForSource(
-                        source.name,
-                    ).executeAsOneOrNull()
-            val error = db.bookExternalRatingsQueries.selectLatestErrorForSource(source.name).executeAsOneOrNull()
-            fetchedAt to error
         }
 
     private fun Book_external_ratings.toPayload(): ExternalRatingSyncPayload =

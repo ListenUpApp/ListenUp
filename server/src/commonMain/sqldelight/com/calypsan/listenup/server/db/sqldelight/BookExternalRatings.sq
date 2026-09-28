@@ -4,6 +4,10 @@
 -- resolve cross-table references for tables not yet defined in this schema's .sq files, and the
 -- generated insert binding supplies every column explicitly regardless of a DEFAULT. Both
 -- constraints are present in the migration DDL and enforced by SQLite at runtime.
+--
+-- Per-source health (last successful fetch, last error) does NOT live on this table — see
+-- RatingSourceSettings for why: a row only exists once a source has succeeded at least once, so
+-- health derived from these rows would be blind to a source that has never worked at all.
 CREATE TABLE book_external_ratings (
     id           TEXT    NOT NULL,
     book_id      TEXT    NOT NULL,
@@ -13,7 +17,6 @@ CREATE TABLE book_external_ratings (
     enabled      INTEGER NOT NULL,
     region       TEXT,
     fetched_at   INTEGER NOT NULL,
-    last_error   TEXT,
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL,
     revision     INTEGER NOT NULL,
@@ -66,25 +69,19 @@ WHERE id = :id;
 
 insert:
 INSERT INTO book_external_ratings (
-    id, book_id, source, average, count, enabled, region, fetched_at, last_error,
+    id, book_id, source, average, count, enabled, region, fetched_at,
     created_at, updated_at, revision, deleted_at, client_op_id
 ) VALUES (
-    :id, :book_id, :source, :average, :count, :enabled, :region, :fetched_at, NULL,
+    :id, :book_id, :source, :average, :count, :enabled, :region, :fetched_at,
     :created_at, :updated_at, :revision, NULL, :client_op_id
 );
 
 update:
 UPDATE book_external_ratings
 SET average = :average, count = :count, enabled = :enabled, region = :region, fetched_at = :fetched_at,
-    last_error = NULL, updated_at = :updated_at, revision = :revision, deleted_at = NULL,
+    updated_at = :updated_at, revision = :revision, deleted_at = NULL,
     client_op_id = :client_op_id
 WHERE book_id = :book_id AND source = :source;
-
--- Health-only write: no revision bump and no sync event (see BookExternalRatingRepository.recordError).
-recordError:
-UPDATE book_external_ratings
-SET last_error = :last_error, updated_at = :updated_at
-WHERE book_id = :book_id AND source = :source AND deleted_at IS NULL;
 
 -- The book ids a sweep should refresh next: live books with an ASIN, the never-fetched first, then
 -- the least recently fetched. A book with no book_external_ratings row at all (never attempted by
@@ -100,12 +97,3 @@ LIMIT :limit;
 -- The sweep's 1/30th-a-night arithmetic denominator.
 countBooksWithAsin:
 SELECT COUNT(*) FROM books WHERE deleted_at IS NULL AND asin IS NOT NULL AND asin != '';
-
--- health()'s two halves: the source's most recent successful fetch, and its most recent error.
-selectLatestFetchedAtForSource:
-SELECT fetched_at FROM book_external_ratings WHERE source = :source ORDER BY fetched_at DESC LIMIT 1;
-
-selectLatestErrorForSource:
-SELECT last_error FROM book_external_ratings
-WHERE source = :source AND last_error IS NOT NULL
-ORDER BY updated_at DESC LIMIT 1;

@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterMeta
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
+import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.GenreKind
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
@@ -114,6 +115,21 @@ internal fun AudibleSeriesEntry.toSeriesMeta(): SeriesMeta =
  */
 internal fun List<String>.toGenreMetas(): List<GenreMeta> =
     mapNotNull { name -> name.takeIf { it.isNotBlank() }?.let { GenreMeta(name = it, kind = GenreKind.GENRE) } }
+
+/**
+ * Maps a full Audible book to its neutral [ExternalRatingMeta], or `null` when Audible has no
+ * rating for it. Audible reports a 0 average *and* a 0 count for a book with no ratings yet
+ * rather than omitting the fields, so either being zero is treated as a catalog miss — a wrong
+ * score is worse than none.
+ *
+ * [rating] round-trips through [Float.toString] before parsing back to [Double]: a raw
+ * `Float.toDouble()` widening carries the float's binary imprecision along with it (`4.8f` widens
+ * to `4.800000190734863`), while Audible's `display_average_rating` is only ever one decimal digit
+ * of real precision.
+ */
+internal fun AudibleBook.toExternalRatingMeta(): ExternalRatingMeta? =
+    takeIf { rating > 0f && ratingCount > 0 }
+        ?.let { ExternalRatingMeta(average = rating.toString().toDouble(), count = ratingCount) }
 
 /**
  * Selects the single canonical cover from an Audible search: the first result carrying a

@@ -24,8 +24,9 @@ import kotlinx.coroutines.test.runTest
 /**
  * Tests for [BookExternalRatingRepository] — the `book_external_ratings` syncable repository.
  * Covers the server-minted "existing row's id wins" identity on [BookExternalRatingRepository.recordFetch],
- * the health-only shape of [BookExternalRatingRepository.recordError] (no revision, no event), the
- * per-source enable/disable sweep, the nightly sweep's candidate ordering, and tombstone minimization.
+ * the per-source enable/disable sweep, the nightly sweep's candidate ordering, and tombstone
+ * minimization. Per-source health lives in `RatingSourceSettings`, not on this repository — see
+ * `com.calypsan.listenup.server.ratings.ExternalRatingsFetcherTest` for its coverage.
  */
 class BookExternalRatingRepositoryTest :
     FunSpec({
@@ -85,62 +86,6 @@ class BookExternalRatingRepositoryTest :
 
                     repo.findForBook("book1").associate { it.source to it.count } shouldBe
                         mapOf(ExternalRatingSource.AUDIBLE to 100, ExternalRatingSource.HARDCOVER to 40)
-                }
-            }
-        }
-
-        test("recordError records the failure without bumping the revision or emitting an event") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1", asin = "B001")
-                val bus = ChangeBus()
-                val repo = BookExternalRatingRepository(db = sql, bus = bus, registry = SyncRegistry(), driver = driver)
-                runTest {
-                    val fetched =
-                        repo
-                            .recordFetch("book1", ExternalRatingSource.AUDIBLE, 4.2, 100, "us", 1_000L)
-                            .shouldBeInstanceOf<AppResult.Success<ExternalRatingSyncPayload>>()
-                            .data
-
-                    // Subscribed after the Created event; recordError must publish nothing before the
-                    // unrelated marker fetch's Created arrives.
-                    val sub =
-                        async {
-                            bus
-                                .subscribe()
-                                .drop(1)
-                                .take(1)
-                                .toList()
-                        }
-                    advanceUntilIdle()
-
-                    repo.recordError("book1", ExternalRatingSource.AUDIBLE, "rate limited", now = 2_000L)
-                    repo.recordFetch("book1", ExternalRatingSource.HARDCOVER, 4.0, 1, null, 3_000L)
-
-                    val next = sub.await().single()
-                    next.event.shouldBeInstanceOf<SyncEvent.Created<*>>()
-
-                    val after = repo.findForBook("book1").first { it.source == ExternalRatingSource.AUDIBLE }
-                    after.id shouldBe fetched.id
-                    after.revision shouldBe fetched.revision
-
-                    val (fetchedAt, lastError) = repo.health(ExternalRatingSource.AUDIBLE)
-                    fetchedAt shouldBe 1_000L
-                    lastError shouldBe "rate limited"
-                }
-            }
-        }
-
-        test("recordError on a book/source with no prior fetch is a harmless no-op") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1", asin = "B001")
-                val repo =
-                    BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
-                runTest {
-                    repo.recordError("book1", ExternalRatingSource.AUDIBLE, "boom", now = 1_000L)
-
-                    repo.findForBook("book1") shouldBe emptyList()
                 }
             }
         }
