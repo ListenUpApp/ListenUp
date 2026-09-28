@@ -7,7 +7,11 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigationevent.NavigationEvent
 
@@ -22,6 +26,37 @@ internal val PredictiveBackEdgeMargin = 8.dp
 
 /** Material's predictive-back preview: the screen being left shrinks to this scale. */
 internal const val PREDICTIVE_BACK_SCALE = 0.9f
+
+/**
+ * The authenticated graph's screen changes, in the theme's motion and the screen's density: see
+ * [sharedAxisXPush], [sharedAxisXPop] and [predictiveBackPop]. A destination with a hero replaces
+ * them with its container transform (`heroEntryTransitions`).
+ */
+internal class ScreenTransitions(
+    private val motion: MotionScheme,
+    private val travelPx: Int,
+    private val edgeMarginPx: Int,
+) {
+    fun push(): ContentTransform = sharedAxisXPush(motion, travelPx)
+
+    fun pop(): ContentTransform = sharedAxisXPop(motion, travelPx)
+
+    fun predictivePop(
+        @NavigationEvent.SwipeEdge swipeEdge: Int,
+    ): ContentTransform = predictiveBackPop(motion, swipeEdge, edgeMarginPx)
+}
+
+/** [ScreenTransitions] for the current theme and density. */
+@Composable
+internal fun rememberScreenTransitions(): ScreenTransitions {
+    val motion = MaterialTheme.motionScheme
+    val density = LocalDensity.current
+    return remember(motion, density) {
+        with(density) {
+            ScreenTransitions(motion, SharedAxisTravel.roundToPx(), PredictiveBackEdgeMargin.roundToPx())
+        }
+    }
+}
 
 /**
  * Push, Material shared axis X. The outgoing screen steps back by [travelPx] and fades quickly; the

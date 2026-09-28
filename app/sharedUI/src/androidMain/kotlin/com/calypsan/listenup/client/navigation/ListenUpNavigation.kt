@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -740,9 +739,7 @@ private fun AuthenticatedNavigation(
                 // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
                 // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
                 // now-playing bar is not an entry, and a cover flying past it should pass under it.
-                val motion = MaterialTheme.motionScheme
-                val axisTravelPx = with(LocalDensity.current) { SharedAxisTravel.roundToPx() }
-                val backEdgeMarginPx = with(LocalDensity.current) { PredictiveBackEdgeMargin.roundToPx() }
+                val transitions = rememberScreenTransitions()
                 SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalHeroTransitionScope provides this) {
                         NavDisplay(
@@ -756,19 +753,12 @@ private fun AuthenticatedNavigation(
                             // From the two-pane width a book opened from a series or contributor sits
                             // beside it; below that (and for every other stack) the single pane.
                             sceneStrategies = listOf(rememberListDetailSceneStrategy()),
-                            // Only handle back if we're not at root - let system handle back-to-home
-                            onBack = {
-                                if (backStack.size > 1) {
-                                    backStack.removeAt(backStack.lastIndex)
-                                }
-                                // When size == 1, don't pop - allows system back-to-home animation
-                            },
-                            // Material shared axis X for push and pop, and Material's back preview
-                            // for predictive back. Hero destinations replace these with their
-                            // container transform (heroEntryTransitions).
-                            transitionSpec = { sharedAxisXPush(motion, axisTravelPx) },
-                            popTransitionSpec = { sharedAxisXPop(motion, axisTravelPx) },
-                            predictivePopTransitionSpec = { edge -> predictiveBackPop(motion, edge, backEdgeMarginPx) },
+                            // Only handle back if we're not at root - at size 1 the system's back-to-home
+                            // animation takes over.
+                            onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                            transitionSpec = { transitions.push() },
+                            popTransitionSpec = { transitions.pop() },
+                            predictivePopTransitionSpec = { edge -> transitions.predictivePop(edge) },
                             entryProvider =
                                 authenticatedNavEntries(
                                     backStack = backStack,
