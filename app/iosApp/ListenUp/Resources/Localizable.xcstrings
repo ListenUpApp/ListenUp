@@ -9911,12 +9911,32 @@
         }
       }
     },
+    "hardcover.broken_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect to keep sharing"
+          }
+        }
+      }
+    },
     "hardcover.cancel_linking": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        }
+      }
+    },
+    "hardcover.code_copied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
           }
         }
       }
@@ -9931,12 +9951,12 @@
         }
       }
     },
-    "hardcover.connected_as": {
+    "hardcover.connected": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected as %1$@"
+            "value": "Connected"
           }
         }
       }
@@ -9947,6 +9967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Since %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.copy_code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy code"
           }
         }
       }
@@ -10026,7 +10056,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Approve ListenUp on Hardcover. We opened the page for you — or go to %1$@ and enter this code:"
+            "value": "We opened the page for you. On another device, go to %1$@ and enter this code."
+          }
+        }
+      }
+    },
+    "hardcover.linking_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve ListenUp on Hardcover"
           }
         }
       }
@@ -10037,6 +10077,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Checking your Hardcover connection…"
+          }
+        }
+      }
+    },
+    "hardcover.not_connected_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share what you finish"
           }
         }
       }
@@ -10057,6 +10107,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.open_hardcover_new_tab": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Hardcover in a new tab"
           }
         }
       }
@@ -10127,6 +10187,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.shared_finished_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books you finish, marked as read"
+          }
+        }
+      }
+    },
+    "hardcover.shares_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A book you finish is marked as read on Hardcover."
+          }
+        }
+      }
+    },
+    "hardcover.shares_no_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You sign in on Hardcover itself. ListenUp never sees your password."
+          }
+        }
+      }
+    },
+    "hardcover.waiting_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This screen updates by itself. The code works for about 15 minutes."
+          }
+        }
+      }
+    },
+    "hardcover.waiting_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for you to approve"
+          }
+        }
+      }
+    },
+    "hardcover.was_connected_as": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was connected as %1$@."
+          }
+        }
+      }
+    },
+    "hardcover.web_steps_auto": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This page updates on its own"
+          }
+        }
+      }
+    },
+    "hardcover.web_steps_enter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the code and approve ListenUp"
+          }
+        }
+      }
+    },
+    "hardcover.web_steps_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open %1$@"
+          }
+        }
+      }
+    },
+    "hardcover.what_is_shared": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What ListenUp shares"
+          }
+        }
+      }
+    },
+    "hardcover.your_code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your code"
           }
         }
       }
