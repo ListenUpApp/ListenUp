@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,13 +92,6 @@ private fun PlayerPanelBottomSheet(
         modifier = modifier,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = BottomSheetDefaults.ExpandedShape,
-        dragHandle = {
-            Surface(
-                modifier = Modifier.padding(vertical = 12.dp).size(width = 36.dp, height = 5.dp),
-                shape = RoundedCornerShape(3.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            ) {}
-        },
     ) {
         Column(
             modifier =
