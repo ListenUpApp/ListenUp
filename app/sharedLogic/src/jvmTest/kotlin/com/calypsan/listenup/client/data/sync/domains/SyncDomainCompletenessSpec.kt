@@ -333,6 +333,7 @@ class SyncDomainCompletenessSpec :
                         "book_tags",
                         "book_moods",
                         "book_ratings",
+                        "book_external_ratings",
                     )
 
                 // The Targeted domains, in their declared dependency order. Changing an order or moving a
@@ -352,6 +353,7 @@ class SyncDomainCompletenessSpec :
                         "book_tags",
                         "book_moods",
                         "book_ratings",
+                        "book_external_ratings",
                     )
 
                 // The one LiveTailOnly domain — deliberately NOT fetched in the delta.

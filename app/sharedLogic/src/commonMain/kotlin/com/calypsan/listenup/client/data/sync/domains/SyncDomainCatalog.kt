@@ -45,6 +45,7 @@ internal fun syncDomainCatalog(
                 bookTagsDomain(database = database),
                 bookMoodsDomain(database = database),
                 bookRatingsDomain(database = database, authSession = authSession),
+                bookExternalRatingsDomain(database = database),
                 librariesDomain(database = database),
                 libraryFoldersDomain(database = database),
                 shelvesDomain(database = database),

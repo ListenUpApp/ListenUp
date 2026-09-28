@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.local.db.ActivityEntity
 import com.calypsan.listenup.client.data.local.db.AdminUserRosterEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.local.db.BookExternalRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookMoodEntity
 import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookTagEntity
@@ -169,6 +170,22 @@ class LibraryResetHelperTest :
                                 )
                             },
                             isGone = { db.bookRatingDao().find("b1", "u1") == null },
+                        ),
+                        DomainProbe(
+                            domainName = "book_external_ratings",
+                            seed = {
+                                db.bookExternalRatingDao().upsert(
+                                    BookExternalRatingEntity(
+                                        bookId = "b1",
+                                        source = "AUDIBLE",
+                                        syncId = "b1:AUDIBLE",
+                                        average = 4.4,
+                                        count = 812,
+                                        enabled = true,
+                                    ),
+                                )
+                            },
+                            isGone = { db.bookExternalRatingDao().revisionOfSyncId("b1:AUDIBLE") == null },
                         ),
                         DomainProbe(
                             domainName = "libraries",
