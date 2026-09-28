@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.domain.ListenerRatingLimits
+import com.calypsan.listenup.domain.RatingKeyStep
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
@@ -66,22 +67,20 @@ fun RatingStars(
 }
 
 /**
- * Where a key moves a [current] rating, or null when the key is not one the slider answers.
- *
- * Steps are clamped to one..five stars, so the first arrow press on an unrated book (0) lands on
- * one star rather than on a value Save would refuse.
+ * Where a key moves a [current] rating, or null when the key is not one the slider answers. The
+ * stepping itself is [RatingKeyStep] — the same arithmetic Android's stars use.
  */
 internal fun halfStarsForKey(
     key: String,
     current: Int,
 ): Int? =
     when (key) {
-        "ArrowRight", "ArrowUp" -> current + 1
-        "ArrowLeft", "ArrowDown" -> current - 1
-        "Home" -> ListenerRatingLimits.MIN_HALF_STARS
-        "End" -> ListenerRatingLimits.MAX_HALF_STARS
+        "ArrowRight", "ArrowUp" -> RatingKeyStep.Increase
+        "ArrowLeft", "ArrowDown" -> RatingKeyStep.Decrease
+        "Home" -> RatingKeyStep.Lowest
+        "End" -> RatingKeyStep.Highest
         else -> null
-    }?.coerceIn(ListenerRatingLimits.MIN_HALF_STARS, ListenerRatingLimits.MAX_HALF_STARS)
+    }?.applyTo(current)
 
 /**
  * The half-star rating a click [x] pixels from the start of five equal stars spanning [width] sets:
