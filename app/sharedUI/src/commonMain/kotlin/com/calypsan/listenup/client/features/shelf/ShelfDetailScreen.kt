@@ -206,8 +206,8 @@ private const val DESCRIPTION_EXPAND_THRESHOLD = 150
 /** The shelf grid's padding: the page margin at the sides, a little air above, room below. */
 private val ShelfGridContentPadding =
     PaddingValues(
-        start = Spacing.screenMargin,
-        end = Spacing.screenMargin,
+        start = Spacing.gridMargin,
+        end = Spacing.gridMargin,
         top = Spacing.sm,
         bottom = Spacing.xl,
     )

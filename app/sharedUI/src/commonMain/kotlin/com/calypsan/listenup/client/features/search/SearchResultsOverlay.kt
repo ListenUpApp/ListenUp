@@ -187,7 +187,7 @@ fun SearchResultsOverlay(
                     SearchPillBar(
                         query = state.query,
                         onClose = onClose,
-                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
                     )
 
                     TypeFilterRow(
@@ -198,7 +198,9 @@ fun SearchResultsOverlay(
                     )
 
                     if (state is SearchUiState.Results && state.result.isOfflineResult) {
-                        OfflineIndicator(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs))
+                        OfflineIndicator(
+                            modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.xs),
+                        )
                     }
 
                     when (state) {
@@ -373,7 +375,7 @@ private fun ResultsContent(
             text = stringResource(Res.string.search_results_count_for, result.total, query),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = if (isWide) 24.dp else 16.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.xs),
         )
         if (isWide) {
             WideSearchResults(
