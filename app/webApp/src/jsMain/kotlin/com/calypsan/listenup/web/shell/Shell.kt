@@ -121,7 +121,7 @@ fun Shell(
                             // `title` is a hover tooltip, not a name: a screen reader may never read
                             // it, and an icon-only button with nothing else announces as "button".
                             attr("title", "Collapse sidebar")
-                            attr("aria-label", "Collapse sidebar")
+                            attr(ARIA_LABEL, "Collapse sidebar")
                             onClick { toggle() }
                         }) {
                             Icon(WebIcon.PanelLeft, size = BRAND_ICON_SIZE)
@@ -136,7 +136,7 @@ fun Shell(
                 }
                 Nav(attrs = {
                     classes("sb-nav")
-                    attr("aria-label", section.label ?: "Main")
+                    attr(ARIA_LABEL, section.label ?: "Main")
                 }) {
                     section.entries.forEach { entry ->
                         NavItem(entry, active, onNavigate)
@@ -149,7 +149,7 @@ fun Shell(
             if (footer.isNotEmpty()) {
                 Nav(attrs = {
                     classes("sb-nav")
-                    attr("aria-label", "Account")
+                    attr(ARIA_LABEL, "Account")
                 }) {
                     footer.forEach { entry -> NavItem(entry, active, onNavigate) }
                 }
@@ -160,7 +160,7 @@ fun Shell(
                     Button(attrs = {
                         classes("iconbtn", "sb-expand")
                         attr("title", "Expand sidebar")
-                        attr("aria-label", "Expand sidebar")
+                        attr(ARIA_LABEL, "Expand sidebar")
                         onClick { toggle() }
                     }) {
                         Icon(WebIcon.ChevronRight, size = EXPAND_ICON_SIZE)
@@ -229,7 +229,7 @@ private fun NavItem(
             // itself says the quantity in words.
             Span(attrs = {
                 classes("nav-badge")
-                attr("aria-label", badgeLabel(entry.badge))
+                attr(ARIA_LABEL, badgeLabel(entry.badge))
             }) { Text(badgeText(entry.badge)) }
         }
     }
@@ -268,3 +268,5 @@ private const val NAV_ICON_SIZE = 21
 private const val BRAND_ICON_SIZE = 19
 
 private const val EXPAND_ICON_SIZE = 18
+
+private const val ARIA_LABEL = "aria-label"

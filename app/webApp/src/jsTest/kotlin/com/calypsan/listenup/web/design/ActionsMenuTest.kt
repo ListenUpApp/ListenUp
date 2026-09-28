@@ -8,6 +8,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.browser.document
 import kotlinx.browser.window
+import org.jetbrains.compose.web.dom.Button
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
@@ -137,7 +138,7 @@ class ActionsMenuTest :
             val root =
                 mounts.mount {
                     WebAppSurface {
-                        org.jetbrains.compose.web.dom.Button(attrs = { classes("menu-i", "hi") }) {}
+                        Button(attrs = { classes("menu-i", "hi") }) {}
                     }
                 }
             val item = root.querySelector(".menu-i") as HTMLElement

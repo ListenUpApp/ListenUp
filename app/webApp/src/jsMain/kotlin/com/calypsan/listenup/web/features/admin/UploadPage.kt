@@ -62,9 +62,9 @@ fun UploadPage(
 
             is UploadBooksUiState.Error -> {
                 P(attrs = {
-            classes("upl-err")
-            attr("role", "alert")
-        }) { Text(state.error.message) }
+                    classes("upl-err")
+                    attr("role", "alert")
+                }) { Text(state.error.message) }
                 Button(attrs = {
                     classes("btn-c")
                     attr(ATTR_TYPE, VALUE_BUTTON)

@@ -47,7 +47,6 @@ fun ShelfEditPage(
     onDismissError: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    PageTitle(if (isEditing) "Edit shelf" else "New shelf")
     val loaded = state as? CreateEditShelfUiState.Loaded
     // Keyed on the loaded value, so the fields carry it from their very first composition rather
     // than a frame later — and so a re-emission of the SAME shelf (a data class, so an equal key)
@@ -59,6 +58,7 @@ fun ShelfEditPage(
 
     val saving = state is CreateEditShelfUiState.Saving
     val heading = if (isEditing) "Edit shelf" else "New shelf"
+    PageTitle(heading)
 
     Div(attrs = { classes("shelf-edit") }) {
         H1(attrs = { classes("shelf-title") }) { Text(heading) }

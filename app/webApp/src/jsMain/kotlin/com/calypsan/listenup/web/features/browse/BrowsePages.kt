@@ -74,7 +74,7 @@ fun GenreDestinationPage(
     onOpenLibrary: () -> Unit,
     onToggleSubGenres: () -> Unit,
 ) {
-    PageTitle((state as? GenreDestinationUiState.Ready)?.identity?.name ?: "Genre")
+    PageTitle((state as? GenreDestinationUiState.Ready)?.identity?.name ?: GENRE)
     Div(attrs = { classes("brw") }) {
         when (state) {
             GenreDestinationUiState.Loading -> {
@@ -83,8 +83,8 @@ fun GenreDestinationPage(
             }
 
             GenreDestinationUiState.NotFound -> {
-                Breadcrumb(trail = listOf(LIBRARY_CRUMB, "Genre"), onNavigate = { onOpenLibrary() })
-                Missing("Genre", onOpenLibrary)
+                Breadcrumb(trail = listOf(LIBRARY_CRUMB, GENRE), onNavigate = { onOpenLibrary() })
+                Missing(GENRE, onOpenLibrary)
             }
 
             is GenreDestinationUiState.Ready -> {
@@ -104,7 +104,7 @@ fun GenreDestinationPage(
                 )
                 Hero(
                     icon = WebIcon.Layers,
-                    eyebrow = "Genre",
+                    eyebrow = GENRE,
                     title = state.identity.name,
                     stats = listOf(bookCountLabel(state.stats.bookCount), hoursLabel(state.stats.totalDurationMs)),
                     blurb = state.identity.blurb,
@@ -236,3 +236,5 @@ private const val MS_PER_MINUTE = 60_000L
 private const val MINUTES_PER_HOUR = 60L
 
 private const val HERO_ICON = 26
+
+private const val GENRE = "Genre"

@@ -43,7 +43,7 @@ fun ReadersPanel(
 
     val shown = lines.take(COLLAPSED_READERS)
     Panel(
-        title = "Readers",
+        title = READERS,
         trailing = {
             if (lines.size > shown.size) {
                 Button(attrs = {
@@ -74,10 +74,10 @@ fun ReadersPage(
     onOpenProfile: (String) -> Unit,
     onOpenBook: () -> Unit,
 ) {
-    PageTitle("Readers")
+    PageTitle(READERS)
     Div(attrs = { classes("rdr") }) {
-        Breadcrumb(trail = listOf(bookTitle, "Readers"), onNavigate = { onOpenBook() })
-        H1(attrs = { classes("rdr-t") }) { Text("Readers") }
+        Breadcrumb(trail = listOf(bookTitle, READERS), onNavigate = { onOpenBook() })
+        H1(attrs = { classes("rdr-t") }) { Text(READERS) }
 
         when (state) {
             BookReadersUiState.Loading -> {
@@ -193,3 +193,5 @@ private const val COLLAPSED_READERS = 5
 private const val AVATAR_SIZE = 32
 
 private const val MARK_SIZE = 16
+
+private const val READERS = "Readers"
