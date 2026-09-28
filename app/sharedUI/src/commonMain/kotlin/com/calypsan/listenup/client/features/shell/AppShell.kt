@@ -318,22 +318,24 @@ fun AppShell(
     // Common content configuration
     val shellContent: @Composable (PaddingValues) -> Unit = { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            // Content based on current destination
-            when (currentDestination) {
-                ShellDestination.Home -> {
-                    homeContent(
-                        padding,
-                        appHeader,
-                        { onDestinationChange(ShellDestination.Library) },
-                    )
-                }
+            // The current tab, faded through on a switch; each tab keeps its state while hidden.
+            ShellTabContent(currentDestination = currentDestination) { destination ->
+                when (destination) {
+                    ShellDestination.Home -> {
+                        homeContent(
+                            padding,
+                            appHeader,
+                            { onDestinationChange(ShellDestination.Library) },
+                        )
+                    }
 
-                ShellDestination.Library -> {
-                    libraryContent(padding, appHeader)
-                }
+                    ShellDestination.Library -> {
+                        libraryContent(padding, appHeader)
+                    }
 
-                ShellDestination.Discover -> {
-                    discoverContent(padding, appHeader)
+                    ShellDestination.Discover -> {
+                        discoverContent(padding, appHeader)
+                    }
                 }
             }
 
