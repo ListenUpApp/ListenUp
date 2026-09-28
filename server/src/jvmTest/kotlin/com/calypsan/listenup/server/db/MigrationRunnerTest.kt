@@ -57,6 +57,18 @@ class MigrationRunnerTest :
         val m1 = Migration(1, "first", "ck1", "CREATE TABLE a (x INTEGER);")
         val m2 = Migration(2, "second", "ck2", "CREATE TABLE b (y INTEGER);")
 
+        test("every bundled migration has its own version") {
+            // Two PRs can each add the next number and merge independently; the second one then
+            // breaks every fresh boot with a schema_migrations primary-key failure (#1495 + #1496
+            // both shipped V72). Pin uniqueness so that race fails CI instead of the server.
+            val duplicated =
+                MigrationCatalog.all
+                    .groupBy { it.version }
+                    .filterValues { it.size > 1 }
+                    .mapValues { (_, migrations) -> migrations.map { it.name } }
+            duplicated shouldBe emptyMap()
+        }
+
         test("a fresh database applies all migrations and reports the latest version") {
             val (path, ds) = freshDb()
             val version = MigrationRunner(path, listOf(m1, m2)).migrate()
