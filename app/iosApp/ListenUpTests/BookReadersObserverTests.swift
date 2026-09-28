@@ -22,7 +22,8 @@ struct BookReadersObserverTests {
             displayName: name,
             isYou: isYou,
             currentProgressPct: progressPct.map { Int32($0) },
-            finishes: finishes
+            finishes: finishes,
+            rating: nil
         )
     }
 

@@ -114,6 +114,10 @@ BookMetadata
 BookMultiSelectEvent
 BookMultiSelectEvent_SealedType
 BookMultiSelectViewModel
+BookRatingRepository
+BookRatingsUiState
+BookRatingsUiState_SealedType
+BookRatingsViewModel
 BookReaders
 BookReadersRepository
 BookReadersUiState
@@ -405,6 +409,9 @@ LibraryUiState_SealedType
 LibraryViewModel
 LibraryWriteError
 LibraryWriteError_SealedType
+ListenerAverage
+ListenerRating
+ListenerRatingLimits
 ListeningEventRecorder
 LocalPreferences
 LogSinkRegistry

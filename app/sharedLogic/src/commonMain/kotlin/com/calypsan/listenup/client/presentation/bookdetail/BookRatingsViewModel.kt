@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.domain.ListenerRatingLimits
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,13 @@ class BookRatingsViewModel(
     currentUserId: Flow<String?>,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
+    /**
+     * The rating's shape: the half-star range, the note cap and the stars label every platform
+     * speaks. Exposed so native clients (Swift Export reaches only what a public signature names)
+     * read the one definition instead of mirroring it.
+     */
+    val limits: ListenerRatingLimits = ListenerRatingLimits
+
     /** The block's state. */
     val state: StateFlow<BookRatingsUiState> =
         combine(repository.observeForBook(bookId), currentUserId) { ratings, me ->
