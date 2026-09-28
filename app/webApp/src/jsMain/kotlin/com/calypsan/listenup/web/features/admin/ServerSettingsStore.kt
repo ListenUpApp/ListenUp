@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
 import androidx.lifecycle.ViewModelStore
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,7 @@ class ServerSettingsSession(
     val onRemoteUrl: (String) -> Unit,
     val onHoldNewBooks: (Boolean) -> Unit,
     val onPushNotifications: (Boolean) -> Unit,
+    val onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit,
     val onSave: () -> Unit,
     val onClearError: () -> Unit,
     val onRetry: () -> Unit,
@@ -40,6 +42,7 @@ fun graphServerSettings(koin: Koin): OpenServerSettings =
             onRemoteUrl = viewModel::setRemoteUrl,
             onHoldNewBooks = viewModel::setHoldNewBooksForReview,
             onPushNotifications = viewModel::setPushNotificationsEnabled,
+            onSetRatingSourceEnabled = viewModel::setRatingSourceEnabled,
             onSave = viewModel::saveAll,
             onClearError = viewModel::clearError,
             onRetry = viewModel::loadSettings,
@@ -54,6 +57,7 @@ fun fixedServerSettings(
     onRemoteUrl: (String) -> Unit = {},
     onHoldNewBooks: (Boolean) -> Unit = {},
     onPushNotifications: (Boolean) -> Unit = {},
+    onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
     onSave: () -> Unit = {},
     onClearError: () -> Unit = {},
     onRetry: () -> Unit = {},
@@ -65,6 +69,7 @@ fun fixedServerSettings(
             onRemoteUrl = onRemoteUrl,
             onHoldNewBooks = onHoldNewBooks,
             onPushNotifications = onPushNotifications,
+            onSetRatingSourceEnabled = onSetRatingSourceEnabled,
             onSave = onSave,
             onClearError = onClearError,
             onRetry = onRetry,

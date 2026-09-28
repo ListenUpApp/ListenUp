@@ -1543,7 +1543,7 @@ private fun inboxShapes(): List<@Composable () -> Unit> {
 private fun serverSettingsShapes(): List<@Composable () -> Unit> {
     fun page(state: AdminSettingsUiState): @Composable () -> Unit =
         {
-            ServerSettingsPage(state, {}, {}, {}, {}, {}, {}, {}, {})
+            ServerSettingsPage(state, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
         }
 
     return listOf(

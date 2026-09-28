@@ -1,7 +1,10 @@
 package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
+import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
@@ -42,10 +45,12 @@ fun ServerSettingsPage(
     onRemoteUrl: (String) -> Unit,
     onHoldNewBooks: (Boolean) -> Unit,
     onPushNotifications: (Boolean) -> Unit,
+    onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
     onSave: () -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
     onOpenAdmin: () -> Unit,
+    nowMs: Long = 0L,
 ) {
     Div(attrs = { classes("srv") }) {
         Button(attrs = {
@@ -80,8 +85,10 @@ fun ServerSettingsPage(
                     onRemoteUrl = onRemoteUrl,
                     onHoldNewBooks = onHoldNewBooks,
                     onPushNotifications = onPushNotifications,
+                    onSetRatingSourceEnabled = onSetRatingSourceEnabled,
                     onSave = onSave,
                     onClearError = onClearError,
+                    nowMs = nowMs,
                 )
             }
         }
@@ -95,8 +102,10 @@ private fun ReadyContent(
     onRemoteUrl: (String) -> Unit,
     onHoldNewBooks: (Boolean) -> Unit,
     onPushNotifications: (Boolean) -> Unit,
+    onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit,
     onSave: () -> Unit,
     onClearError: () -> Unit,
+    nowMs: Long,
 ) {
     // A failed switch has already reverted itself in the ViewModel by the time this renders, so
     // this is the only thing that says the flick did not take.
@@ -173,6 +182,69 @@ private fun ReadyContent(
             enabled = !state.isSaving,
             onChange = onPushNotifications,
         )
+    }
+
+    if (state.ratingSources.isNotEmpty()) {
+        FormSection(title = "Rating sources") {
+            Hint(
+                "Where the score on every book comes from. Switching one off hides its scores; " +
+                    "switching it back on brings them back.",
+            )
+            state.ratingSources.forEach { source ->
+                RatingSourceRow(
+                    status = source,
+                    nowMs = nowMs,
+                    enabled = !state.isSaving,
+                    onChange = { enabled -> onSetRatingSourceEnabled(source.source, enabled) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One outside rating source: its name, its switch, and the health line that says when it last
+ * ran — "Last fetched 2 days ago", "Not fetched yet", or "Last attempt failed: …". A failed fetch
+ * takes priority over a stale success: [RatingSourceStatus.lastError] is null only when the most
+ * recent attempt worked.
+ */
+@Composable
+private fun RatingSourceRow(
+    status: RatingSourceStatus,
+    nowMs: Long,
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Div(attrs = { classes("srv-toggle") }) {
+        Span(attrs = { classes("srv-toggle-d") }) { Text(ratingSourceHealth(status, nowMs)) }
+        SwitchField(
+            label = ratingSourceName(status.source),
+            checked = status.enabled,
+            onChange = onChange,
+            enabled = enabled,
+        )
+    }
+}
+
+/** "Audible", "Hardcover", "Goodreads" — the source name every platform shows. */
+private fun ratingSourceName(source: ExternalRatingSource): String =
+    when (source) {
+        ExternalRatingSource.AUDIBLE -> "Audible"
+        ExternalRatingSource.HARDCOVER -> "Hardcover"
+        ExternalRatingSource.GOODREADS -> "Goodreads"
+        ExternalRatingSource.UNKNOWN -> "Unknown"
+    }
+
+private fun ratingSourceHealth(
+    status: RatingSourceStatus,
+    nowMs: Long,
+): String {
+    val lastError = status.lastError
+    val lastFetchedAt = status.lastFetchedAt
+    return when {
+        lastError != null -> "Last attempt failed: $lastError"
+        lastFetchedAt != null -> "Last fetched ${relativeLastActive(lastFetchedAt, nowMs)}"
+        else -> "Not fetched yet"
     }
 }
 

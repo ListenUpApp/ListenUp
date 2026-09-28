@@ -1653,21 +1653,7 @@ private fun BookRouteContent(
         },
         documents = detailSession.documents.collectAsState().value,
         onRetryConnection = detailSession.onRetryConnection,
-        pickers =
-            BookPickers(
-                myShelves = detailSession.myShelves.collectAsState().value,
-                collections = detailSession.collections.collectAsState().value,
-                onShowShelfPicker = detailSession.onShowShelfPicker,
-                onHideShelfPicker = detailSession.onHideShelfPicker,
-                onAddToShelf = detailSession.onAddToShelf,
-                onCreateShelfAndAdd = detailSession.onCreateShelfAndAdd,
-                onClearShelfError = detailSession.onClearShelfError,
-                onShowCollectionPicker = detailSession.onShowCollectionPicker,
-                onHideCollectionPicker = detailSession.onHideCollectionPicker,
-                onAddToCollection = detailSession.onAddToCollection,
-                onCreateCollectionAndAdd = detailSession.onCreateCollectionAndAdd,
-                onClearCollectionError = detailSession.onClearCollectionError,
-            ),
+        pickers = bookPickersFor(detailSession),
         onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
         onEditChapters = { router.navigate(Route(listOf(BOOK_KEY, bookId, CHAPTERS_KEY))) },
         onMatchMetadata = { router.navigate(Route(listOf(BOOK_KEY, bookId, MATCH_KEY))) },
@@ -1680,11 +1666,30 @@ private fun BookRouteContent(
         ratings = ratingsSession.state.collectAsState().value,
         onRate = ratingsSession.rate,
         onClearRating = ratingsSession.clear,
+        onRefreshExternalRating = ratingsSession.refreshExternal,
         nowMs = nowMs(),
         onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
         onSeeAllReaders = { router.navigate(Route(listOf(BOOK_KEY, bookId, READERS_KEY))) },
     )
 }
+
+/** [BookPickers] over [detailSession]'s own shelf and collection picker state and actions. */
+@Composable
+private fun bookPickersFor(detailSession: BookDetailSession): BookPickers =
+    BookPickers(
+        myShelves = detailSession.myShelves.collectAsState().value,
+        collections = detailSession.collections.collectAsState().value,
+        onShowShelfPicker = detailSession.onShowShelfPicker,
+        onHideShelfPicker = detailSession.onHideShelfPicker,
+        onAddToShelf = detailSession.onAddToShelf,
+        onCreateShelfAndAdd = detailSession.onCreateShelfAndAdd,
+        onClearShelfError = detailSession.onClearShelfError,
+        onShowCollectionPicker = detailSession.onShowCollectionPicker,
+        onHideCollectionPicker = detailSession.onHideCollectionPicker,
+        onAddToCollection = detailSession.onAddToCollection,
+        onCreateCollectionAndAdd = detailSession.onCreateCollectionAndAdd,
+        onClearCollectionError = detailSession.onClearCollectionError,
+    )
 
 /**
  * Opens a readers session for [bookId] and collects it, keyed on the book for the same reason
@@ -2617,10 +2622,12 @@ private fun ServerSettingsRoute(
         onRemoteUrl = session.onRemoteUrl,
         onHoldNewBooks = session.onHoldNewBooks,
         onPushNotifications = session.onPushNotifications,
+        onSetRatingSourceEnabled = session.onSetRatingSourceEnabled,
         onSave = session.onSave,
         onClearError = session.onClearError,
         onRetry = session.onRetry,
         onOpenAdmin = { router.navigate(Route(listOf(ADMIN_KEY))) },
+        nowMs = nowMs(),
     )
 }
 
