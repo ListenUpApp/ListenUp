@@ -28,7 +28,7 @@
     <string name="admin_books_awaiting_review_count">%1$d book awaiting review</string>
     <string name="admin_books_awaiting_review_s_count">%1$d books awaiting review</string>
     <string name="admin_books_can_be_added_from">Books can be added from the server</string>
-    <string name="admin_books_in_collection">Books in Collection</string>
+    <string name="admin_books_in_collection">Books in collection</string>
     <string name="admin_can_access_the_library">Can access the library</string>
     <string name="admin_can_edit">Can Edit Metadata</string>
     <string name="admin_can_manage_users_and_invites">Can manage users and invites</string>
@@ -39,7 +39,7 @@
     <string name="admin_collection_count">%1$d collection</string>
     <string name="admin_collection_details">Collection Details</string>
     <string name="admin_collection_members_count">%1$d members</string>
-    <string name="admin_collection_name">Collection Name</string>
+    <string name="admin_collection_name">Collection name</string>
     <string name="admin_collection_new_collection">New collection</string>
     <string name="admin_collection_shared_book_sets">Shared book sets for your server</string>
     <string name="admin_collection_updated">Collection updated</string>
@@ -154,8 +154,8 @@
     <string name="admin_organize_structure">Folder structure</string>
     <string name="admin_organize_subtitle">Keep library folders tidy and consistent</string>
     <string name="admin_password_resets">Password resets</string>
-    <string name="admin_pending_invites">Pending Invites</string>
-    <string name="admin_pending_registrations">Pending Registrations</string>
+    <string name="admin_pending_invites">Pending invites</string>
+    <string name="admin_pending_registrations">Pending registrations</string>
     <string name="admin_protected_user">Protected User</string>
     <string name="admin_push_setting_subtitle">Deliver invites to devices via the ListenUp relay.</string>
     <string name="admin_push_setting_title">Push notifications</string>
@@ -218,7 +218,7 @@
     <string name="admin_save_and_scan_folder">Save &amp; Scan Folder</string>
     <string name="admin_save_settings">Save settings</string>
     <string name="admin_scan_all_paths_for_new">Scan all paths for new or updated audiobooks</string>
-    <string name="admin_scan_paths">Scan Paths</string>
+    <string name="admin_scan_paths">Scan paths</string>
     <string name="admin_scanning">Scanning</string>
     <string name="admin_schema_migrated">Schema %1$s → %2$s</string>
     <string name="admin_select_folder">Select Folder</string>
@@ -901,7 +901,7 @@ One beautiful library.</string>
     <string name="devices_empty">No other devices.</string>
     <string name="devices_manage_active_sessions">Manage your active sessions</string>
     <string name="devices_note_sign_out_effect">Signing out a device ends its playback sessions and removes its downloads.</string>
-    <string name="devices_other_devices">Other Devices</string>
+    <string name="devices_other_devices">Other devices</string>
     <string name="devices_sign_out">Sign out</string>
     <string name="devices_sign_out_all_others">Sign out all other devices</string>
     <string name="devices_sign_out_device">Sign out device</string>
@@ -1547,7 +1547,7 @@ One beautiful library.</string>
     <string name="settings_sign_out_confirm_title">Sign Out</string>
     <string name="settings_skip_backward">Skip backward</string>
     <string name="settings_skip_forward">Skip forward</string>
-    <string name="settings_sleep_timer">Sleep Timer</string>
+    <string name="settings_sleep_timer">Sleep timer</string>
     <string name="settings_sort_ignoring_leading_articles_a">Sort ignoring leading articles (A, An, The)</string>
     <string name="settings_speed_used_for_new_books">Speed used for new books</string>
     <string name="settings_storage_available">%1$s available</string>

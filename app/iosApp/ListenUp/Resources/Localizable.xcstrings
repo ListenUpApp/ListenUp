@@ -286,7 +286,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Books in Collection"
+            "value": "Books in collection"
           }
         }
       }
@@ -396,7 +396,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Collection Name"
+            "value": "Collection name"
           }
         }
       }
@@ -1546,7 +1546,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pending Invites"
+            "value": "Pending invites"
           }
         }
       }
@@ -1556,7 +1556,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pending Registrations"
+            "value": "Pending registrations"
           }
         }
       }
@@ -2186,7 +2186,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan Paths"
+            "value": "Scan paths"
           }
         }
       }
@@ -9006,7 +9006,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Other Devices"
+            "value": "Other devices"
           }
         }
       }
@@ -15466,7 +15466,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sleep Timer"
+            "value": "Sleep timer"
           }
         }
       }
