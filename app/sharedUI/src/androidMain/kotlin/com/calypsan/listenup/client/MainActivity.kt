@@ -41,6 +41,7 @@ import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.share.ShareLinkCodec
 import com.calypsan.listenup.client.share.ShareTarget
 import com.calypsan.listenup.client.design.haptics.ProvideHaptics
+import com.calypsan.listenup.client.design.motion.ProvideMotionPreferences
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -143,7 +144,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PostureProvider {
-                ListenUpApp()
+                ProvideMotionPreferences {
+                    ListenUpApp()
+                }
             }
         }
 
