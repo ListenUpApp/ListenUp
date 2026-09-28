@@ -8,7 +8,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 
 /**
  * Multi-line text area using the theme's expressive shape system.
@@ -32,6 +34,8 @@ import androidx.compose.ui.text.input.ImeAction
  * @param supportingText Helper or error text below field
  * @param keyboardOptions Keyboard type and IME action configuration
  * @param keyboardActions Keyboard action handlers
+ * @param maxLength When set, input past this many characters is cut off here, inside the field, so
+ *   the caller only ever sees (and echoes) text within the limit — a paste included
  */
 @Composable
 fun ListenUpTextArea(
@@ -47,11 +51,13 @@ fun ListenUpTextArea(
     supportingText: String? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    maxLength: Int? = null,
 ) {
     val ownedText = rememberOwnedTextFieldState(value)
     OutlinedTextField(
         value = ownedText.fieldValue,
-        onValueChange = { newValue ->
+        onValueChange = { typed ->
+            val newValue = if (maxLength == null) typed else typed.truncatedTo(maxLength)
             if (ownedText.edit(newValue)) onValueChange(newValue.text)
         },
         label = { Text(label) },
@@ -66,5 +72,14 @@ fun ListenUpTextArea(
         singleLine = false,
         shape = MaterialTheme.shapes.medium,
         modifier = modifier.fillMaxWidth(),
+    )
+}
+
+/** This value cut to [maxLength] characters, with the caret and selection kept inside the text. */
+private fun TextFieldValue.truncatedTo(maxLength: Int): TextFieldValue {
+    if (text.length <= maxLength) return this
+    return TextFieldValue(
+        text = text.take(maxLength),
+        selection = TextRange(selection.start.coerceAtMost(maxLength), selection.end.coerceAtMost(maxLength)),
     )
 }

@@ -4181,6 +4181,26 @@
         }
       }
     },
+    "book.detail_readers_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@”"
+          }
+        }
+      }
+    },
+    "book.detail_readers_rated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rated"
+          }
+        }
+      }
+    },
     "book.detail_readers_you": {
       "localizations": {
         "en": {
