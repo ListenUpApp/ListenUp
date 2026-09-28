@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.dto.RateBookRequest
+import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -46,6 +47,10 @@ class BookRatingServiceImpl(
         val caller = callerWithAccessTo(bookId) ?: return notFound(bookId)
         return ratings.clear(bookId = bookId.value, userId = caller)
     }
+
+    // wired in Task 5
+    override suspend fun refreshExternalRatings(bookId: BookId): AppResult<Unit> =
+        AppResult.Failure(RatingError.SourceUnavailable(debugInfo = "not wired yet"))
 
     /** Returns a copy scoped to [principal]; the route handler calls this per request. */
     fun copyWith(principal: PrincipalProvider): BookRatingServiceImpl =

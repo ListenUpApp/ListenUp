@@ -3,10 +3,13 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.services.LibraryRegistry
@@ -79,6 +82,17 @@ class AdminSettingsServiceImpl(
         if (changed) changeBus.broadcastControl(SyncControl.ServerInfoChanged)
         return AppResult.Success(current())
     }
+
+    // wired in Task 5
+    override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> =
+        AppResult.Failure(RatingError.SourceUnavailable(debugInfo = "not wired yet"))
+
+    // wired in Task 5
+    override suspend fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ): AppResult<List<RatingSourceStatus>> =
+        AppResult.Failure(RatingError.SourceUnavailable(debugInfo = "not wired yet"))
 
     private suspend fun current(): AdminServerSettings =
         AdminServerSettings(

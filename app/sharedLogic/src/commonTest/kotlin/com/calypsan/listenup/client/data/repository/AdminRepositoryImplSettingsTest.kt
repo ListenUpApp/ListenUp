@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.mock
@@ -33,6 +35,13 @@ private class FakeAdminSettingsService : AdminSettingsService {
             )
         return AppResult.Success(stored)
     }
+
+    override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
+
+    override suspend fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
 }
 
 class AdminRepositoryImplSettingsTest :
@@ -88,6 +97,13 @@ class AdminRepositoryImplSettingsTest :
 
                     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> =
                         throw IOException("network down")
+
+                    override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> = throw IOException("network down")
+
+                    override suspend fun setRatingSourceEnabled(
+                        source: ExternalRatingSource,
+                        enabled: Boolean,
+                    ): AppResult<List<RatingSourceStatus>> = throw IOException("network down")
                 }
             repo(throwing)
                 .getServerSettings()
