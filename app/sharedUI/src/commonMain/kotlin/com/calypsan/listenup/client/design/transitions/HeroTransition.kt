@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -40,7 +41,11 @@ private const val HERO_DURATION_MS = 350
 
 /** Bounds spec for [heroElement], spending exactly [HERO_DURATION_MS] so it lands with the fade. */
 @OptIn(ExperimentalSharedTransitionApi::class)
-private val heroBounds = BoundsTransform { _, _ -> tween(HERO_DURATION_MS) }
+private val heroBounds =
+    BoundsTransform { _, _ ->
+        // Bespoke: a fixed duration, not a spring, so the bounds and the screen fade land together.
+        tween(HERO_DURATION_MS)
+    }
 
 /**
  * The per-destination [AnimatedVisibilityScope] that drives a hero's progress, or null outside a
@@ -150,4 +155,6 @@ val heroEntryTransitions: Map<String, Any>
             NavDisplay.predictivePopTransitionSpec { _ -> heroFade() }
 
 /** The screen cross-fade, spending the same [HERO_DURATION_MS] the element does. */
-private fun heroFade() = fadeIn(tween(HERO_DURATION_MS)) togetherWith fadeOut(tween(HERO_DURATION_MS))
+private fun heroFade(): ContentTransform =
+    // Bespoke: the same fixed duration as heroBounds, so the page and its hero arrive as one movement.
+    fadeIn(tween(HERO_DURATION_MS)) togetherWith fadeOut(tween(HERO_DURATION_MS))

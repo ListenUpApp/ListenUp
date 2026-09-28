@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -208,12 +207,7 @@ fun AlphabetScrollbar(
         }
     }
 
-    // Snappy spring - fast and responsive, minimal bounce for polish
-    val snappySpring =
-        spring<Float>(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessHigh,
-        )
+    val motion = MaterialTheme.motionScheme
 
     val alpha by animateFloatAsState(
         targetValue =
@@ -222,18 +216,14 @@ fun AlphabetScrollbar(
                 isVisible -> 0.9f
                 else -> 0f
             },
-        animationSpec = snappySpring,
+        animationSpec = motion.fastEffectsSpec(),
         label = "alpha",
     )
 
     // Slide in/out from right edge - fast with subtle bounce
     val slideOffset by animateDpAsState(
         targetValue = if (isVisible || isInteracting) 0.dp else 48.dp,
-        animationSpec =
-            spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessHigh,
-            ),
+        animationSpec = motion.fastSpatialSpec(),
         label = "slide",
     )
 
@@ -303,8 +293,8 @@ fun AlphabetScrollbar(
         // Popup indicator - positioned at the selected letter's Y
         AnimatedVisibility(
             visible = isInteracting && selectedLetter != null,
-            enter = fadeIn(tween(100)),
-            exit = fadeOut(tween(150)),
+            enter = fadeIn(motion.fastEffectsSpec()),
+            exit = fadeOut(motion.fastEffectsSpec()),
             modifier = Modifier.align(Alignment.TopEnd),
         ) {
             selectedLetter?.let { letter ->
@@ -434,6 +424,7 @@ private fun AdaptiveLetterItem(
     // Animate height changes - fast spring for responsive feel
     val animatedHeight by animateDpAsState(
         targetValue = height,
+        // Bespoke: letters track the finger mid-scrub; the scheme's fastest spring would lag it.
         animationSpec =
             spring(
                 dampingRatio = Spring.DampingRatioNoBouncy,
@@ -467,6 +458,7 @@ private fun AdaptiveLetterItem(
 
     val scale by animateFloatAsState(
         targetValue = targetScale,
+        // Bespoke: the selected letter tracks the finger mid-scrub; the scheme's springs would lag it.
         animationSpec =
             spring(
                 dampingRatio = Spring.DampingRatioLowBouncy,
@@ -485,6 +477,7 @@ private fun AdaptiveLetterItem(
 
     val opacity by animateFloatAsState(
         targetValue = targetOpacity,
+        // Bespoke: the dimming follows the finger mid-scrub; the scheme's effects springs would lag it.
         animationSpec =
             spring(
                 dampingRatio = Spring.DampingRatioNoBouncy,

@@ -60,6 +60,7 @@ fun DailyListeningChart(
     // Bars grow up from the baseline on screen entry, rippling left-to-right (today rises last).
     val growth = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
+        // Bespoke: a linear clock, not a spring; each bar reads its own staggered window of it below.
         growth.animateTo(targetValue = 1f, animationSpec = tween(durationMillis = 700, easing = LinearEasing))
     }
 

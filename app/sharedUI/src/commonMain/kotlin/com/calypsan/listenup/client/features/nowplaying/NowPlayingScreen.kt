@@ -123,6 +123,7 @@ fun NowPlayingScreen(
 
     val ambientAlpha by animateFloatAsState(
         targetValue = if (isTv && isAmbientMode) 0f else 1f,
+        // Bespoke: a deliberately slow, even dim into TV ambient mode, like a sleep fade.
         animationSpec = tween(durationMillis = 1000),
         label = "ambientAlpha",
     )
@@ -135,6 +136,7 @@ fun NowPlayingScreen(
     val dismissThreshold = screenHeightPx * DRAG_DISMISS_FRACTION
 
     val dragOffset = remember { Animatable(0f) }
+    val motion = MaterialTheme.motionScheme
 
     // When a predictive-back gesture begins, immediately clear any in-flight drag offset so the
     // two transforms (translationY from drag + scale/alpha from back) never compound. snapTo is
@@ -169,6 +171,8 @@ fun NowPlayingScreen(
                                     // Animate off screen then collapse
                                     dragOffset.animateTo(
                                         targetValue = screenHeightPx,
+                                        // Bespoke: a fixed, quick flight so the collapse is not held
+                                        // back by a spring settling off screen.
                                         animationSpec = tween(200),
                                     )
                                     onCollapse()
@@ -176,14 +180,14 @@ fun NowPlayingScreen(
                                     // Snap back to open
                                     dragOffset.animateTo(
                                         targetValue = 0f,
-                                        animationSpec = tween(200),
+                                        animationSpec = motion.fastSpatialSpec(),
                                     )
                                 }
                             }
                         },
                         onDragCancel = {
                             scope.launch {
-                                dragOffset.animateTo(0f, tween(200))
+                                dragOffset.animateTo(0f, motion.fastSpatialSpec())
                             }
                         },
                         onVerticalDrag = { _, dragAmount ->

@@ -1,9 +1,7 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
@@ -82,6 +80,7 @@ fun FannedDeck(
 
     val frontIndex = rememberDeckFront(covers, animate, cycleMillis)
 
+    val motion = MaterialTheme.motionScheme
     Box(modifier = modifier.size(width = totalWidth, height = size)) {
         covers.forEachIndexed { index, cover ->
             // depth: 0 = front, increasing = further back; covers past `visible` park hidden at the back.
@@ -90,17 +89,17 @@ fun FannedDeck(
 
             val animX by animateDpAsState(
                 targetValue = peek * slot,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                animationSpec = motion.slowSpatialSpec(),
                 label = "deckX",
             )
             val animScale by animateFloatAsState(
                 targetValue = 1f - slot * SCALE_STEP,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                animationSpec = motion.slowSpatialSpec(),
                 label = "deckScale",
             )
             val animAlpha by animateFloatAsState(
                 targetValue = if (depth < visible) 1f else 0f,
-                animationSpec = spring(stiffness = Spring.StiffnessLow),
+                animationSpec = motion.slowEffectsSpec(),
                 label = "deckAlpha",
             )
 

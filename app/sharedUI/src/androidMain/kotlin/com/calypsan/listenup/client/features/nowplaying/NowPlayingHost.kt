@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -95,6 +94,7 @@ fun NowPlayingHost(
 
     val state = screenState.state
     val activeState = state as? NowPlayingState.Active
+    val motion = MaterialTheme.motionScheme
 
     Box(modifier = modifier.fillMaxSize()) {
         // Full screen (slides up when expanded). Only renders when we have an Active book —
@@ -104,21 +104,13 @@ fun NowPlayingHost(
             enter =
                 slideInVertically(
                     initialOffsetY = { it },
-                    animationSpec =
-                        spring(
-                            dampingRatio = Spring.DampingRatioLowBouncy,
-                            stiffness = Spring.StiffnessLow,
-                        ),
-                ) + fadeIn(),
+                    animationSpec = motion.slowSpatialSpec(),
+                ) + fadeIn(motion.defaultEffectsSpec()),
             exit =
                 slideOutVertically(
                     targetOffsetY = { it },
-                    animationSpec =
-                        spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMedium,
-                        ),
-                ) + fadeOut(),
+                    animationSpec = motion.fastSpatialSpec(),
+                ) + fadeOut(motion.fastEffectsSpec()),
         ) {
             if (activeState != null) {
                 NowPlayingScreen(
@@ -191,11 +183,8 @@ fun NowPlayingHost(
                 }
             val bottomPadding by animateDpAsState(
                 targetValue = targetBottomPadding,
-                animationSpec =
-                    spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMediumLow,
-                    ),
+                // Matches ProvideNowPlayingInsets, so content clears the bar in step with it.
+                animationSpec = motion.defaultSpatialSpec(),
                 label = "miniPlayerPosition",
             )
 

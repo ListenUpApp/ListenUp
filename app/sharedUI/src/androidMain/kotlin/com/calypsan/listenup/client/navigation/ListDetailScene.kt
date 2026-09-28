@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.navigation
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -37,9 +36,6 @@ import com.calypsan.listenup.client.design.transitions.LocalHeroTransitionScope
 /** The list pane's share of the window; the detail takes the rest, since it is the richer screen. */
 private const val LIST_PANE_FRACTION = 0.4f
 
-/** How long one detail takes to cross-fade into another beside the same list. */
-private const val DETAIL_SWAP_MS = 200
-
 /**
  * A list and the detail opened from it, side by side: Series or Contributor on the left, the book
  * on the right.
@@ -73,11 +69,12 @@ internal data class ListDetailScene<T : Any>(
                     CompositionLocalProvider(LocalInDetailPane provides true) {
                         // The scene is keyed by its list, so opening another book from the same list
                         // keeps this scene and swaps only the detail — the list never re-enters.
+                        val motion = MaterialTheme.motionScheme
                         AnimatedContent(
                             targetState = detailEntry,
                             contentKey = { entry -> entry.contentKey },
                             transitionSpec = {
-                                fadeIn(tween(DETAIL_SWAP_MS)) togetherWith fadeOut(tween(DETAIL_SWAP_MS))
+                                fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
                             },
                             label = "detail pane",
                         ) { entry -> entry.Content() }
