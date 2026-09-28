@@ -78,8 +78,7 @@ fun SortSplitButton(
         Box {
             Surface(
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
-                shadowElevation = 2.dp,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
                 modifier = Modifier.clip(CircleShape),
             ) {
                 Row(

@@ -135,7 +135,6 @@ private fun BannerPill(
         modifier = modifier.fillMaxWidth(),
         shape = ContentShapes.card,
         color = container,
-        shadowElevation = 4.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 10.dp),

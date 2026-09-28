@@ -225,7 +225,8 @@ private fun DockedSelectionBar(
     state: LibrarySetupUiState,
     onContinue: () -> Unit,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+    // A bottom bar's container level, not a shadow: chrome stays tonal.
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(
             modifier =
                 Modifier

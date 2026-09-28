@@ -311,7 +311,9 @@ fun AlphabetScrollbar(
                             // Shadow must come from a convex shape: Skia's concave-shadow
                             // tessellator can wedge the RenderThread for seconds on the
                             // scallop path, freezing input until the system ANRs the app.
-                            .shadow(elevation = 12.dp, shape = CircleShape)
+                            // A small shadow, deliberately: the bubble floats over the cover grid,
+                            // and no tonal level separates it from arbitrary artwork beneath.
+                            .shadow(elevation = 3.dp, shape = CircleShape)
                             .clip(cookieScallopShape())
                             .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center,

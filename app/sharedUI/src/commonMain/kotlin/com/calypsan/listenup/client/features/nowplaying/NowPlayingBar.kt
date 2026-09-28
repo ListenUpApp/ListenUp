@@ -117,9 +117,9 @@ fun NowPlayingBar(
                         },
                     ),
             shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
+            // Tonal, not shadowed: the highest container level lifts it off the content it floats
+            // over; only covers cast shadows (DESIGN.md, Books-Cast-Shadows).
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
         ) {
             if (state is NowPlayingState.Active) {
                 MiniPlayerContent(
@@ -210,7 +210,6 @@ private fun MiniPlayerContent(
                 isBuffering = state.isBuffering || isPlayPending,
                 onClick = onPlayPause,
                 size = 48.dp,
-                shadowElevation = 0.dp,
             )
         }
 

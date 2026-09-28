@@ -121,8 +121,8 @@ fun DockedNowPlayingBar(
                         },
                     ),
             shape = barShape,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 10.dp,
+            // Tonal, not shadowed: chrome rises by container level (DESIGN.md, Books-Cast-Shadows).
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             if (state is NowPlayingState.Active) {
                 ActiveDockedContent(
@@ -217,7 +217,6 @@ private fun ActiveDockedContent(
             isBuffering = state.isBuffering || isPlayPending,
             onClick = onPlayPause,
             size = MinTouchTarget,
-            shadowElevation = 0.dp,
         )
         Ctrl(
             icon = SkipGlyphs.forward(skipForwardSec),
