@@ -58,7 +58,7 @@ class ChapterEditorContentLockTest {
                     onNudge = { _, _ -> },
                     onSnapToPlayhead = {},
                     onToggleLock = onToggleLock,
-                    onMore = {},
+                    rowMenu = ChapterRowMenuActions({}, {}, null, {}),
                     onEditTime = {},
                     lockedChapterIds = locked,
                 )

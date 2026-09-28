@@ -55,7 +55,7 @@ class ChapterListSearchTest {
                     onNudge = { _, _ -> },
                     onSnapToPlayhead = {},
                     onToggleLock = {},
-                    onMore = {},
+                    rowMenu = ChapterRowMenuActions({}, {}, null, {}),
                     onEditTime = {},
                     query = query,
                     onQueryChange = {},

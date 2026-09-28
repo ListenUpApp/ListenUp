@@ -47,7 +47,7 @@ class ChapterEditRowTest {
                     onNudge = onNudge,
                     onSnapToPlayhead = onSnap,
                     onToggleLock = onToggleLock,
-                    onMore = {},
+                    menu = ChapterRowMenuActions({}, {}, null, {}),
                     isLocked = isLocked,
                     onEditTime = onEditTime,
                 )

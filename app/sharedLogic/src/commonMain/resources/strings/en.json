@@ -1579,6 +1579,8 @@
     "lock": "Lock chapter",
     "unlock": "Unlock chapter",
     "more": "More actions",
+    "more_for": "More actions for %1$s",
+    "delete_chapter": "Delete chapter",
     "now_playing": "NOW",
     "fix_drift": "Fix drift",
     "changed_elsewhere_title": "Chapters changed on another device",

@@ -617,6 +617,7 @@ One beautiful library.</string>
     <string name="chapter_editor_changed_elsewhere_title">Chapters changed on another device</string>
     <string name="chapter_editor_clear_search">Clear search</string>
     <string name="chapter_editor_delete_body">Its span joins the chapter before it. The audio is untouched.</string>
+    <string name="chapter_editor_delete_chapter">Delete chapter</string>
     <string name="chapter_editor_delete_title">Delete this chapter?</string>
     <string name="chapter_editor_detail_lane">Detail lane</string>
     <string name="chapter_editor_discard_body">The changes you made here will be lost.</string>
@@ -653,6 +654,7 @@ One beautiful library.</string>
     <string name="chapter_editor_lock">Lock chapter</string>
     <string name="chapter_editor_minimap_description">Whole book overview; drag to move the detail lane</string>
     <string name="chapter_editor_more">More actions</string>
+    <string name="chapter_editor_more_for">More actions for %1$s</string>
     <string name="chapter_editor_new_chapter_title">New chapter</string>
     <string name="chapter_editor_no_matches">No chapters match “%1$s”.</string>
     <string name="chapter_editor_now_playing">NOW</string>

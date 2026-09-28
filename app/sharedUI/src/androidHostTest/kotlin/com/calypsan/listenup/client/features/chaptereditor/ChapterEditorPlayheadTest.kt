@@ -49,7 +49,7 @@ class ChapterEditorPlayheadTest {
                     onNudge = { _, _ -> },
                     onSnapToPlayhead = {},
                     onToggleLock = {},
-                    onMore = {},
+                    rowMenu = ChapterRowMenuActions({}, {}, null, {}),
                     onEditTime = {},
                 )
             }

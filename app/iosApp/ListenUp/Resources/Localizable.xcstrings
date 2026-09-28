@@ -6161,6 +6161,16 @@
         }
       }
     },
+    "chapter_editor.delete_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete chapter"
+          }
+        }
+      }
+    },
     "chapter_editor.delete_title": {
       "localizations": {
         "en": {
@@ -6517,6 +6527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "More actions"
+          }
+        }
+      }
+    },
+    "chapter_editor.more_for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions for %1$@"
           }
         }
       }

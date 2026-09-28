@@ -203,7 +203,15 @@ fun ChapterEditorScreen(
             },
             newChapterTitle = newChapterTitle,
             viewModel = viewModel,
-            onMore = { rowAction = RowAction.Choosing(it) },
+            rowMenu =
+                remember(isThisBookLoaded, viewModel, newChapterTitle) {
+                    ChapterRowMenuActions(
+                        onRename = { rowAction = RowAction.Renaming(it) },
+                        onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
+                        onPlayFromHere = if (isThisBookLoaded) viewModel::playFrom else null,
+                        onDelete = { rowAction = RowAction.Deleting(it) },
+                    )
+                },
             onEditTime = { rowAction = RowAction.EditingTime(it) },
         )
     }
@@ -222,24 +230,16 @@ fun ChapterEditorScreen(
     RowActionDialogs(
         action = rowAction,
         chapterOf = { id -> editing?.chapters?.firstOrNull { it.id == id } },
-        canPlayFromHere = isThisBookLoaded,
         onAction = { rowAction = it },
         onRename = viewModel::retitle,
         onRetime = viewModel::retime,
-        onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
-        onPlayFromHere = viewModel::playFrom,
         onDelete = viewModel::remove,
     )
 }
 
-/** Which of a row's overflow dialogs is open, if any. */
+/** Which of a row's dialogs is open, if any. The overflow itself is the row's own menu. */
 private sealed interface RowAction {
     val chapterId: String
-
-    /** The overflow itself — rename, insert below, play from here, delete. */
-    data class Choosing(
-        override val chapterId: String,
-    ) : RowAction
 
     /** Editing the title. */
     data class Renaming(
@@ -258,7 +258,7 @@ private sealed interface RowAction {
 }
 
 /**
- * The row overflow and everything it leads to.
+ * The dialogs a row's controls lead to.
  *
  * One nullable value rather than three booleans, so "renaming and deleting at once" is not a state
  * that can be reached — the dialogs are steps in a sequence, and the type says so.
@@ -267,37 +267,13 @@ private sealed interface RowAction {
 private fun RowActionDialogs(
     action: RowAction?,
     chapterOf: (String) -> Chapter?,
-    canPlayFromHere: Boolean,
     onAction: (RowAction?) -> Unit,
     onRename: (String, String) -> Unit,
     onRetime: (String, Long) -> Unit,
-    onInsertBelow: (String) -> Unit,
-    onPlayFromHere: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
     when (action) {
         null -> {}
-
-        is RowAction.Choosing -> {
-            ChapterActionsDialog(
-                onRename = { onAction(RowAction.Renaming(action.chapterId)) },
-                onInsertBelow = {
-                    onInsertBelow(action.chapterId)
-                    onAction(null)
-                },
-                onPlayFromHere =
-                    if (canPlayFromHere) {
-                        {
-                            onPlayFromHere(action.chapterId)
-                            onAction(null)
-                        }
-                    } else {
-                        null
-                    },
-                onDelete = { onAction(RowAction.Deleting(action.chapterId)) },
-                onDismiss = { onAction(null) },
-            )
-        }
 
         is RowAction.EditingTime -> {
             ChapterTimeDialog(
@@ -353,7 +329,7 @@ private fun ChapterEditorBody(
     onPinAnchor: () -> Unit,
     newChapterTitle: String,
     viewModel: ChapterEditorViewModel,
-    onMore: (String) -> Unit,
+    rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
 ) {
     when (state) {
@@ -411,7 +387,7 @@ private fun ChapterEditorBody(
                         onAddAtPlayhead = { viewModel.addAt(playheadMs() ?: 0L, newChapterTitle) },
                         onSnapToPlayhead = { id -> playheadMs()?.let { viewModel.snapToPlayhead(id, it) } },
                         onToggleLock = viewModel::toggleLock,
-                        onMore = onMore,
+                        rowMenu = rowMenu,
                         onEditTime = onEditTime,
                         fileBoundaries = fileBoundaries,
                         // The corrected positions, drawn beside the current ones. This is the

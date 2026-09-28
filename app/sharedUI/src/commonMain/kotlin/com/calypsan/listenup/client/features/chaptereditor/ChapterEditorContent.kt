@@ -116,7 +116,7 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param query narrows the list only — the timeline keeps showing the whole book, because the lane
  *   is a picture of the audio and hiding parts of it would misrepresent what is there.
  * @param onQueryChange the search box changed.
- * @param onMore open a row's overflow.
+ * @param rowMenu what each row's overflow menu offers.
  * @param onEditTime type a row's start exactly.
  * @param onRetime a boundary was dragged to a new start — once per drag, on release.
  * @param lane the timeline's window and any drag in progress; [onLaneChange] receives the next one.
@@ -138,7 +138,7 @@ fun ChapterEditorContent(
     onNudge: (String, Long) -> Unit,
     onSnapToPlayhead: (String) -> Unit,
     onToggleLock: (String) -> Unit,
-    onMore: (String) -> Unit,
+    rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
     modifier: Modifier = Modifier,
     onAddAtPlayhead: (() -> Unit)? = null,
@@ -175,7 +175,7 @@ fun ChapterEditorContent(
             onAddAtPlayhead = onAddAtPlayhead,
             onSnapToPlayhead = onSnapToPlayhead,
             onToggleLock = onToggleLock,
-            onMore = onMore,
+            rowMenu = rowMenu,
             onEditTime = onEditTime,
             lockedChapterIds = lockedChapterIds,
             query = query,
@@ -222,7 +222,7 @@ private fun ChapterListPane(
     onNudge: (String, Long) -> Unit,
     onSnapToPlayhead: (String) -> Unit,
     onToggleLock: (String) -> Unit,
-    onMore: (String) -> Unit,
+    rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
     lockedChapterIds: Set<String>,
     query: String,
@@ -283,7 +283,7 @@ private fun ChapterListPane(
                     onNudge = { step -> onNudge(numbered.chapter.id, step) },
                     onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
                     onToggleLock = { onToggleLock(numbered.chapter.id) },
-                    onMore = { onMore(numbered.chapter.id) },
+                    menu = rowMenu,
                     onEditTime = { onEditTime(numbered.chapter.id) },
                     isLocked = numbered.chapter.id in lockedChapterIds,
                 )

@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
-import listenup.composeapp.generated.resources.chapter_editor_play_from_here
-import listenup.composeapp.generated.resources.chapter_editor_insert_below
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_invalid
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_label
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_title
@@ -30,7 +28,6 @@ import listenup.composeapp.generated.resources.chapter_editor_delete_body
 import listenup.composeapp.generated.resources.chapter_editor_delete_title
 import listenup.composeapp.generated.resources.chapter_editor_discard_body
 import listenup.composeapp.generated.resources.chapter_editor_discard_title
-import listenup.composeapp.generated.resources.chapter_editor_more
 import listenup.composeapp.generated.resources.chapter_editor_rename_label
 import listenup.composeapp.generated.resources.chapter_editor_rename_title
 import listenup.composeapp.generated.resources.common_cancel
@@ -120,45 +117,6 @@ internal fun RenameChapterDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
-        },
-    )
-}
-
-/**
- * A row's overflow, as a dialog rather than an anchored menu: rename, insert below, play from here,
- * delete — the set the spec gives every row (§7.4).
- *
- * The row's actions have to be reachable identically on a phone, a desktop window and a browser,
- * and a dialog is the one shape that behaves the same in all three without each platform needing
- * its own anchoring rules.
- */
-@Composable
-internal fun ChapterActionsDialog(
-    onRename: () -> Unit,
-    onInsertBelow: () -> Unit,
-    onPlayFromHere: (() -> Unit)?,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.chapter_editor_more)) },
-        text = {
-            Column {
-                TextButton(onClick = onRename) { Text(stringResource(Res.string.chapter_editor_rename_title)) }
-                TextButton(onClick = onInsertBelow) { Text(stringResource(Res.string.chapter_editor_insert_below)) }
-                // Disabled rather than absent while another book (or nothing) is loaded: playing
-                // from here then would replace what the listener has going, unasked.
-                TextButton(onClick = { onPlayFromHere?.invoke() }, enabled = onPlayFromHere != null) {
-                    Text(stringResource(Res.string.chapter_editor_play_from_here))
-                }
-                TextButton(onClick = onDelete) { Text(stringResource(Res.string.chapter_editor_delete_title)) }
-            }
-        },
-        confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
         },
     )
