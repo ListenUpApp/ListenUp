@@ -10,9 +10,11 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.readers.BookReaders
+import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.navigation.PaneSized
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.testing.Windows
@@ -20,6 +22,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -81,10 +84,21 @@ class BookDetailPaneWidthTest {
             mock<BookReadersRepository>(MockMode.autoUnit) {
                 every { observeReadersFor(any()) } returns flowOf(BookReaders(readers = emptyList()))
             }
+        val ratings =
+            mock<BookRatingRepository>(MockMode.autoUnit) {
+                every { observeForBook(any()) } returns flowOf(emptyList())
+            }
         composeRule.setContent {
             KoinApplication(
                 application = {
-                    modules(module { viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) } })
+                    modules(
+                        module {
+                            viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) }
+                            viewModel { (bookId: String) ->
+                                BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus())
+                            }
+                        },
+                    )
                 },
             ) {
                 MaterialTheme { content() }
