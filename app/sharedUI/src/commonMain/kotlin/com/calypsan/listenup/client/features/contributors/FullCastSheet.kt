@@ -38,6 +38,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookContributor
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_authors
@@ -164,7 +165,7 @@ private fun FullCastBottomSheet(
         CastHeader(
             title = title,
             countText = countText,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.sm),
         )
         LazyColumn(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -208,7 +209,7 @@ private fun FullCastDialog(
                         Modifier
                             .heightIn(max = 440.dp)
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     contributors.chunked(2).forEachIndexed { rowIndex, pair ->
@@ -226,7 +227,11 @@ private fun FullCastDialog(
                     }
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+                    modifier =
+                        Modifier.fillMaxWidth().padding(
+                            horizontal = Spacing.screenMargin,
+                            vertical = Spacing.xs,
+                        ),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(

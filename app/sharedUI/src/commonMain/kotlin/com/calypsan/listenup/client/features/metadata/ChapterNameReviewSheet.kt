@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.metadata.ChapterNameRow
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import org.jetbrains.compose.resources.stringResource
@@ -168,7 +169,7 @@ private fun ChapterReviewRow(
                     .toggleable(value = checked, role = Role.Checkbox) {
                         haptics.press()
                         onToggle()
-                    }.padding(horizontal = 16.dp, vertical = 13.dp),
+                    }.padding(horizontal = Spacing.lg, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {

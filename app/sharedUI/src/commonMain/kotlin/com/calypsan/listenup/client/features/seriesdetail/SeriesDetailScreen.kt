@@ -65,6 +65,7 @@ import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.features.contributors.FullCastSheet
@@ -202,7 +203,7 @@ private fun NarrowSeriesDetailContent(
             ContinueButton(
                 state = state,
                 onBookClick = onBookClick,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 6.dp),
             )
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -257,7 +258,7 @@ private fun WideSeriesDetailContent(
                 HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
                 Spacer(Modifier.height(8.dp))
                 HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(Spacing.xl))
                 ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
             }
         }
@@ -512,7 +513,7 @@ internal fun ContinueButton(
                     haptics.press()
                     onBookClick(targetId.value)
                 }
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = Spacing.screenMargin),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -229,7 +230,7 @@ private fun NotFoundErrorScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(Spacing.xl))
             Button(onClick = onBack) {
                 Text(stringResource(Res.string.common_back))
             }

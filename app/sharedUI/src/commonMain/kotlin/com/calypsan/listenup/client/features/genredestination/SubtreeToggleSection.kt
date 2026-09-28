@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.genredestination.FacetIdentity
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.client.presentation.genredestination.SubGenre
@@ -94,7 +95,7 @@ private fun SubtreeToggleRow(
                 .background(containerColor)
                 // A state-coloured card, not SettingRow chrome — but the same switch semantics.
                 .switchRow(checked = state.includeSubGenres, haptics = haptics) { onToggle() }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = Spacing.lg, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {

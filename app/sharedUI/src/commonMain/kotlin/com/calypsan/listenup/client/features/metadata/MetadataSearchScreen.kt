@@ -22,7 +22,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items
@@ -54,6 +53,7 @@ import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
 import org.jetbrains.compose.resources.stringResource
@@ -215,7 +215,7 @@ private fun MetadataSearchControls(
             onRegionSelected = onRegionSelected,
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         if (searchError != null) {
             Text(
@@ -340,7 +340,7 @@ private fun MatchingContextPill(title: String) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {

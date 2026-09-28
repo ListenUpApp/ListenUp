@@ -9,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
@@ -176,7 +176,7 @@ fun ContributorMetadataSearchScreen(
                     Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = Spacing.lg),
             ) {
                 controls()
                 results()

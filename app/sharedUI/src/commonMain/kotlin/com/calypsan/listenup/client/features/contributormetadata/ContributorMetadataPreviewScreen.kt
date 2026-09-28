@@ -5,7 +5,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +53,7 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import listenup.composeapp.generated.resources.Res
@@ -257,7 +257,7 @@ private fun MissingProfileContent(
                     )
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Spacing.xl))
             OutlinedButton(onClick = onChangeMatch) {
                 Text(stringResource(Res.string.contributor_change_match))
             }
@@ -278,7 +278,7 @@ private fun PreviewBottomBar(
             isApplying = isApplying,
             onApply = onApply,
             onChangeMatch = onChangeMatch,
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
         )
     }
 }
@@ -333,7 +333,7 @@ private fun ReadyContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
@@ -424,7 +424,7 @@ private fun BiographyComparison(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
             Text(
                 text = stringResource(Res.string.contributor_biography),
                 style = MaterialTheme.typography.labelLarge,
@@ -465,7 +465,7 @@ private fun ImageComparisonRow(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
             Text(
                 text = stringResource(Res.string.common_image),
                 style = MaterialTheme.typography.labelLarge,
@@ -550,7 +550,7 @@ private fun TextComparisonRow(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,

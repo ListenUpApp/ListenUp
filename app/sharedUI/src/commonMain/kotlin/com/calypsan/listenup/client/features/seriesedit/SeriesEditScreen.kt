@@ -69,6 +69,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDialog
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
@@ -390,15 +391,15 @@ private fun SeriesEditContent(
             )
         if (isMediumOrLarger) {
             Row(
-                modifier = Modifier.padding(24.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.padding(Spacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
             ) {
                 DescriptionCard(state = state, onEvent = onEvent, modifier = Modifier.weight(1f))
                 MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent, modifier = Modifier.weight(1f))
             }
         } else {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(Spacing.lg),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 DescriptionCard(state = state, onEvent = onEvent)

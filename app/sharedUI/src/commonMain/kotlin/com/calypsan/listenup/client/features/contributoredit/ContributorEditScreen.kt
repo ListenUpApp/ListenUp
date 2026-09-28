@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.contributoredit.components.AliasesSection
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorBackdrop
@@ -416,7 +417,7 @@ private fun SingleColumnCardsLayout(
     onMergeClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.padding(16.dp),
+        modifier = Modifier.padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         ContributorStudioCard(title = stringResource(Res.string.contributor_biography)) {
@@ -453,7 +454,7 @@ private fun TwoColumnCardsLayout(
     onMergeClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.padding(24.dp),
+        modifier = Modifier.padding(Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         // Full-width: Biography (primary content)
@@ -463,7 +464,7 @@ private fun TwoColumnCardsLayout(
 
         // Two-column grid: Links + Dates
         Row(
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
             Column(
                 modifier = Modifier.weight(1f),

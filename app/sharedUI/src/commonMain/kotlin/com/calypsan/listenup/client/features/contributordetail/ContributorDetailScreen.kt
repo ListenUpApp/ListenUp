@@ -78,6 +78,7 @@ import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.features.library.BookCard
@@ -283,7 +284,7 @@ private fun WideContributorPortfolio(
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
@@ -361,7 +362,7 @@ private fun WideHeroHeader(
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
             // Navigation bar — the wide hero is an already-inset rounded panel (padding(24.dp) inside
             // a clipped card), so it must NOT re-apply the status-bar inset or it gains dead space.
             NavigationBar(
@@ -377,7 +378,7 @@ private fun WideHeroHeader(
 
             // Avatar + Info row
             Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
                 verticalAlignment = Alignment.Top,
             ) {
                 RingedScallopAvatar(
@@ -603,7 +604,7 @@ private fun NarrowContributorPortfolio(
 
         // 2. Stat chip + About, on the surface below the hero.
         item {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 20.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     HeroStatChip(
                         label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}",
@@ -673,7 +674,7 @@ private fun NarrowColorHero(
                 surfaceColor = MaterialTheme.colorScheme.surface,
             )
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 RingedScallopAvatar(
@@ -745,7 +746,7 @@ private fun NarrowWorkSection(
         WorkSectionHeader(
             section = section,
             onViewAllClick = onViewAllClick,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -754,7 +755,7 @@ private fun NarrowWorkSection(
             items = section.previewBooks,
             itemWidth = 150.dp,
             itemSpacing = 16.dp,
-            contentPadding = PaddingValues(horizontal = 24.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
             key = { it.id.value },
         ) { book ->
             BookCard(
@@ -1038,7 +1039,7 @@ private fun ContributorDetailLoadingFrame(
                 actionsEnabled = false,
             )
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // The rim RingedScallopAvatar draws, at the same 152/140 sizes, so the portrait
@@ -1124,7 +1125,7 @@ private fun HeroStatChip(
         }
     val fg = if (onColor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
-        modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = Spacing.lg, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

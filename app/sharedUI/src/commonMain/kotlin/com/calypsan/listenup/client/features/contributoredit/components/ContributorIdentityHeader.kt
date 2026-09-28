@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ListenUpTextFieldVariant
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -74,7 +75,7 @@ fun ContributorIdentityHeader(
             Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(16.dp),
+                .padding(Spacing.lg),
     ) {
         // Floating back button
         IconButton(
@@ -94,7 +95,7 @@ fun ContributorIdentityHeader(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         // Avatar + Name row
         Row(

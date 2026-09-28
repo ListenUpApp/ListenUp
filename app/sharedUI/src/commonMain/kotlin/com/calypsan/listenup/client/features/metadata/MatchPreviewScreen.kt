@@ -7,7 +7,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SectionColumns
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -74,6 +73,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
@@ -436,7 +436,7 @@ private fun MatchedEditionHero(
         contentColor = colors.onPrimaryContainer,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (coverUrl != null) {
@@ -902,7 +902,7 @@ private fun ChapterNamesItem(
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
                     Text(
                         text = stringResource(Res.string.metadata_chapter_names),
                         style = MaterialTheme.typography.labelMedium,
@@ -933,7 +933,7 @@ private fun ChapterNamesItem(
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -991,7 +991,7 @@ private fun CoverFieldRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 15.dp)
+                    .padding(start = Spacing.lg, end = Spacing.lg, top = 15.dp)
                     // The box and its "Cover" label are one checkbox, so TalkBack names what it applies.
                     .toggleable(value = isCoverEnabled, role = Role.Checkbox) { on ->
                         haptics.toggle(on = on)
@@ -1024,7 +1024,7 @@ private fun CoverFieldRow(
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 15.dp),
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = 15.dp),
         ) {
             if (currentCoverPath != null) {
                 item {
@@ -1376,7 +1376,7 @@ private fun ValueCheckRow(
                 .toggleable(value = checked, role = Role.Checkbox) { on ->
                     haptics.toggle(on = on)
                     onToggle()
-                }.padding(horizontal = 16.dp, vertical = 8.dp),
+                }.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -1401,7 +1401,7 @@ private fun GenreFieldRow(
     onToggle: (String) -> Unit,
     sourceLabel: String? = null,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
             Text(
                 text = stringResource(Res.string.metadata_field_genres),
@@ -1433,7 +1433,7 @@ private fun MoodFieldRow(
     selectedMoods: Set<String>,
     onToggle: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
         Text(
             text = stringResource(Res.string.metadata_field_moods),
             style = MaterialTheme.typography.labelMedium,
@@ -1463,7 +1463,7 @@ private fun TagFieldRow(
     selectedTags: Set<String>,
     onToggle: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
         Text(
             text = stringResource(Res.string.metadata_field_tags),
             style = MaterialTheme.typography.labelMedium,

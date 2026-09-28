@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
@@ -225,8 +226,8 @@ private fun GridOnlyLayout(
         modifier = Modifier.fillMaxSize(),
         contentPadding =
             PaddingValues(
-                start = 24.dp,
-                end = 24.dp,
+                start = Spacing.screenMargin,
+                end = Spacing.screenMargin,
                 bottom = 32.dp,
             ),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -321,7 +322,7 @@ private fun CondensedHeader(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.lg),
             ) {
                 Text(
                     text = roleDisplayName,
@@ -365,7 +366,7 @@ private fun SeriesCarouselSection(
     ) {
         // Series header
         Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         ) {
             Text(
                 text = seriesGroup.seriesName,
@@ -394,7 +395,7 @@ private fun SeriesCarouselSection(
             items = seriesGroup.books,
             itemWidth = 150.dp,
             itemSpacing = 16.dp,
-            contentPadding = PaddingValues(horizontal = 24.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
             key = { it.id.value },
         ) { book ->
             BookCard(
