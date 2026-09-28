@@ -1,20 +1,28 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookRatingMutation
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.BookExternalRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookRatingEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.domain.model.CombinedScore
+import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -186,6 +194,88 @@ class BookRatingRepositoryImplTest :
                 db.close()
             }
         }
+
+        // ========== Outside (external) ratings ==========
+
+        test("observeExternalForBook excludes disabled, UNKNOWN-source, and deleted rows") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "AUDIBLE", average = 4.5, count = 100))
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "HARDCOVER", average = 3.0, count = 10, enabled = false))
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "UNKNOWN", average = 5.0, count = 999))
+                db.bookExternalRatingDao().upsert(
+                    externalEntity("b1", "GOODREADS", average = 4.0, count = 50, deletedAt = 1L),
+                )
+                val repo = repo(db)
+
+                val external = repo.observeExternalForBook("b1").first()
+
+                external shouldBe
+                    listOf(ExternalRating(source = com.calypsan.listenup.api.sync.ExternalRatingSource.AUDIBLE, average = 4.5, count = 100))
+                db.close()
+            }
+        }
+
+        test("observeExternalForBook orders enabled rows by count descending") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "AUDIBLE", average = 4.5, count = 10))
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "HARDCOVER", average = 4.0, count = 200))
+                val repo = repo(db)
+
+                val external = repo.observeExternalForBook("b1").first()
+
+                external.map { it.count } shouldBe listOf(200, 10)
+                db.close()
+            }
+        }
+
+        test("observeCombinedScores groups enabled, known-source rows by book and excludes the rest") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                // b1: two enabled known sources -> combined.
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "AUDIBLE", average = 4.0, count = 100))
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "HARDCOVER", average = 5.0, count = 300))
+                // b2: only a disabled row -> no combined score at all.
+                db.bookExternalRatingDao().upsert(externalEntity("b2", "AUDIBLE", average = 2.0, count = 5, enabled = false))
+                // b3: only an UNKNOWN-source row -> no combined score at all.
+                db.bookExternalRatingDao().upsert(externalEntity("b3", "UNKNOWN", average = 1.0, count = 1))
+                val repo = repo(db)
+
+                val scores = repo.observeCombinedScores().first()
+
+                scores shouldContainExactly mapOf("b1" to CombinedScore(average = 4.75, count = 400))
+                db.close()
+            }
+        }
+
+        test("refreshExternal calls the rating service") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var calledWith: String? = null
+                val service =
+                    object : BookRatingService {
+                        override suspend fun rate(
+                            bookId: com.calypsan.listenup.core.BookId,
+                            request: com.calypsan.listenup.api.dto.RateBookRequest,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun clearRating(bookId: com.calypsan.listenup.core.BookId): AppResult<Unit> =
+                            AppResult.Success(Unit)
+
+                        override suspend fun refreshExternalRatings(bookId: com.calypsan.listenup.core.BookId): AppResult<Unit> {
+                            calledWith = bookId.value
+                            return AppResult.Success(Unit)
+                        }
+                    }
+                val repo = repo(db, ratingChannel = RpcChannel.forTest(service))
+
+                repo.refreshExternal("b1").shouldBeInstanceOf<AppResult.Success<*>>()
+
+                calledWith shouldBe "b1"
+                db.close()
+            }
+        }
     })
 
 private fun entity(
@@ -206,9 +296,28 @@ private fun entity(
     deletedAt = deletedAt,
 )
 
+private fun externalEntity(
+    bookId: String,
+    source: String,
+    average: Double,
+    count: Int,
+    enabled: Boolean = true,
+    deletedAt: Long? = null,
+) = BookExternalRatingEntity(
+    bookId = bookId,
+    source = source,
+    syncId = "$bookId:$source",
+    average = average,
+    count = count,
+    enabled = enabled,
+    revision = 1,
+    deletedAt = deletedAt,
+)
+
 private fun repo(
     db: ListenUpDatabase,
     userId: String? = "me",
+    ratingChannel: RpcChannel<BookRatingService> = RpcChannel.forTest(mock()),
 ): BookRatingRepositoryImpl {
     val authSession = FakeAuthSession(userId = userId)
     val queue =
@@ -227,7 +336,9 @@ private fun repo(
         )
     return BookRatingRepositoryImpl(
         dao = db.bookRatingDao(),
+        externalRatingDao = db.bookExternalRatingDao(),
         offlineEditor = offlineEditor,
         authSession = authSession,
+        ratingChannel = ratingChannel,
     )
 }

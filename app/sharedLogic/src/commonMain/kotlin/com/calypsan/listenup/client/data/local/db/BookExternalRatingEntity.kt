@@ -67,6 +67,26 @@ internal interface BookExternalRatingDao {
     fun observeAll(): Flow<List<BookExternalRatingEntity>>
 
     /**
+     * Live, enabled, known-source external ratings of [bookId], highest rating count first — what
+     * [com.calypsan.listenup.client.domain.repository.BookRatingRepository.observeExternalForBook]
+     * reads. A row an admin has disabled, or whose `source` is `"UNKNOWN"` (a source this client
+     * doesn't recognise yet), never reaches the combined score or the per-source breakdown.
+     */
+    @Query(
+        "SELECT * FROM book_external_ratings WHERE bookId = :bookId AND deletedAt IS NULL " +
+            "AND enabled = 1 AND source != 'UNKNOWN' ORDER BY count DESC",
+    )
+    fun observeEnabledForBook(bookId: String): Flow<List<BookExternalRatingEntity>>
+
+    /**
+     * Every live, enabled, known-source external rating row across every book — the library sort's
+     * combined-score computation groups these by [BookExternalRatingEntity.bookId] itself, same
+     * exclusions as [observeEnabledForBook].
+     */
+    @Query("SELECT * FROM book_external_ratings WHERE deletedAt IS NULL AND enabled = 1 AND source != 'UNKNOWN'")
+    fun observeAllEnabled(): Flow<List<BookExternalRatingEntity>>
+
+    /**
      * Tombstone a row by its opaque wire [syncId] (SERVER-SYNC-04) — the by-identity apply for a
      * firehose `SyncEvent.Deleted` frame, whose payload has its natural pair blanked. Returns the
      * number of rows affected.

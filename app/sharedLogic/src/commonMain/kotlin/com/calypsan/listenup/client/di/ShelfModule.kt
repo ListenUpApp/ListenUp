@@ -27,8 +27,12 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.UserDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookRatingDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.BookExternalRatingDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
+ *  - the [com.calypsan.listenup.api.BookRatingService] `RpcChannel` — declared once by
+ *    `clientSyncModule` (beside the outbox binding that dispatches `rate`/`clearRating`);
+ *    resolved here, not redeclared.
  *
  * [BookRatingRepository] has no thematic tie to shelves — it is bound here (rather than a new
  * one-off DI file) following the same "reuse a nearby leaf module" convention `MoodRepository`
@@ -43,11 +47,16 @@ internal val shelfModule: Module =
 
         // Listener ratings: reads from Room, writes offline-first through OfflineEditor on the
         // coalescing `book_ratings` outbox channel. bookRatingDao provided by persistenceModule.
+        // Outside ratings: reads from Room (bookExternalRatingDao, server-written, no outbox);
+        // refreshExternal is the one write path, a direct RPC on the channel clientSyncModule
+        // already declared for the outbox's rate/clearRating dispatch.
         single<BookRatingRepository> {
             BookRatingRepositoryImpl(
                 dao = get(),
+                externalRatingDao = get(),
                 offlineEditor = get(),
                 authSession = get(),
+                ratingChannel = rpcChannel(),
             )
         }
 
