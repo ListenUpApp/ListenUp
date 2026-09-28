@@ -298,6 +298,16 @@ val generateMigrationCatalog = tasks.register("generateMigrationCatalog") {
                         .toInt()
                 }
                 ?: emptyList()
+        // Two branches can each claim the next number and merge independently; the loser then
+        // breaks every fresh boot on a schema_migrations primary key. Refuse to build instead.
+        val versionClashes =
+            files
+                .groupBy { f: java.io.File -> f.name.substringAfter('V').substringBefore("__").toInt() }
+                .filterValues { it.size > 1 }
+        require(versionClashes.isEmpty()) {
+            "Migrations share a version — renumber one: " +
+                versionClashes.entries.joinToString("; ") { (v, fs) -> "V$v = ${fs.joinToString { it.name }}" }
+        }
         val md = MessageDigest.getInstance("SHA-256")
 
         fun ByteArray.toHex(): String = joinToString("") { b: Byte -> "%02x".format(b) }
