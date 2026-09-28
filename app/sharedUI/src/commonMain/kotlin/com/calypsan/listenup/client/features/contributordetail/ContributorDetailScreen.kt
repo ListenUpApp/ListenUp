@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.contributordetail
 
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -244,14 +246,8 @@ fun ContributorDetailScreen(
                 }
 
                 if (current.isDeleting) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.3f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ListenUpLoadingIndicator()
+                    CoverScrim(modifier = Modifier.fillMaxSize()) {
+                        ListenUpLoadingIndicator(color = LocalContentColor.current)
                     }
                 }
             }

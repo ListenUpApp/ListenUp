@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import listenup.composeapp.generated.resources.merge_history_section_title
@@ -513,14 +515,8 @@ private fun SeriesIdentityHeader(
 
                         // Loading overlay during upload
                         if (isUploadingCover) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = 0.5f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                ListenUpLoadingIndicatorSmall(color = Color.White)
+                            CoverScrim(modifier = Modifier.fillMaxSize()) {
+                                ListenUpLoadingIndicatorSmall(color = LocalContentColor.current)
                             }
                         } else {
                             // Edit indicator

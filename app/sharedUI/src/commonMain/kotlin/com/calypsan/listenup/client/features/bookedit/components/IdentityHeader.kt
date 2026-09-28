@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -150,14 +152,8 @@ fun IdentityHeader(
                 ) {
                     // Loading overlay during upload
                     if (isUploadingCover) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.5f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ListenUpLoadingIndicatorSmall()
+                        CoverScrim(modifier = Modifier.fillMaxSize()) {
+                            ListenUpLoadingIndicatorSmall(color = LocalContentColor.current)
                         }
                     } else {
                         // Edit indicator

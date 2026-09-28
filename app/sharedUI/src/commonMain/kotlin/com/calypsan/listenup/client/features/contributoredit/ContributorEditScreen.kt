@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.contributoredit
 
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -279,19 +281,12 @@ private fun SaveFab(
  */
 @Composable
 private fun MergeProgressOverlay() {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.3f)),
-        contentAlignment = Alignment.Center,
-    ) {
+    CoverScrim(modifier = Modifier.fillMaxSize()) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            ListenUpLoadingIndicator()
+            ListenUpLoadingIndicator(color = LocalContentColor.current)
             Text(
                 text = stringResource(Res.string.contributor_merging),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
