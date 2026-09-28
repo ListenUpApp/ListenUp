@@ -21,6 +21,7 @@ import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.Pill
 import com.calypsan.listenup.web.design.ProgressLine
 import com.calypsan.listenup.web.design.TabItem
+import com.calypsan.listenup.web.design.TabPanel
 import com.calypsan.listenup.web.design.Tabs
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
@@ -151,6 +152,8 @@ fun BookDetailPage(
             is BookDetailUiState.Ready -> {
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
 
+                // An unknown `?tab=` shows Overview, so it is Overview the strip and the panel name.
+                val shownTab = if (tab == "chapters" || tab == "files") tab else "overview"
                 Tabs(
                     items =
                         listOf(
@@ -165,39 +168,42 @@ fun BookDetailPage(
                                 count = (state.book.audioFiles.size + documents.size).toString(),
                             ),
                         ),
-                    active = tab,
+                    active = shownTab,
+                    idBase = TABS_ID,
                     onSelect = onSelectTab,
                 )
 
-                when (tab) {
-                    "chapters" -> {
-                        ChaptersPane(
-                            chapters = state.chapters.toWebChapters(),
-                            selection = selection,
-                            onSelectionChange = onSelectionChange,
-                            onEditChapters = onEditChapters,
-                        )
-                    }
+                TabPanel(idBase = TABS_ID, key = shownTab) {
+                    when (tab) {
+                        "chapters" -> {
+                            ChaptersPane(
+                                chapters = state.chapters.toWebChapters(),
+                                selection = selection,
+                                onSelectionChange = onSelectionChange,
+                                onEditChapters = onEditChapters,
+                            )
+                        }
 
-                    "files" -> {
-                        FilesPane(state, documents)
-                    }
+                        "files" -> {
+                            FilesPane(state, documents)
+                        }
 
-                    else -> {
-                        OverviewPane(
-                            state = state,
-                            onOpenGenre = onOpenGenre,
-                            onOpenTag = onOpenTag,
-                            onOpenMood = onOpenMood,
-                            ratings = ratings,
-                            onRate = onRate,
-                            onClearRating = onClearRating,
-                            onRefreshExternalRating = onRefreshExternalRating,
-                            readers = readers,
-                            nowMs = nowMs,
-                            onOpenProfile = onOpenProfile,
-                            onSeeAllReaders = onSeeAllReaders,
-                        )
+                        else -> {
+                            OverviewPane(
+                                state = state,
+                                onOpenGenre = onOpenGenre,
+                                onOpenTag = onOpenTag,
+                                onOpenMood = onOpenMood,
+                                ratings = ratings,
+                                onRate = onRate,
+                                onClearRating = onClearRating,
+                                onRefreshExternalRating = onRefreshExternalRating,
+                                readers = readers,
+                                nowMs = nowMs,
+                                onOpenProfile = onOpenProfile,
+                                onSeeAllReaders = onSeeAllReaders,
+                            )
+                        }
                     }
                 }
             }
@@ -699,3 +705,6 @@ private fun ServerOfflineBanner(
         }) { Text("Retry") }
     }
 }
+
+/** The id stem Book Detail's tab strip and its panel share. */
+private const val TABS_ID = "bd"

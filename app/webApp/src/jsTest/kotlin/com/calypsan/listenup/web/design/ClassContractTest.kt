@@ -1279,8 +1279,18 @@ class ClassContractTest :
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
                         }
                         Breadcrumb(listOf("Library", "The Institute"))
-                        Tabs(listOf(TabItem("a", "A", count = "3")), active = "a")
-                        SegmentedControl(listOf(SegmentItem("s", "S")), active = "s")
+                        Tabs(listOf(TabItem("a", "A", count = "3")), active = "a", idBase = "cc")
+                        TabPanel(idBase = "cc", key = "a") { Text("A") }
+                        SegmentedControl(listOf(SegmentItem("s", "S")), active = "s", label = "Show")
+                        SortControl(
+                            options = listOf("a", "b"),
+                            active = "a",
+                            labelOf = { it },
+                            ascending = true,
+                            onSelect = {},
+                            onToggleDirection = {},
+                        )
+                        LinkButton("Back to sign in", onClick = {})
                         Pill("Horror", selected = true, onRemove = {})
                         Cover(title = "The Institute")
                         ProgressLine(percent = 49, remaining = "9h 18m left")

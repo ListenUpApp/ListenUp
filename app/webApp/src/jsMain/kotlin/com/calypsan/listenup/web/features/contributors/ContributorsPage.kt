@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.initialsFor
@@ -126,31 +127,26 @@ private fun ContributorSortControl(
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
     val isNarrator = role == ContributorRole.NARRATOR
-    Div(attrs = { classes("lib-sort") }) {
-        CONTRIBUTOR_SORT_CATEGORIES.forEach { category ->
-            Div(attrs = {
-                classes("lib-sort-option")
-                if (sortState.category == category) classes("is-active")
-                onClick {
-                    onEvent(
-                        if (isNarrator) {
-                            LibraryUiEvent.NarratorsCategoryChanged(category)
-                        } else {
-                            LibraryUiEvent.AuthorsCategoryChanged(category)
-                        },
-                    )
-                }
-            }) { Text(category.label) }
-        }
-        Div(attrs = {
-            classes("lib-sort-direction")
-            onClick {
-                onEvent(
-                    if (isNarrator) LibraryUiEvent.NarratorsDirectionToggled else LibraryUiEvent.AuthorsDirectionToggled,
-                )
-            }
-        }) { Text(if (sortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
-    }
+    SortControl(
+        options = CONTRIBUTOR_SORT_CATEGORIES,
+        active = sortState.category,
+        labelOf = { it.label },
+        ascending = sortState.direction == SortDirection.ASCENDING,
+        onSelect = { category ->
+            onEvent(
+                if (isNarrator) {
+                    LibraryUiEvent.NarratorsCategoryChanged(category)
+                } else {
+                    LibraryUiEvent.AuthorsCategoryChanged(category)
+                },
+            )
+        },
+        onToggleDirection = {
+            onEvent(
+                if (isNarrator) LibraryUiEvent.NarratorsDirectionToggled else LibraryUiEvent.AuthorsDirectionToggled,
+            )
+        },
+    )
 }
 
 /**

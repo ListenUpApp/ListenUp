@@ -1,7 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
-import org.jetbrains.compose.web.dom.B
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -25,19 +25,50 @@ class TabItem(
  * Tab identity is a [key] rather than an index because it goes in the URL — `?tab=chapters` is
  * part of the page contract, so that a link to a specific pane can be shared. Foundations is
  * explicit that nothing which changes what you see may hide in component state.
+ *
+ * A WAI-ARIA tablist, not a row of clickable `<div>`s (which is what it was, and why a keyboard
+ * reader could see Chapters and never reach it): each tab is a `<button role="tab">`, only the
+ * active one is a tab stop, and the arrows, Home and End move between them. Moving selects, as well
+ * as focuses — switching a pane here is cheap and instant, which is when the pattern says automatic
+ * activation is right.
+ *
+ * [idBase] names this strip's tabs and the [TabPanel] that follows it (`<idBase>-tab-<key>`,
+ * `<idBase>-panel-<key>`), which is how a screen reader learns which tab a panel belongs to. Only
+ * the active tab carries `aria-controls`: the page renders the one panel on show, and pointing the
+ * others at ids that do not exist would be a reference to nothing.
  */
 @Composable
 fun Tabs(
     items: List<TabItem>,
     active: String,
+    idBase: String,
     onSelect: ((String) -> Unit)? = null,
 ) {
-    Div(attrs = { classes("tabs") }) {
-        items.forEach { item ->
-            Div(attrs = {
+    Div(attrs = {
+        classes("tabs")
+        attr("role", "tablist")
+    }) {
+        items.forEachIndexed { index, item ->
+            val isActive = item.key == active
+            Button(attrs = {
                 classes("tab")
-                if (item.key == active) classes("on")
-                onSelect?.let { select -> onClick { select(item.key) } }
+                if (isActive) classes("on")
+                attr("type", BUTTON)
+                attr("role", "tab")
+                attr("id", tabId(idBase, item.key))
+                attr("aria-selected", isActive.toString())
+                if (isActive) attr("aria-controls", tabPanelId(idBase, item.key))
+                tabIndex(if (isActive) 0 else -1)
+                onSelect?.let { select ->
+                    onClick { select(item.key) }
+                    onKeyDown { event ->
+                        rovingTarget(event.key, index, items.size, RovingAxis.Horizontal)?.let { next ->
+                            event.preventDefault()
+                            select(items[next].key)
+                            event.currentTarget.focusSibling(":scope > [role=tab]", next)
+                        }
+                    }
+                }
             }) {
                 item.icon?.let { Icon(it, size = TAB_ICON_SIZE) }
                 Text(item.label)
@@ -48,6 +79,37 @@ fun Tabs(
         }
     }
 }
+
+/**
+ * The region a [Tabs] strip switches — `role="tabpanel"`, named by the tab that shows it.
+ *
+ * [idBase] and [key] must be the ones the strip was given, or the two stop pointing at each other.
+ */
+@Composable
+fun TabPanel(
+    idBase: String,
+    key: String,
+    content: @Composable () -> Unit,
+) {
+    Div(attrs = {
+        // Keeps the page's own column rhythm: a pane that emits several panels would otherwise lose
+        // the gap its parent spaces them with, now that they share one wrapper.
+        classes("tabpanel")
+        attr("role", "tabpanel")
+        attr("id", tabPanelId(idBase, key))
+        attr("aria-labelledby", tabId(idBase, key))
+    }) { content() }
+}
+
+private fun tabId(
+    idBase: String,
+    key: String,
+): String = "$idBase-tab-$key"
+
+private fun tabPanelId(
+    idBase: String,
+    key: String,
+): String = "$idBase-panel-$key"
 
 /** One choice in a [SegmentedControl]. */
 class SegmentItem(
@@ -61,17 +123,28 @@ class SegmentItem(
  *
  * Distinct from [Tabs] by weight, not mechanism: tabs switch what the page is showing, a segment
  * narrows what is already shown ("All 44 / Unheard 35 / Edited 2").
+ *
+ * A named group of `<button aria-pressed>`, the same shape the sort row uses, rather than the
+ * clickable `<b>`s it was. [label] names what the group chooses between ("Show").
  */
 @Composable
 fun SegmentedControl(
     items: List<SegmentItem>,
     active: String,
+    label: String,
     onSelect: ((String) -> Unit)? = null,
 ) {
-    Div(attrs = { classes("seg") }) {
+    Div(attrs = {
+        classes("seg")
+        attr("role", "group")
+        attr("aria-label", label)
+    }) {
         items.forEach { item ->
-            B(attrs = {
-                if (item.key == active) classes("on")
+            val isActive = item.key == active
+            Button(attrs = {
+                if (isActive) classes("on")
+                attr("type", BUTTON)
+                attr("aria-pressed", isActive.toString())
                 onSelect?.let { select -> onClick { select(item.key) } }
             }) {
                 item.icon?.let { Icon(it, size = SEGMENT_ICON_SIZE) }
@@ -135,7 +208,7 @@ private fun FacetChip(
     Span(attrs = {
         classes("facet-chip")
         if (isActive) classes("is-active")
-        attr("role", "button")
+        attr("role", BUTTON)
         // A visual class alone doesn't tell a screen reader which facet is selected.
         attr("aria-pressed", isActive.toString())
         tabIndex(0)
@@ -157,7 +230,7 @@ private fun FacetChip(
  * Horror".
  *
  * A non-null [onClick] makes the pill a real control, not just a styled label — it picks up the
- * same keyboard contract [FacetChip] does (focusable, `role="button"`, Enter/Space activation),
+ * same keyboard contract [FacetChip] does (focusable, `role=BUTTON`, Enter/Space activation),
  * so a chip that toggles something is reachable without a mouse.
  */
 @Composable
@@ -172,7 +245,7 @@ fun Pill(
         classes("pill")
         if (selected) classes("on")
         onClick?.let { click ->
-            attr("role", "button")
+            attr("role", BUTTON)
             tabIndex(0)
             onClick { click() }
             onKeyDown { event ->
@@ -186,14 +259,18 @@ fun Pill(
         icon?.let { Icon(it, size = PILL_ICON_SIZE) }
         Text(label)
         if (onRemove != null) {
-            Span(attrs = {
+            Button(attrs = {
                 classes("x")
+                attr("type", BUTTON)
+                attr("aria-label", "Remove $label")
                 onClick { event ->
                     // Without this the click also reaches the pill itself, so removing a filter
                     // would toggle it on the way out.
                     event.stopPropagation()
                     onRemove()
                 }
+                // Same reason: Enter on this button must not also reach the pill's own key handler.
+                onKeyDown { event -> event.stopPropagation() }
             }) {
                 Icon(WebIcon.X, size = PILL_REMOVE_ICON_SIZE, strokeWidth = PILL_REMOVE_STROKE)
             }
@@ -210,3 +287,6 @@ private const val PILL_ICON_SIZE = 13
 private const val PILL_REMOVE_ICON_SIZE = 12
 
 private const val PILL_REMOVE_STROKE = 2.2
+
+/** Both a `type` and a `role` value here; one spelling for all of them. */
+private const val BUTTON = "button"

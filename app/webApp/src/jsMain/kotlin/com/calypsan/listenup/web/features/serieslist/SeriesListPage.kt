@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -158,19 +159,14 @@ private fun SeriesSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    Div(attrs = { classes("lib-sort") }) {
-        SERIES_SORT_CATEGORIES.forEach { category ->
-            Div(attrs = {
-                classes("lib-sort-option")
-                if (state.seriesSortState.category == category) classes("is-active")
-                onClick { onEvent(LibraryUiEvent.SeriesCategoryChanged(category)) }
-            }) { Text(category.label) }
-        }
-        Div(attrs = {
-            classes("lib-sort-direction")
-            onClick { onEvent(LibraryUiEvent.SeriesDirectionToggled) }
-        }) { Text(if (state.seriesSortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
-    }
+    SortControl(
+        options = SERIES_SORT_CATEGORIES,
+        active = state.seriesSortState.category,
+        labelOf = { it.label },
+        ascending = state.seriesSortState.direction == SortDirection.ASCENDING,
+        onSelect = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
+        onToggleDirection = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },
+    )
 }
 
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"

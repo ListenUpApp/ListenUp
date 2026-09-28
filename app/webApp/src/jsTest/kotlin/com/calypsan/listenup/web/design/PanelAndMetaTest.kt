@@ -6,6 +6,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 
 private val META =
     listOf(
@@ -72,5 +74,17 @@ class PanelAndMetaTest :
             (host.querySelectorAll("a").item(1) as HTMLElement).click()
 
             navigated shouldBe 1
+        }
+        test("a breadcrumb ancestor is reachable and pressable from the keyboard") {
+            // ⛔ An `<a>` with no href is not a tab stop: the trail back was mouse-only.
+            var navigated = -1
+            val host = mounts.mount { Breadcrumb(listOf("Library", "Horror", "The Institute")) { navigated = it } }
+            val ancestor = host.querySelectorAll("a").item(0) as HTMLElement
+
+            ancestor.getAttribute("tabindex") shouldBe "0"
+            ancestor.getAttribute("role") shouldBe "link"
+            ancestor.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Enter", bubbles = true, cancelable = true)))
+
+            navigated shouldBe 0
         }
     })

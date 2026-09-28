@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
@@ -92,7 +93,7 @@ fun LibraryPage(
                 onClick { onStartSelecting() }
             }) { Text("Select") }
         }
-        if (state is LibraryUiState.Loaded) SortControl(state, onEvent)
+        if (state is LibraryUiState.Loaded) BookSortControl(state, onEvent)
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
 
@@ -341,23 +342,18 @@ private fun CardCover(
  * sort preference of its own, which is what keeps a reader's ordering the same on every device.
  */
 @Composable
-private fun SortControl(
+private fun BookSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
 ) {
-    Div(attrs = { classes("lib-sort") }) {
-        BOOK_SORT_CATEGORIES.forEach { category ->
-            Div(attrs = {
-                classes("lib-sort-option")
-                if (state.booksSortState.category == category) classes("is-active")
-                onClick { onEvent(LibraryUiEvent.BooksCategoryChanged(category)) }
-            }) { Text(category.label) }
-        }
-        Div(attrs = {
-            classes("lib-sort-direction")
-            onClick { onEvent(LibraryUiEvent.BooksDirectionToggled) }
-        }) { Text(if (state.booksSortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
-    }
+    SortControl(
+        options = BOOK_SORT_CATEGORIES,
+        active = state.booksSortState.category,
+        labelOf = { it.label },
+        ascending = state.booksSortState.direction == SortDirection.ASCENDING,
+        onSelect = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
+        onToggleDirection = { onEvent(LibraryUiEvent.BooksDirectionToggled) },
+    )
 }
 
 /** The same cover at both rungs, for the browser to choose between by pixel density. */
