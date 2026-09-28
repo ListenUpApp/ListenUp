@@ -4,16 +4,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +37,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
@@ -97,6 +100,10 @@ fun HardcoverSettingsScreen(
             .windowSizeClass
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
+    // On a phone the Not connected and Connected heroes run on from the bar as one colour block,
+    // ending in the hero edge; on a tablet the hero is a panel of its own and the bar stays plain.
+    val barJoinsHero = !isWide && state.leadsWithHero()
+
     ListenUpScaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -104,6 +111,7 @@ fun HardcoverSettingsScreen(
             ListenUpTopAppBar(
                 title = stringResource(Res.string.hardcover_screen_title),
                 onBack = onNavigateBack,
+                colors = if (barJoinsHero) heroBarColors() else TopAppBarDefaults.topAppBarColors(),
             )
         },
     ) { padding ->
@@ -172,6 +180,7 @@ internal fun HardcoverSettingsContent(
             val phase =
                 hardcoverPhase(
                     state = state,
+                    isWide = isWide,
                     onConnect = onConnect,
                     onOpenHardcover = onOpenHardcover,
                     onCancelLinking = onCancelLinking,
@@ -184,17 +193,35 @@ internal fun HardcoverSettingsContent(
 
 /**
  * A phase's three regions: [lead] carries what the phase is about (a hero, or the code), [detail]
- * supports it, and [actions] are the phase's buttons, primary first.
+ * supports it, and [actions] are the phase's buttons, primary first. When [leadIsBleedingHero], the
+ * lead opens with a full-width hero band that draws its own edge, so the layout gives it no margin.
  */
 internal class HardcoverPhase(
     val lead: @Composable ColumnScope.() -> Unit,
     val detail: (@Composable ColumnScope.() -> Unit)?,
     val actions: @Composable ColumnScope.() -> Unit,
+    val leadIsBleedingHero: Boolean = false,
 )
+
+/** Whether [this] phase leads with the coral hero — Not connected and Connected do. */
+internal fun HardcoverSettingsUiState.leadsWithHero(): Boolean =
+    this is HardcoverSettingsUiState.NotConnected || this is HardcoverSettingsUiState.Connected
+
+/** The bar in the hero's colours, so bar and hero read as one color block. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun heroBarColors(): TopAppBarColors =
+    TopAppBarDefaults.topAppBarColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        scrolledContainerColor = MaterialTheme.colorScheme.primaryContainer,
+        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
 
 /**
  * Narrow: one column, with the actions held at the bottom edge where a thumb reaches them. Wide: the
- * lead region beside the detail, with the actions following the detail in the second column.
+ * lead region and the detail as [SectionColumns] sections — side by side once the window affords two
+ * columns — with the actions following the detail.
  */
 @Composable
 private fun PhaseLayout(
@@ -204,29 +231,29 @@ private fun PhaseLayout(
 ) {
     val leadRegion = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
     if (isWide) {
-        Row(
+        SectionColumns(
             modifier =
                 modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Spacing.screenMargin)
                     .padding(top = Spacing.titleGap, bottom = Spacing.sectionGap),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.screenMargin),
         ) {
-            Column(
-                modifier = Modifier.weight(1f).then(leadRegion),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
-                content = phase.lead,
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
-            ) {
-                phase.detail?.invoke(this)
+            section {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(Spacing.titleGap),
-                    content = phase.actions,
+                    modifier = leadRegion,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+                    content = phase.lead,
                 )
+            }
+            section {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) {
+                    phase.detail?.invoke(this)
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(Spacing.titleGap),
+                        content = phase.actions,
+                    )
+                }
             }
         }
     } else {
@@ -236,16 +263,28 @@ private fun PhaseLayout(
                     Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = Spacing.screenMargin)
-                        .padding(top = Spacing.titleGap, bottom = Spacing.sectionGap),
+                        .padding(bottom = Spacing.sectionGap),
                 verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             ) {
+                // A bleeding hero draws edge to edge from the bar; everything else keeps the margin.
+                val leadMargin =
+                    if (phase.leadIsBleedingHero) {
+                        Modifier
+                    } else {
+                        Modifier.padding(horizontal = Spacing.screenMargin).padding(top = Spacing.titleGap)
+                    }
                 Column(
-                    modifier = leadRegion,
+                    modifier = leadRegion.then(leadMargin),
                     verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
                     content = phase.lead,
                 )
-                phase.detail?.invoke(this)
+                phase.detail?.let { detail ->
+                    Column(
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+                        content = detail,
+                    )
+                }
             }
             Column(
                 modifier =

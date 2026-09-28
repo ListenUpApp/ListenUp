@@ -18,7 +18,6 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.ButtonDefaults
@@ -52,10 +51,14 @@ import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
+import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.avatarInitials
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.HeroInk
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
@@ -92,9 +95,6 @@ import listenup.composeapp.generated.resources.hardcover_your_code
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** Ink laid over the coral hero as a quiet fill — the glyph disc and the Copy button. */
-private const val HERO_INK_FILL_ALPHA = 0.08f
-
 private val HeroGlyphSize = 56.dp
 private val ConnectedAvatarSize = 64.dp
 private val WaitingIndicatorSize = 32.dp
@@ -102,6 +102,7 @@ private val WaitingIndicatorSize = 32.dp
 /** The regions of every phase that has a connection to show (all but Loading and NotOffered). */
 internal fun hardcoverPhase(
     state: HardcoverSettingsUiState,
+    isWide: Boolean,
     onConnect: () -> Unit,
     onOpenHardcover: () -> Unit,
     onCancelLinking: () -> Unit,
@@ -110,7 +111,7 @@ internal fun hardcoverPhase(
     when (state) {
         is HardcoverSettingsUiState.NotConnected -> {
             HardcoverPhase(
-                lead = { NotConnectedHero(lastFailure = state.lastFailure) },
+                lead = { NotConnectedHero(lastFailure = state.lastFailure, bleeds = !isWide) },
                 detail = { WhatConnectingMeans() },
                 actions = {
                     ListenUpButton(
@@ -119,6 +120,7 @@ internal fun hardcoverPhase(
                         isLoading = state.isStarting,
                     )
                 },
+                leadIsBleedingHero = !isWide,
             )
         }
 
@@ -142,7 +144,7 @@ internal fun hardcoverPhase(
 
         is HardcoverSettingsUiState.Connected -> {
             HardcoverPhase(
-                lead = { ConnectedHero(username = state.username, since = state.since) },
+                lead = { ConnectedHero(username = state.username, since = state.since, bleeds = !isWide) },
                 detail = { WhatIsShared() },
                 actions = {
                     ListenUpButton(
@@ -153,6 +155,7 @@ internal fun hardcoverPhase(
                         danger = true,
                     )
                 },
+                leadIsBleedingHero = !isWide,
             )
         }
 
@@ -183,8 +186,11 @@ internal fun hardcoverPhase(
 // ─────────────────────────── Not connected ───────────────────────────
 
 @Composable
-private fun NotConnectedHero(lastFailure: HardcoverLinkFailure?) {
-    HeroBand {
+private fun NotConnectedHero(
+    lastFailure: HardcoverLinkFailure?,
+    bleeds: Boolean,
+) {
+    HeroBand(bleeds = bleeds) {
         HeroGlyph(icon = Icons.AutoMirrored.Outlined.MenuBook)
         Text(
             text = stringResource(Res.string.hardcover_not_connected_title),
@@ -197,40 +203,40 @@ private fun NotConnectedHero(lastFailure: HardcoverLinkFailure?) {
         )
     }
     lastFailure?.let { failure ->
-        Notice(text = stringResource(failure.messageRes()))
+        Notice(
+            text = stringResource(failure.messageRes()),
+            modifier = if (bleeds) Modifier.padding(horizontal = Spacing.screenMargin) else Modifier,
+        )
     }
 }
 
+/** What connecting promises, as the design system's segmented list: one segment per promise. */
 @Composable
 private fun WhatConnectingMeans() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column {
-            Statement(icon = Icons.Outlined.Check, text = stringResource(Res.string.hardcover_shares_finished))
-            Statement(icon = Icons.Outlined.Lock, text = stringResource(Res.string.hardcover_shares_no_password))
-        }
+    SegmentedGroup {
+        Statement(icon = Icons.Outlined.Check, text = stringResource(Res.string.hardcover_shares_finished))
+        Statement(icon = Icons.Outlined.Lock, text = stringResource(Res.string.hardcover_shares_no_password))
     }
 }
 
-/** One promise about what connecting does: a primary glyph beside a sentence. */
+/** One promise about what connecting does: a primary glyph beside a sentence, as one segment. */
 @Composable
 private fun Statement(
     icon: ImageVector,
     text: String,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(text = text, style = MaterialTheme.typography.bodyLarge)
+    SectionSegment {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(text = text, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 
@@ -278,7 +284,7 @@ private fun CodeCard(code: String) {
     val haptics = LocalHaptics.current
     var copied by rememberSaveable(code) { mutableStateOf(false) }
     val codeStyle = MaterialTheme.typography.displaySmall.copy(fontFamily = FontFamily.Monospace)
-    HeroBand(horizontalAlignment = Alignment.CenterHorizontally) {
+    CoralCard(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = stringResource(Res.string.hardcover_your_code),
             style = MaterialTheme.typography.labelLarge,
@@ -303,7 +309,7 @@ private fun CodeCard(code: String) {
             },
             colors =
                 ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = HERO_INK_FILL_ALPHA),
+                    containerColor = HeroInk.wash(),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
             // Announce the change of label, so a TalkBack user hears that the copy worked.
@@ -363,8 +369,9 @@ private fun WaitingStatus() {
 private fun ConnectedHero(
     username: String,
     since: Long,
+    bleeds: Boolean,
 ) {
-    HeroBand {
+    HeroBand(bleeds = bleeds) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -417,10 +424,7 @@ private fun ConnectedHero(
 
 @Composable
 private fun WhatIsShared() {
-    SectionGroup(
-        label = stringResource(Res.string.hardcover_what_is_shared),
-        icon = Icons.Outlined.Share,
-    ) {
+    SectionGroup(label = stringResource(Res.string.hardcover_what_is_shared)) {
         SettingRow(
             title = stringResource(Res.string.hardcover_shared_finished_row),
             icon = Icons.Outlined.TaskAlt,
@@ -480,9 +484,41 @@ private fun BrokenExplanation(
 
 // ─────────────────────────────── Shared ──────────────────────────────
 
-/** The coral hero band the Not connected, Linking and Connected phases lead with. */
+/**
+ * The coral hero the Not connected and Connected phases lead with. When it [bleeds] (a phone), it is
+ * a color-block hero band: full width, running on from the bar in the same colour, and ending in the
+ * one hero edge, [ContentShapes.hero]. Otherwise (a tablet column) it is a [CoralCard] panel.
+ */
 @Composable
 private fun HeroBand(
+    bleeds: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (!bleeds) {
+        CoralCard(content = content)
+        return
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ContentShapes.hero,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .padding(horizontal = Spacing.screenMargin)
+                    .padding(top = Spacing.sm, bottom = Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        ) {
+            content()
+        }
+    }
+}
+
+/** A coral panel within the page margins: the code on Linking, and the hero in a tablet column. */
+@Composable
+private fun CoralCard(
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     content: @Composable () -> Unit,
 ) {
@@ -495,7 +531,7 @@ private fun HeroBand(
         Column(
             modifier = Modifier.padding(Spacing.screenMargin),
             horizontalAlignment = horizontalAlignment,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
             content()
         }
@@ -509,7 +545,7 @@ private fun HeroGlyph(icon: ImageVector) {
             Modifier
                 .size(HeroGlyphSize)
                 .background(
-                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = HERO_INK_FILL_ALPHA),
+                    HeroInk.wash(),
                     CircleShape,
                 ),
         contentAlignment = Alignment.Center,
@@ -520,9 +556,12 @@ private fun HeroGlyph(icon: ImageVector) {
 
 /** Why the last attempt ended — informational, not alarming: the user can simply connect again. */
 @Composable
-private fun Notice(text: String) {
+private fun Notice(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
