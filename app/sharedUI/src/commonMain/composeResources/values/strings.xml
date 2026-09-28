@@ -1000,6 +1000,7 @@ One beautiful library.</string>
     <string name="hardcover_connected_since">Since %1$s</string>
     <string name="hardcover_copy_code">Copy code</string>
     <string name="hardcover_disconnect">Disconnect</string>
+    <string name="hardcover_disconnect_confirm_action">Disconnect Hardcover</string>
     <string name="hardcover_disconnect_confirm_body">ListenUp will stop updating your Hardcover account. Nothing already on Hardcover is removed.</string>
     <string name="hardcover_disconnect_confirm_title">Disconnect Hardcover?</string>
     <string name="hardcover_failure_denied">You declined on Hardcover. Connect again whenever you like.</string>
@@ -1019,6 +1020,7 @@ One beautiful library.</string>
     <string name="hardcover_row_subtitle_needs_attention">Needs reconnecting</string>
     <string name="hardcover_row_subtitle_not_connected">Share what you finish with Hardcover</string>
     <string name="hardcover_row_title">Hardcover</string>
+    <string name="hardcover_row_value_connecting">Waiting…</string>
     <string name="hardcover_screen_title">Hardcover</string>
     <string name="hardcover_shared_finished_row">Books you finish, marked as read</string>
     <string name="hardcover_shares_finished">A book you finish is marked as read on Hardcover.</string>

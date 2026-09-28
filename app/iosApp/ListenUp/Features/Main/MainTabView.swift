@@ -334,6 +334,9 @@ private extension View {
             .pushedDestination(for: NotificationPrefsDestination.self) { _ in
                 NotificationPrefsView()
             }
+            .pushedDestination(for: HardcoverDestination.self) { _ in
+                HardcoverSettingsView()
+            }
             .pushedDestination(for: LicensesDestination.self) { _ in
                 LicensesView()
             }

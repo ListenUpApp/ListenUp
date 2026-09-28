@@ -9991,6 +9991,16 @@
         }
       }
     },
+    "hardcover.disconnect_confirm_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect Hardcover"
+          }
+        }
+      }
+    },
     "hardcover.disconnect_confirm_body": {
       "localizations": {
         "en": {
@@ -10177,6 +10187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hardcover"
+          }
+        }
+      }
+    },
+    "hardcover.row_value_connecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting…"
           }
         }
       }

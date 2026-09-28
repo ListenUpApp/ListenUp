@@ -136,6 +136,9 @@ struct NotificationsDestination: Hashable {}
 /// Per-type notification delivery preferences, reached from Settings › Account.
 struct NotificationPrefsDestination: Hashable {}
 
+/// The Hardcover connection screen, reached from Settings › Account.
+struct HardcoverDestination: Hashable {}
+
 /// The Open Source Licenses screen — curated list of all bundled open-source libraries.
 struct LicensesDestination: Hashable {}
 

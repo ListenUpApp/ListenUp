@@ -36,6 +36,12 @@ final class SettingsObserver {
     private(set) var serverVersion: String?
     private(set) var appVersion: String = ""
 
+    // MARK: - Hardcover row
+
+    /// The Account › Hardcover row. Nil hides it — before the server answers, and for good on a
+    /// server with no Hardcover app.
+    private(set) var hardcoverRow: HardcoverRowValue?
+
     private let viewModel: SettingsViewModel
     private let bridge = FlowBridge()
 
@@ -51,6 +57,7 @@ final class SettingsObserver {
         self.viewModel = viewModel
         self.stopPlayback = stopPlayback
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.hardcoverRow) { [weak self] in self?.hardcoverRow = HardcoverRowValue(from: $0) }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
