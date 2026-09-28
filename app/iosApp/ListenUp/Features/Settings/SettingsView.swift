@@ -287,6 +287,23 @@ struct SettingsView: View {
                 )
             }
 
+            if let hardcoverRow = observer.hardcoverRow {
+                NavigationLink(value: HardcoverDestination()) {
+                    LabeledContent {
+                        if let value = hardcoverRow.trailingText {
+                            Text(value)
+                                .foregroundStyle(Color.luLabel2)
+                        }
+                    } label: {
+                        SettingsLabel(
+                            title: String(localized: "hardcover.row_title"),
+                            systemImage: "books.vertical.fill",
+                            tint: .luTint
+                        )
+                    }
+                }
+            }
+
             LabeledContent {
                 Text(observer.serverUrl ?? "—")
                     .font(.callout.monospaced())

@@ -419,6 +419,12 @@ data object Notifications : Route
 data object NotificationSettings : Route
 
 /**
+ * Hardcover settings screen - connect, watch, disconnect or reconnect a Hardcover account.
+ */
+@Serializable
+data object HardcoverSettings : Route
+
+/**
  * Settings screen - app preferences and configuration.
  */
 @Serializable

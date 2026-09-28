@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.settings
 
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
 import kotlinx.coroutines.flow.first
 import io.kotest.matchers.types.shouldBeInstanceOf
 import dev.mokkery.MockMode
@@ -59,6 +62,7 @@ class SettingsViewModelTest :
             val logoutUseCase: LogoutUseCase = mock()
             val pushRepository: PushRepository = mock(MockMode.autoUnit)
             val errorBus = ErrorBus()
+            val hardcoverRepository = FakeHardcoverRepository()
 
             // StateFlows for local preferences (mocked as MutableStateFlow)
             val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
@@ -89,6 +93,7 @@ class SettingsViewModelTest :
                     serverConfig = serverConfig,
                     logoutUseCase = logoutUseCase,
                     pushRepository = pushRepository,
+                    hardcoverRepository = hardcoverRepository,
                     appVersion = BUILD_VERSION,
                     errorBus = errorBus,
                 )
@@ -424,6 +429,50 @@ class SettingsViewModelTest :
 
                 val event = viewModel.events.first()
                 event.shouldBeInstanceOf<SettingsEvent.TestNotificationFailed>().error shouldBe error
+            }
+        }
+
+        // ========== Hardcover row ==========
+
+        // The Account → Hardcover row: hidden until the server answers, and hidden for good on a
+        // server with no Hardcover app, so nobody is offered a dead end.
+        test("the Hardcover row stays hidden until the server answers") {
+            runTest {
+                val viewModel = createFixture().build()
+
+                viewModel.hardcoverRow.test {
+                    awaitItem() shouldBe null
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+            }
+        }
+
+        test("the Hardcover row follows every connection state, and hides when Hardcover isn't offered") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+
+                viewModel.hardcoverRow.test {
+                    awaitItem() shouldBe null
+
+                    fixture.hardcoverRepository.connection.value = HardcoverConnection.NotConnected()
+                    awaitItem() shouldBe HardcoverRowState.NotConnected
+
+                    fixture.hardcoverRepository.connection.value =
+                        HardcoverConnection.Linking(FakeHardcoverRepository.SAMPLE_PROMPT)
+                    awaitItem() shouldBe HardcoverRowState.Connecting
+
+                    fixture.hardcoverRepository.connection.value = HardcoverConnection.Connected("reader", 1L)
+                    awaitItem() shouldBe HardcoverRowState.Connected("reader")
+
+                    fixture.hardcoverRepository.connection.value =
+                        HardcoverConnection.Broken(HardcoverBrokenReason.MISSING_SCOPE)
+                    awaitItem() shouldBe HardcoverRowState.NeedsAttention
+
+                    fixture.hardcoverRepository.connection.value = HardcoverConnection.NotOffered
+                    awaitItem() shouldBe null
+                }
             }
         }
     })

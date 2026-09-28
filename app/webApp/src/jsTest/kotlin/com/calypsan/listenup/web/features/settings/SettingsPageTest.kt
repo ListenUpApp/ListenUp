@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.settings
 import io.kotest.matchers.nulls.shouldNotBeNull
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
@@ -46,6 +47,8 @@ private fun page(
     onHideSingleBookSeries: (Boolean) -> Unit = {},
     onOpenDevices: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
+    hardcoverRow: HardcoverRowState? = null,
+    onOpenHardcover: () -> Unit = {},
 ) {
     SettingsPage(
         state = state,
@@ -59,6 +62,8 @@ private fun page(
         onHideSingleBookSeries = onHideSingleBookSeries,
         onOpenDevices = onOpenDevices,
         onOpenNotifications = onOpenNotifications,
+        hardcoverRow = hardcoverRow,
+        onOpenHardcover = onOpenHardcover,
     )
 }
 
@@ -218,5 +223,38 @@ class SettingsPageTest :
 
             host.querySelectorAll("select").length shouldBe 0
             host.querySelector(".set-skel").shouldNotBeNull()
+        }
+
+        test("the Hardcover entry is absent while the server offers no Hardcover") {
+            // Null is both "not offered" and "not known yet" — either way there is nothing to open.
+            val host = mounts.mount { page(hardcoverRow = null) }
+
+            host.querySelector(".set-link") shouldBe null
+            host.textContent.orEmpty() shouldNotContain "Hardcover"
+        }
+
+        test("the Hardcover entry says where the connection stands") {
+            mapOf(
+                HardcoverRowState.NotConnected to "Share what you finish with Hardcover",
+                HardcoverRowState.Connected("simon") to "Connected as simon",
+                HardcoverRowState.Connecting to "Waiting for you to approve on Hardcover",
+                HardcoverRowState.NeedsAttention to "Needs reconnecting",
+            ).forEach { (row, subtitle) ->
+                val host = mounts.mount { page(hardcoverRow = row) }
+
+                val entry = host.querySelector(".set-link").shouldNotBeNull()
+                entry.querySelector(".set-link-t")?.textContent shouldBe "Hardcover"
+                entry.querySelector(".set-link-sub")?.textContent shouldBe subtitle
+            }
+        }
+
+        test("the Hardcover entry opens Hardcover") {
+            var opened = 0
+            val host =
+                mounts.mount { page(hardcoverRow = HardcoverRowState.NotConnected, onOpenHardcover = { opened++ }) }
+
+            (host.querySelector(".set-link") as HTMLElement).click()
+
+            opened shouldBe 1
         }
     })

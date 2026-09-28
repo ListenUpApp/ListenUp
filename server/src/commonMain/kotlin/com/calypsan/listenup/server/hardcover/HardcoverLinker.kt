@@ -125,12 +125,16 @@ class HardcoverLinker(
         }
     }
 
-    /** Publishes that [userId]'s connection broke for [reason]. The token provider calls this after marking the row. */
+    /**
+     * Publishes that [userId]'s connection, as [hardcoverUsername], broke for [reason]. The token
+     * provider calls this after marking the row.
+     */
     suspend fun onBroken(
         userId: String,
         reason: HardcoverBrokenReason,
+        hardcoverUsername: String,
     ) {
-        stateFor(userId).value = HardcoverConnection.Broken(reason)
+        stateFor(userId).value = HardcoverConnection.Broken(reason, hardcoverUsername)
     }
 
     /**

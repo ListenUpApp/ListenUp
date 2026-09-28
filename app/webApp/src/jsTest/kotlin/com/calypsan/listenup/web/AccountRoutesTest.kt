@@ -1,6 +1,11 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.api.notifications.NotificationEvent
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
+import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
+import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
+import com.calypsan.listenup.web.features.hardcover.fixedHardcover
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
@@ -101,6 +106,75 @@ class AccountRoutesTest :
             try {
                 host.querySelector(".nprefs") shouldBe null
                 host.querySelector(".set-title") shouldBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("/settings/hardcover renders the Hardcover page") {
+            val (host, router) =
+                mountAt(
+                    "/settings/hardcover",
+                    openHardcover =
+                        fixedHardcover(
+                            HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false),
+                        ),
+                )
+
+            try {
+                host.querySelector("h1")?.textContent shouldBe "Hardcover"
+                host.textContent.orEmpty() shouldContain "simon"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("Settings offers a way to Hardcover when the server has it") {
+            val (host, router) =
+                mountAt(
+                    "/settings",
+                    openSettings =
+                        fixedSettings(SettingsUiState(isLoading = false), hardcoverRow = HardcoverRowState.NotConnected),
+                )
+
+            try {
+                (host.querySelector(".set-link") as HTMLElement).click()
+
+                window.location.pathname shouldBe "/settings/hardcover"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the Hardcover breadcrumb returns to Settings") {
+            val (host, router) = mountAt("/settings/hardcover")
+
+            try {
+                (host.querySelector(".crumb a") as HTMLElement).click()
+
+                window.location.pathname shouldBe "/settings"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a Hardcover error reaches the toast in its own words") {
+            val toasts = mutableListOf<String>()
+            val (_, router) =
+                mountAt(
+                    "/settings/hardcover",
+                    openHardcover =
+                        fixedHardcover(
+                            HardcoverSettingsUiState.NotConnected(lastFailure = null, isStarting = false),
+                            events = flowOf(HardcoverSettingsEvent.ShowError(InternalError())),
+                        ),
+                    onToast = { toasts += it },
+                )
+
+            try {
+                awaitFrame()
+
+                toasts shouldBe listOf(InternalError().message)
             } finally {
                 router.dispose()
             }

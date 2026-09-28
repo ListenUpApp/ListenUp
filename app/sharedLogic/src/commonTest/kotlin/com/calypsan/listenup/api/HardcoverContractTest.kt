@@ -27,12 +27,19 @@ class HardcoverContractTest :
             HardcoverConnection.NotConnected(lastLinkFailure = HardcoverLinkFailure.DENIED),
             HardcoverConnection.Linking(prompt),
             HardcoverConnection.Connected(hardcoverUsername = "simon", since = 1_780_000_000_000L),
-            HardcoverConnection.Broken(reason = HardcoverBrokenReason.REVOKED),
+            HardcoverConnection.Broken(reason = HardcoverBrokenReason.REVOKED, hardcoverUsername = "simon"),
+            HardcoverConnection.Broken(reason = HardcoverBrokenReason.CANNOT_DECRYPT, hardcoverUsername = null),
         ).forEach { state ->
             test("$state round-trips") {
                 val json = contractJson.encodeToString(HardcoverConnection.serializer(), state)
                 contractJson.decodeFromString(HardcoverConnection.serializer(), json) shouldBe state
             }
+        }
+
+        test("a Broken payload from before the username was carried decodes with no name") {
+            val legacy = """{"type":"HardcoverConnection.Broken","reason":"REVOKED"}"""
+            contractJson.decodeFromString(HardcoverConnection.serializer(), legacy) shouldBe
+                HardcoverConnection.Broken(reason = HardcoverBrokenReason.REVOKED, hardcoverUsername = null)
         }
 
         listOf<Pair<String, AppError>>(

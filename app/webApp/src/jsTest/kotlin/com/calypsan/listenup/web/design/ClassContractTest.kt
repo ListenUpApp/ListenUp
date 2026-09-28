@@ -56,6 +56,11 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import org.w3c.dom.HTMLDialogElement
 import com.calypsan.listenup.web.features.devices.DevicesPage
+import com.calypsan.listenup.api.dto.hardcover.HardcoverBrokenReason
+import com.calypsan.listenup.api.dto.hardcover.HardcoverLinkFailure
+import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
+import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsUiState
+import com.calypsan.listenup.web.features.hardcover.HardcoverPage
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
@@ -1247,6 +1252,7 @@ class ClassContractTest :
                         discoverShapes().forEach { it() }
                         shelfShapes().forEach { it() }
                         devicesShapes().forEach { it() }
+                        hardcoverShapes().forEach { it() }
                         adminShapes().forEach { it() }
                         // Loading and loaded: the skeleton's class lives only in the former.
                         SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
@@ -1266,6 +1272,7 @@ class ClassContractTest :
                             {},
                             {},
                             {},
+                            hardcoverRow = HardcoverRowState.Connected("simon"),
                         )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
@@ -2452,5 +2459,29 @@ private fun ratingShapes(): List<@Composable () -> Unit> {
         { RatingsPanel(state = BookRatingsUiState.Ready(listeners = null, mine = null), onRate = { _, _ -> }, onClear = {}) },
         { RateBookDialog(open = true, current = mine, onSave = { _, _ -> }, onClear = {}, onDismiss = {}) },
         { ReadersPanel(state = readersData(ratedReader), nowMs = 0L, onOpenProfile = {}, onSeeAll = {}) },
+    )
+}
+
+/**
+ * The Hardcover page in every phase, the failure note included — each phase draws its own layout,
+ * so a phase nobody renders here is a phase whose classes nothing checks.
+ */
+private fun hardcoverShapes(): List<@Composable () -> Unit> {
+    fun page(state: HardcoverSettingsUiState): @Composable () -> Unit =
+        { HardcoverPage(state, onConnect = {}, onDisconnect = {}, onOpenSettings = {}, copyText = { _, done -> done(true) }) }
+    return listOf(
+        page(HardcoverSettingsUiState.Loading),
+        page(HardcoverSettingsUiState.NotOffered),
+        page(HardcoverSettingsUiState.NotConnected(lastFailure = HardcoverLinkFailure.DENIED, isStarting = false)),
+        page(
+            HardcoverSettingsUiState.Linking(
+                userCode = "ABCD-1234",
+                verificationUri = "https://hardcover.app/link",
+                verificationUriComplete = "https://hardcover.app/link?code=ABCD-1234",
+                expiresAt = 0L,
+            ),
+        ),
+        page(HardcoverSettingsUiState.Connected(username = "simon", since = 0L, isDisconnecting = false)),
+        page(HardcoverSettingsUiState.Broken(reason = HardcoverBrokenReason.REVOKED, username = "simon", isStarting = false)),
     )
 }

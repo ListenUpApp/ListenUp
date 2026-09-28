@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PendingOperationRepository
 import com.calypsan.listenup.client.domain.repository.PushRepository
+import com.calypsan.listenup.client.domain.repository.HardcoverRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
@@ -34,6 +35,7 @@ import org.koin.test.verify.verify
  *  - [ServerConfig] — owned by `settingsModule`.
  *  - [LogoutUseCase] — owned by `authModule`.
  *  - [PushRepository] — owned by the push module.
+ *  - [HardcoverRepository] — owned by `hardcoverClientModule` (the Settings row's state).
  *  - [ErrorBus] — owned by `appCoreModule`.
  *  - [AuthRepository] — owned by `authModule` (the Devices screen's active-session list).
  *  - [PendingOperationRepository] — owned by `clientSyncModule`.
@@ -60,6 +62,7 @@ class SettingsPresentationModuleVerifyTest :
                         ServerConfig::class,
                         LogoutUseCase::class,
                         PushRepository::class,
+                        HardcoverRepository::class,
                         ErrorBus::class,
                         AuthRepository::class,
                         PendingOperationRepository::class,

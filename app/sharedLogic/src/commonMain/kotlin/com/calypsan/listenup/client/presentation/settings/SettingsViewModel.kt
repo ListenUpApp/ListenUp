@@ -5,6 +5,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.channels.Channel
 import com.calypsan.listenup.client.domain.repository.PushRepository
+import com.calypsan.listenup.api.dto.hardcover.HardcoverConnection
+import com.calypsan.listenup.client.domain.repository.HardcoverRepository
+import kotlinx.coroutines.flow.map
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
@@ -29,6 +32,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+private const val HARDCOVER_ROW_TIMEOUT_MS = 5_000L
 
 /**
  * Intermediate data class for type-safe combine of local display settings.
@@ -93,6 +98,7 @@ class SettingsViewModel(
     private val serverConfig: ServerConfig,
     private val logoutUseCase: LogoutUseCase,
     private val pushRepository: PushRepository,
+    hardcoverRepository: HardcoverRepository,
     private val appVersion: String,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
@@ -148,6 +154,20 @@ class SettingsViewModel(
             started = SharingStarted.Eagerly,
             initialValue = SettingsUiState(appVersion = appVersion),
         )
+
+    /**
+     * The Account → Hardcover row. Null hides it: before the server's first answer, and for good on
+     * a server with no Hardcover app, so nobody is offered a dead end.
+     */
+    val hardcoverRow: StateFlow<HardcoverRowState?> =
+        hardcoverRepository
+            .observeConnection()
+            .map { it.toRowState() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(HARDCOVER_ROW_TIMEOUT_MS),
+                initialValue = null,
+            )
 
     init {
         loadSettings()
@@ -426,3 +446,29 @@ sealed interface SettingsEvent {
         val error: AppError,
     ) : SettingsEvent
 }
+
+/** The Settings → Account → Hardcover row, when it shows (a null row state hides it). */
+sealed interface HardcoverRowState {
+    /** Not connected: the row invites connecting. */
+    data object NotConnected : HardcoverRowState
+
+    /** Connected as [username]. */
+    data class Connected(
+        val username: String,
+    ) : HardcoverRowState
+
+    /** The connection is broken and needs a reconnect. */
+    data object NeedsAttention : HardcoverRowState
+
+    /** A sign-in is waiting for the user to approve it on Hardcover. */
+    data object Connecting : HardcoverRowState
+}
+
+private fun HardcoverConnection.toRowState(): HardcoverRowState? =
+    when (this) {
+        HardcoverConnection.NotOffered -> null
+        is HardcoverConnection.NotConnected -> HardcoverRowState.NotConnected
+        is HardcoverConnection.Linking -> HardcoverRowState.Connecting
+        is HardcoverConnection.Connected -> HardcoverRowState.Connected(hardcoverUsername)
+        is HardcoverConnection.Broken -> HardcoverRowState.NeedsAttention
+    }

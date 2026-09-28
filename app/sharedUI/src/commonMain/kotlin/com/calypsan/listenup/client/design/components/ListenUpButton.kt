@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -42,6 +44,8 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
  * @param fillMaxWidth `true` to span the available width, `false` to wrap content
  * @param leadingIcon Optional icon shown before the text (hidden while loading)
  * @param trailingIcon Optional icon shown after the text (hidden while loading)
+ * @param danger `true` for a destructive action (Disconnect, Delete): the error colour takes the
+ *   place of primary — an error fill when [filled], error text inside the outline otherwise
  */
 @Composable
 fun ListenUpButton(
@@ -54,11 +58,11 @@ fun ListenUpButton(
     fillMaxWidth: Boolean = true,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
+    danger: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
     val widthModifier = if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier
-    val spinnerColor =
-        if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+    val spinnerColor = spinnerColor(filled = filled, danger = danger)
     val label: @Composable () -> Unit = {
         AnimatedContent(
             targetState = isLoading,
@@ -103,6 +107,7 @@ fun ListenUpButton(
             onClick = clickWithHaptic,
             enabled = enabled && !isLoading,
             shape = CircleShape,
+            colors = filledColors(danger),
             modifier = modifier.then(widthModifier).height(56.dp),
         ) { label() }
     } else {
@@ -110,7 +115,42 @@ fun ListenUpButton(
             onClick = clickWithHaptic,
             enabled = enabled && !isLoading,
             shape = CircleShape,
+            colors = outlinedColors(danger),
             modifier = modifier.then(widthModifier).height(56.dp),
         ) { label() }
     }
 }
+
+/** The loading spinner's colour: the ink the button's label would have. */
+@Composable
+private fun spinnerColor(
+    filled: Boolean,
+    danger: Boolean,
+): Color {
+    val colorScheme = MaterialTheme.colorScheme
+    return when {
+        filled && danger -> colorScheme.onError
+        filled -> colorScheme.onPrimary
+        danger -> colorScheme.error
+        else -> colorScheme.primary
+    }
+}
+
+@Composable
+private fun filledColors(danger: Boolean): ButtonColors =
+    if (danger) {
+        ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+            contentColor = MaterialTheme.colorScheme.onError,
+        )
+    } else {
+        ButtonDefaults.buttonColors()
+    }
+
+@Composable
+private fun outlinedColors(danger: Boolean): ButtonColors =
+    if (danger) {
+        ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+    } else {
+        ButtonDefaults.outlinedButtonColors()
+    }

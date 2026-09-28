@@ -28,6 +28,8 @@ import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
+import com.calypsan.listenup.web.features.hardcover.OpenHardcover
+import com.calypsan.listenup.web.features.hardcover.fixedHardcover
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
@@ -194,6 +196,7 @@ internal fun mountAt(
     openHome: OpenHome = fixedHome(HomeUiState.Loading),
     openLibrary: OpenLibrary = fakeLibrary(),
     openSettings: OpenSettings = fixedSettings(),
+    openHardcover: OpenHardcover = fixedHardcover(),
     openLicences: OpenLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
     openLibrarySettings: OpenLibrarySettings = fixedLibrarySettings(LibrarySettingsUiState.Loading),
     openAdmin: OpenAdmin = fixedAdmin(),
@@ -249,6 +252,7 @@ internal fun mountAt(
                 openSettings = openSettings,
                 openLicences = openLicences,
                 openDevices = fixedDevices(),
+                openHardcover = openHardcover,
                 openAdmin = openAdmin,
                 admin =
                     AdminSessions(

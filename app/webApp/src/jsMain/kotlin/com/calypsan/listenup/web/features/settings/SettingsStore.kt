@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.settings
 
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,6 +11,9 @@ import org.koin.core.Koin
 
 /**
  * An open Settings session: the state, the eight things web can actually change, and the teardown.
+ *
+ * [hardcoverRow] is the Account section's Hardcover entry — null hides it, because a server with
+ * no Hardcover app has nothing to connect to, and an entry leading to "not set up" is a dead end.
  *
  * Eight of the twelve `SettingsViewModel` offers. The other four — dynamic colours, Wi-Fi-only
  * downloads, haptics, the sleep-timer default — are omitted deliberately rather than disabled,
@@ -23,6 +27,7 @@ import org.koin.core.Koin
  */
 class SettingsSession(
     val state: StateFlow<SettingsUiState>,
+    val hardcoverRow: StateFlow<HardcoverRowState?>,
     val onThemeMode: (ThemeMode) -> Unit,
     val onDefaultSpeed: (Float) -> Unit,
     val onDefaultBoost: (Float) -> Unit,
@@ -44,6 +49,7 @@ fun graphSettings(koin: Koin): OpenSettings =
         val store = ViewModelStore().apply { put(SETTINGS_STORE_KEY, viewModel) }
         SettingsSession(
             state = viewModel.state,
+            hardcoverRow = viewModel.hardcoverRow,
             onThemeMode = viewModel::setThemeMode,
             onDefaultSpeed = viewModel::setDefaultPlaybackSpeed,
             onDefaultBoost = viewModel::setDefaultVolumeBoostDb,
@@ -67,10 +73,12 @@ fun fixedSettings(
     onAutoRewind: (Boolean) -> Unit = {},
     onIgnoreTitleArticles: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
+    hardcoverRow: HardcoverRowState? = null,
 ): OpenSettings =
     {
         SettingsSession(
             state = MutableStateFlow(state),
+            hardcoverRow = MutableStateFlow(hardcoverRow),
             onThemeMode = onThemeMode,
             onDefaultSpeed = onDefaultSpeed,
             onDefaultBoost = onDefaultBoost,

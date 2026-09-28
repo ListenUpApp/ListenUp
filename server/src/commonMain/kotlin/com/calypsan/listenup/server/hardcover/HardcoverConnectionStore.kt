@@ -42,11 +42,13 @@ sealed interface StoredConnection {
     ) : StoredConnection
 
     /**
-     * Needs a reconnect for [reason]. [credentials] survive when they still decrypt, so a disconnect
-     * can still ask Hardcover to revoke them.
+     * Was connected as [hardcoverUsername], and needs a reconnect for [reason]. [credentials] survive
+     * when they still decrypt, so a disconnect can still ask Hardcover to revoke them. The username is
+     * never sealed, so it survives even when the tokens don't.
      */
     data class Broken(
         val reason: HardcoverBrokenReason,
+        val hardcoverUsername: String,
         override val credentials: StoredCredentials?,
     ) : StoredConnection
 }
@@ -75,7 +77,7 @@ class HardcoverConnectionStore(
         when (val stored = connectionFor(userId)) {
             null -> HardcoverConnection.NotConnected()
             is StoredConnection.Healthy -> HardcoverConnection.Connected(stored.hardcoverUsername, stored.connectedAt)
-            is StoredConnection.Broken -> HardcoverConnection.Broken(stored.reason)
+            is StoredConnection.Broken -> HardcoverConnection.Broken(stored.reason, stored.hardcoverUsername)
         }
 
     /**
@@ -146,8 +148,8 @@ class HardcoverConnectionStore(
             if (access != null && refresh != null) StoredCredentials(access, access_expires_at, refresh) else null
         val reason = broken_reason?.let(::brokenReasonNamed)
         return when {
-            reason != null -> StoredConnection.Broken(reason, credentials)
-            credentials == null -> StoredConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, null)
+            reason != null -> StoredConnection.Broken(reason, hc_username, credentials)
+            credentials == null -> StoredConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, hc_username, null)
             else -> StoredConnection.Healthy(hc_username, connected_at, credentials)
         }
     }

@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
+import com.calypsan.listenup.web.features.hardcover.fixedHardcover
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
 import com.calypsan.listenup.web.awaitFrame
@@ -167,6 +168,7 @@ private fun mountGate(
             openSettings = fixedSettings(),
             openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
             openDevices = fixedDevices(),
+            openHardcover = fixedHardcover(),
             openAdmin = fixedAdmin(),
             admin =
                 AdminSessions(

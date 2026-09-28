@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.auth
 
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.OpenDevices
+import com.calypsan.listenup.web.features.hardcover.OpenHardcover
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.watchSystemTheme
 import com.calypsan.listenup.web.features.settings.systemPrefersDark
@@ -106,6 +107,7 @@ fun AuthGate(
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
     openDevices: OpenDevices,
+    openHardcover: OpenHardcover,
     openAdmin: OpenAdmin,
     admin: AdminSessions,
     openShelfDetail: OpenShelfDetail,
@@ -235,6 +237,7 @@ fun AuthGate(
                         openDiscover = openDiscover,
                         openSettings = openSettings,
                         openDevices = openDevices,
+                        openHardcover = openHardcover,
                         openAdmin = openAdmin,
                         admin = admin,
                         openShelfDetail = openShelfDetail,

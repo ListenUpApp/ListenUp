@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadFileManagerStorageAdapter
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
+import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
@@ -625,10 +626,13 @@ internal val settingsPresentationModule =
                 serverConfig = get(),
                 logoutUseCase = get<com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase>(),
                 pushRepository = get(),
+                hardcoverRepository = get(),
                 appVersion = get(named("clientVersion")),
                 errorBus = get(),
             )
         }
+        // Settings → Account → Hardcover: connect, watch the sign-in complete, disconnect.
+        factory { HardcoverSettingsViewModel(get()) }
         // DevicesViewModel for the Devices (active sessions) screen
         factory { DevicesViewModel(authRepository = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.

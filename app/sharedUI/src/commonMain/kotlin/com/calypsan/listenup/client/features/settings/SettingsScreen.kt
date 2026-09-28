@@ -76,6 +76,13 @@ import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
+import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import listenup.composeapp.generated.resources.hardcover_row_subtitle_connected
+import listenup.composeapp.generated.resources.hardcover_row_subtitle_connecting
+import listenup.composeapp.generated.resources.hardcover_row_subtitle_needs_attention
+import listenup.composeapp.generated.resources.hardcover_row_subtitle_not_connected
+import listenup.composeapp.generated.resources.hardcover_row_title
 import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
@@ -198,6 +205,8 @@ object SleepTimerPresets {
  * @param onNavigateToStorage Optional callback to navigate to the storage screen
  * @param onNavigateToLicenses Optional callback to navigate to licenses screen
  * @param onNavigateToNotificationSettings Optional callback to navigate to notification settings
+ * @param onNavigateToHardcover Optional callback to navigate to the Hardcover screen; null (Desktop,
+ *   which is frozen) hides the row
  * @param showDynamicColors Whether the dynamic-colors toggle is available on this platform
  * @param showSleepTimer Whether the sleep-timer group is shown
  * @param viewModel SettingsViewModel injected via Koin
@@ -210,12 +219,14 @@ fun SettingsScreen(
     onNavigateToStorage: (() -> Unit)? = null,
     onNavigateToLicenses: (() -> Unit)? = null,
     onNavigateToNotificationSettings: (() -> Unit)? = null,
+    onNavigateToHardcover: (() -> Unit)? = null,
     showDynamicColors: Boolean = false,
     showSleepTimer: Boolean = true,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
     val platformActions: SettingsPlatformActions = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val hardcoverRow by viewModel.hardcoverRow.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
     if (showSignOutDialog) {
@@ -280,6 +291,8 @@ fun SettingsScreen(
             onSignOutClick = { showSignOutDialog = true },
             onShareLogs = platformActions::shareLogs,
             onSendTestNotification = viewModel::sendTestNotification,
+            hardcoverRow = hardcoverRow.takeIf { onNavigateToHardcover != null },
+            onNavigateToHardcover = { onNavigateToHardcover?.invoke() },
             modifier = Modifier.padding(padding),
         )
     }
@@ -323,6 +336,8 @@ internal fun SettingsContent(
     onShareLogs: () -> Unit,
     onSendTestNotification: () -> Unit,
     modifier: Modifier = Modifier,
+    hardcoverRow: HardcoverRowState? = null,
+    onNavigateToHardcover: () -> Unit = {},
 ) {
     val isWide =
         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
@@ -338,6 +353,8 @@ internal fun SettingsContent(
         AccountSection(
             state = state,
             onNavigateToDevices = onNavigateToDevices,
+            hardcoverRow = hardcoverRow,
+            onNavigateToHardcover = onNavigateToHardcover,
             onSignOutClick = onSignOutClick,
             actions = actions,
         )
@@ -574,6 +591,8 @@ private fun LibrarySection(
 private fun AccountSection(
     state: SettingsUiState,
     onNavigateToDevices: (() -> Unit)?,
+    hardcoverRow: HardcoverRowState?,
+    onNavigateToHardcover: () -> Unit,
     onSignOutClick: () -> Unit,
     actions: SettingsActions,
 ) {
@@ -598,6 +617,7 @@ private fun AccountSection(
                 onClick = onNavigateToDevices,
             )
         }
+        HardcoverSettingsRow(rowState = hardcoverRow, onClick = onNavigateToHardcover)
         SettingToggleRow(
             icon = Icons.Default.Vibration,
             accent = accent,
@@ -608,6 +628,49 @@ private fun AccountSection(
         )
     }
     SignOutTile(onClick = onSignOutClick)
+}
+
+/**
+ * The Account → Hardcover row, its subtitle reading the connection's state. A null [rowState] renders
+ * nothing: Hardcover isn't offered on this server (or hasn't answered yet), so there's no dead end.
+ */
+@Composable
+internal fun HardcoverSettingsRow(
+    rowState: HardcoverRowState?,
+    onClick: () -> Unit,
+) {
+    val subtitle =
+        when (rowState) {
+            null -> {
+                return
+            }
+
+            HardcoverRowState.NotConnected -> {
+                stringResource(Res.string.hardcover_row_subtitle_not_connected)
+            }
+
+            is HardcoverRowState.Connected -> {
+                stringResource(
+                    Res.string.hardcover_row_subtitle_connected,
+                    rowState.username,
+                )
+            }
+
+            HardcoverRowState.Connecting -> {
+                stringResource(Res.string.hardcover_row_subtitle_connecting)
+            }
+
+            HardcoverRowState.NeedsAttention -> {
+                stringResource(Res.string.hardcover_row_subtitle_needs_attention)
+            }
+        }
+    SettingNavigationRow(
+        icon = Icons.AutoMirrored.Outlined.MenuBook,
+        accent = MaterialTheme.colorScheme.primary,
+        title = stringResource(Res.string.hardcover_row_title),
+        subtitle = subtitle,
+        onClick = onClick,
+    )
 }
 
 @Composable

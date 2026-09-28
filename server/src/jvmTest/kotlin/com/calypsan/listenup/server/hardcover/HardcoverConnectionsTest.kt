@@ -314,8 +314,9 @@ class HardcoverConnectionsTest :
 
                 provider.accessToken(USER) shouldBe TokenLookup.Broken(HardcoverBrokenReason.REVOKED)
 
-                store.connectionState(USER) shouldBe HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED)
-                state() shouldBe HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED)
+                // The name is plain text in the row, so a revoked connection still says whose it was.
+                store.connectionState(USER) shouldBe HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED, "simon")
+                state() shouldBe HardcoverConnection.Broken(HardcoverBrokenReason.REVOKED, "simon")
                 provider.accessToken(USER) shouldBe TokenLookup.Broken(HardcoverBrokenReason.REVOKED)
                 fake.count(FakeHardcover.REFRESH) shouldBe 1
             }
@@ -357,8 +358,10 @@ class HardcoverConnectionsTest :
             hardcoverTest {
                 seedConnection(viaStore = HardcoverConnectionStore(sql, cipherFor("a-different-secret"), clock))
 
-                store.connectionState(USER) shouldBe HardcoverConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT)
-                state() shouldBe HardcoverConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT)
+                // Only the tokens are sealed: the username still reads under the wrong secret.
+                store.connectionState(USER) shouldBe
+                    HardcoverConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, "simon")
+                state() shouldBe HardcoverConnection.Broken(HardcoverBrokenReason.CANNOT_DECRYPT, "simon")
                 provider.accessToken(USER) shouldBe TokenLookup.Broken(HardcoverBrokenReason.CANNOT_DECRYPT)
                 fake.seen.shouldBeEmpty()
             }
