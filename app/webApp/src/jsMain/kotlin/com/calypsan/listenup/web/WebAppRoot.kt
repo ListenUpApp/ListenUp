@@ -68,6 +68,8 @@ import com.calypsan.listenup.web.features.browse.OpenBrowseFacet
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.web.features.browse.OpenGenreDestination
 import com.calypsan.listenup.web.features.readers.OpenBookReaders
+import com.calypsan.listenup.web.features.ratings.BookRatingsSession
+import com.calypsan.listenup.web.features.ratings.OpenBookRatings
 import com.calypsan.listenup.web.features.sync.DeadLetterNotice
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
 import com.calypsan.listenup.web.features.readers.ReadersPage
@@ -257,6 +259,7 @@ fun WebAppRoot(
     openBrowseFacet: OpenBrowseFacet,
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
+    openBookRatings: OpenBookRatings,
     openSeeAll: OpenSeeAll,
     openDeadLetters: OpenDeadLetters,
     onToast: (String) -> Unit,
@@ -291,16 +294,7 @@ fun WebAppRoot(
     // every one of those deep links keeps Library lit in the sidebar.
     val active = if (page in LIBRARY_DEEP_LINKS) LIBRARY_KEY else page
 
-    // A page change fades; a route change within one does not. `lastPage` starts null so the first
-    // paint is not a fade — a library materialising out of nothing on load is motion nobody asked
-    // for, and it would sit between the reader and content that has already arrived.
-    var lastPage by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(page) {
-        if (isPageChange(lastPage, page)) {
-            document.querySelector(SHELL_MAIN)?.let { fadePageIn(it) }
-        }
-        lastPage = page
-    }
+    FadeOnPageChange(page)
 
     Shell(
         sections = listOf(PRIMARY_NAV),
@@ -361,6 +355,7 @@ fun WebAppRoot(
             openBrowseFacet = openBrowseFacet,
             openGenreDestination = openGenreDestination,
             openBookReaders = openBookReaders,
+            openBookRatings = openBookRatings,
             openSeeAll = openSeeAll,
             onToast = onToast,
             librarySession = librarySession,
@@ -697,6 +692,7 @@ private fun RouteContent(
     openBrowseFacet: OpenBrowseFacet,
     openGenreDestination: OpenGenreDestination,
     openBookReaders: OpenBookReaders,
+    openBookRatings: OpenBookRatings,
     openSeeAll: OpenSeeAll,
     onToast: (String) -> Unit,
     librarySession: LibrarySession,
@@ -750,6 +746,7 @@ private fun RouteContent(
             openChapterEditor = openChapterEditor,
             openMetadata = openMetadata,
             openBookReaders = openBookReaders,
+            openBookRatings = openBookRatings,
             onToast = onToast,
             playback = playback,
         )
@@ -1546,6 +1543,7 @@ private fun BookRouteContent(
     openChapterEditor: OpenChapterEditor,
     openMetadata: OpenMetadata,
     openBookReaders: OpenBookReaders,
+    openBookRatings: OpenBookRatings,
     playback: PlaybackSession,
     onToast: (String) -> Unit,
 ) {
@@ -1606,6 +1604,7 @@ private fun BookRouteContent(
     }
 
     val detailSession = bookDetailSession(bookId, openBookDetail)
+    val ratingsSession = bookRatingsSession(bookId, openBookRatings)
     // Sharing suspends (it asks the server who it is), and the press that starts it is not a
     // composition. `rememberCoroutineScope` ties the work to this page: navigate away mid-share and
     // it is cancelled rather than resolving into a toast over a book the reader has left.
@@ -1678,6 +1677,9 @@ private fun BookRouteContent(
         onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
         onOpenSeries = { id -> router.navigate(Route(listOf(SERIES_KEY, id))) },
         readers = bookReadersState(bookId, openBookReaders),
+        ratings = ratingsSession.state.collectAsState().value,
+        onRate = ratingsSession.rate,
+        onClearRating = ratingsSession.clear,
         nowMs = nowMs(),
         onOpenProfile = { id -> router.navigate(Route(listOf(PROFILE_KEY, id))) },
         onSeeAllReaders = { router.navigate(Route(listOf(BOOK_KEY, bookId, READERS_KEY))) },
@@ -1696,6 +1698,33 @@ private fun bookReadersState(
     val session = remember(bookId) { openBookReaders(bookId) }
     DisposableEffect(session) { onDispose { session.close() } }
     return session.state.collectAsState().value
+}
+
+/** Opens a ratings session for [bookId], keyed on the book for the same reason [bookReadersState] is. */
+@Composable
+private fun bookRatingsSession(
+    bookId: String,
+    openBookRatings: OpenBookRatings,
+): BookRatingsSession {
+    val session = remember(bookId) { openBookRatings(bookId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session
+}
+
+/**
+ * A page change fades; a route change within one does not. `lastPage` starts null so the first
+ * paint is not a fade — a library materialising out of nothing on load is motion nobody asked
+ * for, and it would sit between the reader and content that has already arrived.
+ */
+@Composable
+private fun FadeOnPageChange(page: String) {
+    var lastPage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(page) {
+        if (isPageChange(lastPage, page)) {
+            document.querySelector(SHELL_MAIN)?.let { fadePageIn(it) }
+        }
+        lastPage = page
+    }
 }
 
 /** What the readers page calls the book it belongs to, before the book itself has loaded. */

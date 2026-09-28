@@ -38,13 +38,14 @@ import org.jetbrains.compose.web.dom.Text
  * Narrators tabs, so the row is an explicit list rather than the whole enum — a filter by name would
  * silently pick up whatever a future entry happens to be called.
  */
-private val BOOK_SORT_CATEGORIES =
+internal val BOOK_SORT_CATEGORIES =
     listOf(
         SortCategory.TITLE,
         SortCategory.AUTHOR,
         SortCategory.DURATION,
         SortCategory.YEAR,
         SortCategory.ADDED,
+        SortCategory.LISTENER_RATING,
         SortCategory.SERIES,
     )
 

@@ -26,6 +26,7 @@ fun TextAreaField(
     rows: Int = TEXTAREA_ROWS,
     placeholder: String = "",
     id: String? = null,
+    maxLength: Int? = null,
 ) {
     val fieldId = rememberFieldId(id)
     Div(attrs = { classes("f-wrap") }) {
@@ -38,6 +39,9 @@ fun TextAreaField(
                 classes("f-input", "f-area")
                 attr("rows", rows.toString())
                 if (placeholder.isNotEmpty()) attr("placeholder", placeholder)
+                // `maxlength` rather than truncating in onInput: the browser refuses the INSERTED
+                // text, so typing or pasting mid-field at the cap never eats the note's ending.
+                maxLength?.let { attr("maxlength", it.toString()) }
                 attr("id", fieldId)
                 onInput { event -> onInput(event.value) }
             }

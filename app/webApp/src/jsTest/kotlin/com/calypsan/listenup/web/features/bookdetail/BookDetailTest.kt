@@ -75,8 +75,10 @@ import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.web.features.browse.fixedBrowseFacet
 import com.calypsan.listenup.web.features.browse.fixedGenreDestination
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
+import com.calypsan.listenup.web.features.ratings.fixedBookRatings
 import com.calypsan.listenup.web.features.readers.fixedBookReaders
 import com.calypsan.listenup.web.features.search.fixedSeeAll
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
@@ -165,6 +167,7 @@ class BookDetailTest :
                     openBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
                     openGenreDestination = fixedGenreDestination(GenreDestinationUiState.Loading),
                     openBookReaders = fixedBookReaders(BookReadersUiState.Loading),
+                    openBookRatings = fixedBookRatings(BookRatingsUiState.Loading),
                     openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
                     openDeadLetters = fixedDeadLetters(),
                     onToast = {},

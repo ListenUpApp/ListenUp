@@ -39,6 +39,7 @@ import com.calypsan.listenup.web.features.admin.graphOrganize
 import com.calypsan.listenup.web.features.admin.graphUpload
 import com.calypsan.listenup.web.features.admin.graphUserDetail
 import com.calypsan.listenup.web.features.readers.graphBookReaders
+import com.calypsan.listenup.web.features.ratings.graphBookRatings
 import com.calypsan.listenup.web.features.search.graphSeeAll
 import com.calypsan.listenup.web.features.sync.graphDeadLetters
 import com.calypsan.listenup.web.features.metadata.graphMetadata
@@ -226,6 +227,7 @@ fun main() {
                 openBrowseFacet = graphBrowseFacet(koin),
                 openGenreDestination = graphGenreDestination(koin),
                 openBookReaders = graphBookReaders(koin),
+                openBookRatings = graphBookRatings(koin),
                 openSeeAll = graphSeeAll(koin),
                 openDeadLetters = graphDeadLetters(koin),
                 openPlayback = graphPlayback(koin),

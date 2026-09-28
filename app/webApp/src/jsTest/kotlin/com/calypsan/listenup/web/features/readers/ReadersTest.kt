@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.readers
 
+import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
@@ -25,13 +26,21 @@ internal fun reader(
     isYou: Boolean = false,
     progressPct: Int? = null,
     finishes: List<Long> = emptyList(),
+    rating: ListenerRating? = null,
 ) = Reader(
     userId = userId,
     displayName = displayName,
     isYou = isYou,
     currentProgressPct = progressPct,
     finishes = finishes,
+    rating = rating,
 )
+
+internal fun readerRating(
+    userId: String,
+    halfStars: Int,
+    note: String? = null,
+) = ListenerRating(bookId = "b1", userId = userId, halfStars = halfStars, note = note, ratedAtMs = 0L)
 
 internal fun readersData(vararg readers: Reader) = BookReadersUiState.Data(BookReaders(readers.toList()))
 
@@ -190,6 +199,39 @@ class ReadersTest :
             awaitFrame()
 
             opened shouldContainExactly listOf("u-ada")
+        }
+
+        test("someone who only rated the book reads Rated, with their stars and no progress") {
+            val host =
+                panel(readersData(reader(userId = "u1", displayName = "Ada Lovelace", rating = readerRating("u1", 7))))
+
+            val row = rows(host).single()
+            text(row, ".rdr-s") shouldBe "Rated"
+            row.textContent.orEmpty().contains("%") shouldBe false
+            row.querySelector(".prog, progress, [role=progressbar]").shouldBeNull()
+            (row.querySelector("[role=img]") as HTMLElement).getAttribute("aria-label") shouldBe "3.5 out of 5 stars"
+            stateLine(ReaderLineKind.Rated, READERS_NOW) shouldBe "Rated"
+        }
+
+        test("a rating rides on the person's first line only, with the note beneath it in quotes") {
+            val host =
+                panel(
+                    readersData(
+                        reader(
+                            userId = "u1",
+                            displayName = "Ada Lovelace",
+                            progressPct = 40,
+                            finishes = listOf(READERS_NOW - DAY),
+                            rating = readerRating("u1", 8, note = "A classic"),
+                        ),
+                    ),
+                )
+
+            val (first, second) = rows(host)
+            (first.querySelector("[role=img]") as HTMLElement).getAttribute("aria-label") shouldBe "4 out of 5 stars"
+            text(first, ".rdr-note") shouldBe "\u201CA classic\u201D"
+            second.querySelector("[role=img]").shouldBeNull()
+            second.querySelector(".rdr-note").shouldBeNull()
         }
 
         // ⛔ The panel is non-critical: a book's page is not broken because the readership call is

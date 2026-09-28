@@ -6,7 +6,9 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.readers.ReadersPanel
 import com.calypsan.listenup.web.design.BookMarkdown
 import com.calypsan.listenup.web.design.Breadcrumb
@@ -70,6 +72,13 @@ fun BookDetailPage(
     onOpenContributor: (String) -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
     readers: BookReadersUiState = BookReadersUiState.Loading,
+    /**
+     * The rating panel's state and the ViewModel's two actions. Defaulted to Loading, which draws
+     * no panel at all, so the no-op actions below are unreachable until a caller supplies a state.
+     */
+    ratings: BookRatingsUiState = BookRatingsUiState.Loading,
+    onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
+    onClearRating: () -> Unit = {},
     /**
      * The book's supplementary documents, from the sibling flow of the same name. Defaulted empty
      * because most books have none, and a book with none renders no Documents panel at all.
@@ -179,6 +188,9 @@ fun BookDetailPage(
                             onOpenGenre = onOpenGenre,
                             onOpenTag = onOpenTag,
                             onOpenMood = onOpenMood,
+                            ratings = ratings,
+                            onRate = onRate,
+                            onClearRating = onClearRating,
                             readers = readers,
                             nowMs = nowMs,
                             onOpenProfile = onOpenProfile,
@@ -365,6 +377,9 @@ private fun OverviewPane(
     onOpenGenre: (String) -> Unit,
     onOpenTag: (String) -> Unit,
     onOpenMood: (String) -> Unit,
+    ratings: BookRatingsUiState,
+    onRate: (halfStars: Int, note: String?) -> Unit,
+    onClearRating: () -> Unit,
     readers: BookReadersUiState,
     nowMs: Long,
     onOpenProfile: (String) -> Unit,
@@ -392,6 +407,8 @@ private fun OverviewPane(
             Panel(title = "Details") {
                 MetaList(details(state))
             }
+            // Directly above Readers, as on Android and iOS; silent while loading — see [RatingsPanel].
+            RatingsPanel(state = ratings, onRate = onRate, onClear = onClearRating)
             // Under Details, and silent when there is nothing to say — see [ReadersPanel].
             ReadersPanel(
                 state = readers,
