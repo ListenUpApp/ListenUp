@@ -89,7 +89,10 @@ class AdminSettingsViewModel(
     /** Loaded alongside the rest of the settings — see [loadSettings]. */
     private suspend fun loadRatingSources() {
         when (val result = loadServerSettingsUseCase.ratingSources()) {
-            is AppResult.Success -> updateReady { it.copy(ratingSources = result.data).withDirty() }
+            is AppResult.Success -> {
+                updateReady { it.copy(ratingSources = result.data).withDirty() }
+            }
+
             is AppResult.Failure -> {
                 errorBus.emit(result.error)
                 logger.error { "Failed to load rating sources: ${result.error}" }
@@ -184,10 +187,11 @@ class AdminSettingsViewModel(
     ) {
         val previous = (state.value as? AdminSettingsUiState.Ready)?.ratingSources ?: return
         updateReady { ready ->
-            ready
-                .copy(
-                    ratingSources = ready.ratingSources.map { if (it.source == source) it.copy(enabled = enabled) else it },
-                ).withDirty()
+            val flipped =
+                ready.ratingSources.map { status ->
+                    if (status.source == source) status.copy(enabled = enabled) else status
+                }
+            ready.copy(ratingSources = flipped).withDirty()
         }
         viewModelScope.launch {
             when (val result = updateServerSettingsUseCase.setRatingSourceEnabled(source, enabled)) {

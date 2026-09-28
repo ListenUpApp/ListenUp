@@ -22,7 +22,14 @@ class BookRatingSectionTest {
     fun `offers Rate when you have not rated the book`() {
         composeRule.setContent {
             BookRatingSection(
-                state = BookRatingsUiState.Ready(listeners = null, mine = null),
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                    ),
                 onRate = {},
                 onEdit = {},
             )
@@ -38,7 +45,14 @@ class BookRatingSectionTest {
         val mine = ListenerRating(bookId = "b1", userId = "me", halfStars = 8, note = null, ratedAtMs = 1L)
         composeRule.setContent {
             BookRatingSection(
-                state = BookRatingsUiState.Ready(listeners = ListenerAverage(8.0, 1), mine = mine),
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = ListenerAverage(8.0, 1),
+                        mine = mine,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                    ),
                 onRate = {},
                 onEdit = {},
             )
@@ -53,7 +67,14 @@ class BookRatingSectionTest {
     fun `one listener's rating is read as one rating`() {
         composeRule.setContent {
             BookRatingSection(
-                state = BookRatingsUiState.Ready(listeners = ListenerAverage(8.0, 1), mine = null),
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = ListenerAverage(8.0, 1),
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                    ),
                 onRate = {},
                 onEdit = {},
             )
@@ -68,7 +89,14 @@ class BookRatingSectionTest {
     fun `several listeners' ratings are read as ratings`() {
         composeRule.setContent {
             BookRatingSection(
-                state = BookRatingsUiState.Ready(listeners = ListenerAverage(7.0, 3), mine = null),
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = ListenerAverage(7.0, 3),
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                    ),
                 onRate = {},
                 onEdit = {},
             )

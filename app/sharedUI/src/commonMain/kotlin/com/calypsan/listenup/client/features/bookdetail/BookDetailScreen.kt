@@ -797,10 +797,9 @@ private fun ImmersiveBookDetail(
                 )
             }
 
-            // Stats — rating, duration, year, date added (centered).
+            // Stats — duration, year, date added (centered).
             item {
                 StatsRow(
-                    rating = state.rating,
                     duration = book.duration,
                     year = state.year,
                     addedAt = state.addedAt,

@@ -2,9 +2,13 @@ package com.calypsan.listenup.web.features.ratings
 
 import androidx.compose.runtime.collectAsState
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.CombinedScore
+import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -53,7 +57,7 @@ private fun rating(
 private fun ready(
     mine: ListenerRating? = null,
     listeners: ListenerAverage? = null,
-) = BookRatingsUiState.Ready(listeners = listeners, mine = mine)
+) = BookRatingsUiState.Ready(listeners = listeners, mine = mine, external = null, breakdown = emptyList(), canRefresh = false)
 
 private fun button(
     host: HTMLElement,
@@ -116,6 +120,27 @@ private class FakeBookRatingRepository : BookRatingRepository {
         ratings.value = ratings.value.filterNot { it.userId == "me" }
         return AppResult.Success(Unit)
     }
+
+    override fun observeExternalForBook(bookId: String): Flow<List<ExternalRating>> = flowOf(emptyList())
+
+    override fun observeCombinedScores(): Flow<Map<String, CombinedScore>> = flowOf(emptyMap())
+
+    override suspend fun refreshExternal(bookId: String): AppResult<Unit> = AppResult.Success(Unit)
+}
+
+/** An ordinary (non-admin) listener — [BookRatingsViewModel] only reads [observeIsAdmin] here. */
+private class FakeUserRepository : UserRepository {
+    override fun observeCurrentUser(): Flow<User?> = flowOf(null)
+
+    override fun observeIsAdmin(): Flow<Boolean> = flowOf(false)
+
+    override suspend fun getCurrentUser(): User? = null
+
+    override suspend fun saveUser(user: User) = Unit
+
+    override suspend fun clearUsers() = Unit
+
+    override suspend fun refreshCurrentUser(): User? = null
 }
 
 /**
@@ -292,7 +317,7 @@ class RatingsTest :
                     modules(
                         module {
                             factory { params ->
-                                BookRatingsViewModel(params.get(), repository, flowOf("me"), ErrorBus())
+                                BookRatingsViewModel(params.get(), repository, flowOf("me"), ErrorBus(), FakeUserRepository())
                             }
                         },
                     )

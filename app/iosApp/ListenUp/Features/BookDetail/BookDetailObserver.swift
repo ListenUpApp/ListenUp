@@ -46,7 +46,6 @@ final class BookDetailObserver {
     private(set) var bookDescription: String = ""
     private(set) var narrators: String = ""
     private(set) var year: Int?
-    private(set) var rating: Double?
     private(set) var progress: Float?
     private(set) var timeRemaining: String?
     private(set) var isComplete: Bool = false
@@ -318,7 +317,6 @@ final class BookDetailObserver {
             bookDescription = r.descriptionText
             narrators = r.narrators
             year = r.year.map { Int($0) }
-            rating = r.rating
             progress = r.progress
             timeRemaining = r.timeRemainingFormatted
             isComplete = r.isComplete

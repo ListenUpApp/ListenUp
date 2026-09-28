@@ -62,7 +62,6 @@ private const val MOCK_GENRE = "Epic Fantasy"
 private const val MOCK_PROGRESS = 0.62f
 private const val MOCK_TIME_REMAINING = "17h 12m left"
 private const val MOCK_DURATION_MS = 45L * 3600 * 1000
-private const val MOCK_RATING = 4.7
 private const val MOCK_YEAR = 2010
 private const val MOCK_ADDED_AT_MS = 1_704_067_200_000L
 
@@ -254,7 +253,6 @@ private fun HeroSection() {
             onShowCast = { castRole = it },
             progress = MOCK_PROGRESS,
             timeRemaining = MOCK_TIME_REMAINING,
-            rating = MOCK_RATING,
             duration = MOCK_DURATION_MS,
             year = MOCK_YEAR,
             addedAt = MOCK_ADDED_AT_MS,
@@ -286,18 +284,8 @@ private fun WidePreview(content: @Composable () -> Unit) {
 
 @Composable
 private fun StatsSection() {
-    GalleryLabel("Stats — with rating")
+    GalleryLabel("Stats")
     StatsRow(
-        rating = MOCK_RATING,
-        duration = MOCK_DURATION_MS,
-        year = MOCK_YEAR,
-        addedAt = MOCK_ADDED_AT_MS,
-        modifier = horizontalGutter(),
-    )
-
-    GalleryLabel("Stats — no rating")
-    StatsRow(
-        rating = null,
         duration = MOCK_DURATION_MS,
         year = MOCK_YEAR,
         addedAt = MOCK_ADDED_AT_MS,

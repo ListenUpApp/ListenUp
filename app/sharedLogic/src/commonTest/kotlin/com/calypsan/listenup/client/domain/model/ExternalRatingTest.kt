@@ -77,8 +77,8 @@ class ExternalRatingTest :
                 val max = ratings.maxOf { it.average }
                 // A tiny epsilon absorbs floating-point rounding at the boundary — the invariant
                 // being tested is "stays within the spread", not bit-exact equality at an edge.
-                result.average shouldBeGreaterThanOrEqual (min - 1e-9)
-                result.average shouldBeLessThanOrEqual (max + 1e-9)
+                result.average shouldBeGreaterThanOrEqual min - 1e-9
+                result.average shouldBeLessThanOrEqual max + 1e-9
             }
         }
     })
