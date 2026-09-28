@@ -189,6 +189,10 @@
 /* Narrower than the speed panel: five chips and no slider. */
 .boost-dlg { max-width: 380px; width: min(380px, calc(100vw - 32px)); }
 
+/* A player panel's Close sits at the foot, at its own width — the dialog body is a flex column,
+   which would otherwise stretch it across the panel. */
+dialog.dlg .dlg-close { align-self: flex-start; }
+
 /* ---- the expanded player. Wider than the pickers because it is the only panel that has to hold
    a cover, a byline and a transport at once; every other one is a list of choices. */
 .np-dlg { width: 560px; max-width: min(560px, calc(100vw - 32px)); }

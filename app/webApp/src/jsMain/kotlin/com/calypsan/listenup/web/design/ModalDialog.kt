@@ -24,19 +24,31 @@ import org.w3c.dom.events.Event
  *
  * The caller supplies the whole body below the title, including its own actions row — that is the
  * only difference between a confirm and a form, and it is not worth a second shell.
+ *
+ * [panelClass] sits beside `dlg` for a dialog with its own width or layout — the player panels, the
+ * command palette. It also names the heading's id, so a panel opened from inside another (a picker
+ * over Now Playing) cannot collide with the one beneath it.
+ *
+ * [showTitle] false is for a surface whose field says what it is (the command palette): the title
+ * then names the dialog through `aria-label` instead of a heading nobody sees.
  */
 @Composable
 fun ModalDialog(
     open: Boolean,
     title: String,
     onDismiss: () -> Unit,
+    panelClass: String? = null,
+    showTitle: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     if (!open) return
 
+    val titleId = panelClass?.let { "$it-title" } ?: DIALOG_TITLE_ID
+
     Dialog(attrs = {
         classes("dlg")
-        attr("aria-labelledby", DIALOG_TITLE_ID)
+        panelClass?.let { classes(it) }
+        if (showTitle) attr("aria-labelledby", titleId) else attr("aria-label", title)
         ref { element ->
             val dialog = element as HTMLDialogElement
             if (!dialog.open) dialog.showModal()
@@ -51,10 +63,12 @@ fun ModalDialog(
         }
     }) {
         Div(attrs = { classes("dlg-body") }) {
-            H2(attrs = {
-                classes("dlg-t")
-                attr("id", DIALOG_TITLE_ID)
-            }) { Text(title) }
+            if (showTitle) {
+                H2(attrs = {
+                    classes("dlg-t")
+                    attr("id", titleId)
+                }) { Text(title) }
+            }
             content()
         }
     }

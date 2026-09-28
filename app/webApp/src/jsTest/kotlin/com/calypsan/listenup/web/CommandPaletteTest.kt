@@ -13,6 +13,7 @@ import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import org.w3c.dom.EventInit
+import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
@@ -128,6 +129,45 @@ class CommandPaletteTest :
 
                 host.querySelector(".cmdk-panel") shouldBe null
             } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("the palette is a real modal dialog, so the page behind it is inert") {
+            // It used to be a `div role=dialog` over a scrim: it looked modal, and a screen reader
+            // could still walk out of it into the page underneath.
+            val (host, router, composition) = mountAt("/")
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+
+                val dialog = host.querySelector("dialog.cmdk-panel") as HTMLDialogElement
+                dialog.matches(":modal") shouldBe true
+                dialog.getAttribute("aria-label") shouldBe "Search your library"
+            } finally {
+                host.closePaletteDialogs()
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("a close request the host never sees as a key still closes the palette") {
+            // Escape on a modal dialog, or a platform back gesture, arrives as the dialog's own close
+            // request. The palette has to hear it, or it stays mounted behind a dialog that is gone.
+            val (host, router, composition) = mountAt("/")
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+
+                (host.querySelector("dialog.cmdk-panel") as HTMLDialogElement).asDynamic().requestClose()
+                awaitFrame()
+
+                host.querySelector(".cmdk-panel") shouldBe null
+            } finally {
+                host.closePaletteDialogs()
                 composition.dispose()
                 router.dispose()
             }
@@ -383,3 +423,11 @@ class CommandPaletteTest :
             }
         }
     })
+
+/** Closes a palette dialog a failed spec left open, so its modality cannot leak into the next. */
+private fun HTMLElement.closePaletteDialogs() {
+    val dialogs = querySelectorAll("dialog")
+    for (i in 0 until dialogs.length) {
+        (dialogs.item(i) as? HTMLDialogElement)?.takeIf { it.open }?.close()
+    }
+}

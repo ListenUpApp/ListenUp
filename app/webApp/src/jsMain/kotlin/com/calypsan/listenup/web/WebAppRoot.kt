@@ -1017,9 +1017,10 @@ private fun onSearchFieldChanged(
  * true, so focus never has anywhere else to go, regardless of what element happens to hold it.
  *
  * Focus discipline: the moment the shortcut fires, `document.activeElement` is captured into
- * `restoreFocusTo` — before [CommandPalette] mounts and steals it — so closing can hand focus back
- * to the exact control the reader was on, on every close path alike (Escape, a book hit, or the
- * Shift+Enter commit).
+ * `restoreFocusTo` — before [CommandPalette] mounts and steals it — so dismissing the palette
+ * (Escape, or the dialog's own close request) hands focus back to the exact control the reader was
+ * on. A close that goes somewhere (a hit, See all, the Shift+Enter commit) does not: the page it
+ * lands on takes focus on its heading instead, the way every other navigation does.
  */
 @Composable
 private fun CommandPaletteHost(
@@ -1030,13 +1031,17 @@ private fun CommandPaletteHost(
     var session by remember { mutableStateOf<SearchSession?>(null) }
     var highlighted by remember { mutableStateOf<SearchHit?>(null) }
     var restoreFocusTo by remember { mutableStateOf<HTMLElement?>(null) }
+    var returnFocusTo by remember { mutableStateOf<HTMLElement?>(null) }
 
-    fun closePalette() {
+    // [returnFocus] false when the close is a journey somewhere else: the new page takes focus
+    // itself (see FocusPageOnNavigation), and handing it back to a control on the page being left
+    // would only pull it away from there again.
+    fun closePalette(returnFocus: Boolean = true) {
         isOpen = false
         session?.close()
         session = null
         highlighted = null
-        restoreFocusTo?.focus()
+        if (returnFocus) returnFocusTo = restoreFocusTo
         restoreFocusTo = null
     }
 
@@ -1068,7 +1073,7 @@ private fun CommandPaletteHost(
             paletteKeyDownHandler(
                 isOpen = { isOpen },
                 onOpen = ::openPalette,
-                onClose = ::closePalette,
+                onClose = { closePalette() },
                 onMoveHighlight = ::moveHighlight,
                 onActivateHighlighted = {
                     session?.let { activeSession -> highlighted?.let(activeSession.onOpenHit) }
@@ -1076,7 +1081,7 @@ private fun CommandPaletteHost(
                 onCommit = {
                     session?.let { activeSession ->
                         val query = activeSession.state.value.query
-                        closePalette()
+                        closePalette(returnFocus = false)
                         router.navigate(paletteSearchRoute(query))
                     }
                 },
@@ -1085,11 +1090,21 @@ private fun CommandPaletteHost(
         onDispose { window.removeEventListener("keydown", onWindowKeyDown) }
     }
 
+    // Handed back once the palette has actually left the page, not in the close call itself: until
+    // the recomposition that removes it, the palette is a modal `<dialog>` and everything behind it
+    // is inert, so focusing the invoker straight away is silently refused.
+    returnFocusTo?.let { invoker ->
+        LaunchedEffect(invoker) {
+            invoker.focus()
+            returnFocusTo = null
+        }
+    }
+
     val activeSession = session
     if (isOpen && activeSession != null) {
         LaunchedEffect(activeSession) {
             activeSession.navActions.collect { action ->
-                closePalette()
+                closePalette(returnFocus = false)
                 router.navigate(searchNavRoute(action))
             }
         }
@@ -1109,12 +1124,15 @@ private fun CommandPaletteHost(
             onOpenHit = activeSession.onOpenHit,
             openableTypes = SEARCH_OPENABLE_TYPES,
             highlighted = highlighted,
+            // Escape reaches the host's own key handler first, but a close request the page never
+            // sees as a key (the platform back gesture) arrives here, through the dialog itself.
+            onDismiss = { closePalette() },
             // ⛔ The palette caps its groups like the page does, so it owes the same way out. Shift
             // +Enter reaches the whole search, but a reader looking at "4 of 26 books" wants those
             // 26, not a fresh query they have to narrow again.
             onSeeAll = { type ->
                 val query = uiState.query
-                closePalette()
+                closePalette(returnFocus = false)
                 router.navigate(Route(listOf(SEARCH_KEY, type.slug()), mapOf(SEARCH_QUERY_KEY to query)))
             },
         )

@@ -1144,6 +1144,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
@@ -1151,6 +1152,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
@@ -1158,6 +1160,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
@@ -1165,6 +1168,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         CommandPalette(
                             state =
@@ -1177,6 +1181,7 @@ class ClassContractTest :
                             onOpenHit = {},
                             openableTypes = SearchHitType.entries.toSet(),
                             highlighted = null,
+                            onDismiss = {},
                         )
                         run {
                             val hit = bookHit("b1", "Dune", author = "Frank Herbert")
@@ -1195,6 +1200,7 @@ class ClassContractTest :
                                 onOpenHit = {},
                                 openableTypes = setOf(SearchHitType.BOOK),
                                 highlighted = hit,
+                                onDismiss = {},
                             )
                         }
                         // Book Edit was absent from this contract, which is how its form wrapper

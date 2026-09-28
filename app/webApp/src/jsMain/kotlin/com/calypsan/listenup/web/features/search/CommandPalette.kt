@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.design.ModalDialog
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -23,7 +24,8 @@ import org.jetbrains.compose.web.dom.Text
  * a plain function of [state], the same shape [SearchPage] already is, and puts routing decisions
  * where the rest of this app keeps them. [highlighted] is whichever hit the host's keyboard
  * navigation currently has selected, or null when there is nothing to navigate — see
- * [openableSearchHits] for the order it moves through.
+ * [openableSearchHits] for the order it moves through. [onDismiss] hears the dialog's own close
+ * requests (Escape, the platform back gesture), which never pass through the host's keys.
  */
 @Composable
 fun CommandPalette(
@@ -32,55 +34,58 @@ fun CommandPalette(
     onOpenHit: (SearchHit) -> Unit,
     openableTypes: Set<SearchHitType>,
     highlighted: SearchHit?,
+    onDismiss: () -> Unit,
     onSeeAll: (SearchHitType) -> Unit = {},
 ) {
-    Div(attrs = { classes("cmdk-scrim") }) {
-        Div(attrs = {
-            classes("cmdk-panel")
-            attr("role", "dialog")
-            attr("aria-modal", "true")
-            attr("aria-label", "Command palette")
-        }) {
-            Div(attrs = { classes("cmdk-field") }) {
-                SearchField(query = state.query, onQueryChanged = onQueryChanged, autoFocus = true)
-            }
+    // The app's one modal shell, not a `div role=dialog` over a scrim: that looked the same and gave
+    // no inert page behind it, so a screen reader could wander out of the palette into the page it
+    // was covering. The field says what this is, so the title names the dialog without a heading.
+    ModalDialog(
+        open = true,
+        title = "Search your library",
+        onDismiss = onDismiss,
+        panelClass = "cmdk-panel",
+        showTitle = false,
+    ) {
+        Div(attrs = { classes("cmdk-field") }) {
+            SearchField(query = state.query, onQueryChanged = onQueryChanged, autoFocus = true)
+        }
 
-            Div(attrs = { classes("cmdk-body") }) {
-                when (state) {
-                    is SearchUiState.Idle -> {
-                        IdlePrompt()
-                    }
+        Div(attrs = { classes("cmdk-body") }) {
+            when (state) {
+                is SearchUiState.Idle -> {
+                    IdlePrompt()
+                }
 
-                    is SearchUiState.TooShort -> {
-                        TooShortPrompt()
-                    }
+                is SearchUiState.TooShort -> {
+                    TooShortPrompt()
+                }
 
-                    is SearchUiState.Searching -> {
-                        SearchingPrompt()
-                    }
+                is SearchUiState.Searching -> {
+                    SearchingPrompt()
+                }
 
-                    is SearchUiState.Error -> {
-                        Prompt(marker = "is-error", heading = "Search failed", body = state.message)
-                    }
+                is SearchUiState.Error -> {
+                    Prompt(marker = "is-error", heading = "Search failed", body = state.message)
+                }
 
-                    is SearchUiState.Results -> {
-                        if (state.result.hits.isEmpty()) {
-                            NoResultsPrompt(query = state.result.query)
-                        } else {
-                            ResultsList(
-                                result = state.result,
-                                openableTypes = openableTypes,
-                                onOpenHit = onOpenHit,
-                                onSeeAll = onSeeAll,
-                                highlighted = highlighted,
-                            )
-                        }
+                is SearchUiState.Results -> {
+                    if (state.result.hits.isEmpty()) {
+                        NoResultsPrompt(query = state.result.query)
+                    } else {
+                        ResultsList(
+                            result = state.result,
+                            openableTypes = openableTypes,
+                            onOpenHit = onOpenHit,
+                            onSeeAll = onSeeAll,
+                            highlighted = highlighted,
+                        )
                     }
                 }
             }
-
-            CommandPaletteFooter()
         }
+
+        CommandPaletteFooter()
     }
 }
 

@@ -443,9 +443,16 @@
 .search-row.is-highlighted { background: var(--surface-2); outline: 2px solid var(--coral); outline-offset: -2px; }
 
 /* ---- command palette (⌘K / Ctrl+K / “/”) ---- */
-.cmdk-scrim { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; padding: 96px 20px 20px; background: rgba(22,15,10,.36); }
-[data-theme="dark"] .cmdk-scrim { background: rgba(0,0,0,.55); }
-.cmdk-panel { width: 100%; max-width: 620px; max-height: min(70vh, 560px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-pop); overflow: hidden; }
+/* The palette is a modal `<dialog>` (see ModalDialog): the top layer replaces the old scrim's
+   z-index, and ::backdrop is the scrim. Pinned near the top rather than centred, so the results
+   grow downward under the field instead of the field jumping as they arrive. */
+dialog.dlg.cmdk-panel {
+  width: calc(100vw - 40px); max-width: 620px; margin: 96px auto auto;
+  border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+}
+dialog.dlg.cmdk-panel::backdrop { background: rgba(22,15,10,.36); }
+[data-theme="dark"] dialog.dlg.cmdk-panel::backdrop { background: rgba(0,0,0,.55); }
+dialog.dlg.cmdk-panel .dlg-body { gap: 0; padding: 0; max-height: min(70vh, 560px); }
 .cmdk-field { padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .cmdk-field .f-wrap { width: auto; }
 .cmdk-body { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
