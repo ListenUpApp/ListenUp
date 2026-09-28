@@ -5,7 +5,14 @@ import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import kotlinx.browser.document
+import kotlinx.browser.window
+import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import org.w3c.dom.asList
 
 /**
@@ -70,6 +77,74 @@ class ActionsMenuTest :
             item.getAttribute("role") shouldBe "menuitem"
         }
 
+        test("the trigger says it opens a menu") {
+            val root = menu(listOf(action("Edit")))
+            val trigger = root.querySelector(".menu-anchor button") as HTMLElement
+
+            trigger.getAttribute("aria-haspopup") shouldBe "menu"
+            trigger.click()
+            awaitFrame()
+            trigger.getAttribute("aria-expanded") shouldBe "true"
+        }
+
+        test("opening puts focus on the first item, and the arrows, Home and End walk the rest") {
+            val root = menu(listOf(action("Edit"), action("Find metadata"), action("Delete")))
+
+            (root.querySelector(".menu-anchor button") as HTMLElement).click()
+            awaitFrame()
+            val items = root.querySelectorAll(".menu-i").asList().map { it as HTMLElement }
+
+            document.activeElement shouldBe items[0]
+            items[0].press("ArrowDown")
+            document.activeElement shouldBe items[1]
+            items[1].press("End")
+            document.activeElement shouldBe items[2]
+            items[2].press("ArrowDown")
+            document.activeElement shouldBe items[0]
+            items[0].press("ArrowUp")
+            document.activeElement shouldBe items[2]
+            items[2].press("Home")
+            document.activeElement shouldBe items[0]
+        }
+
+        test("Escape closes the menu and hands focus back to the trigger") {
+            val root = menu(listOf(action("Edit"), action("Delete")))
+            val trigger = root.querySelector(".menu-anchor button") as HTMLElement
+
+            trigger.click()
+            awaitFrame()
+            (root.querySelector(".menu-i") as HTMLElement).press("Escape")
+            awaitFrame()
+
+            root.querySelectorAll(".menu").length shouldBe 0
+            document.activeElement shouldBe trigger
+        }
+
+        test("a press anywhere else closes the menu") {
+            val root = menu(listOf(action("Edit")))
+
+            (root.querySelector(".menu-anchor button") as HTMLElement).click()
+            awaitFrame()
+            document.body!!.dispatchEvent(Event("pointerdown", EventInit(bubbles = true)))
+            awaitFrame()
+
+            root.querySelectorAll(".menu").length shouldBe 0
+        }
+
+        test("a highlighted item is visibly highlighted, inside the themed surface too") {
+            // A `.luw .menu-i { background: transparent }` reset once outranked `.menu-i.hi` and
+            // `.menu-i:hover`, so no menu item anywhere in the app ever lit up.
+            val root =
+                mounts.mount {
+                    WebAppSurface {
+                        org.jetbrains.compose.web.dom.Button(attrs = { classes("menu-i", "hi") }) {}
+                    }
+                }
+            val item = root.querySelector(".menu-i") as HTMLElement
+
+            window.getComputedStyle(item).backgroundColor shouldNotBe "rgba(0, 0, 0, 0)"
+        }
+
         test("a disabled menu cannot be opened") {
             val root = menu(listOf(action("Edit")), enabled = false)
 
@@ -77,3 +152,7 @@ class ActionsMenuTest :
             trigger.hasAttribute("disabled") shouldBe true
         }
     })
+
+private fun HTMLElement.press(key: String) {
+    dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = key, bubbles = true, cancelable = true)))
+}

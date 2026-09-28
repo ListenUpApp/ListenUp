@@ -54,7 +54,11 @@
    `max-content` lets it size to its items while min-width keeps a small menu from looking mean.
    Below .scrim's z-index:40 so a modal still covers it. */
 .menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
-.menu-i { display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; }
+/* Every menu item is a real <button role="menuitem">, so the reset a button needs lives on the base
+   rule. It used to sit in a later sheet as `.luw .menu-i { background: transparent }`, whose extra
+   class outranked `.menu-i:hover` and `.menu-i.hi` below — so no menu item ever showed a hover. */
+.menu-i { display:flex; align-items:center; gap:10px; width:100%; height:34px; padding:0 9px; border:none; border-radius:8px; background:transparent; font-family:inherit; font-size:13.5px; font-weight:600; text-align:left; color:var(--ink); cursor:pointer; white-space:nowrap; }
+.menu-i:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
 @media (hover: hover) { .menu-i:hover { background:var(--surface-2); } }
 .menu-i.hi { background:var(--surface-2); }
 .menu-i .k { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3); }

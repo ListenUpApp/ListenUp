@@ -232,21 +232,26 @@ private fun FacetChip(
  * A non-null [onClick] makes the pill a real control, not just a styled label — it picks up the
  * same keyboard contract [FacetChip] does (focusable, `role=BUTTON`, Enter/Space activation),
  * so a chip that toggles something is reachable without a mouse.
+ *
+ * [selected] non-null makes it a toggle: the `on` look, and `aria-pressed` so the state is said
+ * aloud rather than only shown. Null is a pill that goes somewhere (a genre on a book) — announcing
+ * that as "not pressed" would describe a switch that is not there.
  */
 @Composable
 fun Pill(
     label: String,
-    selected: Boolean = false,
+    selected: Boolean? = null,
     icon: WebIcon? = null,
     onClick: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
 ) {
     Span(attrs = {
         classes("pill")
-        if (selected) classes("on")
+        if (selected == true) classes("on")
         onClick?.let { click ->
             attr("role", BUTTON)
             tabIndex(0)
+            selected?.let { attr("aria-pressed", it.toString()) }
             onClick { click() }
             onKeyDown { event ->
                 if (event.key == "Enter" || event.key == " ") {

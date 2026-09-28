@@ -64,6 +64,16 @@ class NavigationTest :
             (host.querySelector(".seg button.on") as HTMLElement).textContent shouldBe "Unheard 35"
         }
 
+        test("a toggle pill says whether it is pressed; a pill that goes somewhere does not") {
+            val on = mounts.mount { Pill("Books", selected = true, onClick = {}) }
+            val off = mounts.mount { Pill("Series", selected = false, onClick = {}) }
+            val link = mounts.mount { Pill("Horror", onClick = {}) }
+
+            (on.querySelector(".pill") as HTMLElement).getAttribute("aria-pressed") shouldBe "true"
+            (off.querySelector(".pill") as HTMLElement).getAttribute("aria-pressed") shouldBe "false"
+            (link.querySelector(".pill") as HTMLElement).hasAttribute("aria-pressed") shouldBe false
+        }
+
         test("a plain pill has no dismiss affordance") {
             val host = mounts.mount { Pill("Horror") }
 
