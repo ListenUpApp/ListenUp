@@ -734,19 +734,23 @@ class LibraryViewModelTest :
             }
         }
 
-        test("Listener rating sorts highest first, and unrated books come last in either direction") {
+        test("Listener rating sorts highest first, equal ratings by title, and unrated books come last in either direction") {
             runTest {
-                // Given - a (avg 9), b (unrated), c (avg 5)
+                // Given - a "Zebra" (avg 9), b (unrated), c (avg 5), d "apple" (avg 9, tied with a).
+                // "apple" before "Zebra" only case-insensitively, and d comes after a in the input,
+                // so the order below needs the title tie-breaker — a stable sort alone keeps a first.
                 val books =
                     listOf(
-                        createTestBook(id = "a", title = "A"),
+                        createTestBook(id = "a", title = "Zebra"),
                         createTestBook(id = "b", title = "B"),
                         createTestBook(id = "c", title = "C"),
+                        createTestBook(id = "d", title = "apple"),
                     )
                 val averages =
                     mapOf(
                         "a" to ListenerAverage(averageHalfStars = 9.0, count = 1),
                         "c" to ListenerAverage(averageHalfStars = 5.0, count = 1),
+                        "d" to ListenerAverage(averageHalfStars = 9.0, count = 2),
                     )
                 val fixture = createFixture()
                 every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
@@ -760,17 +764,17 @@ class LibraryViewModelTest :
                 viewModel.onEvent(LibraryUiEvent.BooksCategoryChanged(SortCategory.LISTENER_RATING))
                 advanceUntilIdle()
 
-                // Then - DESC: a, c, b (unrated last)
+                // Then - DESC: d, a (tied, by title), c, b (unrated last)
                 val descLoaded = viewModel.uiState.value as LibraryUiState.Loaded
-                descLoaded.books.map { it.id.value } shouldBe listOf("a", "c", "b")
+                descLoaded.books.map { it.id.value } shouldBe listOf("d", "a", "c", "b")
 
                 // When - toggle to ASCENDING
                 viewModel.onEvent(LibraryUiEvent.BooksDirectionToggled)
                 advanceUntilIdle()
 
-                // Then - ASC: c, a, b (unrated STILL last, not first)
+                // Then - ASC: c, d, a (ties still by title), b (unrated STILL last, not first)
                 val ascLoaded = viewModel.uiState.value as LibraryUiState.Loaded
-                ascLoaded.books.map { it.id.value } shouldBe listOf("c", "a", "b")
+                ascLoaded.books.map { it.id.value } shouldBe listOf("c", "d", "a", "b")
             }
         }
 

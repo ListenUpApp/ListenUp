@@ -597,15 +597,26 @@ class LibraryViewModel(
             }
 
             SortCategory.LISTENER_RATING -> {
-                // Unrated books last in BOTH directions: an absent average is not a zero.
+                // Unrated books last in BOTH directions: an absent average is not a zero. Equal
+                // averages fall back to title (lowercase, ascending), like AUTHOR and YEAR.
                 val (rated, unrated) = books.partition { listenerAverages[it.id.value] != null }
+                val keyed =
+                    rated.map {
+                        Triple(
+                            it,
+                            listenerAverages.getValue(it.id.value).averageHalfStars,
+                            it.title.lowercase(),
+                        )
+                    }
                 val sorted =
                     if (isAsc) {
-                        rated.sortedBy { listenerAverages.getValue(it.id.value).averageHalfStars }
+                        keyed.sortedWith(compareBy({ it.second }, { it.third }))
                     } else {
-                        rated.sortedByDescending { listenerAverages.getValue(it.id.value).averageHalfStars }
+                        keyed.sortedWith(
+                            compareByDescending<Triple<BookListItem, Double, String>> { it.second }.thenBy { it.third },
+                        )
                     }
-                sorted + unrated
+                sorted.map { it.first } + unrated
             }
 
             SortCategory.SERIES -> {
