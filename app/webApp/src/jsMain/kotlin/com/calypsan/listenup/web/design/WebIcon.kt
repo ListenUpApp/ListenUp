@@ -78,6 +78,15 @@ enum class WebIcon(
     Mail("M3 6h18v12H3z M3 6.5l9 6.5 9-6.5"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
     Minus("M5 12h14"),
+
+    // Not mirrored — the design project's shell has no overflow entry, because the sidebar never
+    // runs out of room. Three filled dots: the phone tab bar's "More".
+    More(
+        "M5 12m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0 " +
+            "M12 12m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0 " +
+            "M19 12m-1.7 0a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0",
+        solid = true,
+    ),
     PanelLeft("M4 5h16v14H4z M9.5 5v14"),
     Pause("M8 5h3.2v14H8z M12.8 5H16v14h-3.2z", solid = true),
     Pencil("M4 20h4L20 8l-4-4L4 16z M14.5 5.5l4 4"),
