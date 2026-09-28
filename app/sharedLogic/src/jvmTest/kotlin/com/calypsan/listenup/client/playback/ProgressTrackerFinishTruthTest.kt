@@ -59,7 +59,7 @@ class ProgressTrackerFinishTruthTest :
             runTest {
                 val positions = FakePlaybackPositionRepository()
                 val tracker = buildProgressTracker(scope = this, positionRepository = positions)
-                tracker.onPlaybackStarted(BOOK, positionMs = 90_000L, speed = 1.0f)
+                tracker.onPlaybackStarted(BOOK, positionMs = 90_000L, speed = 1.0f, durationMs = DURATION)
 
                 tracker.onPlaybackPaused(BOOK, positionMs = 99_500L, speed = 1.0f, durationMs = DURATION)
                 advanceUntilIdle()
@@ -72,7 +72,7 @@ class ProgressTrackerFinishTruthTest :
             runTest {
                 val positions = FakePlaybackPositionRepository()
                 val tracker = buildProgressTracker(scope = this, positionRepository = positions)
-                tracker.onPlaybackStarted(BOOK, positionMs = 10_000L, speed = 1.0f)
+                tracker.onPlaybackStarted(BOOK, positionMs = 10_000L, speed = 1.0f, durationMs = DURATION)
 
                 tracker.onPlaybackPaused(BOOK, positionMs = 50_000L, speed = 1.0f, durationMs = DURATION)
                 advanceUntilIdle()
@@ -95,6 +95,38 @@ class ProgressTrackerFinishTruthTest :
                 val stored = positions.stored(BOOK)
                 stored.isFinished shouldBe false
                 stored.positionMs shouldBe 0L
+            }
+        }
+
+        test("playing a finished book again outside the end credits starts a re-listen from where it plays") {
+            runTest {
+                // A chapter tap, a scrub or a skip back on a book that has just finished plays on
+                // without a prepare — and every platform reports that start here.
+                val positions = FakePlaybackPositionRepository()
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+                tracker.onBookFinished(BOOK, positionMs = DURATION, durationMs = DURATION)
+                advanceUntilIdle()
+
+                tracker.onPlaybackStarted(BOOK, positionMs = 20_000L, speed = 1.0f, durationMs = DURATION)
+                advanceUntilIdle()
+
+                val stored = positions.stored(BOOK)
+                stored.isFinished shouldBe false
+                stored.positionMs shouldBe 20_000L
+            }
+        }
+
+        test("playing a finished book on inside the end credits leaves it finished") {
+            runTest {
+                val positions = FakePlaybackPositionRepository()
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+                tracker.onBookFinished(BOOK, positionMs = DURATION, durationMs = DURATION)
+                advanceUntilIdle()
+
+                tracker.onPlaybackStarted(BOOK, positionMs = 99_500L, speed = 1.0f, durationMs = DURATION)
+                advanceUntilIdle()
+
+                positions.stored(BOOK).isFinished shouldBe true
             }
         }
     })

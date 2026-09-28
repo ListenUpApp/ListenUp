@@ -57,7 +57,7 @@ class PlaybackProgressReporterTest :
             runTest {
                 withReporterFixture(this, recorderEnabled = true) { reporter, db, enqueued, _, setNow ->
                     setNow(1_000L)
-                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
                     db.tentativeSpanDao().get().shouldNotBeNull()
 
@@ -82,7 +82,7 @@ class PlaybackProgressReporterTest :
             runTest {
                 withReporterFixture(this, recorderEnabled = false) { reporter, db, enqueued, _, setNow ->
                     setNow(1_000L)
-                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     setNow(61_000L)
                     reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
@@ -98,7 +98,7 @@ class PlaybackProgressReporterTest :
             runTest {
                 withReporterFixture(this, recorderEnabled = true) { reporter, db, _, _, setNow ->
                     setNow(1_000L)
-                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
 
                     setNow(120_000L)
@@ -117,7 +117,7 @@ class PlaybackProgressReporterTest :
             runTest {
                 withReporterFixture(this, recorderEnabled = true) { reporter, db, _, _, setNow ->
                     setNow(1_000L)
-                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
 
                     setNow(31_000L)
@@ -134,7 +134,7 @@ class PlaybackProgressReporterTest :
         test("playback signals are forwarded to the ProgressTracker") {
             runTest {
                 withReporterFixture(this, recorderEnabled = true) { reporter, _, _, tracker, _ ->
-                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 1_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 2_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
 

@@ -109,7 +109,9 @@ protocol PlaybackPreparing: Sendable {
 /// hop to the generic executor and lose wakeups against a main-actor `signal()`).
 @MainActor
 protocol PlaybackProgressReporting {
-    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float)
+    /// A finished book that starts again outside the end credits of `durationMs` begins a re-listen
+    /// (the shared tracker decides).
+    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64)
     /// A pause in the end credits of `durationMs` finishes the book (the shared tracker decides).
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64)
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float)

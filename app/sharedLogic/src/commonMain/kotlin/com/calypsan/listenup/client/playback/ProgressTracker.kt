@@ -73,12 +73,14 @@ open class ProgressTracker(
     private val consecutivePeriodicFailures = atomic(0)
 
     /**
-     * Called when playback starts/resumes.
+     * Called when playback starts/resumes. When a finished book plays again outside the end credits
+     * of [durationMs], a re-listen has begun (see [startRelistenIfPlayingAgain]).
      */
     open fun onPlaybackStarted(
         bookId: BookId,
         positionMs: Long,
         speed: Float,
+        durationMs: Long,
     ) {
         val now = nowMillis()
         sessionState.value =
@@ -95,6 +97,7 @@ open class ProgressTracker(
         // Uses PlaybackStarted (not PeriodicUpdate) so the handler can insert a new row
         // when none exists (never-played book first-play).
         scope.launch {
+            startRelistenIfPlayingAgain(bookId, positionMs, durationMs)
             when (
                 val r =
                     positionRepository.savePlaybackState(
@@ -158,6 +161,25 @@ open class ProgressTracker(
             // Save position immediately
             savePosition(bookId, positionMs, speed)
         }
+    }
+
+    /**
+     * A finished book that plays again outside its end credits is a re-listen, however playback got
+     * there. Opening the book reaches [startRelisten] through the preparer, but a chapter tap, a scrub
+     * or a skip back on a book that has just finished plays on without a prepare — and without this
+     * the flag would survive the whole re-listen, so the next open would start it over at 0.
+     *
+     * Playing on inside the credits is not a re-listen, and an unknown duration cannot say where the
+     * credits are, so neither changes anything.
+     */
+    private suspend fun startRelistenIfPlayingAgain(
+        bookId: BookId,
+        positionMs: Long,
+        durationMs: Long,
+    ) {
+        if (durationMs <= 0L || FinishedPolicy.isFinished(positionMs, durationMs, flag = false)) return
+        val stored = (positionRepository.get(bookId) as? AppResult.Success)?.data ?: return
+        if (stored.isFinished) startRelisten(bookId)
     }
 
     private fun logPausedTransition(

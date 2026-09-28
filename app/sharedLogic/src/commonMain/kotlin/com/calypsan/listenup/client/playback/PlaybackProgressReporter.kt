@@ -68,13 +68,18 @@ class PlaybackProgressReporter(
     private val localPreferences: LocalPreferences,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
-    /** Playback started or resumed: save the position and open a listening span. */
+    /**
+     * Playback started or resumed: save the position (starting a re-listen when a finished book plays
+     * again outside the end credits of [durationMs] — see [ProgressTracker.onPlaybackStarted]) and
+     * open a listening span.
+     */
     fun onPlaybackStarted(
         bookId: BookId,
         positionMs: Long,
         speed: Float,
+        durationMs: Long,
     ) {
-        progressTracker.onPlaybackStarted(bookId, positionMs, speed)
+        progressTracker.onPlaybackStarted(bookId, positionMs, speed, durationMs)
         record { it.onPlay(bookId.value, positionMs, speed) }
     }
 

@@ -378,6 +378,36 @@ class PlaybackPreparerTest :
             }
         }
 
+        test("a re-listen started from the chapter list, without reopening the book, resumes where it stopped") {
+            runTest {
+                // The book plays to its end and is marked finished while still loaded. The listener
+                // taps chapter 1: the player seeks and plays on, with no prepare — so the preparer's
+                // re-listen never ran. 70 s in they pause, the process dies, and the next open must
+                // resume at 70 s. Before the fix the flag survived and the open restarted at 0.
+                val durationMs = 2 * pos600
+                val positions =
+                    FakePlaybackPositionRepository(
+                        initialPositions = mapOf(bookId.value to localPosition(durationMs, baseTime, isFinished = true)),
+                        nowMs = { laterTime },
+                    )
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = tracker,
+                        autoRewindEnabled = false,
+                    )
+
+                tracker.onPlaybackStarted(bookId, positionMs = 0L, speed = 1.0f, durationMs = durationMs)
+                advanceUntilIdle()
+                tracker.onPlaybackPaused(bookId, positionMs = 70_102L, speed = 1.0f, durationMs = durationMs)
+                advanceUntilIdle()
+
+                preparer.prepare(bookId).shouldNotBeNull().resumePositionMs shouldBe 70_102L
+            }
+        }
+
         // ── auto-rewind on resume ──────────────────────────────────────────────────────
 
         test("returning after a long gap rewinds the start position") {

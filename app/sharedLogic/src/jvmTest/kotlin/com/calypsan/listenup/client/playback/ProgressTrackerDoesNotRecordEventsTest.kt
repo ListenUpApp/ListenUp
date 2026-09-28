@@ -45,7 +45,7 @@ class ProgressTrackerDoesNotRecordEventsTest :
                     val bookId = BookId("book-1")
                     // Position-driven chunk threshold: 20s of audio elapses between start and pause,
                     // comfortably over the pre-removal 10s MIN_LISTENING_CHUNK_MS gate.
-                    tracker.onPlaybackStarted(bookId = bookId, positionMs = 0L, speed = 1.0f)
+                    tracker.onPlaybackStarted(bookId = bookId, positionMs = 0L, speed = 1.0f, durationMs = 0L)
                     tracker.onPlaybackPaused(bookId = bookId, positionMs = 20_000L, speed = 1.0f, durationMs = 3_600_000L)
 
                     advanceUntilIdle()

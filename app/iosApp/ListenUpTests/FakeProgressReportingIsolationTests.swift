@@ -28,13 +28,13 @@ struct FakeProgressReportingIsolationTests {
         // Hand the main actor to the child so its wait registers, then signal from this same
         // domain. A lost wakeup here would hang `waiting.value` — the exact PlayerSwitchPath flake.
         await Task.yield()
-        progress.onPlaybackStarted(bookId: "book1", positionMs: 0, speed: 1.0)
+        progress.onPlaybackStarted(bookId: "book1", positionMs: 0, speed: 1.0, durationMs: 0)
         await waiting.value
     }
 
     @Test func waitForStartedReturnsImmediatelyWhenAlreadyStarted() async {
         let progress = FakeProgressReporting()
-        progress.onPlaybackStarted(bookId: "book1", positionMs: 0, speed: 1.0)
+        progress.onPlaybackStarted(bookId: "book1", positionMs: 0, speed: 1.0, durationMs: 0)
         // Already recorded, no signal to come — the fast path must return without blocking.
         await progress.waitForStarted(bookId: "book1")
     }

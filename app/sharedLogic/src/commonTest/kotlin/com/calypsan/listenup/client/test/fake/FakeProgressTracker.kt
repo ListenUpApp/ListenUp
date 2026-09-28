@@ -44,6 +44,7 @@ class FakeProgressTracker(
         bookId: BookId,
         positionMs: Long,
         speed: Float,
+        durationMs: Long,
     ) {
         _onPlaybackStartedCalls += Triple(bookId, positionMs, speed)
     }

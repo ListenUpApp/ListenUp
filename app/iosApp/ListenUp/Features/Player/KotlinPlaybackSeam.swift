@@ -60,8 +60,10 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
 @MainActor
 struct KotlinProgressReporting: PlaybackProgressReporting {
     let reporter: PlaybackProgressReporter
-    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
-        reporter.onPlaybackStarted(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
+    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64) {
+        reporter.onPlaybackStarted(
+            bookId: BookId(value: bookId), positionMs: positionMs, speed: speed, durationMs: durationMs
+        )
     }
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64) {
         reporter.onPlaybackPaused(
