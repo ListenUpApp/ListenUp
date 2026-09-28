@@ -255,9 +255,11 @@ private fun SessionControls(
 
     // Only when the book actually has marks. A control that opens an empty list is a promise
     // the book cannot keep, and plenty of audiobooks ship without chapters at all.
+    // ⛔ Its own class, not `.tport-skip`: the skips step aside on a phone, and this used to wear
+    // their class and vanish with them — on the one screen where finding your chapter matters most.
     if (hasChapters) {
         Button(attrs = {
-            classes("tport-skip")
+            classes("tport-ch")
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_ARIA_LABEL, "Chapters")
             attr(ATTR_TITLE, "Chapters")
@@ -267,10 +269,11 @@ private fun SessionControls(
         }
     }
 
-    // Beside the sleep timer rather than with the skips, and kept on a narrow screen for a
-    // related reason: a quiet book on a phone speaker is exactly where someone reaches for
-    // this. The boost in force is on the control because it is not otherwise visible —
-    // "why is this book so loud" has to have an answer you can see.
+    // Beside the sleep timer rather than with the skips. On a phone the bar has room for a thumb's
+    // worth of controls, so this one — with speed and sleep — lives in the full player there, one
+    // tap away, and a boost in force still shows on that panel's chip. The boost in force is on
+    // the control because it is not otherwise visible — "why is this book so loud" has to have an
+    // answer you can see.
     val boosted = !isSameVolumeBoost(volumeBoostDb, VolumeBoostLimits.MIN_DB)
     val boostLabel = if (boosted) "Volume boost, ${formatBoost(volumeBoostDb)}" else "Volume boost"
     Button(attrs = {

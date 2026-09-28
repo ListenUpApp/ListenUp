@@ -68,14 +68,16 @@
 .tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:24px -28px -24px; padding:14px 22px; min-height:76px; background:var(--surface); border-top:1px solid var(--line); box-shadow:0 -10px 30px rgba(20,12,6,.06); }
 .tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .tport-b:hover { background:var(--coral-press); } }
-.tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:none; }
+/* Shrinks before anything else does: on a tablet the rail leaves ~690px, and a title that refused
+   to give way pushed the sleep timer out past the edge of the bar. */
+.tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:0 1 auto; min-width:0; }
 .tport-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
 .tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
 /* Skip controls flank the play button. Quieter than it on purpose — the same size would make the
    bar read as three equal actions, when only one of them is the one you reach for. `position:
    relative` anchors the interval numeral over the arrow. */
-.tport-skip, .tport-sleep, .tport-boost, .tport-expand { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .tport-skip:hover, .tport-sleep:hover, .tport-boost:hover, .tport-expand:hover { background:var(--surface-2); color:var(--ink); } }
+.tport-skip, .tport-ch, .tport-sleep, .tport-boost, .tport-expand { position:relative; width:36px; height:36px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center; }
+@media (hover: hover) { .tport-skip:hover, .tport-ch:hover, .tport-sleep:hover, .tport-boost:hover, .tport-expand:hover { background:var(--surface-2); color:var(--ink); } }
 /* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a
    two-digit interval still has to fit. */
 .tport-skip-n { position:absolute; top:50%; left:50%; transform:translate(-50%,-45%); font-size:9px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
@@ -88,18 +90,6 @@
 .tport-note-t { flex:1; min-width:0; }
 .tport-note-x { width:28px; height:28px; flex:none; border:none; border-radius:8px; background:transparent; color:inherit; opacity:.7; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .tport-note-x:hover { opacity:1; background:var(--surface-2); } }
-
-@media (max-width: 759px) {
-  .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
-  .tport-t { display:none; }
-  /* Skips go; the sleep timer and the boost stay. A narrow screen is a phone in the dark, which
-     is precisely where someone reaches for a sleep timer — and a phone speaker is where a quiet
-     book most needs turning up. Hiding either would drop the control on the device that needs it
-     most. Note this rule names .tport-skip ONLY: give a new control that class and it vanishes
-     under 760px. */
-  .tport-skip { display:none; }
-  .tport-note { margin:16px -14px 0; padding:10px 12px; }
-}
 
 /* The rail form. ONE mechanism, two triggers: the manual .clpsd class (>=1280 preference)
    and the narrow-viewport media query below, which forces it. Keep the two blocks identical. */
@@ -135,6 +125,7 @@
   /* Toasts are fixed to the viewport and stack from its foot — which on a phone is where the tab
      bar and the player live. They rise above both rather than printing over the controls. */
   :root:has(.shell) .toastwrap { bottom:calc(var(--tab-h) + env(safe-area-inset-bottom) + 12px); }
+  :root:has(.shell-main > .tport) .toastwrap { bottom:calc(var(--tab-h) + var(--tport-h) + env(safe-area-inset-bottom) + 12px); }
 
   /* The tab bar. Fixed to the viewport, and the shell's bottom padding is what keeps the content
      region clear of it — nothing scrolls underneath. Declared after the rail rules and matching
@@ -181,9 +172,54 @@
   .sidebar .sb-foot .nav-i .lb { display:block; }
   .sidebar .sb-foot .nav-badge { position:static; }
 
-  /* The content region: a phone's gutter. At 320px every pixel of the desktop 28 is taken from the content. */
-  .shell-main { padding:14px; }
+  /* The content region: a phone's gutter, and room at the foot for whatever is docked over it. The
+     same space is the scroll padding, so focus moving to a control under the player scrolls it
+     clear instead of leaving it hidden. `:has(> .tport)` is repeated because the desktop rule
+     that zeroes the bottom padding has that specificity. */
+  .shell-main { --dock:0px; }
+  .shell-main:has(> .tport) { --dock:var(--tport-h); }
+  .shell-main:has(> .tport-note) { --dock:var(--note-h); }
+  .shell-main:has(> .tport):has(> .tport-note) { --dock:calc(var(--tport-h) + var(--note-h)); }
+  .shell-main, .shell-main:has(> .tport) { padding:14px 14px calc(14px + var(--dock)); scroll-padding-bottom:calc(8px + var(--dock)); }
 
+  /* The player bar. Pinned directly above the tab bar, always in reach, in two rows: the scrub
+     alone across the full width, then play, what is playing and where, chapters, and the way into
+     the full player. Speed, boost, sleep and the skips live in that full player on a phone — one
+     tap away, rather than squeezed to a size a thumb cannot hit. */
+  .tport, .shell-main > .tport {
+    position:fixed; left:0; right:0; bottom:calc(var(--tab-h) + env(safe-area-inset-bottom)); z-index:30;
+    margin:0; height:var(--tport-h); min-height:0;
+    padding:6px calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left));
+    display:grid; column-gap:8px; row-gap:0; align-items:center;
+    grid-template-columns:44px auto minmax(0,1fr) auto auto auto;
+    grid-template-rows:28px 22px 22px;
+    grid-template-areas:
+      "scrub scrub scrub scrub scrub scrub"
+      "play  title title sleep ch    expand"
+      "play  now   end   sleep ch    expand";
+    box-shadow:0 -6px 20px rgba(20,12,6,.06);
+  }
+  .tport-scrub { grid-area:scrub; width:100%; min-width:0; height:28px; }
+  .tport-b { grid-area:play; width:44px; height:44px; }
+  .tport-t { grid-area:title; align-self:end; max-width:none; font-size:13px; }
+  /* Playhead renders the two times either side of the scrub; here they read as one line. */
+  .tport-time:has(+ .tport-scrub) { grid-area:now; align-self:start; }
+  .tport-scrub + .tport-time { grid-area:end; align-self:start; }
+  .tport-scrub + .tport-time::before { content:"/\00a0" / ""; }
+  .tport-ch { grid-area:ch; width:44px; height:44px; }
+  .tport-expand { grid-area:expand; width:44px; height:44px; }
+  .tport-skip, .tport-speed, .tport-boost, .tport-sleep { display:none; }
+  /* Except an ARMED sleep timer. A timer nobody can see is one the listener forgets setting, and
+     finding out by having the book stop is the one way that feature feels broken — so while one
+     is running, its control stays on the bar where the eye already is. */
+  .tport-sleep.on { display:inline-flex; grid-area:sleep; width:44px; height:44px; }
+
+  /* A failure notice sits on top of whatever is docked, full width, above the player if there is one. */
+  .tport-note, .shell-main > .tport-note {
+    position:fixed; left:0; right:0; z-index:31; margin:0; min-height:var(--note-h);
+    bottom:calc(var(--tab-h) + env(safe-area-inset-bottom)); padding:8px 12px;
+  }
+  .shell-main:has(> .tport) > .tport-note { bottom:calc(var(--tab-h) + var(--tport-h) + env(safe-area-inset-bottom)); }
 }
 
 /* ---- book detail (Workbench layout, Paper voice) ---- */

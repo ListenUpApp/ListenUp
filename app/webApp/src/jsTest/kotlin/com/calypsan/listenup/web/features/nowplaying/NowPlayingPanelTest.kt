@@ -135,8 +135,9 @@ class NowPlayingPanelTest :
                 "${formatElapsed(0)} of ${formatElapsed(BOOK_MS)}"
         }
 
-        // `.tport-t` is display:none under 760px. A gesture hung off the title would leave the
-        // expanded player unreachable on exactly the screen whose bar shows least.
+        // The title and the skips are the parts of the bar a layout is most tempted to drop (the
+        // skips do step aside on a phone). A gesture hung off either would leave the expanded
+        // player one media query away from unreachable.
         test("the handle is not the title, which a narrow screen hides") {
             val host = openPanel()
 

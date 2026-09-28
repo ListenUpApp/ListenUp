@@ -268,6 +268,26 @@ dialog.dlg .dlg-close { align-self: flex-start; }
      no information the rest of the panel does not already state in words. */
   .np-body { flex-direction:column; align-items:stretch; gap:14px; }
 }
+/* On a phone the full player is the whole screen, not a card floating in it. It is where speed,
+   boost, sleep and the skips live at this width (the bar has room for play and little else), so
+   it gets the room and the thumb-sized targets that job needs. The body scrolls, so a short
+   landscape phone still reaches Close. */
+@media (max-width: 759px) {
+  dialog.dlg.np-dlg {
+    width:100%; max-width:none; height:100%; max-height:none; margin:0; inset:0; border-radius:0;
+  }
+  dialog.dlg.np-dlg .dlg-body {
+    height:100%; overflow-y:auto; gap:12px;
+    padding:calc(18px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+      calc(18px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  }
+  .np-body { align-items:center; }
+  .np-meta { align-self:stretch; }
+  .np-transport { gap:6px; }
+  .np-b, .np-chstep { width:44px; height:44px; }
+  .np-actions { gap:8px; }
+  .np-chip, .np-goto { min-height:44px; padding:0 16px; font-size:13.5px; }
+}
 .boost-read {
   margin: 18px 0 10px; font-size: 42px; font-weight: 800; letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
