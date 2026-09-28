@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailDefaults
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.ShortNavigationBar
@@ -28,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.ShellNavType
@@ -49,6 +52,10 @@ private val BrandTile = 52.dp
  * rail look, no collapse/expand). The rail carries a brand mark header, the primary destinations
  * with a coral selected-indicator, and a Logout action pinned to the bottom. Secondary actions
  * (settings, admin, profile) live in the top-bar account menu, not here.
+ *
+ * On these widths the docked mini-player spans the full window bottom, under the rail, so the
+ * rail's content ends above it ([LocalNowPlayingInsets]) — the same clearance the content pane
+ * takes — and the pinned Logout is never hidden behind the bar.
  *
  * @param navType which surface to render for the current window size
  * @param currentDestination the selected destination (null guarded to Home)
@@ -104,6 +111,7 @@ fun AppNavigationSuite(
                 modifier = modifier.width(RailWidth),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 header = { RailBrandMark() },
+                windowInsets = NavigationRailDefaults.windowInsets.union(LocalNowPlayingInsets.current),
             ) {
                 Spacer(Modifier.height(8.dp))
                 ShellDestination.entries.forEach { destination ->
