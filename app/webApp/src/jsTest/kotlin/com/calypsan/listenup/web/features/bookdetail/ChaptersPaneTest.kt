@@ -41,6 +41,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
@@ -183,6 +186,7 @@ class ChaptersPaneTest :
             try {
                 host.querySelectorAll(".tbl tbody tr").length shouldBe CHAPTER_COUNT
                 host.querySelectorAll(".tbl .cbx").length shouldBeGreaterThan CHAPTER_COUNT
+                host.querySelectorAll(".tbl input[type=checkbox]").length shouldBe CHAPTER_COUNT + 1
                 host.querySelectorAll(".bulk").length shouldBe 0
             } finally {
                 router.dispose()
@@ -195,7 +199,7 @@ class ChaptersPaneTest :
             try {
                 host.querySelectorAll(".tbl tbody tr.sel").length shouldBe 2
                 (host.querySelector(".bulk") as HTMLElement).textContent.orEmpty() shouldContain "2 selected"
-                host.querySelectorAll(".chmap i.on").length shouldBe 2
+                host.querySelectorAll(".chmap button.on").length shouldBe 2
             } finally {
                 router.dispose()
             }
@@ -206,9 +210,9 @@ class ChaptersPaneTest :
             val depth = window.history.length
 
             try {
-                // Row 10 is index 9; its first cell is the checkbox.
+                // Row 10 is index 9; its first cell holds the checkbox.
                 val row = host.querySelectorAll(".tbl tbody tr").item(9) as HTMLElement
-                (row.querySelector("td") as HTMLElement).click()
+                (row.querySelector("td input[type=checkbox]") as HTMLElement).click()
 
                 window.location.search shouldContain "sel=9,10"
                 window.history.length shouldBe depth
@@ -235,12 +239,12 @@ class ChaptersPaneTest :
             val (host, router) = mountAt("/book/42?tab=chapters")
 
             try {
-                (host.querySelector(".tbl thead th") as HTMLElement).click()
+                (host.querySelector(".tbl thead input[type=checkbox]") as HTMLElement).click()
                 window.location.search shouldContain "sel="
                 awaitFrame()
                 host.querySelectorAll(".tbl tbody tr.sel").length shouldBe CHAPTER_COUNT
 
-                (host.querySelector(".tbl thead th") as HTMLElement).click()
+                (host.querySelector(".tbl thead input[type=checkbox]") as HTMLElement).click()
                 window.location.search shouldNotContain "sel"
             } finally {
                 router.dispose()
@@ -275,7 +279,44 @@ class ChaptersPaneTest :
             val (host, router) = mountAt("/book/42?tab=chapters")
 
             try {
-                host.querySelectorAll(".chmap i").length shouldBe CHAPTER_COUNT
+                host.querySelectorAll(".chmap button").length shouldBe CHAPTER_COUNT
+            } finally {
+                router.dispose()
+            }
+        }
+        test("the chapter map is one tab stop of labelled toggle buttons") {
+            // ⛔ Its segments were `<i onClick>`: the map could only be used with a mouse.
+            val (host, router) = mountAt("/book/42?tab=chapters&sel=2")
+
+            try {
+                val map = host.querySelector(".chmap") as HTMLElement
+                map.getAttribute("role") shouldBe "group"
+                map.getAttribute("aria-label") shouldBe "Chapter map"
+                val segments = map.querySelectorAll("button").asList().filterIsInstance<HTMLElement>()
+                segments[1].getAttribute("aria-pressed") shouldBe "true"
+                segments[0].getAttribute("aria-pressed") shouldBe "false"
+                segments[0].getAttribute("aria-label").orEmpty() shouldContain "Chapter 1"
+                // Thirty-three tab stops ahead of the table would bury it; one stop, arrows inside.
+                segments.count { it.getAttribute("tabindex") == "0" } shouldBe 1
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("arrow keys walk the chapter map, and pressing a segment toggles it") {
+            val (host, router) = mountAt("/book/42?tab=chapters")
+
+            try {
+                val segments = host.querySelectorAll(".chmap button").asList().filterIsInstance<HTMLElement>()
+                segments[0].focus()
+                segments[0].dispatchEvent(
+                    KeyboardEvent("keydown", KeyboardEventInit(key = "ArrowRight", bubbles = true, cancelable = true)),
+                )
+                awaitFrame()
+                document.activeElement shouldBe segments[1]
+
+                segments[1].click()
+                window.location.search shouldContain "sel=2"
             } finally {
                 router.dispose()
             }

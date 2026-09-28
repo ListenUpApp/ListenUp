@@ -286,6 +286,24 @@ class ChapterEditorPageTest :
             selected shouldContainExactly listOf("c1")
         }
 
+        test("a row's title is the keyboard's way to select it") {
+            // ⛔ Selection rode a click on the row's body alone, so a keyboard reader could press
+            // every control in a row except the one that chooses it.
+            val selected = mutableListOf<String?>()
+            val host = page(editingChapters(selectedChapterId = "c2"), onSelect = { selected += it })
+
+            val titles = rows(host).map { it.querySelector(".chr-t") as HTMLElement }
+            titles.map { it.tagName } shouldContainExactly listOf("BUTTON", "BUTTON", "BUTTON")
+            titles.map { it.getAttribute("type") } shouldContainExactly listOf("button", "button", "button")
+            titles.map { it.getAttribute("aria-current") } shouldContainExactly listOf("false", "true", "false")
+
+            titles[2].click()
+            awaitFrame()
+
+            // Once: the row's own click handler must not report it a second time.
+            selected shouldContainExactly listOf("c3")
+        }
+
         test("nudging moves a boundary a second in the direction pressed") {
             val nudges = mutableListOf<Pair<String, Long>>()
             val host = page(editingChapters(), onNudge = { id, delta -> nudges += id to delta })

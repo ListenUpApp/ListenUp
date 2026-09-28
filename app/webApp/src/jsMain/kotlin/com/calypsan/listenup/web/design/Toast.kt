@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -104,10 +105,12 @@ fun ToastHost(queue: ToastQueue) {
                     if (message.tone == ToastTone.Failure) classes("t-bad")
                 }) {}
                 Span { Text(message.text) }
-                Span(attrs = {
+                // A real button: this was a `<span role="button">` — announced as a button and then
+                // impossible to press from the keyboard, with no tab stop and no key handler.
+                Button(attrs = {
                     classes("t-x")
-                    attr("role", "button")
-                    attr("aria-label", "Dismiss")
+                    attr("type", "button")
+                    attr("aria-label", "Dismiss notification")
                     onClick { queue.dismiss(message.id) }
                 }) {
                     Icon(WebIcon.X, size = DISMISS_ICON_SIZE)

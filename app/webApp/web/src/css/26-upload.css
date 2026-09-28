@@ -74,4 +74,5 @@
 
 /* A refused filing, reported under the header rather than inside the picker — the picker closes on
    a successful pick, so a failure shown only there would vanish with it. Click to dismiss. */
-.luw .bd-pick-err { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--coral-soft); color: var(--coral-deep); font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.luw .bd-pick-err { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--coral-soft); color: var(--coral-deep); font-size: 0.82rem; font-weight: 600; }
+.luw .bd-pick-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; }

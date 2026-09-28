@@ -5,6 +5,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.asList
 
 private data class Chapter(
     val number: String,
@@ -93,6 +95,7 @@ class DataTableTest :
 
             host.querySelectorAll("thead th").length shouldBe COLUMNS.size + 1
             host.querySelectorAll("tbody tr td .cbx").length shouldBe CHAPTERS.size
+            host.querySelectorAll("tbody tr td input[type=checkbox]").length shouldBe CHAPTERS.size
         }
 
         test("a partial selection renders the indeterminate mark, not a tick") {
@@ -110,6 +113,8 @@ class DataTableTest :
             headerBox.className.contains("ind") shouldBe true
             // The dash is a CSS pseudo-element, so a tick here would double up.
             headerBox.querySelectorAll("svg").length shouldBe 0
+            // …and the native control says "mixed" to a screen reader, which the dash alone cannot.
+            (host.querySelector("thead input[type=checkbox]") as HTMLInputElement).indeterminate shouldBe true
         }
 
         test("row actions render one button per action") {
@@ -135,5 +140,90 @@ class DataTableTest :
             (host.querySelectorAll("tbody tr").item(2) as HTMLElement).click()
 
             clicked shouldBe CHAPTERS[2]
+        }
+        test("selection checkboxes are native, labelled inputs") {
+            // ⛔ The checkbox was a decorative `<span>` and the click lived on the cell: chapter
+            // selection could not be done from the keyboard at all.
+            val host =
+                mounts.mount {
+                    DataTable(
+                        columns = COLUMNS,
+                        rows = CHAPTERS,
+                        selectable = true,
+                        isSelected = { it.number == "2" },
+                        selectionLabel = SelectionLabel(all = "Select all chapters") { "Select chapter ${it.number}" },
+                    )
+                }
+
+            val header = host.querySelector("thead input[type=checkbox]") as HTMLInputElement
+            header.getAttribute("aria-label") shouldBe "Select all chapters"
+            val rows = host.querySelectorAll("tbody input[type=checkbox]").asList().filterIsInstance<HTMLInputElement>()
+            rows.map { it.getAttribute("aria-label") } shouldBe
+                listOf("Select chapter 1", "Select chapter 2", "Select chapter 9")
+            rows.map { it.checked } shouldBe listOf(false, true, false)
+        }
+
+        test("toggling a row's checkbox reports that row once, and does not also count as a row click") {
+            val toggled = mutableListOf<String>()
+            var rowClicks = 0
+            val host =
+                mounts.mount {
+                    DataTable(
+                        columns = COLUMNS,
+                        rows = CHAPTERS,
+                        selectable = true,
+                        onToggleRow = { toggled += it.number },
+                        onRowClick = { rowClicks++ },
+                    )
+                }
+
+            (host.querySelectorAll("tbody input[type=checkbox]").item(1) as HTMLInputElement).click()
+
+            toggled shouldBe listOf("2")
+            rowClicks shouldBe 0
+        }
+
+        test("the select-all checkbox reports once") {
+            var all = 0
+            val host =
+                mounts.mount {
+                    DataTable(columns = COLUMNS, rows = CHAPTERS, selectable = true, onToggleAll = { all++ })
+                }
+
+            (host.querySelector("thead input[type=checkbox]") as HTMLInputElement).click()
+
+            all shouldBe 1
+        }
+
+        test("a sortable header is a button, and the sorted one says which way") {
+            var sorted: String? = null
+            val host =
+                mounts.mount {
+                    DataTable(columns = COLUMNS, rows = CHAPTERS, sortKey = "s", onSort = { sorted = it })
+                }
+
+            val headers = host.querySelectorAll("thead th").asList().filterIsInstance<HTMLElement>()
+            headers.map { it.getAttribute("aria-sort") } shouldBe listOf(null, null, "ascending")
+            headers.map { it.querySelector("button") != null } shouldBe listOf(true, true, true)
+
+            (headers[1].querySelector("button") as HTMLElement).click()
+            sorted shouldBe "t"
+        }
+
+        test("a descending sort is announced as descending") {
+            val host =
+                mounts.mount {
+                    DataTable(columns = COLUMNS, rows = CHAPTERS, sortKey = "s", sortDescending = true, onSort = {})
+                }
+
+            (host.querySelectorAll("thead th").item(2) as HTMLElement).getAttribute("aria-sort") shouldBe "descending"
+        }
+
+        test("a table nobody can sort has no header buttons") {
+            // A button that does nothing is worse than plain text: it is a tab stop that lies.
+            val host = mounts.mount { DataTable(columns = COLUMNS, rows = CHAPTERS) }
+
+            host.querySelectorAll("thead button").length shouldBe 0
+            host.querySelectorAll("thead th[aria-sort]").length shouldBe 0
         }
     })

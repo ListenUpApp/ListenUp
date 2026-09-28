@@ -907,7 +907,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .chr.on { border-color: var(--coral); background: var(--coral-soft); }
 .luw .chr-n { flex: none; width: 2.5rem; font-size: 0.78rem; font-weight: 700; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; }
 .luw .chr-main { flex: 1; min-width: 0; }
-.luw .chr-t { font-size: 0.92rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .chr-t { display: block; max-width: 100%; cursor: pointer; font-size: 0.92rem; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Tabular numerals so a column of start times reads as a column rather than a ragged edge. */
 .luw .chr-at { display: flex; align-items: center; gap: 8px; margin-top: 1px; font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 /* The start time is its own control (type it exactly), so it reads as text until you reach for it. */

@@ -152,4 +152,21 @@ class ToastTest :
             text shouldContain "42s"
             text shouldBe "Too many attempts. Try again in 42s."
         }
+        test("the dismiss control is a real, named button") {
+            // ⛔ It was a `<span role=button>` with no tab stop and no key handler — announced as a
+            // button, and then impossible to press from the keyboard.
+            val queue = ToastQueue()
+            val host = mount { ToastHost(queue) }
+            queue.show("Saved.", ToastTone.Notice)
+            awaitFrame()
+
+            val dismiss = host.querySelector(".toast .t-x") as HTMLElement
+            dismiss.tagName shouldBe "BUTTON"
+            dismiss.getAttribute("type") shouldBe "button"
+            dismiss.getAttribute("aria-label") shouldBe "Dismiss notification"
+
+            dismiss.click()
+            awaitFrame()
+            host.querySelectorAll(".toast").length shouldBe 0
+        }
     })
