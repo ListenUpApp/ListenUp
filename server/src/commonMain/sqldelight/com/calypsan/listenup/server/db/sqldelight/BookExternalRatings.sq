@@ -1,0 +1,111 @@
+-- book_external_ratings: syncable, soft-deletable, revision-tracked. One outside catalog's rating
+-- of one book. Column set matches V74__book_external_ratings.sql exactly.
+-- FK declarations (REFERENCES books) and the `enabled` DEFAULT are omitted here: SQLDelight cannot
+-- resolve cross-table references for tables not yet defined in this schema's .sq files, and the
+-- generated insert binding supplies every column explicitly regardless of a DEFAULT. Both
+-- constraints are present in the migration DDL and enforced by SQLite at runtime.
+CREATE TABLE book_external_ratings (
+    id           TEXT    NOT NULL,
+    book_id      TEXT    NOT NULL,
+    source       TEXT    NOT NULL,
+    average      REAL    NOT NULL,
+    count        INTEGER NOT NULL,
+    enabled      INTEGER NOT NULL,
+    region       TEXT,
+    fetched_at   INTEGER NOT NULL,
+    last_error   TEXT,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    PRIMARY KEY (book_id, source)
+);
+
+CREATE UNIQUE INDEX idx_book_external_ratings_id ON book_external_ratings(id);
+CREATE INDEX idx_book_external_ratings_source ON book_external_ratings(source) WHERE deleted_at IS NULL;
+CREATE INDEX idx_book_external_ratings_fetched ON book_external_ratings(fetched_at);
+CREATE INDEX idx_book_external_ratings_revision ON book_external_ratings(revision);
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM book_external_ratings WHERE id = :id);
+
+-- `AND deleted_at IS NULL` (matching book_ratings, unlike book_moods) so a repeat tombstone of an
+-- already-deleted row matches zero rows: the base's softDelete then reports NotFound instead of
+-- re-stamping the tombstone, bumping a revision, and re-publishing a Deleted event for nothing.
+softDeleteById:
+UPDATE book_external_ratings
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id AND deleted_at IS NULL;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM book_external_ratings WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM book_external_ratings WHERE deleted_at IS NULL AND revision <= :cursor;
+
+selectIdByNaturalPair:
+SELECT id FROM book_external_ratings WHERE book_id = :book_id AND source = :source;
+
+selectById:
+SELECT * FROM book_external_ratings WHERE id = :id;
+
+selectByIds:
+SELECT * FROM book_external_ratings WHERE id IN :ids;
+
+selectLiveForBook:
+SELECT * FROM book_external_ratings WHERE book_id = :book_id AND deleted_at IS NULL;
+
+selectLiveIdsForSource:
+SELECT id FROM book_external_ratings WHERE source = :source AND deleted_at IS NULL;
+
+setEnabledById:
+UPDATE book_external_ratings
+SET enabled = :enabled, revision = :revision, updated_at = :updated_at
+WHERE id = :id;
+
+insert:
+INSERT INTO book_external_ratings (
+    id, book_id, source, average, count, enabled, region, fetched_at, last_error,
+    created_at, updated_at, revision, deleted_at, client_op_id
+) VALUES (
+    :id, :book_id, :source, :average, :count, :enabled, :region, :fetched_at, NULL,
+    :created_at, :updated_at, :revision, NULL, :client_op_id
+);
+
+update:
+UPDATE book_external_ratings
+SET average = :average, count = :count, enabled = :enabled, region = :region, fetched_at = :fetched_at,
+    last_error = NULL, updated_at = :updated_at, revision = :revision, deleted_at = NULL,
+    client_op_id = :client_op_id
+WHERE book_id = :book_id AND source = :source;
+
+-- Health-only write: no revision bump and no sync event (see BookExternalRatingRepository.recordError).
+recordError:
+UPDATE book_external_ratings
+SET last_error = :last_error, updated_at = :updated_at
+WHERE book_id = :book_id AND source = :source AND deleted_at IS NULL;
+
+-- The book ids a sweep should refresh next: live books with an ASIN, the never-fetched first, then
+-- the least recently fetched. A book with no book_external_ratings row at all (never attempted by
+-- any source) sorts as if fetched_at = 0 — first in line.
+selectSweepCandidates:
+SELECT b.id FROM books b
+LEFT JOIN book_external_ratings r ON r.book_id = b.id AND r.deleted_at IS NULL
+WHERE b.deleted_at IS NULL AND b.asin IS NOT NULL AND b.asin != ''
+GROUP BY b.id
+ORDER BY MIN(COALESCE(r.fetched_at, 0)) ASC, b.id ASC
+LIMIT :limit;
+
+-- The sweep's 1/30th-a-night arithmetic denominator.
+countBooksWithAsin:
+SELECT COUNT(*) FROM books WHERE deleted_at IS NULL AND asin IS NOT NULL AND asin != '';
+
+-- health()'s two halves: the source's most recent successful fetch, and its most recent error.
+selectLatestFetchedAtForSource:
+SELECT fetched_at FROM book_external_ratings WHERE source = :source ORDER BY fetched_at DESC LIMIT 1;
+
+selectLatestErrorForSource:
+SELECT last_error FROM book_external_ratings
+WHERE source = :source AND last_error IS NOT NULL
+ORDER BY updated_at DESC LIMIT 1;

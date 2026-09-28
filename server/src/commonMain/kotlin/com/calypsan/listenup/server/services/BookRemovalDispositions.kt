@@ -80,4 +80,8 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         // A listener's rating survives the book's removal and returns with it, like read history; a
         // removed book's ratings are hidden because the access filter only admits live books.
         "book_ratings" to RemovalDisposition.USER_DATA,
+        // The enum's wording is about user data, but the behaviour is what's wanted: the rows survive
+        // a removal, stay hidden while the book is gone (the access filter only admits live books),
+        // and come back with it. The next sweep refreshes them anyway.
+        "book_external_ratings" to RemovalDisposition.USER_DATA,
     )
