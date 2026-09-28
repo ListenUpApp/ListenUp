@@ -58,13 +58,23 @@ class HeroInkContrastTest :
             }
         }
 
-        test("light primary hero keeps the preferred quiet alphas") {
-            val ink = LightColorScheme.onPrimaryContainer
-            val container = LightColorScheme.primaryContainer
-            // Colour alpha is stored in 8 bits, so compare to within one step.
-            HeroInk.muted(ink, container).alpha shouldBe (HeroInk.MUTED_ALPHA plusOrMinus ALPHA_PRECISION)
-            HeroInk.wash(ink, container).alpha shouldBe (HeroInk.WASH_ALPHA plusOrMinus ALPHA_PRECISION)
+        schemes.forEach { (schemeName, scheme) ->
+            test("$schemeName primary hero keeps the preferred quiet alphas") {
+                val ink = scheme.onPrimaryContainer
+                val container = scheme.primaryContainer
+                // Colour alpha is stored in 8 bits, so compare to within one step.
+                HeroInk.muted(ink, container).alpha shouldBe (HeroInk.MUTED_ALPHA plusOrMinus ALPHA_PRECISION)
+                HeroInk.wash(ink, container).alpha shouldBe (HeroInk.WASH_ALPHA plusOrMinus ALPHA_PRECISION)
+                HeroInk.outline(ink, container).alpha shouldBe (HeroInk.OUTLINE_ALPHA plusOrMinus ALPHA_PRECISION)
+            }
+        }
+
+        test("dark primary hero gives full ink real headroom over AA") {
+            // The banked-embers hero: deep enough that the quiet tiers never have to climb.
+            contrastRatio(DarkColorScheme.onPrimaryContainer, DarkColorScheme.primaryContainer) shouldBeGreaterThanOrEqual
+                HERO_INK_HEADROOM
         }
     })
 
 private const val ALPHA_PRECISION = 0.005f
+private const val HERO_INK_HEADROOM = 8.0

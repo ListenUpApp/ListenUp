@@ -72,7 +72,10 @@ private val md_theme_light_scrim = Color(0xFF000000)
 
 private val md_theme_dark_primary = Color(0xFFFF6A3D)
 private val md_theme_dark_onPrimary = Color(0xFF471000)
-private val md_theme_dark_primaryContainer = Color(0xFFA8331A)
+
+// Banked embers: the coral hue taken deep (gamut-max chroma) so onPrimaryContainer reads at 8.2:1
+// and HeroInk's quiet tiers sit at their preferred alphas instead of climbing to reach AA.
+private val md_theme_dark_primaryContainer = Color(0xFF7C1700)
 private val md_theme_dark_onPrimaryContainer = Color(0xFFFFDBD0)
 
 private val md_theme_dark_secondary = Color(0xFFE7BDB1)
