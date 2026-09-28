@@ -52,6 +52,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
@@ -558,7 +559,7 @@ private fun ThisDeviceCardContent(
                     modifier =
                         Modifier
                             .size(8.dp)
-                            .background(Color(0xFF2FBF73), CircleShape),
+                            .background(MaterialTheme.extendedColors.success, CircleShape),
                 )
                 Text(
                     text = stringResource(Res.string.devices_active),
