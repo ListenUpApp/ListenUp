@@ -304,7 +304,7 @@ private fun CondensedHeader(
                         .padding(top = 8.dp)
                         .size(48.dp)
                         .background(
-                            color = surfaceColor.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
                             shape = CircleShape,
                         ),
             ) {

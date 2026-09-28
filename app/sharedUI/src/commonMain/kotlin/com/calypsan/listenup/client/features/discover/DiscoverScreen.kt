@@ -163,7 +163,7 @@ private fun EmptyShelvesState(modifier: Modifier = Modifier) {
             imageVector = Icons.Filled.Explore,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            tint = MaterialTheme.colorScheme.outline,
         )
         Text(
             text = stringResource(Res.string.discover_no_shelves_to_discover_yet),

@@ -136,8 +136,6 @@ private const val SECTION_SPACING_DP = 24
 private const val EMPTY_PANEL_PADDING_DP = 32
 private const val EMPTY_ICON_SIZE_DP = 48
 private const val ICON_GAP_DP = 12
-private const val FADED_ALPHA = 0.5f
-private const val FAINT_ALPHA = 0.7f
 private const val CHIP_PADDING_H_DP = 12
 private const val CHIP_PADDING_V_DP = 6
 private const val CHIP_SPACING_DP = 8
@@ -427,10 +425,7 @@ private fun DetailHero(
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             // Note: delete action is intentionally absent — AdminCollectionDetailViewModel
             // exposes no deleteCollection action. Deletion is managed from the list screen.
-            HeroNavRow(
-                onBack = onBackClick,
-                buttonBackground = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-            )
+            HeroNavRow(onBack = onBackClick)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -634,7 +629,7 @@ private fun EmptyBooksPanel(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.MenuBook,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FADED_ALPHA),
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
         )
         Spacer(modifier = Modifier.height(ICON_GAP_DP.dp))
@@ -646,7 +641,7 @@ private fun EmptyBooksPanel(modifier: Modifier = Modifier) {
         Text(
             text = stringResource(Res.string.admin_books_can_be_added_from),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -751,7 +746,7 @@ private fun EmptyMembersPanel(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Outlined.Person,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FADED_ALPHA),
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
         )
         Spacer(modifier = Modifier.height(ICON_GAP_DP.dp))
@@ -763,7 +758,7 @@ private fun EmptyMembersPanel(modifier: Modifier = Modifier) {
         Text(
             text = stringResource(Res.string.admin_add_members_to_share_this),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -878,7 +873,7 @@ private fun AddMemberEmptyPanel() {
         Icon(
             imageVector = Icons.Outlined.Person,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FADED_ALPHA),
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
         )
         Spacer(modifier = Modifier.height(ICON_GAP_DP.dp))
@@ -890,7 +885,7 @@ private fun AddMemberEmptyPanel() {
         Text(
             text = stringResource(Res.string.admin_all_users_are_already_members),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

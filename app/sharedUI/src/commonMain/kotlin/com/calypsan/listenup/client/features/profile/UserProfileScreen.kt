@@ -418,7 +418,7 @@ private fun ProfileEditButton(onEditClick: () -> Unit) {
         },
         modifier =
             Modifier.size(48.dp).background(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                MaterialTheme.colorScheme.surfaceContainerLow,
                 CircleShape,
             ),
     ) {

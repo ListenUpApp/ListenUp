@@ -487,7 +487,12 @@ private fun ThisDeviceCardContent(
         } else {
             MaterialTheme.colorScheme.onSurface
         }
-    val subColor = inkColor.copy(alpha = 0.75f)
+    val subColor =
+        if (inHero) {
+            inkColor.copy(alpha = 0.75f)
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
     val tone = visual.color.current
     val tileBg =
         if (inHero) {

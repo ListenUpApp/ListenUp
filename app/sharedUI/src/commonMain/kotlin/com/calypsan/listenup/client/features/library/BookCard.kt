@@ -305,7 +305,7 @@ fun BookCard(
                 Text(
                     text = dur,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -482,7 +482,7 @@ private fun SelectionIndicator(
             if (isSelected) {
                 MaterialTheme.colorScheme.primary
             } else {
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                MaterialTheme.colorScheme.surfaceContainerLow
             },
         label = "selection_bg",
     )
@@ -492,7 +492,7 @@ private fun SelectionIndicator(
             if (isSelected) {
                 MaterialTheme.colorScheme.onPrimary
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                MaterialTheme.colorScheme.onSurfaceVariant
             },
         label = "selection_icon",
     )

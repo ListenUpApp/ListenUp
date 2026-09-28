@@ -328,7 +328,7 @@ private fun SeriesColorHero(
                         modifier =
                             Modifier
                                 .size(48.dp)
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), CircleShape),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow, CircleShape),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,

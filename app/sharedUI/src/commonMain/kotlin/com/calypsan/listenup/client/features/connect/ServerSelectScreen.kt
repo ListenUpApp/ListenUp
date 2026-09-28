@@ -431,7 +431,7 @@ private fun EmptyState() {
         Text(
             text = stringResource(Res.string.connect_make_sure_your_listenup_server),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

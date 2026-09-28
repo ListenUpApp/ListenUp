@@ -257,7 +257,7 @@ private fun CollectionPickerEmptyState(showCreateHint: Boolean) {
             Text(
                 text = stringResource(Res.string.library_create_a_collection_in_the),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

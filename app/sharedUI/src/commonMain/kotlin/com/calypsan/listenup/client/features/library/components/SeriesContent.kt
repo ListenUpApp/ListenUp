@@ -173,7 +173,7 @@ private fun SeriesEmptyState() {
                 imageVector = Icons.Outlined.AutoStories,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                tint = MaterialTheme.colorScheme.outline,
             )
             Text(
                 text = stringResource(Res.string.common_no_items_yet, "series"),

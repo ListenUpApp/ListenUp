@@ -1258,7 +1258,7 @@ private fun EmptyCategoriesMessage(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Outlined.Category,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(64.dp),
         )
         Spacer(modifier = Modifier.height(16.dp))

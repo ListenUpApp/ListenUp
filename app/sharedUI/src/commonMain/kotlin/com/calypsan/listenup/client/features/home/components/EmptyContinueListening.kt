@@ -60,7 +60,7 @@ fun EmptyContinueListening(
                 imageVector = Icons.Outlined.Headphones,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                tint = MaterialTheme.colorScheme.outline,
             )
 
             Spacer(modifier = Modifier.height(12.dp))

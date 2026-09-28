@@ -514,7 +514,7 @@ private fun ImageComparisonRow(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
                                     modifier = Modifier.size(40.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    tint = MaterialTheme.colorScheme.outline,
                                 )
                             }
                         }
@@ -527,7 +527,7 @@ private fun ImageComparisonRow(
                             if (hasNewImage) {
                                 MaterialTheme.colorScheme.primary
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             },
                     )
                 }

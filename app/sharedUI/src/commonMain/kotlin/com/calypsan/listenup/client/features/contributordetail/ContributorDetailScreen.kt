@@ -366,7 +366,6 @@ private fun WideHeroHeader(
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
-                surfaceColor = MaterialTheme.colorScheme.surface,
                 applyStatusBarInset = false,
             )
 
@@ -667,7 +666,6 @@ private fun NarrowColorHero(
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
-                surfaceColor = MaterialTheme.colorScheme.surface,
             )
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
@@ -778,13 +776,11 @@ private fun NavigationBar(
     onEditClick: () -> Unit,
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
-    surfaceColor: Color,
     applyStatusBarInset: Boolean = true,
     actionsEnabled: Boolean = true,
 ) {
     HeroNavRow(
         onBack = onBackClick,
-        buttonBackground = surfaceColor.copy(alpha = 0.5f),
         applyStatusBarInset = applyStatusBarInset,
     ) {
         if (!LocalDeviceContext.current.isLeanback) {
@@ -792,7 +788,6 @@ private fun NavigationBar(
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
-                surfaceColor = surfaceColor,
                 actionsEnabled = actionsEnabled,
             )
         }
@@ -807,7 +802,6 @@ private fun OverflowMenu(
     onEditClick: () -> Unit,
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
-    surfaceColor: Color,
     actionsEnabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
@@ -823,7 +817,7 @@ private fun OverflowMenu(
                 Modifier
                     .size(48.dp)
                     .background(
-                        color = surfaceColor.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
                         shape = CircleShape,
                     ),
         ) {
@@ -1029,7 +1023,6 @@ private fun ContributorDetailLoadingFrame(
                 onEditClick = {},
                 onDownloadMetadata = {},
                 onDeleteClick = {},
-                surfaceColor = MaterialTheme.colorScheme.surface,
                 // Stub callbacks while the contributor loads: disable the rows so none of
                 // them confirms a tap that does nothing.
                 actionsEnabled = false,
