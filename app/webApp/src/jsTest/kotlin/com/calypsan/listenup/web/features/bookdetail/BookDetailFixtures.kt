@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.Composition
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -159,3 +160,9 @@ private const val SAMPLE_BITRATE_KBPS = 64
 private const val SAMPLE_RATE_HZ = 44_100
 
 private const val SAMPLE_CHANNELS = 2
+
+/** Disposes every composition a spec mounted, then forgets them. */
+internal fun disposeAll(compositions: MutableList<Composition>) {
+    compositions.forEach { it.dispose() }
+    compositions.clear()
+}

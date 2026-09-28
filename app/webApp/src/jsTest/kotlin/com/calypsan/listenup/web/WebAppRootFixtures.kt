@@ -225,6 +225,13 @@ internal fun mountAt(
     openOrganize: OpenOrganize = fixedOrganize(OrganizeSettingsUiState.Loading),
     onToast: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
+    // A backstop for the ~60 callers that destructure only `(host, router)` and never dispose: an
+    // orphaned shell keeps its palette's window key listener, and once the palette became a modal
+    // `<dialog>`, a later spec's ⌘K opened one in every orphan — dozens of modals nobody closes,
+    // leaving the whole document inert. No spec holds two shells at once (the two that mount twice
+    // dispose the first), so ending every earlier one here is safe.
+    liveShells.forEach { it.dispose() }
+    liveShells.clear()
     window.history.replaceState(null, "", path)
     val router = Router()
     val host = document.createElement("div") as HTMLElement
@@ -290,8 +297,12 @@ internal fun mountAt(
                 observeCurrentUserId = { currentUserId },
             )
         }
+    liveShells += composition
     return Triple(host, router, composition)
 }
+
+/** Every shell [mountAt] has mounted and not yet ended itself. */
+private val liveShells = mutableListOf<Composition>()
 
 /**
  * Every composition a spec mounts, and the hosts they own, so one `afterTest` can end them all.

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import androidx.compose.runtime.Composition
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -131,6 +132,9 @@ private fun authenticated() = AuthState.Authenticated(UserId("u1"), SessionId("s
  */
 private val routers = mutableListOf<Router>()
 
+/** Signed in, the gate mounts the whole shell, and with it the palette's window key listener. */
+private val compositions = mutableListOf<Composition>()
+
 private fun mountGate(
     graph: FakeAuthGraph,
     themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
@@ -142,7 +146,7 @@ private fun mountGate(
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     val router = Router().also { routers += it }
-    renderComposable(root = host) {
+    compositions += renderComposable(root = host) {
         AuthGate(
             authGraph = graph,
             router = router,
@@ -216,6 +220,8 @@ class AuthGateTest :
         afterSpec {
             routers.forEach { it.dispose() }
             routers.clear()
+            compositions.forEach { it.dispose() }
+            compositions.clear()
         }
 
         // A signed-in admin whose server was never pointed at anything reaches a shell with an

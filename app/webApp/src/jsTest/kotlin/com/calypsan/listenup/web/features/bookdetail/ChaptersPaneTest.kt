@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.Composition
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.licences.OpenLicences
 import com.calypsan.listenup.web.features.licences.LicencesUiState
@@ -102,6 +103,10 @@ import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 class ChaptersPaneTest :
     FunSpec({
 
+        // Every WebAppRoot owns a window-level keydown listener (the command palette's). Left
+        // undisposed, an orphan answers a LATER spec's ⌘K by opening a modal nobody closes, and
+        // that modal makes the whole document inert for every spec after it.
+        val compositions = mutableListOf<Composition>()
         var originalUrl = ""
 
         beforeTest {
@@ -110,6 +115,7 @@ class ChaptersPaneTest :
 
         afterTest {
             window.history.replaceState(null, "", originalUrl)
+            disposeAll(compositions)
         }
 
         fun mountAt(path: String): Pair<HTMLElement, Router> {
@@ -117,7 +123,7 @@ class ChaptersPaneTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) {
+            compositions += renderComposable(root = host) {
                 WebAppRoot(
                     router = router,
                     openBookDetail = fixedBookDetail(readyBook()),
