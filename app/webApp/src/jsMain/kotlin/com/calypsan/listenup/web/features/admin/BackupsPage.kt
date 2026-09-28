@@ -15,10 +15,10 @@ import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -69,7 +69,7 @@ fun BackupsPage(
 
             is AdminBackupUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("Backups can't be shown") }
+                    H2 { Text("Backups can't be shown") }
                     P { Text(state.error.message) }
                     Button(attrs = {
                         classes("btn-c")
@@ -151,7 +151,7 @@ private fun ReadyContent(
 
     if (state.backups.isEmpty()) {
         Div(attrs = { classes("empty") }) {
-            H3 { Text("No backups yet") }
+            H2 { Text("No backups yet") }
             P { Text("A backup is a single file holding your library's database, and optionally its covers.") }
         }
     } else {

@@ -12,10 +12,10 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -57,7 +57,7 @@ fun CollectionsPage(
 
             is AdminCollectionsUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("Collections can't be shown") }
+                    H2 { Text("Collections can't be shown") }
                     P { Text(state.message) }
                 }
             }
@@ -96,7 +96,7 @@ private fun ReadyContent(
 
     if (state.collections.isEmpty()) {
         Div(attrs = { classes("empty") }) {
-            H3 { Text("No collections yet") }
+            H2 { Text("No collections yet") }
             P { Text("A collection is a group of books you can hand to one person, or to everyone.") }
         }
     } else {

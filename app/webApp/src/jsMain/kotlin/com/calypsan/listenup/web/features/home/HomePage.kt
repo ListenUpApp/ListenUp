@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -69,7 +70,7 @@ fun HomePage(
 
             is HomeUiState.Error -> {
                 Div(attrs = { classes(EMPTY_CLASS) }) {
-                    H3 { Text("Home is unavailable") }
+                    H2 { Text("Home is unavailable") }
                     P { Text(state.message) }
                 }
             }
@@ -188,7 +189,7 @@ private fun ContinueListening(
     selection: BookSelection?,
 ) {
     Div(attrs = { classes("home-section") }) {
-        H3(attrs = { classes("home-section-h") }) { Text("Continue listening") }
+        H2(attrs = { classes("home-section-h") }) { Text("Continue listening") }
         if (items.isEmpty()) {
             Div(attrs = { classes(EMPTY_CLASS) }) {
                 H3 { Text("Nothing on the go") }
@@ -267,7 +268,7 @@ private fun ContinueCard(
 @Composable
 private fun ThisWeek(stats: HomeStatsUiState) {
     Div(attrs = { classes("home-section") }) {
-        H3(attrs = { classes("home-section-h") }) { Text("This week") }
+        H2(attrs = { classes("home-section-h") }) { Text("This week") }
         when (stats) {
             is HomeStatsUiState.Loading -> {
                 Div(attrs = { classes("skel", "home-stats-skel") })
@@ -398,7 +399,7 @@ private fun MyShelves(
 ) {
     Div(attrs = { classes("home-section") }) {
         Div(attrs = { classes("home-section-row") }) {
-            H3(attrs = { classes("home-section-h") }) { Text("My shelves") }
+            H2(attrs = { classes("home-section-h") }) { Text("My shelves") }
             Button(attrs = {
                 classes("btn-o")
                 attr(ATTR_TYPE, VALUE_BUTTON)

@@ -1,8 +1,8 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Header
 import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
@@ -44,7 +44,7 @@ fun Panel(
                     property("border-bottom", "1px solid var(--line-2)")
                 }
             }) {
-                H3(attrs = {
+                H2(attrs = {
                     style {
                         property("margin", "0")
                         property("font-size", "14px")

@@ -164,10 +164,10 @@ class SeriesListPageTest :
         // saying nothing — the same distinction the Books tab draws.
         test("an empty tab tells a still-scanning library apart from one with no series") {
             val scanning = seriesPage(contractLibrary(isBuildingInitialLibrary = true))
-            (scanning.querySelector(".empty h3") as HTMLElement).textContent shouldBe "Still reading your library"
+            (scanning.querySelector(".empty h2") as HTMLElement).textContent shouldBe "Still reading your library"
 
             val settled = seriesPage(contractLibrary(isBuildingInitialLibrary = false))
-            (settled.querySelector(".empty h3") as HTMLElement).textContent shouldBe "No series yet"
+            (settled.querySelector(".empty h2") as HTMLElement).textContent shouldBe "No series yet"
         }
 
         test("the header and facets survive a state with no data to show") {

@@ -5,10 +5,10 @@ import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.PageTitle
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -102,7 +102,7 @@ fun RestorePage(
 
             is RestoreBackupUiState.Completed -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("Restored") }
+                    H2 { Text("Restored") }
                     P {
                         Text(
                             if (state.result.includedImages) {

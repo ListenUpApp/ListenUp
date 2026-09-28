@@ -24,7 +24,7 @@ class PanelAndMetaTest :
         test("a titled panel renders its heading and body") {
             val host = mounts.mount { Panel(title = "Details") { Text("body") } }
 
-            host.querySelector("h3")!!.textContent shouldBe "Details"
+            host.querySelector("h2")!!.textContent shouldBe "Details"
             host.textContent!! shouldContain "body"
         }
 

@@ -17,10 +17,10 @@ import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.disabledWhen
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -69,7 +69,7 @@ fun CollectionDetailPage(
 
             is AdminCollectionDetailUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("This collection can't be shown") }
+                    H2 { Text("This collection can't be shown") }
                     P { Text(state.message) }
                 }
             }

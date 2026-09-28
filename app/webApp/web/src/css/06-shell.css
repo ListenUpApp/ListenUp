@@ -4,6 +4,17 @@
    below both once playback exists on this platform.
    ============================================================ */
 .shell { display:flex; height:100dvh; background:var(--paper); }
+/* "Skip to content": the first Tab stop, off-screen until it is focused. Fixed, so it overlays the
+   sidebar rather than pushing the layout when it appears. */
+.skip-link {
+  position:fixed; top:12px; left:12px; z-index:70; transform:translateY(-200%);
+  padding:10px 16px; border-radius:10px; background:var(--surface); color:var(--ink);
+  font-size:14px; font-weight:700; text-decoration:none; box-shadow:var(--shadow-pop);
+}
+.skip-link:focus { transform:none; }
+.skip-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* Focused by script (a skip, or arriving on a page), never by Tab: no ring around the whole page. */
+.shell-main:focus, .shell-main h1:focus { outline:none; }
 .sidebar { width:252px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface); border-right:1px solid var(--line); padding:18px 16px; transition:width .2s; overflow-y:auto; }
 .sb-brand { display:flex; align-items:center; justify-content:space-between; height:40px; margin-bottom:14px; }
 /* Mark + wordmark travel together so `space-between` still pushes the collapse toggle to the edge. */

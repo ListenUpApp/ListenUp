@@ -17,10 +17,10 @@ import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -95,7 +95,7 @@ private fun WayBack(
     onOpenLibrary: () -> Unit,
 ) {
     Div(attrs = { classes("empty") }) {
-        H3 { Text(heading) }
+        H2 { Text(heading) }
         P { Text(body) }
         Button(attrs = {
             classes("btn-c")

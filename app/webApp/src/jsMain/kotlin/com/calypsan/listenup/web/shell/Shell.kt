@@ -82,6 +82,18 @@ fun Shell(
     pageKey?.let { key -> FocusPageOnNavigation(key) { main.element } }
 
     Div(attrs = { classes("shell") }) {
+        // First in the document order, so it is the first Tab stop: without it a keyboard reader
+        // walks eight sidebar links before every page. Visually hidden until focused. Handled in
+        // script rather than left to the fragment: following `#main-content` would put a hash in the
+        // URL the router owns, and does not move focus into a non-focusable `<main>` anyway.
+        A(href = "#$MAIN_CONTENT_ID", attrs = {
+            classes("skip-link")
+            onClick { event ->
+                event.preventDefault()
+                main.element?.let(::focusContent)
+            }
+        }) { Text("Skip to content") }
+
         Aside(attrs = {
             classes("sidebar")
             if (collapsed) classes("clpsd")
@@ -119,7 +131,10 @@ fun Shell(
                 section.label?.let { label ->
                     Div(attrs = { classes("sb-group") }) { Text(label) }
                 }
-                Nav(attrs = { classes("sb-nav") }) {
+                Nav(attrs = {
+                    classes("sb-nav")
+                    attr("aria-label", section.label ?: "Main")
+                }) {
                     section.entries.forEach { entry ->
                         NavItem(entry, active, onNavigate)
                     }
@@ -129,7 +144,10 @@ fun Shell(
             Div(attrs = { classes("sb-spacer") }) {}
 
             if (footer.isNotEmpty()) {
-                Nav(attrs = { classes("sb-nav") }) {
+                Nav(attrs = {
+                    classes("sb-nav")
+                    attr("aria-label", "Account")
+                }) {
                     footer.forEach { entry -> NavItem(entry, active, onNavigate) }
                 }
             }
@@ -149,6 +167,7 @@ fun Shell(
 
         Main(attrs = {
             classes("shell-main")
+            id(MAIN_CONTENT_ID)
             ref { element ->
                 main.element = element
                 onDispose { main.element = null }
@@ -156,6 +175,15 @@ fun Shell(
         }) { content() }
     }
 }
+
+/** Where "Skip to content" lands. Focusable by script only, so it never becomes a Tab stop. */
+private fun focusContent(main: HTMLElement) {
+    if (!main.hasAttribute("tabindex")) main.setAttribute("tabindex", "-1")
+    main.focus()
+}
+
+/** The id "Skip to content" points at. */
+const val MAIN_CONTENT_ID = "main-content"
 
 /** The live `<main>`, held without being state: reading it must not recompose anything. */
 private class MainHolder {

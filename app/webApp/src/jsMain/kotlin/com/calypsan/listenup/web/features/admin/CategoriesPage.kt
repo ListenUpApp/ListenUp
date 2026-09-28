@@ -16,10 +16,10 @@ import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -73,7 +73,7 @@ fun CategoriesPage(
 
             is AdminCategoriesUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("Categories can't be shown") }
+                    H2 { Text("Categories can't be shown") }
                     P { Text(state.error.message) }
                 }
             }
@@ -175,7 +175,7 @@ private fun ReadyContent(
 
     if (state.tree.isEmpty()) {
         Div(attrs = { classes("empty") }) {
-            H3 { Text("No genres yet") }
+            H2 { Text("No genres yet") }
             P { Text("Genres arrive with your books, and you can add your own here to group them.") }
         }
     } else {

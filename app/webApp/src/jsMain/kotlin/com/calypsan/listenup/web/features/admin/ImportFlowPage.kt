@@ -23,10 +23,10 @@ import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -120,7 +120,7 @@ fun ImportFlowPage(
 
             is ImportFlowUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("The import stopped") }
+                    H2 { Text("The import stopped") }
                     P(attrs = { attr("role", "alert") }) { Text(state.error.message) }
                     Button(attrs = {
                         classes(BTN_PRIMARY)
@@ -403,7 +403,7 @@ private fun DoneStep(
     onOpenImports: () -> Unit,
 ) {
     Div(attrs = { classes("empty") }) {
-        H3 { Text("Imported") }
+        H2 { Text("Imported") }
         P { Text(doneSummary(state)) }
         // The books it could not place are the reason a number looks lower than expected, so they
         // are stated rather than left as a silent difference.

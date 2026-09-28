@@ -117,7 +117,7 @@ class LicencesPageTest :
         test("a manifest that failed to load says so rather than listing nothing") {
             val root = licencesPage(LicencesUiState.Error("The licence list could not be loaded."))
 
-            (root.querySelector(".empty h3") as HTMLElement).textContent shouldBe "The licences can't be shown"
+            (root.querySelector(".empty h2") as HTMLElement).textContent shouldBe "The licences can't be shown"
             root.querySelector(".lic-list") shouldBe null
             root.querySelector(".lic-title") shouldBe null
         }

@@ -15,10 +15,10 @@ import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -73,7 +73,7 @@ fun LibrarySettingsPage(
 
             is LibrarySettingsUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("These settings can't be loaded") }
+                    H2 { Text("These settings can't be loaded") }
                     P { Text(state.error.message) }
                 }
             }

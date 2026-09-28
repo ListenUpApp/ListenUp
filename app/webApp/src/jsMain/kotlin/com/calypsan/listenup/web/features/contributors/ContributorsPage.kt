@@ -17,8 +17,9 @@ import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.initialsFor
+import org.jetbrains.compose.web.dom.H2
+import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -55,7 +56,7 @@ fun ContributorsPage(
     PageTitle("Contributors")
     Div(attrs = { classes("contrib-header") }) {
         Div(attrs = { classes("contrib-title-row") }) {
-            H3 { Text("Contributors") }
+            H1 { Text("Contributors") }
             // Withheld rather than shown as "0" while state is null — a count is a fact about the
             // answer, and there isn't one yet.
             state?.let { list -> Span(attrs = { classes("contrib-count") }) { Text(list.size.toString()) } }
@@ -217,7 +218,7 @@ private fun ContributorRow(
 @Composable
 private fun EmptyContributors(role: ContributorRole) {
     Div(attrs = { classes("empty") }) {
-        H3 { Text(if (role == ContributorRole.NARRATOR) "No narrators yet." else "No authors yet.") }
+        H2 { Text(if (role == ContributorRole.NARRATOR) "No narrators yet." else "No authors yet.") }
     }
 }
 

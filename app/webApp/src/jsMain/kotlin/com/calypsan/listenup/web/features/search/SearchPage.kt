@@ -15,9 +15,10 @@ import com.calypsan.listenup.web.design.Pill
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.dom.H2
+import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -59,7 +60,7 @@ fun SearchPage(
 ) {
     PageTitle("Search")
     Div(attrs = { classes("search-page") }) {
-        Div(attrs = { classes("search-header") }) { H3 { Text("Search") } }
+        Div(attrs = { classes("search-header") }) { H1 { Text("Search") } }
 
         SearchField(query = state.query, onQueryChanged = onQueryChanged)
 
@@ -340,7 +341,7 @@ private fun ErrorPrompt(
 ) {
     Div(attrs = { classes("empty", "is-error") }) {
         Div(attrs = { classes("ico") }) { Icon(WebIcon.Search, size = PROMPT_ICON_SIZE) }
-        H3 { Text("Search failed") }
+        H2 { Text("Search failed") }
         P { Text(message) }
         Button(attrs = {
             classes("btn-o")
@@ -364,7 +365,7 @@ internal fun Prompt(
 ) {
     Div(attrs = { classes("empty", marker) }) {
         Div(attrs = { classes("ico") }) { Icon(WebIcon.Search, size = PROMPT_ICON_SIZE) }
-        H3 { Text(heading) }
+        H2 { Text(heading) }
         body?.let { P { Text(it) } }
     }
 }

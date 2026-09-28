@@ -7,10 +7,10 @@ import com.calypsan.listenup.client.presentation.notifications.NotificationPrefs
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SwitchField
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -49,7 +49,7 @@ fun NotificationPrefsPage(
 
             is NotificationPrefsUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("These settings can't be loaded") }
+                    H2 { Text("These settings can't be loaded") }
                     // The typed error's own words. `AppError.message` is a user-facing constant
                     // per subtype, so it is printed rather than reworded here.
                     P { Text(state.error.message) }
@@ -83,7 +83,7 @@ private fun Rows(
     val known = prefs.filter { notificationTypeName(it.type) != null }
     if (known.isEmpty()) {
         Div(attrs = { classes("empty") }) {
-            H3 { Text("Nothing to set yet") }
+            H2 { Text("Nothing to set yet") }
             P { Text("This server sends notification types your browser doesn't know about yet.") }
         }
         return

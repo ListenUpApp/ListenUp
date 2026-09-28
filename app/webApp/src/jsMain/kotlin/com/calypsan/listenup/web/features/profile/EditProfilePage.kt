@@ -21,11 +21,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.onSubmit
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
@@ -81,7 +81,7 @@ fun EditProfilePage(
 
             is EditProfileUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("This profile can't be edited") }
+                    H2 { Text("This profile can't be edited") }
                     P { Text(state.message) }
                 }
             }

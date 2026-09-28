@@ -195,7 +195,7 @@ class ContributorDetailPageTest :
 
             val sections = root.querySelectorAll(".cd-role-section")
             sections.length shouldBe 2
-            val headings = root.querySelectorAll(".cd-role-section h3")
+            val headings = root.querySelectorAll(".cd-role-section h2")
             (headings.item(0) as HTMLElement).textContent shouldBe "Written By"
             (headings.item(1) as HTMLElement).textContent shouldBe "Narrated By"
         }

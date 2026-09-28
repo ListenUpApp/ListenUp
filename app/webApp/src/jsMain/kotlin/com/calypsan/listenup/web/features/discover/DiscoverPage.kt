@@ -21,6 +21,7 @@ import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.shelf.bookCountLabel
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -435,7 +436,7 @@ private fun Section(
     content: @Composable () -> Unit,
 ) {
     Div(attrs = { classes("disc-section") }) {
-        H3(attrs = { classes("disc-section-h") }) { Text(heading) }
+        H2(attrs = { classes("disc-section-h") }) { Text(heading) }
         content()
     }
 }

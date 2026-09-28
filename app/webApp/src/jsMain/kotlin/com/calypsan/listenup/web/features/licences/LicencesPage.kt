@@ -8,10 +8,10 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.PageTitle
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -44,7 +44,7 @@ fun LicencesPage(
 
             is LicencesUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("The licences can't be shown") }
+                    H2 { Text("The licences can't be shown") }
                     P { Text(state.message) }
                 }
             }

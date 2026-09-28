@@ -68,6 +68,9 @@
 
 /* Library — books grid, sort control, progress (web sync arc). */
 .lib-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+/* The Library and Series title became the page's H1 (it was an H3). Sized as it always rendered,
+   so the heading level changed and the page did not. */
+.lib-header h1 { margin: 1em 0; font-size: 1.17em; }
 .lib-sort { display: flex; gap: 0.5rem; align-items: center; }
 .lib-sort-option { cursor: pointer; opacity: 0.6; }
 .lib-sort-option.is-active { opacity: 1; font-weight: 600; }
@@ -215,7 +218,7 @@
 /* Contributors — the A→Z people list (Library facet). Values pulled from the approved artboard. */
 .contrib-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
 .contrib-title-row { display: flex; align-items: center; gap: 13px; }
-.contrib-title-row h3 { margin: 0; font-size: 42px; font-weight: 800; letter-spacing: -0.04em; color: var(--ink); }
+.contrib-title-row h1 { margin: 0; font-size: 42px; font-weight: 800; letter-spacing: -0.04em; color: var(--ink); }
 .contrib-count {
   min-width: 32px; height: 28px; padding: 0 11px; border-radius: 999px;
   background: var(--coral-soft); color: var(--coral);
@@ -406,7 +409,7 @@
 
 /* Search — federated results across books, contributors, series and tags. */
 .search-page { width: 100%; padding: 24px 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-.search-header h3 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.search-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .search-types { display: flex; flex-wrap: wrap; gap: 9px; }
 .search-summary { font-size: 13.5px; color: var(--ink-2); font-weight: 500; }
 
@@ -459,7 +462,7 @@ dialog.dlg.cmdk-panel .dlg-body { gap: 0; padding: 0; max-height: min(70vh, 560p
 /* A compact echo of `.empty` (see its own rule) — the palette has a fraction of the page's room. */
 .cmdk-body .empty { padding: 30px 20px; }
 .cmdk-body .empty .ico { width: 40px; height: 40px; margin-bottom: 2px; }
-.cmdk-body .empty h3 { font-size: 14.5px; }
+.cmdk-body .empty :is(h2, h3) { font-size: 14.5px; }
 .cmdk-body .empty p { font-size: 12.5px; }
 .cmdk-footer { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--line); }
 .cmdk-hint { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--ink-3); }

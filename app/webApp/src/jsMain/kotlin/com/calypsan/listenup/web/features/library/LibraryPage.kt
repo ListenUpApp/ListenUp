@@ -26,9 +26,10 @@ import org.w3c.dom.Element
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
+import org.jetbrains.compose.web.dom.H2
+import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
@@ -84,7 +85,7 @@ fun LibraryPage(
     // strand them for good. Sorting is the exception, and stays with the loaded branch: offering to
     // reorder nothing is an affordance whose only outcome is nothing.
     Div(attrs = { classes("lib-header") }) {
-        H3 { Text("Library") }
+        H1 { Text("Library") }
         // Offered only once there is something to select. Arming selection over an empty grid is
         // an affordance whose only outcome is nothing — the same reason Sort stays with the
         // loaded branch.
@@ -202,10 +203,10 @@ private fun openWithOrigin(
 private fun EmptyLibrary(isBuilding: Boolean) {
     Div(attrs = { classes("empty") }) {
         if (isBuilding) {
-            H3 { Text("Syncing your library…") }
+            H2 { Text("Syncing your library…") }
             P { Text("Books will appear here as they arrive.") }
         } else {
-            H3 { Text("No books yet") }
+            H2 { Text("No books yet") }
             P { Text("Add a folder on the server and run a scan.") }
         }
     }

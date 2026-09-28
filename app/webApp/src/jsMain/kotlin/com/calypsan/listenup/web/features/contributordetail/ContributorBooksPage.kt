@@ -6,10 +6,10 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorBo
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -89,7 +89,7 @@ private fun BooksWayBack(
     onOpenContributor: () -> Unit,
 ) {
     Div(attrs = { classes("empty") }) {
-        H3 { Text(heading) }
+        H2 { Text(heading) }
         P { Text(body) }
         Button(attrs = {
             classes("btn-c")
@@ -120,7 +120,7 @@ private fun ReadyBooks(
     // the page is open. Saying so beats a page that is simply blank below its own heading.
     if (state.totalBooks == 0) {
         Div(attrs = { classes("empty") }) {
-            H3 { Text("No books in this role") }
+            H2 { Text("No books in this role") }
             P {
                 Text(
                     "${state.contributorName} is no longer credited as ${state.roleDisplayName.lowercase()} on any book.",

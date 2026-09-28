@@ -14,10 +14,10 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -61,7 +61,7 @@ fun ShelfDetailPage(
 
             is ShelfDetailUiState.Error -> {
                 Div(attrs = { classes(EMPTY_CLASS) }) {
-                    H3 { Text("This shelf could not be opened") }
+                    H2 { Text("This shelf could not be opened") }
                     P { Text(state.message) }
                     Button(attrs = {
                         classes("btn")
@@ -75,7 +75,7 @@ fun ShelfDetailPage(
                 ShelfHeader(state.detail, onEditShelf)
                 if (state.detail.books.isEmpty()) {
                     Div(attrs = { classes(EMPTY_CLASS) }) {
-                        H3 { Text("This shelf is empty") }
+                        H2 { Text("This shelf is empty") }
                         P { Text("Add books to it from any book's page.") }
                     }
                 } else {

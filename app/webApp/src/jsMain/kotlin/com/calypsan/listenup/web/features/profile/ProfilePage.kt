@@ -12,10 +12,10 @@ import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -52,7 +52,7 @@ fun ProfilePage(
 
             is UserProfileUiState.Error -> {
                 Div(attrs = { classes("empty") }) {
-                    H3 { Text("This profile can't be shown") }
+                    H2 { Text("This profile can't be shown") }
                     P { Text(state.message) }
                     Button(attrs = {
                         classes("btn-c")
@@ -156,7 +156,7 @@ private fun Hero(
 @Composable
 private fun NothingYet(isOwnProfile: Boolean) {
     Div(attrs = { classes("empty") }) {
-        H3 { Text(if (isOwnProfile) "Nothing here yet" else "Nothing shared yet") }
+        H2 { Text(if (isOwnProfile) "Nothing here yet" else "Nothing shared yet") }
         P {
             Text(
                 if (isOwnProfile) {

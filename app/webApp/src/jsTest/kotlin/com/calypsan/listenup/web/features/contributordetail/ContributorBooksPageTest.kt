@@ -76,7 +76,7 @@ class ContributorBooksPageTest :
                     ),
                 )
 
-            val headings = root.querySelectorAll(".cb-series h3")
+            val headings = root.querySelectorAll(".cb-series h2")
             headings.length shouldBe 2
             (headings.item(0) as HTMLElement).textContent shouldBe "Billy Summers"
             (headings.item(1) as HTMLElement).textContent shouldBe "The Dark Tower"
@@ -95,13 +95,13 @@ class ContributorBooksPageTest :
                     ),
                 )
 
-            (root.querySelector(".cb-standalone h3") as HTMLElement).textContent shouldBe "Other Books"
+            (root.querySelector(".cb-standalone h2") as HTMLElement).textContent shouldBe "Other Books"
         }
 
         test("a page of nothing but standalone books has no Other Books heading to contrast with") {
             val root = booksPage(readyBooks(standaloneBooks = listOf(bookItem("b1", "Misery"))))
 
-            root.querySelector(".cb-standalone h3") shouldBe null
+            root.querySelector(".cb-standalone h2") shouldBe null
             root.querySelectorAll(".cd-tile").length shouldBe 1
         }
 
@@ -154,7 +154,7 @@ class ContributorBooksPageTest :
         test("a Ready state with no books says so rather than heading an empty page") {
             val root = booksPage(readyBooks())
 
-            (root.querySelector(".empty h3") as HTMLElement).textContent shouldBe "No books in this role"
+            (root.querySelector(".empty h2") as HTMLElement).textContent shouldBe "No books in this role"
             root.querySelectorAll(".cd-tile").length shouldBe 0
         }
 

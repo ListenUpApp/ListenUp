@@ -310,7 +310,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 /* ---- states ---- */
 .empty { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:52px 24px; gap:7px; }
 .empty .ico { width:56px; height:56px; border-radius:17px; background:var(--surface-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink-3); margin-bottom:5px; }
-.empty h3 { margin:0; font-size:17px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
+.empty :is(h2, h3) { margin:0; font-size:17px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
 .empty p { margin:0; font-size:13.5px; color:var(--ink-2); max-width:360px; line-height:1.55; text-wrap:pretty; }
 .skel { background:linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size:200% 100%; border-radius:7px; }
 @media (prefers-reduced-motion: no-preference) { .skel { animation: shim 1.5s linear infinite; } }
