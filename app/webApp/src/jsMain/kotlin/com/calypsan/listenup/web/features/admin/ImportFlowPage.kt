@@ -17,6 +17,7 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
@@ -63,6 +64,7 @@ fun ImportFlowPage(
     onReset: () -> Unit,
     onOpenImports: () -> Unit,
 ) {
+    PageTitle("Import from Audiobookshelf")
     Div(attrs = { classes("iflow") }) {
         // Only where leaving is harmless: before a file is picked, and after the run has ended.
         if (state is ImportFlowUiState.Idle || state is ImportFlowUiState.Done || state is ImportFlowUiState.Error) {

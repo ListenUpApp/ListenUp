@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
 import com.calypsan.listenup.client.presentation.shelf.reorderedBy
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.Button
@@ -49,6 +50,7 @@ fun ShelfDetailPage(
     onEditShelf: (String) -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
+    PageTitle((state as? ShelfDetailUiState.Ready)?.detail?.name ?: "Shelf")
     Div(attrs = { classes("shelf") }) {
         ShelfNotice(notice, onDismissNotice)
 

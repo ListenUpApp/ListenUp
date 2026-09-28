@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.readers.ReadersPanel
 import com.calypsan.listenup.web.design.BookMarkdown
@@ -106,6 +107,7 @@ fun BookDetailPage(
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
 ) {
+    PageTitle(crumb(state))
     Div(attrs = { classes("bd") }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
         // cannot show what you asked for must still show the way out of it.

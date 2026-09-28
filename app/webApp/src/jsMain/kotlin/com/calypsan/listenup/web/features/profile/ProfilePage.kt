@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
@@ -42,6 +43,7 @@ fun ProfilePage(
     onRetry: () -> Unit,
     onEditProfile: () -> Unit,
 ) {
+    PageTitle((state as? UserProfileUiState.Ready)?.displayName ?: "Profile")
     Div(attrs = { classes("prof") }) {
         when (state) {
             is UserProfileUiState.Ready -> {

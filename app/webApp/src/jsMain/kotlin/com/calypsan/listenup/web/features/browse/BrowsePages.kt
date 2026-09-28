@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.library.BookCard
 import org.jetbrains.compose.web.dom.Button
@@ -31,6 +32,7 @@ fun BrowseFacetPage(
     onOpenBook: (String) -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
+    PageTitle((state as? BrowseFacetUiState.Ready)?.facetName ?: LIBRARY_CRUMB)
     Div(attrs = { classes("brw") }) {
         when (state) {
             BrowseFacetUiState.Loading -> {
@@ -72,6 +74,7 @@ fun GenreDestinationPage(
     onOpenLibrary: () -> Unit,
     onToggleSubGenres: () -> Unit,
 ) {
+    PageTitle((state as? GenreDestinationUiState.Ready)?.identity?.name ?: "Genre")
     Div(attrs = { classes("brw") }) {
         when (state) {
             GenreDestinationUiState.Loading -> {

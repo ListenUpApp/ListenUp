@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
@@ -39,6 +40,7 @@ fun CollectionsPage(
     onOpenCollection: (String) -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
+    PageTitle("Collections")
     Div(attrs = { classes("coll") }) {
         Button(attrs = {
             classes("btn-o", "coll-back")

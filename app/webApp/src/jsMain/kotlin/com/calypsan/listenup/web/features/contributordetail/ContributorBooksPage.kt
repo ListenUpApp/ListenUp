@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -36,6 +37,7 @@ fun ContributorBooksPage(
     onOpenContributor: () -> Unit,
     onOpenBook: (String) -> Unit,
 ) {
+    PageTitle(nameCrumb(state) + ", " + roleCrumb(state))
     Div(attrs = { classes("cb") }) {
         // Four levels, and the third goes back to the person — this page is a drill-down from one
         // contributor, not a sibling of the Contributors list.

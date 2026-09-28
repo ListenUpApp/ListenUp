@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
@@ -37,6 +38,7 @@ fun ImportsPage(
     onNewImport: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
+    PageTitle("Imports")
     Div(attrs = { classes("imp") }) {
         Button(attrs = {
             classes("btn-o", "imp-back")

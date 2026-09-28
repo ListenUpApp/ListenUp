@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
@@ -51,6 +52,7 @@ fun ContributorsPage(
     sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
     onEvent: (LibraryUiEvent) -> Unit = {},
 ) {
+    PageTitle("Contributors")
     Div(attrs = { classes("contrib-header") }) {
         Div(attrs = { classes("contrib-title-row") }) {
             H3 { Text("Contributors") }

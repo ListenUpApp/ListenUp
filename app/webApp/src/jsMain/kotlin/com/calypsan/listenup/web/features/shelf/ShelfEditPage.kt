@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.TextAreaField
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
@@ -46,6 +47,7 @@ fun ShelfEditPage(
     onDismissError: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    PageTitle(if (isEditing) "Edit shelf" else "New shelf")
     val loaded = state as? CreateEditShelfUiState.Loaded
     // Keyed on the loaded value, so the fields carry it from their very first composition rather
     // than a frame later — and so a re-emission of the SAME shelf (a data class, so an equal key)

@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -76,6 +77,7 @@ fun LibraryPage(
     onToggleSelect: (String) -> Unit = {},
     onStartSelecting: (() -> Unit)? = null,
 ) {
+    PageTitle("Library")
     // Header and facet row render in EVERY state, because they are navigation rather than data: a
     // first sync can run for minutes, and hiding the row until the books land would strand a reader
     // at "Loading…" with no way to reach the people already in their library — an error state would

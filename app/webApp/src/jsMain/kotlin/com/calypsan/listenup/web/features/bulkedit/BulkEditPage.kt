@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.RelationChip
 import com.calypsan.listenup.web.design.RelationField
 import com.calypsan.listenup.web.design.SelectField
@@ -84,6 +85,7 @@ fun BulkEditPage(
     actions: BulkEditActions,
     notice: String? = null,
 ) {
+    PageTitle("Edit books")
     Div(attrs = { classes("bke") }) {
         when (state) {
             BulkEditUiState.Loading -> Div(attrs = { classes("skel", "bke-skel") })

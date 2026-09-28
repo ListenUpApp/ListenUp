@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.TextAreaField
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
@@ -59,6 +60,7 @@ fun ContributorEditPage(
     onEvent: (ContributorEditUiEvent) -> Unit,
     onMergeQuery: (String) -> Unit,
 ) {
+    PageTitle("Edit " + state.name.ifBlank { "contributor" })
     Div(attrs = { classes("ced") }) {
         if (state.isLoading) {
             Div(attrs = { classes("skel", "ced-skel") })

@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.WeekChartColumn
 import com.calypsan.listenup.client.presentation.home.genreShareBars
 import com.calypsan.listenup.client.presentation.home.weekChartColumns
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.design.Cover
@@ -59,6 +60,7 @@ fun HomePage(
     onCreateShelf: () -> Unit,
     selection: BookSelection? = null,
 ) {
+    PageTitle(null)
     Div(attrs = { classes("home") }) {
         when (state) {
             is HomeUiState.Loading -> {

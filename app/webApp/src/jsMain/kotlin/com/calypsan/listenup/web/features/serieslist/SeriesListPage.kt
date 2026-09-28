@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
@@ -47,6 +48,7 @@ fun SeriesListPage(
     onOpenSeries: (String) -> Unit,
     onSelectFacet: (LibraryFacet) -> Unit,
 ) {
+    PageTitle("Series")
     // Header and facets render in every state, for the reason the Books tab gives: they are
     // navigation rather than data, and hiding them during a long first sync strands the reader.
     Div(attrs = { classes("lib-header") }) {

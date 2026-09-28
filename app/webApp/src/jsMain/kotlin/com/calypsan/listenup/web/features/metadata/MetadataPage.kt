@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
+import com.calypsan.listenup.web.design.PageTitle
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -47,6 +48,7 @@ fun MetadataPage(
     reviewingChapters: Boolean = false,
     onReviewChapters: (Boolean) -> Unit = {},
 ) {
+    PageTitle("Match metadata")
     Div(attrs = { classes("mdx") }) {
         Div(attrs = { classes("mdx-head") }) {
             H1(attrs = { classes("mdx-t") }) { Text("Match metadata") }

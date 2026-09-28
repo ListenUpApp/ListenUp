@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
@@ -51,6 +52,7 @@ fun BackupsPage(
     onRestore: (BackupInfo) -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
+    PageTitle("Backups")
     Div(attrs = { classes("bkp") }) {
         Button(attrs = {
             classes("btn-o", "bkp-back")

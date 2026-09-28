@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.nowplaying.formatBoost
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.SelectField
@@ -53,6 +54,7 @@ fun SettingsPage(
     hardcoverRow: HardcoverRowState? = null,
     onOpenHardcover: () -> Unit = {},
 ) {
+    PageTitle("Settings")
     Div(attrs = { classes("set") }) {
         H1(attrs = { classes("set-title") }) { Text("Settings") }
 

@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.design.Cover
@@ -105,6 +106,7 @@ fun DiscoverPage(
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
 ) {
+    PageTitle("Discover")
     Div(attrs = { classes("disc") }) {
         H1(attrs = { classes("disc-title") }) { Text("Discover") }
 

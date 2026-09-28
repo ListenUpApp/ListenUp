@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.WebIcon
@@ -52,6 +53,7 @@ fun ServerSettingsPage(
     onOpenAdmin: () -> Unit,
     nowMs: Long = 0L,
 ) {
+    PageTitle("Server settings")
     Div(attrs = { classes("srv") }) {
         Button(attrs = {
             classes("btn-o", "srv-back")

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesedit
 
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.compose.runtime.Composable
@@ -50,6 +51,7 @@ fun SeriesEditPage(
     onEvent: (SeriesEditUiEvent) -> Unit,
     onMergeQuery: (String) -> Unit,
 ) {
+    PageTitle("Edit " + state.name.ifBlank { "series" })
     Div(attrs = { classes("sed") }) {
         if (state.isLoading) {
             Div(attrs = { classes("skel", "sed-skel") })

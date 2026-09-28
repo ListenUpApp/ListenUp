@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.PageTitle
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -32,6 +33,7 @@ fun LicencesPage(
     state: LicencesUiState,
     onOpenSettings: () -> Unit,
 ) {
+    PageTitle("Open source licenses")
     Div(attrs = { classes("lic") }) {
         Breadcrumb(trail = listOf("Settings", "Open Source"), onNavigate = { onOpenSettings() })
 

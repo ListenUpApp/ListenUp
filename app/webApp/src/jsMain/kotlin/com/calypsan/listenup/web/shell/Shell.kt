@@ -1,8 +1,10 @@
 package com.calypsan.listenup.web.shell
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.nav.FocusPageOnNavigation
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Aside
@@ -15,6 +17,7 @@ import org.jetbrains.compose.web.dom.Nav
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import androidx.compose.web.events.SyntheticMouseEvent
+import org.w3c.dom.HTMLElement
 
 /**
  * One sidebar destination. The [key] doubles as the URL path segment, which is why it — not an
@@ -72,8 +75,12 @@ fun Shell(
     footer: List<NavEntry> = emptyList(),
     onToggleCollapse: (() -> Unit)? = null,
     onNavigate: ((String) -> Unit)? = null,
+    pageKey: String? = null,
     content: @Composable () -> Unit,
 ) {
+    val main = remember { MainHolder() }
+    pageKey?.let { key -> FocusPageOnNavigation(key) { main.element } }
+
     Div(attrs = { classes("shell") }) {
         Aside(attrs = {
             classes("sidebar")
@@ -140,8 +147,19 @@ fun Shell(
             }
         }
 
-        Main(attrs = { classes("shell-main") }) { content() }
+        Main(attrs = {
+            classes("shell-main")
+            ref { element ->
+                main.element = element
+                onDispose { main.element = null }
+            }
+        }) { content() }
     }
+}
+
+/** The live `<main>`, held without being state: reading it must not recompose anything. */
+private class MainHolder {
+    var element: HTMLElement? = null
 }
 
 @Composable

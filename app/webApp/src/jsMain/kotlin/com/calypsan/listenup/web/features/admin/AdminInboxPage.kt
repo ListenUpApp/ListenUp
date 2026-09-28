@@ -17,6 +17,7 @@ import com.calypsan.listenup.web.design.ActionsMenu
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
@@ -59,6 +60,7 @@ fun AdminInboxPage(
     onOpenBookEdit: (String) -> Unit = {},
     onOpenMatch: (String) -> Unit = {},
 ) {
+    PageTitle("Inbox")
     Div(attrs = { classes("inbox") }) {
         Button(attrs = {
             classes("btn-o", "inbox-back")

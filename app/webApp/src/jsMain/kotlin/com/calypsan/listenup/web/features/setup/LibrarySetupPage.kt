@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -42,6 +43,7 @@ fun LibrarySetupPage(
     onComplete: () -> Unit,
     onDismissError: () -> Unit,
 ) {
+    PageTitle("Choose your audiobook folders")
     Div(attrs = { classes("lsetup") }) {
         Div(attrs = { classes("lsetup-head") }) {
             H1(attrs = { classes("lsetup-t") }) { Text("Choose your audiobook folders") }

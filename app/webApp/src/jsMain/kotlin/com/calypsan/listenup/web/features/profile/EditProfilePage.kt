@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.FormSection
@@ -69,6 +70,7 @@ fun EditProfilePage(
     onCancel: () -> Unit,
     saveError: String? = null,
 ) {
+    PageTitle("Edit profile")
     Div(attrs = { classes("pedit") }) {
         H1(attrs = { classes("pedit-title") }) { Text("Edit profile") }
 

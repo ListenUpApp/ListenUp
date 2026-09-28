@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
@@ -37,6 +38,7 @@ fun CreateInvitePage(
     onCopy: (String) -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
+    PageTitle("Invite someone")
     Div(attrs = { classes("inv") }) {
         Breadcrumb(trail = listOf("People", "Invite"), onNavigate = { onOpenAdmin() })
 

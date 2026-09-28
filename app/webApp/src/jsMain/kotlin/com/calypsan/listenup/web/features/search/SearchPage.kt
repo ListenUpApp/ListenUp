@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.search.SearchResultCaps
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Pill
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
@@ -56,6 +57,7 @@ fun SearchPage(
     openableTypes: Set<SearchHitType>,
     onSeeAll: (SearchHitType) -> Unit = {},
 ) {
+    PageTitle("Search")
     Div(attrs = { classes("search-page") }) {
         Div(attrs = { classes("search-header") }) { H3 { Text("Search") } }
 

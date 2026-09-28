@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookedit
 
+import com.calypsan.listenup.web.design.PageTitle
 import kotlin.js.Date
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.Language
@@ -49,6 +50,7 @@ fun BookEditPage(
     onOpenLibrary: () -> Unit,
     onOpenBook: () -> Unit,
 ) {
+    PageTitle("Edit " + state.title.ifBlank { "book" })
     Div(attrs = { classes("bd") }) {
         Breadcrumb(listOf("Library", state.title.ifBlank { "Book" }, "Edit")) { index ->
             if (index == 0) onOpenLibrary() else onOpenBook()

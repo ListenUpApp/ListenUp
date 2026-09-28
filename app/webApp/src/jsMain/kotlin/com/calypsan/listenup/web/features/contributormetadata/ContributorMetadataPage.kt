@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.contributormetadata.Contributor
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.features.contributoredit.contributorPhotoUrl
@@ -48,6 +49,7 @@ fun ContributorMetadataPage(
     onApply: () -> Unit,
     onLeave: () -> Unit,
 ) {
+    PageTitle("Match contributor")
     Div(attrs = { classes("cmx") }) {
         Div(attrs = { classes("cmx-head") }) {
             H1(attrs = { classes("cmx-t") }) { Text("Match contributor") }

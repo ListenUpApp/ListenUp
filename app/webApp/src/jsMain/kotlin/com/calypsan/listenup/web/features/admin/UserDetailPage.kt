@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.UserAvatar
@@ -29,6 +30,7 @@ fun UserDetailPage(
     onToggleCanShare: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
+    PageTitle(userCrumb(state))
     Div(attrs = { classes("usr") }) {
         Breadcrumb(trail = listOf("People", userCrumb(state)), onNavigate = { onOpenAdmin() })
 

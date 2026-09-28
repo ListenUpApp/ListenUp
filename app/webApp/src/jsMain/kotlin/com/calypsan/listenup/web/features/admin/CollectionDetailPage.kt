@@ -13,6 +13,7 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.disabledWhen
@@ -53,6 +54,7 @@ fun CollectionDetailPage(
     onClearError: () -> Unit,
     onOpenCollections: () -> Unit,
 ) {
+    PageTitle((state as? AdminCollectionDetailUiState.Ready)?.collection?.name ?: "Collection")
     Div(attrs = { classes("cdet") }) {
         Button(attrs = {
             classes("btn-o", "cdet-back")

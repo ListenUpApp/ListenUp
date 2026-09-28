@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.PageTitle
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -34,6 +35,7 @@ fun DevicesPage(
     onSignOutEverywhere: () -> Unit,
     onRetry: () -> Unit,
 ) {
+    PageTitle("Devices")
     var confirming by remember { mutableStateOf(false) }
 
     Div(attrs = { classes("dev") }) {

@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import org.jetbrains.compose.web.dom.Button
@@ -58,6 +59,7 @@ fun AdminPage(
     onOpenOrganize: () -> Unit = {},
     onOpenUser: (String) -> Unit = {},
 ) {
+    PageTitle("People")
     Div(attrs = { classes("adm") }) {
         H1(attrs = { classes("adm-title") }) { Text("People") }
 

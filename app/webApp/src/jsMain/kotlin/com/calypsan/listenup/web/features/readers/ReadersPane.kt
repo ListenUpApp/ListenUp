@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.util.relativeOrMonthYear
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.UserAvatar
@@ -73,6 +74,7 @@ fun ReadersPage(
     onOpenProfile: (String) -> Unit,
     onOpenBook: () -> Unit,
 ) {
+    PageTitle("Readers")
     Div(attrs = { classes("rdr") }) {
         Breadcrumb(trail = listOf(bookTitle, "Readers"), onNavigate = { onOpenBook() })
         H1(attrs = { classes("rdr-t") }) { Text("Readers") }

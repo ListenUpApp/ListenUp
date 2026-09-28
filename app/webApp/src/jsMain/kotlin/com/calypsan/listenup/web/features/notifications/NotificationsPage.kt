@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -35,6 +36,7 @@ fun NotificationsPage(
     nowMs: Long,
     onOpen: (AppNotification) -> Unit,
 ) {
+    PageTitle("Notifications")
     Div(attrs = { classes("ntf") }) {
         H1(attrs = { classes("ntf-title") }) { Text("Notifications") }
 

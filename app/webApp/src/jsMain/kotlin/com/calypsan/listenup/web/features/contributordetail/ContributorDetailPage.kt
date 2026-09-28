@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
@@ -61,6 +62,7 @@ fun ContributorDetailPage(
     onConfirmDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
 ) {
+    PageTitle(crumb(state))
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page
         // that cannot show who you asked for must still show the way out of it.

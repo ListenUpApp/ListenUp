@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
 import androidx.compose.runtime.Composable
@@ -55,6 +56,7 @@ fun CategoriesPage(
     mergeHistory: GenreMergeHistory?,
     mergeHistoryActions: MergeHistoryActions,
 ) {
+    PageTitle("Categories")
     Div(attrs = { classes("cat") }) {
         Button(attrs = {
             classes(BTN_SECONDARY, "cat-back")

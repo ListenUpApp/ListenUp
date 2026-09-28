@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
 import com.calypsan.listenup.web.design.Breadcrumb
+import com.calypsan.listenup.web.design.PageTitle
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Span
@@ -25,6 +26,7 @@ fun SeeAllPage(
     onOpenHit: (SearchHit) -> Unit,
     onOpenSearch: () -> Unit,
 ) {
+    PageTitle(seeAllTitle(state))
     Div(attrs = { classes("sall") }) {
         Breadcrumb(trail = listOf("Search", seeAllTitle(state)), onNavigate = { onOpenSearch() })
 

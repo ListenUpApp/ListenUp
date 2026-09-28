@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import com.calypsan.listenup.web.design.PageTitle
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.Event
 import org.w3c.dom.HTMLElement
@@ -67,6 +68,7 @@ fun ChapterEditorPage(
     onLeave: () -> Unit,
     problem: String? = null,
 ) {
+    PageTitle("Edit chapters")
     Div(attrs = { classes("ched") }) {
         when (state) {
             ChapterEditorUiState.Loading -> {

@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiStat
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
@@ -54,6 +55,7 @@ fun SeriesDetailPage(
     onPlayBook: (String) -> Unit = {},
     onEdit: () -> Unit = {},
 ) {
+    PageTitle(crumb(state))
     Div(attrs = { classes("sd") }) {
         // Renders in every state, including the ones with no series: a page that cannot show what
         // you asked for must still show the way out of it.
