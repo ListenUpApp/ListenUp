@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.alt
+import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Aside
 import org.jetbrains.compose.web.dom.B
 import org.jetbrains.compose.web.dom.Button
@@ -13,6 +14,7 @@ import org.jetbrains.compose.web.dom.Main
 import org.jetbrains.compose.web.dom.Nav
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import androidx.compose.web.events.SyntheticMouseEvent
 
 /**
  * One sidebar destination. The [key] doubles as the URL path segment, which is why it — not an
@@ -31,6 +33,14 @@ class NavEntry(
      * something to look at.
      */
     val badge: Int = 0,
+    /**
+     * Where the entry lives, as a real URL. Defaults to `/[key]`; Home is the one that differs, since
+     * it is the root rather than `/home`.
+     *
+     * Rendered as the link's `href`, so the item is a genuine link: reachable by Tab, announced as a
+     * link, and openable in a new tab — none of which the `<div onClick>` it replaced could be.
+     */
+    val href: String = "/$key",
 )
 
 /**
@@ -140,12 +150,25 @@ private fun NavItem(
     active: String,
     onNavigate: ((String) -> Unit)?,
 ) {
-    Div(attrs = {
+    val isActive = entry.key == active
+    A(href = entry.href, attrs = {
         classes("nav-i")
-        if (entry.key == active) classes("on")
+        if (isActive) {
+            classes("on")
+            attr("aria-current", "page")
+        }
         // In the rail forms the label survives as a tooltip; harmless when it is visible.
         attr("title", entry.label)
-        onNavigate?.let { navigate -> onClick { navigate(entry.key) } }
+        onNavigate?.let { navigate ->
+            onClick { event ->
+                // A modified or non-primary click is the reader asking the browser for a new tab or
+                // window, so it keeps its default. Only a plain click is routed in-app.
+                if (event.isPlainPrimaryClick()) {
+                    event.preventDefault()
+                    navigate(entry.key)
+                }
+            }
+        }
     }) {
         Icon(entry.icon, size = NAV_ICON_SIZE)
         Span(attrs = { classes("lb") }) { Text(entry.label) }
@@ -161,6 +184,11 @@ private fun NavItem(
         }
     }
 }
+
+private fun SyntheticMouseEvent.isPlainPrimaryClick(): Boolean =
+    button == PRIMARY_BUTTON && !ctrlKey && !metaKey && !shiftKey && !altKey
+
+private const val PRIMARY_BUTTON: Short = 0
 
 /**
  * The brand mark, served from `web/public/`.

@@ -106,5 +106,16 @@ body { margin: 0; }
 .dir-a { font-family: var(--font-a); }
 .dir-b { font-family: var(--font-b); }
 .luw ::selection { background: var(--coral-soft); }
+
+/* Controls that were once clickable <div>/<span>s and are now real <button>s and <a>s, so the
+   keyboard can reach them. This takes back what the browser's own button and link styles add —
+   border, grey fill, system font, centred text, underline — and nothing else. Wrapped in :where()
+   so it carries no specificity: every class rule that styles these still wins, whichever sheet it
+   is in and whatever order the sheets load. */
+:where(.nav-i, .menu-i, .tab, .seg button, .lnk, .lib-sort-option, .lib-sort-direction,
+       .toast .t-x, .pill .x, .chmap button, .tbl th.can button, .chr-t, .bd-pick-x) {
+  appearance: none; margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; text-align: inherit; text-decoration: none;
+}
 .mono { font-family: var(--mono); font-feature-settings: "ss01"; }
 

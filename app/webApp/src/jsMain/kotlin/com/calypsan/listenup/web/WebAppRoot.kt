@@ -3002,7 +3002,7 @@ private val PRIMARY_NAV =
     NavSection(
         entries =
             listOf(
-                NavEntry(HOME_KEY, "Home", WebIcon.Home),
+                NavEntry(HOME_KEY, "Home", WebIcon.Home, href = "/"),
                 NavEntry(LIBRARY_KEY, "Library", WebIcon.Book),
                 NavEntry(DISCOVER_KEY, "Discover", WebIcon.Compass),
                 NavEntry("search", "Search", WebIcon.Search),
@@ -3073,7 +3073,15 @@ private fun footerNav(
 ): List<NavEntry> =
     FOOTER_NAV
         .filterNot { it.key == ADMIN_KEY && !isAdmin }
-        .map { if (it.key == NOTIFICATIONS_KEY) NavEntry(it.key, it.label, it.icon, badge = unreadCount) else it }
+        .map {
+            if (it.key ==
+                NOTIFICATIONS_KEY
+            ) {
+                NavEntry(it.key, it.label, it.icon, badge = unreadCount, href = it.href)
+            } else {
+                it
+            }
+        }
 
 /**
  * The `/shelf/{id}` branch — one shelf, its books, and the owner's controls.
