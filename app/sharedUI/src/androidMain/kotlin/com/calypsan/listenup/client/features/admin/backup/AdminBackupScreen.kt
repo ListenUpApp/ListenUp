@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
@@ -81,8 +80,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_backup_created_at
-import listenup.composeapp.generated.resources.admin_backup_download_failed
-import listenup.composeapp.generated.resources.admin_backup_downloaded
 import listenup.composeapp.generated.resources.admin_backup_size
 import listenup.composeapp.generated.resources.admin_backups
 import listenup.composeapp.generated.resources.admin_confirm_delete_backup
@@ -124,8 +121,7 @@ fun AdminBackupScreen(
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
     val absImportListState by absImportViewModel.listState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val downloadSavedMessage = stringResource(Res.string.admin_backup_downloaded)
-    val downloadFailedMessage = stringResource(Res.string.admin_backup_download_failed)
+    val downloadNotices = rememberBackupDownloadNotices()
 
     // The backup chosen for download — set when the user taps Download, consumed when the
     // Save-As picker returns a destination URI.
@@ -138,17 +134,15 @@ fun AdminBackupScreen(
             if (uri == null || backup == null) return@rememberLauncherForActivityResult
             val outputStream = context.contentResolver.openOutputStream(uri)
             if (outputStream == null) {
-                Toast.makeText(context, downloadFailedMessage, Toast.LENGTH_SHORT).show()
+                downloadNotices.failed()
                 return@rememberLauncherForActivityResult
             }
             backupViewModel.downloadBackup(BackupId(backup.id), outputStream.asSink())
         }
 
-    // Confirm a completed download with a toast.
+    // Confirm a completed download in the app's snackbar.
     LaunchedEffect(Unit) {
-        backupViewModel.downloadSaved.collect {
-            Toast.makeText(context, downloadSavedMessage, Toast.LENGTH_SHORT).show()
-        }
+        backupViewModel.downloadSaved.collect { downloadNotices.saved() }
     }
 
     // Delete import confirmation state
