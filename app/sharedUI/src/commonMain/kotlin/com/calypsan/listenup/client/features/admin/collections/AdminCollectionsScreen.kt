@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -26,14 +27,12 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FolderSpecial
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -563,51 +562,26 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var name by remember { mutableStateOf("") }
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.admin_create_collection)) },
-        text = {
-            ListenUpTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = stringResource(Res.string.admin_collection_name),
-                enabled = !isCreating,
-                supportingText = stringResource(Res.string.admin_enter_a_name_for_the),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        haptics.commit()
-                        onConfirm(name)
-                    }
-                },
-                enabled = !isCreating && name.isNotBlank(),
-            ) {
-                if (isCreating) {
-                    ListenUpLoadingIndicatorSmall()
-                } else {
-                    Text(stringResource(Res.string.common_create))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-                enabled = !isCreating,
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        title = stringResource(Res.string.admin_create_collection),
+        confirmText = stringResource(Res.string.common_create),
+        onConfirm = { onConfirm(name) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = name.isNotBlank(),
+        confirmBusy = isCreating,
+        dismissEnabled = !isCreating,
+    ) {
+        ListenUpTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = stringResource(Res.string.admin_collection_name),
+            enabled = !isCreating,
+            supportingText = stringResource(Res.string.admin_enter_a_name_for_the),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        )
+    }
 }

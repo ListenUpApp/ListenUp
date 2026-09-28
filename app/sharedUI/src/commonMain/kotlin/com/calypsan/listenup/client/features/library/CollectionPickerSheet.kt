@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.library
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -25,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -370,7 +369,6 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var collectionName by remember { mutableStateOf("") }
     val isValid = collectionName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -381,40 +379,22 @@ private fun CreateCollectionDialog(
         focusRequester.requestFocus()
     }
 
-    androidx.compose.material3.AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = { Text(stringResource(Res.string.library_create_new_collection)) },
-        text = {
-            ListenUpTextField(
-                value = collectionName,
-                onValueChange = { collectionName = it },
-                label = stringResource(Res.string.library_collection_name),
-                placeholder = stringResource(Res.string.common_collection_name_hint),
-                modifier = Modifier.focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.commit()
-                    onCreate(collectionName.trim())
-                },
-                enabled = isValid,
-            ) {
-                Text(stringResource(Res.string.library_create_add))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        title = stringResource(Res.string.library_create_new_collection),
+        confirmText = stringResource(Res.string.library_create_add),
+        onConfirm = { onCreate(collectionName.trim()) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = isValid,
+    ) {
+        ListenUpTextField(
+            value = collectionName,
+            onValueChange = { collectionName = it },
+            label = stringResource(Res.string.library_collection_name),
+            placeholder = stringResource(Res.string.common_collection_name_hint),
+            modifier = Modifier.focusRequester(focusRequester),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        )
+    }
 }

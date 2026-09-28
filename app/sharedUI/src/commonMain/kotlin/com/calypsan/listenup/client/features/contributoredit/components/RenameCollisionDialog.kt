@@ -1,11 +1,9 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
-import androidx.compose.material3.AlertDialog
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.contributor_rename_collision_body
 import listenup.composeapp.generated.resources.contributor_rename_collision_keep_separate
@@ -37,37 +35,17 @@ fun RenameCollisionDialog(
     onKeepSeparate: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.contributor_rename_collision_title)) },
-        text = {
-            Text(
-                text = stringResource(Res.string.contributor_rename_collision_body, newName, existingName),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.commit()
-                    onMerge()
-                },
-            ) {
-                Text(stringResource(Res.string.contributor_rename_collision_merge))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onKeepSeparate()
-                },
-            ) {
-                Text(stringResource(Res.string.contributor_rename_collision_keep_separate))
-            }
-        },
-    )
+        title = stringResource(Res.string.contributor_rename_collision_title),
+        confirmText = stringResource(Res.string.contributor_rename_collision_merge),
+        onConfirm = onMerge,
+        dismissText = stringResource(Res.string.contributor_rename_collision_keep_separate),
+        onDismiss = onKeepSeparate,
+    ) {
+        Text(
+            text = stringResource(Res.string.contributor_rename_collision_body, newName, existingName),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 }

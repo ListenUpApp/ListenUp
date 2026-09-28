@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -54,7 +55,6 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.UnfoldLess
 import androidx.compose.material.icons.outlined.UnfoldMore
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -69,7 +69,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -285,23 +284,20 @@ fun AdminCategoriesScreen(
 private fun GenreMergeHistorySheet(viewModel: AdminCategoriesViewModel) {
     val open by viewModel.mergeHistory.collectAsStateWithLifecycle()
     val current = open ?: return
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = viewModel::closeMergeHistory,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.merge_history_genre_title, current.genreName)) },
-        text = {
-            MergeHistoryList(
-                state = current.history,
-                onUndo = viewModel::undoGenreMerge,
-                onRetry = viewModel::retryMergeHistory,
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = viewModel::closeMergeHistory) { Text(stringResource(Res.string.common_done)) }
-        },
-    )
+        title = stringResource(Res.string.merge_history_genre_title, current.genreName),
+        confirmText = stringResource(Res.string.common_done),
+        onConfirm = viewModel::closeMergeHistory,
+        dismissText = null,
+    ) {
+        MergeHistoryList(
+            state = current.history,
+            onUndo = viewModel::undoGenreMerge,
+            onRetry = viewModel::retryMergeHistory,
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -661,57 +657,37 @@ private fun GenreNameDialog(
     onDismiss: () -> Unit,
     subtitle: String? = null,
 ) {
-    val haptics = LocalHaptics.current
     var name by remember { mutableStateOf(initialName) }
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(title) },
-        text = {
-            Column {
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                }
-                ListenUpTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = stringResource(Res.string.admin_genre_name),
-                    // Keep the pre-migration corner radius (the OutlinedTextField default).
-                    shape = OutlinedTextFieldDefaults.shape,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        title = title,
+        confirmText = confirmLabel,
+        onConfirm = { onConfirm(name.trim()) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = name.isNotBlank(),
+    ) {
+        Column {
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.commit()
-                    onConfirm(name.trim())
-                },
-                enabled = name.isNotBlank(),
-            ) {
-                Text(confirmLabel)
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+            ListenUpTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(Res.string.admin_genre_name),
+                // Keep the pre-migration corner radius (the OutlinedTextField default).
+                shape = OutlinedTextFieldDefaults.shape,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            )
+        }
+    }
 }
 
 /**
@@ -1288,67 +1264,60 @@ private fun MoveGenreDialog(
     onDismiss: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.admin_move_to_named, sourceName)) },
-        text = {
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                item(key = "__top_level__") {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    haptics.selectionTick()
-                                    onConfirmTopLevel()
-                                }.padding(vertical = 12.dp),
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.admin_top_level),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
+        title = stringResource(Res.string.admin_move_to_named, sourceName),
+        confirmText = null,
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+    ) {
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            item(key = "__top_level__") {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                haptics.selectionTick()
+                                onConfirmTopLevel()
+                            }.padding(vertical = 12.dp),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.admin_top_level),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                 }
-                if (candidates.isEmpty()) {
-                    item(key = "__no_candidates__") {
+            }
+            if (candidates.isEmpty()) {
+                item(key = "__no_candidates__") {
+                    Text(
+                        text = stringResource(Res.string.admin_no_move_target_top_level_only),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+            }
+            items(candidates, key = { it.id }) { candidate ->
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                haptics.selectionTick()
+                                onConfirmTarget(candidate.id)
+                            }.padding(vertical = 12.dp),
+                ) {
+                    Column {
+                        Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            text = stringResource(Res.string.admin_no_move_target_top_level_only),
+                            text = candidate.path,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 12.dp),
                         )
-                    }
-                }
-                items(candidates, key = { it.id }) { candidate ->
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    haptics.selectionTick()
-                                    onConfirmTarget(candidate.id)
-                                }.padding(vertical = 12.dp),
-                    ) {
-                        Column {
-                            Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                text = candidate.path,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) { Text(stringResource(Res.string.common_cancel)) }
-        },
-    )
+        }
+    }
 }

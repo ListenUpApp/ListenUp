@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
@@ -26,7 +27,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -192,38 +192,21 @@ internal fun LibrarySettingsContent(
     onTriggerScan: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHaptics.current
     var folderToRemove by remember { mutableStateOf<LibraryFolderRef?>(null) }
 
     // Confirm removal dialog
     folderToRemove?.let { folder ->
-        AlertDialog(
+        ListenUpAlertDialog(
             onDismissRequest = { folderToRemove = null },
-            title = { Text(stringResource(Res.string.admin_remove_scan_path)) },
-            text = {
-                Text(stringResource(Res.string.admin_remove_path_from_library_scan, folder.rootPath ?: folder.id))
+            title = stringResource(Res.string.admin_remove_scan_path),
+            text = stringResource(Res.string.admin_remove_path_from_library_scan, folder.rootPath ?: folder.id),
+            confirmText = stringResource(Res.string.common_remove),
+            onConfirm = {
+                onRemoveFolder(folder.id)
+                folderToRemove = null
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        haptics.commit()
-                        onRemoveFolder(folder.id)
-                        folderToRemove = null
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_remove))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        folderToRemove = null
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_cancel))
-                }
-            },
+            dismissText = stringResource(Res.string.common_cancel),
+            onDismiss = { folderToRemove = null },
         )
     }
 

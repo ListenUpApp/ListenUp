@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -28,7 +29,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -138,20 +138,13 @@ fun StorageScreen(
     // playing. Surfacing the reason — instead of silently no-op'ing the delete — tells the user
     // exactly how to proceed (stop playback, then delete).
     state.blockedDeletionTitle?.let { title ->
-        AlertDialog(
+        ListenUpAlertDialog(
             onDismissRequest = viewModel::dismissDeleteBlocked,
-            title = { Text(stringResource(Res.string.settings_cant_delete_playing_title)) },
-            text = { Text(stringResource(Res.string.settings_cant_delete_playing_message, title)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        viewModel.dismissDeleteBlocked()
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_ok))
-                }
-            },
+            title = stringResource(Res.string.settings_cant_delete_playing_title),
+            text = stringResource(Res.string.settings_cant_delete_playing_message, title),
+            confirmText = stringResource(Res.string.common_ok),
+            onConfirm = viewModel::dismissDeleteBlocked,
+            dismissText = null,
         )
     }
 

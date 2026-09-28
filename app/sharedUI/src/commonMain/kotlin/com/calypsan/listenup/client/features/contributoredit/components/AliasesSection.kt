@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,13 +10,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
@@ -91,7 +89,6 @@ private fun AliasChip(
     alias: String,
     onUnmerge: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var showConfirm by remember { mutableStateOf(false) }
 
     InputChip(
@@ -111,31 +108,17 @@ private fun AliasChip(
     )
 
     if (showConfirm) {
-        AlertDialog(
+        ListenUpAlertDialog(
             onDismissRequest = { showConfirm = false },
-            title = { Text(stringResource(Res.string.contributor_unmerge_aliasname, alias)) },
-            text = { Text(stringResource(Res.string.contributor_unmerge_body, alias)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        haptics.commit()
-                        showConfirm = false
-                        onUnmerge()
-                    },
-                ) {
-                    Text(stringResource(Res.string.contributor_unmerge_confirm))
-                }
+            title = stringResource(Res.string.contributor_unmerge_aliasname, alias),
+            text = stringResource(Res.string.contributor_unmerge_body, alias),
+            confirmText = stringResource(Res.string.contributor_unmerge_confirm),
+            onConfirm = {
+                showConfirm = false
+                onUnmerge()
             },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        showConfirm = false
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_cancel))
-                }
-            },
+            dismissText = stringResource(Res.string.common_cancel),
+            onDismiss = { showConfirm = false },
         )
     }
 }

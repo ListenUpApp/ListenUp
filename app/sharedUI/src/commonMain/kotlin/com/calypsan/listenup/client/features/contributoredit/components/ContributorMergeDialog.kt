@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,12 +11,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,85 +73,63 @@ fun ContributorMergeDialog(
     onConfirm: (ContributorId) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var selected by remember { mutableStateOf<ContributorId?>(null) }
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.contributor_merge_title)) },
-        text = {
-            Column {
-                Text(
-                    text = stringResource(Res.string.contributor_merge_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                ListenUpTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    label = stringResource(Res.string.common_search),
-                    placeholder = stringResource(Res.string.contributor_merge_search_placeholder),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                )
-                // Above the list, not below it: the list is capped at LIST_MAX_HEIGHT_DP, so a
-                // notice placed underneath is pushed out of the dialog exactly when it is needed —
-                // when the list is long. Beside the search field is also where it is actionable.
-                if (candidates.isEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(Res.string.contributor_merge_no_matches),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else if (truncated) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(Res.string.contributor_merge_truncated, MAX_MERGE_CANDIDATES),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+        title = stringResource(Res.string.contributor_merge_title),
+        confirmText = stringResource(Res.string.contributor_merge_confirm),
+        onConfirm = { selected?.let(onConfirm) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = selected != null,
+    ) {
+        Column {
+            Text(
+                text = stringResource(Res.string.contributor_merge_body),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            ListenUpTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                label = stringResource(Res.string.common_search),
+                placeholder = stringResource(Res.string.contributor_merge_search_placeholder),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            )
+            // Above the list, not below it: the list is capped at LIST_MAX_HEIGHT_DP, so a
+            // notice placed underneath is pushed out of the dialog exactly when it is needed —
+            // when the list is long. Beside the search field is also where it is actionable.
+            if (candidates.isEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT_DP.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    items(candidates, key = { it.id.value }) { candidate ->
-                        CandidateRow(
-                            name = candidate.displayName,
-                            isSelected = selected == candidate.id,
-                            onClick = { selected = candidate.id },
-                        )
-                    }
+                Text(
+                    text = stringResource(Res.string.contributor_merge_no_matches),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (truncated) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(Res.string.contributor_merge_truncated, MAX_MERGE_CANDIDATES),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyColumn(
+                modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT_DP.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                items(candidates, key = { it.id.value }) { candidate ->
+                    CandidateRow(
+                        name = candidate.displayName,
+                        isSelected = selected == candidate.id,
+                        onClick = { selected = candidate.id },
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    selected?.let {
-                        haptics.commit()
-                        onConfirm(it)
-                    }
-                },
-                enabled = selected != null,
-            ) {
-                Text(stringResource(Res.string.contributor_merge_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        }
+    }
 }
 
 @Composable

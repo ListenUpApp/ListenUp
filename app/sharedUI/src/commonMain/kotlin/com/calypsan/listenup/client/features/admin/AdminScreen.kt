@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -35,7 +36,6 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -44,7 +44,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
-import androidx.compose.material3.TextButton
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -1237,62 +1236,37 @@ private fun PasswordResetCodeDialog(
     onCopyClick: () -> Unit,
     onDone: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     val name = recipientName ?: stringResource(Res.string.admin_reset_code_recipient_fallback)
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = {},
+        title = stringResource(Res.string.admin_reset_code_title, name),
+        confirmText = stringResource(Res.string.admin_reset_code_done),
+        onConfirm = onDone,
+        dismissText = stringResource(Res.string.common_copy),
+        onDismiss = onCopyClick,
+        icon = Icons.Outlined.Key,
+        dismissIcon = Icons.Outlined.ContentCopy,
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        icon = { Icon(Icons.Outlined.Key, contentDescription = null) },
-        title = { Text(stringResource(Res.string.admin_reset_code_title, name)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = code,
-                        style = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+            ) {
                 Text(
-                    text = stringResource(Res.string.admin_reset_code_instruction, name),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = code,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDone()
-                },
-            ) {
-                Text(stringResource(Res.string.admin_reset_code_done))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onCopyClick()
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(Res.string.common_copy))
-            }
-        },
-    )
+            Text(
+                text = stringResource(Res.string.admin_reset_code_instruction, name),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

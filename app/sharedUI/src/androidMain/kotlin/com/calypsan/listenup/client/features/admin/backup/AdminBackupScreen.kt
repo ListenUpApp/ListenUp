@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.backup
 
+import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -29,7 +30,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -45,7 +45,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -117,7 +116,6 @@ fun AdminBackupScreen(
     onABSImportHubClick: (String) -> Unit,
     onNewImportClick: () -> Unit = {},
 ) {
-    val haptics = LocalHaptics.current
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
     val absImportListState by absImportViewModel.listState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -200,34 +198,16 @@ fun AdminBackupScreen(
 
     // Delete import confirmation dialog
     deleteConfirmImport?.let { import ->
-        AlertDialog(
+        ListenUpDestructiveDialog(
             onDismissRequest = { deleteConfirmImport = null },
-            shape = MaterialTheme.shapes.large,
-            title = { Text(stringResource(Res.string.import_delete_import)) },
-            text = {
-                Text(stringResource(Res.string.import_delete_confirm, import.id.value))
+            title = stringResource(Res.string.import_delete_import),
+            text = stringResource(Res.string.import_delete_confirm, import.id.value),
+            confirmText = stringResource(Res.string.common_delete),
+            onConfirm = {
+                absImportViewModel.deleteImport(import.id)
+                deleteConfirmImport = null
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        haptics.commit()
-                        absImportViewModel.deleteImport(import.id)
-                        deleteConfirmImport = null
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        deleteConfirmImport = null
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_cancel))
-                }
-            },
+            dismissText = stringResource(Res.string.common_cancel),
         )
     }
 }
@@ -238,32 +218,13 @@ private fun DeleteBackupDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
-    AlertDialog(
+    ListenUpDestructiveDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = { Text(stringResource(Res.string.admin_delete_backup)) },
-        text = { Text(stringResource(Res.string.admin_confirm_delete_backup, backup.id)) },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.commit()
-                    onConfirm()
-                },
-            ) {
-                Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
+        title = stringResource(Res.string.admin_delete_backup),
+        text = stringResource(Res.string.admin_confirm_delete_backup, backup.id),
+        confirmText = stringResource(Res.string.common_delete),
+        onConfirm = onConfirm,
+        dismissText = stringResource(Res.string.common_cancel),
     )
 }
 

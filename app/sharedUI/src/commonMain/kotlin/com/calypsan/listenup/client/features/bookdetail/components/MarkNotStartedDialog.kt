@@ -1,11 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
 import listenup.composeapp.generated.resources.book_detail_mark_not_started_prompt
@@ -25,26 +21,12 @@ fun MarkNotStartedDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
-    AlertDialog(
+    ListenUpDestructiveDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.book_detail_mark_as_not_started)) },
-        text = { Text(stringResource(Res.string.book_detail_mark_not_started_prompt)) },
-        confirmButton = {
-            TextButton(onClick = {
-                haptics.commit()
-                onConfirm()
-            }) {
-                Text(
-                    text = stringResource(Res.string.book_detail_mark_as_not_started),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
+        title = stringResource(Res.string.book_detail_mark_as_not_started),
+        text = stringResource(Res.string.book_detail_mark_not_started_prompt),
+        confirmText = stringResource(Res.string.book_detail_mark_as_not_started),
+        onConfirm = onConfirm,
+        dismissText = stringResource(Res.string.common_cancel),
     )
 }

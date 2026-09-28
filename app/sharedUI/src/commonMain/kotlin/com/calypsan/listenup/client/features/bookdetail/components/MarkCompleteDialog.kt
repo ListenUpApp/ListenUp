@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -8,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,7 +57,6 @@ fun MarkCompleteDialog(
     onConfirm: (startedAt: Long, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     val now = remember { currentEpochMilliseconds() }
 
     // Initial values: startedAt from existing progress or today, finishedAt = today
@@ -69,41 +68,29 @@ fun MarkCompleteDialog(
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showFinishDatePicker by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.book_detail_mark_as_read)) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DateField(
-                    label = "Started",
-                    millis = startDateMillis,
-                    onClick = { showStartDatePicker = true },
-                )
-                DateField(
-                    label = "Finished",
-                    millis = finishDateMillis,
-                    onClick = { showFinishDatePicker = true },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                haptics.commit()
-                onConfirm(startDateMillis, finishDateMillis)
-            }) {
-                Text(stringResource(Res.string.book_detail_mark_as_read))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        title = stringResource(Res.string.book_detail_mark_as_read),
+        confirmText = stringResource(Res.string.book_detail_mark_as_read),
+        onConfirm = { onConfirm(startDateMillis, finishDateMillis) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            DateField(
+                label = "Started",
+                millis = startDateMillis,
+                onClick = { showStartDatePicker = true },
+            )
+            DateField(
+                label = "Finished",
+                millis = finishDateMillis,
+                onClick = { showFinishDatePicker = true },
+            )
+        }
+    }
 
     if (showStartDatePicker) {
         DatePickerDialogWrapper(

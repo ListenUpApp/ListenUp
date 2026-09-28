@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.organize
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
@@ -18,7 +19,6 @@ import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Tag
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -26,7 +26,6 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,7 +82,6 @@ import listenup.composeapp.generated.resources.admin_organize_structure
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
 import org.jetbrains.compose.resources.stringResource
-
 
 /**
  * Admin file-organizer settings screen (#850): the schema pickers, plus **two visibly distinct
@@ -202,8 +200,12 @@ internal fun OrganizeSettingsContent(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
     val structure: @Composable () -> Unit = { StructurePicker(settings = settings, onPresetChange = onPresetChange) }
-    val seriesPrefix: @Composable () -> Unit = { SeriesPrefixPicker(settings = settings, onSeriesPrefixChange = onSeriesPrefixChange) }
-    val authorForm: @Composable () -> Unit = { AuthorFormPicker(settings = settings, onAuthorFormChange = onAuthorFormChange) }
+    val seriesPrefix: @Composable () -> Unit = {
+        SeriesPrefixPicker(settings = settings, onSeriesPrefixChange = onSeriesPrefixChange)
+    }
+    val authorForm: @Composable () -> Unit = {
+        AuthorFormPicker(settings = settings, onAuthorFormChange = onAuthorFormChange)
+    }
     val showsSeriesPrefix = settings.preset == OrganizePreset.AUTHOR_SERIES_TITLE
     val showsAuthorForm = settings.preset != OrganizePreset.FLAT_TITLE
 
@@ -357,56 +359,53 @@ private fun OrganizeConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.admin_organize_confirm_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (preview.bookCount > 0) {
-                    Text(
-                        stringResource(
-                            Res.string.admin_organize_confirm_summary,
-                            preview.fileCount,
-                            preview.bookCount,
-                            preview.collisionCount,
-                        ),
-                    )
-                }
-                if (preview.renamedInPlaceCount > 0) {
-                    Text(
-                        stringResource(
-                            Res.string.admin_organize_confirm_renames,
-                            preview.renamedInPlaceCount,
-                        ),
-                    )
-                }
-                preview.entries.take(PREVIEW_ROWS_SHOWN).forEach { entry ->
-                    // An in-place rename's folder is unchanged, so the filenames are the story;
-                    // rendering its folder on both sides would show a change that isn't one.
-                    val before = entry.renamedFrom ?: entry.fromPath.substringAfterLast('/')
-                    val after = entry.renamedTo ?: entry.toPath
-                    Text(
-                        text = stringResource(Res.string.admin_organize_confirm_row, before, after),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                val plannedBooks = preview.bookCount + preview.renamedInPlaceCount
-                val remaining = plannedBooks - minOf(preview.entries.size, PREVIEW_ROWS_SHOWN)
-                if (remaining > 0) {
-                    Text(
-                        text = stringResource(Res.string.admin_organize_confirm_more_rows, remaining),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+        title = stringResource(Res.string.admin_organize_confirm_title),
+        confirmText = stringResource(Res.string.admin_organize_confirm_run),
+        onConfirm = onConfirm,
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (preview.bookCount > 0) {
+                Text(
+                    stringResource(
+                        Res.string.admin_organize_confirm_summary,
+                        preview.fileCount,
+                        preview.bookCount,
+                        preview.collisionCount,
+                    ),
+                )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(stringResource(Res.string.admin_organize_confirm_run)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
-        },
-    )
+            if (preview.renamedInPlaceCount > 0) {
+                Text(
+                    stringResource(
+                        Res.string.admin_organize_confirm_renames,
+                        preview.renamedInPlaceCount,
+                    ),
+                )
+            }
+            preview.entries.take(PREVIEW_ROWS_SHOWN).forEach { entry ->
+                // An in-place rename's folder is unchanged, so the filenames are the story;
+                // rendering its folder on both sides would show a change that isn't one.
+                val before = entry.renamedFrom ?: entry.fromPath.substringAfterLast('/')
+                val after = entry.renamedTo ?: entry.toPath
+                Text(
+                    text = stringResource(Res.string.admin_organize_confirm_row, before, after),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            val plannedBooks = preview.bookCount + preview.renamedInPlaceCount
+            val remaining = plannedBooks - minOf(preview.entries.size, PREVIEW_ROWS_SHOWN)
+            if (remaining > 0) {
+                Text(
+                    text = stringResource(Res.string.admin_organize_confirm_more_rows, remaining),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
 }
 
 /** Run progress while in flight; terminal report (with Resume on partial failure) once done. */
@@ -416,37 +415,31 @@ private fun OrganizeRunDialog(
     onResume: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = { if (run.terminal) onDismiss() },
-        title = {
-            Text(
-                stringResource(
-                    if (run.terminal) Res.string.admin_organize_report_done else Res.string.admin_organize_progress_title,
-                ),
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (run.terminal) {
-                    Text(stringResource(Res.string.admin_organize_report_summary, run.movedBooks, run.failedBooks))
-                } else {
-                    Text(stringResource(Res.string.admin_organize_progress_count, run.completed, run.total))
-                    LinearProgressIndicator(
-                        progress = { if (run.total > 0) run.completed.toFloat() / run.total else 0f },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        },
-        confirmButton = {
+        title =
+            stringResource(
+                if (run.terminal) Res.string.admin_organize_report_done else Res.string.admin_organize_progress_title,
+            ),
+        // Nothing to press while the run is moving files; the report ends with OK, and Resume beside
+        // it when some books failed.
+        confirmText = if (run.terminal) stringResource(Res.string.common_ok) else null,
+        onConfirm = onDismiss,
+        dismissText = if (run.hasFailures) stringResource(Res.string.admin_organize_report_resume) else null,
+        onDismiss = onResume,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (run.terminal) {
-                if (run.hasFailures) {
-                    TextButton(onClick = onResume) { Text(stringResource(Res.string.admin_organize_report_resume)) }
-                }
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_ok)) }
+                Text(stringResource(Res.string.admin_organize_report_summary, run.movedBooks, run.failedBooks))
+            } else {
+                Text(stringResource(Res.string.admin_organize_progress_count, run.completed, run.total))
+                LinearProgressIndicator(
+                    progress = { if (run.total > 0) run.completed.toFloat() / run.total else 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-        },
-    )
+        }
+    }
 }
 
 /** How many before→after rows the consent dialog lists before collapsing to "…and N more". */

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.library
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -332,7 +332,6 @@ private fun CreateShelfDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var shelfName by remember { mutableStateOf("") }
     val isValid = shelfName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -343,40 +342,22 @@ private fun CreateShelfDialog(
         focusRequester.requestFocus()
     }
 
-    androidx.compose.material3.AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = { Text(stringResource(Res.string.library_create_new_shelf)) },
-        text = {
-            ListenUpTextField(
-                value = shelfName,
-                onValueChange = { shelfName = it },
-                label = stringResource(Res.string.library_shelf_name),
-                placeholder = stringResource(Res.string.common_shelf_name_hint),
-                modifier = Modifier.focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.commit()
-                    onCreate(shelfName.trim())
-                },
-                enabled = isValid,
-            ) {
-                Text(stringResource(Res.string.library_create_add))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        title = stringResource(Res.string.library_create_new_shelf),
+        confirmText = stringResource(Res.string.library_create_add),
+        onConfirm = { onCreate(shelfName.trim()) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = isValid,
+    ) {
+        ListenUpTextField(
+            value = shelfName,
+            onValueChange = { shelfName = it },
+            label = stringResource(Res.string.library_shelf_name),
+            placeholder = stringResource(Res.string.common_shelf_name_hint),
+            modifier = Modifier.focusRequester(focusRequester),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        )
+    }
 }
