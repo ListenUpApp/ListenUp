@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.navigation.PaneSized
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
@@ -87,6 +88,11 @@ class BookDetailPaneWidthTest {
         val ratings =
             mock<BookRatingRepository>(MockMode.autoUnit) {
                 every { observeForBook(any()) } returns flowOf(emptyList())
+                every { observeExternalForBook(any()) } returns flowOf(emptyList())
+            }
+        val users =
+            mock<UserRepository>(MockMode.autoUnit) {
+                every { observeIsAdmin() } returns flowOf(false)
             }
         composeRule.setContent {
             KoinApplication(
@@ -95,7 +101,7 @@ class BookDetailPaneWidthTest {
                         module {
                             viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId) }
                             viewModel { (bookId: String) ->
-                                BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus())
+                                BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
                             }
                         },
                     )

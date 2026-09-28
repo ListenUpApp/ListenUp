@@ -801,29 +801,28 @@ internal fun RatingSourcesGroup(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_rating_sources_title),
-        icon = Icons.Outlined.Star,
-        accent = MaterialTheme.colorScheme.tertiary,
     ) {
-        Text(
-            text = stringResource(Res.string.admin_rating_sources_hint),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(14.dp),
-        )
-        sources.forEachIndexed { index, status ->
+        SectionSegment {
+            Text(
+                text = stringResource(Res.string.admin_rating_sources_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(Spacing.lg),
+            )
+        }
+        sources.forEach { status ->
             RatingSourceRow(
                 status = status,
-                showDivider = index > 0,
                 onEnabledChange = { enabled -> onSourceEnabledChange(status.source, enabled) },
             )
         }
     }
 }
 
+/** One source: the whole row is its switch, and the subtitle says how its last fetch went. */
 @Composable
 private fun RatingSourceRow(
     status: RatingSourceStatus,
-    showDivider: Boolean,
     onEnabledChange: (Boolean) -> Unit,
 ) {
     val lastError = status.lastError
@@ -842,17 +841,14 @@ private fun RatingSourceRow(
                 stringResource(Res.string.admin_rating_source_never_fetched)
             }
         }
-    SettingRow(
+    SettingToggleRow(
+        icon = Icons.Outlined.Star,
         title = ratingSourceLabel(status.source),
         subtitle = healthLine,
-        showDivider = showDivider,
-    ) {
-        Switch(
-            checked = status.enabled,
-            onCheckedChange = onEnabledChange,
-            modifier = Modifier.testTag("ratingSourceSwitch_${status.source.name}"),
-        )
-    }
+        checked = status.enabled,
+        onCheckedChange = onEnabledChange,
+        modifier = Modifier.testTag("ratingSourceSwitch_${status.source.name}"),
+    )
 }
 
 // ---------------------------------------------------------------------------
