@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -33,6 +34,8 @@ sealed interface BookRatingsUiState {
      *   first — the sheet one tap away from the headline.
      * @property canRefresh whether the signed-in listener may trigger [BookRatingsViewModel.refreshExternal]
      *   (admin or root).
+     * @property isRefreshingExternal whether a [BookRatingsViewModel.refreshExternal] is still in
+     *   flight — true until the server answers, whether or not any score changed.
      */
     data class Ready(
         val listeners: ListenerAverage?,
@@ -40,6 +43,7 @@ sealed interface BookRatingsUiState {
         val external: CombinedScore?,
         val breakdown: List<ExternalRating>,
         val canRefresh: Boolean,
+        val isRefreshingExternal: Boolean = false,
     ) : BookRatingsUiState
 }
 
@@ -66,6 +70,8 @@ class BookRatingsViewModel(
      */
     val limits: ListenerRatingLimits = ListenerRatingLimits
 
+    private val isRefreshingExternal = MutableStateFlow(false)
+
     /** The block's state. */
     val state: StateFlow<BookRatingsUiState> =
         combine(
@@ -73,7 +79,8 @@ class BookRatingsViewModel(
             currentUserId,
             repository.observeExternalForBook(bookId),
             userRepository.observeIsAdmin(),
-        ) { ratings, me, external, isAdmin ->
+            isRefreshingExternal,
+        ) { ratings, me, external, isAdmin, refreshing ->
             BookRatingsUiState.Ready(
                 listeners =
                     ratings.takeIf { it.isNotEmpty() }?.let { rs ->
@@ -83,6 +90,7 @@ class BookRatingsViewModel(
                 external = combineExternalRatings(external),
                 breakdown = external,
                 canRefresh = isAdmin,
+                isRefreshingExternal = refreshing,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookRatingsUiState.Loading)
 
@@ -99,9 +107,19 @@ class BookRatingsViewModel(
         viewModelScope.launch { report(repository.clear(bookId)) }
     }
 
-    /** Re-fetch every enabled outside source for this book now — admin only ([BookRatingsUiState.Ready.canRefresh]). */
+    /**
+     * Re-fetch every enabled outside source for this book now — admin only
+     * ([BookRatingsUiState.Ready.canRefresh]). A tap while one is already in flight is ignored.
+     */
     fun refreshExternal() {
-        viewModelScope.launch { report(repository.refreshExternal(bookId)) }
+        if (!isRefreshingExternal.compareAndSet(expect = false, update = true)) return
+        viewModelScope.launch {
+            try {
+                report(repository.refreshExternal(bookId))
+            } finally {
+                isRefreshingExternal.value = false
+            }
+        }
     }
 
     private fun report(result: AppResult<Unit>) {

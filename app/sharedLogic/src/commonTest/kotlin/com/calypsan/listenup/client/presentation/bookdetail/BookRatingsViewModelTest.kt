@@ -18,6 +18,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -234,6 +235,40 @@ class BookRatingsViewModelTest :
                 }
             }
         }
+
+        test("a refresh shows as in flight until it answers, even when nothing changed, and a second tap waits") {
+            runTest {
+                val repo = FakeBookRatingRepository()
+                val gate = CompletableDeferred<Unit>()
+                repo.refreshGate = gate
+                val vm =
+                    BookRatingsViewModel(
+                        bookId = "b1",
+                        repository = repo,
+                        currentUserId = flowOf("me"),
+                        errorBus = ErrorBus(),
+                        userRepository = userRepository(isAdmin = true),
+                    )
+
+                vm.state.test {
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isRefreshingExternal shouldBe false
+
+                    vm.refreshExternal()
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isRefreshingExternal shouldBe true
+
+                    vm.refreshExternal()
+                    advanceUntilIdle()
+                    repo.refreshExternalCalls shouldBe 1
+
+                    gate.complete(Unit)
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<BookRatingsUiState.Ready>().isRefreshingExternal shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })
 
 /**
@@ -256,6 +291,12 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     /** When set, consumed by the next [rate] or [clear] call in place of succeeding. */
     var failNext: AppResult.Failure? = null
+
+    /** How many times [refreshExternal] has been called. */
+    var refreshExternalCalls = 0
+
+    /** When set, [refreshExternal] waits on it before answering — a refresh still in flight. */
+    var refreshGate: CompletableDeferred<Unit>? = null
 
     /** What the next [refreshExternal] call answers. */
     var refreshExternalResult: AppResult<Unit> = AppResult.Success(Unit)
@@ -310,6 +351,8 @@ private class FakeBookRatingRepository : BookRatingRepository {
 
     override suspend fun refreshExternal(bookId: String): AppResult<Unit> {
         lastRefreshExternal = bookId
+        refreshExternalCalls++
+        refreshGate?.await()
         return refreshExternalResult
     }
 }
