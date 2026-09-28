@@ -130,18 +130,18 @@ fun contributorHeroKey(contributorId: String): String = "hero:contributor:$contr
 // the deck's book ids on the navigation route, which every site that opens a series would have to
 // supply. A fanned stack of five covers also lacks the single-object identity a container
 // transform depends on, so it is a poor candidate even setting the plumbing aside. Series keeps
-// the app's ordinary slide.
+// the app's ordinary shared-axis step.
 
 /**
- * Entry metadata for a destination that carries a hero: the screens cross-fade instead of sliding.
+ * Entry metadata for a destination that carries a hero: the screens cross-fade instead of stepping sideways.
  *
- * The app-wide horizontal slide and a hero are two answers to the same question, and running both at
- * once produces neither. The slide translates whole screens while the shared element travels between
+ * The app-wide shared-axis step and a hero are two answers to the same question, and running both at
+ * once produces neither. The step translates whole screens while the shared element travels between
  * two points in absolute coordinates, so the cover comes unglued from the cell it is supposed to be
  * growing out of — it sails across the screen while the grid slides the other way beneath it. A
- * container transform is meant to *replace* the slide, not accompany it.
+ * container transform is meant to *replace* the step, not accompany it.
  *
- * Applied per entry rather than globally so every screen without a hero keeps the slide it had.
+ * Applied per entry rather than globally so every screen without a hero keeps the step.
  */
 val heroEntryTransitions: Map<String, Any>
     get() =

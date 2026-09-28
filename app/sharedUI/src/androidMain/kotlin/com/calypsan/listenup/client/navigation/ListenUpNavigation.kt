@@ -2,9 +2,6 @@ package com.calypsan.listenup.client.navigation
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -321,12 +319,6 @@ private fun SetupCheckFailedScreen(onRetry: () -> Unit) {
         }
     }
 }
-
-/** Push: the incoming screen slides in from the right as the outgoing one leaves to the left. */
-private val ForwardSlide = slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
-
-/** Pop (and predictive-back): the mirror image of [ForwardSlide]. */
-private val BackSlide = slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
 
 /**
  * Server setup navigation - shown when no server URL is configured.
@@ -748,6 +740,9 @@ private fun AuthenticatedNavigation(
                 // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
                 // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
                 // now-playing bar is not an entry, and a cover flying past it should pass under it.
+                val motion = MaterialTheme.motionScheme
+                val axisTravelPx = with(LocalDensity.current) { SharedAxisTravel.roundToPx() }
+                val backEdgeMarginPx = with(LocalDensity.current) { PredictiveBackEdgeMargin.roundToPx() }
                 SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalHeroTransitionScope provides this) {
                         NavDisplay(
@@ -768,10 +763,12 @@ private fun AuthenticatedNavigation(
                                 }
                                 // When size == 1, don't pop - allows system back-to-home animation
                             },
-                            // Global slide transitions for all navigation
-                            transitionSpec = { ForwardSlide },
-                            popTransitionSpec = { BackSlide },
-                            predictivePopTransitionSpec = { BackSlide },
+                            // Material shared axis X for push and pop, and Material's back preview
+                            // for predictive back. Hero destinations replace these with their
+                            // container transform (heroEntryTransitions).
+                            transitionSpec = { sharedAxisXPush(motion, axisTravelPx) },
+                            popTransitionSpec = { sharedAxisXPop(motion, axisTravelPx) },
+                            predictivePopTransitionSpec = { edge -> predictiveBackPop(motion, edge, backEdgeMarginPx) },
                             entryProvider =
                                 authenticatedNavEntries(
                                     backStack = backStack,
