@@ -16,6 +16,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -100,7 +101,7 @@ private fun LicenseDetailBody(
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.lg),
                     )
                 }
 
@@ -111,7 +112,7 @@ private fun LicenseDetailBody(
                             text = row.spdxId,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                            modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm),
                         )
                     }
                     TextButton(

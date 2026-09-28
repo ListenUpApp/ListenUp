@@ -73,6 +73,7 @@ import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.rememberUserAvatarImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.core.DurationFormatter
@@ -434,7 +435,7 @@ private fun ProfileEditButton(onEditClick: () -> Unit) {
 private fun ProfileHeroIdentity(state: UserProfileUiState.Ready) {
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         ProfileScallopAvatar(state = state)
@@ -671,7 +672,7 @@ private fun ShelvesGrid(
     // Two tiles per row; the add tile trails the list.
     val tiles: List<ProfileShelfSummary?> = shelves + if (showAddTile) listOf(null) else emptyList()
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         tiles.chunked(2).forEach { rowTiles ->
@@ -726,7 +727,7 @@ private fun ShelfTile(
             color = onContainer.copy(alpha = 0.12f),
             shape = BlobShape,
         )
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        Column(modifier = Modifier.fillMaxSize().padding(Spacing.lg), verticalArrangement = Arrangement.SpaceBetween) {
             Icon(Icons.Default.Bookmarks, null, tint = onContainer, modifier = Modifier.size(24.dp))
             Column {
                 Text(
@@ -806,7 +807,7 @@ private fun RecentBooksRow(
         modifier = modifier,
         itemWidth = RecentCoverWidth,
         itemSpacing = 16.dp,
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.lg),
         key = { it.bookId },
     ) { book ->
         RecentBookCard(book = book, onClick = { onBookClick(book.bookId) }, modifier = Modifier.width(RecentCoverWidth))

@@ -47,6 +47,7 @@ import com.calypsan.listenup.client.design.components.LicenseChip
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.MeterSegment
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.licenses_count_suffix
@@ -150,7 +151,7 @@ private fun LicensesPhoneLayout(
                 onSubmit = {},
                 placeholder = searchPlaceholder,
                 onClear = { onQueryChange("") },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.lg),
             )
         }
         item {
@@ -164,7 +165,7 @@ private fun LicensesPhoneLayout(
                 row = row,
                 onClick = { onLicenseClick(row.uniqueId) },
                 showDivider = index < filtered.lastIndex,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lg),
             )
         }
         item {
@@ -417,7 +418,7 @@ private fun LicenseLibraryRow(
                     .clickable {
                         haptics.press()
                         onClick()
-                    }.padding(horizontal = 16.dp, vertical = 15.dp),
+                    }.padding(horizontal = Spacing.lg, vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -452,7 +453,7 @@ private fun LicenseLibraryRow(
             )
         }
         if (showDivider) {
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = Spacing.lg))
         }
     }
 }

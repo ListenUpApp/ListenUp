@@ -43,11 +43,11 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.notifications.notificationTypeNameRes
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
@@ -112,7 +112,7 @@ fun NotificationSettingsScreen(
                         Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .padding(horizontal = 24.dp),
+                            .padding(horizontal = Spacing.screenMargin),
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(
@@ -180,7 +180,7 @@ internal fun NotificationPrefsContent(
                 modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         ) {
             SectionGroup(
                 icon = Icons.Default.Notifications,

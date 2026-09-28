@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
@@ -154,7 +155,7 @@ private fun DevicesBody(
                 modifier =
                     modifier
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = Spacing.screenMargin),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
@@ -236,7 +237,7 @@ private fun DevicesPhoneLayout(
         // Other Devices section
         item {
             Spacer(modifier = Modifier.height(22.dp))
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.lg)) {
                 DevicesOtherSection(
                     otherDevices = otherDevices,
                     signingOut = state.signingOut,
@@ -400,7 +401,7 @@ private fun DevicesWideHero(
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+            modifier = Modifier.padding(horizontal = Spacing.xl, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -644,7 +645,7 @@ private fun DevicesOtherSection(
                 text = stringResource(Res.string.devices_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
             )
         } else {
             otherDevices.forEachIndexed { index, device ->
@@ -779,7 +780,7 @@ private fun SignOutAllOthersButton(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
             ),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = 10.dp),
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.Logout,

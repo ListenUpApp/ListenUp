@@ -69,7 +69,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingRow
@@ -77,6 +76,7 @@ import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.SignOutConfirmDialog
 import com.calypsan.listenup.client.design.components.ValuePill
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
@@ -384,7 +384,7 @@ internal fun SettingsContent(
             if (showSleepTimer) section(sleepTimer)
             section(library)
             // The sign-out tile belongs to its account group; one section keeps them together.
-            section { Column(verticalArrangement = Arrangement.spacedBy(24.dp)) { account() } }
+            section { Column(verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) { account() } }
             section(downloads)
             onNavigateToStorage?.let { section { StorageSection(onNavigateToStorage = it) } }
             section(about)
@@ -395,8 +395,8 @@ internal fun SettingsContent(
                 modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
             appearance()
             playback()
