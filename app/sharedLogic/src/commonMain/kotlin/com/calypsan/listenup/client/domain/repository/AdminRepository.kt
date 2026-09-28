@@ -2,10 +2,12 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
@@ -206,6 +208,15 @@ interface AdminRepository {
         holdNewBooksForReview: Boolean? = null,
         pushNotificationsEnabled: Boolean? = null,
     ): AppResult<ServerSettings>
+
+    /** Every outside rating source, with its enabled flag and last-fetch health. */
+    suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>>
+
+    /** Switches [source] on or off; disabling flips `enabled` on each of its existing rows. */
+    suspend fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ): AppResult<List<RatingSourceStatus>>
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT

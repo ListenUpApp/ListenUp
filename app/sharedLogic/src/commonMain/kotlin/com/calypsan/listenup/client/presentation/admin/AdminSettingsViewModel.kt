@@ -2,8 +2,10 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
@@ -67,6 +69,7 @@ class AdminSettingsViewModel(
                             )
                         }
                     }
+                    loadRatingSources()
                 }
 
                 is AppResult.Failure -> {
@@ -79,6 +82,17 @@ class AdminSettingsViewModel(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /** Loaded alongside the rest of the settings — see [loadSettings]. */
+    private suspend fun loadRatingSources() {
+        when (val result = loadServerSettingsUseCase.ratingSources()) {
+            is AppResult.Success -> updateReady { it.copy(ratingSources = result.data).withDirty() }
+            is AppResult.Failure -> {
+                errorBus.emit(result.error)
+                logger.error { "Failed to load rating sources: ${result.error}" }
             }
         }
     }
@@ -154,6 +168,39 @@ class AdminSettingsViewModel(
                                 error = result.error,
                             ).withDirty()
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Switch [source] on or off. Like [setHoldNewBooksForReview], a switch applies on tap: this
+     * optimistically flips just that source's row, persists it immediately, and reverts to the
+     * last server-confirmed list if the save fails.
+     */
+    fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ) {
+        val previous = (state.value as? AdminSettingsUiState.Ready)?.ratingSources ?: return
+        updateReady { ready ->
+            ready
+                .copy(
+                    ratingSources = ready.ratingSources.map { if (it.source == source) it.copy(enabled = enabled) else it },
+                ).withDirty()
+        }
+        viewModelScope.launch {
+            when (val result = updateServerSettingsUseCase.setRatingSourceEnabled(source, enabled)) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(ratingSources = result.data).withDirty() }
+                    logger.info { "Rating source $source set to enabled=$enabled" }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to set rating source $source enabled=$enabled: ${result.error}" }
+                    // Revert the optimistic flip to the last server-confirmed list.
+                    updateReady { it.copy(ratingSources = previous, error = result.error).withDirty() }
                 }
             }
         }
@@ -270,12 +317,17 @@ sealed interface AdminSettingsUiState {
     /**
      * Settings have loaded; carries edit-buffer fields, `isDirty`, `isSaving`,
      * and a transient `error`.
+     *
+     * @property ratingSources every outside rating source, with its enabled flag and last-fetch
+     *   health — loaded alongside the rest of the settings, toggled immediately on tap like
+     *   [holdNewBooksForReview].
      */
     data class Ready(
         val serverName: String = "",
         val remoteUrl: String = "",
         val holdNewBooksForReview: Boolean = false,
         val pushNotificationsEnabled: Boolean = true,
+        val ratingSources: List<RatingSourceStatus> = emptyList(),
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val error: AppError? = null,

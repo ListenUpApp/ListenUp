@@ -36,12 +36,18 @@ private class FakeAdminSettingsService : AdminSettingsService {
         return AppResult.Success(stored)
     }
 
-    override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
+    var ratingSources =
+        listOf(RatingSourceStatus(ExternalRatingSource.AUDIBLE, enabled = true, lastFetchedAt = 1L, lastError = null))
+
+    override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> = AppResult.Success(ratingSources)
 
     override suspend fun setRatingSourceEnabled(
         source: ExternalRatingSource,
         enabled: Boolean,
-    ): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
+    ): AppResult<List<RatingSourceStatus>> {
+        ratingSources = ratingSources.map { if (it.source == source) it.copy(enabled = enabled) else it }
+        return AppResult.Success(ratingSources)
+    }
 }
 
 class AdminRepositoryImplSettingsTest :
@@ -110,5 +116,17 @@ class AdminRepositoryImplSettingsTest :
                 .shouldBeInstanceOf<AppResult.Failure>()
                 .error
                 .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+        }
+
+        test("getRatingSources returns every source's status") {
+            val svc = FakeAdminSettingsService()
+            (repo(svc).getRatingSources() as AppResult.Success).data shouldBe svc.ratingSources
+        }
+
+        test("setRatingSourceEnabled forwards the toggle and returns the new list") {
+            val svc = FakeAdminSettingsService()
+            val result = repo(svc).setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, false) as AppResult.Success
+            result.data.single().enabled shouldBe false
+            svc.ratingSources.single().enabled shouldBe false
         }
     })
