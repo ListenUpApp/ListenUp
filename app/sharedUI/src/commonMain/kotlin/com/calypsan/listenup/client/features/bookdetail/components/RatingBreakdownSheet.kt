@@ -13,8 +13,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.domain.averageLabel
@@ -57,16 +57,16 @@ fun RatingBreakdownSheet(
                 Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = Spacing.screenMargin)
+                    .padding(bottom = Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
             Text(
                 text = stringResource(Res.string.book_detail_rating_sources_title),
                 style = MaterialTheme.typography.titleLarge,
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 breakdown.forEach { rating ->
                     Text(
                         text =
