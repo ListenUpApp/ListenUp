@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.design.timeline.ChapterDetailLane
 import com.calypsan.listenup.client.design.timeline.ChapterMiniMap
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
@@ -189,7 +190,7 @@ fun ChapterEditorContent(
                 .fillMaxSize()
                 .padding(contentPadding)
                 .consumeWindowInsets(contentPadding)
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = Spacing.screenMargin),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             timeline(Modifier.weight(1f))

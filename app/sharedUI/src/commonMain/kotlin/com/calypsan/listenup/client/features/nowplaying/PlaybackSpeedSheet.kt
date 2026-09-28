@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MIN
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.client.presentation.nowplaying.snapPlaybackSpeed
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import kotlin.math.absoluteValue
 import listenup.composeapp.generated.resources.Res
@@ -90,7 +91,7 @@ fun PlaybackSpeedSheet(
         dialogWidth = 520.dp,
     ) {
         SpeedReadout(sliderSpeed)
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
         SpeedSlider(
             speed = sliderSpeed,
             onSpeedChange = { newSpeed ->

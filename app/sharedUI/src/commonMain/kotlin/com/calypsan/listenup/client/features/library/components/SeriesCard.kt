@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.FannedDeck
 import com.calypsan.listenup.client.design.components.FannedDeckCover
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 
 /**
@@ -102,7 +103,7 @@ fun SeriesCard(
                 ) {
                     haptics.press()
                     onClick()
-                }.padding(24.dp),
+                }.padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(

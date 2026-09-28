@@ -250,8 +250,8 @@ private fun HomeContentWide(
     onSeeAllShelves: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
         HomeStatsSection(isWide = true, modifier = Modifier.weight(1.7f))
         if (state.hasMyShelves) {

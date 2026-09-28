@@ -161,7 +161,7 @@ internal fun HomeStatsContent(state: HomeStatsUiState.Data) {
                 // without it the divider collapses to nothing (it has no intrinsic height of its own).
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                     Box(Modifier.weight(1.3f)) { chartColumn() }
-                    VerticalDivider(modifier = Modifier.padding(horizontal = 24.dp))
+                    VerticalDivider(modifier = Modifier.padding(horizontal = Spacing.xl))
                     Box(Modifier.weight(1f)) { detailColumn() }
                 }
             }

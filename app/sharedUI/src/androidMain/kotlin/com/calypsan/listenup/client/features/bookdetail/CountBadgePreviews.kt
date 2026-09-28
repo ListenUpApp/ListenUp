@@ -9,13 +9,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.design.components.CountBadge
+import com.calypsan.listenup.client.design.theme.Spacing
 
 @Preview(name = "CountBadge · light", widthDp = 200, heightDp = 80)
 @Composable
 private fun CountBadgeLight() {
     ListenUpTheme(darkTheme = false, dynamicColor = false) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             CountBadge(count = 23)
@@ -30,7 +31,7 @@ private fun CountBadgeLight() {
 private fun CountBadgeDark() {
     ListenUpTheme(darkTheme = true, dynamicColor = false) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             CountBadge(count = 23)

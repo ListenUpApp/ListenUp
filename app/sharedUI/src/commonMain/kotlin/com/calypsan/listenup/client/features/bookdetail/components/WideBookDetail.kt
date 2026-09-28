@@ -270,7 +270,7 @@ private fun WideBodyColumns(
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
         WideLeftColumn(
             state = state,
@@ -411,7 +411,7 @@ private fun WideRightColumn(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
         // Rating card — your listeners' stars and your own, right above the Readers card.
         BookRatingBlock(

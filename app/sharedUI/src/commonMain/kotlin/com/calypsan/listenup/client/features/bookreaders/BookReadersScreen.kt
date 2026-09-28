@@ -124,7 +124,7 @@ private fun BookReadersBody(
 
         is BookReadersUiState.NoReaders, is BookReadersUiState.Error -> {
             Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = Spacing.screenMargin),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

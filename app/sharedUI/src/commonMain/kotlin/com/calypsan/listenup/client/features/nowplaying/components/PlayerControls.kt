@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_pause
 import listenup.composeapp.generated.resources.player_play
@@ -153,7 +154,7 @@ fun LabelPill(
             modifier =
                 Modifier
                     .height(40.dp)
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = Spacing.lg),
             contentAlignment = Alignment.Center,
         ) {
             Text(

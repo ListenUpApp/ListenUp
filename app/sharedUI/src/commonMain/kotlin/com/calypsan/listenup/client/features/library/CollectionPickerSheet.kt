@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Collection
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -112,7 +113,7 @@ fun CollectionPickerSheet(
         ) {
             // Header
             Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
             ) {
                 Text(
                     text = stringResource(Res.string.book_detail_add_to_collection),
@@ -184,7 +185,7 @@ private fun CollectionPickerContent(
                     )
                     if (collections.isNotEmpty()) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 24.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                     }
@@ -279,7 +280,7 @@ private fun CreateNewCollectionRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Plus icon
@@ -333,7 +334,7 @@ private fun CollectionRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

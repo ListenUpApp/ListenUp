@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_close
 import org.jetbrains.compose.resources.stringResource
@@ -102,8 +103,8 @@ private fun PlayerPanelBottomSheet(
         Column(
             modifier =
                 Modifier.fillMaxWidth().navigationBarsPadding().padding(
-                    start = 24.dp,
-                    end = 24.dp,
+                    start = Spacing.screenMargin,
+                    end = Spacing.screenMargin,
                     bottom = 8.dp,
                 ),
         ) {

@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.playback.NowPlayingChapter
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_sleep
@@ -274,7 +275,7 @@ private fun MiniPlayerPhoneSection() {
         onPlayPause = {},
         onSkipBack = {},
         skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
     )
 
     GalleryLabel("Mini-player — phone (buffering)")
@@ -286,7 +287,7 @@ private fun MiniPlayerPhoneSection() {
         onPlayPause = {},
         onSkipBack = {},
         skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
     )
 }
 
@@ -326,7 +327,7 @@ private fun PanelsSection() {
     var open by remember { mutableStateOf<String?>(null) }
     GalleryLabel("Panels — tap to open (adaptive: bottom sheet on phone, dialog on a wide window)")
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Button(onClick = { open = "speed" }) { Text(stringResource(Res.string.player_speed)) }
@@ -373,6 +374,6 @@ private fun GalleryLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 24.dp),
+        modifier = Modifier.padding(horizontal = Spacing.screenMargin),
     )
 }

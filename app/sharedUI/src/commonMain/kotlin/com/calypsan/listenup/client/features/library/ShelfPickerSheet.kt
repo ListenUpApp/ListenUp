@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Shelf
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -108,7 +109,7 @@ fun ShelfPickerSheet(
         ) {
             // Header
             Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
             ) {
                 Text(
                     text = stringResource(Res.string.book_detail_add_to_shelf),
@@ -143,7 +144,7 @@ fun ShelfPickerSheet(
                         )
                         if (shelves.isNotEmpty()) {
                             HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 24.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
                         }
@@ -156,7 +157,7 @@ fun ShelfPickerSheet(
                                 text = stringResource(Res.string.library_you_dont_have_any_shelves),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
                             )
                         }
                     } else {
@@ -225,7 +226,7 @@ private fun CreateNewShelfRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Plus icon
@@ -285,7 +286,7 @@ private fun ShelfRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Shelf icon with avatar color background

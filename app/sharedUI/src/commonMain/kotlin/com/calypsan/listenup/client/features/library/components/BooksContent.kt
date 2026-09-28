@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -361,8 +362,8 @@ private fun BookGrid(
             columns = GridCells.Adaptive(minSize = 160.dp),
             contentPadding =
                 PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
+                    start = Spacing.lg,
+                    end = Spacing.lg,
                     top = 12.dp,
                     bottom = 16.dp,
                 ),
@@ -472,7 +473,7 @@ private fun ScanProgressBanner(scanProgress: ScanProgressState) {
         color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

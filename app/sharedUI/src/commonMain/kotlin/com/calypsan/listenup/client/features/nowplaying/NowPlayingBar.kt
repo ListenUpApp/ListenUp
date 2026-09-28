@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
@@ -99,7 +100,7 @@ fun NowPlayingBar(
             interactionSource = interactionSource,
             modifier =
                 Modifier
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                    .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm)
                     .fillMaxWidth()
                     .swipeUpToExpand(onTap)
                     .graphicsLayer {

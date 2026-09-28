@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_browse_library
@@ -42,10 +43,10 @@ fun EmptyContinueListening(
     Column(modifier = modifier.fillMaxWidth()) {
         SectionTitle(
             title = stringResource(Res.string.home_continue_listening),
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         // Empty state content
         Column(

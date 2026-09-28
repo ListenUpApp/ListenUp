@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerTranspo
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_other_narrators
 
@@ -260,7 +261,7 @@ fun WideNowPlaying(
                                 skipForwardSec = skipForwardSec,
                             )
                             if (!isShort) {
-                                Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(Spacing.xl))
                                 secondaryActions()
                             }
                         }

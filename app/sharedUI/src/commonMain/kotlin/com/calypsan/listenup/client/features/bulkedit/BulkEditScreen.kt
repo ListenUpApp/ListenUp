@@ -38,6 +38,7 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.bookedit.components.StudioCard
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
@@ -409,7 +410,7 @@ private fun SomeNotLoadedNotice(
         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.size(NoticeIconSize))

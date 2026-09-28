@@ -75,6 +75,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.features.library.BookCard
@@ -293,7 +294,7 @@ private fun ShelfDetailContent(
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.xl),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier =
@@ -431,7 +432,7 @@ private fun ShelfHero(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 28.dp),
+                        .padding(horizontal = Spacing.screenMargin, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 ShelfBadge()
@@ -664,7 +665,7 @@ private fun ShelfEmptyState(isOwner: Boolean) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(vertical = 40.dp, horizontal = 24.dp),
+                .padding(vertical = 40.dp, horizontal = Spacing.screenMargin),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(

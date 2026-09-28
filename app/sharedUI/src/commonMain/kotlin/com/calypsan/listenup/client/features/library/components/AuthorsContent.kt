@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -105,8 +106,8 @@ fun AuthorsContent(
                 state = listState,
                 contentPadding =
                     PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
+                        start = Spacing.lg,
+                        end = Spacing.lg,
                         top = 48.dp,
                         bottom = 16.dp,
                     ),
@@ -181,7 +182,7 @@ internal fun ContributorCard(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar with image or initials

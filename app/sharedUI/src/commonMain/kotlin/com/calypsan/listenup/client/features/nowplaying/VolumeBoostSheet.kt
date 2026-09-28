@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
 import com.calypsan.listenup.domain.VolumeBoostLimits
@@ -85,7 +86,7 @@ fun VolumeBoostSheet(
         dialogWidth = 520.dp,
     ) {
         BoostReadout(selectedBoostDb, offLabel)
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
         BoostPresetRow(
             currentBoostDb = selectedBoostDb,
             offLabel = offLabel,

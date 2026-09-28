@@ -78,6 +78,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.components.highlightMatch
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -184,7 +185,7 @@ fun SearchResultsOverlay(
                     SearchPillBar(
                         query = state.query,
                         onClose = onClose,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                     )
 
                     TypeFilterRow(
@@ -195,7 +196,7 @@ fun SearchResultsOverlay(
                     )
 
                     if (state is SearchUiState.Results && state.result.isOfflineResult) {
-                        OfflineIndicator(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        OfflineIndicator(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs))
                     }
 
                     when (state) {
@@ -300,7 +301,7 @@ private fun TypeFilterRow(
             modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PillChip(
@@ -414,7 +415,7 @@ private fun SearchResultsList(
 ) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (books.isNotEmpty()) {
@@ -529,7 +530,7 @@ private fun WideSearchResults(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
+        modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
         horizontalArrangement = Arrangement.spacedBy(32.dp),
     ) {
         if (books.isNotEmpty()) {
@@ -790,7 +791,7 @@ private fun SeeAllList(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         when (type) {
@@ -992,7 +993,7 @@ private fun TagFlow(
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
                 Row(
-                    modifier = Modifier.height(42.dp).padding(horizontal = 16.dp),
+                    modifier = Modifier.height(42.dp).padding(horizontal = Spacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

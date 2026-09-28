@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.bookedit.components.ClassificationSection
 import com.calypsan.listenup.client.features.bookedit.components.IdentifiersSection
@@ -117,7 +118,7 @@ fun BookEditScreen(
                         enabled = state.hasChanges && !state.isSaving,
                         isLoading = state.isSaving,
                         leadingIcon = Icons.Default.Save,
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(Spacing.lg),
                     )
                 }
             }
@@ -275,7 +276,7 @@ private fun SingleColumnCardsLayout(
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Column(
-        modifier = Modifier.padding(16.dp),
+        modifier = Modifier.padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         // People-first order (matches the flat iOS form): Description → Talent → Series →
@@ -438,7 +439,7 @@ private fun TwoColumnCardsLayout(
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Column(
-        modifier = Modifier.padding(24.dp),
+        modifier = Modifier.padding(Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         // Full-width: Description (The Hook) - Primary content
@@ -453,7 +454,7 @@ private fun TwoColumnCardsLayout(
 
         // Two-column grid for remaining cards
         Row(
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
             // Left Column - People & content
             Column(

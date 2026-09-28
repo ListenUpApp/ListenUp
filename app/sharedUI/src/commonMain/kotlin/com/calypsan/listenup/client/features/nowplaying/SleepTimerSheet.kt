@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -200,7 +201,7 @@ private fun DurationCountdown(
         modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
     )
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(Spacing.xl))
     Text(
         text = stringResource(Res.string.player_add_more_time),
         style = MaterialTheme.typography.labelLarge,

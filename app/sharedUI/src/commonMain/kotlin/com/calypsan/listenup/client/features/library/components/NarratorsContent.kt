@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.SortSplitButton
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
@@ -86,8 +87,8 @@ fun NarratorsContent(
                 state = listState,
                 contentPadding =
                     PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
+                        start = Spacing.lg,
+                        end = Spacing.lg,
                         top = 48.dp,
                         bottom = 16.dp,
                     ),

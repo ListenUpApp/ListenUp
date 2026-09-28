@@ -38,6 +38,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeade
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.design.components.CountBadge
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
@@ -257,7 +258,7 @@ private fun HeroSection() {
             duration = MOCK_DURATION_MS,
             year = MOCK_YEAR,
             addedAt = MOCK_ADDED_AT_MS,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg),
         )
     }
 
@@ -474,7 +475,7 @@ private fun ReadersSection() {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
-private fun horizontalGutter(): Modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+private fun horizontalGutter(): Modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin)
 
 @Composable
 private fun GalleryLabel(text: String) {
@@ -482,6 +483,6 @@ private fun GalleryLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 24.dp),
+        modifier = Modifier.padding(horizontal = Spacing.screenMargin),
     )
 }

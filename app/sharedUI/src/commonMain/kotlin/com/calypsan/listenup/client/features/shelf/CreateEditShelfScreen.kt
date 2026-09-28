@@ -57,6 +57,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
@@ -247,8 +248,8 @@ private fun ShelfFormPhoneLayout(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
             ShelfDetailsSection(
                 name = formState.name,
@@ -303,7 +304,7 @@ private fun ShelfFormWideLayout(
                 Modifier
                     .fillMaxSize()
                     .padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
             verticalAlignment = Alignment.Top,
         ) {
             // Left: form fields
@@ -551,7 +552,7 @@ private fun ShelfDetailsSection(
         modifier = modifier,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpTextField(
@@ -716,7 +717,7 @@ private fun ShelfAboutCard(modifier: Modifier = Modifier) {
             text = stringResource(Res.string.shelf_about_shelves_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
         )
     }
 }

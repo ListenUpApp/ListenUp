@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
@@ -110,8 +111,8 @@ fun SeriesContent(
                         columns = GridCells.Adaptive(minSize = 200.dp),
                         contentPadding =
                             PaddingValues(
-                                start = 16.dp,
-                                end = 16.dp,
+                                start = Spacing.lg,
+                                end = Spacing.lg,
                                 top = 12.dp,
                                 bottom = 16.dp,
                             ),
