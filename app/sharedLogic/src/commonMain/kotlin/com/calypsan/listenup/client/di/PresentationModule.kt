@@ -21,8 +21,8 @@ import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
-import com.calypsan.listenup.client.domain.repository.UserRepository
-import kotlinx.coroutines.flow.map
+import com.calypsan.listenup.client.domain.model.signedInUserId
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -353,7 +353,7 @@ internal val bookPresentationModule =
             com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel(
                 bookId = params.get(),
                 repository = get(),
-                currentUserId = get<UserRepository>().observeCurrentUser().map { it?.id?.value },
+                currentUserId = get<AuthSession>().authState.signedInUserId(),
                 errorBus = get(),
             )
         }

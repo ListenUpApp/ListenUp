@@ -33,6 +33,10 @@ sealed interface BookRatingsUiState {
 /**
  * State and actions for rating one book. Everything is read from Room through [repository], so the
  * block works offline and updates the instant a rating syncs in from another device.
+ *
+ * `currentUserId` is who "me" is; the block stays [BookRatingsUiState.Loading] until it first
+ * emits, so production passes the auth session's `signedInUserId()` — the identity the repository
+ * writes under — which waits out startup instead of naming nobody for a frame.
  */
 class BookRatingsViewModel(
     private val bookId: String,

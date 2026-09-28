@@ -51,8 +51,8 @@ import org.koin.test.verify.verify
  *  - [BookRatingRepository] — owned by `shelfModule`.
  *  - [Flow] — Koin's verify resolves `BookRatingsViewModel`'s required `currentUserId:
  *    Flow<String?>` constructor param against the erased raw type (no default value to fall
- *    back on). The factory itself passes `get<UserRepository>().observeCurrentUser().map { it?.id?.value }`
- *    at construction, not a Koin-resolved `Flow` — same shape as `ClientSyncModuleVerifyTest`'s
+ *    back on). The factory itself passes `get<AuthSession>().authState.signedInUserId()` at
+ *    construction, not a Koin-resolved `Flow` — same shape as `ClientSyncModuleVerifyTest`'s
  *    `StateFlow` entry for `ConnectionHealthStore`.
  *  - [LoadBookForEditUseCase] — owned by `bookModule`.
  *  - [UpdateBookUseCase] — owned by `bookModule`.
