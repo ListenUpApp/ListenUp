@@ -87,7 +87,7 @@ class BookRatingRepositoryImplTest :
             }
         }
 
-        test("re-rating after a clear reuses the same candidateId — the server refuses a colliding one") {
+        test("re-rating after a clear reuses the same candidateId — the row keeps one stable wire id") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val repo = repo(db)

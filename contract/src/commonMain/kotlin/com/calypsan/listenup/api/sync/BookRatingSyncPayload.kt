@@ -24,7 +24,7 @@ data class BookRatingSyncPayload(
     @SerialName("halfStars") val halfStars: Int,
     /** The listener's short note, or null. */
     @SerialName("note") val note: String?,
-    /** Epoch ms the listener first rated this book; kept across edits. */
+    /** Epoch ms the listener first rated this book; kept across edits, reset when re-rated after a clear. */
     @SerialName("ratedAt") val ratedAt: Long,
     /** Epoch ms of the latest edit. */
     @SerialName("updatedAt") val updatedAt: Long,

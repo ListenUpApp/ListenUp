@@ -23,12 +23,14 @@ import kotlin.uuid.Uuid
  * Listener ratings over Room, written through [OfflineEditor] on a coalescing channel: the local
  * row changes at once (the UI never waits on a socket) and one op per book waits for a connection.
  *
- * A rating's `candidateId` is the client-minted wire id (SERVER-SYNC-04): the server refuses a
- * candidate id that collides with another row, and there is exactly one row per (book, listener).
- * So the FIRST time a listener rates a book, [rate] mints a fresh [Uuid]; every following [rate] or
- * [clear] of the same pair reuses [BookRatingEntity.syncId] off the existing local row —
- * [BookRatingDao.find] returns a tombstoned row too, so a clear-then-re-rate reuses the same id
- * rather than minting a second one the server would reject.
+ * A rating's `candidateId` is the client-minted wire id (SERVER-SYNC-04), and there is exactly one
+ * row per (book, listener). The server resolves that natural pair itself — an existing row's id
+ * always wins, so a fresh candidate would never be rejected, only ignored. The reason to reuse is
+ * local: the row keeps ONE stable wire id, the one the server's frames and tombstones name, so an
+ * echo lands on this row instead of re-keying it under an id that never reached the server. So the
+ * FIRST time a listener rates a book, [rate] mints a fresh [Uuid]; every following [rate] or [clear]
+ * of the same pair reuses [BookRatingEntity.syncId] off the existing local row — [BookRatingDao.find]
+ * returns a tombstoned row too, so a clear-then-re-rate keeps the same id rather than minting another.
  */
 internal class BookRatingRepositoryImpl(
     private val dao: BookRatingDao,

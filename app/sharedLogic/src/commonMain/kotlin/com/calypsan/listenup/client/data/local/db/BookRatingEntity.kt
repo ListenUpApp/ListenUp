@@ -112,7 +112,7 @@ internal interface BookRatingDao {
         now: Long,
     )
 
-    /** All rows (including tombstones) with [revision][BookRatingEntity.revision] <= [max], for digest computation. */
+    /** Live (non-tombstoned) rows with [revision][BookRatingEntity.revision] <= [max], for digest computation. */
     @Query("SELECT syncId AS id, revision FROM book_ratings WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
