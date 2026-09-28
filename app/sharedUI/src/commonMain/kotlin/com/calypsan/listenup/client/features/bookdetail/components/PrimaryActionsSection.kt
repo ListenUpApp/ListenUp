@@ -119,11 +119,6 @@ fun PrimaryActionsSection(
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                         },
                 ),
-            elevation =
-                ButtonDefaults.buttonElevation(
-                    defaultElevation = if (playEnabled) 4.dp else 0.dp,
-                    pressedElevation = if (playEnabled) 8.dp else 0.dp,
-                ),
         ) {
             PlayButtonContent(offline = !playEnabled && showServerWarning, isPreparing = isPreparing)
         }
