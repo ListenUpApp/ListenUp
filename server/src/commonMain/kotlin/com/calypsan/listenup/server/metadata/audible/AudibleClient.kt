@@ -345,7 +345,7 @@ private fun RawProduct.toBook(): AudibleBook {
             ?.overallDistribution
             ?.displayAverageRating
             ?.value ?: 0f
-    val ratingCount = this.rating?.overallDistribution?.numReviews ?: 0
+    val ratingCount = this.rating?.overallDistribution?.numRatings ?: 0
     return AudibleBook(
         asin = asin,
         title = title,

@@ -119,8 +119,12 @@ data class RawCategoryLadder(
 data class RawRatingDistribution(
     @SerialName("display_average_rating")
     val displayAverageRating: FlexibleFloat32 = FlexibleFloat32(0f),
-    @SerialName("num_reviews")
-    val numReviews: Int = 0,
+    /**
+     * How many listeners rated the book. Audible's `num_reviews` is a different thing — written
+     * reviews, carried one level up on the rating block, and often 0 on a well-rated book.
+     */
+    @SerialName("num_ratings")
+    val numRatings: Int = 0,
 )
 
 /** Top-level rating object. */
