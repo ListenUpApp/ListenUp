@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +20,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,8 +35,14 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
 import com.calypsan.listenup.domain.ListenerRatingLimits
+import com.calypsan.listenup.domain.averageLabel
+import com.calypsan.listenup.domain.compactCount
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_rating_edit
+import listenup.composeapp.generated.resources.book_detail_rating_external
+import listenup.composeapp.generated.resources.book_detail_rating_external_a11y
+import listenup.composeapp.generated.resources.book_detail_rating_external_a11y_one
+import listenup.composeapp.generated.resources.book_detail_rating_external_one
 import listenup.composeapp.generated.resources.book_detail_rating_listeners
 import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y
 import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y_one
@@ -61,11 +70,13 @@ fun BookRatingBlock(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var isSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var isBreakdownOpen by rememberSaveable { mutableStateOf(false) }
 
     BookRatingSection(
         state = state,
         onRate = { isSheetOpen = true },
         onEdit = { isSheetOpen = true },
+        onOpenBreakdown = { isBreakdownOpen = true },
         isCard = isCard,
         modifier = modifier,
     )
@@ -79,6 +90,16 @@ fun BookRatingBlock(
             onDismiss = { isSheetOpen = false },
         )
     }
+
+    if (isBreakdownOpen && ready != null) {
+        RatingBreakdownSheet(
+            breakdown = ready.breakdown,
+            canRefresh = ready.canRefresh,
+            isRefreshingExternal = ready.isRefreshingExternal,
+            onRefresh = viewModel::refreshExternal,
+            onDismiss = { isBreakdownOpen = false },
+        )
+    }
 }
 
 /**
@@ -89,6 +110,7 @@ fun BookRatingBlock(
  * @param state The rating state to show.
  * @param onRate Opens the rate sheet when you have not rated the book.
  * @param onEdit Opens the rate sheet on your existing rating.
+ * @param onOpenBreakdown Opens the per-source breakdown sheet; invoked when the headline is tapped.
  * @param modifier Optional modifier.
  * @param isCard When true, wraps the section in a `surfaceContainerLow` card, like the Readers card.
  */
@@ -97,6 +119,7 @@ fun BookRatingSection(
     state: BookRatingsUiState,
     onRate: () -> Unit,
     onEdit: () -> Unit,
+    onOpenBreakdown: () -> Unit = {},
     modifier: Modifier = Modifier,
     isCard: Boolean = false,
 ) {
@@ -109,6 +132,37 @@ fun BookRatingSection(
             modifier = Modifier.fillMaxWidth().padding(innerPadding),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            ready.external?.let { external ->
+                val average = averageLabel(external.average)
+                val compact = compactCount(external.count)
+                val spoken =
+                    if (external.count == 1) {
+                        stringResource(Res.string.book_detail_rating_external_a11y_one, average)
+                    } else {
+                        stringResource(Res.string.book_detail_rating_external_a11y, average, compact)
+                    }
+                val display =
+                    if (external.count == 1) {
+                        stringResource(Res.string.book_detail_rating_external_one, "$STAR_GLYPH $average")
+                    } else {
+                        stringResource(Res.string.book_detail_rating_external, "$STAR_GLYPH $average", compact)
+                    }
+                Text(
+                    text = display,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier =
+                        Modifier
+                            .clearAndSetSemantics {
+                                contentDescription = spoken
+                                role = Role.Button
+                            }.clickable {
+                                haptics.press()
+                                onOpenBreakdown()
+                            },
+                )
+            }
+
             ready.listeners?.let { listeners ->
                 val stars = ListenerRatingLimits.starsLabel(listeners.averageHalfStars)
                 val spoken =

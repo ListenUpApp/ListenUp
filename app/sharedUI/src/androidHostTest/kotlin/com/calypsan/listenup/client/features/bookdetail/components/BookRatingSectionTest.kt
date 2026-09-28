@@ -4,9 +4,14 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import com.calypsan.listenup.api.sync.ExternalRatingSource
+import com.calypsan.listenup.client.domain.model.CombinedScore
+import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
+import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -105,5 +110,122 @@ class BookRatingSectionTest {
         composeRule
             .onNodeWithContentDescription("Your listeners: 3.5 out of 5 stars, from 3 ratings")
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun `no outside headline when no enabled source has rated the book`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                    ),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the outside headline reads its average to one decimal and compact count`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = CombinedScore(average = 4.4, count = 12_000),
+                        breakdown =
+                            listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.4, count = 12_000)),
+                        canRefresh = false,
+                    ),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        // averageLabel(4.4) is "4.4" verbatim — no half-star rounding.
+        composeRule
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a whole-number outside average reads with its trailing zero`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = CombinedScore(average = 4.0, count = 12_000),
+                        breakdown =
+                            listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.0, count = 12_000)),
+                        canRefresh = false,
+                    ),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Rated 4.0 out of 5 stars by 12k readers elsewhere")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `one outside rating is read as one reader`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = CombinedScore(average = 4.0, count = 1),
+                        breakdown =
+                            listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.0, count = 1)),
+                        canRefresh = false,
+                    ),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Rated 4.0 out of 5 stars by 1 reader elsewhere")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping the outside headline opens the breakdown`() {
+        var opened = false
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = CombinedScore(average = 4.4, count = 12_000),
+                        breakdown =
+                            listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.4, count = 12_000)),
+                        canRefresh = false,
+                    ),
+                onRate = {},
+                onEdit = {},
+                onOpenBreakdown = { opened = true },
+            )
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere")
+            .performClick()
+
+        opened shouldBe true
     }
 }
