@@ -14,18 +14,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigationevent.NavigationEvent
+import com.calypsan.listenup.client.design.motion.PREDICTIVE_BACK_SCALE
+import com.calypsan.listenup.client.design.motion.PREDICTIVE_BACK_SHIFT_DIVISOR
+import com.calypsan.listenup.client.design.motion.PredictiveBackEdgeMargin
 
 /**
  * How far screens travel in the Material shared axis X: a short step that says "forward" or "back",
  * not a full-width slide carrying the whole page across the window.
  */
 internal val SharedAxisTravel = 30.dp
-
-/** How far in from the window's edge a screen shrinking under predictive back stops travelling. */
-internal val PredictiveBackEdgeMargin = 8.dp
-
-/** Material's predictive-back preview: the screen being left shrinks to this scale. */
-internal const val PREDICTIVE_BACK_SCALE = 0.9f
 
 /**
  * The authenticated graph's screen changes, in the theme's motion and the screen's density: see
@@ -118,6 +115,3 @@ internal fun predictiveBackDirection(
         NavigationEvent.EDGE_RIGHT -> -1
         else -> 0
     }
-
-/** The drift is a twentieth of the screen's width, per Material's predictive-back guidance. */
-private const val PREDICTIVE_BACK_SHIFT_DIVISOR = 20

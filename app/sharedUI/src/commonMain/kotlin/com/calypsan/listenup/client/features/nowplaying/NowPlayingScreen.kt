@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,6 +22,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
+import com.calypsan.listenup.client.design.motion.PredictiveBackEdgeMargin
+import com.calypsan.listenup.client.design.motion.predictiveBackPreview
+import com.calypsan.listenup.client.design.util.BackGestureEdge
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.playback.NowPlayingState
@@ -28,10 +32,6 @@ import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
-
-// Predictive back gesture animation: scale shrinks 10%, alpha fades 50% at full progress
-private const val PREDICTIVE_BACK_SCALE_REDUCTION = 0.1f
-private const val PREDICTIVE_BACK_ALPHA_REDUCTION = 0.5f
 
 // Drag-to-dismiss: release past a third of the screen height collapses the player.
 private const val DRAG_DISMISS_FRACTION = 0.33f
@@ -76,22 +76,27 @@ fun NowPlayingScreen(
     isTv: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    // Predictive back: track gesture progress to animate dismissal (scale + alpha)
+    // Predictive back: track the gesture's progress and edge to preview the dismissal — Material's
+    // full-screen preview (predictiveBackPreview), which shrinks and drifts but never fades.
     val backProgress = remember { Animatable(0f) }
+    var backEdge by remember { mutableStateOf(BackGestureEdge.None) }
     // Gate the handler until the screen has fully entered composition. The composable is
     // reachable during the AnimatedVisibility enter-transition, so enabling immediately would
     // let a back gesture fire before the screen is presented, creating a jarring mid-slide
     // dismiss. Flipping `presented` on the first composition frame is the lightest safe guard.
     var presented by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { presented = true }
-    PlatformPredictiveBackHandler(enabled = presented) { progressFlow ->
+    PlatformPredictiveBackHandler(enabled = presented) { gesture ->
         try {
-            progressFlow.collect { progress -> backProgress.snapTo(progress) }
+            gesture.collect { frame ->
+                backEdge = frame.edge
+                backProgress.snapTo(frame.progress)
+            }
             onCollapse()
         } catch (cancellation: CancellationException) {
             // Gesture abandoned — rewind the dismissal animation. On commit the
             // screen is already exiting, so progress is intentionally left as-is
-            // to avoid a scale/alpha pop mid exit-transition.
+            // to avoid a scale pop mid exit-transition.
             backProgress.snapTo(0f)
             throw cancellation
         }
@@ -139,12 +144,14 @@ fun NowPlayingScreen(
     val motion = MaterialTheme.motionScheme
 
     // When a predictive-back gesture begins, immediately clear any in-flight drag offset so the
-    // two transforms (translationY from drag + scale/alpha from back) never compound. snapTo is
+    // two transforms (translationY from drag + the back preview) never compound. snapTo is
     // intentional — an animated clear would itself compound with the back animation.
     LaunchedEffect(backProgress.value != 0f) {
         if (backProgress.value != 0f && dragOffset.value != 0f) dragOffset.snapTo(0f)
     }
 
+    // The corners the sheet rounds toward as the back preview shrinks it off the window's edges.
+    val backPreviewCorner = MaterialTheme.shapes.extraLarge.topStart
     val fold = LocalFold.current
     val layout = nowPlayingLayout(currentWindowAdaptiveInfo().windowSizeClass, fold)
 
@@ -156,13 +163,22 @@ fun NowPlayingScreen(
                     if (isTv) resetAmbient()
                     false // don't consume
                 }.graphicsLayer {
+                    val preview =
+                        predictiveBackPreview(
+                            progress = backProgress.value,
+                            edge = backEdge,
+                            widthPx = size.width,
+                            edgeMarginPx = PredictiveBackEdgeMargin.toPx(),
+                        )
+                    translationX = preview.translationX
                     translationY = dragOffset.value
-                    val backScale = 1f - backProgress.value * PREDICTIVE_BACK_SCALE_REDUCTION
-                    scaleX = backScale
-                    scaleY = backScale
-                    // Ambient fade (TV idle) multiplies into the predictive-back fade. With no TV
-                    // ambient the factor is 1f, so this is a no-op on phone/tablet.
-                    alpha = ambientAlpha * (1f - backProgress.value * PREDICTIVE_BACK_ALPHA_REDUCTION)
+                    scaleX = preview.scale
+                    scaleY = preview.scale
+                    shape = RoundedCornerShape(backPreviewCorner.toPx(size, this) * preview.cornerFraction)
+                    clip = preview.cornerFraction > 0f
+                    // Ambient fade (TV idle) only; the back preview stays opaque, so the page beneath
+                    // never shows through the player. With no TV ambient this is 1f.
+                    alpha = ambientAlpha * preview.alpha
                 }.pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onDragEnd = {
