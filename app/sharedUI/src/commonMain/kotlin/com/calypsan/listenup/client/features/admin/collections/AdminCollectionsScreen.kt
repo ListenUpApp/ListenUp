@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
@@ -84,9 +83,9 @@ import listenup.composeapp.generated.resources.common_no_items_yet
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
-private const val CARD_CORNER_DP = 24
-private const val CARD_CORNER_WIDE_DP = 28
 private const val CARD_PADDING_DP = 18
 private const val CARD_PADDING_WIDE_DP = 22
 private const val GRID_GAP_DP = 16
@@ -336,7 +335,6 @@ private fun CollectionCard(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cornerDp = if (isWide) CARD_CORNER_WIDE_DP.dp else CARD_CORNER_DP.dp
     val padDp = if (isWide) CARD_PADDING_WIDE_DP.dp else CARD_PADDING_DP.dp
     val badgeSize = if (isWide) 64.dp else BADGE_SIZE_DP.dp
     val haptics = LocalHaptics.current
@@ -347,7 +345,7 @@ private fun CollectionCard(
                 haptics.press()
                 onClick()
             },
-        shape = RoundedCornerShape(cornerDp),
+        shape = ContentShapes.card,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(modifier = Modifier.padding(padDp)) {
@@ -469,7 +467,7 @@ private fun CollectionCardSubtitle(
             modifier =
                 Modifier
                     .size(BOOK_DOT_SIZE_DP.dp)
-                    .background(MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(50)),
+                    .background(MaterialTheme.colorScheme.outline, shape = CircleShape),
         )
         androidx.compose.material3.Icon(
             imageVector = Icons.Outlined.Group,
@@ -486,7 +484,6 @@ private fun NewCollectionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cornerDp = if (isWide) CARD_CORNER_WIDE_DP.dp else CARD_CORNER_DP.dp
     val minHeight = if (isWide) 196.dp else 168.dp
     val haptics = LocalHaptics.current
 
@@ -496,7 +493,7 @@ private fun NewCollectionCard(
                 haptics.press()
                 onClick()
             },
-        shape = RoundedCornerShape(cornerDp),
+        shape = ContentShapes.card,
         color = Color.Transparent,
         border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {

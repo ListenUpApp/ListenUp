@@ -290,7 +290,7 @@ private fun WideProfileHeroPanel(
     Box(
         modifier =
             modifier
-                .clip(RoundedCornerShape(28.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(
@@ -597,7 +597,7 @@ private fun StatTile(
     Column(
         modifier =
             modifier
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(data.container)
                 .padding(vertical = 16.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -720,7 +720,7 @@ private fun ShelfTile(
         modifier =
             modifier
                 .height(112.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(container)
                 .clickable {
                     haptics.press()
@@ -763,8 +763,8 @@ private fun AddShelfTile(
         modifier =
             modifier
                 .height(112.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
+                .border(2.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
                 .clickable {
                     haptics.press()
                     onClick()
@@ -838,7 +838,7 @@ private fun RecentBookCard(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(ContentShapes.card)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
             ListenUpAsyncImage(

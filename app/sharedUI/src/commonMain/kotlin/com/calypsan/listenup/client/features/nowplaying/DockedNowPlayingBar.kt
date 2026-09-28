@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.MaterialTheme
@@ -98,7 +97,7 @@ fun DockedNowPlayingBar(
             label = "docked_player_focus_scale",
         )
         val focusBorderColor = MaterialTheme.colorScheme.primary
-        val barShape = RoundedCornerShape(28.dp)
+        val barShape = MaterialTheme.shapes.large
 
         Surface(
             onClick = onTap,
@@ -178,7 +177,7 @@ private fun ActiveDockedContent(
             modifier =
                 Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(MaterialTheme.shapes.extraSmall),
         )
         Column(modifier = Modifier.widthIn(max = 200.dp)) {
             Text(

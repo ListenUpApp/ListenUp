@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.theme.CategoryColor
 import com.calypsan.listenup.client.design.theme.CategoryPalette
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import androidx.compose.foundation.shape.CircleShape
 
 private const val CHIP_FONT_SIZE = 12
 
@@ -43,7 +43,7 @@ fun LicenseChip(
     Box(
         modifier =
             modifier
-                .clip(RoundedCornerShape(percent = 50))
+                .clip(CircleShape)
                 .background(tone.container)
                 .padding(horizontal = 12.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,

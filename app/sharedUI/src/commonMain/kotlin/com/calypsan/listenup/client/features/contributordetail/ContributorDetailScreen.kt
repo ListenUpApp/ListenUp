@@ -358,7 +358,7 @@ private fun WideHeroHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
@@ -550,7 +550,7 @@ private fun WorkSectionHeader(
         if (section.showViewAll) {
             FilledTonalButton(
                 onClick = onViewAllClick,
-                shape = RoundedCornerShape(24.dp),
+                shape = ContentShapes.card,
             ) {
                 Text(stringResource(Res.string.common_view_all))
                 Spacer(modifier = Modifier.width(4.dp))

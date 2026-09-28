@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,8 +63,9 @@ import listenup.composeapp.generated.resources.chapter_editor_zoom_hint
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
-private val PANE_SHAPE = RoundedCornerShape(24.dp)
+private val PANE_SHAPE = ContentShapes.card
 private val LIST_PANE_WIDTH = 480.dp
 private const val MINIMAP_BUCKETS = 90
 

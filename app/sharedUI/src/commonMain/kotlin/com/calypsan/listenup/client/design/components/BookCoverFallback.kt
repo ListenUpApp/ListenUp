@@ -51,6 +51,8 @@ fun BookCoverFallback(
 ) {
     val palette = remember(seed) { fallbackGradients[seed.hashCode().mod(fallbackGradients.size)] }
     val (top, bottom, ink) = palette
+    // The radii here draw a generated book face (outer edge, inset frame), not UI chrome, so they
+    // stay literal rather than following the theme's shape scale.
     BoxWithConstraints(
         modifier =
             modifier

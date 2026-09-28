@@ -43,6 +43,7 @@ import listenup.composeapp.generated.resources.metadata_all_n_selected
 import listenup.composeapp.generated.resources.metadata_apply_chapter_names
 import listenup.composeapp.generated.resources.metadata_chapter_names_replace_note
 import listenup.composeapp.generated.resources.metadata_review_chapter_names
+import androidx.compose.material3.BottomSheetDefaults
 
 /** Inset start of the row dividers — clears the leading checkbox column. */
 private val CHAPTER_DIVIDER_INSET = 56.dp
@@ -65,7 +66,7 @@ fun ChapterNameReviewSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = BottomSheetDefaults.ExpandedShape,
         dragHandle = {
             Surface(
                 modifier =

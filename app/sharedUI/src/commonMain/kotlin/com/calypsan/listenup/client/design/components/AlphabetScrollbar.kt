@@ -334,6 +334,7 @@ fun AlphabetScrollbar(
                     // even on short letter lists. Visual appearance unchanged — the
                     // letters are centred inside the wider clip area.
                     .defaultMinSize(minWidth = 48.dp)
+                    // Sized to the letter column's own geometry, like the scrubber's text.
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (isInteracting) {

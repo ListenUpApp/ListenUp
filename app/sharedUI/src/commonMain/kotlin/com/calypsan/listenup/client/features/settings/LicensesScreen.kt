@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -248,7 +247,7 @@ private fun LicensesMobileHero(
                             MaterialTheme.colorScheme.onTertiaryContainer,
                             MaterialTheme.colorScheme.tertiaryContainer,
                         ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 ) {
                     DistributionMeter(
@@ -286,7 +285,7 @@ private fun LicensesWideLayout(
         ) {
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.width(380.dp).fillMaxHeight(),
             ) {
                 Column(modifier = Modifier.padding(26.dp)) {
@@ -356,7 +355,7 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
     val haptics = LocalHaptics.current
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp),
     ) {
         Row(

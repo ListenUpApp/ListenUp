@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -68,7 +69,7 @@ fun DistributionMeter(
                 Modifier
                     .fillMaxWidth()
                     .height(METER_HEIGHT_DP.dp)
-                    .clip(RoundedCornerShape(6.dp)),
+                    .clip(CircleShape),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             segments.forEach { seg ->
@@ -99,6 +100,7 @@ fun DistributionMeter(
                             modifier =
                                 Modifier
                                     .size(SWATCH_SIZE_DP.dp)
+                                    // A legend swatch echoes the meter's own tiny segment radius.
                                     .clip(RoundedCornerShape(3.dp))
                                     .background(seg.color),
                         )

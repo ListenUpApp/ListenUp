@@ -10,7 +10,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -28,12 +27,11 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 private val CHECKBOX_SIZE = 26.dp
-private val CHECKBOX_RADIUS = 8.dp
 private const val CHECK_ICON_RATIO = 0.7f
 
 /**
  * The signature M3 Expressive selection glyph for grouped field/chapter rows: a soft-cornered
- * ([CHECKBOX_RADIUS]) square that fills with [accent] and shows a check when [checked], or sits as a
+ * ([MaterialTheme.shapes.extraSmall]) square that fills with [accent] and shows a check when [checked], or sits as a
  * 2.dp [MaterialTheme.colorScheme.outline] outline when unchecked. Replaces the stock material
  * [androidx.compose.material3.Checkbox] inside the metadata-match field list and chapter-review sheet
  * so selection reads as a bold coral tile rather than a hairline tick.
@@ -102,13 +100,13 @@ private fun CheckboxTile(
         modifier =
             Modifier
                 .size(CHECKBOX_SIZE)
-                .clip(RoundedCornerShape(CHECKBOX_RADIUS))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .then(modifier)
                 .then(
                     if (checked) {
                         Modifier.background(accent)
                     } else {
-                        Modifier.border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(CHECKBOX_RADIUS))
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraSmall)
                     },
                 ),
         contentAlignment = Alignment.Center,

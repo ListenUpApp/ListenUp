@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
@@ -58,10 +57,6 @@ const val COARSE_NUDGE_MS = 1_000L
 /** The fine step, for a boundary being placed by ear. */
 const val FINE_NUDGE_MS = 100L
 
-private val ROW_SHAPE = RoundedCornerShape(16.dp)
-
-/** The tappable start time's own hit shape, so its ripple reads as a control, not the row. */
-private val TIME_SHAPE = RoundedCornerShape(6.dp)
 private val NUMBER_COLUMN_WIDTH = 32.dp
 private val ACTION_SIZE = 36.dp
 
@@ -113,7 +108,7 @@ fun ChapterEditRow(
     Row(
         modifier
             .fillMaxWidth()
-            .clip(ROW_SHAPE)
+            .clip(MaterialTheme.shapes.medium)
             .background(if (isSelected) colors.primaryContainer else colors.surface)
             .clickable(onClick = onSelect)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -154,7 +149,8 @@ fun ChapterEditRow(
                     // The time is its own control: tap it to type the start to the millisecond.
                     modifier =
                         Modifier
-                            .clip(TIME_SHAPE)
+                            // The start time's own hit shape, so its ripple reads as a control, not the row.
+                            .clip(MaterialTheme.shapes.extraSmall)
                             .clickable(onClickLabel = editTimeLabel, onClick = onEditTime)
                             .semantics { contentDescription = editTimeLabel }
                             .padding(horizontal = 4.dp, vertical = 2.dp),

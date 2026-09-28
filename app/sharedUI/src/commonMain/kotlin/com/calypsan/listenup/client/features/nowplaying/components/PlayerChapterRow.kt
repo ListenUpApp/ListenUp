@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
@@ -51,7 +50,7 @@ fun PlayerChapterRow(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
-    val shape = RoundedCornerShape(12.dp)
+    val shape = MaterialTheme.shapes.small
     val containerColor = MaterialTheme.colorScheme.primaryContainer
     val numberColor =
         if (isCurrent) {

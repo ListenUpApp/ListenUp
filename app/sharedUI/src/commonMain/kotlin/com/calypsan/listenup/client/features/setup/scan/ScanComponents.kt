@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Icon
@@ -163,7 +162,7 @@ fun StatChip(
     Column(
         modifier =
             modifier
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(vertical = 12.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -283,7 +282,7 @@ fun ScanFileLine(
             modifier
                 .fillMaxWidth()
                 .height(46.dp)
-                .clip(RoundedCornerShape(50))
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(horizontal = Spacing.lg),
         verticalAlignment = Alignment.CenterVertically,

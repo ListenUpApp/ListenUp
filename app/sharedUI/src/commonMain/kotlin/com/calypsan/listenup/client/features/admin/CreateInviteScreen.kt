@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -94,6 +93,7 @@ import listenup.composeapp.generated.resources.common_email_address
 import listenup.composeapp.generated.resources.common_member
 import listenup.composeapp.generated.resources.common_n_days
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
 private const val ROLE_MEMBER = "member"
 private const val ROLE_ADMIN = "admin"
@@ -532,7 +532,7 @@ private fun LinkPreviewCard(
                 }
             }
             Surface(
-                shape = RoundedCornerShape(percent = 50),
+                shape = CircleShape,
                 color = HeroInk.wash(),
                 modifier = Modifier.fillMaxWidth(),
             ) {

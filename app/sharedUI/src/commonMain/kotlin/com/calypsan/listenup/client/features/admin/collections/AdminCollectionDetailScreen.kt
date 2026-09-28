@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -129,11 +128,11 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
 private const val HERO_BADGE_SIZE_DP = 64
 private const val HERO_BADGE_ICON_RATIO = 0.5f
 private const val COVER_GRID_MIN_TILE_DP = 160
-private const val COVER_CORNER_DP = 12
 private const val SECTION_SPACING_DP = 24
 private const val EMPTY_PANEL_PADDING_DP = 32
 private const val EMPTY_ICON_SIZE_DP = 48
@@ -492,7 +491,7 @@ private fun CountChip(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(50),
+        shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
@@ -676,13 +675,13 @@ private fun BookCoverTile(
             coverPath = book.coverPath,
             coverHash = book.coverHash,
             contentDescription = book.title,
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(COVER_CORNER_DP.dp)),
+            modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small),
         )
         if (isRemoving) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(COVER_CORNER_DP.dp),
+                shape = MaterialTheme.shapes.small,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     ListenUpLoadingIndicatorSmall()

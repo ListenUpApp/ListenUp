@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
@@ -39,6 +38,7 @@ import listenup.composeapp.generated.resources.shell_session_lapsed_title
 import listenup.composeapp.generated.resources.shell_update_available_body
 import listenup.composeapp.generated.resources.shell_update_available_title
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
 /**
  * Shell-level connection-health banner. Renders one pill per non-[ConnectionHealthUi.Hidden]
@@ -133,7 +133,7 @@ private fun BannerPill(
     val haptics = LocalHaptics.current
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = ContentShapes.card,
         color = container,
         shadowElevation = 4.dp,
     ) {

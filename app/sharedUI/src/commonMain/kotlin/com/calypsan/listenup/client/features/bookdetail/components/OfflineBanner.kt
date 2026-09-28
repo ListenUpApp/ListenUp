@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
@@ -52,7 +51,7 @@ fun OfflineBanner(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
-    val bannerShape = RoundedCornerShape(if (compact) 20.dp else 24.dp)
+    val bannerShape = MaterialTheme.shapes.medium
     val horizontalPadding = if (compact) 14.dp else 22.dp
     val verticalPadding = if (compact) 12.dp else 16.dp
     val iconContainerSize = if (compact) 40.dp else 50.dp
@@ -118,7 +117,7 @@ fun OfflineBanner(
             Button(
                 onClick = onRetryClick,
                 modifier = Modifier.height(retryButtonHeight),
-                shape = RoundedCornerShape(50),
+                shape = CircleShape,
                 contentPadding =
                     androidx.compose.foundation.layout.PaddingValues(
                         horizontal = retryHorizontalPadding,

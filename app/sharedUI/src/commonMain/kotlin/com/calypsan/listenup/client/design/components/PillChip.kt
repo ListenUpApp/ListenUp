@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import androidx.compose.foundation.shape.CircleShape
 
 /**
  * Outlined pill button with an optional filled-[selected] state — the canonical chip across the
@@ -53,7 +53,7 @@ fun PillChip(
     val isSelected = selected == true
     val contentColor =
         if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    val shape = RoundedCornerShape(percent = 50)
+    val shape = CircleShape
     val color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
     val border = if (isSelected) null else BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant)
     val tap = {

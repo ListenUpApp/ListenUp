@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
@@ -17,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
 
 /**
  * A small filled-tonal role badge: a pill ([RoundedCornerShape] at 50%) carrying a bold [label].
@@ -48,7 +48,7 @@ fun RoleChip(
         }
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(percent = 50),
+        shape = CircleShape,
         color = containerColor,
         contentColor = contentColor,
     ) {

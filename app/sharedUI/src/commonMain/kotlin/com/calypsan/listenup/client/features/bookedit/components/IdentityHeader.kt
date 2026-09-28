@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
@@ -150,7 +149,7 @@ fun IdentityHeader(
                         Modifier
                             .width(120.dp)
                             .aspectRatio(1f),
-                    cornerRadius = 12.dp,
+                    shape = MaterialTheme.shapes.small,
                     elevation = 12.dp,
                     refreshKey = refreshKey,
                     onClick = onCoverClick,
@@ -208,7 +207,7 @@ fun IdentityHeader(
                                 color = HeroInk.muted(),
                             ),
                         colors = heroTextFieldColors(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         singleLine = false,
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -236,7 +235,7 @@ fun IdentityHeader(
                                     color = HeroInk.muted(),
                                 ),
                             colors = heroTextFieldColors(),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.small,
                             singleLine = false,
                             modifier =
                                 Modifier
@@ -277,7 +276,7 @@ fun IdentityHeader(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                         colors = heroTextFieldColors(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     )

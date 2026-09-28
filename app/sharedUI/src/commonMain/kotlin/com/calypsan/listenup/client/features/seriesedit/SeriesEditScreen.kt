@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMerge
@@ -486,7 +485,7 @@ private fun SeriesIdentityHeader(
                 // Large editable cover (120dp) - tappable for upload
                 ElevatedCard(
                     onClick = onCoverClick,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = ContentShapes.card,
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
                     colors =
                         CardDefaults.elevatedCardColors(
@@ -507,7 +506,7 @@ private fun SeriesIdentityHeader(
                                 modifier =
                                     Modifier
                                         .fillMaxSize()
-                                        .clip(RoundedCornerShape(16.dp)),
+                                        .clip(ContentShapes.card),
                             )
                         } else {
                             Text(
@@ -575,7 +574,7 @@ private fun SeriesIdentityHeader(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
                         ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
@@ -628,7 +627,7 @@ private fun SeriesStudioCard(
 ) {
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = ContentShapes.card,
         colors =
             CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,

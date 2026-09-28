@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
@@ -118,6 +117,7 @@ import listenup.composeapp.generated.resources.metadata_select_metadata
 import listenup.composeapp.generated.resources.metadata_try_selecting_a_different_region
 import listenup.composeapp.generated.resources.metadata_your_book_already_has_all
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
 private const val DESCRIPTION_PREVIEW_LIMIT = 200
 
@@ -501,7 +501,7 @@ private fun MatchedEditionHero(
 private fun SourceChip(region: MetadataLocale) {
     val colors = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(percent = 50),
+        shape = CircleShape,
         color = HeroInk.wash(),
         contentColor = colors.onPrimaryContainer,
     ) {
@@ -1117,7 +1117,7 @@ private fun CoverOptionCard(
                             Modifier
                                 .align(Alignment.TopStart)
                                 .padding(4.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
                     ) {
                         Text(
@@ -1135,7 +1135,7 @@ private fun CoverOptionCard(
                                 .align(Alignment.BottomEnd)
                                 .padding(4.dp)
                                 .size(22.dp)
-                                .clip(RoundedCornerShape(11.dp))
+                                .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -1225,7 +1225,7 @@ private fun FieldSourceChip(label: String?) {
         modifier =
             Modifier
                 .padding(start = 6.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(percent = 50))
+                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
@@ -1507,7 +1507,7 @@ private fun GenreToggleChip(
             onClick()
         },
         modifier = Modifier.semantics { role = Role.Checkbox },
-        shape = RoundedCornerShape(percent = 50),
+        shape = CircleShape,
         color = if (selected) colors.tertiaryContainer else colors.surfaceContainerHighest,
         contentColor = if (selected) colors.onTertiaryContainer else colors.onSurfaceVariant,
     ) {

@@ -8,7 +8,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -67,7 +66,7 @@ fun ChapterMiniMap(
 ) {
     val tickColor = MaterialTheme.colorScheme.surfaceContainerHighest
     val viewportColor = MaterialTheme.colorScheme.primary
-    val shape = RoundedCornerShape(12.dp)
+    val shape = MaterialTheme.shapes.small
 
     Canvas(
         modifier =

@@ -247,7 +247,7 @@ private fun WideSeriesDetailContent(
                 Modifier
                     .weight(0.4f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(MaterialTheme.shapes.large)
                     .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
@@ -593,7 +593,7 @@ private fun SeriesBookRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(rowColor)
                 .clickable {
                     haptics.press()
@@ -610,7 +610,7 @@ private fun SeriesBookRow(
                 contentDescription = book.title,
                 title = book.title,
                 author = book.authors.firstOrNull()?.name,
-                modifier = Modifier.size(68.dp).clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.size(68.dp).clip(MaterialTheme.shapes.small),
             )
             if (finished) {
                 Box(
@@ -728,7 +728,7 @@ private fun SeriesBookCard(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(cardColor)
                 .clickable {
                     haptics.press()
@@ -773,7 +773,7 @@ private fun SeriesBookCardCover(
             contentDescription = book.title,
             title = book.title,
             author = book.authors.firstOrNull()?.name,
-            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(MaterialTheme.shapes.small),
         )
         if (finished || highlighted) {
             val badgeBg =

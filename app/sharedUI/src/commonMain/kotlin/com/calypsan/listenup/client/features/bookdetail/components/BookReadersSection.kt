@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.GraphicEq
@@ -461,7 +460,7 @@ private fun ProgressBar(
             modifier
                 .fillMaxWidth()
                 .height(6.dp)
-                .clip(RoundedCornerShape(99.dp))
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest),
     ) {
         Box(
@@ -469,7 +468,7 @@ private fun ProgressBar(
                 Modifier
                     .fillMaxWidth(progressPct.coerceIn(0, 100) / 100f)
                     .height(6.dp)
-                    .clip(RoundedCornerShape(99.dp))
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary),
         )
     }

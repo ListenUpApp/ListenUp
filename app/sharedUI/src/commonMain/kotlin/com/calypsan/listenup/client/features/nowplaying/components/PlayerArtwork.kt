@@ -72,7 +72,7 @@ fun PlayerArtwork(
             contentDescription = null,
             title = title,
             author = author,
-            cornerRadius = 20.dp,
+            shape = MaterialTheme.shapes.medium,
             elevation = 24.dp,
             modifier = Modifier.size(size),
         )

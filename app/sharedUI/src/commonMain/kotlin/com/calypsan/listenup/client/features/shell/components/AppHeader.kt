@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -323,7 +322,7 @@ private fun HeaderSearchField(
             )
         },
         singleLine = true,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         colors =
             TextFieldDefaults.colors(

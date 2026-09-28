@@ -36,6 +36,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_close
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Adaptive chrome for the Now Playing panels (speed / chapters / sleep). A Material bottom sheet on
@@ -91,7 +92,7 @@ private fun PlayerPanelBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = BottomSheetDefaults.ExpandedShape,
         dragHandle = {
             Surface(
                 modifier = Modifier.padding(vertical = 12.dp).size(width = 36.dp, height = 5.dp),
@@ -125,7 +126,7 @@ private fun PlayerPanelDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             modifier = modifier.widthIn(max = dialogWidth).fillMaxWidth(),
         ) {

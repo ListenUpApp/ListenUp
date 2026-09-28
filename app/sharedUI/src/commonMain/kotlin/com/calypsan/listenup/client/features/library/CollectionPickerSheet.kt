@@ -57,6 +57,7 @@ import listenup.composeapp.generated.resources.library_create_new_collection
 import listenup.composeapp.generated.resources.common_no_items_yet
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Bottom sheet for selecting a collection to add books to.
@@ -91,7 +92,7 @@ fun CollectionPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        shape = BottomSheetDefaults.ExpandedShape,
         dragHandle = {
             // Standard drag handle with proper spacing
             Surface(
@@ -288,7 +289,7 @@ private fun CreateNewCollectionRow(
                 modifier =
                     Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {

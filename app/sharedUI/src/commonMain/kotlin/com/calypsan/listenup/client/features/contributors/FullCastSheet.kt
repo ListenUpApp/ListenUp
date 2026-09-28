@@ -47,6 +47,7 @@ import listenup.composeapp.generated.resources.book_detail_cast_count_narrators
 import listenup.composeapp.generated.resources.book_detail_done
 import listenup.composeapp.generated.resources.book_detail_full_cast
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.material3.BottomSheetDefaults
 
 /** Which contributor role a [FullCastSheet] is showing — selected by a folded hero line. */
 enum class CastRole { Authors, Narrators }
@@ -150,7 +151,7 @@ private fun FullCastBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = BottomSheetDefaults.ExpandedShape,
         dragHandle = {
             Surface(
                 modifier =
@@ -194,7 +195,7 @@ private fun FullCastDialog(
     val haptics = LocalHaptics.current
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(),
         ) {

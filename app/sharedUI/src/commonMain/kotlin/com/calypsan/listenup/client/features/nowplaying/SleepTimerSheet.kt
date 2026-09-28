@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CheckCircle
@@ -199,7 +198,7 @@ private fun DurationCountdown(
     Spacer(Modifier.height(16.dp))
     LinearProgressIndicator(
         progress = { state.progress },
-        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
     )
     Spacer(Modifier.height(Spacing.xl))

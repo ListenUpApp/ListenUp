@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -39,6 +38,7 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_select_category
 import listenup.composeapp.generated.resources.common_toggle_direction
+import androidx.compose.foundation.shape.CircleShape
 
 /**
  * Split button for sort control.
@@ -77,10 +77,10 @@ fun SortSplitButton(
     ) {
         Box {
             Surface(
-                shape = RoundedCornerShape(50),
+                shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
                 shadowElevation = 2.dp,
-                modifier = Modifier.clip(RoundedCornerShape(50)),
+                modifier = Modifier.clip(CircleShape),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

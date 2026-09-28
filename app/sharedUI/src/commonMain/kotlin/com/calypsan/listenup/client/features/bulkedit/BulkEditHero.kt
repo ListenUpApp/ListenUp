@@ -32,6 +32,8 @@ import com.calypsan.listenup.client.design.theme.HeroInk
 private val ClusterTileSize = 58.dp
 private val ClusterRing = 2.dp
 private val ClusterOverlap = (-16).dp
+
+// Concentric geometry: the tile radius is the cover radius plus the ring, so the two stay literal.
 private val ClusterTileShape = RoundedCornerShape(14.dp)
 private val ClusterCoverShape = RoundedCornerShape(12.dp)
 

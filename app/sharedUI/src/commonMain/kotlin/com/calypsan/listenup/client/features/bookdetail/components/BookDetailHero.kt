@@ -281,7 +281,8 @@ fun WideHeroBand(
     ) {
         // Clip the blob to the band so it never overflows the surface bounds
         Box(modifier = Modifier.fillMaxWidth().clip(ContentShapes.card)) {
-            // Decorative background blob — top-right, oversized, organic corners, very subtle
+            // Decorative background blob — top-right, oversized, organic corners, very subtle. Its
+            // four unequal radii are the drawing itself, so they stay literal.
             Box(
                 modifier =
                     Modifier
@@ -609,7 +610,7 @@ private fun SeriesChip(
     Row(
         modifier =
             modifier
-                .clip(RoundedCornerShape(percent = 50))
+                .clip(CircleShape)
                 .clickable {
                     haptics.press()
                     onClick()

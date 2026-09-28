@@ -9,7 +9,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -87,7 +86,7 @@ fun ChapterDetailLane(
     height: Dp = LANE_HEIGHT,
     contentDescription: String? = null,
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = MaterialTheme.shapes.medium
     val colors = MaterialTheme.colorScheme
     val peakColor = colors.surfaceContainerHighest
     val dividerColor = colors.outline

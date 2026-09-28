@@ -43,7 +43,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -947,8 +946,8 @@ private fun CategoryRow(
                 .fillMaxWidth()
                 .then(
                     when {
-                        isDropTarget -> Modifier.background(dropHighlightColor, RoundedCornerShape(8.dp))
-                        isSelected -> Modifier.background(selectedColor, RoundedCornerShape(8.dp))
+                        isDropTarget -> Modifier.background(dropHighlightColor, MaterialTheme.shapes.extraSmall)
+                        isSelected -> Modifier.background(selectedColor, MaterialTheme.shapes.extraSmall)
                         else -> Modifier
                     },
                 ).onGloballyPositioned { coordinates ->

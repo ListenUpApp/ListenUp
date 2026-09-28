@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -67,6 +66,7 @@ import listenup.composeapp.generated.resources.library_summary
 import listenup.composeapp.generated.resources.library_your_audiobooks_will_appear_here
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
 
@@ -182,7 +182,7 @@ private fun SectionHeader(
                 Modifier
                     .weight(1f)
                     .height(3.dp)
-                    .clip(RoundedCornerShape(99.dp))
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         )
     }

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -49,6 +48,7 @@ import listenup.composeapp.generated.resources.library_sort_ascending
 import listenup.composeapp.generated.resources.library_sort_descending
 import listenup.composeapp.generated.resources.library_sort_options
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.foundation.shape.CircleShape
 
 /**
  * The Library's unified sort control — one Material 3 Expressive "sort card" that holds the count,
@@ -151,7 +151,7 @@ private fun SortTrigger(
                 haptics.press()
                 menuExpanded = true
             },
-            shape = RoundedCornerShape(50),
+            shape = CircleShape,
             color = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier =

@@ -172,6 +172,7 @@ internal fun rememberDeckFront(
 /** Upper bound of the random start delay that keeps decks on one screen out of lockstep. */
 private const val MAX_STAGGER_MS = 500L
 
+/** A fanned stack of small covers: a tighter radius than the 24dp cover-tile token so small covers stay crisp. */
 private val CORNER = 14.dp
 
 /** Each successive cover shrinks by this fraction. */

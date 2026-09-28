@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Clear
@@ -80,7 +79,7 @@ fun ListenUpDatePicker(
             placeholder = placeholder?.let { { Text(it) } },
             readOnly = true,
             singleLine = true,
-            shape = RoundedCornerShape(4.dp),
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
                 if (value.isNotEmpty()) {

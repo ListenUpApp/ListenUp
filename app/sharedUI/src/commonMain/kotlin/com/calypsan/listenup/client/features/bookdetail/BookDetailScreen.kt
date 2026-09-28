@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
@@ -98,6 +97,7 @@ import listenup.composeapp.generated.resources.book_detail_insufficient_storage
 import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_supplementary_materials
 import listenup.composeapp.generated.resources.book_show_all_chapters
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
 /**
  * Immersive book detail screen following Material 3 Expressive Design.
@@ -275,7 +275,7 @@ private fun BookDetailLoadingFrame(
                 coverPath = null,
                 contentDescription = null,
                 heroKey = bookCoverHeroKey(bookId),
-                heroClipShape = RoundedCornerShape(16.dp),
+                heroClipShape = ContentShapes.card,
                 modifier = Modifier.size(200.dp),
             )
         }
@@ -899,7 +899,7 @@ private fun ImmersiveBookDetail(
                     ) {
                         OutlinedButton(
                             onClick = { isChaptersExpanded = true },
-                            shape = RoundedCornerShape(24.dp),
+                            shape = ContentShapes.card,
                         ) {
                             Text(stringResource(Res.string.book_show_all_chapters, state.chapters.size))
                         }
@@ -969,7 +969,7 @@ fun BookDetailScanWarning(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.errorContainer,
         tonalElevation = 1.dp,
     ) {
@@ -1039,7 +1039,7 @@ private fun DocumentCard(
             haptics.press()
             onClick()
         },
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -1052,7 +1052,7 @@ private fun DocumentCard(
                 modifier =
                     Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {

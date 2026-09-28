@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material3.Icon
@@ -91,7 +90,7 @@ private fun SubtreeToggleRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(containerColor)
                 // A state-coloured card, not SettingRow chrome — but the same switch semantics.
                 .switchRow(checked = state.includeSubGenres, haptics = haptics) { onToggle() }
@@ -188,7 +187,7 @@ private fun SubGenreChip(
     onClick: () -> Unit,
 ) {
     val hueColor = genreHueColor(FacetIdentity.hue(subGenre.name))
-    val shape = RoundedCornerShape(50)
+    val shape = CircleShape
 
     Row(
         modifier =
@@ -210,7 +209,7 @@ private fun SubGenreChip(
             Box(
                 modifier =
                     Modifier
-                        .clip(RoundedCornerShape(50))
+                        .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                         .padding(horizontal = 7.dp, vertical = 2.dp),
             ) {

@@ -57,6 +57,7 @@ import listenup.composeapp.generated.resources.library_shelf_name
 import listenup.composeapp.generated.resources.library_you_dont_have_any_shelves
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Bottom sheet for selecting a shelf to add books to.
@@ -87,7 +88,7 @@ fun ShelfPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        shape = BottomSheetDefaults.ExpandedShape,
         dragHandle = {
             // Standard drag handle with proper spacing
             Surface(
@@ -234,7 +235,7 @@ private fun CreateNewShelfRow(
                 modifier =
                     Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
@@ -294,7 +295,7 @@ private fun ShelfRow(
                 modifier =
                     Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(iconColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center,
             ) {
