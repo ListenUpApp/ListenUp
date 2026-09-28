@@ -17,7 +17,7 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
  * means [recordFailure] always has somewhere to write, independent of whether any book has ever
  * matched.
  */
-internal class RatingSourceSettings(
+class RatingSourceSettings(
     private val settings: ServerSettingsRepository,
 ) {
     /** Whether [source] is currently enabled — `true` when the admin has never set it either way. */

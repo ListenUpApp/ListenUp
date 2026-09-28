@@ -38,9 +38,12 @@ import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.push.PushConfig
+import com.calypsan.listenup.server.ratings.RatingSourceSettings
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.ktor.server.config.ApplicationConfig
 import kotlinx.coroutines.CoroutineScope
@@ -185,6 +188,9 @@ fun authModule(
                 changeBus = get(),
                 libraryRegistry = get(),
                 libraryRepository = get(),
+                sourceSettings = get<RatingSourceSettings>(),
+                externalRatings = get<BookExternalRatingRepository>(),
+                providerRegistry = get<MetadataProviderRegistry>(),
             )
         }
         single<AdminSettingsService> { get<AdminSettingsServiceImpl>() }

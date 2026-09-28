@@ -93,6 +93,13 @@ internal class BookMetadataApplier(
     private val sqlDb: ListenUpDatabase,
     private val ladderSource: suspend (locale: MetadataLocale, asin: String) -> List<List<String>>,
     private val enrichmentDeps: MetadataEnrichmentDeps,
+    /**
+     * Best-effort outside-ratings refresh, run right after a successful apply — the "on match"
+     * trigger `ExternalRatingsFetcher` names. Null in every direct construction (this class's own
+     * unit tests) and wherever the feature is unwired; production wires it to
+     * `ExternalRatingsFetcher.fetch(bookId, locale, refresh = true)`, its return value discarded.
+     */
+    private val externalRatingsFetch: (suspend (bookId: BookId, locale: MetadataLocale) -> Unit)? = null,
 ) {
     suspend fun apply(
         bookId: BookId,
@@ -144,6 +151,8 @@ internal class BookMetadataApplier(
 
             val upsertResult = bookRepository.upsert(updated, clientOpId = null)
             if (upsertResult is AppResult.Failure) return@flatMap upsertResult
+
+            applyExternalRatingsBestEffort(bookId, locale)
 
             if (selection.cover) {
                 applyChosenCover(
@@ -364,6 +373,27 @@ internal class BookMetadataApplier(
             throw e
         } catch (e: Exception) {
             log.warn(e) { "Mood/tag reconcile failed for ${bookId.value} (ASIN $asin) — skipping" }
+        }
+    }
+
+    /**
+     * Runs [externalRatingsFetch] for [bookId] in [locale] right after a successful apply — the book
+     * just gained (or changed) an ASIN, so this is the earliest point a fresh outside rating can be
+     * fetched. A no-op when [externalRatingsFetch] is null (unwired). Best-effort: the match itself
+     * already committed, so a thrown fault here must never fail the apply.
+     * [kotlinx.coroutines.CancellationException] is always re-raised.
+     */
+    private suspend fun applyExternalRatingsBestEffort(
+        bookId: BookId,
+        locale: MetadataLocale,
+    ) {
+        val fetch = externalRatingsFetch ?: return
+        try {
+            fetch(bookId, locale)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "External rating fetch failed for ${bookId.value} after apply — skipping" }
         }
     }
 

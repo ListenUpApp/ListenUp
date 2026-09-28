@@ -32,6 +32,9 @@ import com.calypsan.listenup.server.metadata.provider.AudnexusProvider
 import com.calypsan.listenup.server.metadata.provider.ITunesProvider
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
+import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
+import com.calypsan.listenup.server.ratings.RatingSourceSettings
+import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.services.BookMoodWriter
@@ -42,6 +45,7 @@ import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
+import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import kotlin.time.Clock
@@ -222,12 +226,38 @@ fun metadataModule(imageHome: Path): Module =
                     PrincipalProvider {
                         error("Unscoped MetadataLookupService — call copyWith(PrincipalProvider) at the route")
                     },
+                externalRatingsFetcher = get<ExternalRatingsFetcher>(),
                 rateLimiter = get<MetadataRateLimiter>(),
             )
         }
 
         metadataCleanupBindings(imageHome)
+        ratingsBindings()
     }
+
+/**
+ * Outside-ratings bindings: the admin per-source enabled/health settings, the fetcher every
+ * trigger (match-apply, nightly sweep, admin refresh) runs through, and the nightly sweep task
+ * itself. Split out to keep [metadataModule] under the length budget.
+ */
+private fun Module.ratingsBindings() {
+    single { RatingSourceSettings(settings = get()) }
+    single {
+        ExternalRatingsFetcher(
+            registry = get<MetadataProviderRegistry>(),
+            ratings = get<BookExternalRatingRepository>(),
+            sourceSettings = get<RatingSourceSettings>(),
+            books = get<BookRepository>(),
+        )
+    }
+    single {
+        ExternalRatingsSweepTask(
+            fetcher = get(),
+            ratings = get<BookExternalRatingRepository>(),
+            settings = get(),
+        )
+    }
+}
 
 /**
  * The configuration every outbound metadata request runs under: lenient JSON, and a bounded time

@@ -269,6 +269,29 @@ class BookExternalRatingRepository(
             db.bookExternalRatingsQueries.countBooksWithAsin().executeAsOne()
         }
 
+    /**
+     * Records that a fetch was attempted for [bookId] at [at], regardless of outcome — see
+     * `ExternalRatingAttempts.sq` and `BookExternalRatings.sq`'s `selectSweepCandidates` for why:
+     * without this, a book that never earns a `book_external_ratings` row (no rating for its ASIN,
+     * or every source erroring) would sort first in the nightly sweep forever, starving every
+     * other book. Idempotent per book — a repeat attempt overwrites the instant.
+     */
+    suspend fun recordAttempt(
+        bookId: String,
+        at: Long,
+    ) = suspendTransaction(db) {
+        db.externalRatingAttemptsQueries.recordAttempt(book_id = bookId, attempted_at = at)
+    }
+
+    /** [bookId]'s most recently fetched source's region, or null when it has never had a live row. */
+    suspend fun regionForBook(bookId: String): String? =
+        suspendTransaction(db) {
+            db.bookExternalRatingsQueries
+                .selectRegionForBook(bookId)
+                .executeAsOneOrNull()
+                ?.region
+        }
+
     private fun Book_external_ratings.toPayload(): ExternalRatingSyncPayload =
         ExternalRatingSyncPayload(
             id = id,

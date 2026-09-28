@@ -83,17 +83,32 @@ SET average = :average, count = :count, enabled = :enabled, region = :region, fe
     client_op_id = :client_op_id
 WHERE book_id = :book_id AND source = :source;
 
--- The book ids a sweep should refresh next: live books with an ASIN, the never-fetched first, then
--- the least recently fetched. A book with no book_external_ratings row at all (never attempted by
--- any source) sorts as if fetched_at = 0 — first in line.
+-- The book ids a sweep should refresh next: live books with an ASIN, ordered by how long it has
+-- been since the book was last genuinely touched — the earliest of any of its sources' fetches
+-- (so a book with one stale source among several keeps rotating in), or the last recorded fetch
+-- *attempt* (external_rating_attempts — see that table's own comment), whichever is MORE recent.
+-- A book with neither sorts as if touched at instant 0 — first in line. Without the attempts
+-- half, a book that never earns a row (Audible has no rating for its ASIN, or every fetch errors)
+-- would sort first FOREVER, consuming the whole nightly quota and starving every other book.
 selectSweepCandidates:
 SELECT b.id FROM books b
-LEFT JOIN book_external_ratings r ON r.book_id = b.id AND r.deleted_at IS NULL
+LEFT JOIN (
+    SELECT book_id, MIN(fetched_at) AS fetched_at
+    FROM book_external_ratings
+    WHERE deleted_at IS NULL
+    GROUP BY book_id
+) r ON r.book_id = b.id
+LEFT JOIN external_rating_attempts a ON a.book_id = b.id
 WHERE b.deleted_at IS NULL AND b.asin IS NOT NULL AND b.asin != ''
-GROUP BY b.id
-ORDER BY MIN(COALESCE(r.fetched_at, 0)) ASC, b.id ASC
+ORDER BY MAX(COALESCE(r.fetched_at, 0), COALESCE(a.attempted_at, 0)) ASC, b.id ASC
 LIMIT :limit;
 
 -- The sweep's 1/30th-a-night arithmetic denominator.
 countBooksWithAsin:
 SELECT COUNT(*) FROM books WHERE deleted_at IS NULL AND asin IS NOT NULL AND asin != '';
+
+-- The most recently fetched source's region for this book, reused so a refetch (nightly sweep or
+-- admin refresh) runs in the same region a rating was last found in. Null when the book has never
+-- had a live row (falls back to the server's default metadata region at the call site).
+selectRegionForBook:
+SELECT region FROM book_external_ratings WHERE book_id = :book_id AND deleted_at IS NULL ORDER BY fetched_at DESC LIMIT 1;

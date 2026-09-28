@@ -158,6 +158,61 @@ class BookExternalRatingRepositoryTest :
             }
         }
 
+        test("recordAttempt keeps a never-rated book from sorting ahead of one that was fetched even longer ago") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("attempted-only", asin = "B-ATTEMPT")
+                sql.seedTestBook("old-fetch", asin = "B-OLD")
+                val repo =
+                    BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.recordFetch("old-fetch", ExternalRatingSource.AUDIBLE, 4.0, 10, "us", fetchedAt = 1_000L)
+                    // "attempted-only" never earned a row (every source failed or answered a
+                    // confident miss) but WAS tried, more recently than "old-fetch" was last fetched.
+                    repo.recordAttempt("attempted-only", at = 5_000L)
+
+                    repo.sweepCandidates(limit = 10) shouldBe listOf("old-fetch", "attempted-only")
+                }
+            }
+        }
+
+        test("recordAttempt overwrites a prior attempt for the same book, not merely adds to it") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "B001")
+                sql.seedTestBook("book2", asin = "B002")
+                val repo =
+                    BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.recordAttempt("book1", at = 1_000L)
+                    repo.recordAttempt("book2", at = 1_500L)
+                    // If this replaced book1's row, book1 (2_000L) now sorts AFTER book2 (1_500L). If
+                    // it had instead left the original 1_000L in place (a failed overwrite), book1
+                    // would still sort first.
+                    repo.recordAttempt("book1", at = 2_000L)
+
+                    repo.sweepCandidates(limit = 10) shouldBe listOf("book2", "book1")
+                }
+            }
+        }
+
+        test("regionForBook returns the most recently fetched source's region, else null") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "B001")
+                sql.seedTestBook("never-fetched", asin = "B-NEVER")
+                val repo =
+                    BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.recordFetch("book1", ExternalRatingSource.AUDIBLE, 4.0, 10, "us", fetchedAt = 1_000L)
+                    repo.recordFetch("book1", ExternalRatingSource.HARDCOVER, 4.0, 10, "uk", fetchedAt = 2_000L)
+
+                    repo.regionForBook("book1") shouldBe "uk"
+                    repo.regionForBook("never-fetched") shouldBe null
+                }
+            }
+        }
+
         test("countBooksWithAsin counts only live books carrying a non-blank ASIN") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

@@ -25,3 +25,13 @@ CREATE UNIQUE INDEX idx_book_external_ratings_id ON book_external_ratings(id);
 CREATE INDEX idx_book_external_ratings_source ON book_external_ratings(source) WHERE deleted_at IS NULL;
 CREATE INDEX idx_book_external_ratings_fetched ON book_external_ratings(fetched_at);
 CREATE INDEX idx_book_external_ratings_revision ON book_external_ratings(revision);
+
+-- external_rating_attempts: server-internal memory of the last time ExternalRatingsFetcher
+-- attempted a book, regardless of outcome (a rating stored, a confident "no rating", or every
+-- source failing). Without this, a book whose ASIN Audible never rates (or that always errors)
+-- earns no book_external_ratings row and would sort first in selectSweepCandidates every single
+-- night, forever — starving every other book of its share of the nightly sweep. Not synced.
+CREATE TABLE external_rating_attempts (
+    book_id      TEXT    NOT NULL PRIMARY KEY REFERENCES books(id) ON DELETE CASCADE,
+    attempted_at INTEGER NOT NULL
+);

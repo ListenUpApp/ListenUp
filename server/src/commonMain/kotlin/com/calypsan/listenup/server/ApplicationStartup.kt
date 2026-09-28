@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import com.calypsan.listenup.server.transcode.TranscoderProvisioner
 import com.calypsan.listenup.server.scheduler.ExpiredPasswordResetCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
+import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.scheduler.SidecarRetryTask
@@ -77,6 +78,8 @@ internal fun Application.startBackgroundTasks(
     cleanupTask.start(scope)
     val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
     metadataCacheCleanupTask.start(scope)
+    val externalRatingsSweepTask by inject<ExternalRatingsSweepTask>()
+    externalRatingsSweepTask.start(scope)
     val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
     orphanImageCleanupTask.start(scope)
     val statsFreshnessSweepTask by inject<StatsFreshnessSweepTask>()

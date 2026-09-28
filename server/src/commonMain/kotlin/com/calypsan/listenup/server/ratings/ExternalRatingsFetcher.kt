@@ -29,7 +29,7 @@ private val logger = loggerFor<ExternalRatingsFetcher>()
  * metadata region); [BookExternalRatingRepository.recordFetch] stores that region on the row, and
  * the sweep reuses it on the next pass.
  */
-internal class ExternalRatingsFetcher(
+open class ExternalRatingsFetcher(
     private val registry: MetadataProviderRegistry,
     private val ratings: BookExternalRatingRepository,
     private val sourceSettings: RatingSourceSettings,
@@ -50,7 +50,7 @@ internal class ExternalRatingsFetcher(
      * Runs every enabled [RatingSource] for [bookId] in [locale]. A book that no longer exists is a
      * harmless no-op [Outcome] of zero/zero. [refresh] bypasses each source's provider-side cache.
      */
-    suspend fun fetch(
+    open suspend fun fetch(
         bookId: BookId,
         locale: MetadataLocale,
         refresh: Boolean,
@@ -64,8 +64,19 @@ internal class ExternalRatingsFetcher(
             tried++
             if (runOne(source, bookId, identity, locale, refresh)) answered++
         }
+        // Remembered regardless of outcome — a book every enabled source fails (or confidently has
+        // no rating for) never earns a book_external_ratings row, so without this the nightly sweep
+        // would put it right back at the front of the queue next time too. See recordAttempt's KDoc.
+        if (tried > 0) ratings.recordAttempt(bookId.value, clock.now().toEpochMilliseconds())
         return Outcome(tried = tried, answered = answered)
     }
+
+    /**
+     * Re-fetches [bookId] in the region its rating was last found in (see [localeFor]), falling back
+     * to the default market for a book never rated — an admin's refresh must not swap a UK rating
+     * for a US one just because the request carries no region.
+     */
+    suspend fun refresh(bookId: BookId): Outcome = fetch(bookId, ratings.localeFor(bookId.value), refresh = true)
 
     /** Runs [source] contained: a thrown fault or a typed failure is recorded as health, never re-thrown. */
     private suspend fun runOne(
@@ -114,6 +125,17 @@ internal class ExternalRatingsFetcher(
         )
     }
 }
+
+/**
+ * [bookId]'s most recently fetched source's region, or [default] when it has never had a live row
+ * — reused by the nightly sweep ([com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask])
+ * so a repeat fetch runs in the same region a rating was last found in, rather than always falling
+ * back to the server's default market.
+ */
+internal suspend fun BookExternalRatingRepository.localeFor(
+    bookId: String,
+    default: MetadataLocale = MetadataLocale.DEFAULT,
+): MetadataLocale = regionForBook(bookId)?.let { MetadataLocale(it) } ?: default
 
 /**
  * Projects a persisted book onto the [RatingSource] lookup key — the same asin/isbn/title/primary-

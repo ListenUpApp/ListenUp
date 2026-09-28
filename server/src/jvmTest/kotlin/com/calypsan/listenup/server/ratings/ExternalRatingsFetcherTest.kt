@@ -289,6 +289,43 @@ class ExternalRatingsFetcherTest :
             }
         }
 
+        test("a permanently failing book does not starve the rest") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("failing", asin = "B-FAIL")
+                sql.seedTestBook("never-touched", asin = "B-NEW")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val books = sql.bookRepo(bus, registry, driver)
+                val ratings = BookExternalRatingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                val settings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.CLOSED))
+                val alwaysFails =
+                    FakeRatingSource(
+                        MetadataProviderId.AUDIBLE,
+                        ExternalRatingSource.AUDIBLE,
+                        result = AppResult.Failure(MetadataError.ExternalUnavailable()),
+                    )
+                val fetcher =
+                    ExternalRatingsFetcher(
+                        registry = MetadataProviderRegistry(listOf(alwaysFails)),
+                        ratings = ratings,
+                        sourceSettings = settings,
+                        books = books,
+                        clock = FixedClock(now),
+                    )
+
+                runTest {
+                    // Without external_rating_attempts, "failing" would earn no book_external_ratings
+                    // row and would sort first in the sweep FOREVER — even ahead of a book that has
+                    // genuinely never been looked at once.
+                    fetcher.fetch(BookId("failing"), MetadataLocale.DEFAULT, refresh = true)
+
+                    ratings.findForBook("failing") shouldBe emptyList()
+                    ratings.sweepCandidates(limit = 10) shouldBe listOf("never-touched", "failing")
+                }
+            }
+        }
+
         test("a confident miss counts as a successful fetch for health") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
