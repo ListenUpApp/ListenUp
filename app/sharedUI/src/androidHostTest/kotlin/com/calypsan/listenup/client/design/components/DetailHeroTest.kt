@@ -3,7 +3,9 @@ package com.calypsan.listenup.client.design.components
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -45,21 +47,37 @@ class DetailHeroTest {
     }
 
     @Test
-    fun collapsingModeEmitsBothTitleTreatments() {
+    fun expandedCollapsingHeroReadsTheTitleOnce() {
+        setCollapsingHero(title = "Expanded Title", fraction = 0f)
+        val nodes = composeRule.onAllNodesWithText("Expanded Title").fetchSemanticsNodes()
+        assert(nodes.size == 1) { "TalkBack should read the title once while expanded, got ${nodes.size}" }
+        composeRule.onNodeWithText("Expanded Title").assert(isHeading())
+    }
+
+    @Test
+    fun collapsedHeroReadsOnlyThePinnedTitle() {
+        setCollapsingHero(title = "Collapsed Title", fraction = 1f)
+        val nodes = composeRule.onAllNodesWithText("Collapsed Title").fetchSemanticsNodes()
+        assert(nodes.size == 1) { "TalkBack should read the title once while collapsed, got ${nodes.size}" }
+        composeRule.onNodeWithText("Collapsed Title").assert(isHeading())
+    }
+
+    private fun setCollapsingHero(
+        title: String,
+        fraction: Float,
+    ) {
         composeRule.setContent {
             MaterialTheme {
                 DetailHero(
-                    collapseFraction = { 0f },
+                    collapseFraction = { fraction },
                     collapsing = true,
                     gradientColors = listOf(Color.DarkGray, Color.Black),
                     navigation = { pinnedTitle -> pinnedTitle() },
-                    title = "Collapsing Title",
+                    title = title,
                     backdropMedia = { Text("COVER") },
                 )
             }
         }
-        val count = composeRule.onAllNodesWithText("Collapsing Title").fetchSemanticsNodes().size
-        assert(count == 2) { "Expected 2 title nodes (expanded + pinned) in collapsing mode, got $count" }
     }
 
     @Test
