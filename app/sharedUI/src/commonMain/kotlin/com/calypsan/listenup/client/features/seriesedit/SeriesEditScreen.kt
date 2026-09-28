@@ -102,6 +102,10 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Series Edit Screen — edit series metadata and cover.
@@ -434,7 +438,7 @@ private fun SeriesIdentityHeader(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(
             modifier =
@@ -466,7 +470,7 @@ private fun SeriesIdentityHeader(
                     text = stringResource(Res.string.series_edit_series),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).semantics { heading() },
                 )
                 SeriesOverflowMenu(onMergeClick = onMergeClick)
             }
@@ -559,15 +563,15 @@ private fun SeriesIdentityHeader(
                         MaterialTheme.typography.headlineSmall.copy(
                             fontFamily = DisplayFontFamily,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                            color = HeroInk.muted(),
                         ),
                     colors =
                         OutlinedTextFieldDefaults.colors(
                             focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             cursorColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+                            focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            unfocusedBorderColor = HeroInk.outline(),
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
                         ),

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
@@ -78,6 +77,10 @@ import listenup.composeapp.generated.resources.devices_this_device
 import listenup.composeapp.generated.resources.devices_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Lists the caller's active sessions ("devices") and lets them revoke a single
@@ -298,7 +301,7 @@ private fun DevicesWideLayout(
                         text = stringResource(Res.string.devices_current_session).uppercase(),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                        color = HeroInk.muted(),
                         letterSpacing = 1.2.sp,
                     )
                     Spacer(modifier = Modifier.height(20.dp))
@@ -342,13 +345,13 @@ private fun DevicesHero(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 44.dp, bottomEnd = 44.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(modifier = Modifier.padding(bottom = 24.dp)) {
             // Nav row: back button + signed-in count pill
             HeroNavRow(
                 onBack = onBack,
-                buttonBackground = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f),
+                buttonBackground = HeroInk.wash(),
                 applyStatusBarInset = !isWide,
                 actions = {
                     SignedInCountPill(count = totalCount)
@@ -361,7 +364,7 @@ private fun DevicesHero(
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(start = 20.dp, top = 6.dp, bottom = 20.dp),
+                modifier = Modifier.padding(start = 20.dp, top = 6.dp, bottom = 20.dp).semantics { heading() },
                 letterSpacing = (-1.4).sp,
             )
 
@@ -373,7 +376,7 @@ private fun DevicesHero(
                             .fillMaxWidth()
                             .padding(horizontal = 18.dp),
                     shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.07f),
+                    color = HeroInk.wash(),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
                     Box(modifier = Modifier.padding(18.dp)) {
@@ -418,7 +421,7 @@ private fun DevicesWideHero(
                     Modifier
                         .size(52.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.09f),
+                            color = HeroInk.wash(),
                             shape = MaterialTheme.shapes.medium,
                         ),
             ) {
@@ -436,12 +439,13 @@ private fun DevicesWideHero(
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     letterSpacing = (-1.4).sp,
+                    modifier = Modifier.semantics { heading() },
                 )
                 Text(
                     text = stringResource(Res.string.devices_signed_in_count, totalCount),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                    color = HeroInk.muted(),
                 )
             }
 
@@ -489,14 +493,14 @@ private fun ThisDeviceCardContent(
         }
     val subColor =
         if (inHero) {
-            inkColor.copy(alpha = 0.75f)
+            HeroInk.mutedOnWash()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
     val tone = visual.color.current
     val tileBg =
         if (inHero) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+            HeroInk.wash()
         } else {
             tone.container
         }
@@ -587,7 +591,7 @@ private fun ThisDeviceChip(
         shape = CircleShape,
         color =
             if (inHero) {
-                inkColor.copy(alpha = 0.14f)
+                HeroInk.wash()
             } else {
                 MaterialTheme.colorScheme.primary
             },
@@ -609,7 +613,7 @@ private fun ThisDeviceChip(
 private fun SignedInCountPill(count: Int) {
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f),
+        color = HeroInk.wash(),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Row(

@@ -51,6 +51,7 @@ import listenup.composeapp.generated.resources.book_detail_other_narrators
 import listenup.composeapp.generated.resources.book_detail_unabridged
 import listenup.composeapp.generated.resources.series_book_sequence
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Centered "compact" hero for the Book Detail screen (phone layout).
@@ -387,7 +388,7 @@ private fun WideHeroIdentity(
         HeroClassification(
             genre = genre,
             abridged = abridged,
-            classificationColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            classificationColor = HeroInk.muted(),
             centered = false,
         )
 
@@ -414,7 +415,7 @@ private fun WideHeroIdentity(
                         fontWeight = FontWeight.Medium,
                         fontStyle = FontStyle.Italic,
                     ),
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                color = HeroInk.muted(),
             )
         }
 
@@ -526,7 +527,7 @@ private fun WideContributorRow(
                 onContributorClick = onContributorClick,
                 style = MaterialTheme.typography.titleMedium,
                 nameColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                separatorColor = HeroInk.muted(),
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
                 foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
@@ -540,8 +541,8 @@ private fun WideContributorRow(
                 contributors = narrators,
                 onContributorClick = onContributorClick,
                 style = MaterialTheme.typography.titleMedium,
-                nameColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
-                separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                nameColor = HeroInk.muted(),
+                separatorColor = HeroInk.muted(),
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
                 leadingIcon = {
@@ -549,7 +550,7 @@ private fun WideContributorRow(
                         imageVector = Icons.Default.RecordVoiceOver,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                        tint = HeroInk.muted(),
                     )
                 },
                 prefix = "${stringResource(Res.string.book_detail_narrated_by)} ",

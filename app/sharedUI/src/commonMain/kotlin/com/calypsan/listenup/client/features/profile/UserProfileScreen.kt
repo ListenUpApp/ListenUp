@@ -89,6 +89,10 @@ import listenup.composeapp.generated.resources.profile_edit_profile
 import listenup.composeapp.generated.resources.profile_recently_finished
 import listenup.composeapp.generated.resources.profile_shelf_books_count
 import listenup.composeapp.generated.resources.profile_shelves
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -385,7 +389,7 @@ private fun ProfileColorHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(
@@ -446,13 +450,14 @@ private fun ProfileHeroIdentity(state: UserProfileUiState.Ready) {
             fontWeight = FontWeight.ExtraBold,
             color = ink,
             textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
         )
         if (!state.tagline.isNullOrBlank()) {
             Spacer(Modifier.height(6.dp))
             Text(
                 text = state.tagline!!,
                 style = MaterialTheme.typography.bodyLarge,
-                color = ink.copy(alpha = 0.82f),
+                color = HeroInk.muted(),
                 textAlign = TextAlign.Center,
             )
         }

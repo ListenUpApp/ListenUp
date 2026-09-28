@@ -58,6 +58,7 @@ import listenup.composeapp.generated.resources.scan_building_subtitle
 import listenup.composeapp.generated.resources.scan_files_total
 import listenup.composeapp.generated.resources.scan_recently_matched
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private const val ETA_TICK_MS = 1_000L
 
@@ -151,7 +152,7 @@ private fun DesktopLayout(
                             "We're scanning your folders and matching every audiobook — " +
                                 "your shelves fill in as we go.",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                        color = HeroInk.muted(),
                         modifier = Modifier.widthIn(max = 340.dp),
                     )
                 }

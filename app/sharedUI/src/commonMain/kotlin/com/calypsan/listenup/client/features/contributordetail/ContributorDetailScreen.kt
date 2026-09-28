@@ -112,6 +112,10 @@ import listenup.composeapp.generated.resources.contributor_no_longer_here
 import listenup.composeapp.generated.resources.contributor_no_longer_here_detail
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Artist Portfolio screen - an immersive contributor detail experience.
@@ -440,6 +444,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         color = ink,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.semantics { heading() },
     )
 
     // Aliases
@@ -448,7 +453,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = stringResource(Res.string.contributor_aka, aliases.joinToString(", ")),
             style = MaterialTheme.typography.bodyLarge,
-            color = ink.copy(alpha = 0.85f),
+            color = HeroInk.muted(),
         )
     }
 
@@ -459,7 +464,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = lifeDates,
             style = MaterialTheme.typography.bodyLarge,
-            color = ink.copy(alpha = 0.7f),
+            color = HeroInk.muted(),
         )
     }
 
@@ -488,7 +493,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = desc,
             style = MaterialTheme.typography.bodyLarge,
-            color = ink.copy(alpha = 0.85f),
+            color = HeroInk.muted(),
             maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
             overflow = TextOverflow.Ellipsis,
         )
@@ -656,7 +661,7 @@ private fun NarrowColorHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(220.dp))
@@ -689,13 +694,14 @@ private fun NarrowColorHero(
                     style = MaterialTheme.typography.headlineLargeEmphasized,
                     color = ink,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.semantics { heading() },
                 )
                 state.contributor.aliases.takeIf { it.isNotEmpty() }?.let { aliases ->
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = stringResource(Res.string.contributor_aka, aliases.joinToString(", ")),
                         style = MaterialTheme.typography.titleMedium,
-                        color = ink.copy(alpha = 0.85f),
+                        color = HeroInk.muted(),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -704,7 +710,7 @@ private fun NarrowColorHero(
                     Text(
                         text = dates,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = ink.copy(alpha = 0.7f),
+                        color = HeroInk.muted(),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -1014,7 +1020,7 @@ private fun ContributorDetailLoadingFrame(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
@@ -1108,7 +1114,7 @@ private fun HeroStatChip(
 ) {
     val bg =
         if (onColor) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f)
+            HeroInk.wash()
         } else {
             MaterialTheme.colorScheme.surfaceContainerHigh
         }

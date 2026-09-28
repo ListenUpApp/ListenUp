@@ -44,7 +44,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.genredestination.FacetHeroScaffold
 import com.calypsan.listenup.client.features.genredestination.FacetSectionHeader
-import com.calypsan.listenup.client.features.genredestination.HeroInk
+import com.calypsan.listenup.client.features.genredestination.FacetHeroInk
 import com.calypsan.listenup.client.features.genredestination.HeroStatChip
 import com.calypsan.listenup.client.features.genredestination.toImageVector
 import com.calypsan.listenup.client.features.library.BookCard
@@ -63,6 +63,8 @@ import listenup.composeapp.generated.resources.browse_facet_unavailable_mood
 import listenup.composeapp.generated.resources.browse_facet_unavailable_tag
 import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Facet-browse screen — every book carrying a tapped Tag or Mood chip, the flat-facet analogue of
@@ -204,7 +206,7 @@ private fun FacetHero(
         Text(
             text = kindLabel(kind).uppercase(),
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-            color = HeroInk.copy(alpha = 0.85f),
+            color = FacetHeroInk.copy(alpha = 0.85f),
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -216,9 +218,10 @@ private fun FacetHero(
                     fontFamily = DisplayFontFamily,
                     fontWeight = FontWeight.ExtraBold,
                 ),
-            color = HeroInk,
+            color = FacetHeroInk,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { heading() },
         )
 
         if (bookCount != null) {

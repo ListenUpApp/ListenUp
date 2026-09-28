@@ -26,6 +26,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.bulk_edit_hero_eyebrow
 import listenup.composeapp.generated.resources.bulk_edit_hero_more
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /** Each tile is the cover plus the ring that lifts it off the one behind. */
 private val ClusterTileSize = 58.dp
@@ -33,9 +34,6 @@ private val ClusterRing = 2.dp
 private val ClusterOverlap = (-16).dp
 private val ClusterTileShape = RoundedCornerShape(14.dp)
 private val ClusterCoverShape = RoundedCornerShape(12.dp)
-
-/** How much of the hero ink the overflow chip's fill borrows. */
-private const val OVERFLOW_FILL_ALPHA = 0.14f
 
 /**
  * The bulk editor's header: what you are about to edit, made concrete.
@@ -117,7 +115,7 @@ private fun CoverCluster(
                     Modifier
                         .fillMaxSize()
                         .clip(ClusterCoverShape)
-                        .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = OVERFLOW_FILL_ALPHA)),
+                        .background(HeroInk.wash()),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(

@@ -70,6 +70,7 @@ import listenup.composeapp.generated.resources.common_entity_information
 import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.common_role
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Screen for viewing and editing a single user's details and permissions.
@@ -511,7 +512,11 @@ private fun ProtectedUserNotice(modifier: Modifier = Modifier) {
                 Text(
                     text = stringResource(Res.string.admin_this_users_permissions_cannot_be),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                 )
             }
         }

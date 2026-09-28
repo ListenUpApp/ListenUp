@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.library_setup_include_folder
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /** Soft decorative blob echoing the design hero. Purely cosmetic. */
 @Composable
@@ -145,7 +146,7 @@ fun FolderRow(
     val tileBackground = if (selected) scheme.primary.copy(alpha = 0.22f) else scheme.surfaceContainerHigh
     val tileTint = if (selected) scheme.primary else scheme.onSurfaceVariant
     val titleColor = if (selected) scheme.onPrimaryContainer else scheme.onSurface
-    val subtitleColor = if (selected) scheme.onPrimaryContainer.copy(alpha = 0.85f) else scheme.onSurfaceVariant
+    val subtitleColor = if (selected) HeroInk.muted() else scheme.onSurfaceVariant
     val chevronTint = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant
 
     Row(

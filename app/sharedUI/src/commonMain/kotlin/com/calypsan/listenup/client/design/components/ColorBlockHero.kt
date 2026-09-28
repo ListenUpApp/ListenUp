@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
@@ -31,6 +30,8 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private val HERO_BADGE_SIZE = 48.dp
 
@@ -68,7 +69,7 @@ fun ColorBlockHero(
         modifier = modifier,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(
             modifier =
@@ -101,7 +102,7 @@ fun ColorBlockHero(
                             text = overline.uppercase(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            color = HeroInk.muted(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -127,7 +128,7 @@ fun ColorBlockHero(
                 Text(
                     text = supportingText,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                    color = HeroInk.muted(),
                     modifier = Modifier.padding(start = 8.dp, top = 14.dp, end = 8.dp),
                 )
             }

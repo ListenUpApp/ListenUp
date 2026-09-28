@@ -86,6 +86,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Bundles the mutable form state and callbacks passed between the screen and layout
@@ -422,7 +423,7 @@ private fun ShelfHeroNavRow(
 ) {
     HeroNavRow(
         onBack = onBack,
-        buttonBackground = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f),
+        buttonBackground = HeroInk.wash(),
         applyStatusBarInset = !isWide,
         actions = {
             if (isEditing) {
@@ -456,7 +457,7 @@ private fun ShelfHeroTitleBlock(
             text = stringResource(Res.string.shelf_breadcrumb_library_shelves),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            color = HeroInk.muted(),
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
@@ -685,7 +686,7 @@ private fun ShelfPreviewContent(
                         imageVector = Icons.Outlined.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        tint = HeroInk.muted(),
                     )
                 }
             }
@@ -697,7 +698,7 @@ private fun ShelfPreviewContent(
                         stringResource(Res.string.shelf_visible_to_anyone)
                     },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                color = HeroInk.muted(),
             )
         }
     }

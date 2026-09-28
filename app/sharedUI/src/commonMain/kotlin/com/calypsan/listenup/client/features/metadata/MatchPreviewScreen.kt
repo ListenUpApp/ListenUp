@@ -117,6 +117,7 @@ import listenup.composeapp.generated.resources.metadata_section_identity
 import listenup.composeapp.generated.resources.metadata_select_metadata
 import listenup.composeapp.generated.resources.metadata_try_selecting_a_different_region
 import listenup.composeapp.generated.resources.metadata_your_book_already_has_all
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private const val DESCRIPTION_PREVIEW_LIMIT = 200
 
@@ -461,7 +462,7 @@ private fun MatchedEditionHero(
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.MenuBook,
                         contentDescription = null,
-                        tint = colors.onPrimaryContainer.copy(alpha = 0.7f),
+                        tint = HeroInk.muted(),
                     )
                 }
             }
@@ -484,7 +485,7 @@ private fun MatchedEditionHero(
                     Text(
                         text = people,
                         style = MaterialTheme.typography.bodySmall,
-                        color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                        color = HeroInk.muted(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 4.dp),
@@ -501,7 +502,7 @@ private fun SourceChip(region: MetadataLocale) {
     val colors = MaterialTheme.colorScheme
     Surface(
         shape = RoundedCornerShape(percent = 50),
-        color = colors.onPrimaryContainer.copy(alpha = 0.12f),
+        color = HeroInk.wash(),
         contentColor = colors.onPrimaryContainer,
     ) {
         Row(
@@ -954,7 +955,11 @@ private fun ChapterNamesItem(
                         Text(
                             text = stringResource(Res.string.metadata_review_and_apply_chapter_names),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                            color =
+                                HeroInk.muted(
+                                    MaterialTheme.colorScheme.onSecondaryContainer,
+                                    MaterialTheme.colorScheme.secondaryContainer,
+                                ),
                         )
                     }
                     Icon(

@@ -76,6 +76,10 @@ import listenup.composeapp.generated.resources.library_setup_point_at_audiobooks
 import listenup.composeapp.generated.resources.library_setup_select_one_or_more
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Library-setup wizard — choose audiobook folders, then confirm.
@@ -154,7 +158,7 @@ private fun PhoneLayout(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                    .clip(ContentShapes.hero)
                     .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             SetupHeroBlob(modifier = Modifier.offset(x = 250.dp, y = (-60).dp))
@@ -177,12 +181,13 @@ private fun PhoneLayout(
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.semantics { heading() },
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(Res.string.library_setup_select_one_or_more),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                    color = HeroInk.muted(),
                 )
             }
         }
@@ -302,7 +307,7 @@ private fun DesktopLayout(
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.widthIn(max = 360.dp),
+                        modifier = Modifier.widthIn(max = 360.dp).semantics { heading() },
                     )
                     Spacer(Modifier.height(18.dp))
                     Text(
@@ -310,7 +315,7 @@ private fun DesktopLayout(
                             "Pick the folders on your server where your audiobook files live — " +
                                 "we'll scan them and build your library automatically.",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                        color = HeroInk.muted(),
                         modifier = Modifier.widthIn(max = 340.dp),
                     )
                 }

@@ -46,6 +46,7 @@ import listenup.composeapp.generated.resources.player_sleep_timer
 import listenup.composeapp.generated.resources.player_until_end_of_chapter
 import listenup.composeapp.generated.resources.player_until_end_of_chapter_detail
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private val DURATION_OPTIONS = listOf(15, 30, 45, 60, 120)
 private val EXTEND_OPTIONS = listOf(5, 10, 15)
@@ -149,7 +150,7 @@ private fun EndOfChapterCard(onClick: () -> Unit) {
                 Text(
                     text = stringResource(Res.string.player_end_of_chapter_subtitle),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    color = HeroInk.muted(),
                 )
             }
             Spacer(Modifier.width(12.dp))

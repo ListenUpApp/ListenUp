@@ -66,6 +66,7 @@ import listenup.composeapp.generated.resources.library_loading_your_library
 import listenup.composeapp.generated.resources.library_summary
 import listenup.composeapp.generated.resources.library_your_audiobooks_will_appear_here
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
 
@@ -491,7 +492,11 @@ private fun ScanProgressBanner(scanProgress: ScanProgressState) {
                     Text(
                         text = stringResource(Res.string.library_summary, summary),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        color =
+                            HeroInk.muted(
+                                MaterialTheme.colorScheme.onSecondaryContainer,
+                                MaterialTheme.colorScheme.secondaryContainer,
+                            ),
                     )
                 }
             }
@@ -499,7 +504,11 @@ private fun ScanProgressBanner(scanProgress: ScanProgressState) {
                 LinearProgressIndicator(
                     progress = { scanProgress.progressFraction!! },
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
+                    trackColor =
+                        HeroInk.wash(
+                            MaterialTheme.colorScheme.onSecondaryContainer,
+                            MaterialTheme.colorScheme.secondaryContainer,
+                        ),
                 )
             }
         }

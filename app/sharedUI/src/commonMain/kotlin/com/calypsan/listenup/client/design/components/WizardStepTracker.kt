@@ -25,9 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private const val UPCOMING_TRACK_ALPHA = 0.22f
-private const val UPCOMING_LABEL_ALPHA = 0.6f
 private val SEGMENT_HEIGHT = 6.dp
 
 /**
@@ -46,6 +46,7 @@ private val SEGMENT_HEIGHT = 6.dp
  * @param modifier Modifier for the tracker column.
  * @param accent Fill colour for completed and active segments.
  * @param ink Foreground colour for labels and the faded upcoming-segment track.
+ * @param container The colour the tracker sits on; upcoming labels are muted against it via [HeroInk].
  */
 @Composable
 fun WizardStepTracker(
@@ -54,6 +55,7 @@ fun WizardStepTracker(
     modifier: Modifier = Modifier,
     accent: Color = MaterialTheme.colorScheme.primary,
     ink: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    container: Color = MaterialTheme.colorScheme.primaryContainer,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -68,6 +70,7 @@ fun WizardStepTracker(
                 done = done,
                 accent = accent,
                 ink = ink,
+                container = container,
             )
         }
     }
@@ -80,6 +83,7 @@ private fun RowScope.StepSegment(
     done: Boolean,
     accent: Color,
     ink: Color,
+    container: Color,
 ) {
     Column(
         modifier = Modifier.weight(1f),
@@ -110,7 +114,7 @@ private fun RowScope.StepSegment(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (reached) ink else ink.copy(alpha = UPCOMING_LABEL_ALPHA),
+                color = if (reached) ink else HeroInk.muted(ink, container),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Start,

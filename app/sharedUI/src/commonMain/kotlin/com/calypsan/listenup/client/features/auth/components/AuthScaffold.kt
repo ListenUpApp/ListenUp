@@ -49,6 +49,10 @@ import listenup.composeapp.generated.resources.auth_hero_tagline
 import listenup.composeapp.generated.resources.brand_mark
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_listenup
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /** A tertiary-container pill shown in the hero (e.g. "Server administrator"). */
 data class AuthBadge(
@@ -109,7 +113,7 @@ private fun AuthHeroLayout(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 44.dp, bottomEnd = 44.dp))
+                    .clip(ContentShapes.hero)
                     .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             HeroBlobs()
@@ -169,6 +173,7 @@ private fun AuthSplitLayout(
                     text = stringResource(Res.string.auth_hero_tagline),
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.semantics { heading() },
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -176,7 +181,7 @@ private fun AuthSplitLayout(
                         "Stream or download from your own ListenUp server — pick up on any device, " +
                             "right where you left off.",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                    color = HeroInk.muted(),
                     modifier = Modifier.widthIn(max = 360.dp),
                 )
             }
@@ -217,7 +222,7 @@ private fun AuthTitleBlock(
     val ink = if (onColor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val muted =
         if (onColor) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
@@ -237,7 +242,12 @@ private fun AuthTitleBlock(
                 border = null,
             )
         }
-        Text(text = title, style = MaterialTheme.typography.displaySmall, color = ink)
+        Text(
+            text = title,
+            style = MaterialTheme.typography.displaySmall,
+            color = ink,
+            modifier = Modifier.semantics { heading() },
+        )
         if (subtitle != null) {
             Text(text = subtitle, style = MaterialTheme.typography.bodyLarge, color = muted)
         }
@@ -309,7 +319,7 @@ fun BrandMark(
 /** Decorative soft shapes echoing the design's blob hero. Purely cosmetic. */
 @Composable
 private fun HeroBlobs() {
-    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(bottomStart = 44.dp, bottomEnd = 44.dp))) {
+    Box(modifier = Modifier.fillMaxSize().clip(ContentShapes.hero)) {
         Box(
             modifier =
                 Modifier

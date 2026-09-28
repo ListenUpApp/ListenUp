@@ -93,6 +93,7 @@ import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.common_email_address
 import listenup.composeapp.generated.resources.common_member
 import listenup.composeapp.generated.resources.common_n_days
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private const val ROLE_MEMBER = "member"
 private const val ROLE_ADMIN = "admin"
@@ -500,7 +501,7 @@ private fun LinkPreviewCard(
                 text = stringResource(Res.string.admin_invite_preview).uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                color = HeroInk.muted(),
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -524,7 +525,7 @@ private fun LinkPreviewCard(
                     Text(
                         text = stringResource(Res.string.admin_name_is_invited, inviteName),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                        color = HeroInk.muted(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -532,7 +533,7 @@ private fun LinkPreviewCard(
             }
             Surface(
                 shape = RoundedCornerShape(percent = 50),
-                color = colors.onPrimaryContainer.copy(alpha = 0.08f),
+                color = HeroInk.wash(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(

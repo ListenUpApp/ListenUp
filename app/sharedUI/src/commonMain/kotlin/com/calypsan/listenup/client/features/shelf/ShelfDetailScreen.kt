@@ -100,6 +100,7 @@ import listenup.composeapp.generated.resources.shelf_move_later
 import listenup.composeapp.generated.resources.shelf_title_fallback
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Screen displaying a shelf's details and its books.
@@ -481,13 +482,13 @@ private fun ShelfHeroTexts(
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    tint = HeroInk.muted(),
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
                     text = stringResource(Res.string.common_private),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    color = HeroInk.muted(),
                 )
             }
             Spacer(Modifier.height(6.dp))

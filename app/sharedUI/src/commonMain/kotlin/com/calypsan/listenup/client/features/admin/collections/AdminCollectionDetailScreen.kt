@@ -125,11 +125,13 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private const val HERO_BADGE_SIZE_DP = 64
 private const val HERO_BADGE_ICON_RATIO = 0.5f
-private const val HERO_BOTTOM_CORNER_DP = 40
-private const val HERO_SEMI_TRANSPARENT = 0.18f
 private const val COVER_GRID_MIN_TILE_DP = 160
 private const val COVER_CORNER_DP = 12
 private const val SECTION_SPACING_DP = 24
@@ -420,7 +422,7 @@ private fun DetailHero(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(bottomStart = HERO_BOTTOM_CORNER_DP.dp, bottomEnd = HERO_BOTTOM_CORNER_DP.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             // Note: delete action is intentionally absent — AdminCollectionDetailViewModel
@@ -433,7 +435,7 @@ private fun DetailHero(
             ) {
                 ScallopBadge(
                     size = HERO_BADGE_SIZE_DP.dp,
-                    containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = HERO_SEMI_TRANSPARENT),
+                    containerColor = HeroInk.wash(),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.FolderSpecial,
@@ -447,7 +449,7 @@ private fun DetailHero(
                         text = stringResource(Res.string.library_collection),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        color = HeroInk.muted(),
                     )
                     Text(
                         text = state.collection.name,
@@ -456,6 +458,7 @@ private fun DetailHero(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.semantics { heading() },
                     )
                 }
             }

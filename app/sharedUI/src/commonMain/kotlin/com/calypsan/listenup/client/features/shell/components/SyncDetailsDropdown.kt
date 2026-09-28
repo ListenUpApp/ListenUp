@@ -50,6 +50,7 @@ import listenup.composeapp.generated.resources.shell_sync_status
 import listenup.composeapp.generated.resources.shell_syncing
 import listenup.composeapp.generated.resources.shell_your_library_is_up_to
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Dropdown menu showing sync status details, anchored to the sync indicator.
@@ -210,7 +211,7 @@ private fun SyncCompleteSection() {
                 Text(
                     text = stringResource(Res.string.shell_your_library_is_up_to),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    color = HeroInk.muted(),
                 )
             }
         }

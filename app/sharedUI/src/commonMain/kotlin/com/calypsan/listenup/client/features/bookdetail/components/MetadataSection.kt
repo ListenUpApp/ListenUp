@@ -27,6 +27,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /** Tone variants for [StatChip]. */
 enum class StatChipTone {
@@ -117,7 +118,7 @@ fun StatChip(
         when (tone) {
             StatChipTone.Surface -> {
                 if (onHeroBand) {
-                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                    HeroInk.wash()
                 } else {
                     MaterialTheme.colorScheme.surfaceContainerHigh
                 }

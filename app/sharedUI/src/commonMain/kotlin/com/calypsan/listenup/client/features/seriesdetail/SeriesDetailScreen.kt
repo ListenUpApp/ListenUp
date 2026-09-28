@@ -87,6 +87,10 @@ import listenup.composeapp.generated.resources.series_progress_duration
 import listenup.composeapp.generated.resources.series_start_book
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -307,7 +311,7 @@ private fun SeriesColorHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(220.dp))
@@ -397,6 +401,7 @@ private fun HeroBody(
             fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.semantics { heading() },
         )
         // Authors — up to two names individually tappable; folds to "{lead}, N other authors"
         // beyond that, opening the full authors roster sheet. Mirrors the Book Detail hero.
@@ -406,8 +411,8 @@ private fun HeroBody(
                 contributors = state.seriesAuthors,
                 onContributorClick = onContributorClick,
                 style = MaterialTheme.typography.titleMedium,
-                nameColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                nameColor = HeroInk.muted(),
+                separatorColor = HeroInk.muted(),
                 modifier = Modifier.fillMaxWidth(),
                 foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
                 overflowTextRes = Res.string.book_detail_other_authors,
@@ -478,7 +483,7 @@ private fun HeroStat(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                color = HeroInk.muted(),
             )
         }
     }
@@ -579,7 +584,7 @@ private fun SeriesBookRow(
     val titleColor = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val subColor =
         if (highlighted) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
@@ -806,7 +811,7 @@ private fun SeriesBookCardFooter(
 ) {
     val subColor =
         if (highlighted) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }

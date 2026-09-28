@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -40,6 +39,7 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.genre_destination_audiobook_count
 import listenup.composeapp.generated.resources.genre_destination_audiobooks_count
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
 /*
  * Shared hue-gradient hero chrome for facet destination pages — the genre-browse page and the flat
@@ -49,7 +49,7 @@ import org.jetbrains.compose.resources.stringResource
  */
 
 /** Cream ink used for text/icons/badges over a facet hero's dark gradient. */
-internal val HeroInk = Color(0xFFF4ECE3)
+internal val FacetHeroInk = Color(0xFFF4ECE3)
 
 /** CSS-style gradient angle for the hero backdrop: 158deg - mostly top-to-bottom, tilted right. */
 internal const val HERO_GRADIENT_ANGLE_DEGREES = 158f
@@ -79,7 +79,7 @@ internal fun FacetHeroScaffold(
                 .padding(bottom = 8.dp)
                 // Bleed the tint to the screen edges, undoing the grid's horizontal content padding.
                 .padding(horizontal = -Spacing.screenMargin)
-                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .clip(ContentShapes.hero)
                 .drawWithCache {
                     val brush = angledGradientBrush(gradientColors, HERO_GRADIENT_ANGLE_DEGREES, size)
                     onDrawBehind { drawRect(brush) }
@@ -112,11 +112,11 @@ internal fun FacetHeroScaffold(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ScallopBadge(size = 92.dp, containerColor = HeroInk.copy(alpha = 0.16f)) {
+                ScallopBadge(size = 92.dp, containerColor = FacetHeroInk.copy(alpha = 0.16f)) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = HeroInk,
+                        tint = FacetHeroInk,
                         modifier = Modifier.size(38.dp),
                     )
                 }
@@ -140,10 +140,10 @@ internal fun HeroIconButton(
         modifier = Modifier.compactTouchTarget(footprint = 40.dp),
     ) {
         Box(
-            modifier = Modifier.size(40.dp).background(HeroInk.copy(alpha = 0.14f), CircleShape),
+            modifier = Modifier.size(40.dp).background(FacetHeroInk.copy(alpha = 0.14f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(imageVector = icon, contentDescription = contentDescription, tint = HeroInk)
+            Icon(imageVector = icon, contentDescription = contentDescription, tint = FacetHeroInk)
         }
     }
 }
@@ -158,7 +158,7 @@ internal fun HeroStatChip(
     Row(
         modifier =
             Modifier
-                .background(HeroInk.copy(alpha = 0.14f), CircleShape)
+                .background(FacetHeroInk.copy(alpha = 0.14f), CircleShape)
                 .padding(start = 13.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -166,18 +166,18 @@ internal fun HeroStatChip(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = HeroInk.copy(alpha = 0.85f),
+            tint = FacetHeroInk.copy(alpha = 0.85f),
             modifier = Modifier.size(18.dp),
         )
         Text(
             text = value,
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = HeroInk,
+            color = FacetHeroInk,
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = HeroInk.copy(alpha = 0.7f),
+            color = FacetHeroInk.copy(alpha = 0.7f),
         )
     }
 }

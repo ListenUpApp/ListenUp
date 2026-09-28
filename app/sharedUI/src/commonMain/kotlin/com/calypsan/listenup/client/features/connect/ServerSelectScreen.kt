@@ -60,6 +60,7 @@ import listenup.composeapp.generated.resources.connect_select_server_subtitle
 import listenup.composeapp.generated.resources.connect_version_prefix
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Server selection — the first screen of the connect flow. Lists servers discovered via mDNS
@@ -223,7 +224,7 @@ private fun ServerRow(
         if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val onRowMuted =
         if (isSelected) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }

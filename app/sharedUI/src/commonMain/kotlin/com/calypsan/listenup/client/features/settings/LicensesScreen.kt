@@ -59,6 +59,10 @@ import listenup.composeapp.generated.resources.licenses_section_libraries
 import listenup.composeapp.generated.resources.licenses_subtitle_makes_possible
 import listenup.composeapp.generated.resources.licenses_version_prefix
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 @Composable
 fun LicensesScreen(
@@ -184,25 +188,34 @@ private fun LicensesMobileHero(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column {
             HeroNavRow(
                 onBack = onNavigateBack,
-                buttonBackground = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.09f),
+                buttonBackground =
+                    HeroInk.wash(
+                        MaterialTheme.colorScheme.onTertiaryContainer,
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                    ),
             )
             Column(modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 24.dp)) {
                 Text(
                     text = stringResource(Res.string.licenses_overline_open_source).uppercase(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                     letterSpacing = 1.sp,
                 )
                 Row(
                     verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 6.dp),
+                    // The count and its noun are one title: "42 licences", read as a single heading.
+                    modifier = Modifier.padding(top = 6.dp).semantics(mergeDescendants = true) { heading() },
                 ) {
                     Text(
                         text = rowCount.toString(),
@@ -222,11 +235,19 @@ private fun LicensesMobileHero(
                     text = stringResource(Res.string.licenses_subtitle_makes_possible),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                     modifier = Modifier.padding(top = 8.dp),
                 )
                 Surface(
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.07f),
+                    color =
+                        HeroInk.wash(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 ) {
@@ -359,7 +380,11 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
                 Text(
                     text = stringResource(Res.string.licenses_overline_open_source).uppercase(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                     letterSpacing = 1.sp,
                 )
                 Text(
@@ -367,7 +392,7 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = 4.dp).semantics { heading() },
                 )
             }
             Spacer(modifier = Modifier.weight(1f))

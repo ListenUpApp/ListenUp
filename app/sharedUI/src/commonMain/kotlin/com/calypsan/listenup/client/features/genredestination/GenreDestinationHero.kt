@@ -35,6 +35,8 @@ import listenup.composeapp.generated.resources.browse_facet_total_label
 import listenup.composeapp.generated.resources.common_search
 import listenup.composeapp.generated.resources.genre_destination_more_options
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Genre-hued hero band for a genre destination page: the back/search/overflow row, a scalloped
@@ -96,9 +98,10 @@ internal fun GenreDestinationHero(
                     fontFamily = DisplayFontFamily,
                     fontWeight = FontWeight.ExtraBold,
                 ),
-            color = HeroInk,
+            color = FacetHeroInk,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { heading() },
         )
 
         // Curator blurbs aren't synced from the domain model yet — Genre carries no
@@ -108,7 +111,7 @@ internal fun GenreDestinationHero(
             Text(
                 text = blurb,
                 style = MaterialTheme.typography.bodyMedium,
-                color = HeroInk.copy(alpha = 0.85f),
+                color = FacetHeroInk.copy(alpha = 0.85f),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -146,14 +149,14 @@ private fun BreadcrumbRow(
                 Icon(
                     imageVector = Icons.Filled.ChevronRight,
                     contentDescription = null,
-                    tint = HeroInk.copy(alpha = 0.6f),
+                    tint = FacetHeroInk.copy(alpha = 0.6f),
                     modifier = Modifier.size(16.dp),
                 )
             }
             Text(
                 text = crumb.name,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = HeroInk,
+                color = FacetHeroInk,
                 modifier = Modifier.clickable { onGenreClick(crumb.genreId.value) },
             )
         }

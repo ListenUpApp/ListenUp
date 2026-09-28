@@ -64,6 +64,10 @@ import listenup.composeapp.generated.resources.book_edit_subtitle
 import listenup.composeapp.generated.resources.common_title
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Color-blocked identity header for the book edit screen: a [MaterialTheme.colorScheme.primaryContainer]
@@ -93,7 +97,7 @@ fun IdentityHeader(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(
             modifier =
@@ -125,6 +129,7 @@ fun IdentityHeader(
                     text = stringResource(Res.string.book_detail_edit_book),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics { heading() },
                 )
             }
 
@@ -200,7 +205,7 @@ fun IdentityHeader(
                             MaterialTheme.typography.headlineSmall.copy(
                                 fontFamily = DisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                                color = HeroInk.muted(),
                             ),
                         colors = heroTextFieldColors(),
                         shape = RoundedCornerShape(12.dp),
@@ -228,7 +233,7 @@ fun IdentityHeader(
                             placeholder = stringResource(Res.string.book_edit_subtitle),
                             placeholderStyle =
                                 MaterialTheme.typography.titleMedium.copy(
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
+                                    color = HeroInk.muted(),
                                 ),
                             colors = heroTextFieldColors(),
                             shape = RoundedCornerShape(12.dp),
@@ -293,10 +298,10 @@ private fun heroTextFieldColors() =
         focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
         unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
         cursorColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        focusedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-        unfocusedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-        focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-        unfocusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+        focusedLabelColor = HeroInk.muted(),
+        unfocusedLabelColor = HeroInk.muted(),
+        focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        unfocusedBorderColor = HeroInk.outline(),
         focusedContainerColor = Color.Transparent,
         unfocusedContainerColor = Color.Transparent,
     )
