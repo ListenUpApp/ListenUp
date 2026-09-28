@@ -6,7 +6,9 @@ package com.calypsan.listenup.domain
  * — so a book could be finished on the Series page and still in Continue Listening on Home.
  *
  * The flag is authoritative because it only ever means one thing: starting a re-listen clears it
- * (the preparer issues a Restart), so a set flag is never a book someone is partway through again.
+ * (the preparer issues a Restart when a finished book is opened, and the progress tracker does when
+ * one plays again outside its end credits), so a set flag is never a book someone is partway through
+ * again.
  */
 object FinishedPolicy {
     /** The end credits are at most this share of a book… */

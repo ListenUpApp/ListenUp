@@ -929,6 +929,7 @@ class PlaybackService :
                     bookId = bookId,
                     positionMs = positionMs,
                     speed = speed,
+                    durationMs = getBookDurationMs(),
                 )
                 serviceScope.launch {
                     listeningEventRecorder.onPlay(

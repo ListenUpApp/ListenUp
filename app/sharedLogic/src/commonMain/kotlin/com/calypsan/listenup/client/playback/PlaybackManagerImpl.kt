@@ -462,6 +462,7 @@ internal class PlaybackManagerImpl(
                             activeBookId,
                             currentPositionMs.value,
                             playbackSpeed.value,
+                            durationMs = totalDurationMs.value,
                         )
                     }
                 }

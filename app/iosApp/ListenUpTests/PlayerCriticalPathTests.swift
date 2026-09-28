@@ -103,6 +103,26 @@ struct FinishTruthTests {
         await awaitUntil { !progress.pausedDurations.isEmpty }
         #expect(progress.pausedDurations.last == 60000)
     }
+
+    /// Playing again after the book ended — a chapter tap, then play, with no new load — carries the
+    /// book's duration, so the shared tracker can tell a re-listen (a start outside the end credits,
+    /// which clears the finished flag) from playing on inside them.
+    @Test func startAfterTheEndCarriesTheBookDuration() async throws {
+        let (coordinator, engine, progress) = await playingOneMinuteBook()
+        engine.emit(.position(ms: 60000, rate: 0.0))
+        await awaitUntil { coordinator.bookPositionMs == 60000 }
+        engine.emit(.ended)
+        await awaitUntil { !progress.finished.isEmpty }
+
+        coordinator.seekTo(positionMs: 0)
+        engine.emit(.position(ms: 0, rate: 0.0))
+        await awaitUntil { coordinator.bookPositionMs == 0 }
+        coordinator.togglePlayback()
+
+        await awaitUntil { progress.startedDurations.count == 2 }
+        #expect(progress.startedCalls.last?.1 == 0)
+        #expect(progress.startedDurations.last == 60000)
+    }
 }
 
 @Suite("Buffering promotion")

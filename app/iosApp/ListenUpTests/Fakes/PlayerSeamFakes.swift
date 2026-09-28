@@ -142,6 +142,8 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     private(set) var boostResets: [(String, Int64, Float)] = []
     private(set) var measuredGains: [(String, Int64, Float)] = []
     private(set) var finished: [(bookId: String, positionMs: Int64, durationMs: Int64)] = []
+    /// The `durationMs` each start carried, in call order (kept apart so `startedCalls` stays a triple).
+    private(set) var startedDurations: [Int64] = []
     /// The `durationMs` each pause carried, in call order (kept apart so `pausedCalls` stays a triple).
     private(set) var pausedDurations: [Int64] = []
     private(set) var savedNow: [(String, Int64)] = []
@@ -153,7 +155,8 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     /// being `nonisolated async`, would hop to the generic executor and race `signal()`.
     private let gate = AsyncGate()
 
-    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
+    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64) {
+        startedDurations.append(durationMs)
         startedCalls.append((bookId, positionMs, speed)); gate.signal()
     }
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64) {

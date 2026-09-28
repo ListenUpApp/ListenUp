@@ -318,7 +318,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 await engine.activateSession()
                 await engine.play()
                 phase = .playing(loaded)
-                progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+                progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs,
+                    speed: playbackSpeed, durationMs: bookDurationMs)
                 updateNowPlaying()
             }
         case .none:
@@ -448,7 +449,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         } else {
             Task { await engine.play() }
             phase = .playing(loaded)
-            progress.onPlaybackStarted(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
+            progress.onPlaybackStarted(bookId: id, positionMs: bookPositionMs,
+                speed: playbackSpeed, durationMs: bookDurationMs)
         }
         updateNowPlaying()
     }
@@ -485,9 +487,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         playbackSpeed = speed
         Task { await engine.setRate(speed) }
         if let id = phase.playingState?.bookId {
-            progress.onSpeedChanged(
-                bookId: id, positionMs: bookPositionMs, newSpeed: speed
-            )
+            progress.onSpeedChanged(bookId: id, positionMs: bookPositionMs, newSpeed: speed)
         }
         updateNowPlaying()
     }
@@ -662,7 +662,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // Report started only after the engine has actually been told to play, and only for the
         // book that survived the switch — so a superseded load never reports a phantom start.
         lastReportedPositionMs = prepared.resumePositionMs
-        progress.onPlaybackStarted(bookId: bookId, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed)
+        progress.onPlaybackStarted(bookId: bookId, positionMs: prepared.resumePositionMs,
+            speed: prepared.resumeSpeed, durationMs: prepared.timeline.totalDurationMs)
     }
 
     /// Whether a newer `play(bookId:)` has superseded the load that captured `generation`.
@@ -748,9 +749,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         guard let id = phase.playingState?.bookId else { return }
         if abs(positionMs - lastReportedPositionMs) >= Self.positionReportIntervalMs {
             lastReportedPositionMs = positionMs
-            progress.onPositionUpdate(
-                bookId: id, positionMs: positionMs, speed: playbackSpeed
-            )
+            progress.onPositionUpdate(bookId: id, positionMs: positionMs, speed: playbackSpeed)
         }
     }
 
