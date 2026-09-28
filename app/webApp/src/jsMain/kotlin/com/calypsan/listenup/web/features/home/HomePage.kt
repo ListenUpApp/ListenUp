@@ -251,6 +251,7 @@ private fun ContinueCard(
                     title = book.title,
                     imageUrl = coverUrl(book.bookId, book.coverHash, width = CONTINUE_COVER_WIDTH),
                     size = CONTINUE_COVER_WIDTH,
+                    decorative = true,
                 )
                 Div(attrs = { classes("home-card-progress") }) {
                     Div(attrs = {

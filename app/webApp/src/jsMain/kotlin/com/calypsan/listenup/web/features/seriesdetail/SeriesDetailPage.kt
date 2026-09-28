@@ -151,6 +151,7 @@ private fun Hero(
             imageUrl = first?.let { coverUrl(it.id.value, it.coverHash, COVER_RUNG) },
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            decorative = true,
         )
         Div(attrs = { classes("sd-tblock") }) {
             H1(attrs = { classes("sd-t") }) { Text(state.seriesName) }

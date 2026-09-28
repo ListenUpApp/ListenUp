@@ -124,6 +124,11 @@ fun PasswordField(
             Button(attrs = {
                 classes("f-eye")
                 attr("type", "button")
+                // One stable name and a pressed state, rather than a label that flips between
+                // "Show" and "Hide": a toggle that renames itself announces as a different button
+                // each time, and never says which way it currently is.
+                attr("aria-label", "Show password")
+                attr("aria-pressed", revealed.toString())
                 attr("title", if (revealed) "Hide password" else "Show password")
                 onClick { revealed = !revealed }
             }) {

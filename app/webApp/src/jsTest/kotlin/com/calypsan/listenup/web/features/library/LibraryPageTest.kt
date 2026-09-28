@@ -118,6 +118,14 @@ class LibraryPageTest :
             img.getAttribute("loading") shouldBe "lazy"
         }
 
+        test("a card's cover is decorative, because the card already says the title") {
+            // alt = title on the image and the title again underneath made a screen reader say every
+            // book's name twice as it walked the grid.
+            val host = render(loadedWith(listOf(bookItem("b1", "Dune"))))
+
+            (host.querySelector("img.lib-cover") as HTMLElement).getAttribute("alt") shouldBe ""
+        }
+
         test("a title-sorted library is split by first letter, as Android is") {
             val root =
                 render(

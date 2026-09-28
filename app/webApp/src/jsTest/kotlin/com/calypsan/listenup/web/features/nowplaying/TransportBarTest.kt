@@ -670,6 +670,8 @@ class TransportBarTest :
 
             val scrubber = host.querySelector(".tport-scrub") as HTMLInputElement
             scrubber.getAttribute("step") shouldBe "1000"
-            scrubber.getAttribute("aria-valuetext") shouldBe formatElapsed(SEEK_TARGET_MS)
+            // Where you are, against the whole: "3:30 of 42:00", not a bare "3:30".
+            scrubber.getAttribute("aria-valuetext") shouldBe
+                "${formatElapsed(SEEK_TARGET_MS)} of ${formatElapsed(SHORT_BOOK_MS)}"
         }
     })

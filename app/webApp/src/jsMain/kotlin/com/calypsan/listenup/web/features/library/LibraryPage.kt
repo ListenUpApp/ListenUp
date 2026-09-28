@@ -313,8 +313,10 @@ private fun CardCover(
     onCoverFailed: () -> Unit,
 ) {
     if (coverFailed) {
+        // The card prints the title under the cover, so the tile's copy of it is for the eye only.
         Div(attrs = {
             classes("lib-cover", "lib-cover-fallback")
+            attr("aria-hidden", "true")
             flyBack(this)
         }) { Text(book.title) }
         return
@@ -324,7 +326,9 @@ private fun CardCover(
         attrs = {
             classes("lib-cover")
             flyBack(this)
-            alt(book.title)
+            // Empty on purpose: the title is the card's own text directly below, and naming it in
+            // the picture too made a screen reader say every book twice.
+            alt("")
             // Which rung a display needs is the browser's call, not ours — it knows the device
             // pixel ratio and we do not. Stating both lets a 1x screen take 300px and a Retina one
             // take 600px from the same markup.

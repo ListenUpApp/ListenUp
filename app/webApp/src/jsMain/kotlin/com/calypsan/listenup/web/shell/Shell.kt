@@ -118,7 +118,10 @@ fun Shell(
                     onToggleCollapse?.let { toggle ->
                         Button(attrs = {
                             classes("iconbtn", "sb-toggle")
+                            // `title` is a hover tooltip, not a name: a screen reader may never read
+                            // it, and an icon-only button with nothing else announces as "button".
                             attr("title", "Collapse sidebar")
+                            attr("aria-label", "Collapse sidebar")
                             onClick { toggle() }
                         }) {
                             Icon(WebIcon.PanelLeft, size = BRAND_ICON_SIZE)
@@ -157,6 +160,7 @@ fun Shell(
                     Button(attrs = {
                         classes("iconbtn", "sb-expand")
                         attr("title", "Expand sidebar")
+                        attr("aria-label", "Expand sidebar")
                         onClick { toggle() }
                     }) {
                         Icon(WebIcon.ChevronRight, size = EXPAND_ICON_SIZE)

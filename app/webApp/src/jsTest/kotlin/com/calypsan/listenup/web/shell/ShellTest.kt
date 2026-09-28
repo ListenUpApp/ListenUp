@@ -224,6 +224,10 @@ class ShellTest :
             expanded.querySelectorAll(".sb-expand").length shouldBe 0
             (collapsed.querySelector(".sb-expand") as HTMLElement).click()
             toggles shouldBe 2
+
+            // Icon-only, so the name has to be spoken, not just hovered: `title` is not reliably read.
+            (expanded.querySelector(".sb-toggle") as HTMLElement).getAttribute("aria-label") shouldBe "Collapse sidebar"
+            (collapsed.querySelector(".sb-expand") as HTMLElement).getAttribute("aria-label") shouldBe "Expand sidebar"
         }
     })
 

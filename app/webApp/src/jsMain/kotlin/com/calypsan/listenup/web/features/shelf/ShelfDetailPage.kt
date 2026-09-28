@@ -203,6 +203,7 @@ private fun ShelfBooks(
                         title = book.title,
                         imageUrl = coverUrl(book.idString, book.coverHash, width = SHELF_COVER_WIDTH),
                         size = SHELF_COVER_WIDTH,
+                        decorative = true,
                     )
                     Span(attrs = { classes("shelf-book-t") }) { Text(book.title) }
                     book.authorNames.takeIf { it.isNotEmpty() }?.let { authors ->

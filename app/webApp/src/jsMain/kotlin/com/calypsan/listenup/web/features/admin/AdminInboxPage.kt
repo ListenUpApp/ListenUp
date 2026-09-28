@@ -266,6 +266,7 @@ private fun InboxSelectTarget(
             imageUrl = coverUrl(book.id, book.coverHash, width = COVER_RUNG),
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            decorative = true,
         )
         Div(attrs = { classes("inbox-book-t") }) {
             Span(attrs = { classes("inbox-book-title") }) { Text(book.title) }

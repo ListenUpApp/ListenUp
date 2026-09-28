@@ -69,6 +69,7 @@ internal fun NowPlayingPanel(
                 imageUrl = book?.let { coverUrl(it.bookId, it.coverHash, COVER_RUNG) },
                 size = COVER_SIZE,
                 radius = COVER_RADIUS,
+                decorative = true,
             )
             Div(attrs = { classes("np-meta") }) {
                 Div(attrs = { classes("np-t") }) { Text(state.title) }

@@ -365,10 +365,6 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .den-dense .srow { padding:9px 0; }
 .srow .lbl { font-size:var(--fs); font-weight:600; color:var(--ink); letter-spacing:-.01em; }
 .srow .hint { font-size:var(--fsm); color:var(--ink-2); margin-top:2px; line-height:1.45; text-wrap:pretty; }
-.sw { width:46px; height:27px; border-radius:99px; background:var(--surface-3); border:1px solid var(--line); position:relative; cursor:pointer; flex-shrink:0; transition:background .16s; }
-.sw i { position:absolute; top:2px; left:2px; width:21px; height:21px; border-radius:99px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.28); transition:left .16s; }
-.sw.on { background:var(--coral); border-color:var(--coral); }
-.sw.on i { left:21px; }
 
 /* ---- breadcrumb ---- */
 .crumb { display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--ink-3); white-space:nowrap; }

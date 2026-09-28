@@ -278,6 +278,7 @@ internal fun SearchRow(
                 imageUrl = coverUrl(hit.id, hit.coverHash, SEARCH_COVER_RUNG),
                 size = SEARCH_BADGE_SIZE,
                 radius = SEARCH_BADGE_RADIUS,
+                decorative = true,
             )
         } else {
             Div(attrs = {

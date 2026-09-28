@@ -33,6 +33,10 @@ import org.jetbrains.compose.web.dom.Text
  * name with it. There was a `height` parameter here once, defaulting to [size] and documented as
  * the way to get "the cover's true 2:3 portrait aspect"; that aspect was never true of this app,
  * and five call sites had taken it up. Deleting the parameter is what stops it coming back.
+ *
+ * [decorative] is for a cover with the book's title printed right beside it — a card, a row, a
+ * hero. Its `alt` is then empty and the fallback's title hidden from assistive technology, because
+ * naming the book in the picture and again in the text makes a screen reader say it twice.
  */
 @Composable
 fun Cover(
@@ -42,6 +46,7 @@ fun Cover(
     radius: Int = DEFAULT_COVER_RADIUS,
     heroName: String? = null,
     heroBookId: String? = null,
+    decorative: Boolean = false,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
@@ -90,7 +95,7 @@ fun Cover(
         if (showImage) {
             Img(
                 src = imageUrl,
-                alt = title,
+                alt = if (decorative) "" else title,
                 attrs = {
                     style {
                         property("width", "100%")
@@ -105,6 +110,7 @@ fun Cover(
             )
         } else if (size >= MIN_SIZE_FOR_FALLBACK_TITLE) {
             Span(attrs = {
+                if (decorative) attr("aria-hidden", "true")
                 style {
                     property("position", "absolute")
                     property("inset", "0")

@@ -236,6 +236,7 @@ private fun BookRow(
             imageUrl = coverUrl(book.id, book.coverHash, width = COVER_RUNG),
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            decorative = true,
         )
         Div(attrs = { classes("cdet-book-t") }) {
             Span(attrs = { classes("cdet-book-title") }) { Text(book.title) }

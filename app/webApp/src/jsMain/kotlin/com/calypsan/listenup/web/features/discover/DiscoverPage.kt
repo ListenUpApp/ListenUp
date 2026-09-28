@@ -177,6 +177,7 @@ private fun ListenerCard(
             title = session.bookTitle,
             imageUrl = coverUrl(session.bookId, session.coverHash, width = LISTENER_COVER_WIDTH),
             size = LISTENER_COVER_WIDTH,
+            decorative = true,
         )
         Div(attrs = { classes("disc-listener-text") }) {
             // ⛔ The name, not the card: the card opens the book, and a second click target inside
@@ -276,6 +277,7 @@ private fun BookCard(
             title = title,
             imageUrl = coverUrl(bookId, coverHash, width = CARD_COVER_WIDTH),
             size = CARD_COVER_WIDTH,
+            decorative = true,
         )
         Span(attrs = { classes("disc-card-t") }) { Text(title) }
         authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }

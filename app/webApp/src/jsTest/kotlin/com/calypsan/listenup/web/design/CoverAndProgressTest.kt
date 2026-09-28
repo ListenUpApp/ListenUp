@@ -52,6 +52,14 @@ class CoverAndProgressTest :
             (host.querySelector("img") as HTMLElement).getAttribute("alt") shouldBe "The Institute"
         }
 
+        test("a decorative cover is silent, image or fallback, so the title beside it is read once") {
+            val image = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg", decorative = true) }
+            val fallback = mounts.mount { Cover(title = "The Institute", size = 200, decorative = true) }
+
+            (image.querySelector("img") as HTMLElement).getAttribute("alt") shouldBe ""
+            (fallback.querySelector("span") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
+        }
+
         test("progress reports itself to assistive technology") {
             val host = mounts.mount { ProgressLine(percent = 49, remaining = "9h 18m left") }
 

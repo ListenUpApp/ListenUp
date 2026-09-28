@@ -477,7 +477,8 @@ internal fun Playhead(
         attr(ATTR_ARIA_LABEL, "Seek")
         // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
         // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.
-        attr("aria-valuetext", formatElapsed(shownPositionMs))
+        // "3:30 of 42:00", not just "3:30": where you are only means something against the whole.
+        attr("aria-valuetext", "${formatElapsed(shownPositionMs)} of ${formatElapsed(durationMs)}")
         value(shownPositionMs.toString())
         onInput { event -> dragPositionMs = scrubbedMs(event.target.value) }
         onChange { event ->

@@ -199,6 +199,7 @@ private fun RecentBook(
             imageUrl = coverUrl(book.bookId, null, BOOK_RUNG),
             size = BOOK_SIZE,
             radius = BOOK_RADIUS,
+            decorative = true,
         )
         Span(attrs = { classes("prof-book-t") }) { Text(book.title) }
     }

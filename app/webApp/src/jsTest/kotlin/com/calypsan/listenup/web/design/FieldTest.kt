@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.window
 import org.w3c.dom.EventInit
@@ -104,6 +105,29 @@ class FieldTest :
             awaitFrame()
 
             (host.querySelector(".f-input") as HTMLInputElement).getAttribute("type") shouldBe "text"
+        }
+
+        test("a switch's wrapper is not drawn as a second, empty switch") {
+            // A dead design-kit `.sw` rule gave the SwitchField label a 46px grey pill of its own,
+            // so every switch rendered inside a stray track. The track is `.sw-track`, and only it.
+            val host = mount { SwitchField(label = "Wi-Fi only", checked = false, onChange = {}) }
+            val wrapper = host.querySelector(".sw") as HTMLElement
+
+            window.getComputedStyle(wrapper).backgroundColor shouldBe "rgba(0, 0, 0, 0)"
+            window.getComputedStyle(wrapper).height shouldNotBe "27px"
+        }
+
+        test("the eye is a named toggle that says whether the password is showing") {
+            val host = mount { PasswordField(label = "Password", value = "hunter2", onInput = {}) }
+            val eye = host.querySelector(".f-eye") as HTMLElement
+
+            eye.getAttribute("aria-label") shouldBe "Show password"
+            eye.getAttribute("aria-pressed") shouldBe "false"
+
+            eye.click()
+            awaitFrame()
+
+            (host.querySelector(".f-eye") as HTMLElement).getAttribute("aria-pressed") shouldBe "true"
         }
     })
 

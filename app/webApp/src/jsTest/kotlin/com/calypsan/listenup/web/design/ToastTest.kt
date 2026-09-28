@@ -9,7 +9,9 @@ import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import kotlinx.coroutines.delay
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.events.MouseEvent
 
 class ToastTest :
     FunSpec({
@@ -51,6 +53,35 @@ class ToastTest :
             awaitFrame()
             val toasts = host.querySelectorAll(".toast")
             (toasts.item(1) as HTMLElement).getAttribute("role") shouldBe "alert"
+        }
+
+        test("a failure stays until it is dismissed; a notice retires itself") {
+            // WCAG 2.2.1: a failure's words must not vanish on a timer before a slow reader, or a
+            // screen reader's queue, gets to them. A notice is only confirming what you just did.
+            val queue = ToastQueue()
+            val host = mount { ToastHost(queue, noticeLifetimeMs = SHORT_LIFETIME_MS) }
+
+            queue.show("It broke.", ToastTone.Failure)
+            queue.show("Saved.", ToastTone.Notice)
+            awaitFrame()
+            delay(SHORT_LIFETIME_MS * 4)
+            awaitFrame()
+
+            host.querySelectorAll(".toast").length shouldBe 1
+            (host.querySelector(".toast") as HTMLElement).textContent.orEmpty() shouldContain "It broke."
+        }
+
+        test("a notice under the pointer or focus waits for the reader") {
+            val queue = ToastQueue()
+            val host = mount { ToastHost(queue, noticeLifetimeMs = SHORT_LIFETIME_MS) }
+
+            queue.show("Saved.", ToastTone.Notice)
+            awaitFrame()
+            (host.querySelector(".toast") as HTMLElement).dispatchEvent(MouseEvent("mouseenter"))
+            delay(SHORT_LIFETIME_MS * 4)
+            awaitFrame()
+
+            host.querySelectorAll(".toast").length shouldBe 1
         }
 
         test("the same failure twice does not stack twice") {
@@ -170,3 +201,6 @@ class ToastTest :
             host.querySelectorAll(".toast").length shouldBe 0
         }
     })
+
+/** Short enough to wait out in a spec; the real lifetime is seven seconds. */
+private const val SHORT_LIFETIME_MS = 60L

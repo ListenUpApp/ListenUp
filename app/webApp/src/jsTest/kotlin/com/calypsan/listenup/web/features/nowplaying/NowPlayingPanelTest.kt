@@ -128,6 +128,13 @@ class NowPlayingPanelTest :
             (host.querySelector(".np-t") as HTMLElement).textContent shouldBe "The Way of Kings"
         }
 
+        test("the panel's seek says where you are against the whole book") {
+            val host = openPanel()
+
+            (host.querySelector(".np-scrub") as HTMLElement).getAttribute("aria-valuetext") shouldBe
+                "${formatElapsed(0)} of ${formatElapsed(BOOK_MS)}"
+        }
+
         // `.tport-t` is display:none under 760px. A gesture hung off the title would leave the
         // expanded player unreachable on exactly the screen whose bar shows least.
         test("the handle is not the title, which a narrow screen hides") {
