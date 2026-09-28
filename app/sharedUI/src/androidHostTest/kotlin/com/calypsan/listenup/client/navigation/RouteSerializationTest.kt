@@ -96,6 +96,7 @@ private fun sampleRoutes(): List<Route> =
         add(Settings)
         add(Licenses)
         add(Storage)
+        add(HardcoverSettings)
 
         // Shelf
         add(ShelfDetail(shelfId = "test-shelf-id"))

@@ -3,9 +3,11 @@ package com.calypsan.listenup.client.navigation.entries
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.client.features.settings.HardcoverSettingsScreen
 import com.calypsan.listenup.client.features.settings.NotificationSettingsScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.navigation.Devices
+import com.calypsan.listenup.client.navigation.HardcoverSettings
 import com.calypsan.listenup.client.navigation.LicenseDetail
 import com.calypsan.listenup.client.navigation.Licenses
 import com.calypsan.listenup.client.navigation.NotificationSettings
@@ -34,6 +36,16 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
             },
             onNavigateToNotificationSettings = {
                 backStack.add(NotificationSettings)
+            },
+            onNavigateToHardcover = {
+                backStack.add(HardcoverSettings)
+            },
+        )
+    }
+    entry<HardcoverSettings> {
+        HardcoverSettingsScreen(
+            onNavigateBack = {
+                backStack.removeAt(backStack.lastIndex)
             },
         )
     }
