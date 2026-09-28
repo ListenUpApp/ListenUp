@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -104,7 +107,7 @@ fun UpNextQueue(
             // Footer: "View all N chapters" button.
             Surface(
                 onClick = onViewAllChapters,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.secondaryContainer,
             ) {

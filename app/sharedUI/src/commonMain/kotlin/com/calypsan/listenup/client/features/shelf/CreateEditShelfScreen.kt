@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -489,7 +492,7 @@ private fun DeleteHeroButton(
         // Wide: text + icon pill
         Surface(
             onClick = onClick,
-            modifier = modifier,
+            modifier = modifier.semantics { role = Role.Button },
             shape = CircleShape,
             color = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer,

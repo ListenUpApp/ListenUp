@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import com.calypsan.listenup.client.design.MinTouchTarget
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -101,6 +104,7 @@ fun NowPlayingBar(
                 Modifier
                     .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm)
                     .fillMaxWidth()
+                    .semantics { role = Role.Button }
                     .swipeUpToExpand(onTap)
                     .graphicsLayer {
                         scaleX = focusScale

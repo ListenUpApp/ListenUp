@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -132,7 +135,7 @@ private fun PlayerPanelDialog(
                         onClick = onDismiss,
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(44.dp).semantics { role = Role.Button },
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(

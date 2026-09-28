@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.presentation.settings.SettingsEvent
 import androidx.compose.runtime.LaunchedEffect
@@ -737,6 +742,7 @@ private fun <T> SelectorRow(
                 onDismissRequest = { expanded = false },
             ) {
                 options.forEach { option ->
+                    val isCurrent = option == selectedValue
                     DropdownMenuItem(
                         text = { Text(formatValue(option)) },
                         onClick = {
@@ -744,6 +750,18 @@ private fun <T> SelectorRow(
                             onValueSelected(option)
                             expanded = false
                         },
+                        // The current value is marked, and said: one choice of several.
+                        modifier =
+                            Modifier.semantics {
+                                role = Role.RadioButton
+                                selected = isCurrent
+                            },
+                        trailingIcon =
+                            if (isCurrent) {
+                                { Icon(Icons.Default.Check, contentDescription = null) }
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -777,7 +795,7 @@ private fun InfoRow(
 private fun SignOutTile(onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -209,6 +212,7 @@ private fun CreateNewShelfRow(
         onClick = onClick,
         enabled = enabled,
         color = Color.Transparent,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier =
@@ -269,6 +273,7 @@ private fun ShelfRow(
         onClick = onClick,
         enabled = enabled,
         color = Color.Transparent,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier =

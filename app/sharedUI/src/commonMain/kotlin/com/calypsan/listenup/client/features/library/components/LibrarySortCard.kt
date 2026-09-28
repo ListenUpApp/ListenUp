@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.library.components
 
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -157,6 +163,7 @@ private fun SortTrigger(
             modifier =
                 Modifier.clearAndSetSemantics {
                     contentDescription = "$triggerLabel: ${state.category.label}, ${state.directionLabel}"
+                    role = Role.Button
                 },
         ) {
             Row(
@@ -272,6 +279,7 @@ private fun SortMenu(
                 label = stringResource(Res.string.library_ignore_articles),
                 checked = ignoreArticles,
                 onClick = onToggleArticles,
+                isToggle = true,
             )
         }
     }
@@ -279,15 +287,28 @@ private fun SortMenu(
 
 /**
  * A menu row with a leading [Check] when [checked] (and a matching spacer when not, so labels align).
+ * The check is also carried in semantics, not by the glyph alone: a sort category is one choice of
+ * several (a selected radio), while [isToggle] makes it an on/off checkbox (ignore articles).
  */
 @Composable
 private fun CheckableMenuItem(
     label: String,
     checked: Boolean,
     onClick: () -> Unit,
+    isToggle: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
     DropdownMenuItem(
+        modifier =
+            Modifier.semantics {
+                if (isToggle) {
+                    role = Role.Checkbox
+                    toggleableState = ToggleableState(checked)
+                } else {
+                    role = Role.RadioButton
+                    selected = checked
+                }
+            },
         text = {
             Text(
                 text = label,

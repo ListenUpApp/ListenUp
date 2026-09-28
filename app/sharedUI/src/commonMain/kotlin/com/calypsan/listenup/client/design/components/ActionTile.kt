@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,7 +62,7 @@ fun ActionTile(
             haptics.press()
             onClick()
         },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
         shape = MaterialTheme.shapes.large,
         color = containerColor,
         contentColor = contentColor,

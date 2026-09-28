@@ -5,6 +5,8 @@
 
 package com.calypsan.listenup.client.features.search
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -654,7 +656,7 @@ private fun SeeAllAction(
         },
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = modifier,
+        modifier = modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
@@ -981,6 +983,7 @@ private fun TagFlow(
                 },
                 shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.semantics { role = Role.Button },
             ) {
                 Row(
                     modifier = Modifier.height(42.dp).padding(horizontal = Spacing.lg),

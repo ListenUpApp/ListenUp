@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -47,7 +50,7 @@ fun ValuePill(
             haptics.press()
             onClick()
         },
-        modifier = modifier,
+        modifier = modifier.semantics { role = Role.Button },
         shape = CircleShape,
         color = containerColor,
         contentColor = contentColor,

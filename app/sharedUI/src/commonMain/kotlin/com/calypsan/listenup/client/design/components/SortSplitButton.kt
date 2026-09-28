@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -92,7 +95,7 @@ fun SortSplitButton(
                             categoryMenuExpanded = true
                         },
                         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0f),
-                        modifier = Modifier.height(46.dp),
+                        modifier = Modifier.height(46.dp).semantics { role = Role.Button },
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -130,7 +133,7 @@ fun SortSplitButton(
                             onDirectionToggle()
                         },
                         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0f),
-                        modifier = Modifier.height(46.dp),
+                        modifier = Modifier.height(46.dp).semantics { role = Role.Button },
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.connect
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -229,6 +232,7 @@ private fun ServerRow(
         }
 
     Surface(
+        selected = isSelected,
         onClick = onClick,
         enabled = !isConnecting,
         shape = MaterialTheme.shapes.large,
@@ -239,7 +243,8 @@ private fun ServerRow(
                 MaterialTheme.colorScheme.surfaceContainerLow
             },
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier.fillMaxWidth(),
+        // The servers are one choice of several: the row says so, not only its fill and check.
+        modifier = Modifier.fillMaxWidth().semantics { role = Role.RadioButton },
     ) {
         Row(
             modifier = Modifier.padding(Spacing.lg),
@@ -368,7 +373,7 @@ private fun AddServerRow(onClick: () -> Unit) {
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(Spacing.lg),

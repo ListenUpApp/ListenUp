@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -575,6 +578,7 @@ private fun ShelfSortPill(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { role = Role.Button },
         ) {
             Row(
                 modifier = Modifier.padding(start = 14.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
@@ -602,6 +606,11 @@ private fun ShelfSortPill(
                         onSortChange(option)
                         expanded = false
                     },
+                    modifier =
+                        Modifier.semantics {
+                            role = Role.RadioButton
+                            selected = option == sort
+                        },
                     trailingIcon =
                         if (option == sort) {
                             { Icon(Icons.Default.Check, contentDescription = null) }

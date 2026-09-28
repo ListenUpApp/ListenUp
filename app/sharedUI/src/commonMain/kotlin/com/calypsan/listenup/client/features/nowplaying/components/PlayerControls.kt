@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -54,7 +57,7 @@ fun PlayPauseFab(
             haptics.toggle(on = !isPlaying)
             onClick()
         },
-        modifier = Modifier.size(size),
+        modifier = Modifier.size(size).semantics { role = Role.Button },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.primary,
     ) {
@@ -146,6 +149,7 @@ fun LabelPill(
         },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Box(
             modifier =

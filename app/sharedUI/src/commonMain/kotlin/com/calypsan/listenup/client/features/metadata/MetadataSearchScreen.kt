@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.metadata
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -377,6 +380,7 @@ private fun MetadataSearchResultItem(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(14.dp),

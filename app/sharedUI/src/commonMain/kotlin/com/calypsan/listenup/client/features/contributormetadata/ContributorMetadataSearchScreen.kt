@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -344,6 +347,7 @@ private fun ContributorSearchResultItem(
         onClick = onClick,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier =

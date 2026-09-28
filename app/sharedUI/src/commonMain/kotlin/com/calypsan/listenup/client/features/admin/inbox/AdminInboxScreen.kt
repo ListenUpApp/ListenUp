@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin.inbox
 
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import listenup.composeapp.generated.resources.selection_select_name
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -598,7 +600,7 @@ private fun SelectAllAction(
         shape = CircleShape,
         color = HeroInk.wash(),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier.size(48.dp).semantics { role = Role.Button },
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
@@ -627,6 +629,7 @@ private fun SelectAllPillButton(
         shape = CircleShape,
         color = HeroInk.wash(),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -863,7 +866,7 @@ private fun MatchOnAudibleButton(
             },
         contentColor =
             if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(size),
+        modifier = Modifier.size(size).semantics { role = Role.Button },
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
@@ -892,7 +895,7 @@ private fun ReviewEditButton(
             },
         contentColor =
             if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(size),
+        modifier = Modifier.size(size).semantics { role = Role.Button },
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
