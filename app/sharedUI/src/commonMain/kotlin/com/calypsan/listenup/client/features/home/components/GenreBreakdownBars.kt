@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +23,7 @@ import com.calypsan.listenup.client.presentation.home.genreShareBars
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_percent
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.foundation.shape.CircleShape
 
 /**
  * Genre breakdown showing top genres with progress bars.
@@ -86,7 +86,7 @@ private fun GenreBar(
                 Modifier
                     .weight(1f)
                     .height(10.dp)
-                    .clip(RoundedCornerShape(99.dp))
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
             Box(
@@ -94,7 +94,7 @@ private fun GenreBar(
                     Modifier
                         .fillMaxWidth(fraction)
                         .height(10.dp)
-                        .clip(RoundedCornerShape(99.dp))
+                        .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary),
             )
         }

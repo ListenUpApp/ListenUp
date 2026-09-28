@@ -5,6 +5,8 @@
 
 package com.calypsan.listenup.client.features.search
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -59,6 +61,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -77,6 +80,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.components.highlightMatch
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -183,7 +187,7 @@ fun SearchResultsOverlay(
                     SearchPillBar(
                         query = state.query,
                         onClose = onClose,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
                     )
 
                     TypeFilterRow(
@@ -194,7 +198,9 @@ fun SearchResultsOverlay(
                     )
 
                     if (state is SearchUiState.Results && state.result.isOfflineResult) {
-                        OfflineIndicator(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        OfflineIndicator(
+                            modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.xs),
+                        )
                     }
 
                     when (state) {
@@ -299,37 +305,42 @@ private fun TypeFilterRow(
             modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = Spacing.screenMargin),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PillChip(
             label = stringResource(Res.string.search_tab_all),
             onClick = onSelectAll,
             selected = selectedTypes.isEmpty(),
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Apps,
         )
         PillChip(
             label = stringResource(Res.string.library_books),
             onClick = { onToggle(SearchHitType.BOOK) },
             selected = SearchHitType.BOOK in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Book,
         )
         PillChip(
             label = stringResource(Res.string.search_people),
             onClick = { onToggle(SearchHitType.CONTRIBUTOR) },
             selected = SearchHitType.CONTRIBUTOR in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Person,
         )
         PillChip(
             label = stringResource(Res.string.common_series),
             onClick = { onToggle(SearchHitType.SERIES) },
             selected = SearchHitType.SERIES in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.AutoMirrored.Filled.PlaylistPlay,
         )
         PillChip(
             label = stringResource(Res.string.book_detail_tags),
             onClick = { onToggle(SearchHitType.TAG) },
             selected = SearchHitType.TAG in selectedTypes,
+            selectionRole = Role.Checkbox,
             leadingIcon = Icons.Default.Tag,
         )
     }
@@ -364,7 +375,7 @@ private fun ResultsContent(
             text = stringResource(Res.string.search_results_count_for, result.total, query),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = if (isWide) 24.dp else 16.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.xs),
         )
         if (isWide) {
             WideSearchResults(
@@ -408,7 +419,13 @@ private fun SearchResultsList(
 ) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        contentPadding =
+            PaddingValues(
+                start = Spacing.screenMargin,
+                end = Spacing.screenMargin,
+                top = Spacing.sm,
+                bottom = Spacing.xl,
+            ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (books.isNotEmpty()) {
@@ -523,7 +540,7 @@ private fun WideSearchResults(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
+        modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
         horizontalArrangement = Arrangement.spacedBy(32.dp),
     ) {
         if (books.isNotEmpty()) {
@@ -647,7 +664,7 @@ private fun SeeAllAction(
         },
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = modifier,
+        modifier = modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
@@ -784,7 +801,13 @@ private fun SeeAllList(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        contentPadding =
+            PaddingValues(
+                start = Spacing.screenMargin,
+                end = Spacing.screenMargin,
+                top = Spacing.sm,
+                bottom = Spacing.xl,
+            ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         when (type) {
@@ -914,11 +937,6 @@ private fun PersonResultRow(
                 )
             }
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -954,11 +972,6 @@ private fun SeriesResultRow(
                 )
             }
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -984,9 +997,10 @@ private fun TagFlow(
                 },
                 shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.semantics { role = Role.Button },
             ) {
                 Row(
-                    modifier = Modifier.height(42.dp).padding(horizontal = 16.dp),
+                    modifier = Modifier.height(42.dp).padding(horizontal = Spacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

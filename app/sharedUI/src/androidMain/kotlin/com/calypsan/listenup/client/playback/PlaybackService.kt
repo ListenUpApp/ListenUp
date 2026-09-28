@@ -69,6 +69,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import com.calypsan.listenup.client.di.activatePlaybackController
+import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.android.inject
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -266,6 +268,13 @@ class PlaybackService :
         reporter.onAutoRewindSeek = { rewindMs ->
             autoRewindSeeker.seekBack(rewindMs)?.let { playbackManager.updatePosition(it) }
         }
+
+        // The in-app MediaController is what feeds PlaybackManager its Playing/Paused, buffering,
+        // speed and error transitions — and so the auto-rewind ladder above. It is no longer
+        // acquired at Koin startup, so a session that starts with no activity (a media button,
+        // Android Auto, a resumption request) must connect it here, or those transitions would go
+        // unrecorded until someone opened the app. Idempotent: a no-op once MainActivity did it.
+        getKoin().activatePlaybackController()
     }
 
     private fun initializePlayer() {

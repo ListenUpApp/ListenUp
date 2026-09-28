@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,11 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -46,7 +43,7 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.LicenseChip
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.MeterSegment
-import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.licenses_count_suffix
@@ -58,6 +55,10 @@ import listenup.composeapp.generated.resources.licenses_section_libraries
 import listenup.composeapp.generated.resources.licenses_subtitle_makes_possible
 import listenup.composeapp.generated.resources.licenses_version_prefix
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 @Composable
 fun LicensesScreen(
@@ -76,19 +77,21 @@ fun LicensesScreen(
         remember(rows, query) {
             if (query.isBlank()) rows else rows.filter { it.name.contains(query, ignoreCase = true) }
         }
-    val segments =
+    val familyCounts =
         remember(rows) {
             rows
                 .groupBy { it.spdxId }
                 .entries
                 .sortedByDescending { it.value.size }
-                .map { (spdxId, libs) ->
-                    MeterSegment(
-                        label = spdxId,
-                        weight = libs.size.toFloat(),
-                        color = licenseFamilyColor(spdxId),
-                    )
-                }
+                .map { (spdxId, libs) -> spdxId to libs.size }
+        }
+    val segments =
+        familyCounts.map { (spdxId, count) ->
+            MeterSegment(
+                label = spdxId,
+                weight = count.toFloat(),
+                color = licenseFamilyColor(spdxId).current.content,
+            )
         }
 
     val isWide =
@@ -150,13 +153,18 @@ private fun LicensesPhoneLayout(
                 onSubmit = {},
                 placeholder = searchPlaceholder,
                 onClear = { onQueryChange("") },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
         }
         item {
             LibrariesSectionHeader(
                 label = sectionLabel,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+                modifier =
+                    Modifier.padding(
+                        start = Spacing.screenMargin,
+                        end = Spacing.screenMargin,
+                        bottom = Spacing.xs,
+                    ),
             )
         }
         itemsIndexed(filtered, key = { _, row -> row.uniqueId }) { index, row ->
@@ -164,7 +172,7 @@ private fun LicensesPhoneLayout(
                 row = row,
                 onClick = { onLicenseClick(row.uniqueId) },
                 showDivider = index < filtered.lastIndex,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             )
         }
         item {
@@ -181,25 +189,34 @@ private fun LicensesMobileHero(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column {
             HeroNavRow(
                 onBack = onNavigateBack,
-                buttonBackground = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.09f),
+                buttonBackground =
+                    HeroInk.wash(
+                        MaterialTheme.colorScheme.onTertiaryContainer,
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                    ),
             )
             Column(modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 24.dp)) {
                 Text(
                     text = stringResource(Res.string.licenses_overline_open_source).uppercase(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                     letterSpacing = 1.sp,
                 )
                 Row(
                     verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 6.dp),
+                    // The count and its noun are one title: "42 licences", read as a single heading.
+                    modifier = Modifier.padding(top = 6.dp).semantics(mergeDescendants = true) { heading() },
                 ) {
                     Text(
                         text = rowCount.toString(),
@@ -219,12 +236,20 @@ private fun LicensesMobileHero(
                     text = stringResource(Res.string.licenses_subtitle_makes_possible),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                     modifier = Modifier.padding(top = 8.dp),
                 )
                 Surface(
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.07f),
-                    shape = RoundedCornerShape(16.dp),
+                    color =
+                        HeroInk.wash(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                 ) {
                     DistributionMeter(
@@ -262,7 +287,7 @@ private fun LicensesWideLayout(
         ) {
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.width(380.dp).fillMaxHeight(),
             ) {
                 Column(modifier = Modifier.padding(26.dp)) {
@@ -332,7 +357,7 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
     val haptics = LocalHaptics.current
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp),
     ) {
         Row(
@@ -347,7 +372,7 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
                 },
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = stringResource(Res.string.common_back),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
@@ -356,7 +381,11 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
                 Text(
                     text = stringResource(Res.string.licenses_overline_open_source).uppercase(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                     letterSpacing = 1.sp,
                 )
                 Text(
@@ -364,7 +393,7 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = 4.dp).semantics { heading() },
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
@@ -373,32 +402,21 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
 }
 
 /**
- * Accent-tinted section header that mirrors [SectionGroup]'s header row — an icon tile paired
- * with an uppercased bold label — but emitted as a standalone composable so it can live as a
- * lazy [item] rather than being constrained to a non-lazy [SectionGroup.content] slot.
+ * The libraries list's subheader, in [SectionGroup]'s header voice — a sentence-case `titleSmall`
+ * heading in `primary` — but emitted as a standalone composable so it can live as a lazy [item]
+ * rather than inside a non-lazy [SectionGroup.content] slot.
  */
 @Composable
 private fun LibrariesSectionHeader(
     label: String,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        TonalIconTile(
-            icon = Icons.Outlined.Code,
-            size = 30.dp,
-            accent = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    Text(
+        text = label,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.semantics { heading() },
+    )
 }
 
 @Composable
@@ -417,7 +435,7 @@ private fun LicenseLibraryRow(
                     .clickable {
                         haptics.press()
                         onClick()
-                    }.padding(horizontal = 16.dp, vertical = 15.dp),
+                    }.padding(horizontal = Spacing.lg, vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -444,15 +462,9 @@ private fun LicenseLibraryRow(
                     color = licenseFamilyColor(row.spdxId),
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp),
-            )
         }
         if (showDivider) {
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = Spacing.lg))
         }
     }
 }

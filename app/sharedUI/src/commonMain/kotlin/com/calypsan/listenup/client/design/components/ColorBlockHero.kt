@@ -4,13 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
@@ -21,6 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +32,8 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private val HERO_BADGE_SIZE = 48.dp
 
@@ -50,6 +55,9 @@ private val HERO_BADGE_SIZE = 48.dp
  * @param supportingText Optional paragraph rendered below the title.
  * @param content Optional trailing slot rendered full-width below the title/supporting text — used
  *   to host a [WizardStepTracker] inside the wizard chrome.
+ * @param actions Optional top-bar actions (e.g. a [SaveAction]). When present, the back button and
+ *   the actions share a top row, the way a Material large top app bar carries them, and the title
+ *   drops to its own row beneath — so an action never squeezes the display-size title.
  */
 @Composable
 fun ColorBlockHero(
@@ -59,6 +67,7 @@ fun ColorBlockHero(
     modifier: Modifier = Modifier,
     overline: String? = null,
     supportingText: String? = null,
+    actions: @Composable (RowScope.() -> Unit)? = null,
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
@@ -66,7 +75,7 @@ fun ColorBlockHero(
         modifier = modifier,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(
             modifier =
@@ -77,11 +86,7 @@ fun ColorBlockHero(
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(start = 8.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            val backButton: @Composable () -> Unit = {
                 IconButton(
                     onClick = {
                         haptics.press()
@@ -93,13 +98,35 @@ fun ColorBlockHero(
                         contentDescription = stringResource(Res.string.common_back),
                     )
                 }
+            }
+            if (actions != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    backButton()
+                    Spacer(Modifier.weight(1f))
+                    actions()
+                }
+            }
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        // Under an actions row the title aligns with the back arrow's glyph.
+                        .then(if (actions != null) Modifier.padding(start = 12.dp, top = 8.dp) else Modifier),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (actions == null) backButton()
                 Column(modifier = Modifier.weight(1f)) {
                     if (!overline.isNullOrBlank()) {
                         Text(
                             text = overline.uppercase(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            color = HeroInk.muted(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -109,6 +136,7 @@ fun ColorBlockHero(
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.semantics { heading() },
                     )
                 }
                 ScallopBadge(size = HERO_BADGE_SIZE, containerColor = MaterialTheme.colorScheme.primary) {
@@ -124,7 +152,7 @@ fun ColorBlockHero(
                 Text(
                     text = supportingText,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                    color = HeroInk.muted(),
                     modifier = Modifier.padding(start = 8.dp, top = 14.dp, end = 8.dp),
                 )
             }

@@ -13,4 +13,12 @@ import androidx.compose.ui.unit.dp
 object ContentShapes {
     /** Cover art, shelf cards, and other content tiles. */
     val card = RoundedCornerShape(24.dp)
+
+    /**
+     * The one color-block hero edge: square top (it bleeds under the status bar), 28dp rounded
+     * bottom — the `large` step of the shape scale, which DESIGN.md binds hero bands to. Every hero
+     * uses this, directly or through
+     * [ColorBlockHero][com.calypsan.listenup.client.design.components.ColorBlockHero].
+     */
+    val hero = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
 }

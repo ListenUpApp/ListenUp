@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.theme.Spacing
 
 /**
  * Horizontal browse carousel for the home/discover/detail rows.
@@ -34,7 +35,7 @@ fun <T> BrowseCarousel(
     modifier: Modifier = Modifier,
     itemWidth: Dp = 140.dp,
     itemSpacing: Dp = 16.dp,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp),
+    contentPadding: PaddingValues = PaddingValues(horizontal = Spacing.screenMargin),
     key: ((item: T) -> Any)? = null,
     itemContent: @Composable (T) -> Unit,
 ) {

@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.admin.backup
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.foundation.layout.widthIn
+import com.calypsan.listenup.client.design.ReadableMeasure
+import com.calypsan.listenup.client.design.components.FlowWithSteps
+import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material3.Card
@@ -21,13 +25,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel
 import com.calypsan.listenup.client.presentation.error.localized
@@ -51,7 +54,6 @@ import listenup.composeapp.generated.resources.admin_restore_from_file_descripti
 import listenup.composeapp.generated.resources.admin_restore_from_file_detail
 import listenup.composeapp.generated.resources.admin_restore_from_file_upload_failed
 import listenup.composeapp.generated.resources.admin_restore_from_file_uploading
-import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -80,49 +82,56 @@ fun RestoreFromFileScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.admin_restore_from_file)) },
-                navigationIcon = {
-                    if (canNavigateBack) {
-                        IconButton(
-                            onClick = {
-                                haptics.press()
-                                onBackClick()
-                            },
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.common_back),
-                            )
-                        }
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.admin_restore_from_file),
+                onBack = if (canNavigateBack) onBackClick else null,
             )
         },
     ) { paddingValues ->
-        when (val s = state) {
+        RestoreFromFileContent(
+            state = state,
+            onChooseFile = { picker.launch() },
+            onTryAgain = {
+                viewModel.reset()
+                picker.launch()
+            },
+            modifier = Modifier.padding(paddingValues),
+        )
+    }
+}
+
+/**
+ * The restore-from-file body for each [RestoreFromFileUiState], hosted by its scaffold: the file
+ * choice, the upload in flight, or the failure with a way to try again.
+ */
+@Composable
+internal fun RestoreFromFileContent(
+    state: RestoreFromFileUiState,
+    onChooseFile: () -> Unit,
+    onTryAgain: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Every state here — the choice, its upload, a failed upload — is the flow's first step.
+    FlowWithSteps(
+        steps = restoreFlowSteps(),
+        currentStep = RestoreFlowStep.CHOOSE,
+        modifier = modifier,
+    ) { isWide, paneModifier ->
+        when (state) {
             is RestoreFromFileUiState.Idle -> {
-                IdleUploadContent(
-                    onChooseFile = { picker.launch() },
-                    modifier = Modifier.padding(paddingValues),
-                )
+                IdleUploadContent(onChooseFile = onChooseFile, isWide = isWide, modifier = paneModifier)
             }
 
             is RestoreFromFileUiState.Uploading -> {
-                UploadingContent(
-                    filename = s.filename,
-                    modifier = Modifier.padding(paddingValues),
-                )
+                UploadingContent(filename = state.filename, modifier = paneModifier)
             }
 
             is RestoreFromFileUiState.Error -> {
                 ErrorUploadContent(
-                    message = s.error.localized(),
-                    onTryAgain = {
-                        viewModel.reset()
-                        picker.launch()
-                    },
-                    modifier = Modifier.padding(paddingValues),
+                    message = state.error.localized(),
+                    onTryAgain = onTryAgain,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
         }
@@ -132,6 +141,7 @@ fun RestoreFromFileScreen(
 @Composable
 private fun IdleUploadContent(
     onChooseFile: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -139,25 +149,29 @@ private fun IdleUploadContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
             text = stringResource(Res.string.admin_restore_from_file_description),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(max = ReadableMeasure),
         )
         Text(
             text = stringResource(Res.string.admin_restore_from_file_detail),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(max = ReadableMeasure),
         )
-        Spacer(modifier = Modifier.weight(1f))
+        // A phone parks the action at the foot of the screen; the wide pane keeps it under the text.
+        if (!isWide) Spacer(modifier = Modifier.weight(1f))
         ListenUpButton(
             onClick = onChooseFile,
             text = stringResource(Res.string.admin_restore_from_file_choose),
             leadingIcon = Icons.Outlined.FolderOpen,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -172,7 +186,7 @@ private fun UploadingContent(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -191,7 +205,7 @@ private fun UploadingContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(38.dp))
-        LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+        LinearWavyProgressIndicator(modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth())
     }
 }
 
@@ -199,19 +213,20 @@ private fun UploadingContent(
 private fun ErrorUploadContent(
     message: String,
     onTryAgain: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
             Icon(
-                imageVector = Icons.Filled.Close,
+                imageVector = Icons.Outlined.Close,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.error,
@@ -226,13 +241,13 @@ private fun ErrorUploadContent(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                 ),
         ) {
-            Box(modifier = Modifier.padding(16.dp)) {
+            Box(modifier = Modifier.padding(Spacing.lg)) {
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodyMedium,
@@ -245,7 +260,8 @@ private fun ErrorUploadContent(
             onClick = onTryAgain,
             text = stringResource(Res.string.admin_restore_from_file_choose),
             leadingIcon = Icons.Outlined.FolderOpen,
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }

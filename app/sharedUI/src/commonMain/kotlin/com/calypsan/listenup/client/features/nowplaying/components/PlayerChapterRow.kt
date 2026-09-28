@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import listenup.composeapp.generated.resources.player_play_chapter
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
@@ -49,7 +50,7 @@ fun PlayerChapterRow(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
-    val shape = RoundedCornerShape(12.dp)
+    val shape = MaterialTheme.shapes.small
     val containerColor = MaterialTheme.colorScheme.primaryContainer
     val numberColor =
         if (isCurrent) {
@@ -83,7 +84,10 @@ fun PlayerChapterRow(
                 .clip(shape)
                 .drawBehind {
                     if (isCurrent) drawRect(containerColor)
-                }.clickable {
+                }.clickable(
+                    onClickLabel = stringResource(Res.string.player_play_chapter),
+                    role = Role.Button,
+                ) {
                     haptics.press()
                     onClick()
                 }.padding(horizontal = 14.dp, vertical = 12.dp),

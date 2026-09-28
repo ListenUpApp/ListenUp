@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.ScrubDrag
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.chapterGrabbedAt
 import androidx.compose.foundation.background
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +31,8 @@ import listenup.composeapp.generated.resources.chapter_editor_no_matches
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.design.timeline.ChapterDetailLane
 import com.calypsan.listenup.client.design.timeline.ChapterMiniMap
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
@@ -59,8 +63,9 @@ import listenup.composeapp.generated.resources.chapter_editor_zoom_hint
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
-private val PANE_SHAPE = RoundedCornerShape(24.dp)
+private val PANE_SHAPE = ContentShapes.card
 private val LIST_PANE_WIDTH = 480.dp
 private const val MINIMAP_BUCKETS = 90
 
@@ -99,7 +104,9 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param geometry the detail lane's current window.
  * @param isWide whether there is room for two panes.
  * @param selectedChapterId the boundary the list and lane share focus on.
- * @param playheadMs transport position, or null when nothing is playing.
+ * @param playheadMs reads the transport position, or null when nothing is playing. A reader rather
+ *   than a value, so a playback tick redraws only what shows the playhead — the lane's line and the
+ *   row whose "Now" badge actually changes — instead of the whole editor.
  * @param onSelect focus a boundary.
  * @param onNudge move a boundary by a signed step.
  * @param onSnapToPlayhead take the playhead's exact millisecond.
@@ -109,7 +116,7 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param query narrows the list only — the timeline keeps showing the whole book, because the lane
  *   is a picture of the audio and hiding parts of it would misrepresent what is there.
  * @param onQueryChange the search box changed.
- * @param onMore open a row's overflow.
+ * @param rowMenu what each row's overflow menu offers.
  * @param onEditTime type a row's start exactly.
  * @param onRetime a boundary was dragged to a new start — once per drag, on release.
  * @param lane the timeline's window and any drag in progress; [onLaneChange] receives the next one.
@@ -126,12 +133,12 @@ fun ChapterEditorContent(
     onLaneChange: (TimelineLane) -> Unit,
     isWide: Boolean,
     selectedChapterId: String?,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
     onSelect: (String) -> Unit,
     onNudge: (String, Long) -> Unit,
     onSnapToPlayhead: (String) -> Unit,
     onToggleLock: (String) -> Unit,
-    onMore: (String) -> Unit,
+    rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
     modifier: Modifier = Modifier,
     onAddAtPlayhead: (() -> Unit)? = null,
@@ -168,7 +175,7 @@ fun ChapterEditorContent(
             onAddAtPlayhead = onAddAtPlayhead,
             onSnapToPlayhead = onSnapToPlayhead,
             onToggleLock = onToggleLock,
-            onMore = onMore,
+            rowMenu = rowMenu,
             onEditTime = onEditTime,
             lockedChapterIds = lockedChapterIds,
             query = query,
@@ -179,19 +186,29 @@ fun ChapterEditorContent(
 
     if (isWide) {
         Row(
-            modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 24.dp),
+            modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .consumeWindowInsets(contentPadding)
+                .padding(horizontal = Spacing.screenMargin),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             timeline(Modifier.weight(1f))
-            list(Modifier.width(LIST_PANE_WIDTH))
+            // The search field lives in the list, so the list rises above the keyboard; the
+            // timeline beside it keeps its height.
+            list(Modifier.width(LIST_PANE_WIDTH).imePadding())
         }
     } else {
         Column(
-            modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 12.dp),
+            modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .consumeWindowInsets(contentPadding)
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             timeline(Modifier.fillMaxWidth())
-            list(Modifier.fillMaxWidth().weight(1f))
+            list(Modifier.fillMaxWidth().weight(1f).imePadding())
         }
     }
 }
@@ -200,12 +217,12 @@ fun ChapterEditorContent(
 private fun ChapterListPane(
     chapters: List<NumberedChapter>,
     selectedChapterId: String?,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
     onSelect: (String) -> Unit,
     onNudge: (String, Long) -> Unit,
     onSnapToPlayhead: (String) -> Unit,
     onToggleLock: (String) -> Unit,
-    onMore: (String) -> Unit,
+    rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
     lockedChapterIds: Set<String>,
     query: String,
@@ -216,6 +233,13 @@ private fun ChapterListPane(
     // Filtered here, after numbering: `chapters` arrives numbered against the whole book, so a
     // narrowed list still calls chapter 213 by its real number. See [matching].
     val visible = chapters.matching(query)
+    // Derived, so a tick inside the same chapter changes nothing a row can see. The rows recompose
+    // when the playing chapter changes, not every time the playhead moves.
+    val currentChapters by rememberUpdatedState(chapters)
+    val playingIds by remember(playheadMs) {
+        derivedStateOf { playingChapterIds(currentChapters, playheadMs()) }
+    }
+    val hasPlayhead by remember(playheadMs) { derivedStateOf { playheadMs() != null } }
 
     Column(
         modifier
@@ -254,12 +278,12 @@ private fun ChapterListPane(
                     chapter = numbered.chapter,
                     number = numbered.number,
                     isSelected = numbered.chapter.id == selectedChapterId,
-                    isPlaying = playheadMs != null && playheadMs.isInside(numbered.chapter),
+                    isPlaying = numbered.chapter.id in playingIds,
                     onSelect = { onSelect(numbered.chapter.id) },
                     onNudge = { step -> onNudge(numbered.chapter.id, step) },
                     onSnapToPlayhead = { onSnapToPlayhead(numbered.chapter.id) },
                     onToggleLock = { onToggleLock(numbered.chapter.id) },
-                    onMore = { onMore(numbered.chapter.id) },
+                    menu = rowMenu,
                     onEditTime = { onEditTime(numbered.chapter.id) },
                     isLocked = numbered.chapter.id in lockedChapterIds,
                 )
@@ -269,7 +293,7 @@ private fun ChapterListPane(
             // state had it on Android, so a book missing one chapter could not gain it.
             // Absent, not disabled, without a playhead — the same call iOS and web made: with no
             // playhead the add would land on the first chapter's boundary and be refused silently.
-            if (onAddAtPlayhead != null && playheadMs != null) {
+            if (onAddAtPlayhead != null && hasPlayhead) {
                 item(key = "add-at-playhead") {
                     TextButton(
                         onClick = onAddAtPlayhead,
@@ -284,6 +308,22 @@ private fun ChapterListPane(
                 }
             }
         }
+    }
+}
+
+/**
+ * The chapters the playhead is inside, or none without one.
+ *
+ * A set rather than a single id because a draft mid-edit can briefly overlap two spans, and every
+ * row that contains the playhead has always said so.
+ */
+internal fun playingChapterIds(
+    chapters: List<NumberedChapter>,
+    playheadMs: Long?,
+): Set<String> {
+    if (playheadMs == null) return emptySet()
+    return chapters.mapNotNullTo(mutableSetOf()) { numbered ->
+        numbered.chapter.id.takeIf { playheadMs.isInside(numbered.chapter) }
     }
 }
 

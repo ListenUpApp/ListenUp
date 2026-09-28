@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import com.calypsan.listenup.client.design.compactTouchTarget
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -167,7 +167,7 @@ private fun RoleContributorSection(
                     haptics.press()
                     onRemoveSection()
                 },
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.compactTouchTarget(footprint = 32.dp),
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -272,13 +272,9 @@ private fun ContributorChip(
             )
         },
         trailingIcon = {
-            Icon(
-                imageVector = Icons.Default.Close,
+            ChipRemoveButton(
                 contentDescription = stringResource(Res.string.common_remove_name, contributor.name),
-                modifier =
-                    Modifier
-                        .size(InputChipDefaults.AvatarSize)
-                        .clickable { onRemove() },
+                onRemove = onRemove,
             )
         },
     )

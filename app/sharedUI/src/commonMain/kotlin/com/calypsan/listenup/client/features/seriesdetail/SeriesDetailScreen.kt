@@ -65,6 +65,7 @@ import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.features.contributors.FullCastSheet
@@ -86,6 +87,10 @@ import listenup.composeapp.generated.resources.series_progress_duration
 import listenup.composeapp.generated.resources.series_start_book
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -202,7 +207,7 @@ private fun NarrowSeriesDetailContent(
             ContinueButton(
                 state = state,
                 onBookClick = onBookClick,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 6.dp),
             )
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -242,7 +247,7 @@ private fun WideSeriesDetailContent(
                 Modifier
                     .weight(0.4f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(MaterialTheme.shapes.large)
                     .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
@@ -257,7 +262,7 @@ private fun WideSeriesDetailContent(
                 HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
                 Spacer(Modifier.height(8.dp))
                 HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(Spacing.xl))
                 ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
             }
         }
@@ -306,7 +311,7 @@ private fun SeriesColorHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(220.dp))
@@ -327,7 +332,7 @@ private fun SeriesColorHero(
                         modifier =
                             Modifier
                                 .size(48.dp)
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), CircleShape),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow, CircleShape),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
@@ -396,6 +401,7 @@ private fun HeroBody(
             fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.semantics { heading() },
         )
         // Authors — up to two names individually tappable; folds to "{lead}, N other authors"
         // beyond that, opening the full authors roster sheet. Mirrors the Book Detail hero.
@@ -405,8 +411,8 @@ private fun HeroBody(
                 contributors = state.seriesAuthors,
                 onContributorClick = onContributorClick,
                 style = MaterialTheme.typography.titleMedium,
-                nameColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                nameColor = HeroInk.muted(),
+                separatorColor = HeroInk.muted(),
                 modifier = Modifier.fillMaxWidth(),
                 foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
                 overflowTextRes = Res.string.book_detail_other_authors,
@@ -477,7 +483,7 @@ private fun HeroStat(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                color = HeroInk.muted(),
             )
         }
     }
@@ -512,7 +518,7 @@ internal fun ContinueButton(
                     haptics.press()
                     onBookClick(targetId.value)
                 }
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = Spacing.screenMargin),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -578,7 +584,7 @@ private fun SeriesBookRow(
     val titleColor = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val subColor =
         if (highlighted) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
@@ -587,7 +593,7 @@ private fun SeriesBookRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(rowColor)
                 .clickable {
                     haptics.press()
@@ -604,7 +610,7 @@ private fun SeriesBookRow(
                 contentDescription = book.title,
                 title = book.title,
                 author = book.authors.firstOrNull()?.name,
-                modifier = Modifier.size(68.dp).clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.size(68.dp).clip(MaterialTheme.shapes.small),
             )
             if (finished) {
                 Box(
@@ -722,7 +728,7 @@ private fun SeriesBookCard(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(cardColor)
                 .clickable {
                     haptics.press()
@@ -767,7 +773,7 @@ private fun SeriesBookCardCover(
             contentDescription = book.title,
             title = book.title,
             author = book.authors.firstOrNull()?.name,
-            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(MaterialTheme.shapes.small),
         )
         if (finished || highlighted) {
             val badgeBg =
@@ -805,7 +811,7 @@ private fun SeriesBookCardFooter(
 ) {
     val subColor =
         if (highlighted) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }

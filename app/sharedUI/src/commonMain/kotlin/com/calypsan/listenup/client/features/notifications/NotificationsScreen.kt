@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.features.notifications
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.components.SectionColumnMinWidth
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,27 +15,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,20 +48,17 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.util.relativeTime
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.notifications_empty_subtitle
 import listenup.composeapp.generated.resources.notifications_empty_title
 import listenup.composeapp.generated.resources.notifications_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-
-/** Max readable content width — wide windows centre the list rather than stretch it. */
-private val ContentMaxWidth = 640.dp
 
 /** Diameter of the unread indicator dot leading an unread row's title. */
 private val UnreadDotSize = 8.dp
@@ -88,21 +86,9 @@ fun NotificationsScreen(
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.notifications_title)) },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onNavigateBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.notifications_title),
+                onBack = onNavigateBack,
             )
         },
     ) { padding ->
@@ -121,26 +107,60 @@ fun NotificationsScreen(
             }
 
             is NotificationsUiState.Data -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    LazyColumn(
-                        modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(s.notifications, key = { it.id }) { notification ->
-                            NotificationRow(
-                                notification = notification,
-                                onClick = {
-                                    viewModel.markRead(notification.id)
-                                    notification.toShortcutAction()?.let(onAction)
-                                },
-                            )
-                        }
-                    }
-                }
+                NotificationList(
+                    notifications = s.notifications,
+                    onNotificationClick = { notification ->
+                        viewModel.markRead(notification.id)
+                        notification.toShortcutAction()?.let(onAction)
+                    },
+                    modifier = Modifier.padding(padding),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The inbox's rows, newest first as the ViewModel orders them. A phone lists them; from the medium
+ * width up they flow into a [GridCells.Adaptive] grid of cards, so a tablet shows a screenful of
+ * notifications instead of one narrow strip.
+ */
+@Composable
+internal fun NotificationList(
+    notifications: List<AppNotification>,
+    onNotificationClick: (AppNotification) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    if (isWide) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = SectionColumnMinWidth),
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+            verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+        ) {
+            items(notifications, key = { it.id }) { notification ->
+                NotificationRow(
+                    notification = notification,
+                    onClick = { onNotificationClick(notification) },
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(notifications, key = { it.id }) { notification ->
+                NotificationRow(
+                    notification = notification,
+                    onClick = { onNotificationClick(notification) },
+                )
             }
         }
     }

@@ -1,9 +1,11 @@
 package com.calypsan.listenup.client.features.setup.components
 
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,18 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -42,6 +37,14 @@ import listenup.composeapp.generated.resources.library_setup_item_count
 import listenup.composeapp.generated.resources.library_setup_item_count_one
 import listenup.composeapp.generated.resources.library_setup_open_folder
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
+import com.calypsan.listenup.client.design.theme.Spacing
+import listenup.composeapp.generated.resources.library_setup_include_folder
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /** Soft decorative blob echoing the design hero. Purely cosmetic. */
 @Composable
@@ -83,7 +86,7 @@ fun SetupBreadcrumb(
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.Home,
+                imageVector = Icons.Outlined.Home,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(19.dp),
@@ -97,7 +100,7 @@ fun SetupBreadcrumb(
         }
         segments.forEachIndexed { index, segment ->
             Icon(
-                imageVector = Icons.Rounded.ChevronRight,
+                imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
@@ -120,39 +123,11 @@ fun SetupBreadcrumb(
     }
 }
 
-/** The M3 checkbox square: filled brand + white check when [on], outline ring otherwise. */
-@Composable
-fun SetupCheckbox(
-    on: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .size(26.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .then(
-                    if (on) {
-                        Modifier.background(MaterialTheme.colorScheme.primary)
-                    } else {
-                        Modifier.border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                    },
-                ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (on) {
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
-}
+/** Material's minimum touch target — the include checkbox is a real control, not a glyph. */
+private val MIN_TOUCH_TARGET = 48.dp
 
 /**
- * One folder row: icon tile + name + "N items" + checkbox + chevron. When [selected]
+ * One folder row: icon tile + name + "N items" + an "Include {name}" checkbox + chevron. When [selected]
  * the whole row sits on a [primaryContainer] highlight. The chevron only shows when
  * [entry] has children to drill into.
  */
@@ -169,16 +144,16 @@ fun FolderRow(
     val tileBackground = if (selected) scheme.primary.copy(alpha = 0.22f) else scheme.surfaceContainerHigh
     val tileTint = if (selected) scheme.primary else scheme.onSurfaceVariant
     val titleColor = if (selected) scheme.onPrimaryContainer else scheme.onSurface
-    val subtitleColor = if (selected) scheme.onPrimaryContainer.copy(alpha = 0.85f) else scheme.onSurfaceVariant
+    val subtitleColor = if (selected) HeroInk.muted() else scheme.onSurfaceVariant
     val chevronTint = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant
 
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(rowBackground)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = Spacing.lg, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -186,12 +161,12 @@ fun FolderRow(
             modifier =
                 Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(tileBackground),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Folder,
+                imageVector = Icons.Outlined.Folder,
                 contentDescription = null,
                 tint = tileTint,
                 modifier = Modifier.size(26.dp),
@@ -217,26 +192,35 @@ fun FolderRow(
                         },
                         entry.itemCount,
                     ),
-                style = MaterialTheme.typography.bodyMedium,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = subtitleColor,
             )
         }
+        // For a folder with subfolders a tap on the row OPENS it, so this checkbox is the only way
+        // to include the folder: a named, 48dp Role.Checkbox — never a bare glyph.
+        val includeLabel = stringResource(Res.string.library_setup_include_folder, entry.name)
         Box(
             modifier =
                 Modifier
+                    .size(MIN_TOUCH_TARGET)
                     .clip(CircleShape)
-                    .clickableNoRipple {
-                        haptics.toggle(on = !selected)
+                    .toggleable(
+                        value = selected,
+                        interactionSource = null,
+                        indication = null,
+                        role = Role.Checkbox,
+                    ) { on ->
+                        haptics.toggle(on = on)
                         onToggle()
-                    }.padding(2.dp),
+                    }.semantics { contentDescription = includeLabel },
+            contentAlignment = Alignment.Center,
         ) {
-            SetupCheckbox(on = selected)
+            ExpressiveCheckbox(checked = selected)
         }
         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             if (entry.hasChildren) {
                 Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
+                    imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = stringResource(Res.string.library_setup_open_folder),
                     tint = chevronTint,
                     modifier = Modifier.size(24.dp),
@@ -276,7 +260,7 @@ fun LibrarySummaryCard(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(20.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -286,7 +270,7 @@ fun LibrarySummaryCard(
             modifier =
                 Modifier
                     .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
@@ -308,8 +292,7 @@ fun LibrarySummaryCard(
             val folderLabel = if (folderCount == 1) "1 folder" else "$folderCount folders"
             Text(
                 text = if (firstPath != null) "$folderLabel · $firstPath" else folderLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -324,7 +307,7 @@ fun LibrarySummaryCard(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Check,
+                imageVector = Icons.Outlined.Check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.size(20.dp),
@@ -332,11 +315,3 @@ fun LibrarySummaryCard(
         }
     }
 }
-
-@Composable
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-    this.clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = null,
-        onClick = onClick,
-    )

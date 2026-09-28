@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,7 +20,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
@@ -26,14 +27,12 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FolderSpecial
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,9 +82,9 @@ import listenup.composeapp.generated.resources.common_no_items_yet
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
-private const val CARD_CORNER_DP = 24
-private const val CARD_CORNER_WIDE_DP = 28
 private const val CARD_PADDING_DP = 18
 private const val CARD_PADDING_WIDE_DP = 22
 private const val GRID_GAP_DP = 16
@@ -335,7 +334,6 @@ private fun CollectionCard(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cornerDp = if (isWide) CARD_CORNER_WIDE_DP.dp else CARD_CORNER_DP.dp
     val padDp = if (isWide) CARD_PADDING_WIDE_DP.dp else CARD_PADDING_DP.dp
     val badgeSize = if (isWide) 64.dp else BADGE_SIZE_DP.dp
     val haptics = LocalHaptics.current
@@ -346,12 +344,13 @@ private fun CollectionCard(
                 haptics.press()
                 onClick()
             },
-        shape = RoundedCornerShape(cornerDp),
+        shape = ContentShapes.card,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(modifier = Modifier.padding(padDp)) {
             CollectionCardTopRow(
                 badgeSize = badgeSize,
+                collectionName = collection.name,
                 isSystem = collection.isSystem,
                 isDeleting = isDeleting,
                 onDeleteClick = onDeleteClick,
@@ -365,6 +364,7 @@ private fun CollectionCard(
 @Composable
 private fun CollectionCardTopRow(
     badgeSize: Dp,
+    collectionName: String,
     isSystem: Boolean,
     isDeleting: Boolean,
     onDeleteClick: () -> Unit,
@@ -402,16 +402,20 @@ private fun CollectionCardTopRow(
             }
 
             else -> {
-                TonalIconTile(
-                    icon = Icons.Outlined.Delete,
-                    size = DELETE_TILE_SIZE_DP.dp,
-                    danger = true,
-                    modifier =
-                        Modifier.clickable {
-                            haptics.press()
-                            onDeleteClick()
-                        },
-                )
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onDeleteClick()
+                    },
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    TonalIconTile(
+                        icon = Icons.Outlined.Delete,
+                        size = DELETE_TILE_SIZE_DP.dp,
+                        danger = true,
+                        contentDescription = stringResource(Res.string.common_delete_name, collectionName),
+                    )
+                }
             }
         }
     }
@@ -462,7 +466,7 @@ private fun CollectionCardSubtitle(
             modifier =
                 Modifier
                     .size(BOOK_DOT_SIZE_DP.dp)
-                    .background(MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(50)),
+                    .background(MaterialTheme.colorScheme.outline, shape = CircleShape),
         )
         androidx.compose.material3.Icon(
             imageVector = Icons.Outlined.Group,
@@ -479,7 +483,6 @@ private fun NewCollectionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cornerDp = if (isWide) CARD_CORNER_WIDE_DP.dp else CARD_CORNER_DP.dp
     val minHeight = if (isWide) 196.dp else 168.dp
     val haptics = LocalHaptics.current
 
@@ -489,7 +492,7 @@ private fun NewCollectionCard(
                 haptics.press()
                 onClick()
             },
-        shape = RoundedCornerShape(cornerDp),
+        shape = ContentShapes.card,
         color = Color.Transparent,
         border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -559,51 +562,26 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var name by remember { mutableStateOf("") }
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.admin_create_collection)) },
-        text = {
-            ListenUpTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = stringResource(Res.string.admin_collection_name),
-                enabled = !isCreating,
-                supportingText = stringResource(Res.string.admin_enter_a_name_for_the),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        haptics.commit()
-                        onConfirm(name)
-                    }
-                },
-                enabled = !isCreating && name.isNotBlank(),
-            ) {
-                if (isCreating) {
-                    ListenUpLoadingIndicatorSmall()
-                } else {
-                    Text(stringResource(Res.string.common_create))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-                enabled = !isCreating,
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        title = stringResource(Res.string.admin_create_collection),
+        confirmText = stringResource(Res.string.common_create),
+        onConfirm = { onConfirm(name) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = name.isNotBlank(),
+        confirmBusy = isCreating,
+        dismissEnabled = !isCreating,
+    ) {
+        ListenUpTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = stringResource(Res.string.admin_collection_name),
+            enabled = !isCreating,
+            supportingText = stringResource(Res.string.admin_enter_a_name_for_the),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        )
+    }
 }

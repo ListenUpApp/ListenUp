@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +37,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookContributor
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_authors
@@ -46,6 +46,7 @@ import listenup.composeapp.generated.resources.book_detail_cast_count_narrators
 import listenup.composeapp.generated.resources.book_detail_done
 import listenup.composeapp.generated.resources.book_detail_full_cast
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.material3.BottomSheetDefaults
 
 /** Which contributor role a [FullCastSheet] is showing — selected by a folded hero line. */
 enum class CastRole { Authors, Narrators }
@@ -149,22 +150,12 @@ private fun FullCastBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = {
-            Surface(
-                modifier =
-                    Modifier
-                        .padding(vertical = 12.dp)
-                        .size(width = 32.dp, height = 4.dp),
-                shape = RoundedCornerShape(2.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            ) {}
-        },
+        shape = BottomSheetDefaults.ExpandedShape,
     ) {
         CastHeader(
             title = title,
             countText = countText,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.sm),
         )
         LazyColumn(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -193,7 +184,7 @@ private fun FullCastDialog(
     val haptics = LocalHaptics.current
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(),
         ) {
@@ -208,7 +199,7 @@ private fun FullCastDialog(
                         Modifier
                             .heightIn(max = 440.dp)
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     contributors.chunked(2).forEachIndexed { rowIndex, pair ->
@@ -226,7 +217,11 @@ private fun FullCastDialog(
                     }
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+                    modifier =
+                        Modifier.fillMaxWidth().padding(
+                            horizontal = Spacing.screenMargin,
+                            vertical = Spacing.xs,
+                        ),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(

@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.admin.import
 
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,11 +21,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CloudUpload
@@ -70,6 +70,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.StatTile
 import com.calypsan.listenup.client.design.components.StatTileTone
 import com.calypsan.listenup.client.design.components.WizardStepTracker
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.imports.BookSearchState
@@ -342,7 +343,7 @@ private fun IdleContent(onChooseFile: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
@@ -475,7 +476,7 @@ private fun AnalyzingContent(state: ImportFlowUiState.Analyzing) {
             StatTile(
                 value = state.booksMatched.toString(),
                 label = stringResource(Res.string.import_review_books_section),
-                icon = Icons.AutoMirrored.Filled.LibraryBooks,
+                icon = Icons.AutoMirrored.Outlined.LibraryBooks,
                 colors = StatTileTone.tertiary(),
                 modifier = Modifier.weight(1f),
             )
@@ -655,7 +656,10 @@ private fun UserMatchCard(
                 else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
             },
     ) {
-        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             UserIdentityRow(
                 match = match,
                 matched = matched,
@@ -867,7 +871,10 @@ private fun BookReviewCard(
                 else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
             },
     ) {
-        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             BookTitleRow(
                 item = item,
                 statusText =
@@ -964,7 +971,7 @@ private fun BookSearchPanel(
                     onCloseSearch()
                 },
             ) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.import_book_search_cancel))
+                Icon(Icons.Outlined.Close, contentDescription = stringResource(Res.string.import_book_search_cancel))
             }
         }
         if (bookSearch.query.isNotBlank() && !bookSearch.isSearching && bookSearch.results.isEmpty()) {
@@ -999,7 +1006,7 @@ private fun BookSearchPanel(
 private fun ApplyingContent(state: ImportFlowUiState.Applying) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ScallopMedallion(icon = Icons.Filled.Storage, size = 64.dp, iconSize = 30.dp)
+            ScallopMedallion(icon = Icons.Outlined.Storage, size = 64.dp, iconSize = 30.dp)
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
@@ -1035,7 +1042,7 @@ private fun ApplyingContent(state: ImportFlowUiState.Applying) {
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(Spacing.lg)) {
                     Text(
                         text = stringResource(Res.string.import_currently_writing_label),
                         style = MaterialTheme.typography.labelMedium,
@@ -1051,7 +1058,7 @@ private fun ApplyingContent(state: ImportFlowUiState.Applying) {
         StatTile(
             value = state.sessionsWritten.toString(),
             label = stringResource(Res.string.import_stat_sessions_written),
-            icon = Icons.Filled.GraphicEq,
+            icon = Icons.Outlined.GraphicEq,
             colors = StatTileTone.primary(),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -1071,7 +1078,7 @@ private fun DoneContent(
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.primary) {
             Icon(
-                imageVector = Icons.Filled.Check,
+                imageVector = Icons.Outlined.Check,
                 contentDescription = null,
                 modifier = Modifier.size(52.dp),
                 tint = MaterialTheme.colorScheme.onPrimary,
@@ -1101,7 +1108,7 @@ private fun DoneContent(
             StatTile(
                 value = result.sessionsImported.toString(),
                 label = stringResource(Res.string.import_stat_sessions_imported),
-                icon = Icons.Filled.GraphicEq,
+                icon = Icons.Outlined.GraphicEq,
                 colors = StatTileTone.tertiary(),
                 modifier = Modifier.weight(1f),
             )
@@ -1115,7 +1122,7 @@ private fun DoneContent(
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Outlined.SkipNext,
                         contentDescription = null,
@@ -1146,7 +1153,7 @@ private fun DoneContent(
         ListenUpButton(
             text = stringResource(Res.string.import_finish),
             onClick = onFinish,
-            leadingIcon = Icons.Filled.Check,
+            leadingIcon = Icons.Outlined.Check,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -1166,7 +1173,7 @@ private fun ErrorContent(
     ) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
             Icon(
-                imageVector = Icons.Filled.Close,
+                imageVector = Icons.Outlined.Close,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.error,

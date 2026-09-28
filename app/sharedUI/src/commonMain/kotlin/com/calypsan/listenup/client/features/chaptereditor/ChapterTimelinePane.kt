@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
@@ -50,8 +49,9 @@ import listenup.composeapp.generated.resources.chapter_editor_zoom_hint
 import listenup.composeapp.generated.resources.chapter_editor_zoom_in
 import listenup.composeapp.generated.resources.chapter_editor_zoom_out
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
-private val TIMELINE_PANE_SHAPE = RoundedCornerShape(24.dp)
+private val TIMELINE_PANE_SHAPE = ContentShapes.card
 private const val MINIMAP_BUCKETS = 90
 
 /** One zoom button press, or one wheel notch: a fifth narrower, or a quarter wider. */
@@ -77,7 +77,7 @@ internal fun ChapterTimelinePane(
     lane: TimelineLane,
     onLaneChange: (TimelineLane) -> Unit,
     selectedChapterId: String?,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
     fileBoundaries: List<TimelineFileBoundary>,
     ghosts: List<TimelineChapter>,
     lockedChapterIds: Set<String>,
@@ -289,7 +289,7 @@ private fun LaneReadout(
         modifier =
             modifier
                 .padding(8.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(MaterialTheme.colorScheme.tertiaryContainer)
                 .padding(horizontal = 8.dp, vertical = 4.dp),
     )

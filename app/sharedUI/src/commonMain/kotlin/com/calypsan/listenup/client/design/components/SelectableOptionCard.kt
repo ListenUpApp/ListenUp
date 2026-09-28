@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,8 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
-private const val SUBTITLE_ALPHA = 0.85f
 private val INDICATOR_SIZE = 24.dp
 
 /**
@@ -58,13 +61,15 @@ fun SelectableOptionCard(
     val containerColor = if (selected) colors.secondaryContainer else colors.surfaceContainerLow
     val titleColor = if (selected) colors.onSecondaryContainer else colors.onSurface
     val subtitleColor =
-        if (selected) colors.onSecondaryContainer.copy(alpha = SUBTITLE_ALPHA) else colors.onSurfaceVariant
+        if (selected) HeroInk.muted(colors.onSecondaryContainer, colors.secondaryContainer) else colors.onSurfaceVariant
     Surface(
+        selected = selected,
         onClick = {
             haptics.press()
             onClick()
         },
-        modifier = modifier,
+        // One of a mutually-exclusive set, so TalkBack hears "selected" — not only a colour change.
+        modifier = modifier.semantics { role = Role.RadioButton },
         shape = MaterialTheme.shapes.large,
         color = containerColor,
         border = if (selected) BorderStroke(2.dp, colors.secondary) else null,

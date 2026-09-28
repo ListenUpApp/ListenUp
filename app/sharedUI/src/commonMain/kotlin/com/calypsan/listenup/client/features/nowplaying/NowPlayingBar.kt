@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.MinTouchTarget
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -18,7 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +38,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
@@ -44,6 +48,9 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
 import listenup.composeapp.generated.resources.player_skip_backward
 import org.jetbrains.compose.resources.stringResource
+
+/** A mini-player control's glyph — the size the bars were drawn at, kept while the targets grew to 48dp. */
+internal val MiniPlayerGlyphSize = 20.dp
 
 /**
  * Floating mini-player card docked above the bottom navigation.
@@ -95,8 +102,9 @@ fun NowPlayingBar(
             interactionSource = interactionSource,
             modifier =
                 Modifier
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                    .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm)
                     .fillMaxWidth()
+                    .semantics { role = Role.Button }
                     .swipeUpToExpand(onTap)
                     .graphicsLayer {
                         scaleX = focusScale
@@ -113,9 +121,9 @@ fun NowPlayingBar(
                         },
                     ),
             shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
+            // Tonal, not shadowed: the highest container level lifts it off the content it floats
+            // over; only covers cast shadows (DESIGN.md, Books-Cast-Shadows).
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
         ) {
             if (state is NowPlayingState.Active) {
                 MiniPlayerContent(
@@ -160,7 +168,7 @@ private fun MiniPlayerContent(
                 modifier =
                     Modifier
                         .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp)),
+                        .clip(MaterialTheme.shapes.small),
             )
 
             Spacer(Modifier.width(4.dp))
@@ -193,7 +201,8 @@ private fun MiniPlayerContent(
                 icon = SkipGlyphs.backward(skipBackwardSec),
                 contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
                 onClick = onSkipBack,
-                size = 40.dp,
+                size = MinTouchTarget,
+                iconSize = MiniPlayerGlyphSize,
                 tint = MaterialTheme.colorScheme.onSurface,
             )
 
@@ -205,7 +214,6 @@ private fun MiniPlayerContent(
                 isBuffering = state.isBuffering || isPlayPending,
                 onClick = onPlayPause,
                 size = 48.dp,
-                shadowElevation = 0.dp,
             )
         }
 

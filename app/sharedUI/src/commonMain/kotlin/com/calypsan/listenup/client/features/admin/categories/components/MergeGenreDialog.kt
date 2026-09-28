@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.categories.components
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.Genre
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_merge_confirm
@@ -66,7 +65,6 @@ internal fun MergeGenreDialog(
     onConfirm: (targetId: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var selectedId by remember { mutableStateOf<String?>(null) }
     // Derived, not stored: if the selected candidate is renamed or removed out from under an
     // open dialog, `target` goes null on the next recomposition and every slot below falls
@@ -74,51 +72,32 @@ internal fun MergeGenreDialog(
     // irreversible action, so it must never render a confirm screen from a stale snapshot.
     val target = candidates.firstOrNull { it.id == selectedId }
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = {
             if (target != null) selectedId = null else onDismiss()
         },
-        title = {
+        title =
             if (target != null) {
-                Text(stringResource(Res.string.admin_merge_genre_confirm_title, target.name))
+                stringResource(Res.string.admin_merge_genre_confirm_title, target.name)
             } else {
-                Text(stringResource(Res.string.admin_merge_into_named, sourceName))
-            }
-        },
-        text = {
-            if (target != null) {
-                ConfirmBody(
-                    sourceName = sourceName,
-                    sourceBookCount = sourceBookCount,
-                    targetName = target.name,
-                )
-            } else {
-                CandidateList(candidates = candidates, onSelect = { selectedId = it.id })
-            }
-        },
-        confirmButton = {
-            if (target != null) {
-                TextButton(
-                    onClick = {
-                        haptics.commit()
-                        onConfirm(target.id)
-                    },
-                ) {
-                    Text(
-                        text = stringResource(Res.string.admin_merge_confirm),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        },
-        dismissButton = {
-            if (target != null) {
-                TextButton(onClick = { selectedId = null }) { Text(stringResource(Res.string.common_back)) }
-            } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
-            }
-        },
-    )
+                stringResource(Res.string.admin_merge_into_named, sourceName)
+            },
+        confirmText = target?.let { stringResource(Res.string.admin_merge_confirm) },
+        onConfirm = { target?.let { onConfirm(it.id) } },
+        confirmColor = MaterialTheme.colorScheme.error,
+        dismissText = stringResource(if (target != null) Res.string.common_back else Res.string.common_cancel),
+        onDismiss = { if (target != null) selectedId = null else onDismiss() },
+    ) {
+        if (target != null) {
+            ConfirmBody(
+                sourceName = sourceName,
+                sourceBookCount = sourceBookCount,
+                targetName = target.name,
+            )
+        } else {
+            CandidateList(candidates = candidates, onSelect = { selectedId = it.id })
+        }
+    }
 }
 
 @Composable

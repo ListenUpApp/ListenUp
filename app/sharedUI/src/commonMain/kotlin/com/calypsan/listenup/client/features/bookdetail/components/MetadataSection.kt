@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -27,6 +26,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /** Tone variants for [StatChip]. */
 enum class StatChipTone {
@@ -117,7 +117,7 @@ fun StatChip(
         when (tone) {
             StatChipTone.Surface -> {
                 if (onHeroBand) {
-                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                    HeroInk.wash()
                 } else {
                     MaterialTheme.colorScheme.surfaceContainerHigh
                 }
@@ -150,7 +150,7 @@ fun StatChip(
             }
         }
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.medium,
         color = containerColor,
         contentColor = contentColor,
     ) {

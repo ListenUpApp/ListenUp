@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.animation.core.Spring
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -63,11 +62,8 @@ fun ProvideNowPlayingInsets(
     val target = nowPlayingClearance(barVisible, latchedFootprint)
     val animated by animateDpAsState(
         targetValue = target,
-        animationSpec =
-            spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessMediumLow,
-            ),
+        // Matches the mini-player's own move (NowPlayingHost), so content clears it in step.
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "nowPlayingInset",
     )
     CompositionLocalProvider(

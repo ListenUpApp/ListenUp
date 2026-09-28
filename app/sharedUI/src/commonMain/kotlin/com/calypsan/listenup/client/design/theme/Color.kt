@@ -5,9 +5,11 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
 /**
- * ListenUp brand color — the vivid coral (#F0512F) used for primary actions, the brand
- * mark, FABs, and focused field accents. This is the [primary] of the fallback scheme;
- * when Material You (dynamic color) is active it is replaced by the wallpaper-derived hue.
+ * ListenUp brand color — Lamp Coral (#F0512F), the vivid coral of the brand mark. It is the
+ * brand, not a fill: white text on it is only 3.5:1, so the light fallback scheme's `primary`
+ * (filled buttons, FABs, selected indicators, focused field accents) is a deeper coral at the
+ * same OKLCH hue and chroma that carries white text at WCAG AA. When Material You (dynamic
+ * color) is active both are replaced by the wallpaper-derived hue.
  *
  * Values below mirror the Material 3 Expressive token sheet the design mocks are built from
  * (warm coral primary, warm-neutral surfaces, amber-gold tertiary, blue-grey muted ink).
@@ -18,7 +20,8 @@ val ListenUpOrange = Color(0xFFF0512F)
 // LIGHT — M3 Expressive tokens, coral brand seed
 // =============================================================================
 
-private val md_theme_light_primary = Color(0xFFF0512F)
+// Lamp Coral deepened in OKLCH lightness only (same hue and chroma): white on it is 4.7:1.
+private val md_theme_light_primary = Color(0xFFD73812)
 private val md_theme_light_onPrimary = Color(0xFFFFFFFF)
 private val md_theme_light_primaryContainer = Color(0xFFFFDBD0)
 private val md_theme_light_onPrimaryContainer = Color(0xFF3A0A00)
@@ -69,7 +72,10 @@ private val md_theme_light_scrim = Color(0xFF000000)
 
 private val md_theme_dark_primary = Color(0xFFFF6A3D)
 private val md_theme_dark_onPrimary = Color(0xFF471000)
-private val md_theme_dark_primaryContainer = Color(0xFFA8331A)
+
+// Banked embers: the coral hue taken deep (gamut-max chroma) so onPrimaryContainer reads at 8.2:1
+// and HeroInk's quiet tiers sit at their preferred alphas instead of climbing to reach AA.
+private val md_theme_dark_primaryContainer = Color(0xFF7C1700)
 private val md_theme_dark_onPrimaryContainer = Color(0xFFFFDBD0)
 
 private val md_theme_dark_secondary = Color(0xFFE7BDB1)

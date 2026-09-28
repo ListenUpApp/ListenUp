@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import androidx.compose.material.icons.automirrored.outlined.CallMerge
+import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import listenup.composeapp.generated.resources.merge_history_section_title
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.client.features.merge.MergeHistoryList
@@ -22,17 +29,13 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Card
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,7 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
+import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -67,6 +70,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDialog
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
@@ -97,6 +101,10 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Series Edit Screen — edit series metadata and cover.
@@ -104,7 +112,7 @@ import androidx.compose.foundation.text.KeyboardOptions
  * Layout:
  * - Color-blocked [SeriesIdentityHeader] hero (primaryContainer): cover + editable name + overflow
  * - Description card
- * - Extended FAB for save action
+ * - Save as a top-bar action, disabled until something changes
  */
 @Composable
 fun SeriesEditScreen(
@@ -144,15 +152,6 @@ fun SeriesEditScreen(
 
     ListenUpScaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        floatingActionButton = {
-            if (!state.isLoading) {
-                SaveFab(
-                    hasChanges = state.hasChanges,
-                    isSaving = state.isSaving,
-                    onSave = { viewModel.onEvent(SeriesEditUiEvent.SaveClicked) },
-                )
-            }
-        },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
             when {
@@ -249,7 +248,7 @@ private fun SeriesOverflowMenu(
             },
         ) {
             Icon(
-                imageVector = Icons.Default.MoreVert,
+                imageVector = Icons.Outlined.MoreVert,
                 contentDescription = stringResource(Res.string.book_detail_more_options),
             )
         }
@@ -259,7 +258,7 @@ private fun SeriesOverflowMenu(
         ) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.series_merge_into)) },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, null) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, null) },
                 onClick = {
                     expanded = false
                     onMergeClick()
@@ -267,25 +266,6 @@ private fun SeriesOverflowMenu(
             )
         }
     }
-}
-
-// =============================================================================
-// FLOATING ACTION BUTTON
-// =============================================================================
-
-@Composable
-private fun SaveFab(
-    hasChanges: Boolean,
-    isSaving: Boolean,
-    onSave: () -> Unit,
-) {
-    ListenUpExtendedFab(
-        onClick = onSave,
-        icon = Icons.Default.Save,
-        text = if (isSaving) "Saving..." else "Save Changes",
-        enabled = hasChanges && !isSaving,
-        isLoading = isSaving,
-    )
 }
 
 // =============================================================================
@@ -379,35 +359,39 @@ private fun SeriesEditContent(
             onCoverClick = { imagePicker.launch() },
             onMergeClick = onMergeClick,
             onBackClick = onBackClick,
+            saveAction = {
+                SaveAction(
+                    onClick = { onEvent(SeriesEditUiEvent.SaveClicked) },
+                    enabled = state.hasChanges,
+                    isBusy = state.isSaving,
+                )
+            },
         )
 
-        // Cards section
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            // Description card
-            SeriesStudioCard(title = stringResource(Res.string.common_description)) {
-                ListenUpTextArea(
-                    value = state.description,
-                    onValueChange = { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) },
-                    label = "Description",
-                    placeholder = stringResource(Res.string.series_enter_a_description_for_this),
-                )
+        // Cards section — side by side from medium width, like ContributorEdit's studio cards.
+        val isMediumOrLarger =
+            currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+            )
+        if (isMediumOrLarger) {
+            Row(
+                modifier = Modifier.padding(Spacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
+            ) {
+                DescriptionCard(state = state, onEvent = onEvent, modifier = Modifier.weight(1f))
+                MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent, modifier = Modifier.weight(1f))
             }
-
-            // The merges folded into this series, each undoable (#1061).
-            SeriesStudioCard(title = stringResource(Res.string.merge_history_section_title)) {
-                MergeHistoryList(
-                    state = mergeHistory,
-                    onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
-                    onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
-                )
+        } else {
+            Column(
+                modifier = Modifier.padding(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                DescriptionCard(state = state, onEvent = onEvent)
+                MergeHistoryCard(mergeHistory = mergeHistory, onEvent = onEvent)
             }
         }
 
-        // Bottom spacing for FAB
-        Spacer(modifier = Modifier.height(88.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
     }
 }
 
@@ -425,13 +409,14 @@ private fun SeriesIdentityHeader(
     onCoverClick: () -> Unit,
     onMergeClick: () -> Unit,
     onBackClick: () -> Unit,
+    saveAction: @Composable () -> Unit,
 ) {
     val haptics = LocalHaptics.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(
             modifier =
@@ -442,7 +427,7 @@ private fun SeriesIdentityHeader(
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 24.dp),
         ) {
-            // Top row: back navigation + screen title + overflow
+            // Top row: back navigation + screen title + Save + overflow
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -463,8 +448,9 @@ private fun SeriesIdentityHeader(
                     text = stringResource(Res.string.series_edit_series),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).semantics { heading() },
                 )
+                saveAction()
                 SeriesOverflowMenu(onMergeClick = onMergeClick)
             }
 
@@ -479,7 +465,7 @@ private fun SeriesIdentityHeader(
                 // Large editable cover (120dp) - tappable for upload
                 ElevatedCard(
                     onClick = onCoverClick,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = ContentShapes.card,
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
                     colors =
                         CardDefaults.elevatedCardColors(
@@ -500,7 +486,7 @@ private fun SeriesIdentityHeader(
                                 modifier =
                                     Modifier
                                         .fillMaxSize()
-                                        .clip(RoundedCornerShape(16.dp)),
+                                        .clip(ContentShapes.card),
                             )
                         } else {
                             Text(
@@ -512,14 +498,8 @@ private fun SeriesIdentityHeader(
 
                         // Loading overlay during upload
                         if (isUploadingCover) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = 0.5f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                ListenUpLoadingIndicatorSmall(color = Color.White)
+                            CoverScrim(modifier = Modifier.fillMaxSize()) {
+                                ListenUpLoadingIndicatorSmall(color = LocalContentColor.current)
                             }
                         } else {
                             // Edit indicator
@@ -536,7 +516,7 @@ private fun SeriesIdentityHeader(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.CameraAlt,
+                                    imageVector = Icons.Outlined.CameraAlt,
                                     contentDescription = stringResource(Res.string.book_edit_change_cover),
                                     modifier = Modifier.size(18.dp),
                                     tint = MaterialTheme.colorScheme.onPrimary,
@@ -562,19 +542,19 @@ private fun SeriesIdentityHeader(
                         MaterialTheme.typography.headlineSmall.copy(
                             fontFamily = DisplayFontFamily,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                            color = HeroInk.muted(),
                         ),
                     colors =
                         OutlinedTextFieldDefaults.colors(
                             focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             cursorColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+                            focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            unfocusedBorderColor = HeroInk.outline(),
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
                         ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
@@ -584,22 +564,55 @@ private fun SeriesIdentityHeader(
 }
 
 // =============================================================================
-// STUDIO CARD
+// STUDIO CARDS
 // =============================================================================
+
+@Composable
+private fun DescriptionCard(
+    state: SeriesEditUiState,
+    onEvent: (SeriesEditUiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SeriesStudioCard(title = stringResource(Res.string.common_description), modifier = modifier) {
+        ListenUpTextArea(
+            value = state.description,
+            onValueChange = { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) },
+            label = "Description",
+            placeholder = stringResource(Res.string.series_enter_a_description_for_this),
+        )
+    }
+}
+
+/** The merges folded into this series, each undoable (#1061). */
+@Composable
+private fun MergeHistoryCard(
+    mergeHistory: MergeHistoryState,
+    onEvent: (SeriesEditUiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SeriesStudioCard(title = stringResource(Res.string.merge_history_section_title), modifier = modifier) {
+        MergeHistoryList(
+            state = mergeHistory,
+            onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
+            onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
+        )
+    }
+}
 
 @Composable
 private fun SeriesStudioCard(
     title: String,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = ContentShapes.card,
         colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            CardDefaults.cardColors(
+                // High, as the book editor's StudioCard: with the shadow gone, the lift is the container level.
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),

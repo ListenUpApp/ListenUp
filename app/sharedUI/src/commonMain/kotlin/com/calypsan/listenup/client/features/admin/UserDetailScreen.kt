@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.admin
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.components.SectionColumns
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,26 +18,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
+import com.calypsan.listenup.client.design.components.SegmentedGroup
+import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
@@ -61,6 +67,7 @@ import listenup.composeapp.generated.resources.common_entity_information
 import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.common_role
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Screen for viewing and editing a single user's details and permissions.
@@ -92,23 +99,9 @@ fun UserDetailScreen(
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    val title =
-                        (state as? UserDetailUiState.Ready)?.user?.displayableName
-                            ?: "User Details"
-                    Text(title)
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onBackClick()
-                        },
-                    ) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
-                    }
-                },
+            ListenUpTopAppBar(
+                title = (state as? UserDetailUiState.Ready)?.user?.displayableName ?: "User Details",
+                onBack = onBackClick,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -161,65 +154,119 @@ private fun UserDetailBody(
     }
 }
 
+/**
+ * The screen's loaded body, hosted by its scaffold. A phone stacks who the user is over what they may
+ * do. From the medium width up the two sit side by side in [SectionColumns], so an admin reads the
+ * person and their permissions in one glance.
+ */
 @Composable
-private fun UserDetailContent(
+internal fun UserDetailContent(
     state: UserDetailUiState.Ready,
     onToggleCanEdit: () -> Unit,
     onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-    ) {
-        // User info section
-        item {
-            Text(
-                text = stringResource(Res.string.common_entity_information, "User"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-            )
-        }
-
-        item {
-            UserInfoCard(user = state.user)
-        }
-
-        // Permissions section
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(Res.string.common_permissions),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        item {
-            PermissionsCard(
-                canEdit = state.canEdit,
-                canShare = state.canShare,
-                isProtected = state.isProtected,
-                isSaving = state.isSaving,
-                onToggleCanEdit = onToggleCanEdit,
-                onToggleCanShare = onToggleCanShare,
-            )
-        }
-
-        // Protected user notice
-        if (state.isProtected) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                ProtectedUserNotice()
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    if (isWide) {
+        SectionColumns(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.screenMargin, vertical = 16.dp),
+        ) {
+            section {
+                Column {
+                    SectionHeading(stringResource(Res.string.common_entity_information, "User"))
+                    UserInfoCard(user = state.user)
+                }
+            }
+            section {
+                Column {
+                    SectionHeading(stringResource(Res.string.common_permissions))
+                    PermissionsSection(
+                        state = state,
+                        onToggleCanEdit = onToggleCanEdit,
+                        onToggleCanShare = onToggleCanShare,
+                    )
+                }
             }
         }
+    } else {
+        LazyColumn(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(horizontal = Spacing.screenMargin),
+        ) {
+            // User info section
+            item {
+                SectionHeading(
+                    text = stringResource(Res.string.common_entity_information, "User"),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
 
-        item {
+            item {
+                UserInfoCard(user = state.user)
+            }
+
+            // Permissions section
+            item {
+                Spacer(modifier = Modifier.height(Spacing.xl))
+                SectionHeading(stringResource(Res.string.common_permissions))
+            }
+
+            item {
+                PermissionsSection(
+                    state = state,
+                    onToggleCanEdit = onToggleCanEdit,
+                    onToggleCanShare = onToggleCanShare,
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeading(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.padding(bottom = 8.dp),
+    )
+}
+
+/** The permission switches, and — for a protected user — the notice saying why they are locked. */
+@Composable
+private fun PermissionsSection(
+    state: UserDetailUiState.Ready,
+    onToggleCanEdit: () -> Unit,
+    onToggleCanShare: () -> Unit,
+) {
+    Column {
+        PermissionsCard(
+            canEdit = state.canEdit,
+            canShare = state.canShare,
+            isProtected = state.isProtected,
+            isSaving = state.isSaving,
+            onToggleCanEdit = onToggleCanEdit,
+            onToggleCanShare = onToggleCanShare,
+        )
+        if (state.isProtected) {
             Spacer(modifier = Modifier.height(16.dp))
+            ProtectedUserNotice()
         }
     }
 }
@@ -229,11 +276,11 @@ private fun UserInfoCard(
     user: AdminUserInfo,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors =
-            CardDefaults.elevatedCardColors(
+            CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
     ) {
@@ -241,7 +288,7 @@ private fun UserInfoCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Name row
@@ -350,37 +397,27 @@ private fun PermissionsCard(
     onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Column {
-            // Can Edit — the permission UserPermissionPolicy gates every metadata mutation on.
-            // It had no UI at all until #1270, so a member could never be granted edit rights.
-            PermissionRow(
-                icon = Icons.Outlined.Edit,
-                title = stringResource(Res.string.admin_can_edit),
-                subtitle = stringResource(Res.string.admin_allow_editing_content_metadata),
-                checked = canEdit,
-                isProtected = isProtected,
-                isSaving = isSaving,
-                onToggle = onToggleCanEdit,
-            )
-            HorizontalDivider()
-            PermissionRow(
-                icon = Icons.Outlined.Share,
-                title = stringResource(Res.string.admin_can_share),
-                subtitle = stringResource(Res.string.admin_allow_sharing_collections_with_other),
-                checked = canShare,
-                isProtected = isProtected,
-                isSaving = isSaving,
-                onToggle = onToggleCanShare,
-            )
-        }
+    SegmentedGroup(modifier = modifier) {
+        // Can Edit — the permission UserPermissionPolicy gates every metadata mutation on.
+        // It had no UI at all until #1270, so a member could never be granted edit rights.
+        PermissionRow(
+            icon = Icons.Outlined.Edit,
+            title = stringResource(Res.string.admin_can_edit),
+            subtitle = stringResource(Res.string.admin_allow_editing_content_metadata),
+            checked = canEdit,
+            isProtected = isProtected,
+            isSaving = isSaving,
+            onToggle = onToggleCanEdit,
+        )
+        PermissionRow(
+            icon = Icons.Outlined.Share,
+            title = stringResource(Res.string.admin_can_share),
+            subtitle = stringResource(Res.string.admin_allow_sharing_collections_with_other),
+            checked = canShare,
+            isProtected = isProtected,
+            isSaving = isSaving,
+            onToggle = onToggleCanShare,
+        )
     }
 }
 
@@ -398,50 +435,31 @@ private fun PermissionRow(
     isSaving: Boolean,
     onToggle: () -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (isSaving) {
+    if (isSaving) {
+        // While the change is in flight the row shows progress rather than a switch that could be
+        // flipped again mid-save.
+        SettingRow(icon = icon, title = title, subtitle = subtitle) {
             ListenUpLoadingIndicatorSmall()
-        } else {
-            Switch(
-                checked = checked,
-                onCheckedChange = { onToggle() },
-                enabled = !isProtected,
-            )
         }
+    } else {
+        SettingToggleRow(
+            icon = icon,
+            title = title,
+            subtitle = subtitle,
+            checked = checked,
+            enabled = !isProtected,
+            onCheckedChange = { onToggle() },
+        )
     }
 }
 
 @Composable
 private fun ProtectedUserNotice(modifier: Modifier = Modifier) {
-    ElevatedCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors =
-            CardDefaults.elevatedCardColors(
+            CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             ),
     ) {
@@ -449,7 +467,7 @@ private fun ProtectedUserNotice(modifier: Modifier = Modifier) {
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -467,7 +485,11 @@ private fun ProtectedUserNotice(modifier: Modifier = Modifier) {
                 Text(
                     text = stringResource(Res.string.admin_this_users_permissions_cannot_be),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                    color =
+                        HeroInk.muted(
+                            MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                        ),
                 )
             }
         }

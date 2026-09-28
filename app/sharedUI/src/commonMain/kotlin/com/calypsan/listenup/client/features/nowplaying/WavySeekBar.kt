@@ -21,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -155,10 +154,9 @@ fun WavySeekBar(
                         val thumbOffset = (displayProgress * (trackWidth - thumbSizePx)).roundToInt()
                         IntOffset(thumbOffset, 0)
                     }.size(thumbSize)
-                    .shadow(
-                        elevation = if (isDragging) 8.dp else 4.dp,
-                        shape = CircleShape,
-                    ).clip(CircleShape)
+                    // No shadow: the thumb is a control on the player's own surface, not media
+                    // floating over content, so it stays flat like Material's slider handle.
+                    .clip(CircleShape)
                     .background(color),
         )
     }

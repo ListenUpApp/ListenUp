@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SearchOff
@@ -25,12 +30,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,11 +49,13 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_image
+import listenup.composeapp.generated.resources.common_name
+import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_apply_match
 import listenup.composeapp.generated.resources.contributor_audible
 import listenup.composeapp.generated.resources.contributor_change_match
@@ -69,8 +74,13 @@ import org.jetbrains.compose.resources.stringResource
  * region switch (Never-Stranded — an empty regional shell is an honest miss, not a blank
  * preview), a Failed state, and the Ready compare view. There are no per-field checkboxes:
  * the server applies asin + biography + photo, never the name — the compare rows are
- * informational. The Apply bar renders ONLY in Ready, so a non-ready state can never sit
+ * informational. The Apply actions render ONLY in Ready, so a non-ready state can never sit
  * above a live Apply button.
+ *
+ * A phone stacks the comparisons above a bottom action bar. From the expanded width, who the
+ * contributor is — the photo, the name, and the actions that commit to them — becomes a side panel,
+ * and the two biographies are read in full, side by side, beside it: the biography is the long field
+ * and the one worth comparing line by line.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,28 +93,20 @@ fun ContributorMetadataPreviewScreen(
 ) {
     val haptics = LocalHaptics.current
     val ready = state.loadState as? ContributorPreviewLoadState.Ready
+    val panelBeside =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
+        )
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.contributor_preview_changes)) },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.contributor_preview_changes),
+                onBack = onBack,
             )
         },
         bottomBar = {
-            if (ready != null) {
+            if (ready != null && !panelBeside) {
                 PreviewBottomBar(
                     applyError = ready.applyError,
                     isApplying = ready.isApplying,
@@ -159,13 +161,31 @@ fun ContributorMetadataPreviewScreen(
             }
 
             is ContributorPreviewLoadState.Ready -> {
-                ReadyContent(
-                    currentName = state.context.current?.name,
-                    currentDescription = state.context.current?.description,
-                    currentImagePath = state.context.current?.imagePath,
-                    profile = loadState.profile,
-                    padding = padding,
-                )
+                if (panelBeside) {
+                    ReadyWideContent(
+                        currentName = state.context.current?.name,
+                        currentDescription = state.context.current?.description,
+                        currentImagePath = state.context.current?.imagePath,
+                        profile = loadState.profile,
+                        padding = padding,
+                        actions = {
+                            PreviewActions(
+                                applyError = loadState.applyError,
+                                isApplying = loadState.isApplying,
+                                onApply = onApply,
+                                onChangeMatch = onChangeMatch,
+                            )
+                        },
+                    )
+                } else {
+                    ReadyContent(
+                        currentName = state.context.current?.name,
+                        currentDescription = state.context.current?.description,
+                        currentImagePath = state.context.current?.imagePath,
+                        profile = loadState.profile,
+                        padding = padding,
+                    )
+                }
             }
         }
     }
@@ -215,7 +235,7 @@ private fun MissingProfileContent(
                     )
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Spacing.xl))
             OutlinedButton(onClick = onChangeMatch) {
                 Text(stringResource(Res.string.contributor_change_match))
             }
@@ -231,32 +251,50 @@ private fun PreviewBottomBar(
     onChangeMatch: () -> Unit,
 ) {
     Surface(tonalElevation = 3.dp) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            applyError?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
+        PreviewActions(
+            applyError = applyError,
+            isApplying = isApplying,
+            onApply = onApply,
+            onChangeMatch = onChangeMatch,
+            modifier = Modifier.padding(Spacing.lg),
+        )
+    }
+}
+
+/** The apply error, if any, over Change Match and Apply — the phone's bottom bar, or the foot of the wide panel. */
+@Composable
+private fun PreviewActions(
+    applyError: String?,
+    isApplying: Boolean,
+    onApply: () -> Unit,
+    onChangeMatch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        applyError?.let { error ->
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(onClick = onChangeMatch, modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.contributor_change_match))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Button(
+                onClick = onApply,
+                enabled = !isApplying,
+                modifier = Modifier.weight(1f),
             ) {
-                OutlinedButton(onClick = onChangeMatch, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(Res.string.contributor_change_match))
-                }
-                Button(
-                    onClick = onApply,
-                    enabled = !isApplying,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    if (isApplying) {
-                        ListenUpLoadingIndicatorSmall(color = MaterialTheme.colorScheme.onPrimary)
-                    } else {
-                        Text(stringResource(Res.string.contributor_apply_match))
-                    }
+                if (isApplying) {
+                    ListenUpLoadingIndicatorSmall(color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Text(stringResource(Res.string.contributor_apply_match))
                 }
             }
         }
@@ -273,7 +311,7 @@ private fun ReadyContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
@@ -284,18 +322,111 @@ private fun ReadyContent(
         }
         item {
             TextComparisonRow(
-                label = "Name",
+                label = stringResource(Res.string.common_name),
                 currentValue = currentName,
                 newValue = profile.name,
             )
         }
         item {
             TextComparisonRow(
-                label = "Biography",
+                label = stringResource(Res.string.contributor_biography),
                 currentValue = currentDescription,
                 newValue = profile.description,
                 isMultiline = true,
             )
+        }
+    }
+}
+
+/** Width of the wide layout's identity panel — one comfortable card column. */
+private val IdentityPanelWidth = 360.dp
+
+/**
+ * The expanded-width Ready view: an identity panel (photo, name, then [actions]) beside the two
+ * biographies read in full, side by side.
+ */
+@Suppress("LongParameterList")
+@Composable
+private fun ReadyWideContent(
+    currentName: String?,
+    currentDescription: String?,
+    currentImagePath: String?,
+    profile: MetadataContributorProfile,
+    padding: PaddingValues,
+    actions: @Composable () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .width(IdentityPanelWidth)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            ImageComparisonRow(
+                currentImagePath = currentImagePath,
+                newImageUrl = profile.imageUrl,
+            )
+            TextComparisonRow(
+                label = stringResource(Res.string.common_name),
+                currentValue = currentName,
+                newValue = profile.name,
+            )
+            actions()
+        }
+        Box(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 16.dp),
+        ) {
+            BiographyComparison(currentValue = currentDescription, newValue = profile.description)
+        }
+    }
+}
+
+/** The current and incoming biographies in two columns, unclamped — the wide layout has the room to read both. */
+@Composable
+private fun BiographyComparison(
+    currentValue: String?,
+    newValue: String?,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
+            Text(
+                text = stringResource(Res.string.contributor_biography),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    ComparisonValue(
+                        labelText = stringResource(Res.string.contributor_current),
+                        value = currentValue,
+                        maxLines = Int.MAX_VALUE,
+                        accent = false,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    ComparisonValue(
+                        labelText = stringResource(Res.string.contributor_audible),
+                        value = newValue,
+                        maxLines = Int.MAX_VALUE,
+                        accent = true,
+                    )
+                }
+            }
         }
     }
 }
@@ -312,7 +443,7 @@ private fun ImageComparisonRow(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
             Text(
                 text = stringResource(Res.string.common_image),
                 style = MaterialTheme.typography.labelLarge,
@@ -361,7 +492,7 @@ private fun ImageComparisonRow(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
                                     modifier = Modifier.size(40.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    tint = MaterialTheme.colorScheme.outline,
                                 )
                             }
                         }
@@ -374,7 +505,7 @@ private fun ImageComparisonRow(
                             if (hasNewImage) {
                                 MaterialTheme.colorScheme.primary
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             },
                     )
                 }
@@ -397,7 +528,7 @@ private fun TextComparisonRow(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
@@ -407,14 +538,14 @@ private fun TextComparisonRow(
             ComparisonValue(
                 labelText = stringResource(Res.string.contributor_current),
                 value = currentValue,
-                isMultiline = isMultiline,
+                maxLines = if (isMultiline) 6 else 2,
                 accent = false,
             )
             Spacer(Modifier.height(12.dp))
             ComparisonValue(
                 labelText = stringResource(Res.string.contributor_audible),
                 value = newValue,
-                isMultiline = isMultiline,
+                maxLines = if (isMultiline) 6 else 2,
                 accent = true,
             )
         }
@@ -426,7 +557,7 @@ private fun TextComparisonRow(
 private fun ComparisonValue(
     labelText: String,
     value: String?,
-    isMultiline: Boolean,
+    maxLines: Int,
     accent: Boolean,
 ) {
     Text(
@@ -443,7 +574,7 @@ private fun ComparisonValue(
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
-        maxLines = if (isMultiline) 6 else 2,
+        maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
     )
 }

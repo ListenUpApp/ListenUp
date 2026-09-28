@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.design.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.runtime.Composable
@@ -13,6 +12,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
 /**
  * Design system component for displaying cover images in elevated cards.
@@ -24,7 +24,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
  * @param contentDescription Accessibility description for the image
  * @param modifier Size and layout modifier for the card
  * @param bookId Book ID for server URL fallback via BookCoverImage (smart loading)
- * @param cornerRadius Rounded corner radius (default: 16.dp)
+ * @param shape Card shape (default: [ContentShapes.card], the cover-tile corner)
  * @param elevation Card elevation (default: 16.dp)
  * @param heroKey Optional shared-element key pairing this cover with its counterpart on another screen
  * @param refreshKey Optional key to force image cache refresh
@@ -41,14 +41,13 @@ fun ElevatedCoverCard(
     author: String? = null,
     coverHash: String? = null,
     heroKey: Any? = null,
-    cornerRadius: Dp = 16.dp,
+    shape: Shape = ContentShapes.card,
     elevation: Dp = 16.dp,
     refreshKey: Any? = null,
     onClick: (() -> Unit)? = null,
     overlay: @Composable (BoxScope.() -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
-    val shape = RoundedCornerShape(cornerRadius)
     val cardElevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation)
 
     if (onClick != null) {

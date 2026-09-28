@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.admin.backup
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import androidx.compose.foundation.layout.widthIn
+import com.calypsan.listenup.client.design.ReadableMeasure
+import com.calypsan.listenup.client.design.components.FlowWithSteps
+import com.calypsan.listenup.client.design.components.flowActionWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,19 +17,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -38,6 +40,7 @@ import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
@@ -47,7 +50,6 @@ import listenup.composeapp.generated.resources.admin_backup
 import listenup.composeapp.generated.resources.admin_restore_backup
 import listenup.composeapp.generated.resources.admin_restored_from
 import listenup.composeapp.generated.resources.admin_schema_migrated
-import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -71,33 +73,58 @@ fun RestoreBackupScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.admin_restore_backup)) },
-                navigationIcon = {
-                    if (canNavigateBack) {
-                        IconButton(
-                            onClick = {
-                                haptics.press()
-                                onBackClick()
-                            },
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.common_back),
-                            )
-                        }
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.admin_restore_backup),
+                // Hidden once a restore is under way: Back must not abandon a destructive operation.
+                onBack = if (canNavigateBack) onBackClick else null,
             )
         },
     ) { paddingValues ->
-        when (val s = state) {
+        RestoreBackupContent(
+            backupId = backupId,
+            state = state,
+            progress = progress,
+            onRestoreClick = viewModel::requestRestore,
+            onConfirmRestore = viewModel::confirmRestore,
+            onCancelRestore = viewModel::cancelRestore,
+            onDone = onComplete,
+            modifier = Modifier.padding(paddingValues),
+        )
+    }
+}
+
+/**
+ * The restore screen's body for each [RestoreBackupUiState], hosted by its scaffold: the review with
+ * its restore action, the confirmation over it, the live progress, and the result.
+ *
+ * The body forwards the ViewModel's three restore intents plus the exit; a parameter object would
+ * only add an indirection layer Compose tooling discourages.
+ */
+@Suppress("LongParameterList")
+@Composable
+internal fun RestoreBackupContent(
+    backupId: String,
+    state: RestoreBackupUiState,
+    progress: BackupEvent?,
+    onRestoreClick: () -> Unit,
+    onConfirmRestore: () -> Unit,
+    onCancelRestore: () -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowWithSteps(
+        steps = restoreFlowSteps(),
+        currentStep = state.flowStep(),
+        modifier = modifier,
+    ) { isWide, paneModifier ->
+        when (state) {
             is RestoreBackupUiState.Idle -> {
                 IdleContent(
                     backupId = backupId,
-                    error = s.error,
-                    onRestoreClick = viewModel::requestRestore,
-                    modifier = Modifier.padding(paddingValues),
+                    error = state.error,
+                    onRestoreClick = onRestoreClick,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
 
@@ -107,45 +134,59 @@ fun RestoreBackupScreen(
                 IdleContent(
                     backupId = backupId,
                     error = null,
-                    onRestoreClick = viewModel::requestRestore,
-                    modifier = Modifier.padding(paddingValues),
-                )
-                ListenUpDestructiveDialog(
-                    onDismissRequest = viewModel::cancelRestore,
-                    title = "Restore Backup?",
-                    text =
-                        "This replaces everything on this server, including all user accounts, with the " +
-                            "contents of this backup. You'll be signed out and must sign in again with an " +
-                            "account from this backup. This cannot be undone.",
-                    confirmText = "Restore",
-                    onConfirm = viewModel::confirmRestore,
-                    icon = Icons.Default.Warning,
+                    onRestoreClick = onRestoreClick,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
 
             RestoreBackupUiState.Restoring -> {
                 FullScreenLoadingIndicator(
                     message = restoreStatusLabel(progress),
-                    modifier = Modifier.padding(paddingValues),
+                    modifier = paneModifier,
                 )
             }
 
             is RestoreBackupUiState.Completed -> {
                 CompletedContent(
-                    result = s.result,
-                    onDone = onComplete,
-                    modifier = Modifier.padding(paddingValues),
+                    result = state.result,
+                    onDone = onDone,
+                    isWide = isWide,
+                    modifier = paneModifier,
                 )
             }
         }
     }
+
+    if (state == RestoreBackupUiState.Confirming) {
+        ListenUpDestructiveDialog(
+            onDismissRequest = onCancelRestore,
+            title = "Restore backup?",
+            text =
+                "This replaces everything on this server, including all user accounts, with the " +
+                    "contents of this backup. You'll be signed out and must sign in again with an " +
+                    "account from this backup. This cannot be undone.",
+            confirmText = "Restore",
+            onConfirm = onConfirmRestore,
+            icon = Icons.Default.Warning,
+        )
+    }
 }
+
+/** Where this screen's state sits in the restore flow's steps. */
+private fun RestoreBackupUiState.flowStep(): Int =
+    when (this) {
+        is RestoreBackupUiState.Idle, RestoreBackupUiState.Confirming -> RestoreFlowStep.REVIEW
+        RestoreBackupUiState.Restoring -> RestoreFlowStep.RESTORE
+        is RestoreBackupUiState.Completed -> RestoreFlowStep.SIGN_IN
+    }
 
 @Composable
 private fun IdleContent(
     backupId: String,
     error: AppError?,
     onRestoreClick: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -153,17 +194,17 @@ private fun IdleContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                 ),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
                     icon = Icons.Default.Warning,
                     title = "Destructive action",
@@ -181,13 +222,13 @@ private fun IdleContent(
         }
 
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 Text(
                     text = stringResource(Res.string.admin_backup),
                     style = MaterialTheme.typography.labelMedium,
@@ -200,14 +241,16 @@ private fun IdleContent(
             }
         }
 
-        error?.let { ErrorCard(text = it.localized()) }
+        error?.let { ErrorCard(text = it.localized(), modifier = Modifier.widthIn(max = ReadableMeasure)) }
 
-        Spacer(modifier = Modifier.weight(1f))
+        // A phone parks the action at the foot of the screen; the wide pane keeps it under the cards.
+        if (!isWide) Spacer(modifier = Modifier.weight(1f))
 
         ListenUpButton(
             onClick = onRestoreClick,
             text = "Restore this backup",
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -216,6 +259,7 @@ private fun IdleContent(
 private fun CompletedContent(
     result: RestoreResult,
     onDone: () -> Unit,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -223,17 +267,17 @@ private fun CompletedContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.widthIn(max = ReadableMeasure).fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
                     icon = Icons.Default.CheckCircle,
                     title = "Restore complete",
@@ -268,12 +312,13 @@ private fun CompletedContent(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        if (!isWide) Spacer(modifier = Modifier.weight(1f))
 
         ListenUpButton(
             onClick = onDone,
             text = "Done",
-            modifier = Modifier.fillMaxWidth(),
+            fillMaxWidth = !isWide,
+            modifier = Modifier.flowActionWidth(isWide),
         )
     }
 }
@@ -321,7 +366,7 @@ private fun ErrorCard(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
             ),
     ) {
-        Box(modifier = Modifier.padding(16.dp)) {
+        Box(modifier = Modifier.padding(Spacing.lg)) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,

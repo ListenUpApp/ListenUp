@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,12 +18,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +99,7 @@ import listenup.composeapp.generated.resources.book_detail_insufficient_storage
 import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_supplementary_materials
 import listenup.composeapp.generated.resources.book_show_all_chapters
+import com.calypsan.listenup.client.design.theme.ContentShapes
 
 /**
  * Immersive book detail screen following Material 3 Expressive Design.
@@ -275,7 +277,7 @@ private fun BookDetailLoadingFrame(
                 coverPath = null,
                 contentDescription = null,
                 heroKey = bookCoverHeroKey(bookId),
-                heroClipShape = RoundedCornerShape(16.dp),
+                heroClipShape = ContentShapes.card,
                 modifier = Modifier.size(200.dp),
             )
         }
@@ -899,7 +901,7 @@ private fun ImmersiveBookDetail(
                     ) {
                         OutlinedButton(
                             onClick = { isChaptersExpanded = true },
-                            shape = RoundedCornerShape(24.dp),
+                            shape = ContentShapes.card,
                         ) {
                             Text(stringResource(Res.string.book_show_all_chapters, state.chapters.size))
                         }
@@ -969,12 +971,12 @@ fun BookDetailScanWarning(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.errorContainer,
         tonalElevation = 1.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1039,9 +1041,9 @@ private fun DocumentCard(
             haptics.press()
             onClick()
         },
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -1052,7 +1054,7 @@ private fun DocumentCard(
                 modifier =
                     Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -1081,11 +1083,6 @@ private fun DocumentCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Icon(
-                imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

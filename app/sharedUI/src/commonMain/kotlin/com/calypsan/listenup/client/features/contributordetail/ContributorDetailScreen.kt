@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.contributordetail
 
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,6 +80,7 @@ import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.features.library.BookCard
@@ -109,6 +112,10 @@ import listenup.composeapp.generated.resources.contributor_no_longer_here
 import listenup.composeapp.generated.resources.contributor_no_longer_here_detail
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Artist Portfolio screen - an immersive contributor detail experience.
@@ -243,14 +250,8 @@ fun ContributorDetailScreen(
                 }
 
                 if (current.isDeleting) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.3f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ListenUpLoadingIndicator()
+                    CoverScrim(modifier = Modifier.fillMaxSize()) {
+                        ListenUpLoadingIndicator(color = LocalContentColor.current)
                     }
                 }
             }
@@ -283,7 +284,7 @@ private fun WideContributorPortfolio(
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
@@ -357,11 +358,11 @@ private fun WideHeroHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
             // Navigation bar — the wide hero is an already-inset rounded panel (padding(24.dp) inside
             // a clipped card), so it must NOT re-apply the status-bar inset or it gains dead space.
             NavigationBar(
@@ -369,7 +370,6 @@ private fun WideHeroHeader(
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
-                surfaceColor = MaterialTheme.colorScheme.surface,
                 applyStatusBarInset = false,
             )
 
@@ -377,7 +377,7 @@ private fun WideHeroHeader(
 
             // Avatar + Info row
             Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
                 verticalAlignment = Alignment.Top,
             ) {
                 RingedScallopAvatar(
@@ -444,6 +444,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         color = ink,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.semantics { heading() },
     )
 
     // Aliases
@@ -452,7 +453,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = stringResource(Res.string.contributor_aka, aliases.joinToString(", ")),
             style = MaterialTheme.typography.bodyLarge,
-            color = ink.copy(alpha = 0.85f),
+            color = HeroInk.muted(),
         )
     }
 
@@ -463,7 +464,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = lifeDates,
             style = MaterialTheme.typography.bodyLarge,
-            color = ink.copy(alpha = 0.7f),
+            color = HeroInk.muted(),
         )
     }
 
@@ -492,7 +493,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = desc,
             style = MaterialTheme.typography.bodyLarge,
-            color = ink.copy(alpha = 0.85f),
+            color = HeroInk.muted(),
             maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
             overflow = TextOverflow.Ellipsis,
         )
@@ -549,7 +550,7 @@ private fun WorkSectionHeader(
         if (section.showViewAll) {
             FilledTonalButton(
                 onClick = onViewAllClick,
-                shape = RoundedCornerShape(24.dp),
+                shape = ContentShapes.card,
             ) {
                 Text(stringResource(Res.string.common_view_all))
                 Spacer(modifier = Modifier.width(4.dp))
@@ -603,7 +604,7 @@ private fun NarrowContributorPortfolio(
 
         // 2. Stat chip + About, on the surface below the hero.
         item {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 20.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     HeroStatChip(
                         label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}",
@@ -660,7 +661,7 @@ private fun NarrowColorHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(220.dp))
@@ -670,10 +671,9 @@ private fun NarrowColorHero(
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
-                surfaceColor = MaterialTheme.colorScheme.surface,
             )
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 RingedScallopAvatar(
@@ -694,13 +694,14 @@ private fun NarrowColorHero(
                     style = MaterialTheme.typography.headlineLargeEmphasized,
                     color = ink,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.semantics { heading() },
                 )
                 state.contributor.aliases.takeIf { it.isNotEmpty() }?.let { aliases ->
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = stringResource(Res.string.contributor_aka, aliases.joinToString(", ")),
                         style = MaterialTheme.typography.titleMedium,
-                        color = ink.copy(alpha = 0.85f),
+                        color = HeroInk.muted(),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -709,7 +710,7 @@ private fun NarrowColorHero(
                     Text(
                         text = dates,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = ink.copy(alpha = 0.7f),
+                        color = HeroInk.muted(),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -745,7 +746,7 @@ private fun NarrowWorkSection(
         WorkSectionHeader(
             section = section,
             onViewAllClick = onViewAllClick,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -754,7 +755,7 @@ private fun NarrowWorkSection(
             items = section.previewBooks,
             itemWidth = 150.dp,
             itemSpacing = 16.dp,
-            contentPadding = PaddingValues(horizontal = 24.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
             key = { it.id.value },
         ) { book ->
             BookCard(
@@ -781,13 +782,11 @@ private fun NavigationBar(
     onEditClick: () -> Unit,
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
-    surfaceColor: Color,
     applyStatusBarInset: Boolean = true,
     actionsEnabled: Boolean = true,
 ) {
     HeroNavRow(
         onBack = onBackClick,
-        buttonBackground = surfaceColor.copy(alpha = 0.5f),
         applyStatusBarInset = applyStatusBarInset,
     ) {
         if (!LocalDeviceContext.current.isLeanback) {
@@ -795,7 +794,6 @@ private fun NavigationBar(
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
-                surfaceColor = surfaceColor,
                 actionsEnabled = actionsEnabled,
             )
         }
@@ -810,7 +808,6 @@ private fun OverflowMenu(
     onEditClick: () -> Unit,
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
-    surfaceColor: Color,
     actionsEnabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
@@ -826,7 +823,7 @@ private fun OverflowMenu(
                 Modifier
                     .size(48.dp)
                     .background(
-                        color = surfaceColor.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
                         shape = CircleShape,
                     ),
         ) {
@@ -1023,7 +1020,7 @@ private fun ContributorDetailLoadingFrame(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
@@ -1032,13 +1029,12 @@ private fun ContributorDetailLoadingFrame(
                 onEditClick = {},
                 onDownloadMetadata = {},
                 onDeleteClick = {},
-                surfaceColor = MaterialTheme.colorScheme.surface,
                 // Stub callbacks while the contributor loads: disable the rows so none of
                 // them confirms a tap that does nothing.
                 actionsEnabled = false,
             )
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // The rim RingedScallopAvatar draws, at the same 152/140 sizes, so the portrait
@@ -1118,13 +1114,13 @@ private fun HeroStatChip(
 ) {
     val bg =
         if (onColor) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f)
+            HeroInk.wash()
         } else {
             MaterialTheme.colorScheme.surfaceContainerHigh
         }
     val fg = if (onColor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
-        modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = Spacing.lg, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.sync.PendingOperationUi
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiState
 import listenup.composeapp.generated.resources.Res
@@ -49,6 +50,7 @@ import listenup.composeapp.generated.resources.shell_sync_status
 import listenup.composeapp.generated.resources.shell_syncing
 import listenup.composeapp.generated.resources.shell_your_library_is_up_to
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Dropdown menu showing sync status details, anchored to the sync indicator.
@@ -75,7 +77,7 @@ fun SyncDetailsDropdown(
         modifier = Modifier.width(320.dp).heightIn(max = 400.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         ) {
             // Header
             Text(
@@ -209,7 +211,7 @@ private fun SyncCompleteSection() {
                 Text(
                     text = stringResource(Res.string.shell_your_library_is_up_to),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    color = HeroInk.muted(),
                 )
             }
         }

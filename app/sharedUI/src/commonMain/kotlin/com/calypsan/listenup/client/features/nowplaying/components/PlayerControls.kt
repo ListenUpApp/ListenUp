@@ -1,11 +1,13 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -28,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_pause
 import listenup.composeapp.generated.resources.player_play
@@ -37,8 +40,8 @@ import org.jetbrains.compose.resources.stringResource
  * Squircle play/pause FAB with primary background; shows the wavy circular progress indicator while
  * buffering.
  *
- * @param shadowElevation Drop-shadow depth. Defaults to 8.dp for the full-screen player; pass 0.dp
- * inside a clipping container (the mini-player bars) where the shadow would be cut off by the card.
+ * Flat by design: the button is chrome, and its primary fill already carries it. Only covers cast
+ * shadows (DESIGN.md, Books-Cast-Shadows).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -47,7 +50,6 @@ fun PlayPauseFab(
     isBuffering: Boolean,
     onClick: () -> Unit,
     size: Dp,
-    shadowElevation: Dp = 8.dp,
 ) {
     val haptics = LocalHaptics.current
     Surface(
@@ -55,10 +57,9 @@ fun PlayPauseFab(
             haptics.toggle(on = !isPlaying)
             onClick()
         },
-        modifier = Modifier.size(size),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.size(size).semantics { role = Role.Button },
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.primary,
-        shadowElevation = shadowElevation,
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (isBuffering) {
@@ -95,6 +96,8 @@ fun PlayPauseFab(
  * @param contentDescription Accessibility label.
  * @param onClick Click callback.
  * @param size Touch-target diameter.
+ * @param iconSize The glyph's size — the control's visual size, so a compact bar can keep a small
+ * glyph on a full 48dp target. Half of [size] by default.
  * @param tint Icon colour.
  * @param pressFeedback Whether tapping fires
  * [com.calypsan.listenup.client.design.haptics.Haptics.press]. Defaults to true because every
@@ -108,6 +111,7 @@ fun Ctrl(
     contentDescription: String,
     onClick: () -> Unit,
     size: Dp = 60.dp,
+    iconSize: Dp = size * 0.5f,
     tint: Color = MaterialTheme.colorScheme.onSurface,
     pressFeedback: Boolean = true,
 ) {
@@ -122,7 +126,7 @@ fun Ctrl(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            modifier = Modifier.size(size * 0.5f),
+            modifier = Modifier.size(iconSize),
             tint = tint,
         )
     }
@@ -145,12 +149,13 @@ fun LabelPill(
         },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Box(
             modifier =
                 Modifier
                     .height(40.dp)
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = Spacing.lg),
             contentAlignment = Alignment.Center,
         ) {
             Text(

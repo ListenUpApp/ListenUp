@@ -1,10 +1,13 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,6 +44,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ListenUpTextFieldVariant
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -53,6 +56,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Identity header with large avatar and name field side by side.
+ *
+ * @param actions Top-bar actions (the screen's Save), trailing the back button in the top row.
  */
 @Suppress("LongMethod")
 @Composable
@@ -66,6 +71,7 @@ fun ContributorIdentityHeader(
     onNameChange: (String) -> Unit,
     onAvatarClick: () -> Unit,
     onBackClick: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
 
@@ -74,27 +80,34 @@ fun ContributorIdentityHeader(
             Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(16.dp),
+                .padding(Spacing.lg),
     ) {
-        // Floating back button
-        IconButton(
-            onClick = onBackClick,
-            modifier =
-                Modifier
-                    .size(48.dp)
-                    .background(
-                        color = surfaceColor.copy(alpha = 0.5f),
-                        shape = CircleShape,
-                    ),
+        // Floating back button, with the screen's actions at the row's end
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.common_back),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+            IconButton(
+                onClick = onBackClick,
+                modifier =
+                    Modifier
+                        .size(48.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = CircleShape,
+                        ),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(Res.string.common_back),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            actions()
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         // Avatar + Name row
         Row(
@@ -160,14 +173,8 @@ fun ContributorIdentityHeader(
 
                     // Loading overlay during upload
                     if (isUploadingImage) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.5f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ListenUpLoadingIndicatorSmall()
+                        CoverScrim(modifier = Modifier.fillMaxSize()) {
+                            ListenUpLoadingIndicatorSmall(color = LocalContentColor.current)
                         }
                     } else {
                         // Edit indicator

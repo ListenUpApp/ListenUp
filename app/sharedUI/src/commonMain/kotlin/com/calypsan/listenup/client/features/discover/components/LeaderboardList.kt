@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -169,11 +167,11 @@ private fun LeaderboardEntryRow(
         )
 
         // Animated value label — fades when value changes
+        val motion = MaterialTheme.motionScheme
         AnimatedContent(
             targetState = leaderboardLabel(entry, category),
             transitionSpec = {
-                fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow)) togetherWith
-                    fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow))
+                fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
             },
             label = "value",
         ) { value ->

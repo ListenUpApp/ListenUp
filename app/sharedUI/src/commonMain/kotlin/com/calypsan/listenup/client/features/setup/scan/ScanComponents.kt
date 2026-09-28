@@ -1,12 +1,11 @@
 package com.calypsan.listenup.client.features.setup.scan
 
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.scrollBy
@@ -19,12 +18,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,12 +46,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.client.design.components.BookCoverFallback
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.motion.LocalReduceMotion
+import com.calypsan.listenup.client.design.motion.rememberAmbientLoop
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.scan_scanning
 import org.jetbrains.compose.resources.stringResource
@@ -70,7 +72,7 @@ private const val PATH_TAIL_LENGTH = 48
 /**
  * The hero scan animation — three concentric [cookieScallopShape] scallops behind a soft radial
  * brand glow: an outer container scallop rotating one way, an inner tertiary scallop counter-rotating,
- * and a pulsing brand-coloured core holding the [Icons.Rounded.GraphicEq] glyph. Purely decorative;
+ * and a pulsing brand-coloured core holding the [Icons.Outlined.GraphicEq] glyph. Purely decorative;
  * communicates "work is happening" without claiming a specific progress value.
  */
 @Composable
@@ -78,23 +80,27 @@ fun ScanLoader(
     modifier: Modifier = Modifier,
     size: Dp = 146.dp,
 ) {
-    val transition = rememberInfiniteTransition(label = "scanLoader")
-    val outerRotation by transition.animateFloat(
+    // Spinner loops are linear rotations and a breathing pulse: durations, not springs, because an
+    // infinite repeat has to be duration-based. Under Remove animations each holds its rest pose.
+    val outerRotation by rememberAmbientLoop(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(tween(OUTER_ROTATION_MS, easing = LinearEasing)),
+        restValue = 0f,
         label = "outer",
     )
-    val innerRotation by transition.animateFloat(
+    val innerRotation by rememberAmbientLoop(
         initialValue = 360f,
         targetValue = 0f,
         animationSpec = infiniteRepeatable(tween(INNER_ROTATION_MS, easing = LinearEasing)),
+        restValue = 0f,
         label = "inner",
     )
-    val corePulse by transition.animateFloat(
+    val corePulse by rememberAmbientLoop(
         initialValue = 0.92f,
         targetValue = 1.06f,
         animationSpec = infiniteRepeatable(tween(CORE_PULSE_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        restValue = 1f,
         label = "pulse",
     )
 
@@ -131,7 +137,7 @@ fun ScanLoader(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.GraphicEq,
+                imageVector = Icons.Outlined.GraphicEq,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(size * 0.22f),
@@ -156,7 +162,7 @@ fun StatChip(
     Column(
         modifier =
             modifier
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(vertical = 12.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -202,17 +208,12 @@ fun ScanCoversMarquee(
     // catching up before the scan finishes doesn't matter, the gentle motion is the point. When the
     // strip is caught up there's nothing left to reveal, so it idles until the next book lands.
     val density = LocalDensity.current
-    LaunchedEffect(listState, density) {
-        val pixelsPerSecond = with(density) { MARQUEE_SPEED_DP_PER_SECOND.toPx() }
-        var lastFrameNanos = withFrameNanos { it }
-        while (true) {
-            val frameNanos = withFrameNanos { it }
-            val elapsedSeconds = (frameNanos - lastFrameNanos) / 1_000_000_000f
-            lastFrameNanos = frameNanos
-            if (listState.canScrollForward) {
-                listState.scrollBy(pixelsPerSecond * elapsedSeconds)
-            }
-        }
+    val reduceMotion = LocalReduceMotion.current
+    // Under Remove animations the strip does not drift; it shows the newest covers, updated in place.
+    if (reduceMotion) {
+        LaunchedEffect(listState, books.size) { listState.scrollToItem(books.lastIndex) }
+    } else {
+        MarqueeDrift(listState, density)
     }
     val fade =
         Brush.horizontalGradient(
@@ -246,6 +247,26 @@ fun ScanCoversMarquee(
     }
 }
 
+/** Creeps [listState] toward its tail at [MARQUEE_SPEED_DP_PER_SECOND], one frame at a time. */
+@Composable
+private fun MarqueeDrift(
+    listState: LazyListState,
+    density: Density,
+) {
+    LaunchedEffect(listState, density) {
+        val pixelsPerSecond = with(density) { MARQUEE_SPEED_DP_PER_SECOND.toPx() }
+        var lastFrameNanos = withFrameNanos { it }
+        while (true) {
+            val frameNanos = withFrameNanos { it }
+            val elapsedSeconds = (frameNanos - lastFrameNanos) / 1_000_000_000f
+            lastFrameNanos = frameNanos
+            if (listState.canScrollForward) {
+                listState.scrollBy(pixelsPerSecond * elapsedSeconds)
+            }
+        }
+    }
+}
+
 /**
  * The "currently scanning" pill — a pulsing brand dot, a static "SCANNING" label, and the path being
  * analyzed in monospace, showing the path *tail* (filename end) so the meaningful part stays visible.
@@ -261,17 +282,18 @@ fun ScanFileLine(
             modifier
                 .fillMaxWidth()
                 .height(46.dp)
-                .clip(RoundedCornerShape(50))
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = Spacing.lg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        val transition = rememberInfiniteTransition(label = "scanDot")
-        val dotAlpha by transition.animateFloat(
+        // A breathing dot: an infinite repeat has to be duration-based. It rests lit under Remove animations.
+        val dotAlpha by rememberAmbientLoop(
             initialValue = 0.4f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(tween(FILE_LINE_PULSE_MS), RepeatMode.Reverse),
+            restValue = 1f,
             label = "dotAlpha",
         )
         Box(

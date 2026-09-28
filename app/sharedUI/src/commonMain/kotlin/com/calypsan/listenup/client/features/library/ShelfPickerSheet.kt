@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterList
@@ -25,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Shelf
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -56,6 +59,7 @@ import listenup.composeapp.generated.resources.library_shelf_name
 import listenup.composeapp.generated.resources.library_you_dont_have_any_shelves
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Bottom sheet for selecting a shelf to add books to.
@@ -86,19 +90,7 @@ fun ShelfPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        dragHandle = {
-            // Standard drag handle with proper spacing
-            Surface(
-                modifier =
-                    Modifier
-                        .padding(vertical = 12.dp)
-                        .width(32.dp)
-                        .height(4.dp),
-                shape = RoundedCornerShape(2.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            ) {}
-        },
+        shape = BottomSheetDefaults.ExpandedShape,
     ) {
         Column(
             modifier =
@@ -108,7 +100,7 @@ fun ShelfPickerSheet(
         ) {
             // Header
             Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
             ) {
                 Text(
                     text = stringResource(Res.string.book_detail_add_to_shelf),
@@ -143,7 +135,7 @@ fun ShelfPickerSheet(
                         )
                         if (shelves.isNotEmpty()) {
                             HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 24.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
                         }
@@ -156,7 +148,7 @@ fun ShelfPickerSheet(
                                 text = stringResource(Res.string.library_you_dont_have_any_shelves),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
                             )
                         }
                     } else {
@@ -220,12 +212,13 @@ private fun CreateNewShelfRow(
         onClick = onClick,
         enabled = enabled,
         color = Color.Transparent,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Plus icon
@@ -233,7 +226,7 @@ private fun CreateNewShelfRow(
                 modifier =
                     Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
@@ -280,12 +273,13 @@ private fun ShelfRow(
         onClick = onClick,
         enabled = enabled,
         color = Color.Transparent,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Shelf icon with avatar color background
@@ -293,7 +287,7 @@ private fun ShelfRow(
                 modifier =
                     Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(iconColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -343,7 +337,6 @@ private fun CreateShelfDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var shelfName by remember { mutableStateOf("") }
     val isValid = shelfName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -354,40 +347,22 @@ private fun CreateShelfDialog(
         focusRequester.requestFocus()
     }
 
-    androidx.compose.material3.AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = { Text(stringResource(Res.string.library_create_new_shelf)) },
-        text = {
-            ListenUpTextField(
-                value = shelfName,
-                onValueChange = { shelfName = it },
-                label = stringResource(Res.string.library_shelf_name),
-                placeholder = stringResource(Res.string.common_shelf_name_hint),
-                modifier = Modifier.focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.commit()
-                    onCreate(shelfName.trim())
-                },
-                enabled = isValid,
-            ) {
-                Text(stringResource(Res.string.library_create_add))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        title = stringResource(Res.string.library_create_new_shelf),
+        confirmText = stringResource(Res.string.library_create_add),
+        onConfirm = { onCreate(shelfName.trim()) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = isValid,
+    ) {
+        ListenUpTextField(
+            value = shelfName,
+            onValueChange = { shelfName = it },
+            label = stringResource(Res.string.library_shelf_name),
+            placeholder = stringResource(Res.string.common_shelf_name_hint),
+            modifier = Modifier.focusRequester(focusRequester),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        )
+    }
 }

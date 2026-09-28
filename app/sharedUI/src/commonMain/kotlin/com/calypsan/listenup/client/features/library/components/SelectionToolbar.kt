@@ -63,7 +63,6 @@ fun SelectionToolbar(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
-        shadowElevation = 4.dp,
     ) {
         Row(
             modifier =

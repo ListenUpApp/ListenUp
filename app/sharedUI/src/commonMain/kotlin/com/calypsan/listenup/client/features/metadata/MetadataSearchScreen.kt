@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.metadata
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,9 +16,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Public
@@ -44,6 +56,7 @@ import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
 import org.jetbrains.compose.resources.stringResource
@@ -61,9 +74,6 @@ import listenup.composeapp.generated.resources.metadata_search_audible
 import listenup.composeapp.generated.resources.metadata_title_author_narrator_or_asin
 import listenup.composeapp.generated.resources.metadata_try_a_different_search_term_or_region
 
-/** Readable centred-column width cap on expanded layouts. */
-private val CONTENT_MAX_WIDTH = 640.dp
-
 /**
  * Full-screen for searching books on Audible.
  *
@@ -71,7 +81,13 @@ private val CONTENT_MAX_WIDTH = 640.dp
  * - Book context (title being searched for)
  * - Search field (pre-filled with title or ASIN)
  * - Region selector chips
- * - Search results list with covers, titles, authors, narrators
+ * - Search results with covers, titles, authors, narrators
+ *
+ * A phone stacks the controls over one list of candidates. From the medium width the candidates flow
+ * into a [GridCells.Adaptive] grid, so a foldable compares two editions at a glance; from the expanded
+ * width the controls also move into a side panel, and the query, region and what is being matched stay
+ * in view while the grid scrolls beside them. Tapping a candidate still opens its preview as its own
+ * screen — the preview needs the whole width for its field sections.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +102,30 @@ fun MetadataSearchScreen(
     val isSearching = state.loadState is SearchLoadState.InFlight
     val searchError = (state.loadState as? SearchLoadState.Failed)?.message
     val searchResults = (state.loadState as? SearchLoadState.Loaded)?.results.orEmpty()
+    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val controlsBeside = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+    val resultsInColumns = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+
+    val controls: @Composable () -> Unit = {
+        MetadataSearchControls(
+            state = state,
+            isSearching = isSearching,
+            searchError = searchError,
+            onQueryChange = onQueryChange,
+            onSearch = onSearch,
+            onRegionSelected = onRegionSelected,
+        )
+    }
+    val results: @Composable ColumnScope.() -> Unit = {
+        MetadataSearchResults(
+            isSearching = isSearching,
+            hasSearched = state.query.isNotBlank() && !isSearching,
+            searchError = searchError,
+            searchResults = searchResults,
+            inColumns = resultsInColumns,
+            onResultClick = onResultClick,
+        )
+    }
 
     ListenUpScaffold(
         topBar = {
@@ -97,89 +137,164 @@ fun MetadataSearchScreen(
             )
         },
     ) { paddingValues ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-            contentAlignment = Alignment.TopCenter,
-        ) {
+        if (controlsBeside) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = Spacing.screenMargin),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+            ) {
+                Column(
+                    modifier =
+                        Modifier
+                            .width(SearchPanelWidth)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                            .padding(top = 20.dp, bottom = 16.dp),
+                ) {
+                    controls()
+                }
+                Column(modifier = Modifier.weight(1f).fillMaxHeight().padding(top = 20.dp)) {
+                    results()
+                }
+            }
+        } else {
             Column(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .widthIn(max = CONTENT_MAX_WIDTH)
+                        .padding(paddingValues)
                         .padding(horizontal = 18.dp),
             ) {
                 Spacer(modifier = Modifier.height(20.dp))
+                controls()
+                results()
+            }
+        }
+    }
+}
 
-                if (state.context.currentTitle.isNotBlank()) {
-                    MatchingContextPill(title = state.context.currentTitle)
-                    Spacer(modifier = Modifier.height(18.dp))
-                }
+/** Width of the expanded layout's search panel — one comfortable phone-width column of controls. */
+private val SearchPanelWidth = 360.dp
 
-                ListenUpSearchField(
-                    value = state.query,
-                    onValueChange = onQueryChange,
-                    onSubmit = onSearch,
-                    placeholder = stringResource(Res.string.metadata_title_author_narrator_or_asin),
-                    isLoading = isSearching,
-                )
+/** The narrowest a candidate card gets in the results grid before the column count drops. */
+private val CandidateMinWidth = 320.dp
 
-                Spacer(modifier = Modifier.height(22.dp))
+/**
+ * The search controls: what is being matched, the query, the Audible region, and the last search's
+ * error. The same stack heads the phone column and fills the expanded layout's side panel.
+ */
+@Composable
+private fun MetadataSearchControls(
+    state: MetadataUiState.Search,
+    isSearching: Boolean,
+    searchError: String?,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    onRegionSelected: (MetadataLocale) -> Unit,
+) {
+    Column {
+        if (state.context.currentTitle.isNotBlank()) {
+            MatchingContextPill(title = state.context.currentTitle)
+            Spacer(modifier = Modifier.height(18.dp))
+        }
 
-                Overline(text = stringResource(Res.string.metadata_audible_region))
-                Spacer(modifier = Modifier.height(12.dp))
-                RegionSelector(
-                    selectedRegion = state.region,
-                    onRegionSelected = onRegionSelected,
-                )
+        ListenUpSearchField(
+            value = state.query,
+            onValueChange = onQueryChange,
+            onSubmit = onSearch,
+            placeholder = stringResource(Res.string.metadata_title_author_narrator_or_asin),
+            isLoading = isSearching,
+        )
 
-                Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
-                if (searchError != null) {
-                    Text(
-                        text = searchError,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                }
+        Overline(text = stringResource(Res.string.metadata_audible_region))
+        Spacer(modifier = Modifier.height(12.dp))
+        RegionSelector(
+            selectedRegion = state.region,
+            onRegionSelected = onRegionSelected,
+        )
 
-                when {
-                    isSearching -> {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ListenUpLoadingIndicator()
-                        }
+        Spacer(modifier = Modifier.height(Spacing.xl))
+
+        if (searchError != null) {
+            Text(
+                text = searchError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The results region: a loading indicator while a search is in flight, the empty state before a
+ * search or after a miss, or the candidates — one list, or an adaptive grid when [inColumns].
+ */
+@Composable
+private fun ColumnScope.MetadataSearchResults(
+    isSearching: Boolean,
+    hasSearched: Boolean,
+    searchError: String?,
+    searchResults: List<MetadataBook>,
+    inColumns: Boolean,
+    onResultClick: (MetadataBook) -> Unit,
+) {
+    when {
+        isSearching -> {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                ListenUpLoadingIndicator()
+            }
+        }
+
+        searchResults.isEmpty() && searchError == null -> {
+            MetadataSearchEmptyState(hasSearched = hasSearched)
+        }
+
+        else -> {
+            Overline(text = stringResource(Res.string.metadata_result_count_match, searchResults.size))
+            Spacer(modifier = Modifier.height(12.dp))
+            if (inColumns) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = CandidateMinWidth),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    items(
+                        items = searchResults,
+                        key = { it.asin },
+                    ) { result ->
+                        MetadataSearchResultItem(
+                            result = result,
+                            onClick = { onResultClick(result) },
+                        )
                     }
-
-                    searchResults.isEmpty() && searchError == null -> {
-                        MetadataSearchEmptyState(hasSearched = state.query.isNotBlank() && !isSearching)
-                    }
-
-                    else -> {
-                        Overline(text = stringResource(Res.string.metadata_result_count_match, searchResults.size))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            items(
-                                items = searchResults,
-                                key = { it.asin },
-                            ) { result ->
-                                MetadataSearchResultItem(
-                                    result = result,
-                                    onClick = { onResultClick(result) },
-                                )
-                            }
-                        }
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    items(
+                        items = searchResults,
+                        key = { it.asin },
+                    ) { result ->
+                        MetadataSearchResultItem(
+                            result = result,
+                            onClick = { onResultClick(result) },
+                        )
                     }
                 }
             }
@@ -228,7 +343,7 @@ private fun MatchingContextPill(title: String) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -265,6 +380,7 @@ private fun MetadataSearchResultItem(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -348,7 +464,7 @@ private fun MetadataSearchResultItem(
             Icon(
                 imageVector = Icons.Outlined.Public,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp),
             )
         }

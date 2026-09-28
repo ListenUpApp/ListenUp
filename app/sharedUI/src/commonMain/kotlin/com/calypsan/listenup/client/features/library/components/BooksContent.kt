@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -45,6 +44,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -65,6 +65,8 @@ import listenup.composeapp.generated.resources.library_loading_your_library
 import listenup.composeapp.generated.resources.library_summary
 import listenup.composeapp.generated.resources.library_your_audiobooks_will_appear_here
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
 
@@ -180,7 +182,7 @@ private fun SectionHeader(
                 Modifier
                     .weight(1f)
                     .height(3.dp)
-                    .clip(RoundedCornerShape(99.dp))
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         )
     }
@@ -361,8 +363,8 @@ private fun BookGrid(
             columns = GridCells.Adaptive(minSize = 160.dp),
             contentPadding =
                 PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
+                    start = Spacing.gridMargin,
+                    end = Spacing.gridMargin,
                     top = 12.dp,
                     bottom = 16.dp,
                 ),
@@ -472,7 +474,7 @@ private fun ScanProgressBanner(scanProgress: ScanProgressState) {
         color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -490,7 +492,11 @@ private fun ScanProgressBanner(scanProgress: ScanProgressState) {
                     Text(
                         text = stringResource(Res.string.library_summary, summary),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        color =
+                            HeroInk.muted(
+                                MaterialTheme.colorScheme.onSecondaryContainer,
+                                MaterialTheme.colorScheme.secondaryContainer,
+                            ),
                     )
                 }
             }
@@ -498,7 +504,11 @@ private fun ScanProgressBanner(scanProgress: ScanProgressState) {
                 LinearProgressIndicator(
                     progress = { scanProgress.progressFraction!! },
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
+                    trackColor =
+                        HeroInk.wash(
+                            MaterialTheme.colorScheme.onSecondaryContainer,
+                            MaterialTheme.colorScheme.secondaryContainer,
+                        ),
                 )
             }
         }

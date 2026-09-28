@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
-import listenup.composeapp.generated.resources.chapter_editor_play_from_here
-import listenup.composeapp.generated.resources.chapter_editor_insert_below
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_invalid
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_label
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_title
@@ -13,10 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +27,6 @@ import listenup.composeapp.generated.resources.chapter_editor_delete_body
 import listenup.composeapp.generated.resources.chapter_editor_delete_title
 import listenup.composeapp.generated.resources.chapter_editor_discard_body
 import listenup.composeapp.generated.resources.chapter_editor_discard_title
-import listenup.composeapp.generated.resources.chapter_editor_more
 import listenup.composeapp.generated.resources.chapter_editor_rename_label
 import listenup.composeapp.generated.resources.chapter_editor_rename_title
 import listenup.composeapp.generated.resources.common_cancel
@@ -100,68 +96,23 @@ internal fun RenameChapterDialog(
     var title by remember { mutableStateOf(initialTitle) }
     val trimmed = title.trim()
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.chapter_editor_rename_title)) },
-        text = {
-            ListenUpTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = stringResource(Res.string.chapter_editor_rename_label),
-                transform = { it.take(ChapterInput.MAX_TITLE) },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(trimmed) }, enabled = trimmed.isNotEmpty()) {
-                Text(stringResource(Res.string.common_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
-        },
-    )
-}
-
-/**
- * A row's overflow, as a dialog rather than an anchored menu: rename, insert below, play from here,
- * delete — the set the spec gives every row (§7.4).
- *
- * The row's actions have to be reachable identically on a phone, a desktop window and a browser,
- * and a dialog is the one shape that behaves the same in all three without each platform needing
- * its own anchoring rules.
- */
-@Composable
-internal fun ChapterActionsDialog(
-    onRename: () -> Unit,
-    onInsertBelow: () -> Unit,
-    onPlayFromHere: (() -> Unit)?,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.chapter_editor_more)) },
-        text = {
-            Column {
-                TextButton(onClick = onRename) { Text(stringResource(Res.string.chapter_editor_rename_title)) }
-                TextButton(onClick = onInsertBelow) { Text(stringResource(Res.string.chapter_editor_insert_below)) }
-                // Disabled rather than absent while another book (or nothing) is loaded: playing
-                // from here then would replace what the listener has going, unasked.
-                TextButton(onClick = { onPlayFromHere?.invoke() }, enabled = onPlayFromHere != null) {
-                    Text(stringResource(Res.string.chapter_editor_play_from_here))
-                }
-                TextButton(onClick = onDelete) { Text(stringResource(Res.string.chapter_editor_delete_title)) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
-        },
-    )
+        title = stringResource(Res.string.chapter_editor_rename_title),
+        confirmText = stringResource(Res.string.common_save),
+        onConfirm = { onConfirm(trimmed) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = trimmed.isNotEmpty(),
+    ) {
+        ListenUpTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = stringResource(Res.string.chapter_editor_rename_label),
+            transform = { it.take(ChapterInput.MAX_TITLE) },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        )
+    }
 }
 
 /**
@@ -180,36 +131,30 @@ internal fun ChapterTimeDialog(
     var text by remember { mutableStateOf(ChapterTimeFormat.precise(initialMs)) }
     val parsed = ChapterTimeFormat.parsePrecise(text)
 
-    AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.chapter_editor_edit_time_title)) },
-        text = {
-            Column {
-                ListenUpTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = stringResource(Res.string.chapter_editor_edit_time_label),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        title = stringResource(Res.string.chapter_editor_edit_time_title),
+        confirmText = stringResource(Res.string.common_save),
+        onConfirm = { parsed?.let(onConfirm) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = parsed != null,
+    ) {
+        Column {
+            ListenUpTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = stringResource(Res.string.chapter_editor_edit_time_label),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+            if (parsed == null) {
+                Text(
+                    text = stringResource(Res.string.chapter_editor_edit_time_invalid),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
-                if (parsed == null) {
-                    Text(
-                        text = stringResource(Res.string.chapter_editor_edit_time_invalid),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { parsed?.let(onConfirm) }, enabled = parsed != null) {
-                Text(stringResource(Res.string.common_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
-        },
-    )
+        }
+    }
 }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.setup.scan
 
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,9 +22,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.etaMinutes
 import com.calypsan.listenup.client.features.auth.components.BrandMark
@@ -57,6 +58,7 @@ import listenup.composeapp.generated.resources.scan_building_subtitle
 import listenup.composeapp.generated.resources.scan_files_total
 import listenup.composeapp.generated.resources.scan_recently_matched
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private const val ETA_TICK_MS = 1_000L
 
@@ -104,7 +106,7 @@ private fun PhoneLayout(
                 .fillMaxSize()
                 .systemBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -150,7 +152,7 @@ private fun DesktopLayout(
                             "We're scanning your folders and matching every audiobook — " +
                                 "your shelves fill in as we go.",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                        color = HeroInk.muted(),
                         modifier = Modifier.widthIn(max = 340.dp),
                     )
                 }
@@ -358,19 +360,19 @@ private fun ScanStatsBlock(
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatChip(
-            icon = Icons.AutoMirrored.Rounded.MenuBook,
+            icon = Icons.AutoMirrored.Outlined.MenuBook,
             value = progress.books,
             label = "Books",
             modifier = Modifier.weight(1f),
         )
         StatChip(
-            icon = Icons.Rounded.Person,
+            icon = Icons.Outlined.Person,
             value = progress.authors,
             label = "Authors",
             modifier = Modifier.weight(1f),
         )
         StatChip(
-            icon = Icons.Rounded.Schedule,
+            icon = Icons.Outlined.Schedule,
             value = progress.hours,
             label = "Hours",
             modifier = Modifier.weight(1f),

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.shell
 
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,6 +13,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +38,9 @@ import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.features.search.SearchResultsOverlay
 import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
 import com.calypsan.listenup.client.presentation.search.SearchViewModel
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.client.domain.model.SearchHit
+import com.calypsan.listenup.client.domain.model.SearchHitType
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
@@ -43,7 +49,11 @@ import androidx.compose.material3.SnackbarHostState
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.features.permission.rememberPostNotificationsPermission
 import com.calypsan.listenup.client.features.shell.components.GlobalErrorSnackbar
+import com.calypsan.listenup.client.features.shell.components.SignOutConfirmationHost
+import com.calypsan.listenup.client.features.shell.components.rememberSignOutConfirmation
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -76,11 +86,13 @@ private val logger = KotlinLogging.logger {}
  * @param onAdminClick Callback when administration is clicked (only shown for admin users)
  * @param onSettingsClick Callback when settings is clicked
  * @param onNotificationsClick Callback when the header's notification bell is clicked
- * @param onSignOut Callback when sign out is triggered
+ * @param onSignOut Signs out, once the user has confirmed the shell's sign-out question
  * @param onUserProfileClick Callback when a user profile is clicked
  * @param homeContent Content composable for Home destination
  * @param libraryContent Content composable for Library destination
  * @param discoverContent Content composable for Discover destination
+ * @param searchRequests Asks from outside the shell (the `/` keyboard shortcut) to open search and
+ *   put the cursor in its field.
  */
 @Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod", "CognitiveComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,6 +113,7 @@ fun AppShell(
     libraryContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
     nowPlayingContent: @Composable () -> Unit = {},
     discoverContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
+    searchRequests: Flow<Unit> = emptyFlow(),
 ) {
     // Inject dependencies
     val syncRepository: SyncRepository = koinInject()
@@ -149,8 +162,14 @@ fun AppShell(
 
     // Collect reactive state - use collectAsState for multiplatform compatibility
     val syncState by syncRepository.syncState.collectAsStateWithLifecycle()
-    val user by userRepository.observeCurrentUser().collectAsStateWithLifecycle(initialValue = null)
-    val searchState by searchViewModel.state.collectAsStateWithLifecycle()
+    // Remembered: a flow built in composition is a new flow on every recomposition, and collecting
+    // a new flow re-subscribes the Room query each time.
+    val currentUserFlow = remember(userRepository) { userRepository.observeCurrentUser() }
+    val user by currentUserFlow.collectAsStateWithLifecycle(initialValue = null)
+    // Held as a State and read only inside the search subtree — the header's field and the results
+    // overlay — so a keystroke recomposes those, not the shell around them.
+    val searchState = searchViewModel.state.collectAsStateWithLifecycle()
+    val searchQuery = remember(searchState) { derivedStateOf { searchState.value.query } }
     val syncIndicatorState by syncIndicatorViewModel.state.collectAsStateWithLifecycle()
     val isSyncDetailsExpanded by syncIndicatorViewModel.isExpanded.collectAsStateWithLifecycle()
     val unreadNotificationCount by notificationBellViewModel.unreadCount.collectAsStateWithLifecycle()
@@ -163,6 +182,16 @@ fun AppShell(
     val collapseSearch: () -> Unit = {
         isSearchExpanded = false
         searchViewModel.clearQuery()
+    }
+
+    // Each request from outside (the `/` shortcut) opens search and moves the cursor into its field,
+    // even when it is already open and focus has wandered. The field clears the request once focused.
+    var isSearchFocusRequested by remember { mutableStateOf(false) }
+    LaunchedEffect(searchRequests) {
+        searchRequests.collect {
+            isSearchExpanded = true
+            isSearchFocusRequested = true
+        }
     }
 
     // The search overlay is a full-screen layer over the shell, not a nav-stack entry, so the system
@@ -185,6 +214,11 @@ fun AppShell(
 
     // Local UI state
     var isAvatarMenuExpanded by remember { mutableStateOf(false) }
+
+    // Every sign-out in the shell — the rail's Logout and the avatar menu's "Sign out" — asks this
+    // one question first; neither signs out directly.
+    val signOutConfirmation = rememberSignOutConfirmation()
+    SignOutConfirmationHost(signOutConfirmation, onSignOut = onSignOut)
 
     // Library mismatch dialog state
     var libraryMismatchToShow by remember { mutableStateOf<SyncState.LibraryMismatch?>(null) }
@@ -244,7 +278,9 @@ fun AppShell(
             syncState = syncState,
             user = user,
             isSearchExpanded = isSearchExpanded,
-            searchQuery = searchState.query,
+            isSearchFocusRequested = isSearchFocusRequested,
+            onSearchFocusRequestHandled = { isSearchFocusRequested = false },
+            searchQuery = searchQuery.value,
             onSearchExpandedChange = { expanded ->
                 if (expanded) isSearchExpanded = true else collapseSearch()
             },
@@ -255,7 +291,7 @@ fun AppShell(
             onAvatarMenuExpandedChange = { isAvatarMenuExpanded = it },
             onAdminClick = onAdminClick,
             onSettingsClick = onSettingsClick,
-            onSignOutClick = onSignOut,
+            onSignOutClick = signOutConfirmation::request,
             onMyProfileClick = { user?.id?.value?.let(onUserProfileClick) },
             unreadNotificationCount = unreadNotificationCount,
             onNotificationsClick = onNotificationsClick,
@@ -282,28 +318,30 @@ fun AppShell(
     // Common content configuration
     val shellContent: @Composable (PaddingValues) -> Unit = { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            // Content based on current destination
-            when (currentDestination) {
-                ShellDestination.Home -> {
-                    homeContent(
-                        padding,
-                        appHeader,
-                        { onDestinationChange(ShellDestination.Library) },
-                    )
-                }
+            // The current tab, faded through on a switch; each tab keeps its state while hidden.
+            ShellTabContent(currentDestination = currentDestination) { destination ->
+                when (destination) {
+                    ShellDestination.Home -> {
+                        homeContent(
+                            padding,
+                            appHeader,
+                            { onDestinationChange(ShellDestination.Library) },
+                        )
+                    }
 
-                ShellDestination.Library -> {
-                    libraryContent(padding, appHeader)
-                }
+                    ShellDestination.Library -> {
+                        libraryContent(padding, appHeader)
+                    }
 
-                ShellDestination.Discover -> {
-                    discoverContent(padding, appHeader)
+                    ShellDestination.Discover -> {
+                        discoverContent(padding, appHeader)
+                    }
                 }
             }
 
             // Search results overlay (floats above content when search is active)
-            SearchResultsOverlay(
-                state = searchState,
+            SearchResultsOverlayHost(
+                state = { searchState.value },
                 isExpanded = isSearchExpanded,
                 onClose = collapseSearch,
                 onResultClick = { hit ->
@@ -315,10 +353,14 @@ fun AppShell(
                 onClearTypeFilters = {
                     searchViewModel.clearTypeFilters()
                 },
+                // The keyboard is up whenever this is: lift the results above it. The scaffold's
+                // padding already clears the bottom bar, so only the rest of the keyboard is added.
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(padding)
+                        .consumeWindowInsets(padding)
+                        .imePadding(),
             )
         }
     }
@@ -336,7 +378,7 @@ fun AppShell(
                         navType = navType,
                         currentDestination = currentDestination,
                         onDestinationSelected = onDestinationChange,
-                        onSignOut = onSignOut,
+                        onSignOutRequest = signOutConfirmation::request,
                     )
                 }
             },
@@ -352,7 +394,7 @@ fun AppShell(
                 navType = navType,
                 currentDestination = currentDestination,
                 onDestinationSelected = onDestinationChange,
-                onSignOut = onSignOut,
+                onSignOutRequest = signOutConfirmation::request,
             )
             Scaffold(
                 modifier = Modifier.weight(1f),
@@ -362,4 +404,29 @@ fun AppShell(
             )
         }
     }
+}
+
+/**
+ * The results overlay, reading search state itself so each keystroke and each batch of results
+ * recomposes the overlay alone rather than the shell content it floats over.
+ */
+@Composable
+private fun SearchResultsOverlayHost(
+    state: () -> SearchUiState,
+    isExpanded: Boolean,
+    onClose: () -> Unit,
+    onResultClick: (SearchHit) -> Unit,
+    onTypeFilterToggle: (SearchHitType) -> Unit,
+    onClearTypeFilters: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SearchResultsOverlay(
+        state = state(),
+        isExpanded = isExpanded,
+        onClose = onClose,
+        onResultClick = onResultClick,
+        onTypeFilterToggle = onTypeFilterToggle,
+        onClearTypeFilters = onClearTypeFilters,
+        modifier = modifier,
+    )
 }

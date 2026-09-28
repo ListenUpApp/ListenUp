@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.genredestination
 
+import com.calypsan.listenup.client.design.components.switchRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material3.Icon
@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.genredestination.FacetIdentity
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.client.presentation.genredestination.SubGenre
@@ -89,12 +90,11 @@ private fun SubtreeToggleRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(containerColor)
-                .clickable {
-                    haptics.selectionTick()
-                    onToggle()
-                }.padding(horizontal = 16.dp, vertical = 14.dp),
+                // A state-coloured card, not SettingRow chrome — but the same switch semantics.
+                .switchRow(checked = state.includeSubGenres, haptics = haptics) { onToggle() }
+                .padding(horizontal = Spacing.lg, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -115,7 +115,7 @@ private fun SubtreeToggleRow(
                 color = contentColor.copy(alpha = 0.8f),
             )
         }
-        Switch(checked = state.includeSubGenres, onCheckedChange = { onToggle() })
+        Switch(checked = state.includeSubGenres, onCheckedChange = null)
     }
 }
 
@@ -152,7 +152,7 @@ private fun SubGenresLabelRow() {
         Text(
             text = stringResource(Res.string.genre_destination_tap_to_narrow),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -187,7 +187,7 @@ private fun SubGenreChip(
     onClick: () -> Unit,
 ) {
     val hueColor = genreHueColor(FacetIdentity.hue(subGenre.name))
-    val shape = RoundedCornerShape(50)
+    val shape = CircleShape
 
     Row(
         modifier =
@@ -209,7 +209,7 @@ private fun SubGenreChip(
             Box(
                 modifier =
                     Modifier
-                        .clip(RoundedCornerShape(50))
+                        .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                         .padding(horizontal = 7.dp, vertical = 2.dp),
             ) {

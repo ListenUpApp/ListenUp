@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.setup
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.fadeIn
@@ -31,10 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -50,13 +49,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.FolderRow
 import com.calypsan.listenup.client.features.setup.components.SetupBreadcrumb
@@ -75,6 +74,10 @@ import listenup.composeapp.generated.resources.library_setup_point_at_audiobooks
 import listenup.composeapp.generated.resources.library_setup_select_one_or_more
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Library-setup wizard — choose audiobook folders, then confirm.
@@ -153,7 +156,7 @@ private fun PhoneLayout(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                    .clip(ContentShapes.hero)
                     .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             SetupHeroBlob(modifier = Modifier.offset(x = 250.dp, y = (-60).dp))
@@ -162,7 +165,12 @@ private fun PhoneLayout(
                     Modifier
                         .fillMaxWidth()
                         .systemBarsPadding()
-                        .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
+                        .padding(
+                            start = Spacing.screenMargin,
+                            end = Spacing.screenMargin,
+                            top = Spacing.md,
+                            bottom = Spacing.xl,
+                        ),
             ) {
                 BrandMark(onColor = true)
                 Spacer(Modifier.height(18.dp))
@@ -171,12 +179,13 @@ private fun PhoneLayout(
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.semantics { heading() },
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(Res.string.library_setup_select_one_or_more),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                    color = HeroInk.muted(),
                 )
             }
         }
@@ -216,7 +225,8 @@ private fun DockedSelectionBar(
     state: LibrarySetupUiState,
     onContinue: () -> Unit,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+    // A bottom bar's container level, not a shadow: chrome stays tonal.
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(
             modifier =
                 Modifier
@@ -245,8 +255,7 @@ private fun DockedSelectionBar(
                 )
                 Text(
                     text = state.selectedPaths.firstOrNull() ?: state.currentPath,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 12.5.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -257,7 +266,7 @@ private fun DockedSelectionBar(
                 onClick = onContinue,
                 isLoading = state.isCreatingLibrary,
                 fillMaxWidth = false,
-                trailingIcon = Icons.AutoMirrored.Rounded.ArrowForward,
+                trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
             )
         }
     }
@@ -296,7 +305,7 @@ private fun DesktopLayout(
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.widthIn(max = 360.dp),
+                        modifier = Modifier.widthIn(max = 360.dp).semantics { heading() },
                     )
                     Spacer(Modifier.height(18.dp))
                     Text(
@@ -304,7 +313,7 @@ private fun DesktopLayout(
                             "Pick the folders on your server where your audiobook files live — " +
                                 "we'll scan them and build your library automatically.",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                        color = HeroInk.muted(),
                         modifier = Modifier.widthIn(max = 340.dp),
                     )
                 }
@@ -361,7 +370,7 @@ private fun DesktopPickerPanel(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(MaterialTheme.shapes.large)
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .padding(10.dp),
         ) {
@@ -400,8 +409,7 @@ private fun DesktopPickerPanel(
                 )
                 Text(
                     text = state.selectedPaths.firstOrNull() ?: state.currentPath,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -416,7 +424,7 @@ private fun DesktopPickerPanel(
                 enabled = state.selectedPaths.isNotEmpty(),
                 isLoading = state.isCreatingLibrary,
                 fillMaxWidth = false,
-                trailingIcon = Icons.AutoMirrored.Rounded.ArrowForward,
+                trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
             )
         }
     }
@@ -519,7 +527,7 @@ private fun EmptyFolder(
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = Icons.Rounded.FolderOpen,
+            imageVector = Icons.Outlined.FolderOpen,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(48.dp),
@@ -536,7 +544,7 @@ private fun EmptyFolder(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
         ListenUpButton(text = "Select this folder", onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())
     }
 }

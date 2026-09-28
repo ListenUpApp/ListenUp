@@ -25,7 +25,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MAX
@@ -33,6 +32,7 @@ import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_MIN
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.client.presentation.nowplaying.snapPlaybackSpeed
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import kotlin.math.absoluteValue
 import listenup.composeapp.generated.resources.Res
@@ -40,6 +40,7 @@ import listenup.composeapp.generated.resources.player_playback_speed
 import listenup.composeapp.generated.resources.player_reset_to_default
 import listenup.composeapp.generated.resources.player_speed_value
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.unit.em
 
 /**
  * A speed as this UI writes it: `1.0x`, `1.25x`, `2.0x`.
@@ -90,7 +91,7 @@ fun PlaybackSpeedSheet(
         dialogWidth = 520.dp,
     ) {
         SpeedReadout(sliderSpeed)
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
         SpeedSlider(
             speed = sliderSpeed,
             onSpeedChange = { newSpeed ->
@@ -130,7 +131,8 @@ private fun SpeedReadout(speed: Float) {
         buildAnnotatedString {
             val xIndex = formatted.lastIndexOf('x')
             append(formatted.substring(0, xIndex))
-            withStyle(SpanStyle(fontSize = 40.sp)) { append("x") }
+            // The unit sits smaller than the digits, in proportion so it follows the font scale.
+            withStyle(SpanStyle(fontSize = SPEED_UNIT_SCALE.em)) { append("x") }
         }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Text(
@@ -197,3 +199,6 @@ private fun SpeedPresetRow(
         }
     }
 }
+
+/** The "x" suffix relative to the display-size speed digits (40sp against displayLarge's 57sp). */
+private const val SPEED_UNIT_SCALE = 0.7f

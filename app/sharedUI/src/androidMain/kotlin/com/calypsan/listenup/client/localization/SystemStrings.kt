@@ -117,11 +117,11 @@ data class SystemStrings(
          */
         val ENGLISH_FALLBACK =
             SystemStrings(
-                carContinueListening = "Continue Listening",
+                carContinueListening = "Continue listening",
                 carLibrary = "Library",
                 carDownloaded = "Downloaded",
-                carBySeries = "By Series",
-                carByAuthor = "By Author",
+                carBySeries = "By series",
+                carByAuthor = "By author",
                 carBookSubtitle = "%1\$s - %2\$s",
                 carSignInAction = "Sign in to ListenUp",
                 carSignInMessage = "Sign in to ListenUp on your phone.",
@@ -134,7 +134,7 @@ data class SystemStrings(
                 playerPlay = "Play",
                 playerPause = "Pause",
                 playerSpeed = "Speed",
-                playerUnknownBook = "Unknown Book",
+                playerUnknownBook = "Unknown book",
                 playerPlaying = "Playing...",
                 playerChapterOf = "Chapter %1\$s of %2\$s",
                 playerChapterRemaining = "%1\$s • %2\$s left",

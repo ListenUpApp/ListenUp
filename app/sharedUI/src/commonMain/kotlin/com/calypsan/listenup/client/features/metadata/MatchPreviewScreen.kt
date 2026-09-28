@@ -1,8 +1,21 @@
 package com.calypsan.listenup.client.features.metadata
 
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.SectionColumns
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,16 +29,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.FormatListNumbered
@@ -64,6 +73,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
@@ -107,9 +117,9 @@ import listenup.composeapp.generated.resources.metadata_section_identity
 import listenup.composeapp.generated.resources.metadata_select_metadata
 import listenup.composeapp.generated.resources.metadata_try_selecting_a_different_region
 import listenup.composeapp.generated.resources.metadata_your_book_already_has_all
+import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
-/** Readable centred-column width cap on expanded layouts. */
-private val PREVIEW_MAX_WIDTH = 640.dp
 private const val DESCRIPTION_PREVIEW_LIMIT = 200
 
 /**
@@ -118,6 +128,11 @@ private const val DESCRIPTION_PREVIEW_LIMIT = 200
  * Shows all available metadata fields with checkboxes so users can
  * select which fields to apply. Supports region selection for
  * trying different Audible markets.
+ *
+ * A phone stacks the matched edition, the region and the field sections in one list above an apply
+ * bar. From the expanded width the matched edition, its region and the apply action become a side
+ * panel — what is being applied stays next to the button that applies it — and the field sections
+ * flow into [SectionColumns] beside it, so identity and classification are read side by side.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 // Screen entry point hoists every metadata field's state + toggle callback; a parameter object
@@ -158,6 +173,47 @@ fun MatchPreviewScreen(
     onBack: () -> Unit,
 ) {
     val hasAnySelected = selections.hasAnySelected()
+    val panelBeside =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
+        )
+    // Identity is always present, so an empty list means exactly "the match carries no data".
+    val sections =
+        if (newMetadata.hasAnyData()) {
+            metadataFieldSections(
+                currentBook = currentBook,
+                newMetadata = newMetadata,
+                selections = selections,
+                coverOptions = coverOptions,
+                isLoadingCovers = isLoadingCovers,
+                selectedCoverUrl = selectedCoverUrl,
+                onSelectCover = onSelectCover,
+                chapterSuggestion = chapterSuggestion,
+                onReviewChapters = onReviewChapters,
+                fallbackSources = fallbackSources,
+                coverSourceLabel = coverSourceLabel,
+                coverResolution = coverResolution,
+                onToggleField = onToggleField,
+                onToggleAuthor = onToggleAuthor,
+                onToggleNarrator = onToggleNarrator,
+                onToggleSeries = onToggleSeries,
+                onToggleGenre = onToggleGenre,
+                onToggleMood = onToggleMood,
+                onToggleTag = onToggleTag,
+            )
+        } else {
+            emptyList()
+        }
+    val applyActions: @Composable (Modifier) -> Unit = { modifier ->
+        ApplyActions(
+            applyError = applyError,
+            isApplying = isApplying,
+            hasAnySelected = hasAnySelected,
+            contributingSources = contributingSources,
+            onApply = onApply,
+            modifier = modifier,
+        )
+    }
 
     ListenUpScaffold(
         topBar = {
@@ -168,84 +224,155 @@ fun MatchPreviewScreen(
             )
         },
         bottomBar = {
-            ApplyBottomBar(
-                applyError = applyError,
-                isApplying = isApplying,
-                hasAnySelected = hasAnySelected,
-                contributingSources = contributingSources,
-                onApply = onApply,
-            )
-        },
-    ) { padding ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .widthIn(max = PREVIEW_MAX_WIDTH),
-                contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                // Matched edition hero
-                item {
-                    MatchedEditionHero(
-                        match = newMetadata,
-                        coverUrl = newMetadata.coverUrl,
-                        selectedRegion = selectedRegion,
-                    )
-                }
-
-                // Region selector
-                item {
-                    Column {
-                        Overline(text = stringResource(Res.string.metadata_audible_region))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        RegionSelector(
-                            selectedRegion = selectedRegion,
-                            onRegionSelected = onRegionSelected,
-                        )
-                    }
-                }
-
-                if (!newMetadata.hasAnyData()) {
-                    item {
-                        if (previewNotFound) {
-                            NoMetadataAvailableMessage(selectedRegion = selectedRegion)
-                        } else {
-                            AlreadyUpToDateMessage()
-                        }
-                    }
-                } else {
-                    metadataFieldsSection(
-                        currentBook = currentBook,
-                        newMetadata = newMetadata,
-                        selections = selections,
-                        coverOptions = coverOptions,
-                        isLoadingCovers = isLoadingCovers,
-                        selectedCoverUrl = selectedCoverUrl,
-                        onSelectCover = onSelectCover,
-                        chapterSuggestion = chapterSuggestion,
-                        onReviewChapters = onReviewChapters,
-                        fallbackSources = fallbackSources,
-                        coverSourceLabel = coverSourceLabel,
-                        coverResolution = coverResolution,
-                        onToggleField = onToggleField,
-                        onToggleAuthor = onToggleAuthor,
-                        onToggleNarrator = onToggleNarrator,
-                        onToggleSeries = onToggleSeries,
-                        onToggleGenre = onToggleGenre,
-                        onToggleMood = onToggleMood,
-                        onToggleTag = onToggleTag,
-                    )
+            if (!panelBeside) {
+                Surface(tonalElevation = 3.dp) {
+                    applyActions(Modifier.padding(18.dp))
                 }
             }
+        },
+    ) { padding ->
+        val hero: @Composable () -> Unit = {
+            MatchedEditionHero(
+                match = newMetadata,
+                coverUrl = newMetadata.coverUrl,
+                selectedRegion = selectedRegion,
+            )
         }
+        val regionPicker: @Composable () -> Unit = {
+            RegionPicker(selectedRegion = selectedRegion, onRegionSelected = onRegionSelected)
+        }
+        val noDataMessage: @Composable () -> Unit = {
+            NoMatchDataMessage(previewNotFound = previewNotFound, selectedRegion = selectedRegion)
+        }
+        if (panelBeside) {
+            MatchPreviewWideLayout(
+                padding = padding,
+                hero = hero,
+                regionPicker = regionPicker,
+                applyActions = { applyActions(Modifier) },
+                sections = sections,
+                noDataMessage = noDataMessage,
+            )
+        } else {
+            MatchPreviewPhoneList(
+                padding = padding,
+                hero = hero,
+                regionPicker = regionPicker,
+                sections = sections,
+                noDataMessage = noDataMessage,
+            )
+        }
+    }
+}
+
+/**
+ * The expanded layout: the matched edition, its region and the apply action in a side panel; the
+ * field [sections] as [SectionColumns] beside it, or [noDataMessage] when the match has none.
+ */
+@Suppress("LongParameterList")
+@Composable
+private fun MatchPreviewWideLayout(
+    padding: PaddingValues,
+    hero: @Composable () -> Unit,
+    regionPicker: @Composable () -> Unit,
+    applyActions: @Composable () -> Unit,
+    sections: List<@Composable () -> Unit>,
+    noDataMessage: @Composable () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .width(MatchPanelWidth)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 20.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            hero()
+            regionPicker()
+            applyActions()
+        }
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 20.dp, bottom = 16.dp),
+        ) {
+            if (sections.isEmpty()) {
+                noDataMessage()
+            } else {
+                SectionColumns { sections.forEach { section(it) } }
+            }
+        }
+    }
+}
+
+/** The phone layout: hero, region, then one list item per field section (or [noDataMessage]). */
+@Composable
+private fun MatchPreviewPhoneList(
+    padding: PaddingValues,
+    hero: @Composable () -> Unit,
+    regionPicker: @Composable () -> Unit,
+    sections: List<@Composable () -> Unit>,
+    noDataMessage: @Composable () -> Unit,
+) {
+    LazyColumn(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        item { hero() }
+        item { regionPicker() }
+        if (sections.isEmpty()) {
+            item { noDataMessage() }
+        } else {
+            sections.forEach { section -> item { section() } }
+        }
+    }
+}
+
+/** Width of the expanded layout's match panel — one comfortable card column. */
+private val MatchPanelWidth = 360.dp
+
+/** The Audible-region overline over its [RegionSelector]. */
+@Composable
+private fun RegionPicker(
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
+) {
+    Column {
+        Overline(text = stringResource(Res.string.metadata_audible_region))
+        Spacer(modifier = Modifier.height(12.dp))
+        RegionSelector(
+            selectedRegion = selectedRegion,
+            onRegionSelected = onRegionSelected,
+        )
+    }
+}
+
+/** Why there are no field sections: the match was not found in this region, or nothing would change. */
+@Composable
+private fun NoMatchDataMessage(
+    previewNotFound: Boolean,
+    selectedRegion: MetadataLocale,
+) {
+    if (previewNotFound) {
+        NoMetadataAvailableMessage(selectedRegion = selectedRegion)
+    } else {
+        AlreadyUpToDateMessage()
     }
 }
 
@@ -311,7 +438,7 @@ private fun MatchedEditionHero(
         contentColor = colors.onPrimaryContainer,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (coverUrl != null) {
@@ -336,7 +463,7 @@ private fun MatchedEditionHero(
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.MenuBook,
                         contentDescription = null,
-                        tint = colors.onPrimaryContainer.copy(alpha = 0.7f),
+                        tint = HeroInk.muted(),
                     )
                 }
             }
@@ -359,7 +486,7 @@ private fun MatchedEditionHero(
                     Text(
                         text = people,
                         style = MaterialTheme.typography.bodySmall,
-                        color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                        color = HeroInk.muted(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 4.dp),
@@ -375,8 +502,8 @@ private fun MatchedEditionHero(
 private fun SourceChip(region: MetadataLocale) {
     val colors = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(percent = 50),
-        color = colors.onPrimaryContainer.copy(alpha = 0.12f),
+        shape = CircleShape,
+        color = HeroInk.wash(),
         contentColor = colors.onPrimaryContainer,
     ) {
         Row(
@@ -398,56 +525,57 @@ private fun SourceChip(region: MetadataLocale) {
     }
 }
 
+/** The provenance line, the apply error if any, and the apply button — the phone's bottom bar, or the foot of the wide panel. */
 @Composable
-private fun ApplyBottomBar(
+private fun ApplyActions(
     applyError: String?,
     isApplying: Boolean,
     hasAnySelected: Boolean,
     contributingSources: List<String>,
     onApply: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        tonalElevation = 3.dp,
+    Column(
+        modifier = modifier.fillMaxWidth(),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-        ) {
-            if (contributingSources.size > 1) {
-                Text(
-                    text = stringResource(Res.string.metadata_merged_from, contributingSources.joinToString(", ")),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            applyError?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            ListenUpButton(
-                text = stringResource(Res.string.metadata_apply_selected_metadata),
-                onClick = onApply,
-                enabled = hasAnySelected,
-                isLoading = isApplying,
-                leadingIcon = Icons.Outlined.Check,
+        if (contributingSources.size > 1) {
+            Text(
+                text = stringResource(Res.string.metadata_merged_from, contributingSources.joinToString(", ")),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
             )
         }
+
+        applyError?.let { error ->
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        ListenUpButton(
+            text = stringResource(Res.string.metadata_apply_selected_metadata),
+            onClick = onApply,
+            enabled = hasAnySelected,
+            isLoading = isApplying,
+            leadingIcon = Icons.Outlined.Check,
+        )
     }
 }
 
-// Emits one LazyColumn item per available metadata field; the callback set is fanned straight
-// to each row, so a parameter object would only add an indirection layer Compose tooling discourages.
+/**
+ * The field sections that apply — identity always, classification, details and chapter names when the
+ * match carries them — in reading order, each a self-contained block. The phone emits one list item
+ * per section; the wide layout lays the same blocks out as [SectionColumns].
+ *
+ * The callback set is fanned straight to each row, so a parameter object would only add an
+ * indirection layer Compose tooling discourages.
+ */
 @Suppress("LongParameterList")
-private fun LazyListScope.metadataFieldsSection(
+private fun metadataFieldSections(
     currentBook: BookDetail,
     newMetadata: MetadataBook,
     selections: MetadataSelections,
@@ -467,96 +595,99 @@ private fun LazyListScope.metadataFieldsSection(
     onToggleGenre: (String) -> Unit,
     onToggleMood: (String) -> Unit,
     onToggleTag: (String) -> Unit,
-) {
-    // ── IDENTITY ──
-    item {
-        FieldGroup(
-            label = stringResource(Res.string.metadata_section_identity),
-            icon = Icons.AutoMirrored.Outlined.MenuBook,
-        ) {
-            IdentitySectionContent(
-                currentBook = currentBook,
-                newMetadata = newMetadata,
-                selections = selections,
-                coverOptions = coverOptions,
-                isLoadingCovers = isLoadingCovers,
-                selectedCoverUrl = selectedCoverUrl,
-                onSelectCover = onSelectCover,
-                fallbackSources = fallbackSources,
-                coverSourceLabel = coverSourceLabel,
-                coverResolution = coverResolution,
-                onToggleField = onToggleField,
-                onToggleAuthor = onToggleAuthor,
-                onToggleNarrator = onToggleNarrator,
-                onToggleSeries = onToggleSeries,
-            )
-        }
-    }
-
-    // ── CLASSIFICATION ──
-    val hasClassification =
-        newMetadata.genres.isNotEmpty() ||
-            newMetadata.moods.isNotEmpty() ||
-            newMetadata.tags.isNotEmpty()
-    if (hasClassification) {
-        item {
+): List<@Composable () -> Unit> =
+    buildList {
+        // ── IDENTITY ──
+        add {
             FieldGroup(
-                label = stringResource(Res.string.metadata_section_classification),
-                icon = Icons.Outlined.Category,
-                accent = MaterialTheme.colorScheme.tertiary,
+                label = stringResource(Res.string.metadata_section_identity),
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
             ) {
-                if (newMetadata.genres.isNotEmpty()) {
-                    GenreFieldRow(
-                        genres = newMetadata.genres,
-                        selectedGenres = selections.selectedGenres,
-                        onToggle = onToggleGenre,
-                        sourceLabel = fallbackSources[BookField.GENRES],
-                    )
-                }
-                if (newMetadata.moods.isNotEmpty()) {
-                    MoodFieldRow(
-                        moods = newMetadata.moods,
-                        selectedMoods = selections.selectedMoods,
-                        onToggle = onToggleMood,
-                    )
-                }
-                if (newMetadata.tags.isNotEmpty()) {
-                    TagFieldRow(
-                        tags = newMetadata.tags,
-                        selectedTags = selections.selectedTags,
-                        onToggle = onToggleTag,
-                    )
-                }
-            }
-        }
-    }
-
-    // ── DETAILS ──
-    val hasDetails =
-        !newMetadata.description.isNullOrBlank() ||
-            !newMetadata.publisher.isNullOrBlank() ||
-            !newMetadata.releaseDate.isNullOrBlank() ||
-            !newMetadata.language.isNullOrBlank()
-    if (hasDetails) {
-        item {
-            FieldGroup(
-                label = stringResource(Res.string.metadata_section_details),
-                icon = Icons.Outlined.Info,
-                accent = MaterialTheme.colorScheme.secondary,
-            ) {
-                DetailsSectionContent(
+                IdentitySectionContent(
+                    currentBook = currentBook,
                     newMetadata = newMetadata,
                     selections = selections,
+                    coverOptions = coverOptions,
+                    isLoadingCovers = isLoadingCovers,
+                    selectedCoverUrl = selectedCoverUrl,
+                    onSelectCover = onSelectCover,
                     fallbackSources = fallbackSources,
+                    coverSourceLabel = coverSourceLabel,
+                    coverResolution = coverResolution,
                     onToggleField = onToggleField,
+                    onToggleAuthor = onToggleAuthor,
+                    onToggleNarrator = onToggleNarrator,
+                    onToggleSeries = onToggleSeries,
                 )
             }
         }
-    }
 
-    // Chapter names (count-gated; renders nothing when unavailable)
-    chapterNamesSection(chapterSuggestion, onReviewChapters)
-}
+        // ── CLASSIFICATION ──
+        val hasClassification =
+            newMetadata.genres.isNotEmpty() ||
+                newMetadata.moods.isNotEmpty() ||
+                newMetadata.tags.isNotEmpty()
+        if (hasClassification) {
+            add {
+                FieldGroup(
+                    label = stringResource(Res.string.metadata_section_classification),
+                    icon = Icons.Outlined.Category,
+                    accent = MaterialTheme.colorScheme.tertiary,
+                ) {
+                    if (newMetadata.genres.isNotEmpty()) {
+                        GenreFieldRow(
+                            genres = newMetadata.genres,
+                            selectedGenres = selections.selectedGenres,
+                            onToggle = onToggleGenre,
+                            sourceLabel = fallbackSources[BookField.GENRES],
+                        )
+                    }
+                    if (newMetadata.moods.isNotEmpty()) {
+                        MoodFieldRow(
+                            moods = newMetadata.moods,
+                            selectedMoods = selections.selectedMoods,
+                            onToggle = onToggleMood,
+                        )
+                    }
+                    if (newMetadata.tags.isNotEmpty()) {
+                        TagFieldRow(
+                            tags = newMetadata.tags,
+                            selectedTags = selections.selectedTags,
+                            onToggle = onToggleTag,
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── DETAILS ──
+        val hasDetails =
+            !newMetadata.description.isNullOrBlank() ||
+                !newMetadata.publisher.isNullOrBlank() ||
+                !newMetadata.releaseDate.isNullOrBlank() ||
+                !newMetadata.language.isNullOrBlank()
+        if (hasDetails) {
+            add {
+                FieldGroup(
+                    label = stringResource(Res.string.metadata_section_details),
+                    icon = Icons.Outlined.Info,
+                    accent = MaterialTheme.colorScheme.secondary,
+                ) {
+                    DetailsSectionContent(
+                        newMetadata = newMetadata,
+                        selections = selections,
+                        fallbackSources = fallbackSources,
+                        onToggleField = onToggleField,
+                    )
+                }
+            }
+        }
+
+        // Chapter names (count-gated; no section when unavailable)
+        if (chapterSuggestion !is ChapterSuggestion.Unavailable) {
+            add { ChapterNamesItem(suggestion = chapterSuggestion, onReview = onReviewChapters) }
+        }
+    }
 
 /** Identity-section field rows: cover, title, subtitle, authors, narrators, series. */
 @Suppress("LongParameterList")
@@ -752,26 +883,10 @@ private fun FieldGroup(
 }
 
 /**
- * Emits the count-gated chapter-names row, if any.
- *
- * Renders nothing for [ChapterSuggestion.Unavailable], a disabled reason for
- * [ChapterSuggestion.CountMismatch], and a Review action for
- * [ChapterSuggestion.Available] that opens the per-chapter review sheet.
- */
-private fun LazyListScope.chapterNamesSection(
-    suggestion: ChapterSuggestion,
-    onReviewChapters: () -> Unit,
-) {
-    if (suggestion is ChapterSuggestion.Unavailable) return
-    item {
-        ChapterNamesItem(suggestion = suggestion, onReview = onReviewChapters)
-    }
-}
-
-/**
- * Count-gated chapter-name suggestion row body. Only [ChapterSuggestion.CountMismatch]
- * and [ChapterSuggestion.Available] reach here; [ChapterSuggestion.Unavailable] is
- * filtered out by [chapterNamesSection].
+ * Count-gated chapter-name suggestion row body: a disabled reason for
+ * [ChapterSuggestion.CountMismatch], and a Review action for [ChapterSuggestion.Available]
+ * that opens the per-chapter review sheet. [ChapterSuggestion.Unavailable] never reaches
+ * here; [metadataFieldSections] adds no section for it.
  */
 @Composable
 private fun ChapterNamesItem(
@@ -789,7 +904,7 @@ private fun ChapterNamesItem(
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
                     Text(
                         text = stringResource(Res.string.metadata_chapter_names),
                         style = MaterialTheme.typography.labelMedium,
@@ -814,13 +929,13 @@ private fun ChapterNamesItem(
                     haptics.press()
                     onReview()
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -841,7 +956,11 @@ private fun ChapterNamesItem(
                         Text(
                             text = stringResource(Res.string.metadata_review_and_apply_chapter_names),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                            color =
+                                HeroInk.muted(
+                                    MaterialTheme.colorScheme.onSecondaryContainer,
+                                    MaterialTheme.colorScheme.secondaryContainer,
+                                ),
                         )
                     }
                     Icon(
@@ -871,14 +990,23 @@ private fun CoverFieldRow(
     coverResolution: String?,
     showDivider: Boolean,
 ) {
+    val haptics = LocalHaptics.current
     Column(modifier = Modifier.fillMaxWidth()) {
         FieldRowDivider(show = showDivider)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 15.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = Spacing.lg, end = Spacing.lg, top = 15.dp)
+                    // The box and its "Cover" label are one checkbox, so TalkBack names what it applies.
+                    .toggleable(value = isCoverEnabled, role = Role.Checkbox) { on ->
+                        haptics.toggle(on = on)
+                        onToggleCover()
+                    },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            ExpressiveCheckbox(checked = isCoverEnabled, onCheckedChange = { onToggleCover() })
+            ExpressiveCheckbox(checked = isCoverEnabled)
             Column {
                 Text(
                     text = stringResource(Res.string.metadata_cover),
@@ -902,7 +1030,7 @@ private fun CoverFieldRow(
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 15.dp),
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = 15.dp),
         ) {
             if (currentCoverPath != null) {
                 item {
@@ -965,7 +1093,7 @@ private fun CoverOptionCard(
             modifier =
                 Modifier
                     .size(100.dp)
-                    .clickable {
+                    .selectable(selected = isSelected, role = Role.RadioButton) {
                         haptics.selectionTick()
                         onClick()
                     },
@@ -990,7 +1118,7 @@ private fun CoverOptionCard(
                             Modifier
                                 .align(Alignment.TopStart)
                                 .padding(4.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
                     ) {
                         Text(
@@ -1008,7 +1136,7 @@ private fun CoverOptionCard(
                                 .align(Alignment.BottomEnd)
                                 .padding(4.dp)
                                 .size(22.dp)
-                                .clip(RoundedCornerShape(11.dp))
+                                .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -1098,7 +1226,7 @@ private fun FieldSourceChip(label: String?) {
         modifier =
             Modifier
                 .padding(start = 6.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(percent = 50))
+                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
@@ -1124,8 +1252,8 @@ private fun SimpleFieldRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        haptics.toggle(on = !isSelected)
+                    .toggleable(value = isSelected, role = Role.Checkbox) { on ->
+                        haptics.toggle(on = on)
                         onToggle()
                     }.padding(15.dp),
             verticalAlignment = Alignment.Top,
@@ -1251,10 +1379,10 @@ private fun ValueCheckRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable {
-                    haptics.toggle(on = !checked)
+                .toggleable(value = checked, role = Role.Checkbox) { on ->
+                    haptics.toggle(on = on)
                     onToggle()
-                }.padding(horizontal = 16.dp, vertical = 8.dp),
+                }.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -1279,7 +1407,7 @@ private fun GenreFieldRow(
     onToggle: (String) -> Unit,
     sourceLabel: String? = null,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
             Text(
                 text = stringResource(Res.string.metadata_field_genres),
@@ -1311,7 +1439,7 @@ private fun MoodFieldRow(
     selectedMoods: Set<String>,
     onToggle: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
         Text(
             text = stringResource(Res.string.metadata_field_moods),
             style = MaterialTheme.typography.labelMedium,
@@ -1341,7 +1469,7 @@ private fun TagFieldRow(
     selectedTags: Set<String>,
     onToggle: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(Spacing.lg)) {
         Text(
             text = stringResource(Res.string.metadata_field_tags),
             style = MaterialTheme.typography.labelMedium,
@@ -1374,11 +1502,13 @@ private fun GenreToggleChip(
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHaptics.current
     Surface(
+        selected = selected,
         onClick = {
             haptics.selectionTick()
             onClick()
         },
-        shape = RoundedCornerShape(percent = 50),
+        modifier = Modifier.semantics { role = Role.Checkbox },
+        shape = CircleShape,
         color = if (selected) colors.tertiaryContainer else colors.surfaceContainerHighest,
         contentColor = if (selected) colors.onTertiaryContainer else colors.onSurfaceVariant,
     ) {
@@ -1416,7 +1546,7 @@ private fun NoMetadataAvailableMessage(selectedRegion: MetadataLocale) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
-            imageVector = Icons.Default.Warning,
+            imageVector = Icons.Outlined.Warning,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.tertiary,
@@ -1452,7 +1582,7 @@ private fun AlreadyUpToDateMessage() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
-            imageVector = Icons.Default.CheckCircle,
+            imageVector = Icons.Outlined.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.primary,

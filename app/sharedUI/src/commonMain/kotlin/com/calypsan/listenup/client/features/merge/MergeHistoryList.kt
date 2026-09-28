@@ -1,12 +1,12 @@
 package com.calypsan.listenup.client.features.merge
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -103,21 +103,17 @@ fun MergeHistoryList(
     }
 
     confirming?.let { receipt ->
-        AlertDialog(
+        ListenUpAlertDialog(
             onDismissRequest = { confirming = null },
-            shape = MaterialTheme.shapes.large,
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text(stringResource(Res.string.merge_history_confirm_title)) },
-            text = { Text(stringResource(Res.string.merge_history_confirm_body, receipt.sourceName)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirming = null
-                    onUndo(receipt.id)
-                }) { Text(stringResource(Res.string.merge_history_confirm_action)) }
+            title = stringResource(Res.string.merge_history_confirm_title),
+            text = stringResource(Res.string.merge_history_confirm_body, receipt.sourceName),
+            confirmText = stringResource(Res.string.merge_history_confirm_action),
+            onConfirm = {
+                confirming = null
+                onUndo(receipt.id)
             },
-            dismissButton = {
-                TextButton(onClick = { confirming = null }) { Text(stringResource(Res.string.common_cancel)) }
-            },
+            dismissText = stringResource(Res.string.common_cancel),
+            onDismiss = { confirming = null },
         )
     }
 }

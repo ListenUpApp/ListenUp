@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -64,6 +63,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SelectableOptionCard
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType
 import com.calypsan.listenup.client.presentation.admin.CreateInviteField
 import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
@@ -92,6 +92,8 @@ import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.common_email_address
 import listenup.composeapp.generated.resources.common_member
 import listenup.composeapp.generated.resources.common_n_days
+import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
 private const val ROLE_MEMBER = "member"
 private const val ROLE_ADMIN = "admin"
@@ -273,8 +275,8 @@ private fun CreateInviteForm(
                     .fillMaxSize()
                     .imePadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
             Box(modifier = Modifier.weight(1.2f)) { sections() }
             Box(modifier = Modifier.weight(1f)) { submitButton() }
@@ -286,7 +288,7 @@ private fun CreateInviteForm(
                     .fillMaxSize()
                     .imePadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             sections()
@@ -499,7 +501,7 @@ private fun LinkPreviewCard(
                 text = stringResource(Res.string.admin_invite_preview).uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                color = HeroInk.muted(),
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -523,15 +525,15 @@ private fun LinkPreviewCard(
                     Text(
                         text = stringResource(Res.string.admin_name_is_invited, inviteName),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                        color = HeroInk.muted(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
             Surface(
-                shape = RoundedCornerShape(percent = 50),
-                color = colors.onPrimaryContainer.copy(alpha = 0.08f),
+                shape = CircleShape,
+                color = HeroInk.wash(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(

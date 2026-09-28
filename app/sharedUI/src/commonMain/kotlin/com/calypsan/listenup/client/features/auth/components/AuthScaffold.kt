@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.auth.components
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,10 +22,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilledIconButton
@@ -41,6 +40,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
+import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -48,6 +48,10 @@ import listenup.composeapp.generated.resources.auth_hero_tagline
 import listenup.composeapp.generated.resources.brand_mark
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_listenup
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /** A tertiary-container pill shown in the hero (e.g. "Server administrator"). */
 data class AuthBadge(
@@ -108,7 +112,7 @@ private fun AuthHeroLayout(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 44.dp, bottomEnd = 44.dp))
+                    .clip(ContentShapes.hero)
                     .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             HeroBlobs()
@@ -168,6 +172,7 @@ private fun AuthSplitLayout(
                     text = stringResource(Res.string.auth_hero_tagline),
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.semantics { heading() },
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -175,7 +180,7 @@ private fun AuthSplitLayout(
                         "Stream or download from your own ListenUp server — pick up on any device, " +
                             "right where you left off.",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+                    color = HeroInk.muted(),
                     modifier = Modifier.widthIn(max = 360.dp),
                 )
             }
@@ -216,7 +221,7 @@ private fun AuthTitleBlock(
     val ink = if (onColor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val muted =
         if (onColor) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
@@ -236,7 +241,12 @@ private fun AuthTitleBlock(
                 border = null,
             )
         }
-        Text(text = title, style = MaterialTheme.typography.displaySmall, color = ink)
+        Text(
+            text = title,
+            style = MaterialTheme.typography.displaySmall,
+            color = ink,
+            modifier = Modifier.semantics { heading() },
+        )
         if (subtitle != null) {
             Text(text = subtitle, style = MaterialTheme.typography.bodyLarge, color = muted)
         }
@@ -264,7 +274,7 @@ private fun BackButton(onBack: () -> Unit) {
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
     ) {
-        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(Res.string.common_back))
+        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(Res.string.common_back))
     }
 }
 
@@ -286,7 +296,7 @@ fun BrandMark(
             modifier =
                 Modifier
                     .size(52.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center,
         ) {
@@ -308,7 +318,7 @@ fun BrandMark(
 /** Decorative soft shapes echoing the design's blob hero. Purely cosmetic. */
 @Composable
 private fun HeroBlobs() {
-    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(bottomStart = 44.dp, bottomEnd = 44.dp))) {
+    Box(modifier = Modifier.fillMaxSize().clip(ContentShapes.hero)) {
         Box(
             modifier =
                 Modifier
@@ -343,7 +353,7 @@ fun AuthHelperCard(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.padding(Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(
                 icon,
                 contentDescription = null,

@@ -2,9 +2,6 @@ package com.calypsan.listenup.client.navigation
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -321,12 +318,6 @@ private fun SetupCheckFailedScreen(onRetry: () -> Unit) {
         }
     }
 }
-
-/** Push: the incoming screen slides in from the right as the outgoing one leaves to the left. */
-private val ForwardSlide = slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
-
-/** Pop (and predictive-back): the mirror image of [ForwardSlide]. */
-private val BackSlide = slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
 
 /**
  * Server setup navigation - shown when no server URL is configured.
@@ -744,10 +735,11 @@ private fun AuthenticatedNavigation(
             LocalSnackbarHostState provides snackbarHostState,
             LocalDeviceContext provides koinInject<DeviceContext>(),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+            AppKeyboardShortcuts(nowPlayingViewModel, backStack) {
                 // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
                 // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
                 // now-playing bar is not an entry, and a cover flying past it should pass under it.
+                val transitions = rememberScreenTransitions()
                 SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalHeroTransitionScope provides this) {
                         NavDisplay(
@@ -758,17 +750,15 @@ private fun AuthenticatedNavigation(
                                     rememberSaveableStateHolderNavEntryDecorator(),
                                     rememberViewModelStoreNavEntryDecorator(),
                                 ),
-                            // Only handle back if we're not at root - let system handle back-to-home
-                            onBack = {
-                                if (backStack.size > 1) {
-                                    backStack.removeAt(backStack.lastIndex)
-                                }
-                                // When size == 1, don't pop - allows system back-to-home animation
-                            },
-                            // Global slide transitions for all navigation
-                            transitionSpec = { ForwardSlide },
-                            popTransitionSpec = { BackSlide },
-                            predictivePopTransitionSpec = { BackSlide },
+                            // From the two-pane width a book opened from a series or contributor sits
+                            // beside it; below that (and for every other stack) the single pane.
+                            sceneStrategies = listOf(rememberListDetailSceneStrategy()),
+                            // Only handle back if we're not at root - at size 1 the system's back-to-home
+                            // animation takes over.
+                            onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                            transitionSpec = { transitions.push() },
+                            popTransitionSpec = { transitions.pop() },
+                            predictivePopTransitionSpec = { edge -> transitions.predictivePop(edge) },
                             entryProvider =
                                 authenticatedNavEntries(
                                     backStack = backStack,
@@ -807,6 +797,58 @@ private fun AuthenticatedNavigation(
         }
     }
 }
+
+/**
+ * The app's root surface, answering the hardware-keyboard shortcuts ([ShellKeyboardShortcuts]) with
+ * the player and the shell's search. The search requests the `/` shortcut makes reach the shell
+ * through [LocalShellSearchRequests]. Not on TV, where the D-pad's arrows and centre key must only
+ * move focus.
+ */
+@Composable
+private fun AppKeyboardShortcuts(
+    nowPlayingViewModel: NowPlayingViewModel,
+    backStack: NavBackStack<NavKey>,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val nowPlaying by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
+    val searchRequests = remember { ShellSearchRequests() }
+    ShellKeyboardShortcuts(
+        enabled = !LocalDeviceContext.current.isLeanback,
+        onShortcut = { shortcut ->
+            answerShellShortcut(
+                shortcut = shortcut,
+                nowPlayingViewModel = nowPlayingViewModel,
+                hasBook = nowPlaying.state is NowPlayingState.Active,
+                canOpenSearch = backStack.lastOrNull() == Shell && !nowPlaying.isExpanded,
+                searchRequests = searchRequests,
+            )
+        },
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+    ) {
+        CompositionLocalProvider(LocalShellSearchRequests provides searchRequests.requests) {
+            content()
+        }
+    }
+}
+
+/**
+ * Acts on a keyboard [shortcut], returning whether it did. The transport shortcuts need a loaded
+ * book, and skip by the user's configured intervals (the view model's own [NowPlayingViewModel.skipBack]
+ * and [NowPlayingViewModel.skipForward]). Search opens only where the shell's search is on screen.
+ */
+private fun answerShellShortcut(
+    shortcut: ShellShortcut,
+    nowPlayingViewModel: NowPlayingViewModel,
+    hasBook: Boolean,
+    canOpenSearch: Boolean,
+    searchRequests: ShellSearchRequests,
+): Boolean =
+    when (shortcut) {
+        ShellShortcut.PlayPause -> hasBook.also { if (it) nowPlayingViewModel.playPause() }
+        ShellShortcut.SkipBack -> hasBook.also { if (it) nowPlayingViewModel.skipBack() }
+        ShellShortcut.SkipForward -> hasBook.also { if (it) nowPlayingViewModel.skipForward() }
+        ShellShortcut.OpenSearch -> canOpenSearch.also { if (it) searchRequests.request() }
+    }
 
 /**
  * Builds the dispatch lambda the notification inbox entries consume: every action routes through

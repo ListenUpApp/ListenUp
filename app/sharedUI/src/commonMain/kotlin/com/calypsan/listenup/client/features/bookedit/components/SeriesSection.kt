@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -13,11 +11,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -132,7 +128,6 @@ private fun SeriesChipWithSequence(
     onSequenceChange: (String) -> Unit,
     onRemove: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -143,16 +138,9 @@ private fun SeriesChipWithSequence(
             onClick = { },
             label = { Text(series.name) },
             trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Close,
+                ChipRemoveButton(
                     contentDescription = stringResource(Res.string.common_remove_name, series.name),
-                    modifier =
-                        Modifier
-                            .size(InputChipDefaults.AvatarSize)
-                            .clickable {
-                                haptics.press()
-                                onRemove()
-                            },
+                    onRemove = onRemove,
                 )
             },
             modifier =

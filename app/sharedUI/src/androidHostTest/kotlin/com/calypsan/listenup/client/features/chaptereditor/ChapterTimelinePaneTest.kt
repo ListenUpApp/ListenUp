@@ -53,7 +53,7 @@ class ChapterTimelinePaneTest {
                         onLane(it)
                     },
                     selectedChapterId = null,
-                    playheadMs = null,
+                    playheadMs = { null },
                     fileBoundaries = emptyList(),
                     ghosts = emptyList(),
                     lockedChapterIds = emptySet(),

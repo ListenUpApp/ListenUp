@@ -1,13 +1,14 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,13 +24,12 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 private const val SUBTITLE_ALPHA = 0.78f
-private const val CHEVRON_ALPHA = 0.7f
 private val BADGE_SIZE = 50.dp
 
 /**
  * A color-blocked navigation tile: a rounded ([MaterialTheme.shapes.large]) [Surface] filled
  * with [containerColor], leading with a [ScallopBadge] holding [icon], a [title] + muted [subtitle]
- * text column, and a trailing chevron. The canonical "big nav tile" for management/landing actions —
+ * text column — no trailing chevron, since Material rows carry no disclosure indicator. The canonical "big nav tile" for management/landing actions —
  * the Admin Management section composes one per destination, and any screen needing a vivid,
  * full-width call-to-action row can reuse it.
  *
@@ -39,7 +39,7 @@ private val BADGE_SIZE = 50.dp
  * @param onClick Invoked when the tile is tapped.
  * @param modifier Modifier for the tile surface.
  * @param containerColor Fill behind the whole tile.
- * @param contentColor Colour for the title, subtitle, and chevron; defaults to the on-color for
+ * @param contentColor Colour for the title and subtitle; defaults to the on-color for
  *   [containerColor].
  * @param badgeColor Fill behind the leading scallop badge.
  * @param badgeContentColor Tint for the [icon] inside the badge.
@@ -62,7 +62,7 @@ fun ActionTile(
             haptics.press()
             onClick()
         },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
         shape = MaterialTheme.shapes.large,
         color = containerColor,
         contentColor = contentColor,
@@ -96,11 +96,6 @@ fun ActionTile(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = contentColor.copy(alpha = CHEVRON_ALPHA),
-            )
         }
     }
 }

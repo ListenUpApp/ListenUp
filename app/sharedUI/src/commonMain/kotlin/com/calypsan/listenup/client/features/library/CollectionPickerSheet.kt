@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -26,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Collection
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -56,6 +58,7 @@ import listenup.composeapp.generated.resources.library_create_new_collection
 import listenup.composeapp.generated.resources.common_no_items_yet
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Bottom sheet for selecting a collection to add books to.
@@ -90,19 +93,7 @@ fun CollectionPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        dragHandle = {
-            // Standard drag handle with proper spacing
-            Surface(
-                modifier =
-                    Modifier
-                        .padding(vertical = 12.dp)
-                        .width(32.dp)
-                        .height(4.dp),
-                shape = RoundedCornerShape(2.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            ) {}
-        },
+        shape = BottomSheetDefaults.ExpandedShape,
     ) {
         Column(
             modifier =
@@ -112,7 +103,7 @@ fun CollectionPickerSheet(
         ) {
             // Header
             Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
             ) {
                 Text(
                     text = stringResource(Res.string.book_detail_add_to_collection),
@@ -184,7 +175,7 @@ private fun CollectionPickerContent(
                     )
                     if (collections.isNotEmpty()) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 24.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                             color = MaterialTheme.colorScheme.outlineVariant,
                         )
                     }
@@ -256,7 +247,7 @@ private fun CollectionPickerEmptyState(showCreateHint: Boolean) {
             Text(
                 text = stringResource(Res.string.library_create_a_collection_in_the),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -274,12 +265,13 @@ private fun CreateNewCollectionRow(
         onClick = onClick,
         enabled = enabled,
         color = Color.Transparent,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Plus icon
@@ -287,7 +279,7 @@ private fun CreateNewCollectionRow(
                 modifier =
                     Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
@@ -328,12 +320,13 @@ private fun CollectionRow(
         onClick = onClick,
         enabled = enabled,
         color = Color.Transparent,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -381,7 +374,6 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     var collectionName by remember { mutableStateOf("") }
     val isValid = collectionName.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -392,40 +384,22 @@ private fun CreateCollectionDialog(
         focusRequester.requestFocus()
     }
 
-    androidx.compose.material3.AlertDialog(
+    ListenUpAlertDialog(
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = { Text(stringResource(Res.string.library_create_new_collection)) },
-        text = {
-            ListenUpTextField(
-                value = collectionName,
-                onValueChange = { collectionName = it },
-                label = stringResource(Res.string.library_collection_name),
-                placeholder = stringResource(Res.string.common_collection_name_hint),
-                modifier = Modifier.focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptics.commit()
-                    onCreate(collectionName.trim())
-                },
-                enabled = isValid,
-            ) {
-                Text(stringResource(Res.string.library_create_add))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(Res.string.common_cancel))
-            }
-        },
-    )
+        title = stringResource(Res.string.library_create_new_collection),
+        confirmText = stringResource(Res.string.library_create_add),
+        onConfirm = { onCreate(collectionName.trim()) },
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismiss,
+        confirmEnabled = isValid,
+    ) {
+        ListenUpTextField(
+            value = collectionName,
+            onValueChange = { collectionName = it },
+            label = stringResource(Res.string.library_collection_name),
+            placeholder = stringResource(Res.string.common_collection_name_hint),
+            modifier = Modifier.focusRequester(focusRequester),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        )
+    }
 }

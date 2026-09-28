@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.design.util
 
+import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.runtime.Composable
@@ -17,9 +18,16 @@ actual fun PlatformBackHandler(
 @Composable
 actual fun PlatformPredictiveBackHandler(
     enabled: Boolean,
-    onBack: suspend (progress: Flow<Float>) -> Unit,
+    onBack: suspend (gesture: Flow<BackGestureFrame>) -> Unit,
 ) {
     PredictiveBackHandler(enabled = enabled) { backEventFlow ->
-        onBack(backEventFlow.map { it.progress })
+        onBack(backEventFlow.map { BackGestureFrame(it.progress, it.swipeEdge.toBackGestureEdge()) })
     }
 }
+
+private fun Int.toBackGestureEdge(): BackGestureEdge =
+    when (this) {
+        BackEventCompat.EDGE_LEFT -> BackGestureEdge.Left
+        BackEventCompat.EDGE_RIGHT -> BackGestureEdge.Right
+        else -> BackGestureEdge.None
+    }

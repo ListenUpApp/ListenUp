@@ -15,7 +15,7 @@ actual fun PlatformBackHandler(
 @Composable
 actual fun PlatformPredictiveBackHandler(
     enabled: Boolean,
-    onBack: suspend (progress: Flow<Float>) -> Unit,
+    onBack: suspend (gesture: Flow<BackGestureFrame>) -> Unit,
 ) {
     // Desktop has no system back gesture. No-op.
 }

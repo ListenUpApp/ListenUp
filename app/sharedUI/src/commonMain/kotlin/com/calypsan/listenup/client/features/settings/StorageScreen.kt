@@ -1,5 +1,17 @@
 package com.calypsan.listenup.client.features.settings
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,11 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,7 +37,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -42,6 +49,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import com.calypsan.listenup.client.presentation.storage.DeleteConfirmation
@@ -50,7 +58,6 @@ import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_delete_download
 import listenup.composeapp.generated.resources.book_detail_you_can_redownload_anytime_by
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_ok
 import listenup.composeapp.generated.resources.common_storage
@@ -102,7 +109,7 @@ fun StorageScreen(
                     confirmText = stringResource(Res.string.common_delete),
                     onConfirm = viewModel::executeDelete,
                     onDismiss = viewModel::cancelDelete,
-                    icon = Icons.Default.Delete,
+                    icon = Icons.Outlined.Delete,
                 )
             }
 
@@ -117,7 +124,7 @@ fun StorageScreen(
                     confirmText = stringResource(Res.string.settings_clear_all),
                     onConfirm = viewModel::executeDelete,
                     onDismiss = viewModel::cancelDelete,
-                    icon = Icons.Default.DeleteSweep,
+                    icon = Icons.Outlined.DeleteSweep,
                 )
             }
         }
@@ -127,40 +134,21 @@ fun StorageScreen(
     // playing. Surfacing the reason — instead of silently no-op'ing the delete — tells the user
     // exactly how to proceed (stop playback, then delete).
     state.blockedDeletionTitle?.let { title ->
-        AlertDialog(
+        ListenUpAlertDialog(
             onDismissRequest = viewModel::dismissDeleteBlocked,
-            title = { Text(stringResource(Res.string.settings_cant_delete_playing_title)) },
-            text = { Text(stringResource(Res.string.settings_cant_delete_playing_message, title)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        viewModel.dismissDeleteBlocked()
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_ok))
-                }
-            },
+            title = stringResource(Res.string.settings_cant_delete_playing_title),
+            text = stringResource(Res.string.settings_cant_delete_playing_message, title),
+            confirmText = stringResource(Res.string.common_ok),
+            onConfirm = viewModel::dismissDeleteBlocked,
+            dismissText = null,
         )
     }
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.common_storage)) },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onNavigateBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.common_storage),
+                onBack = onNavigateBack,
                 actions = {
                     if (state.downloadedBooks.isNotEmpty()) {
                         TextButton(
@@ -185,8 +173,15 @@ fun StorageScreen(
     }
 }
 
+/**
+ * The screen's loaded body, hosted by its scaffold. A phone stacks the usage summary over the list of
+ * downloads. From the expanded width up the summary becomes a side panel and the downloads flow into
+ * a [GridCells.Adaptive] grid beside it — the tablet sees what is using the space and how much is left
+ * at once, without the summary scrolling away. Between the two, a small tablet has no room for the
+ * panel, so the summary heads the page and the downloads flow into the same grid under it.
+ */
 @Composable
-private fun StorageContent(
+internal fun StorageContent(
     state: StorageUiState,
     onDeleteBook: (DownloadedBookSummary) -> Unit,
     modifier: Modifier = Modifier,
@@ -201,9 +196,74 @@ private fun StorageContent(
         return
     }
 
+    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    when {
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> {
+            StorageWideLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+        }
+
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> {
+            StorageMediumLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+        }
+
+        else -> {
+            StoragePhoneLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+        }
+    }
+}
+
+/** A small tablet: the summary across the top, then the downloads in columns. */
+@Composable
+private fun StorageMediumLayout(
+    state: StorageUiState,
+    onDeleteBook: (DownloadedBookSummary) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = DownloadGridMinColumn),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+        verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            StorageSummaryCard(
+                totalUsed = state.totalStorageUsed,
+                available = state.availableStorage,
+                bookCount = state.downloadedBooks.size,
+            )
+        }
+        if (state.downloadedBooks.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EmptyDownloadsMessage()
+            }
+        } else {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
+            }
+            items(
+                items = state.downloadedBooks,
+                key = { it.bookId },
+            ) { book ->
+                DownloadedBookItem(
+                    book = book,
+                    onDelete = { onDeleteBook(book) },
+                    isDeleting = state.isDeleting,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StoragePhoneLayout(
+    state: StorageUiState,
+    onDeleteBook: (DownloadedBookSummary) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Storage summary card
@@ -221,11 +281,7 @@ private fun StorageContent(
             }
         } else {
             item {
-                Text(
-                    text = stringResource(Res.string.settings_downloaded_books),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
             }
 
             items(
@@ -242,24 +298,90 @@ private fun StorageContent(
     }
 }
 
+/** Width of the wide layout's summary panel — one comfortable card column. */
+private val SummaryPanelWidth = 360.dp
+
+@Composable
+private fun StorageWideLayout(
+    state: StorageUiState,
+    onDeleteBook: (DownloadedBookSummary) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+    ) {
+        StorageSummaryCard(
+            totalUsed = state.totalStorageUsed,
+            available = state.availableStorage,
+            bookCount = state.downloadedBooks.size,
+            modifier = Modifier.width(SummaryPanelWidth).padding(vertical = 16.dp),
+        )
+
+        if (state.downloadedBooks.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                EmptyDownloadsMessage()
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = DownloadGridMinColumn),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+                verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+            ) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    DownloadedBooksHeading()
+                }
+                items(
+                    items = state.downloadedBooks,
+                    key = { it.bookId },
+                ) { book ->
+                    DownloadedBookItem(
+                        book = book,
+                        onDelete = { onDeleteBook(book) },
+                        isDeleting = state.isDeleting,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The narrowest a downloaded-book card gets before the column count drops — narrow enough that a
+ * 600dp small tablet still gets two columns.
+ */
+private val DownloadGridMinColumn = 264.dp
+
+@Composable
+private fun DownloadedBooksHeading(modifier: Modifier = Modifier) {
+    Text(
+        text = stringResource(Res.string.settings_downloaded_books),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = modifier,
+    )
+}
+
 @Composable
 private fun StorageSummaryCard(
     totalUsed: Long,
     available: Long,
     bookCount: Int,
+    modifier: Modifier = Modifier,
 ) {
     val total = totalUsed + available
     val usagePercent = if (total > 0) totalUsed.toFloat() / total else 0f
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
@@ -402,7 +524,7 @@ private fun DownloadedBookItem(
                 enabled = !isDeleting,
             ) {
                 Icon(
-                    imageVector = Icons.Default.Delete,
+                    imageVector = Icons.Outlined.Delete,
                     contentDescription = stringResource(Res.string.book_delete_download),
                     tint = MaterialTheme.colorScheme.error,
                 )

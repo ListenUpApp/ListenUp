@@ -11,27 +11,32 @@ import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.ContributorEdit
 import com.calypsan.listenup.client.navigation.ContributorMetadataPreview
 import com.calypsan.listenup.client.navigation.ContributorMetadataSearch
+import com.calypsan.listenup.client.navigation.ListDetailScene
+import com.calypsan.listenup.client.navigation.navigateFrom
+import com.calypsan.listenup.client.navigation.popFrom
 
 /** Contributor navigation entries. */
 internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackStack<NavKey>) {
-    entry<ContributorDetail>(metadata = heroEntryTransitions) { args ->
+    // List panes: on a wide window the book they open sits beside them, so they navigate from
+    // themselves.
+    entry<ContributorDetail>(metadata = heroEntryTransitions + ListDetailScene.listPane()) { args ->
         HeroEntry {
             com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen(
                 contributorId = args.contributorId,
                 onBackClick = {
-                    backStack.removeAt(backStack.lastIndex)
+                    backStack.popFrom(args)
                 },
                 onBookClick = { bookId ->
-                    backStack.add(BookDetail(bookId))
+                    backStack.navigateFrom(args, BookDetail(bookId))
                 },
                 onEditClick = { contributorId ->
-                    backStack.add(ContributorEdit(contributorId))
+                    backStack.navigateFrom(args, ContributorEdit(contributorId))
                 },
                 onViewAllClick = { contributorId, role ->
-                    backStack.add(ContributorBooks(contributorId, role))
+                    backStack.navigateFrom(args, ContributorBooks(contributorId, role))
                 },
                 onMetadataClick = { contributorId ->
-                    backStack.add(ContributorMetadataSearch(contributorId))
+                    backStack.navigateFrom(args, ContributorMetadataSearch(contributorId))
                 },
             )
         }
@@ -59,15 +64,15 @@ internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackSta
             },
         )
     }
-    entry<ContributorBooks> { args ->
+    entry<ContributorBooks>(metadata = ListDetailScene.listPane()) { args ->
         com.calypsan.listenup.client.features.contributordetail.ContributorBooksScreen(
             contributorId = args.contributorId,
             role = args.role,
             onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
+                backStack.popFrom(args)
             },
             onBookClick = { bookId ->
-                backStack.add(BookDetail(bookId))
+                backStack.navigateFrom(args, BookDetail(bookId))
             },
         )
     }

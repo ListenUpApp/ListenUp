@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
-import androidx.compose.foundation.clickable
+import com.calypsan.listenup.client.design.components.switchRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,10 +67,8 @@ fun IdentifiersSection(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        haptics.toggle(on = !abridged)
-                        onAbridgedChange(!abridged)
-                    }.padding(vertical = 4.dp),
+                    .switchRow(checked = abridged, haptics = haptics, onCheckedChange = onAbridgedChange)
+                    .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -85,13 +83,7 @@ fun IdentifiersSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Switch(
-                checked = abridged,
-                onCheckedChange = {
-                    haptics.toggle(on = it)
-                    onAbridgedChange(it)
-                },
-            )
+            Switch(checked = abridged, onCheckedChange = null)
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.auth
 
+import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +50,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.presentation.auth.LoginErrorType
@@ -148,7 +149,7 @@ fun LoginScreen(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .systemBarsPadding()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
         )
     }
 
@@ -311,7 +312,6 @@ private fun RootResetDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var succeeded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val haptics = LocalHaptics.current
 
     fun submit() {
         isSubmitting = true
@@ -324,90 +324,66 @@ private fun RootResetDialog(
         }
     }
 
-    AlertDialog(
+    if (succeeded) {
+        ListenUpAlertDialog(
+            onDismissRequest = onDismissRequest,
+            title = stringResource(Res.string.auth_reset_root),
+            text = stringResource(Res.string.auth_forgot_password_complete),
+            confirmText = stringResource(Res.string.common_done),
+            onConfirm = onDismissRequest,
+            dismissText = null,
+        )
+        return
+    }
+
+    ListenUpAlertDialog(
         onDismissRequest = onDismissRequest,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(stringResource(Res.string.auth_reset_root)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (succeeded) {
-                    Text(
-                        text = stringResource(Res.string.auth_forgot_password_complete),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                } else {
-                    Text(
-                        text = stringResource(Res.string.auth_reset_root_explainer),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    ListenUpTextField(
-                        value = token,
-                        onValueChange = {
-                            token = it
-                            errorMessage = null
-                        },
-                        label = stringResource(Res.string.auth_reset_root_token_label),
-                        enabled = !isSubmitting,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                    )
-                    ListenUpTextField(
-                        value = newPassword,
-                        onValueChange = {
-                            newPassword = it
-                            errorMessage = null
-                        },
-                        label = stringResource(Res.string.auth_password_label),
-                        enabled = !isSubmitting,
-                        isError = errorMessage != null,
-                        supportingText = errorMessage,
-                        trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                        onTrailingClick = { passwordVisible = !passwordVisible },
-                        trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
-                        visualTransformation =
-                            if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Done,
-                            ),
-                        keyboardActions = KeyboardActions(onDone = { submit() }),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            if (succeeded) {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        onDismissRequest()
-                    },
-                ) {
-                    Text(stringResource(Res.string.common_done))
-                }
-            } else {
-                TextButton(
-                    enabled = !isSubmitting && token.isNotBlank() && newPassword.isNotBlank(),
-                    onClick = { submit() },
-                ) {
-                    Text(stringResource(Res.string.common_continue))
-                }
-            }
-        },
-        dismissButton = {
-            if (!succeeded) {
-                TextButton(
-                    onClick = {
-                        haptics.press()
-                        onDismissRequest()
-                    },
-                    enabled = !isSubmitting,
-                ) {
-                    Text(stringResource(Res.string.common_cancel))
-                }
-            }
-        },
-    )
+        title = stringResource(Res.string.auth_reset_root),
+        confirmText = stringResource(Res.string.common_continue),
+        onConfirm = ::submit,
+        dismissText = stringResource(Res.string.common_cancel),
+        onDismiss = onDismissRequest,
+        confirmEnabled = !isSubmitting && token.isNotBlank() && newPassword.isNotBlank(),
+        dismissEnabled = !isSubmitting,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(Res.string.auth_reset_root_explainer),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            ListenUpTextField(
+                value = token,
+                onValueChange = {
+                    token = it
+                    errorMessage = null
+                },
+                label = stringResource(Res.string.auth_reset_root_token_label),
+                enabled = !isSubmitting,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+            )
+            ListenUpTextField(
+                value = newPassword,
+                onValueChange = {
+                    newPassword = it
+                    errorMessage = null
+                },
+                label = stringResource(Res.string.auth_password_label),
+                enabled = !isSubmitting,
+                isError = errorMessage != null,
+                supportingText = errorMessage,
+                trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                onTrailingClick = { passwordVisible = !passwordVisible },
+                trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
+                visualTransformation =
+                    if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    ),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+            )
+        }
+    }
 }

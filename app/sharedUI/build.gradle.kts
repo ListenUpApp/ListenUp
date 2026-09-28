@@ -38,6 +38,9 @@ mokkery {
 composeCompiler {
     metricsDestination = layout.buildDirectory.dir("compose-metrics")
     reportsDestination = layout.buildDirectory.dir("compose-reports")
+    // Domain models and wire types from modules the Compose compiler does not process; see the
+    // file for what may be listed and why.
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose-stability.conf"))
 }
 
 compose.resources {

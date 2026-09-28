@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
 
@@ -31,7 +31,7 @@ private fun PrimaryActionsSectionPreviewBody(
         onDownloadClick = {},
         onCancelClick = {},
         onDeleteClick = {},
-        modifier = Modifier.padding(horizontal = 16.dp),
+        modifier = Modifier.padding(horizontal = Spacing.lg),
         playEnabled = playEnabled,
         showServerWarning = showServerWarning,
     )

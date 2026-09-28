@@ -40,8 +40,9 @@ private val HERO_NAV_BUTTON_SIZE = 48.dp
  *
  * @param onBack Invoked when the back button is tapped.
  * @param modifier Modifier for the row.
- * @param buttonBackground Frosted circular background behind the back control (typically the
- *   screen surface at ~50% alpha so the glyph reads on the color-block).
+ * @param buttonBackground Circular background behind the back control. Defaults to the
+ *   `surfaceContainerLow` tonal level, an opaque role so the glyph's contrast holds on any hero
+ *   colour, dynamic included.
  * @param applyStatusBarInset Whether to inset the row by the status bar. `true` (default) for the
  *   edge-to-edge color heroes that bleed behind the system bar; set `false` when the row sits inside
  *   an already-inset panel (e.g. the wide/tablet hero card), where the status-bar inset would add
@@ -52,7 +53,7 @@ private val HERO_NAV_BUTTON_SIZE = 48.dp
 fun HeroNavRow(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    buttonBackground: Color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+    buttonBackground: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     applyStatusBarInset: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {

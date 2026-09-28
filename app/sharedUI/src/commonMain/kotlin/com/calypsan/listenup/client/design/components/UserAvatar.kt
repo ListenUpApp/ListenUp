@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,7 +39,9 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.withContext
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -143,15 +146,23 @@ internal fun rememberUserAvatarState(
     val repo: UserProfileRepository = koinInject()
     val imageStorage: ImageStorage = koinInject()
     val imageRepository: ImageRepository = koinInject()
-    val profile by repo.observeProfile(userId).collectAsStateWithLifecycle(initialValue = null)
+    // Remembered per user: a flow built in composition is a new flow on every recomposition, and
+    // collecting a new flow re-subscribes the Room query each time.
+    val profileFlow = remember(repo, userId) { repo.observeProfile(userId) }
+    val profile by profileFlow.collectAsStateWithLifecycle(initialValue = null)
 
     // Re-check disk presence whenever the profile's avatar version changes or a download lands, so
     // the avatar flips from initials to the real photo the moment the file appears — no revisit,
     // no manual refresh. Keying on avatarUpdatedAt (profile.updatedAt) also re-checks after a
     // synced avatar change.
     var downloadTick by remember(userId) { mutableIntStateOf(0) }
-    val hasLocalAvatar =
-        remember(userId, profile?.updatedAt, downloadTick) { imageStorage.userAvatarExists(userId) }
+    // A file-system stat, so it runs on IO rather than in composition. Null until it answers; reset
+    // per user so one person's answer is never shown against another's avatar. A re-check keeps the
+    // previous answer until the new one lands, so a synced change does not flicker the photo.
+    var hasLocalAvatar by remember(userId) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(userId, profile?.updatedAt, downloadTick) {
+        hasLocalAvatar = withContext(IODispatcher) { imageStorage.userAvatarExists(userId) }
+    }
 
     // Persist an image avatar we don't have on disk yet — and re-run when the synced avatarUpdatedAt
     // changes — so it renders the real photo (not initials) everywhere it appears (feeds,
@@ -352,10 +363,13 @@ internal fun avatarInitials(displayName: String): String =
  * [fallbackName] lets a caller render initials for a user that has no cached public profile —
  * a pending registrant never gets a server-side profile row, so without this the avatar would be
  * stuck on the indefinite loading circle. Active users (profile present) ignore it.
+ *
+ * [hasLocalAvatar] is null until the disk check, which runs off the main thread, has answered. An
+ * image avatar waits on the placeholder for it rather than flashing initials it is about to replace.
  */
 internal fun userAvatarUiState(
     profile: CachedUserProfile?,
-    hasLocalAvatar: Boolean,
+    hasLocalAvatar: Boolean?,
     localPath: String,
     userId: String,
     fallbackName: String? = null,
@@ -372,7 +386,11 @@ internal fun userAvatarUiState(
             UserAvatarUiState.Loading
         }
 
-        profile.avatarType == "image" && hasLocalAvatar -> {
+        profile.avatarType == "image" && hasLocalAvatar == null -> {
+            UserAvatarUiState.Loading
+        }
+
+        profile.avatarType == "image" && hasLocalAvatar == true -> {
             UserAvatarUiState.Image(
                 localPath = localPath,
                 // Version the key on the profile's updatedAt: the server bumps it on avatar upload,

@@ -1,15 +1,15 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MoreVert
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,17 +17,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.LocalInDetailPane
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_close
 import listenup.composeapp.generated.resources.book_detail_more_options
-import listenup.composeapp.generated.resources.common_back
 
 /**
  * Plain (non-collapsing) top app bar for the Book Detail screen.
  *
  * Shows a back arrow, the screen label ("Book details"), and a three-dot overflow that delegates
- * to [BookActionsMenu]. Container colour is [MaterialTheme.colorScheme.surface] so it blends
+ * to [BookActionsMenu]. Beside a list (see [LocalInDetailPane]) the back arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface] so it blends
  * seamlessly with the hero section below it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,22 +55,14 @@ fun BookDetailTopBar(
 ) {
     val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
+    val inDetailPane = LocalInDetailPane.current
 
-    TopAppBar(
-        title = { Text(text = title) },
-        navigationIcon = {
-            IconButton(
-                onClick = {
-                    haptics.press()
-                    onBackClick()
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(Res.string.common_back),
-                )
-            }
-        },
+    ListenUpTopAppBar(
+        title = title,
+        onBack = onBackClick,
+        // Beside its list, Back no longer leaves anything — it closes this pane.
+        navigationIcon = if (inDetailPane) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.ArrowBack,
+        navigationContentDescription = if (inDetailPane) stringResource(Res.string.book_detail_close) else null,
         actions = {
             Box {
                 IconButton(
@@ -79,7 +72,7 @@ fun BookDetailTopBar(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
+                        imageVector = Icons.Outlined.MoreVert,
                         contentDescription = stringResource(Res.string.book_detail_more_options),
                     )
                 }

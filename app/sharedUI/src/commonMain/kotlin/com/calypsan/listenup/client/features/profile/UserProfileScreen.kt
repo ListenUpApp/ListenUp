@@ -1,5 +1,18 @@
 package com.calypsan.listenup.client.features.profile
 
+import androidx.window.core.layout.WindowSizeClass
+import androidx.compose.ui.unit.Dp
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,7 +63,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -60,6 +72,7 @@ import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.rememberUserAvatarImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.core.DurationFormatter
@@ -75,6 +88,11 @@ import listenup.composeapp.generated.resources.profile_edit_profile
 import listenup.composeapp.generated.resources.profile_recently_finished
 import listenup.composeapp.generated.resources.profile_shelf_books_count
 import listenup.composeapp.generated.resources.profile_shelves
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.ui.platform.LocalDensity
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -132,14 +150,29 @@ fun UserProfileScreen(
                 }
 
                 is UserProfileUiState.Ready -> {
-                    ProfileContent(
-                        state = current,
-                        onBack = onBack,
-                        onEditClick = onEditClick,
-                        onBookClick = onBookClick,
-                        onShelfClick = onShelfClick,
-                        onCreateShelfClick = onCreateShelfClick,
-                    )
+                    val wide =
+                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+                            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+                        )
+                    if (wide) {
+                        WideProfileContent(
+                            state = current,
+                            onBack = onBack,
+                            onEditClick = onEditClick,
+                            onBookClick = onBookClick,
+                            onShelfClick = onShelfClick,
+                            onCreateShelfClick = onCreateShelfClick,
+                        )
+                    } else {
+                        ProfileContent(
+                            state = current,
+                            onBack = onBack,
+                            onEditClick = onEditClick,
+                            onBookClick = onBookClick,
+                            onShelfClick = onShelfClick,
+                            onCreateShelfClick = onCreateShelfClick,
+                        )
+                    }
                 }
             }
         }
@@ -207,6 +240,143 @@ private fun ProfileContent(
     }
 }
 
+/**
+ * The medium-and-wider profile, after SeriesDetail's wide layout: the color-blocked identity as a
+ * rounded panel on the left, and the stats, recent covers and shelves as one grid on the right whose
+ * columns flow with the width.
+ */
+@Composable
+private fun WideProfileContent(
+    state: UserProfileUiState.Ready,
+    onBack: () -> Unit,
+    onEditClick: () -> Unit,
+    onBookClick: (String) -> Unit,
+    onShelfClick: (String) -> Unit,
+    onCreateShelfClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                // The scaffold hands this screen no insets (the phone hero bleeds behind the status
+                // bar); the wide panels don't, so they clear it themselves.
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        WideProfileHeroPanel(
+            state = state,
+            onBack = onBack,
+            onEditClick = onEditClick,
+            modifier = Modifier.weight(0.4f).fillMaxHeight(),
+        )
+        WideProfileGrid(
+            state = state,
+            onBookClick = onBookClick,
+            onShelfClick = onShelfClick,
+            onCreateShelfClick = onCreateShelfClick,
+            modifier = Modifier.weight(0.6f).fillMaxHeight(),
+        )
+    }
+}
+
+@Composable
+private fun WideProfileHeroPanel(
+    state: UserProfileUiState.Ready,
+    onBack: () -> Unit,
+    onEditClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        HeroBlob(
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(210.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+            shape = BlobShape,
+        )
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 28.dp),
+        ) {
+            // Already inside an inset panel, so the row must not re-apply the status-bar inset.
+            HeroNavRow(onBack = onBack, applyStatusBarInset = false) {
+                if (state.isOwnProfile) ProfileEditButton(onEditClick = onEditClick)
+            }
+            ProfileHeroIdentity(state = state)
+        }
+    }
+}
+
+@Composable
+private fun WideProfileGrid(
+    state: UserProfileUiState.Ready,
+    onBookClick: (String) -> Unit,
+    onShelfClick: (String) -> Unit,
+    onCreateShelfClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = RecentCoverWidth),
+        modifier = modifier,
+        contentPadding = PaddingValues(bottom = 28.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item(key = "stats", span = { GridItemSpan(maxLineSpan) }) {
+            StatsRow(
+                totalListenTime = DurationFormatter.hoursMinutes(state.totalListenTimeMs.milliseconds),
+                booksFinished = state.booksFinished,
+                currentStreak = state.currentStreak,
+                longestStreak = state.longestStreak,
+                horizontalPadding = 0.dp,
+            )
+        }
+
+        if (state.recentBooks.isNotEmpty()) {
+            item(key = "recent-header", span = { GridItemSpan(maxLineSpan) }) {
+                SectionHeader(
+                    title = stringResource(Res.string.profile_recently_finished),
+                    horizontalPadding = 0.dp,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            items(state.recentBooks, key = { "recent-${it.bookId}" }) { book ->
+                RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
+            }
+        }
+
+        if (state.publicShelves.isNotEmpty() || state.isOwnProfile) {
+            item(key = "shelves-header", span = { GridItemSpan(maxLineSpan) }) {
+                ShelvesSectionHeader(
+                    count = state.publicShelves.size,
+                    horizontalPadding = 0.dp,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            // A shelf tile carries a name and a count, so it takes two cover columns where there are two.
+            itemsIndexed(
+                state.publicShelves,
+                key = { _, shelf -> "shelf-${shelf.id}" },
+                span = { _, _ -> GridItemSpan(minOf(2, maxLineSpan)) },
+            ) { index, shelf ->
+                ShelfTile(shelf = shelf, colorIndex = index, onClick = { onShelfClick(shelf.id) })
+            }
+            if (state.isOwnProfile) {
+                item(key = "shelf-add", span = { GridItemSpan(minOf(2, maxLineSpan)) }) {
+                    AddShelfTile(onClick = onCreateShelfClick)
+                }
+            }
+        }
+    }
+}
+
 // region hero
 
 @Composable
@@ -215,13 +385,11 @@ private fun ProfileColorHero(
     onBack: () -> Unit,
     onEditClick: () -> Unit,
 ) {
-    val ink = MaterialTheme.colorScheme.onPrimaryContainer
-    val haptics = LocalHaptics.current
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))
+                .clip(ContentShapes.hero)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         HeroBlob(
@@ -237,50 +405,61 @@ private fun ProfileColorHero(
 
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
             HeroNavRow(onBack = onBack) {
-                if (state.isOwnProfile) {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onEditClick()
-                        },
-                        modifier =
-                            Modifier.size(48.dp).background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                CircleShape,
-                            ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = stringResource(Res.string.profile_edit_profile),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
+                if (state.isOwnProfile) ProfileEditButton(onEditClick = onEditClick)
             }
+            ProfileHeroIdentity(state = state)
+        }
+    }
+}
 
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                ProfileScallopAvatar(state = state)
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = state.displayName,
-                    style = MaterialTheme.typography.headlineMediumEmphasized,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = ink,
-                    textAlign = TextAlign.Center,
-                )
-                if (!state.tagline.isNullOrBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = state.tagline!!,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = ink.copy(alpha = 0.82f),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
+@Composable
+private fun ProfileEditButton(onEditClick: () -> Unit) {
+    val haptics = LocalHaptics.current
+    IconButton(
+        onClick = {
+            haptics.press()
+            onEditClick()
+        },
+        modifier =
+            Modifier.size(48.dp).background(
+                MaterialTheme.colorScheme.surfaceContainerLow,
+                CircleShape,
+            ),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = stringResource(Res.string.profile_edit_profile),
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** The scallop avatar, name and tagline, centred on the color block. */
+@Composable
+private fun ProfileHeroIdentity(state: UserProfileUiState.Ready) {
+    val ink = MaterialTheme.colorScheme.onPrimaryContainer
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        ProfileScallopAvatar(state = state)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = state.displayName,
+            style = MaterialTheme.typography.headlineMediumEmphasized,
+            fontWeight = FontWeight.ExtraBold,
+            color = ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
+        )
+        if (!state.tagline.isNullOrBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = state.tagline!!,
+                style = MaterialTheme.typography.bodyLarge,
+                color = HeroInk.muted(),
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -313,13 +492,21 @@ private fun ProfileScallopAvatar(state: UserProfileUiState.Ready) {
             )
         } else {
             Box(
-                modifier = Modifier.size(120.dp).clip(scallop).background(MaterialTheme.colorScheme.primaryContainer),
+                modifier =
+                    Modifier
+                        .size(
+                            HERO_AVATAR_SIZE,
+                        ).clip(scallop)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
+                // Initials are sized to the avatar, not the font scale (DESIGN.md's geometry exception),
+                // so they never overflow the scallop — the same rule as UserAvatar's initials.
+                val initialsSize = with(LocalDensity.current) { (HERO_AVATAR_SIZE * INITIALS_FRACTION).toSp() }
                 Text(
                     text = initialsOf(state.displayName),
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontSize = 42.sp,
+                    style = MaterialTheme.typography.displaySmall.copy(fontSize = initialsSize),
                     fontWeight = FontWeight.ExtraBold,
                 )
             }
@@ -364,6 +551,7 @@ private fun StatsRow(
     currentStreak: Int,
     longestStreak: Int,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
 ) {
     val scheme = MaterialTheme.colorScheme
     val tiles =
@@ -402,7 +590,7 @@ private fun StatsRow(
             ),
         )
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         tiles.forEach { StatTile(it, modifier = Modifier.weight(1f)) }
@@ -417,7 +605,7 @@ private fun StatTile(
     Column(
         modifier =
             modifier
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(data.container)
                 .padding(vertical = 16.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -455,9 +643,10 @@ private fun StatTile(
 private fun ShelvesSectionHeader(
     count: Int,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -496,7 +685,7 @@ private fun ShelvesGrid(
     // Two tiles per row; the add tile trails the list.
     val tiles: List<ProfileShelfSummary?> = shelves + if (showAddTile) listOf(null) else emptyList()
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         tiles.chunked(2).forEach { rowTiles ->
@@ -539,7 +728,7 @@ private fun ShelfTile(
         modifier =
             modifier
                 .height(112.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(container)
                 .clickable {
                     haptics.press()
@@ -551,7 +740,7 @@ private fun ShelfTile(
             color = onContainer.copy(alpha = 0.12f),
             shape = BlobShape,
         )
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        Column(modifier = Modifier.fillMaxSize().padding(Spacing.lg), verticalArrangement = Arrangement.SpaceBetween) {
             Icon(Icons.Default.Bookmarks, null, tint = onContainer, modifier = Modifier.size(24.dp))
             Column {
                 Text(
@@ -582,8 +771,8 @@ private fun AddShelfTile(
         modifier =
             modifier
                 .height(112.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.medium)
+                .border(2.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
                 .clickable {
                     haptics.press()
                     onClick()
@@ -610,12 +799,13 @@ private fun AddShelfTile(
 private fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
 ) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.ExtraBold,
-        modifier = modifier.padding(horizontal = 16.dp),
+        modifier = modifier.padding(horizontal = horizontalPadding),
     )
 }
 
@@ -628,12 +818,12 @@ private fun RecentBooksRow(
     BrowseCarousel(
         items = books,
         modifier = modifier,
-        itemWidth = 140.dp,
+        itemWidth = RecentCoverWidth,
         itemSpacing = 16.dp,
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
         key = { it.bookId },
     ) { book ->
-        RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
+        RecentBookCard(book = book, onClick = { onBookClick(book.bookId) }, modifier = Modifier.width(RecentCoverWidth))
     }
 }
 
@@ -646,7 +836,7 @@ private fun RecentBookCard(
     val haptics = LocalHaptics.current
     Column(
         modifier =
-            modifier.width(140.dp).clickable {
+            modifier.clickable {
                 haptics.press()
                 onClick()
             },
@@ -656,7 +846,7 @@ private fun RecentBookCard(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(ContentShapes.card)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
             ListenUpAsyncImage(
@@ -677,6 +867,9 @@ private fun RecentBookCard(
     }
 }
 
+/** A recent cover's width in the phone carousel, and the narrowest a wide grid's column gets. */
+private val RecentCoverWidth = 140.dp
+
 // endregion
 
 private fun initialsOf(displayName: String): String =
@@ -690,3 +883,9 @@ private fun initialsOf(displayName: String): String =
                 else -> displayName.take(1)
             }
         }.uppercase()
+
+/** The profile hero's avatar diameter. */
+private val HERO_AVATAR_SIZE = 120.dp
+
+/** Initials fill this fraction of the avatar: 42sp in the 120dp hero avatar at 1x. */
+private const val INITIALS_FRACTION = 0.35f

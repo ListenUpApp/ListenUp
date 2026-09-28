@@ -131,3 +131,9 @@ dependencies {
     // embeds the generated baseline-prof.txt. The AGP plugin handles merging.
     baselineProfile(project(":app:baselineprofile"))
 }
+
+baselineProfile {
+    // Also emit the profile as a startup profile, so R8 lays the classes and methods the
+    // profiled journeys touch into the primary dex, in the order they run.
+    dexLayoutOptimization = true
+}

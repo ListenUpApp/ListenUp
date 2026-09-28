@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -23,11 +27,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Book
@@ -46,7 +48,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
@@ -60,6 +61,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,6 +75,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.features.library.BookCard
@@ -83,7 +87,6 @@ import com.calypsan.listenup.client.presentation.shelf.sortShelfBooks
 import kotlin.time.Duration.Companion.seconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_no_items_yet
 import listenup.composeapp.generated.resources.common_private
 import listenup.composeapp.generated.resources.common_read_less
@@ -91,9 +94,12 @@ import listenup.composeapp.generated.resources.common_read_more
 import listenup.composeapp.generated.resources.shelf_add_books_from_the_library
 import listenup.composeapp.generated.resources.shelf_books_in_shelf
 import listenup.composeapp.generated.resources.shelf_edit_shelf
+import listenup.composeapp.generated.resources.shelf_move_earlier
+import listenup.composeapp.generated.resources.shelf_move_later
 import listenup.composeapp.generated.resources.shelf_title_fallback
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Screen displaying a shelf's details and its books.
@@ -135,27 +141,9 @@ fun ShelfDetailScreen(
     ListenUpScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
+                onBack = onBack,
                 actions = {
                     if (readyState?.isOwner == true && onEditClick != null) {
                         IconButton(
@@ -215,6 +203,15 @@ fun ShelfDetailScreen(
 /** Description length beyond which the expandable "Read more" toggle is shown. */
 private const val DESCRIPTION_EXPAND_THRESHOLD = 150
 
+/** The shelf grid's padding: the page margin at the sides, a little air above, room below. */
+private val ShelfGridContentPadding =
+    PaddingValues(
+        start = Spacing.gridMargin,
+        end = Spacing.gridMargin,
+        top = Spacing.sm,
+        bottom = Spacing.xl,
+    )
+
 /**
  * Ready-state content: an adaptive cover grid with full-span hero, optional description,
  * and a "Books in shelf" header.
@@ -237,6 +234,8 @@ private fun ShelfDetailContent(
     // was it. See ShelfBookSort.MANUAL.
     val canReorder = isOwner && sort == ShelfBookSort.MANUAL
     var draggingKey by remember(sortedBooks, canReorder) { mutableStateOf<String?>(null) }
+    val moveEarlierLabel = stringResource(Res.string.shelf_move_earlier)
+    val moveLaterLabel = stringResource(Res.string.shelf_move_later)
     var dragPosition by remember { mutableStateOf(Offset.Zero) }
 
     fun dropAt(position: Offset) {
@@ -285,7 +284,7 @@ private fun ShelfDetailContent(
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        contentPadding = ShelfGridContentPadding,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier =
@@ -359,12 +358,23 @@ private fun ShelfDetailContent(
                 ShelfEmptyState(isOwner = isOwner)
             }
         } else {
-            items(items = sortedBooks, key = { it.id.value }) { book ->
+            itemsIndexed(items = sortedBooks, key = { _, book -> book.id.value }) { index, book ->
+                val reorderActions =
+                    if (canReorder) {
+                        shelfReorderActions(sortedBooks, index, moveEarlierLabel, moveLaterLabel) { reordered ->
+                            onReorder(reordered.map { it.id.value })
+                        }
+                    } else {
+                        emptyList()
+                    }
                 ShelfBookGridItem(
                     book = book,
                     isLifted = book.id.value == draggingKey,
                     onClick = { onBookClick(book.id.value) },
-                    modifier = Modifier.animateItem(),
+                    modifier =
+                        Modifier
+                            .animateItem()
+                            .semantics { if (reorderActions.isNotEmpty()) customActions = reorderActions },
                 )
             }
         }
@@ -382,7 +392,7 @@ private fun ShelfHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         // Decorative brand "blob" bleeding off the top-right corner.
@@ -412,7 +422,7 @@ private fun ShelfHero(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 28.dp),
+                        .padding(horizontal = Spacing.screenMargin, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 ShelfBadge()
@@ -461,13 +471,13 @@ private fun ShelfHeroTexts(
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    tint = HeroInk.muted(),
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
                     text = stringResource(Res.string.common_private),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    color = HeroInk.muted(),
                 )
             }
             Spacer(Modifier.height(6.dp))
@@ -577,6 +587,7 @@ private fun ShelfSortPill(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { role = Role.Button },
         ) {
             Row(
                 modifier = Modifier.padding(start = 14.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
@@ -604,6 +615,11 @@ private fun ShelfSortPill(
                         onSortChange(option)
                         expanded = false
                     },
+                    modifier =
+                        Modifier.semantics {
+                            role = Role.RadioButton
+                            selected = option == sort
+                        },
                     trailingIcon =
                         if (option == sort) {
                             { Icon(Icons.Default.Check, contentDescription = null) }
@@ -645,7 +661,7 @@ private fun ShelfEmptyState(isOwner: Boolean) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(vertical = 40.dp, horizontal = 24.dp),
+                .padding(vertical = 40.dp, horizontal = Spacing.screenMargin),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(

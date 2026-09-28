@@ -13,8 +13,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -56,6 +63,13 @@ fun DetailHero(
     subtitle: String? = null,
     belowTitle: (@Composable () -> Unit)? = null,
 ) {
+    // Both title copies are laid out while collapsing; only the one on screen is exposed to
+    // accessibility, so TalkBack reads the title once. The flip happens at the crossfade midpoint and
+    // recomposes only when it crosses, keeping the per-frame fraction read in the draw phase.
+    val currentCollapseFraction by rememberUpdatedState(collapseFraction)
+    val titleIsPinned by remember(collapsing) {
+        derivedStateOf { collapsing && currentCollapseFraction() >= PINNED_TITLE_THRESHOLD }
+    }
     Box(
         modifier =
             modifier
@@ -74,7 +88,10 @@ fun DetailHero(
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.graphicsLayer { alpha = collapseFraction().coerceIn(0f, 1f) },
+                        modifier =
+                            Modifier
+                                .graphicsLayer { alpha = collapseFraction().coerceIn(0f, 1f) }
+                                .titleSemantics(exposed = titleIsPinned),
                     )
                 }
             }
@@ -105,6 +122,7 @@ fun DetailHero(
                 modifier =
                     Modifier
                         .padding(horizontal = 32.dp)
+                        .titleSemantics(exposed = !titleIsPinned)
                         .then(
                             if (collapsing) {
                                 Modifier.graphicsLayer { alpha = (1f - collapseFraction()).coerceIn(0f, 1f) }
@@ -134,3 +152,10 @@ fun DetailHero(
         }
     }
 }
+
+/** Crossfade midpoint at which the pinned title takes over from the display title. */
+private const val PINNED_TITLE_THRESHOLD = 0.5f
+
+/** The visible title copy is a heading; the hidden one is removed from the accessibility tree. */
+private fun Modifier.titleSemantics(exposed: Boolean): Modifier =
+    if (exposed) semantics { heading() } else clearAndSetSemantics { }

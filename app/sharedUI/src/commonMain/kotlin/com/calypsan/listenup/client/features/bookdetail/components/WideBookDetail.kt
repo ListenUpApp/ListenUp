@@ -3,14 +3,17 @@ package com.calypsan.listenup.client.features.bookdetail.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -24,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -128,83 +132,90 @@ fun WideBookDetail(
             onDeleteClick = onDeleteBookClick,
         )
 
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(bottom = 32.dp),
-        ) {
-            // Offline advisory — streaming unavailable, downloads still play.
-            if (showServerWarning) {
-                OfflineBanner(
-                    onRetryClick = onRetryConnection,
-                    compact = false,
+        // The viewport is measured so the chapter pane can be given a finite height: it is a lazy
+        // list nested in this scroll, and a lazy list asked to be as tall as it likes has no height
+        // to lay out in.
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val viewportHeight = maxHeight
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 32.dp),
+            ) {
+                // Offline advisory — streaming unavailable, downloads still play.
+                if (showServerWarning) {
+                    OfflineBanner(
+                        onRetryClick = onRetryConnection,
+                        compact = false,
+                        modifier = screenPadding.padding(top = 8.dp),
+                    )
+                }
+
+                // Scan-warning advisory — heads-up when the scanner flagged this book's files.
+                BookDetailScanWarning(
+                    hasScanWarning = state.hasScanWarning,
+                    modifier = screenPadding.padding(vertical = 8.dp),
+                )
+
+                // Identity — full-width color band: title, independent subtitle, series chips, talent,
+                // and the stat chips as the last element of the identity column.
+                WideHeroBand(
+                    coverPath = book.coverPath,
+                    coverHash = book.coverHash,
+                    bookId = bookId,
+                    title = book.title,
+                    genre = heroGenre,
+                    abridged = book.abridged,
+                    subtitle = state.subtitle,
+                    series = book.series,
+                    authors = book.authors,
+                    narrators = book.narrators,
+                    onContributorClick = onContributorClick,
+                    onSeriesClick = onSeriesClick,
+                    onShowCast = { castRole = it },
+                    progress = state.progress,
+                    timeRemaining = state.timeRemainingFormatted,
+                    rating = state.rating,
+                    duration = book.duration,
+                    year = state.year,
+                    addedAt = state.addedAt,
                     modifier = screenPadding.padding(top = 8.dp),
                 )
+
+                // Two-column body.
+                WideBodyColumns(
+                    bookId = bookId,
+                    state = state,
+                    downloadStatus = downloadStatus,
+                    isWaitingForWifi = isWaitingForWifi,
+                    showPlaybackActions = showPlaybackActions,
+                    playEnabled = playEnabled,
+                    downloadEnabled = downloadEnabled,
+                    showServerWarning = showServerWarning,
+                    isPreparing = isPreparing,
+                    isDescriptionExpanded = isDescriptionExpanded,
+                    onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+                    documents = documents,
+                    onOpenDocument = onOpenDocument,
+                    isChaptersExpanded = isChaptersExpanded,
+                    onExpandChapters = { isChaptersExpanded = true },
+                    onContributorClick = onContributorClick,
+                    onGenreClick = onGenreClick,
+                    onTagClick = onTagClick,
+                    onMoodClick = onMoodClick,
+                    onPlayClick = onPlayClick,
+                    onDownloadClick = onDownloadClick,
+                    onCancelClick = onCancelClick,
+                    onDeleteClick = onDeleteClick,
+                    onPlayDisabledClick = onPlayDisabledClick,
+                    onUserProfileClick = onUserProfileClick,
+                    onSeeAllReaders = onSeeAllReaders,
+                    chapterPaneMaxHeight = viewportHeight,
+                    modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
+                )
             }
-
-            // Scan-warning advisory — heads-up when the scanner flagged this book's files.
-            BookDetailScanWarning(
-                hasScanWarning = state.hasScanWarning,
-                modifier = screenPadding.padding(vertical = 8.dp),
-            )
-
-            // Identity — full-width color band: title, independent subtitle, series chips, talent,
-            // and the stat chips as the last element of the identity column.
-            WideHeroBand(
-                coverPath = book.coverPath,
-                coverHash = book.coverHash,
-                bookId = bookId,
-                title = book.title,
-                genre = heroGenre,
-                abridged = book.abridged,
-                subtitle = state.subtitle,
-                series = book.series,
-                authors = book.authors,
-                narrators = book.narrators,
-                onContributorClick = onContributorClick,
-                onSeriesClick = onSeriesClick,
-                onShowCast = { castRole = it },
-                progress = state.progress,
-                timeRemaining = state.timeRemainingFormatted,
-                rating = state.rating,
-                duration = book.duration,
-                year = state.year,
-                addedAt = state.addedAt,
-                modifier = screenPadding.padding(top = 8.dp),
-            )
-
-            // Two-column body.
-            WideBodyColumns(
-                bookId = bookId,
-                state = state,
-                downloadStatus = downloadStatus,
-                isWaitingForWifi = isWaitingForWifi,
-                showPlaybackActions = showPlaybackActions,
-                playEnabled = playEnabled,
-                downloadEnabled = downloadEnabled,
-                showServerWarning = showServerWarning,
-                isPreparing = isPreparing,
-                isDescriptionExpanded = isDescriptionExpanded,
-                onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
-                documents = documents,
-                onOpenDocument = onOpenDocument,
-                isChaptersExpanded = isChaptersExpanded,
-                onExpandChapters = { isChaptersExpanded = true },
-                onContributorClick = onContributorClick,
-                onGenreClick = onGenreClick,
-                onTagClick = onTagClick,
-                onMoodClick = onMoodClick,
-                onPlayClick = onPlayClick,
-                onDownloadClick = onDownloadClick,
-                onCancelClick = onCancelClick,
-                onDeleteClick = onDeleteClick,
-                onPlayDisabledClick = onPlayDisabledClick,
-                onUserProfileClick = onUserProfileClick,
-                onSeeAllReaders = onSeeAllReaders,
-                modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
-            )
         }
 
         castRole?.let { role ->
@@ -253,11 +264,12 @@ private fun WideBodyColumns(
     onPlayDisabledClick: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
         WideLeftColumn(
             state = state,
@@ -291,6 +303,7 @@ private fun WideBodyColumns(
             onExpandChapters = onExpandChapters,
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
+            chapterPaneMaxHeight = chapterPaneMaxHeight,
             modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
         )
     }
@@ -392,11 +405,12 @@ private fun WideRightColumn(
     onExpandChapters: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
         // Rating card — your listeners' stars and your own, right above the Readers card.
         BookRatingBlock(
@@ -421,6 +435,7 @@ private fun WideRightColumn(
                 chapters = chapters,
                 isExpanded = isChaptersExpanded,
                 onExpand = onExpandChapters,
+                listMaxHeight = chapterPaneMaxHeight,
             )
         }
 
@@ -458,12 +473,19 @@ private fun WideSectionCard(
     }
 }
 
-/** Chapters header, the (optionally collapsed) chapter rows, and the "show all" affordance. */
+/**
+ * Chapters header, the (optionally collapsed) chapter rows, and the "show all" affordance.
+ *
+ * The rows are a lazy list, so a 300-chapter book composes the rows on screen rather than all of
+ * them. It is capped at [listMaxHeight] — the page's viewport — because it scrolls inside the page:
+ * the list scrolls first, and at either end the page carries on.
+ */
 @Composable
-private fun WideChaptersContent(
+internal fun WideChaptersContent(
     chapters: List<ChapterUiModel>,
     isExpanded: Boolean,
     onExpand: () -> Unit,
+    listMaxHeight: Dp,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         ChaptersHeader(
@@ -472,15 +494,17 @@ private fun WideChaptersContent(
         )
 
         val displayedChapters = if (isExpanded) chapters else chapters.take(CHAPTER_PREVIEW_LIMIT)
-        displayedChapters.forEachIndexed { index, chapter ->
-            ChapterListItem(
-                chapter = chapter,
-                chapterNumber = index + 1,
-                modifier = Modifier.padding(horizontal = 8.dp),
-                // TODO(book-detail): mark current chapter once progress→chapter mapping is available.
-                isCurrent = false,
-                showDivider = index < displayedChapters.lastIndex,
-            )
+        LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = listMaxHeight)) {
+            itemsIndexed(displayedChapters, key = { _, chapter -> chapter.id }) { index, chapter ->
+                ChapterListItem(
+                    chapter = chapter,
+                    chapterNumber = index + 1,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    // TODO(book-detail): mark current chapter once progress→chapter mapping is available.
+                    isCurrent = false,
+                    showDivider = index < displayedChapters.lastIndex,
+                )
+            }
         }
 
         if (chapters.size > CHAPTER_PREVIEW_LIMIT && !isExpanded) {
@@ -490,7 +514,7 @@ private fun WideChaptersContent(
             ) {
                 OutlinedButton(
                     onClick = onExpand,
-                    shape = RoundedCornerShape(24.dp),
+                    shape = ContentShapes.card,
                 ) {
                     Text(stringResource(Res.string.book_show_all_chapters, chapters.size))
                 }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import listenup.composeapp.generated.resources.common_remove_name
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,13 +25,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FolderSpecial
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Person
@@ -75,9 +76,11 @@ import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -121,19 +124,19 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.foundation.shape.CircleShape
 
 private const val HERO_BADGE_SIZE_DP = 64
 private const val HERO_BADGE_ICON_RATIO = 0.5f
-private const val HERO_BOTTOM_CORNER_DP = 40
-private const val HERO_SEMI_TRANSPARENT = 0.18f
 private const val COVER_GRID_MIN_TILE_DP = 160
-private const val COVER_CORNER_DP = 12
 private const val SECTION_SPACING_DP = 24
 private const val EMPTY_PANEL_PADDING_DP = 32
 private const val EMPTY_ICON_SIZE_DP = 48
 private const val ICON_GAP_DP = 12
-private const val FADED_ALPHA = 0.5f
-private const val FAINT_ALPHA = 0.7f
 private const val CHIP_PADDING_H_DP = 12
 private const val CHIP_PADDING_V_DP = 6
 private const val CHIP_SPACING_DP = 8
@@ -344,7 +347,7 @@ private fun NarrowDetailContent(
             DetailHero(state = state, onBackClick = onBackClick)
         }
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = SECTION_SPACING_DP.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = SECTION_SPACING_DP.dp)) {
                 NameSection(state = state, onNameChange = onNameChange, onSaveClick = onSaveClick)
                 Spacer(modifier = Modifier.height(SECTION_SPACING_DP.dp))
                 BooksSection(
@@ -418,15 +421,12 @@ private fun DetailHero(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(bottomStart = HERO_BOTTOM_CORNER_DP.dp, bottomEnd = HERO_BOTTOM_CORNER_DP.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             // Note: delete action is intentionally absent — AdminCollectionDetailViewModel
             // exposes no deleteCollection action. Deletion is managed from the list screen.
-            HeroNavRow(
-                onBack = onBackClick,
-                buttonBackground = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-            )
+            HeroNavRow(onBack = onBackClick)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -434,7 +434,7 @@ private fun DetailHero(
             ) {
                 ScallopBadge(
                     size = HERO_BADGE_SIZE_DP.dp,
-                    containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = HERO_SEMI_TRANSPARENT),
+                    containerColor = HeroInk.wash(),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.FolderSpecial,
@@ -448,7 +448,7 @@ private fun DetailHero(
                         text = stringResource(Res.string.library_collection),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        color = HeroInk.muted(),
                     )
                     Text(
                         text = state.collection.name,
@@ -457,6 +457,7 @@ private fun DetailHero(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.semantics { heading() },
                     )
                 }
             }
@@ -490,7 +491,7 @@ private fun CountChip(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(50),
+        shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
@@ -523,31 +524,31 @@ private fun NameSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_collection_name),
-        icon = Icons.Outlined.Edit,
-        accent = MaterialTheme.colorScheme.primary,
         modifier = modifier,
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            ListenUpTextField(
-                value = state.editedName,
-                onValueChange = onNameChange,
-                label = stringResource(Res.string.admin_collection_name),
-                enabled = !state.isSaving && !state.collection.isSystem,
-                supportingText =
-                    if (state.collection.isSystem) {
-                        stringResource(Res.string.admin_system_collection_locked)
-                    } else {
-                        stringResource(Res.string.admin_the_display_name_for_this)
-                    },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-            if (state.isDirty && !state.collection.isSystem) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onSaveClick, enabled = !state.isSaving) {
-                        if (state.isSaving) {
-                            ListenUpLoadingIndicatorSmall()
+        SectionSegment {
+            Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ListenUpTextField(
+                    value = state.editedName,
+                    onValueChange = onNameChange,
+                    label = stringResource(Res.string.admin_collection_name),
+                    enabled = !state.isSaving && !state.collection.isSystem,
+                    supportingText =
+                        if (state.collection.isSystem) {
+                            stringResource(Res.string.admin_system_collection_locked)
                         } else {
-                            Text(stringResource(Res.string.common_save_changes))
+                            stringResource(Res.string.admin_the_display_name_for_this)
+                        },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                )
+                if (state.isDirty && !state.collection.isSystem) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onSaveClick, enabled = !state.isSaving) {
+                            if (state.isSaving) {
+                                ListenUpLoadingIndicatorSmall()
+                            } else {
+                                Text(stringResource(Res.string.common_save_changes))
+                            }
                         }
                     }
                 }
@@ -566,8 +567,6 @@ private fun BooksSection(
     val haptics = LocalHaptics.current
     SectionGroup(
         label = stringResource(Res.string.admin_books_in_collection),
-        icon = Icons.AutoMirrored.Outlined.MenuBook,
-        accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
         trailing =
             if (!state.collection.isSystem) {
@@ -593,27 +592,29 @@ private fun BooksSection(
                 null
             },
     ) {
-        if (state.books.isEmpty()) {
-            EmptyBooksPanel()
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = COVER_GRID_MIN_TILE_DP.dp),
-                // Nested in a scrollable parent, so the grid needs a bounded viewport: reserve
-                // ~4 rows of adaptive (square) tiles, capped, and let it scroll internally.
-                modifier =
-                    Modifier
-                        .height(((COVER_GRID_MIN_TILE_DP.dp + 8.dp) * 4).coerceAtMost(480.dp))
-                        .fillMaxWidth(),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(items = state.books, key = { it.id }) { book ->
-                    BookCoverTile(
-                        book = book,
-                        isRemoving = state.removingBookId == book.id,
-                        onRemoveClick = { onRemoveBookClick(book) },
-                    )
+        SectionSegment {
+            if (state.books.isEmpty()) {
+                EmptyBooksPanel()
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = COVER_GRID_MIN_TILE_DP.dp),
+                    // Nested in a scrollable parent, so the grid needs a bounded viewport: reserve
+                    // ~4 rows of adaptive (square) tiles, capped, and let it scroll internally.
+                    modifier =
+                        Modifier
+                            .height(((COVER_GRID_MIN_TILE_DP.dp + 8.dp) * 4).coerceAtMost(480.dp))
+                            .fillMaxWidth(),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(items = state.books, key = { it.id }) { book ->
+                        BookCoverTile(
+                            book = book,
+                            isRemoving = state.removingBookId == book.id,
+                            onRemoveClick = { onRemoveBookClick(book) },
+                        )
+                    }
                 }
             }
         }
@@ -630,7 +631,7 @@ private fun EmptyBooksPanel(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.MenuBook,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FADED_ALPHA),
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
         )
         Spacer(modifier = Modifier.height(ICON_GAP_DP.dp))
@@ -642,7 +643,7 @@ private fun EmptyBooksPanel(modifier: Modifier = Modifier) {
         Text(
             text = stringResource(Res.string.admin_books_can_be_added_from),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -657,9 +658,13 @@ private fun BookCoverTile(
     val haptics = LocalHaptics.current
     Box(
         // Fill the adaptive grid slot and stay square, matching the canonical BookCard cover.
-        // A fixed .size() here fought the slot's width and rendered landscape.
+        // A fixed .size() here fought the slot's width and rendered landscape. The click label says
+        // a tap removes the book (after a confirmation), which the title alone never did.
         modifier =
-            modifier.fillMaxWidth().aspectRatio(1f).clickable {
+            modifier.fillMaxWidth().aspectRatio(1f).clickable(
+                onClickLabel = stringResource(Res.string.admin_remove_book),
+                role = Role.Button,
+            ) {
                 haptics.press()
                 onRemoveClick()
             },
@@ -670,13 +675,13 @@ private fun BookCoverTile(
             coverPath = book.coverPath,
             coverHash = book.coverHash,
             contentDescription = book.title,
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(COVER_CORNER_DP.dp)),
+            modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small),
         )
         if (isRemoving) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(COVER_CORNER_DP.dp),
+                shape = MaterialTheme.shapes.small,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     ListenUpLoadingIndicatorSmall()
@@ -696,8 +701,6 @@ private fun MembersSection(
     val haptics = LocalHaptics.current
     SectionGroup(
         label = stringResource(Res.string.common_members),
-        icon = Icons.Outlined.Group,
-        accent = MaterialTheme.colorScheme.secondary,
         modifier = modifier,
         trailing = {
             TextButton(
@@ -719,13 +722,12 @@ private fun MembersSection(
         },
     ) {
         if (state.shares.isEmpty()) {
-            EmptyMembersPanel()
+            SectionSegment { EmptyMembersPanel() }
         } else {
-            state.shares.forEachIndexed { index, share ->
+            state.shares.forEach { share ->
                 MemberRow(
                     share = share,
                     isRemoving = state.removingShareUserId == share.userId,
-                    showDivider = index > 0,
                     onRemoveClick = { onRemoveMemberClick(share) },
                 )
             }
@@ -743,7 +745,7 @@ private fun EmptyMembersPanel(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Outlined.Person,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FADED_ALPHA),
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
         )
         Spacer(modifier = Modifier.height(ICON_GAP_DP.dp))
@@ -755,7 +757,7 @@ private fun EmptyMembersPanel(modifier: Modifier = Modifier) {
         Text(
             text = stringResource(Res.string.admin_add_members_to_share_this),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -764,7 +766,6 @@ private fun EmptyMembersPanel(modifier: Modifier = Modifier) {
 private fun MemberRow(
     share: CollectionShareItem,
     isRemoving: Boolean,
-    showDivider: Boolean,
     onRemoveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -777,10 +778,10 @@ private fun MemberRow(
         .observeProfile(share.userId)
         .collectAsStateWithLifecycle(initialValue = null)
 
+    val memberName = profile?.displayName?.ifBlank { null } ?: share.userId
     SettingRow(
-        title = profile?.displayName?.ifBlank { null } ?: share.userId,
+        title = memberName,
         subtitle = share.permission,
-        showDivider = showDivider,
         modifier = modifier,
         leading = {
             UserAvatar(userId = share.userId, size = AvatarSize.Medium)
@@ -789,16 +790,20 @@ private fun MemberRow(
             if (isRemoving) {
                 ListenUpLoadingIndicatorSmall()
             } else {
-                TonalIconTile(
-                    icon = Icons.Outlined.Delete,
-                    size = DELETE_TILE_SIZE_DP.dp,
-                    danger = true,
-                    modifier =
-                        Modifier.clickable {
-                            haptics.press()
-                            onRemoveClick()
-                        },
-                )
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onRemoveClick()
+                    },
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    TonalIconTile(
+                        icon = Icons.Outlined.Delete,
+                        size = DELETE_TILE_SIZE_DP.dp,
+                        danger = true,
+                        contentDescription = stringResource(Res.string.common_remove_name, memberName),
+                    )
+                }
             }
         },
     )
@@ -829,7 +834,7 @@ private fun AddMemberBottomSheet(
             Text(
                 text = stringResource(Res.string.admin_add_member),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
             when {
                 isLoading -> AddMemberLoadingPanel()
@@ -865,7 +870,7 @@ private fun AddMemberEmptyPanel() {
         Icon(
             imageVector = Icons.Outlined.Person,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FADED_ALPHA),
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
         )
         Spacer(modifier = Modifier.height(ICON_GAP_DP.dp))
@@ -877,7 +882,7 @@ private fun AddMemberEmptyPanel() {
         Text(
             text = stringResource(Res.string.admin_all_users_are_already_members),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -935,7 +940,7 @@ private fun AddBooksToCollectionSheet(
             Text(
                 text = stringResource(Res.string.admin_add_books),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
             ListenUpSearchField(
                 value = query,
@@ -944,7 +949,7 @@ private fun AddBooksToCollectionSheet(
                 placeholder = stringResource(Res.string.admin_add_books_search_placeholder),
                 isLoading = isSearching,
                 onClear = { onQueryChange("") },
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lg),
             )
             if (query.isNotBlank() && results.isEmpty() && !isSearching) {
                 Text(

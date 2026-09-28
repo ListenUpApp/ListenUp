@@ -6,26 +6,30 @@ import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.design.transitions.HeroEntry
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.ContributorDetail
+import com.calypsan.listenup.client.navigation.ListDetailScene
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.SeriesEdit
+import com.calypsan.listenup.client.navigation.navigateFrom
+import com.calypsan.listenup.client.navigation.popFrom
 
 /** Series navigation entries. */
 internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<NavKey>) {
-    entry<SeriesDetail> { args ->
+    // A list pane: on a wide window the book it opens sits beside it, so it navigates from itself.
+    entry<SeriesDetail>(metadata = ListDetailScene.listPane()) { args ->
         HeroEntry {
             com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen(
                 seriesId = args.seriesId,
                 onBackClick = {
-                    backStack.removeAt(backStack.lastIndex)
+                    backStack.popFrom(args)
                 },
                 onBookClick = { bookId ->
-                    backStack.add(BookDetail(bookId))
+                    backStack.navigateFrom(args, BookDetail(bookId))
                 },
                 onEditClick = { seriesId ->
-                    backStack.add(SeriesEdit(seriesId))
+                    backStack.navigateFrom(args, SeriesEdit(seriesId))
                 },
                 onContributorClick = { contributorId ->
-                    backStack.add(ContributorDetail(contributorId))
+                    backStack.navigateFrom(args, ContributorDetail(contributorId))
                 },
             )
         }

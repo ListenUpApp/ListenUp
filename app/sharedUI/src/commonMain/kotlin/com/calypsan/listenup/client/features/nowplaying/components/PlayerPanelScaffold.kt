@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -12,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,9 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_close
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Adaptive chrome for the Now Playing panels (speed / chapters / sleep). A Material bottom sheet on
@@ -90,20 +94,13 @@ private fun PlayerPanelBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = {
-            Surface(
-                modifier = Modifier.padding(vertical = 12.dp).size(width = 36.dp, height = 5.dp),
-                shape = RoundedCornerShape(3.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            ) {}
-        },
+        shape = BottomSheetDefaults.ExpandedShape,
     ) {
         Column(
             modifier =
                 Modifier.fillMaxWidth().navigationBarsPadding().padding(
-                    start = 24.dp,
-                    end = 24.dp,
+                    start = Spacing.screenMargin,
+                    end = Spacing.screenMargin,
                     bottom = 8.dp,
                 ),
         ) {
@@ -124,7 +121,7 @@ private fun PlayerPanelDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             modifier = modifier.widthIn(max = dialogWidth).fillMaxWidth(),
         ) {
@@ -138,7 +135,7 @@ private fun PlayerPanelDialog(
                         onClick = onDismiss,
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(44.dp).semantics { role = Role.Button },
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(

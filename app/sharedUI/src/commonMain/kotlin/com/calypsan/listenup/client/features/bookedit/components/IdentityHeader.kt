@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material3.LocalContentColor
+import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -21,10 +24,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +63,10 @@ import listenup.composeapp.generated.resources.book_edit_subtitle
 import listenup.composeapp.generated.resources.common_title
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Color-blocked identity header for the book edit screen: a [MaterialTheme.colorScheme.primaryContainer]
@@ -91,7 +96,7 @@ fun IdentityHeader(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(
             modifier =
@@ -123,6 +128,7 @@ fun IdentityHeader(
                     text = stringResource(Res.string.book_detail_edit_book),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics { heading() },
                 )
             }
 
@@ -143,21 +149,15 @@ fun IdentityHeader(
                         Modifier
                             .width(120.dp)
                             .aspectRatio(1f),
-                    cornerRadius = 12.dp,
+                    shape = MaterialTheme.shapes.small,
                     elevation = 12.dp,
                     refreshKey = refreshKey,
                     onClick = onCoverClick,
                 ) {
                     // Loading overlay during upload
                     if (isUploadingCover) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.5f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ListenUpLoadingIndicatorSmall()
+                        CoverScrim(modifier = Modifier.fillMaxSize()) {
+                            ListenUpLoadingIndicatorSmall(color = LocalContentColor.current)
                         }
                     } else {
                         // Edit indicator
@@ -174,7 +174,7 @@ fun IdentityHeader(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.Default.CameraAlt,
+                                imageVector = Icons.Outlined.CameraAlt,
                                 contentDescription = stringResource(Res.string.book_edit_change_cover),
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.onPrimary,
@@ -204,10 +204,10 @@ fun IdentityHeader(
                             MaterialTheme.typography.headlineSmall.copy(
                                 fontFamily = DisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                                color = HeroInk.muted(),
                             ),
                         colors = heroTextFieldColors(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         singleLine = false,
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -232,10 +232,10 @@ fun IdentityHeader(
                             placeholder = stringResource(Res.string.book_edit_subtitle),
                             placeholderStyle =
                                 MaterialTheme.typography.titleMedium.copy(
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
+                                    color = HeroInk.muted(),
                                 ),
                             colors = heroTextFieldColors(),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.small,
                             singleLine = false,
                             modifier =
                                 Modifier
@@ -276,7 +276,7 @@ fun IdentityHeader(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                         colors = heroTextFieldColors(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     )
@@ -297,10 +297,10 @@ private fun heroTextFieldColors() =
         focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
         unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
         cursorColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        focusedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-        unfocusedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-        focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-        unfocusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+        focusedLabelColor = HeroInk.muted(),
+        unfocusedLabelColor = HeroInk.muted(),
+        focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        unfocusedBorderColor = HeroInk.outline(),
         focusedContainerColor = Color.Transparent,
         unfocusedContainerColor = Color.Transparent,
     )

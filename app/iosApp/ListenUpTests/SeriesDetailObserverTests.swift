@@ -22,7 +22,7 @@ struct SeriesDetailContinueLabelTests {
         #expect(
             SeriesDetailObserver.continueLabel(
                 hasBooks: false, resumeTargetIsNil: true, hasStarted: false, sequence: nil
-            ) == "Start Listening"
+            ) == "Start listening"
         )
     }
 
@@ -35,7 +35,7 @@ struct SeriesDetailContinueLabelTests {
         #expect(
             SeriesDetailObserver.continueLabel(
                 hasBooks: true, resumeTargetIsNil: false, hasStarted: false, sequence: nil
-            ) == "Start Listening"
+            ) == "Start listening"
         )
     }
 
@@ -56,7 +56,7 @@ struct SeriesDetailContinueLabelTests {
         #expect(
             SeriesDetailObserver.continueLabel(
                 hasBooks: true, resumeTargetIsNil: true, hasStarted: true, sequence: "1"
-            ) == "Listen Again"
+            ) == "Listen again"
         )
     }
 }

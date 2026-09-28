@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CheckCircle
@@ -31,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -45,6 +48,7 @@ import listenup.composeapp.generated.resources.player_sleep_timer
 import listenup.composeapp.generated.resources.player_until_end_of_chapter
 import listenup.composeapp.generated.resources.player_until_end_of_chapter_detail
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 private val DURATION_OPTIONS = listOf(15, 30, 45, 60, 120)
 private val EXTEND_OPTIONS = listOf(5, 10, 15)
@@ -119,7 +123,7 @@ private fun SleepTimerOptions(onSetTimer: (SleepTimerMode) -> Unit) {
 private fun EndOfChapterCard(onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.primaryContainer,
     ) {
@@ -148,7 +152,7 @@ private fun EndOfChapterCard(onClick: () -> Unit) {
                 Text(
                     text = stringResource(Res.string.player_end_of_chapter_subtitle),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    color = HeroInk.muted(),
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -197,10 +201,10 @@ private fun DurationCountdown(
     Spacer(Modifier.height(16.dp))
     LinearProgressIndicator(
         progress = { state.progress },
-        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
     )
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(Spacing.xl))
     Text(
         text = stringResource(Res.string.player_add_more_time),
         style = MaterialTheme.typography.labelLarge,

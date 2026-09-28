@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FilterList
@@ -46,6 +45,7 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.util.stableColorForId
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
 import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
@@ -162,7 +162,7 @@ private fun EmptyShelvesState(modifier: Modifier = Modifier) {
             imageVector = Icons.Filled.Explore,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            tint = MaterialTheme.colorScheme.outline,
         )
         Text(
             text = stringResource(Res.string.discover_no_shelves_to_discover_yet),
@@ -205,14 +205,15 @@ private fun DiscoverContent(
         )
 
     LazyColumn(
-        // Shell system-bar/nav insets fold into the feed's own 16dp so content scrolls under the
-        // bars and rests clear of them — no outer pad that would clip the first/last item.
+        // Shell system-bar/nav insets fold into the feed's padding so content scrolls under the bars
+        // and rests clear of them — no outer pad that would clip the first/last item. The top takes
+        // the insets alone, as Home and Library do, so the header sits at the same height on every tab.
         contentPadding =
             PaddingValues(
-                top = contentPadding.calculateTopPadding() + 16.dp,
+                top = contentPadding.calculateTopPadding(),
                 bottom = contentPadding.calculateBottomPadding() + 16.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         modifier = Modifier.fillMaxSize(),
     ) {
         // Custom shell header scrolls with the feed (search/sync/avatar live here).
@@ -260,8 +261,8 @@ private fun DiscoverContent(
         if (isWide) {
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     DiscoverLeaderboardSection(
                         onUserClick = onUserProfileClick,
@@ -279,6 +280,7 @@ private fun DiscoverContent(
             item {
                 DiscoverLeaderboardSection(
                     onUserClick = onUserProfileClick,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )
             }
             item {
@@ -286,6 +288,7 @@ private fun DiscoverContent(
                     onBookClick = onBookClick,
                     onShelfClick = onShelfClick,
                     onUserClick = onUserProfileClick,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )
             }
         }
@@ -349,7 +352,7 @@ private fun UserShelvesSection(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = Spacing.screenMargin),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar - user header in a shelf list row
@@ -387,7 +390,7 @@ private fun UserShelvesSection(
             items = userShelves.shelves,
             itemWidth = 140.dp,
             itemSpacing = 12.dp,
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
             key = { it.id },
         ) { shelf ->
             DiscoverShelfCard(
@@ -420,7 +423,7 @@ private fun DiscoverShelfCard(
             modifier =
                 Modifier
                     .size(140.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(avatarColor.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center,
         ) {

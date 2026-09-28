@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.MinTouchTarget
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -17,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.MaterialTheme
@@ -97,7 +100,7 @@ fun DockedNowPlayingBar(
             label = "docked_player_focus_scale",
         )
         val focusBorderColor = MaterialTheme.colorScheme.primary
-        val barShape = RoundedCornerShape(28.dp)
+        val barShape = MaterialTheme.shapes.large
 
         Surface(
             onClick = onTap,
@@ -105,6 +108,7 @@ fun DockedNowPlayingBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .semantics { role = Role.Button }
                     .swipeUpToExpand(onTap)
                     .graphicsLayer {
                         scaleX = focusScale
@@ -121,8 +125,8 @@ fun DockedNowPlayingBar(
                         },
                     ),
             shape = barShape,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 10.dp,
+            // Tonal, not shadowed: chrome rises by container level (DESIGN.md, Books-Cast-Shadows).
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             if (state is NowPlayingState.Active) {
                 ActiveDockedContent(
@@ -177,7 +181,7 @@ private fun ActiveDockedContent(
             modifier =
                 Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(MaterialTheme.shapes.extraSmall),
         )
         Column(modifier = Modifier.widthIn(max = 200.dp)) {
             Text(
@@ -207,7 +211,8 @@ private fun ActiveDockedContent(
             icon = SkipGlyphs.backward(skipBackwardSec),
             contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
             onClick = onSkipBack,
-            size = 40.dp,
+            size = MinTouchTarget,
+            iconSize = MiniPlayerGlyphSize,
         )
         // isPlayPending piggybacks on the same buffering spinner: a play request in flight for
         // another book is visual feedback the user asked for, without hiding this bar.
@@ -215,14 +220,14 @@ private fun ActiveDockedContent(
             isPlaying = state.isPlaying,
             isBuffering = state.isBuffering || isPlayPending,
             onClick = onPlayPause,
-            size = 44.dp,
-            shadowElevation = 0.dp,
+            size = MinTouchTarget,
         )
         Ctrl(
             icon = SkipGlyphs.forward(skipForwardSec),
             contentDescription = stringResource(Res.string.player_skip_forward, skipForwardSec),
             onClick = onSkipForward,
-            size = 40.dp,
+            size = MinTouchTarget,
+            iconSize = MiniPlayerGlyphSize,
         )
 
         // Inline scrubber — fills the remaining width. It reads [progress] internally so a
@@ -243,7 +248,8 @@ private fun ActiveDockedContent(
             icon = Icons.Default.OpenInFull,
             contentDescription = stringResource(Res.string.player_expand),
             onClick = onExpand,
-            size = 40.dp,
+            size = MinTouchTarget,
+            iconSize = MiniPlayerGlyphSize,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             pressFeedback = false,
         )

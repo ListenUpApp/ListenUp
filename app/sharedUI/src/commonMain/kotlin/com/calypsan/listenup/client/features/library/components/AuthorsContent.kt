@@ -25,11 +25,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +43,7 @@ import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -100,26 +100,14 @@ fun AuthorsContent(
             }
 
             // Track scroll direction for button visibility
-            var previousScrollOffset by remember { mutableIntStateOf(0) }
-            val showSortButton by remember {
-                derivedStateOf {
-                    val firstVisible = listState.firstVisibleItemIndex
-                    val currentOffset = listState.firstVisibleItemScrollOffset
-
-                    val isAtTop = firstVisible == 0 && currentOffset < 50
-                    val isScrollingUp = currentOffset < previousScrollOffset
-
-                    previousScrollOffset = currentOffset
-                    isAtTop || isScrollingUp || !listState.isScrollInProgress
-                }
-            }
+            val showSortButton by rememberSortButtonVisibility(listState)
 
             LazyColumn(
                 state = listState,
                 contentPadding =
                     PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
+                        start = Spacing.gridMargin,
+                        end = Spacing.gridMargin,
                         top = 48.dp,
                         bottom = 16.dp,
                     ),
@@ -194,7 +182,7 @@ internal fun ContributorCard(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar with image or initials
@@ -295,7 +283,7 @@ private fun AuthorsEmptyState() {
                 imageVector = Icons.Outlined.Person,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                tint = MaterialTheme.colorScheme.outline,
             )
             Text(
                 text = stringResource(Res.string.common_no_items_yet, "authors"),

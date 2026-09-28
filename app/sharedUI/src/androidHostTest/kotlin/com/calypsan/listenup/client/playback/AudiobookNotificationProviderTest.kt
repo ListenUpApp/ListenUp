@@ -153,7 +153,7 @@ class AudiobookNotificationProviderTest {
 
     @Test
     fun `notificationTitle falls back to the session title when no book title is available`() {
-        // Never stranded: a chapter title in the notification beats "Unknown Book".
+        // Never stranded: a chapter title in the notification beats "Unknown book".
         provider.notificationTitle(
             bookTitle = null,
             sessionTitle = "Chapter 14: The Shattered Plains",
@@ -162,7 +162,7 @@ class AudiobookNotificationProviderTest {
 
     @Test
     fun `notificationTitle falls back to Unknown Book when nothing is known`() {
-        provider.notificationTitle(bookTitle = null, sessionTitle = null) shouldBe "Unknown Book"
+        provider.notificationTitle(bookTitle = null, sessionTitle = null) shouldBe "Unknown book"
     }
 
     @Test

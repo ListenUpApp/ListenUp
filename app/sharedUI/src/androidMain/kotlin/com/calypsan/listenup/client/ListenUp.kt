@@ -392,10 +392,11 @@ class ListenUp :
         //
         // The default WorkManagerInitializer is removed from the manifest so we can supply a
         // custom worker factory, which makes this call the only thing that initializes WorkManager
-        // — and startKoin eagerly creates every `createdAtStart = true` single. One of those
-        // (PlaybackControllerActivator) transitively resolves
-        // DownloadRepository → DownloadEnqueuer → WorkManager.getInstance(), so initializing
-        // afterwards crashed the app on launch with "WorkManager is not initialized properly".
+        // — and startKoin eagerly creates every `createdAtStart = true` single. Those reach
+        // WorkManager.getInstance() transitively (DownloadConstraintObserver → DownloadManager;
+        // PlaybackControllerActivator used to, via DownloadRepository → DownloadEnqueuer, when it
+        // was eager), so initializing afterwards crashed the app on launch with "WorkManager is
+        // not initialized properly".
         //
         // The factory's own dependencies stay wrapped in `lazy { get() }`: they are resolved when
         // a Worker is first constructed, long after startKoin below has run.
@@ -436,12 +437,16 @@ class ListenUp :
         // (plus the pre-attach buffer covering startup) is persisted under files/logs/.
         LogSinkRegistry.attach(get())
 
-        // Verify critical Koin bindings off the first-frame path.
-        // Launching on Default keeps DI resolution (including Media3 session init and
-        // ProgressTracker construction) off the main thread, saving ~30–80 ms of
-        // cold-start latency.  Fail-fast is intentional and preserved: any exception
-        // is re-thrown on the main thread so the process terminates immediately and
-        // visibly — a misconfigured build must never silently continue.
+        // Verify critical Koin bindings off the main thread. This resolves (and so builds) the
+        // playback graph — PlaybackManager, ProgressTracker, the PlaybackController and its
+        // MediaControllerHolder — on Default, so the first composition finds them cached. It
+        // does NOT bind the playback service: resolving the controller never acquires it. That
+        // happens in MainActivity after its first frame, or in PlaybackService.onCreate when a
+        // session starts the process (see activatePlaybackController). The eager singles that
+        // startKoin just built above still ran on the main thread; they are the subscriptions
+        // that must exist before anything else can run. Fail-fast is intentional and preserved:
+        // any exception is re-thrown on the main thread so the process terminates immediately
+        // and visibly — a misconfigured build must never silently continue.
         get<CoroutineScope>().launch(Dispatchers.Default) {
             runCatching { verifyCriticalKoinBindings() }.onFailure { failure ->
                 if (failure is CancellationException) throw failure

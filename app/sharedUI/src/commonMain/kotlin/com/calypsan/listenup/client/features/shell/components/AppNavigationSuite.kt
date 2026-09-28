@@ -10,13 +10,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailDefaults
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.ShortNavigationBar
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.ShellNavType
@@ -51,10 +53,15 @@ private val BrandTile = 52.dp
  * with a coral selected-indicator, and a Logout action pinned to the bottom. Secondary actions
  * (settings, admin, profile) live in the top-bar account menu, not here.
  *
+ * On these widths the docked mini-player spans the full window bottom, under the rail, so the
+ * rail's content ends above it ([LocalNowPlayingInsets]) — the same clearance the content pane
+ * takes — and the pinned Logout is never hidden behind the bar.
+ *
  * @param navType which surface to render for the current window size
  * @param currentDestination the selected destination (null guarded to Home)
  * @param onDestinationSelected invoked when a destination is tapped
- * @param onSignOut invoked when the rail's Logout action is tapped
+ * @param onSignOutRequest invoked when the rail's Logout is tapped; it asks, it does not sign out
+ *   (the shell's [SignOutConfirmation] confirms first)
  * @param modifier optional modifier
  */
 @Composable
@@ -62,7 +69,7 @@ fun AppNavigationSuite(
     navType: ShellNavType,
     currentDestination: ShellDestination?,
     onDestinationSelected: (ShellDestination) -> Unit,
-    onSignOut: () -> Unit,
+    onSignOutRequest: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
@@ -104,6 +111,7 @@ fun AppNavigationSuite(
                 modifier = modifier.width(RailWidth),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 header = { RailBrandMark() },
+                windowInsets = NavigationRailDefaults.windowInsets.union(LocalNowPlayingInsets.current),
             ) {
                 Spacer(Modifier.height(8.dp))
                 ShellDestination.entries.forEach { destination ->
@@ -129,7 +137,7 @@ fun AppNavigationSuite(
                     selected = false,
                     onClick = {
                         haptics.press()
-                        onSignOut()
+                        onSignOutRequest()
                     },
                     icon = {
                         Icon(
@@ -167,7 +175,7 @@ private fun RailBrandMark() {
             modifier =
                 Modifier
                     .size(BrandTile)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center,
         ) {

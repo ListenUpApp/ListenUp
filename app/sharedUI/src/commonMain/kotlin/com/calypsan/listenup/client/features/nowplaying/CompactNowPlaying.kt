@@ -37,6 +37,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerTranspo
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_narrated_by
 import listenup.composeapp.generated.resources.book_detail_other_narrators
@@ -169,7 +170,7 @@ fun CompactNowPlaying(
                 coverHash = state.coverHash,
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Spacing.xl))
 
             // Book title — headlineSmall, bold, centered.
             Text(
@@ -241,7 +242,7 @@ fun CompactNowPlaying(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Spacing.xl))
 
             // Transport — slightly smaller FAB (88 dp).
             PlayerTransport(

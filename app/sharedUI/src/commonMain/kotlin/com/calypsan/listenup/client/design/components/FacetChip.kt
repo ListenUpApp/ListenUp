@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.Tag
@@ -29,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import androidx.compose.foundation.shape.CircleShape
 
 /**
  * The three classification axes shown on Book Detail. Each book is described along three
@@ -137,7 +137,7 @@ fun FacetChip(
 ) {
     val haptics = LocalHaptics.current
     val style = facet.style()
-    val shape = RoundedCornerShape(50)
+    val shape = CircleShape
 
     Row(
         modifier =

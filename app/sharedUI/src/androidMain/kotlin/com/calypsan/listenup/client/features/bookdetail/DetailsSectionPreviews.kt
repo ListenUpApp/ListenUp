@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
@@ -58,7 +58,7 @@ private fun DetailsSectionLight() {
             audioFiles = PREVIEW_AUDIO_FILES,
             credits = PREVIEW_CREDITS,
             onContributorClick = {},
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
         )
     }
 }
@@ -74,7 +74,7 @@ private fun DetailsSectionDark() {
             audioFiles = PREVIEW_AUDIO_FILES,
             credits = PREVIEW_CREDITS,
             onContributorClick = {},
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
         )
     }
 }

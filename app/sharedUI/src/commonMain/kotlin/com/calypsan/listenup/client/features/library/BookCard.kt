@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import listenup.composeapp.generated.resources.selection_select
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -7,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import com.calypsan.listenup.client.design.util.onSecondaryClick
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -23,8 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
@@ -59,6 +64,9 @@ import listenup.composeapp.generated.resources.common_completed
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.library_has_documents_badge
 import listenup.composeapp.generated.resources.player_now_playing_wide
+
+// Material 3's hover state-layer opacity.
+private const val HOVER_STATE_LAYER_ALPHA = 0.08f
 
 /**
  * Data for an avatar overlay on a book cover.
@@ -122,6 +130,7 @@ fun BookCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val isHovered by interactionSource.collectIsHoveredAsState()
     val haptics = LocalHaptics.current
 
     // Animate scale for press, focus, and selection
@@ -159,6 +168,7 @@ fun BookCard(
     )
 
     val widthModifier = if (cardWidth != null) Modifier.width(cardWidth) else Modifier
+    val selectLabel = stringResource(Res.string.selection_select)
 
     Column(
         modifier =
@@ -167,7 +177,16 @@ fun BookCard(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }.then(
+                }
+                // A right-click is the pointer's long press: it opens selection, never the book.
+                .onSecondaryClick(
+                    onLongPress?.let { longPress ->
+                        {
+                            haptics.longPress()
+                            longPress()
+                        }
+                    },
+                ).then(
                     if (onLongPress != null) {
                         Modifier.combinedClickable(
                             interactionSource = interactionSource,
@@ -175,6 +194,8 @@ fun BookCard(
                             // Our gated haptics.longPress() owns the feel; suppress
                             // combinedClickable's built-in long-press haptic so it doesn't double up.
                             hapticFeedbackEnabled = false,
+                            // Long-press enters multi-select; say so, or TalkBack offers a bare "long press".
+                            onLongClickLabel = selectLabel,
                             onClick = {
                                 haptics.press()
                                 onClick()
@@ -194,6 +215,9 @@ fun BookCard(
                             },
                         )
                     },
+                ).then(
+                    // In multi-select a tap toggles the book, so its selection is state, not just a border.
+                    if (isInSelectionMode) Modifier.semantics { selected = isSelected } else Modifier,
                 ),
     ) {
         // Cover with optional overlays and indicators
@@ -212,6 +236,7 @@ fun BookCard(
                 progress = if (isCompleted) null else progress,
                 timeRemaining = if (isCompleted) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
+                isHovered = isHovered,
                 isSelected = isSelected || isFocused || isPlaying,
                 borderColor =
                     when {
@@ -280,7 +305,7 @@ fun BookCard(
                 Text(
                     text = dur,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -309,7 +334,7 @@ private fun DocumentsBadge(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+            imageVector = Icons.AutoMirrored.Outlined.MenuBook,
             contentDescription = stringResource(Res.string.library_has_documents_badge),
             tint = MaterialTheme.colorScheme.onSecondary,
             modifier = Modifier.size(16.dp),
@@ -329,7 +354,7 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Rounded.GraphicEq,
+            imageVector = Icons.Outlined.GraphicEq,
             contentDescription = stringResource(Res.string.player_now_playing_wide),
             tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(16.dp),
@@ -357,6 +382,7 @@ private fun BookCardCover(
     progress: Float? = null,
     timeRemaining: String? = null,
     avatarOverlay: AvatarOverlayData? = null,
+    isHovered: Boolean = false,
     isSelected: Boolean = false,
     borderColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
@@ -398,6 +424,16 @@ private fun BookCardCover(
                 heroClipShape = shape,
                 modifier = Modifier.matchParentSize(),
             )
+
+            // Hover state layer: the Material hover tint over the cover, so a pointer knows what it is on.
+            if (isHovered) {
+                Box(
+                    modifier =
+                        Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = HOVER_STATE_LAYER_ALPHA)),
+                )
+            }
 
             // Progress overlay
             if (progress != null && progress > 0f) {
@@ -446,7 +482,7 @@ private fun SelectionIndicator(
             if (isSelected) {
                 MaterialTheme.colorScheme.primary
             } else {
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                MaterialTheme.colorScheme.surfaceContainerLow
             },
         label = "selection_bg",
     )
@@ -456,7 +492,7 @@ private fun SelectionIndicator(
             if (isSelected) {
                 MaterialTheme.colorScheme.onPrimary
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                MaterialTheme.colorScheme.onSurfaceVariant
             },
         label = "selection_icon",
     )

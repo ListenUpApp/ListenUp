@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.admin.inbox
 
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import listenup.composeapp.generated.resources.selection_select_name
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +26,6 @@ import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -91,6 +95,9 @@ import listenup.composeapp.generated.resources.admin_these_books_will_become_vis
 import listenup.composeapp.generated.resources.common_administration
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_inbox
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Admin review-and-release queue for the inbox, rebuilt to the M3 Expressive mockup.
@@ -434,12 +441,12 @@ private fun InboxPhoneHero(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(modifier = Modifier.padding(bottom = 22.dp)) {
             HeroNavRow(
                 onBack = onBackClick,
-                buttonBackground = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f),
+                buttonBackground = HeroInk.wash(),
                 actions = {
                     if (state.hasBooks) {
                         SelectAllAction(
@@ -456,7 +463,7 @@ private fun InboxPhoneHero(
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(start = 20.dp, top = 6.dp),
+                modifier = Modifier.padding(start = 20.dp, top = 6.dp).semantics { heading() },
                 letterSpacing = (-1.4).sp,
             )
             if (state.hasBooks) {
@@ -464,7 +471,7 @@ private fun InboxPhoneHero(
                     text = inboxSubtitle(state),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                    color = HeroInk.muted(),
                     modifier = Modifier.padding(start = 20.dp, top = 4.dp),
                 )
             }
@@ -498,7 +505,7 @@ private fun InboxWideHero(
                     Modifier
                         .size(52.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.09f),
+                            color = HeroInk.wash(),
                             shape = MaterialTheme.shapes.medium,
                         ),
             ) {
@@ -514,7 +521,7 @@ private fun InboxWideHero(
                     text = stringResource(Res.string.common_administration).uppercase(),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    color = HeroInk.muted(),
                     letterSpacing = 1.sp,
                 )
                 Text(
@@ -523,13 +530,14 @@ private fun InboxWideHero(
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     letterSpacing = (-1.4).sp,
+                    modifier = Modifier.semantics { heading() },
                 )
                 if (state.hasBooks) {
                     Text(
                         text = inboxSubtitle(state),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                        color = HeroInk.muted(),
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -590,9 +598,9 @@ private fun SelectAllAction(
     Surface(
         onClick = { if (allSelected) onClearSelection() else onSelectAll() },
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f),
+        color = HeroInk.wash(),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier.size(48.dp).semantics { role = Role.Button },
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
@@ -619,8 +627,9 @@ private fun SelectAllPillButton(
     Surface(
         onClick = { if (allSelected) onClearSelection() else onSelectAll() },
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f),
+        color = HeroInk.wash(),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = Modifier.semantics { role = Role.Button },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -726,7 +735,7 @@ private fun InboxRow(
         if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val subColor =
         if (isSelected) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
@@ -747,9 +756,12 @@ private fun InboxRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(15.dp),
     ) {
+        // The row itself opens the book for review, so the box is its own named checkbox.
+        val selectLabel = stringResource(Res.string.selection_select_name, book.title)
         ExpressiveCheckbox(
             checked = isSelected,
             onCheckedChange = { if (!isReleasing) onSelectionToggle() },
+            modifier = Modifier.semantics { contentDescription = selectLabel },
         )
 
         BookCoverImage(
@@ -848,13 +860,13 @@ private fun MatchOnAudibleButton(
         shape = MaterialTheme.shapes.medium,
         color =
             if (isSelected) {
-                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                HeroInk.wash()
             } else {
                 MaterialTheme.colorScheme.surfaceContainerHigh
             },
         contentColor =
             if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(size),
+        modifier = Modifier.size(size).semantics { role = Role.Button },
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
@@ -877,13 +889,13 @@ private fun ReviewEditButton(
         shape = MaterialTheme.shapes.medium,
         color =
             if (isSelected) {
-                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                HeroInk.wash()
             } else {
                 MaterialTheme.colorScheme.surfaceContainerHigh
             },
         contentColor =
             if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(size),
+        modifier = Modifier.size(size).semantics { role = Role.Button },
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(

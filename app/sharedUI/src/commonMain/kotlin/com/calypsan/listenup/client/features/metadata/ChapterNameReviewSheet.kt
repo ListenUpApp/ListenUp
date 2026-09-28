@@ -1,18 +1,16 @@
 package com.calypsan.listenup.client.features.metadata
 
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.metadata.ChapterNameRow
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import org.jetbrains.compose.resources.stringResource
@@ -41,6 +40,7 @@ import listenup.composeapp.generated.resources.metadata_all_n_selected
 import listenup.composeapp.generated.resources.metadata_apply_chapter_names
 import listenup.composeapp.generated.resources.metadata_chapter_names_replace_note
 import listenup.composeapp.generated.resources.metadata_review_chapter_names
+import androidx.compose.material3.BottomSheetDefaults
 
 /** Inset start of the row dividers — clears the leading checkbox column. */
 private val CHAPTER_DIVIDER_INSET = 56.dp
@@ -63,18 +63,7 @@ fun ChapterNameReviewSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = {
-            Surface(
-                modifier =
-                    Modifier
-                        .padding(vertical = 12.dp)
-                        .width(32.dp)
-                        .height(4.dp),
-                shape = RoundedCornerShape(2.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            ) {}
-        },
+        shape = BottomSheetDefaults.ExpandedShape,
     ) {
         Column(
             modifier =
@@ -164,10 +153,10 @@ private fun ChapterReviewRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable {
+                    .toggleable(value = checked, role = Role.Checkbox) {
                         haptics.press()
                         onToggle()
-                    }.padding(horizontal = 16.dp, vertical = 13.dp),
+                    }.padding(horizontal = Spacing.lg, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {

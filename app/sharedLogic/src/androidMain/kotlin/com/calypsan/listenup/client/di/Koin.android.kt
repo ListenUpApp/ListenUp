@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.discovery.NsdDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
+import com.calypsan.listenup.client.playback.PlaybackControllerActivator
+import org.koin.core.Koin
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -37,6 +39,20 @@ fun androidSharedModules(): List<Module> = sharedModules
  * `startKoin { … }` module list.
  */
 fun androidPlaybackPresentationModule(): Module = playbackPresentationModule
+
+/**
+ * Connects this process to the playback service: the first call acquires the `PlaybackController`,
+ * and every later call is a no-op, because all it does is resolve the process-lifetime
+ * [PlaybackControllerActivator] single.
+ *
+ * Called by `MainActivity` and by `PlaybackService.onCreate`, so the in-app controller (and the
+ * state it feeds `PlaybackManager`: playing, buffering, speed, errors, the auto-rewind ladder) is
+ * live whenever there is a UI or a playback session, and never bound for a push or a worker wake.
+ * Lives in `androidMain` for the same Swift Export reason as the accessors above.
+ */
+fun Koin.activatePlaybackController() {
+    val _ = get<PlaybackControllerActivator>()
+}
 
 /**
  * Android-specific discovery module.

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.connect
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Dns
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.features.permission.RequestLocalNetworkPermission
@@ -59,6 +62,7 @@ import listenup.composeapp.generated.resources.connect_select_server_subtitle
 import listenup.composeapp.generated.resources.connect_version_prefix
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Server selection — the first screen of the connect flow. Lists servers discovered via mDNS
@@ -153,7 +157,7 @@ fun ServerSelectScreen(
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
         )
     }
 }
@@ -222,12 +226,13 @@ private fun ServerRow(
         if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val onRowMuted =
         if (isSelected) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            HeroInk.muted()
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
 
     Surface(
+        selected = isSelected,
         onClick = onClick,
         enabled = !isConnecting,
         shape = MaterialTheme.shapes.large,
@@ -238,10 +243,11 @@ private fun ServerRow(
                 MaterialTheme.colorScheme.surfaceContainerLow
             },
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier.fillMaxWidth(),
+        // The servers are one choice of several: the row says so, not only its fill and check.
+        modifier = Modifier.fillMaxWidth().semantics { role = Role.RadioButton },
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -335,6 +341,7 @@ private fun ServerRowTrailing(
     isSelected: Boolean,
     isConnecting: Boolean,
 ) {
+    // An idle row shows no trailing mark: the whole row is the button, with no disclosure chevron.
     when {
         isConnecting -> {
             ListenUpLoadingIndicatorSmall()
@@ -356,14 +363,6 @@ private fun ServerRowTrailing(
                 }
             }
         }
-
-        else -> {
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -374,10 +373,10 @@ private fun AddServerRow(onClick: () -> Unit) {
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -406,11 +405,6 @@ private fun AddServerRow(onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -430,7 +424,7 @@ private fun EmptyState() {
         Text(
             text = stringResource(Res.string.connect_make_sure_your_listenup_server),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

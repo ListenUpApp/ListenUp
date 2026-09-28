@@ -45,7 +45,7 @@ fun DailyListeningChart(
 ) {
     val todayColor = MaterialTheme.colorScheme.primary
     val barColor = MaterialTheme.colorScheme.primaryContainer
-    val emptyColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val emptyColor = MaterialTheme.colorScheme.outlineVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
 
@@ -60,6 +60,7 @@ fun DailyListeningChart(
     // Bars grow up from the baseline on screen entry, rippling left-to-right (today rises last).
     val growth = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
+        // Bespoke: a linear clock, not a spring; each bar reads its own staggered window of it below.
         growth.animateTo(targetValue = 1f, animationSpec = tween(durationMillis = 700, easing = LinearEasing))
     }
 
@@ -76,19 +77,21 @@ fun DailyListeningChart(
         val totalSpacing = barSpacing * (barCount - 1)
         val barWidth = ((size.width - totalSpacing) / barCount).coerceAtLeast(12.dp.toPx())
 
-        val emptyStub = barWidth // a circular nub so empty days read as dots, not bars
+        val stubSize = emptyDayStubSize(barWidth, EmptyStubMaxWidth.toPx(), EmptyStubHeight.toPx())
         // Each bar opens a little after the one to its left, so the row ripples up on entry.
         val barStagger = if (barCount > 1) (1f - BAR_GROW_FRACTION) / (barCount - 1) else 0f
         chartData.forEachIndexed { index, bar ->
             val x = index * (barWidth + barSpacing)
             val isToday = bar.isToday
             val isEmpty = bar.totalSeconds <= 0L
-            // Empty days draw a small nub so the baseline reads as a row of days, not gaps.
-            val fullHeight = if (isEmpty) emptyStub else bar.totalSeconds / maxSeconds * chartHeight
+            // An empty day is a small stub on the baseline, so the row reads as days with nothing in
+            // them — never a full-width circle that looks like listening.
+            val markWidth = if (isEmpty) stubSize.width else barWidth
+            val fullHeight = if (isEmpty) stubSize.height else bar.totalSeconds / maxSeconds * chartHeight
             val barProgress = ((growth.value - index * barStagger) / BAR_GROW_FRACTION).coerceIn(0f, 1f)
             val barHeight = fullHeight * LinearOutSlowInEasing.transform(barProgress)
             val barTop = chartHeight - barHeight
-            // Today always reads as the coral accent (even at zero), emphasizing the current day.
+            // Today reads as the coral accent; on an empty today that is only the small stub, a quiet mark.
             val color =
                 when {
                     isToday -> todayColor
@@ -99,9 +102,9 @@ fun DailyListeningChart(
             // Fully-rounded "pill" bars for a more expressive chart.
             drawRoundRect(
                 color = color,
-                topLeft = Offset(x, barTop),
-                size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(barWidth / 2f),
+                topLeft = Offset(x + (barWidth - markWidth) / 2f, barTop),
+                size = Size(markWidth, barHeight),
+                cornerRadius = CornerRadius(markWidth / 2f),
             )
 
             // Draw day label centered below bar
@@ -112,6 +115,22 @@ fun DailyListeningChart(
         }
     }
 }
+
+/** How tall an empty day's stub stands on the baseline. */
+private val EmptyStubHeight = 6.dp
+
+/** The widest an empty day's stub grows, however wide its column. */
+private val EmptyStubMaxWidth = 16.dp
+
+/**
+ * The stub an empty day draws: [stubHeight] tall and at most [stubMaxWidth] wide, narrowing with a
+ * column thinner than that, so it stays a small mark on the baseline at every chart width.
+ */
+internal fun emptyDayStubSize(
+    barWidth: Float,
+    stubMaxWidth: Float,
+    stubHeight: Float,
+): Size = Size(minOf(barWidth, stubMaxWidth), minOf(stubHeight, barWidth))
 
 /** Fraction of the entry animation each bar spends growing; the remainder is its stagger offset. */
 private const val BAR_GROW_FRACTION = 0.6f

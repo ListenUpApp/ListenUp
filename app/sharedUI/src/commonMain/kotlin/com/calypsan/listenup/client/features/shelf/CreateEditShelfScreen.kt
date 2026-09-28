@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
@@ -30,7 +33,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
@@ -57,7 +59,8 @@ import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
-import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.components.SectionSegment
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
@@ -86,6 +89,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Bundles the mutable form state and callbacks passed between the screen and layout
@@ -248,8 +252,8 @@ private fun ShelfFormPhoneLayout(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
             ShelfDetailsSection(
                 name = formState.name,
@@ -304,7 +308,7 @@ private fun ShelfFormWideLayout(
                 Modifier
                     .fillMaxSize()
                     .padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
             verticalAlignment = Alignment.Top,
         ) {
             // Left: form fields
@@ -422,7 +426,7 @@ private fun ShelfHeroNavRow(
 ) {
     HeroNavRow(
         onBack = onBack,
-        buttonBackground = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f),
+        buttonBackground = HeroInk.wash(),
         applyStatusBarInset = !isWide,
         actions = {
             if (isEditing) {
@@ -456,7 +460,7 @@ private fun ShelfHeroTitleBlock(
             text = stringResource(Res.string.shelf_breadcrumb_library_shelves),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            color = HeroInk.muted(),
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
@@ -488,7 +492,7 @@ private fun DeleteHeroButton(
         // Wide: text + icon pill
         Surface(
             onClick = onClick,
-            modifier = modifier,
+            modifier = modifier.semantics { role = Role.Button },
             shape = CircleShape,
             color = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -547,31 +551,31 @@ private fun ShelfDetailsSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.shelf_shelf_details),
-        icon = Icons.Outlined.BookmarkAdd,
-        accent = MaterialTheme.colorScheme.primary,
         modifier = modifier,
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            ListenUpTextField(
-                value = name,
-                onValueChange = onNameChange,
-                label = stringResource(Res.string.shelf_form_name),
-                placeholder = stringResource(Res.string.common_shelf_name_hint),
-                leadingIcon = Icons.Outlined.Label,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
+        SectionSegment {
+            Column(
+                modifier = Modifier.padding(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                ListenUpTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = stringResource(Res.string.shelf_form_name),
+                    placeholder = stringResource(Res.string.common_shelf_name_hint),
+                    leadingIcon = Icons.Outlined.Label,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                )
 
-            ListenUpTextArea(
-                value = description,
-                onValueChange = onDescriptionChange,
-                label = stringResource(Res.string.shelf_description_optional),
-                placeholder = stringResource(Res.string.shelf_whats_this_shelf_for),
-                minLines = 3,
-                maxLines = 5,
-            )
+                ListenUpTextArea(
+                    value = description,
+                    onValueChange = onDescriptionChange,
+                    label = stringResource(Res.string.shelf_description_optional),
+                    placeholder = stringResource(Res.string.shelf_whats_this_shelf_for),
+                    minLines = 3,
+                    maxLines = 5,
+                )
+            }
         }
     }
 }
@@ -584,11 +588,9 @@ private fun ShelfVisibilitySection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.shelf_visibility),
-        icon = Icons.Outlined.Visibility,
-        accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
     ) {
-        SettingRow(
+        SettingToggleRow(
             title = stringResource(Res.string.shelf_private_shelf),
             subtitle =
                 if (isPrivate) {
@@ -598,12 +600,8 @@ private fun ShelfVisibilitySection(
                 },
             icon = if (isPrivate) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
             accent = MaterialTheme.colorScheme.tertiary,
-            trailing = {
-                Switch(
-                    checked = isPrivate,
-                    onCheckedChange = onPrivateChange,
-                )
-            },
+            checked = isPrivate,
+            onCheckedChange = onPrivateChange,
         )
     }
 }
@@ -689,7 +687,7 @@ private fun ShelfPreviewContent(
                         imageVector = Icons.Outlined.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        tint = HeroInk.muted(),
                     )
                 }
             }
@@ -701,7 +699,7 @@ private fun ShelfPreviewContent(
                         stringResource(Res.string.shelf_visible_to_anyone)
                     },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                color = HeroInk.muted(),
             )
         }
     }
@@ -713,15 +711,15 @@ private fun ShelfPreviewContent(
 private fun ShelfAboutCard(modifier: Modifier = Modifier) {
     SectionGroup(
         label = stringResource(Res.string.shelf_about_shelves),
-        icon = Icons.Outlined.Info,
-        accent = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier,
     ) {
-        Text(
-            text = stringResource(Res.string.shelf_about_shelves_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(16.dp),
-        )
+        SectionSegment {
+            Text(
+                text = stringResource(Res.string.shelf_about_shelves_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(Spacing.lg),
+            )
+        }
     }
 }

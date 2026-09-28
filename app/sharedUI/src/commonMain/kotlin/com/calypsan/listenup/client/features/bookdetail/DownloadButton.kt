@@ -1,12 +1,12 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.CircularProgressIndicator
@@ -88,6 +88,7 @@ fun DownloadButton(
                             onDownloadClick()
                         },
                         enabled = enabled,
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         Icon(
                             Icons.Outlined.Download,
@@ -98,7 +99,7 @@ fun DownloadButton(
                 }
 
                 is BookDownloadStatus.InProgress -> {
-                    IconButton(onClick = onCancelClick) {
+                    IconButton(onClick = onCancelClick, modifier = Modifier.fillMaxSize()) {
                         when {
                             status.downloadingFiles > 0 -> {
                                 Box(contentAlignment = Alignment.Center) {
@@ -110,7 +111,7 @@ fun DownloadButton(
                                         trackColor = contentColor.copy(alpha = 0.3f),
                                     )
                                     Icon(
-                                        Icons.Default.Close,
+                                        Icons.Outlined.Close,
                                         contentDescription = stringResource(Res.string.book_detail_cancel_download),
                                         modifier = Modifier.size(12.dp),
                                         tint = contentColor.copy(alpha = 0.6f),
@@ -120,7 +121,7 @@ fun DownloadButton(
 
                             isWaitingForWifi -> {
                                 Icon(
-                                    Icons.Default.WifiOff,
+                                    Icons.Outlined.WifiOff,
                                     contentDescription = stringResource(Res.string.book_detail_waiting_for_wifi),
                                     tint = contentColor.copy(alpha = 0.7f),
                                 )
@@ -134,7 +135,7 @@ fun DownloadButton(
                 }
 
                 is BookDownloadStatus.Completed -> {
-                    IconButton(onClick = onDeleteClick) {
+                    IconButton(onClick = onDeleteClick, modifier = Modifier.fillMaxSize()) {
                         Icon(
                             Icons.Outlined.Delete,
                             contentDescription = stringResource(Res.string.book_delete_download),
@@ -152,9 +153,10 @@ fun DownloadButton(
                             onDownloadClick()
                         },
                         enabled = enabled,
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         Icon(
-                            Icons.Default.Refresh,
+                            Icons.Outlined.Refresh,
                             contentDescription = stringResource(Res.string.book_detail_retry_download),
                             tint = MaterialTheme.colorScheme.error,
                         )

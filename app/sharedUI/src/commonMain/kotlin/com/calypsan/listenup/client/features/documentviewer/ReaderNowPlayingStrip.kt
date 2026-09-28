@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -43,11 +42,14 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Intentionally minimal — no transport skip, no speed pill, no expand button.
  * The reader dock pairs this above a [ReaderPageScrubber].
+ *
+ * @param progress reads the playback position. Only the time-left line calls it, so a position
+ *   tick redraws that line and nothing else in the strip.
  */
 @Composable
 internal fun ReaderNowPlayingStrip(
     state: NowPlayingState,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -75,7 +77,7 @@ internal fun ReaderNowPlayingStrip(
                 modifier =
                     Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(6.dp)),
+                        .clip(MaterialTheme.shapes.extraSmall),
             )
 
             Spacer(Modifier.width(10.dp))
@@ -91,13 +93,7 @@ internal fun ReaderNowPlayingStrip(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val remainingMs = (progress.bookDurationMs - progress.bookPositionMs).coerceAtLeast(0L)
-                Text(
-                    text = DurationFormatter.timeLeft(remainingMs.milliseconds),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
+                TimeLeft(progress)
             }
 
             Spacer(Modifier.width(8.dp))
@@ -121,4 +117,17 @@ internal fun ReaderNowPlayingStrip(
             }
         }
     }
+}
+
+/** The time left in the book: the only part of the strip that moves with the playhead. */
+@Composable
+private fun TimeLeft(progress: () -> PlaybackProgress) {
+    val current = progress()
+    val remainingMs = (current.bookDurationMs - current.bookPositionMs).coerceAtLeast(0L)
+    Text(
+        text = DurationFormatter.timeLeft(remainingMs.milliseconds),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+    )
 }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.foundation.layout.consumeWindowInsets
 import com.calypsan.listenup.client.domain.model.Chapter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,8 +10,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -18,7 +19,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -53,7 +52,6 @@ import listenup.composeapp.generated.resources.chapter_editor_subtitle
 import listenup.composeapp.generated.resources.chapter_editor_title
 import listenup.composeapp.generated.resources.chapter_editor_undo
 import listenup.composeapp.generated.resources.chapter_editor_unsaved
-import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -86,13 +84,17 @@ fun ChapterEditorScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val timeline by playbackManager.currentTimeline.collectAsStateWithLifecycle()
-    val positionMs by playbackManager.currentPositionMs.collectAsStateWithLifecycle()
+    // Held as a State and never read here: the position ticks many times a second, and a read at
+    // this level would redraw the whole editor on every one. Only the leaves that show the playhead
+    // read it, and the actions that use it read it at the moment they run.
+    val position = playbackManager.currentPositionMs.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Only this book's transport counts. Anything else and the playhead is not about what is on
     // screen, so it is absent rather than misleading.
     val isThisBookLoaded = timeline?.bookId == BookId(bookId)
-    val playheadMs = if (isThisBookLoaded) positionMs else null
+    val playheadMs: () -> Long? =
+        remember(isThisBookLoaded, position) { { if (isThisBookLoaded) position.value else null } }
 
     var pendingDiscard by remember { mutableStateOf(false) }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
@@ -106,6 +108,7 @@ fun ChapterEditorScreen(
     val leave = { if (isDirty) pendingDiscard = true else onBack() }
 
     val newChapterTitle = stringResource(Res.string.chapter_editor_new_chapter_title)
+    val rowMenu = rememberRowMenu(viewModel, isThisBookLoaded, newChapterTitle) { rowAction = it }
 
     // The toolbar arrow is not the only way out. Without this the system back gesture pops the
     // screen straight past the confirmation, and the draft — the only copy of the work — is gone.
@@ -116,7 +119,10 @@ fun ChapterEditorScreen(
     LaunchedEffect(isThisBookLoaded) {
         if (isThisBookLoaded) {
             // Not yet opened: the lane opens around the playhead on its own (TimelineLane.opening).
-            lane = lane?.let { current -> editing?.let { current.centredOn(positionMs, it.bookDurationMs) } ?: current }
+            lane =
+                lane?.let { current ->
+                    editing?.let { current.centredOn(position.value, it.bookDurationMs) } ?: current
+                }
         }
     }
 
@@ -143,13 +149,13 @@ fun ChapterEditorScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = { EditorTitle(editing) },
-                navigationIcon = {
-                    IconButton(onClick = leave) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back))
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.chapter_editor_title),
+                subtitle =
+                    editing?.let {
+                        stringResource(Res.string.chapter_editor_subtitle, it.bookTitle, it.chapters.size)
+                    },
+                onBack = leave,
                 actions = {
                     IconButton(
                         onClick = viewModel::beginDrift,
@@ -162,7 +168,7 @@ fun ChapterEditorScreen(
                         )
                     }
                     IconButton(onClick = viewModel::undo, enabled = editing?.canUndo == true) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, stringResource(Res.string.chapter_editor_undo))
+                        Icon(Icons.AutoMirrored.Outlined.Undo, stringResource(Res.string.chapter_editor_undo))
                     }
                     EditorStatus(editing)
                     TextButton(
@@ -180,6 +186,7 @@ fun ChapterEditorScreen(
             state = state,
             padding = padding,
             playheadMs = playheadMs,
+            hasPlayhead = isThisBookLoaded,
             fileBoundaries = fileBoundaries,
             lane = lane,
             onLaneChange = { lane = it },
@@ -187,12 +194,12 @@ fun ChapterEditorScreen(
             onQueryChange = { query = it },
             onPinAnchor = {
                 val selected = editing?.selectedChapterId
-                val at = playheadMs
+                val at = playheadMs()
                 if (selected != null && at != null) viewModel.pinAnchor(selected, at)
             },
             newChapterTitle = newChapterTitle,
             viewModel = viewModel,
-            onMore = { rowAction = RowAction.Choosing(it) },
+            rowMenu = rowMenu,
             onEditTime = { rowAction = RowAction.EditingTime(it) },
         )
     }
@@ -211,24 +218,36 @@ fun ChapterEditorScreen(
     RowActionDialogs(
         action = rowAction,
         chapterOf = { id -> editing?.chapters?.firstOrNull { it.id == id } },
-        canPlayFromHere = isThisBookLoaded,
         onAction = { rowAction = it },
         onRename = viewModel::retitle,
         onRetime = viewModel::retime,
-        onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
-        onPlayFromHere = viewModel::playFrom,
         onDelete = viewModel::remove,
     )
 }
 
-/** Which of a row's overflow dialogs is open, if any. */
+/**
+ * A row's overflow actions: rename and delete open their dialogs through [onAction]; insert and
+ * play act at once. Play is offered only while this book is the one loaded.
+ */
+@Composable
+private fun rememberRowMenu(
+    viewModel: ChapterEditorViewModel,
+    canPlayFromHere: Boolean,
+    newChapterTitle: String,
+    onAction: (RowAction) -> Unit,
+): ChapterRowMenuActions =
+    remember(viewModel, canPlayFromHere, newChapterTitle) {
+        ChapterRowMenuActions(
+            onRename = { onAction(RowAction.Renaming(it)) },
+            onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
+            onPlayFromHere = viewModel::playFrom.takeIf { canPlayFromHere },
+            onDelete = { onAction(RowAction.Deleting(it)) },
+        )
+    }
+
+/** Which of a row's dialogs is open, if any. The overflow itself is the row's own menu. */
 private sealed interface RowAction {
     val chapterId: String
-
-    /** The overflow itself — rename, insert below, play from here, delete. */
-    data class Choosing(
-        override val chapterId: String,
-    ) : RowAction
 
     /** Editing the title. */
     data class Renaming(
@@ -247,7 +266,7 @@ private sealed interface RowAction {
 }
 
 /**
- * The row overflow and everything it leads to.
+ * The dialogs a row's controls lead to.
  *
  * One nullable value rather than three booleans, so "renaming and deleting at once" is not a state
  * that can be reached — the dialogs are steps in a sequence, and the type says so.
@@ -256,37 +275,13 @@ private sealed interface RowAction {
 private fun RowActionDialogs(
     action: RowAction?,
     chapterOf: (String) -> Chapter?,
-    canPlayFromHere: Boolean,
     onAction: (RowAction?) -> Unit,
     onRename: (String, String) -> Unit,
     onRetime: (String, Long) -> Unit,
-    onInsertBelow: (String) -> Unit,
-    onPlayFromHere: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
     when (action) {
         null -> {}
-
-        is RowAction.Choosing -> {
-            ChapterActionsDialog(
-                onRename = { onAction(RowAction.Renaming(action.chapterId)) },
-                onInsertBelow = {
-                    onInsertBelow(action.chapterId)
-                    onAction(null)
-                },
-                onPlayFromHere =
-                    if (canPlayFromHere) {
-                        {
-                            onPlayFromHere(action.chapterId)
-                            onAction(null)
-                        }
-                    } else {
-                        null
-                    },
-                onDelete = { onAction(RowAction.Deleting(action.chapterId)) },
-                onDismiss = { onAction(null) },
-            )
-        }
 
         is RowAction.EditingTime -> {
             ChapterTimeDialog(
@@ -332,7 +327,8 @@ private fun RowActionDialogs(
 private fun ChapterEditorBody(
     state: ChapterEditorUiState,
     padding: PaddingValues,
-    playheadMs: Long?,
+    playheadMs: () -> Long?,
+    hasPlayhead: Boolean,
     fileBoundaries: List<TimelineFileBoundary>,
     lane: TimelineLane?,
     onLaneChange: (TimelineLane) -> Unit,
@@ -341,7 +337,7 @@ private fun ChapterEditorBody(
     onPinAnchor: () -> Unit,
     newChapterTitle: String,
     viewModel: ChapterEditorViewModel,
-    onMore: (String) -> Unit,
+    rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
 ) {
     when (state) {
@@ -356,7 +352,7 @@ private fun ChapterEditorBody(
         is ChapterEditorUiState.Editing -> {
             if (state.isEmpty) {
                 ChapterEditorEmptyState(
-                    onAddFirst = { viewModel.addAt(playheadMs ?: 0L, newChapterTitle) },
+                    onAddFirst = { viewModel.addAt(playheadMs() ?: 0L, newChapterTitle) },
                     onLookUp = {},
                     modifier = Modifier.padding(padding),
                     // Lookup is not built yet. Offering a button that does nothing would be a
@@ -364,8 +360,9 @@ private fun ChapterEditorBody(
                     canLookUp = false,
                 )
             } else {
-                val currentLane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs, widthPx = 0f)
-                Column(Modifier.padding(padding)) {
+                val currentLane = lane ?: TimelineLane.opening(state.bookDurationMs, playheadMs(), widthPx = 0f)
+                // Consumed, so the list pane's imePadding adds only the keyboard beyond the scaffold's inset.
+                Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
                     if (state.changedElsewhere) {
                         ChangedElsewhereBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                     }
@@ -374,7 +371,7 @@ private fun ChapterEditorBody(
                             drift = drift,
                             chapters = state.chapters,
                             hasSelection = state.selectedChapterId != null,
-                            hasPlayhead = playheadMs != null,
+                            hasPlayhead = hasPlayhead,
                             onPin = onPinAnchor,
                             onApply = viewModel::applyDrift,
                             onCancel = viewModel::cancelDrift,
@@ -395,10 +392,10 @@ private fun ChapterEditorBody(
                         onSelect = viewModel::select,
                         // The row already speaks milliseconds (COARSE_NUDGE_MS); nothing scales it here.
                         onNudge = viewModel::nudge,
-                        onAddAtPlayhead = { viewModel.addAt(playheadMs ?: 0L, newChapterTitle) },
-                        onSnapToPlayhead = { id -> playheadMs?.let { viewModel.snapToPlayhead(id, it) } },
+                        onAddAtPlayhead = { viewModel.addAt(playheadMs() ?: 0L, newChapterTitle) },
+                        onSnapToPlayhead = { id -> playheadMs()?.let { viewModel.snapToPlayhead(id, it) } },
                         onToggleLock = viewModel::toggleLock,
-                        onMore = onMore,
+                        rowMenu = rowMenu,
                         onEditTime = onEditTime,
                         fileBoundaries = fileBoundaries,
                         // The corrected positions, drawn beside the current ones. This is the
@@ -427,22 +424,6 @@ private fun driftGhosts(state: ChapterEditorUiState.Editing): List<TimelineChapt
     val ready = state.drift?.preview as? DriftPreview.Ready ?: return emptyList()
     return ready.corrected.mapIndexed { index, chapter ->
         TimelineChapter(id = chapter.id, number = index + 1, startMs = chapter.startTime)
-    }
-}
-
-@Composable
-private fun EditorTitle(editing: ChapterEditorUiState.Editing?) {
-    Column {
-        Text(stringResource(Res.string.chapter_editor_title), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (editing != null) {
-            Text(
-                stringResource(Res.string.chapter_editor_subtitle, editing.bookTitle, editing.chapters.size),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
     }
 }
 

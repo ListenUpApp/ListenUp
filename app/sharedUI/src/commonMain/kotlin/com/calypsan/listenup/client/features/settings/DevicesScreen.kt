@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
@@ -50,7 +49,10 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
@@ -76,6 +78,10 @@ import listenup.composeapp.generated.resources.devices_this_device
 import listenup.composeapp.generated.resources.devices_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.theme.HeroInk
 
 /**
  * Lists the caller's active sessions ("devices") and lets them revoke a single
@@ -154,7 +160,7 @@ private fun DevicesBody(
                 modifier =
                     modifier
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = Spacing.screenMargin),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
@@ -236,7 +242,7 @@ private fun DevicesPhoneLayout(
         // Other Devices section
         item {
             Spacer(modifier = Modifier.height(22.dp))
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.lg)) {
                 DevicesOtherSection(
                     otherDevices = otherDevices,
                     signingOut = state.signingOut,
@@ -296,7 +302,7 @@ private fun DevicesWideLayout(
                         text = stringResource(Res.string.devices_current_session).uppercase(),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                        color = HeroInk.muted(),
                         letterSpacing = 1.2.sp,
                     )
                     Spacer(modifier = Modifier.height(20.dp))
@@ -340,13 +346,13 @@ private fun DevicesHero(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(bottomStart = 44.dp, bottomEnd = 44.dp),
+        shape = ContentShapes.hero,
     ) {
         Column(modifier = Modifier.padding(bottom = 24.dp)) {
             // Nav row: back button + signed-in count pill
             HeroNavRow(
                 onBack = onBack,
-                buttonBackground = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f),
+                buttonBackground = HeroInk.wash(),
                 applyStatusBarInset = !isWide,
                 actions = {
                     SignedInCountPill(count = totalCount)
@@ -359,7 +365,7 @@ private fun DevicesHero(
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(start = 20.dp, top = 6.dp, bottom = 20.dp),
+                modifier = Modifier.padding(start = 20.dp, top = 6.dp, bottom = 20.dp).semantics { heading() },
                 letterSpacing = (-1.4).sp,
             )
 
@@ -371,7 +377,7 @@ private fun DevicesHero(
                             .fillMaxWidth()
                             .padding(horizontal = 18.dp),
                     shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.07f),
+                    color = HeroInk.wash(),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
                     Box(modifier = Modifier.padding(18.dp)) {
@@ -400,7 +406,7 @@ private fun DevicesWideHero(
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+            modifier = Modifier.padding(horizontal = Spacing.xl, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -416,7 +422,7 @@ private fun DevicesWideHero(
                     Modifier
                         .size(52.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.09f),
+                            color = HeroInk.wash(),
                             shape = MaterialTheme.shapes.medium,
                         ),
             ) {
@@ -434,12 +440,13 @@ private fun DevicesWideHero(
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     letterSpacing = (-1.4).sp,
+                    modifier = Modifier.semantics { heading() },
                 )
                 Text(
                     text = stringResource(Res.string.devices_signed_in_count, totalCount),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                    color = HeroInk.muted(),
                 )
             }
 
@@ -485,14 +492,20 @@ private fun ThisDeviceCardContent(
         } else {
             MaterialTheme.colorScheme.onSurface
         }
-    val subColor = inkColor.copy(alpha = 0.75f)
+    val subColor =
+        if (inHero) {
+            HeroInk.mutedOnWash()
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    val tone = visual.color.current
     val tileBg =
         if (inHero) {
-            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+            HeroInk.wash()
         } else {
-            visual.tint.copy(alpha = 0.14f)
+            tone.container
         }
-    val tileIconTint = if (inHero) inkColor else visual.tint
+    val tileIconTint = if (inHero) inkColor else tone.content
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -557,7 +570,7 @@ private fun ThisDeviceCardContent(
                     modifier =
                         Modifier
                             .size(8.dp)
-                            .background(Color(0xFF2FBF73), CircleShape),
+                            .background(MaterialTheme.extendedColors.success, CircleShape),
                 )
                 Text(
                     text = stringResource(Res.string.devices_active),
@@ -579,7 +592,7 @@ private fun ThisDeviceChip(
         shape = CircleShape,
         color =
             if (inHero) {
-                inkColor.copy(alpha = 0.14f)
+                HeroInk.wash()
             } else {
                 MaterialTheme.colorScheme.primary
             },
@@ -601,7 +614,7 @@ private fun ThisDeviceChip(
 private fun SignedInCountPill(count: Int) {
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f),
+        color = HeroInk.wash(),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Row(
@@ -635,35 +648,27 @@ private fun DevicesOtherSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.devices_other_devices),
-        icon = Icons.Outlined.Devices,
-        accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
     ) {
         if (otherDevices.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.devices_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            SectionSegment {
+                Text(
+                    text = stringResource(Res.string.devices_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
+                )
+            }
         } else {
-            otherDevices.forEachIndexed { index, device ->
-                if (index > 0) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(start = 73.dp, end = 14.dp)
-                                .height(1.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant),
+            otherDevices.forEach { device ->
+                SectionSegment {
+                    DeviceRowItem(
+                        device = device,
+                        isSigningOut = device.sessionId in signingOut,
+                        nowMs = nowMs,
+                        onRevoke = { onRevokeDevice(device.sessionId) },
                     )
                 }
-                DeviceRowItem(
-                    device = device,
-                    isSigningOut = device.sessionId in signingOut,
-                    nowMs = nowMs,
-                    onRevoke = { onRevokeDevice(device.sessionId) },
-                )
             }
         }
     }
@@ -689,8 +694,8 @@ private fun DeviceRowItem(
         // Tinted icon tile
         TonalIconTile(
             icon = visual.icon,
+            tone = visual.color.current,
             size = 52.dp,
-            accent = visual.tint,
         )
 
         // Device info
@@ -779,7 +784,7 @@ private fun SignOutAllOthersButton(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
             ),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = 10.dp),
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.Logout,
