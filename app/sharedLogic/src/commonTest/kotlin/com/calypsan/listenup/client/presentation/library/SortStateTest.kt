@@ -57,6 +57,7 @@ class SortStateTest :
             SortCategory.fromKey("series") shouldBe SortCategory.SERIES
             SortCategory.fromKey("name") shouldBe SortCategory.NAME
             SortCategory.fromKey("book_count") shouldBe SortCategory.BOOK_COUNT
+            SortCategory.fromKey("rating") shouldBe SortCategory.RATING
         }
 
         test("SortCategory fromKey returns null for invalid key") {
@@ -92,6 +93,13 @@ class SortStateTest :
 
             SortCategory.BOOK_COUNT.directionLabel(SortDirection.ASCENDING) shouldBe "Fewest"
             SortCategory.BOOK_COUNT.directionLabel(SortDirection.DESCENDING) shouldBe "Most"
+
+            SortCategory.RATING.directionLabel(SortDirection.ASCENDING) shouldBe "Lowest"
+            SortCategory.RATING.directionLabel(SortDirection.DESCENDING) shouldBe "Highest"
+        }
+
+        test("SortCategory RATING defaults to descending, like LISTENER_RATING") {
+            SortCategory.RATING.defaultDirection shouldBe SortDirection.DESCENDING
         }
 
         test("SortCategory booksCategories contains expected categories") {
@@ -101,6 +109,8 @@ class SortStateTest :
             (SortCategory.DURATION in categories) shouldBe true
             (SortCategory.YEAR in categories) shouldBe true
             (SortCategory.ADDED in categories) shouldBe true
+            (SortCategory.RATING in categories) shouldBe true
+            (SortCategory.LISTENER_RATING in categories) shouldBe true
             (SortCategory.SERIES in categories) shouldBe true
         }
 

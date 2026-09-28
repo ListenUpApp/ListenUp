@@ -7,6 +7,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.ListenerAverage
@@ -193,14 +194,24 @@ class LibraryViewModel(
             replay = 1,
         )
 
-    // Stage 1: sort + filter. Depends ONLY on intent and raw content — playback
-    // position ticks (every ~30s during playback) never reach this combine, so
+    // A separate flow rather than a sixth RawContent field — kotlinx.coroutines' combine has no
+    // positional overload past five flows, and RawContent's five are already there.
+    private val combinedScores: Flow<Map<String, CombinedScore>> =
+        bookRatingRepository
+            .observeCombinedScores()
+            .fallbackTo { e ->
+                logger.error(e) { "observeCombinedScores failed; emitting empty map" }
+                emptyMap()
+            }
+
+    // Stage 1: sort + filter. Depends ONLY on intent, raw content and the outside combined
+    // scores — playback position ticks (every ~30s during playback) never reach this combine, so
     // the O(n log n) sorts don't re-run when only progress changed.
     // distinctUntilChanged (cheap O(n) structural compare) additionally drops
     // Room re-emissions of structurally identical content, keeping downstream
     // list identity stable.
     private val sortedContent: Flow<SortedContent> =
-        combine(intent, rawContent) { intentValue, content ->
+        combine(intent, rawContent, combinedScores) { intentValue, content, scores ->
             val visibleSeries =
                 if (intentValue.hideSingleBookSeries) {
                     content.series.filter { it.books.size > 1 }
@@ -215,6 +226,7 @@ class LibraryViewModel(
                         intentValue.booksSortState,
                         intentValue.ignoreTitleArticles,
                         content.listenerAverages,
+                        scores,
                     ),
                 series = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles),
                 authors = sortContributors(content.authors, intentValue.authorsSortState),
@@ -537,6 +549,7 @@ class LibraryViewModel(
         state: SortState,
         ignoreArticles: Boolean,
         listenerAverages: Map<String, ListenerAverage>,
+        combinedScores: Map<String, CombinedScore>,
     ): List<BookListItem> {
         val isAsc = state.direction == SortDirection.ASCENDING
 
@@ -596,27 +609,12 @@ class LibraryViewModel(
                 }
             }
 
+            SortCategory.RATING -> {
+                sortByRatedAverage(books, isAsc) { combinedScores[it.id.value]?.average }
+            }
+
             SortCategory.LISTENER_RATING -> {
-                // Unrated books last in BOTH directions: an absent average is not a zero. Equal
-                // averages fall back to title (lowercase, ascending), like AUTHOR and YEAR.
-                val (rated, unrated) = books.partition { listenerAverages[it.id.value] != null }
-                val keyed =
-                    rated.map {
-                        Triple(
-                            it,
-                            listenerAverages.getValue(it.id.value).averageHalfStars,
-                            it.title.lowercase(),
-                        )
-                    }
-                val sorted =
-                    if (isAsc) {
-                        keyed.sortedWith(compareBy({ it.second }, { it.third }))
-                    } else {
-                        keyed.sortedWith(
-                            compareByDescending<Triple<BookListItem, Double, String>> { it.second }.thenBy { it.third },
-                        )
-                    }
-                sorted.map { it.first } + unrated
+                sortByRatedAverage(books, isAsc) { listenerAverages[it.id.value]?.averageHalfStars }
             }
 
             SortCategory.SERIES -> {
@@ -653,6 +651,30 @@ class LibraryViewModel(
                 books
             }
         }
+    }
+
+    /**
+     * Shared by [SortCategory.RATING] and [SortCategory.LISTENER_RATING]: unrated books last in
+     * BOTH directions (an absent average is not a zero), equal averages falling back to title
+     * (lowercase, ascending) — like AUTHOR and YEAR. [averageFor] is the one thing that differs
+     * between the two categories.
+     */
+    private fun sortByRatedAverage(
+        books: List<BookListItem>,
+        isAsc: Boolean,
+        averageFor: (BookListItem) -> Double?,
+    ): List<BookListItem> {
+        val (rated, unrated) = books.partition { averageFor(it) != null }
+        val keyed = rated.map { Triple(it, averageFor(it)!!, it.title.lowercase()) }
+        val sorted =
+            if (isAsc) {
+                keyed.sortedWith(compareBy({ it.second }, { it.third }))
+            } else {
+                keyed.sortedWith(
+                    compareByDescending<Triple<BookListItem, Double, String>> { it.second }.thenBy { it.third },
+                )
+            }
+        return sorted.map { it.first } + unrated
     }
 
     private fun sortSeries(

@@ -11,6 +11,7 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
@@ -204,6 +205,7 @@ class LibraryViewModelTest :
             every { fixture.syncRepository.isBuildingInitialLibrary } returns MutableStateFlow(false)
             every { fixture.playbackPositionRepository.observeAll() } returns flowOf(emptyMap())
             every { fixture.bookRatingRepository.observeAverages() } returns flowOf(emptyMap())
+            every { fixture.bookRatingRepository.observeCombinedScores() } returns flowOf(emptyMap())
 
             // Default library preferences stubs (no persisted state)
             everySuspend { fixture.libraryPreferences.getBooksSortState() } returns null
@@ -762,6 +764,48 @@ class LibraryViewModelTest :
 
                 // When - LISTENER_RATING defaults to DESCENDING
                 viewModel.onEvent(LibraryUiEvent.BooksCategoryChanged(SortCategory.LISTENER_RATING))
+                advanceUntilIdle()
+
+                // Then - DESC: d, a (tied, by title), c, b (unrated last)
+                val descLoaded = viewModel.uiState.value as LibraryUiState.Loaded
+                descLoaded.books.map { it.id.value } shouldBe listOf("d", "a", "c", "b")
+
+                // When - toggle to ASCENDING
+                viewModel.onEvent(LibraryUiEvent.BooksDirectionToggled)
+                advanceUntilIdle()
+
+                // Then - ASC: c, d, a (ties still by title), b (unrated STILL last, not first)
+                val ascLoaded = viewModel.uiState.value as LibraryUiState.Loaded
+                ascLoaded.books.map { it.id.value } shouldBe listOf("c", "d", "a", "b")
+            }
+        }
+
+        test("Rating (the outside score) sorts highest first, equal scores by title, and unrated books come last in either direction") {
+            runTest {
+                // Same shape as the LISTENER_RATING test above, over observeCombinedScores instead.
+                val books =
+                    listOf(
+                        createTestBook(id = "a", title = "Zebra"),
+                        createTestBook(id = "b", title = "B"),
+                        createTestBook(id = "c", title = "C"),
+                        createTestBook(id = "d", title = "apple"),
+                    )
+                val scores =
+                    mapOf(
+                        "a" to CombinedScore(average = 4.5, count = 1),
+                        "c" to CombinedScore(average = 3.0, count = 1),
+                        "d" to CombinedScore(average = 4.5, count = 2),
+                    )
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
+                every { fixture.bookRatingRepository.observeCombinedScores() } returns flowOf(scores)
+                everySuspend { fixture.libraryPreferences.setBooksSortState(any()) } returns Unit
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                // When - RATING defaults to DESCENDING
+                viewModel.onEvent(LibraryUiEvent.BooksCategoryChanged(SortCategory.RATING))
                 advanceUntilIdle()
 
                 // Then - DESC: d, a (tied, by title), c, b (unrated last)
