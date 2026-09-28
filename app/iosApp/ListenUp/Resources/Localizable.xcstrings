@@ -4031,6 +4031,96 @@
         }
       }
     },
+    "book.detail_rating_clear": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove rating"
+          }
+        }
+      }
+    },
+    "book.detail_rating_edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "book.detail_rating_listeners": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your listeners %1$@ (%2$d)"
+          }
+        }
+      }
+    },
+    "book.detail_rating_note_counter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d/%2$d"
+          }
+        }
+      }
+    },
+    "book.detail_rating_note_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a note (optional)"
+          }
+        }
+      }
+    },
+    "book.detail_rating_rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate"
+          }
+        }
+      }
+    },
+    "book.detail_rating_save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "book.detail_rating_sheet_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate this book"
+          }
+        }
+      }
+    },
+    "book.detail_rating_yours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your rating"
+          }
+        }
+      }
+    },
     "book.detail_readers": {
       "localizations": {
         "en": {
@@ -13807,6 +13897,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Test notification"
+          }
+        }
+      }
+    },
+    "rating.stars_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ out of 5 stars"
+          }
+        }
+      }
+    },
+    "rating.stars_adjustable_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rating, %1$@ out of 5 stars, adjustable"
           }
         }
       }
