@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
@@ -43,7 +42,7 @@ import com.calypsan.listenup.api.dto.organize.OrganizePreviewDto
 import com.calypsan.listenup.api.dto.organize.OrganizeSeriesPrefix
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -81,27 +80,16 @@ import listenup.composeapp.generated.resources.admin_organize_run
 import listenup.composeapp.generated.resources.admin_organize_saved
 import listenup.composeapp.generated.resources.admin_organize_series_prefix
 import listenup.composeapp.generated.resources.admin_organize_structure
-import listenup.composeapp.generated.resources.admin_save_settings
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
 import org.jetbrains.compose.resources.stringResource
 
 
 /**
- * Bottom clearance under the scrolling form so the Organize Library button can always be scrolled
- * clear of the Save FAB. `Scaffold` reserves the bottom bar's height in its content padding, but
- * never the FAB's — without this the FAB sits on top of the button's trailing edge.
- */
-private val FabClearance = 88.dp
-
-/** Horizontal room the floating Save action needs beside the sweep button (FAB width + breathing space). */
-private val FabInlineGutter = 72.dp
-
-/**
  * Admin file-organizer settings screen (#850): the schema pickers, plus **two visibly distinct
  * actions**, because they are two different promises.
  *
- * The **Save FAB** persists the rules — live for future arrivals at once, and not one file moves;
+ * The hero's **Save** persists the rules — live for future arrivals at once, and not one file moves;
  * a snackbar says so. The **Organize Library** button is the sweep: it fetches a server-side plan
  * preview, the consent dialog shows the full scope ("moves N files across M folders; K collisions
  * resolved") plus before→after rows, and only confirming persists AND relocates, with live
@@ -144,19 +132,13 @@ fun OrganizeSettingsScreen(
                 title = stringResource(Res.string.admin_organize),
                 badgeIcon = Icons.Outlined.DriveFileMove,
                 onBack = onBackClick,
+                actions =
+                    ready?.let {
+                        { SaveAction(onClick = viewModel::saveRules, enabled = true, isBusy = it.isWorking) }
+                    },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            if (ready != null) {
-                ListenUpFab(
-                    onClick = viewModel::saveRules,
-                    icon = Icons.Outlined.Save,
-                    contentDescription = stringResource(Res.string.admin_save_settings),
-                    enabled = !ready.isWorking,
-                )
-            }
-        },
     ) { innerPadding ->
         when (val current = state) {
             is OrganizeSettingsUiState.Loading -> {
@@ -203,7 +185,7 @@ fun OrganizeSettingsScreen(
  * The schema pickers and the Organize Library sweep, under the hero. A phone stacks the pickers over
  * a full-width sweep button. From the medium width up the pickers sit side by side in
  * [SectionColumns] — each is a short list of choices, so a tablet sees the whole schema at once —
- * with the sweep beneath them at its natural width, clear of the Save FAB.
+ * with the sweep beneath them at its natural width.
  */
 @Composable
 internal fun OrganizeSettingsContent(
@@ -232,7 +214,7 @@ internal fun OrganizeSettingsContent(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = if (isWide) Spacing.screenMargin else 16.dp)
-                .padding(top = 12.dp, bottom = FabClearance),
+                .padding(top = 12.dp, bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
         if (isWide) {
@@ -250,7 +232,7 @@ internal fun OrganizeSettingsContent(
         // A filled primary action (full width on a phone) rather than a trailing text link. This one
         // moves files on disk, and the affordance should carry the weight of what it starts —
         // as a right-aligned link it read as an afterthought and was missed entirely on first
-        // use. "Organize Library", not "Apply": the rules are already applied by the Save FAB;
+        // use. "Organize Library", not "Apply": the rules are already applied by Save;
         // this is the sweep over books that already exist.
         ListenUpButton(
             text = stringResource(Res.string.admin_organize_run),
@@ -258,16 +240,7 @@ internal fun OrganizeSettingsContent(
             enabled = !state.isWorking,
             isLoading = state.isWorking,
             fillMaxWidth = !isWide,
-            // The Save FAB floats over the bottom-end corner, which is exactly where a
-            // full-width button's end sits — on device it covered the button's right edge.
-            // Yield that corner so the two peer actions sit side by side instead of stacked.
-            // On a wide window the button keeps its natural width and never reaches the corner.
-            modifier =
-                if (isWide) {
-                    Modifier.widthIn(min = SweepButtonMinWidth)
-                } else {
-                    Modifier.padding(end = FabInlineGutter)
-                },
+            modifier = if (isWide) Modifier.widthIn(min = SweepButtonMinWidth) else Modifier,
         )
     }
 }

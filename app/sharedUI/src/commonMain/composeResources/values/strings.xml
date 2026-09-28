@@ -772,6 +772,7 @@ One beautiful library.</string>
     <string name="common_role">Role</string>
     <string name="common_save">Save</string>
     <string name="common_save_changes">Save Changes</string>
+    <string name="common_saving">Saving…</string>
     <string name="common_search">Search</string>
     <string name="common_search_languages">Search languages...</string>
     <string name="common_see_all">See all</string>

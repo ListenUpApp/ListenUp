@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -55,7 +54,7 @@ import androidx.window.core.layout.WindowSizeClass
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
+import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
@@ -70,7 +69,6 @@ import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_save_changes
 import listenup.composeapp.generated.resources.profile_avatar
 import listenup.composeapp.generated.resources.profile_avatar_description
 import listenup.composeapp.generated.resources.profile_change_password
@@ -146,30 +144,19 @@ fun EditProfileScreen(
             ListenUpTopAppBar(
                 title = stringResource(Res.string.profile_edit_profile_title),
                 onBack = onBack,
+                actions = {
+                    if (ready != null) {
+                        SaveAction(
+                            onClick = viewModel::save,
+                            enabled = ready.isDirty,
+                            isBusy = ready.isSaving,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        // Dock Save in the bottomBar slot so ListenUpScaffold's mini-player clearance spacer sits
-        // directly beneath it — the floatingActionButton slot does not clear the mini-player overlay.
-        bottomBar = {
-            if (ready != null) {
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    ListenUpExtendedFab(
-                        onClick = viewModel::save,
-                        icon = Icons.Default.Check,
-                        text = stringResource(Res.string.common_save_changes),
-                        enabled = ready.isDirty && !ready.isSaving,
-                        isLoading = ready.isSaving,
-                    )
-                }
-            }
-        },
     ) { paddingValues ->
         Box(
             modifier =

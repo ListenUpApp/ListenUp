@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,7 +37,7 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpDatePicker
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
+import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
@@ -91,7 +89,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * 1. Dynamic Gradient Backdrop - Rich colors from avatar palette
  * 2. Identity Header - Large avatar + Name field side by side
  * 3. Content Cards - Biography, Links, Dates, Aliases
- * 4. Extended FAB - Save action always visible
+ * 4. Save - a top-bar action beside Back, disabled until something changes
  *
  * Responsive Design:
  * - Mobile: Single column card layout
@@ -138,11 +136,6 @@ fun ContributorEditScreen(
     ListenUpScaffold(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        floatingActionButton = {
-            if (!state.isLoading) {
-                SaveFab(state = state, onSave = { viewModel.onEvent(ContributorEditUiEvent.Save) })
-            }
-        },
     ) { paddingValues ->
         Box(
             modifier =
@@ -186,6 +179,7 @@ fun ContributorEditScreen(
                         // Guard: the scrim overlay is visual-only, so the merge affordance
                         // stays inert while a merge is already in flight. The VM owns the
                         // dialog flag so candidate computation can start and stop with it.
+                        onSave = { viewModel.onEvent(ContributorEditUiEvent.Save) },
                         onMergeClick = {
                             if (!state.mergeInProgress) {
                                 viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
@@ -250,28 +244,21 @@ fun ContributorEditScreen(
 }
 
 // =============================================================================
-// EXTENDED FAB
+// SAVE ACTION
 // =============================================================================
 
 @Composable
-private fun SaveFab(
+private fun ContributorSaveAction(
     state: ContributorEditUiState,
     onSave: () -> Unit,
 ) {
-    // A merge is a save-class blocking operation (the RPC can take tens of seconds), so the
-    // FAB reflects it the same way it reflects a save: spinner shown, action disabled.
-    val busy = state.isSaving || state.mergeInProgress
-    ListenUpExtendedFab(
+    // A merge is a save-class blocking operation (the RPC can take tens of seconds), so Save
+    // reflects it the same way it reflects a save: spinner shown, action disabled.
+    SaveAction(
         onClick = onSave,
-        icon = Icons.Default.Save,
-        text =
-            when {
-                state.mergeInProgress -> stringResource(Res.string.contributor_merging)
-                state.isSaving -> "Saving..."
-                else -> "Save Changes"
-            },
-        enabled = state.hasChanges && !busy,
-        isLoading = busy,
+        enabled = state.hasChanges,
+        isBusy = state.isSaving || state.mergeInProgress,
+        busyLabel = if (state.mergeInProgress) stringResource(Res.string.contributor_merging) else null,
     )
 }
 
@@ -348,6 +335,7 @@ private fun ArtistStudioContent(
     state: ContributorEditUiState,
     colorScheme: ContributorColorScheme,
     onEvent: (ContributorEditUiEvent) -> Unit,
+    onSave: () -> Unit,
     onMergeClick: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -390,6 +378,7 @@ private fun ArtistStudioContent(
             onNameChange = { onEvent(ContributorEditUiEvent.NameChanged(it)) },
             onAvatarClick = { imagePicker.launch() },
             onBackClick = onBackClick,
+            actions = { ContributorSaveAction(state = state, onSave = onSave) },
         )
 
         // Cards section - responsive layout

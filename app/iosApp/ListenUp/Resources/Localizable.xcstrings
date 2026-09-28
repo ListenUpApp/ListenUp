@@ -7711,6 +7711,16 @@
         }
       }
     },
+    "common.saving": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving…"
+          }
+        }
+      }
+    },
     "common.search": {
       "localizations": {
         "en": {

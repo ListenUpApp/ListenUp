@@ -34,7 +34,6 @@ import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,7 +76,7 @@ import com.calypsan.listenup.client.design.components.ActionTile
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
@@ -144,7 +143,6 @@ import listenup.composeapp.generated.resources.admin_reset_code_done
 import listenup.composeapp.generated.resources.admin_reset_code_instruction
 import listenup.composeapp.generated.resources.admin_reset_code_title
 import listenup.composeapp.generated.resources.admin_revoke_invite
-import listenup.composeapp.generated.resources.admin_save_settings
 import listenup.composeapp.generated.resources.admin_server_name
 import listenup.composeapp.generated.resources.admin_server_settings
 import listenup.composeapp.generated.resources.admin_share_your_audiobook_library_with
@@ -237,17 +235,10 @@ fun AdminScreen(
                 badgeIcon = Icons.Outlined.Shield,
                 onBack = onBackClick,
                 overline = serverName,
+                actions = { SaveAction(onClick = onSave, enabled = isDirty) },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            ListenUpFab(
-                onClick = onSave,
-                icon = Icons.Outlined.Save,
-                contentDescription = stringResource(Res.string.admin_save_settings),
-                enabled = isDirty,
-            )
-        },
     ) { innerPadding ->
         when (val current = state) {
             is AdminUiState.Loading -> {

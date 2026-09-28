@@ -1,117 +1,39 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
- * Standard ListenUp icon-only floating action button.
+ * Standard ListenUp icon-only floating action button — the screen's one primary creation action
+ * (create a backup, add a genre, create a collection).
  *
- * Always visible — uses color to communicate enabled/disabled state
- * rather than showing/hiding the FAB.
+ * It has no disabled state, by design: a FAB that cannot act should not be on screen. Callers hide
+ * it (don't compose it, or wrap it in `AnimatedVisibility`) when there is nothing to do. Committing
+ * an edit is not a FAB's job; edit screens use [SaveAction] in the top bar.
  *
- * @param onClick Callback when FAB is clicked (only fires when [enabled])
- * @param icon Icon to display
- * @param contentDescription Accessibility description
- * @param enabled Whether the FAB is actionable (disabled uses surfaceVariant colors)
+ * @param onClick Callback when the FAB is clicked.
+ * @param icon Icon to display.
+ * @param contentDescription Accessibility description.
  */
 @Composable
 fun ListenUpFab(
     onClick: () -> Unit,
     icon: ImageVector,
     contentDescription: String,
-    enabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
     FloatingActionButton(
         onClick = {
-            if (enabled) {
-                haptics.press()
-                onClick()
-            }
+            haptics.press()
+            onClick()
         },
-        containerColor =
-            if (enabled) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint =
-                if (enabled) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
+        Icon(imageVector = icon, contentDescription = contentDescription)
     }
-}
-
-/**
- * Extended ListenUp FAB with text label — used for save/action buttons.
- *
- * Always visible — uses color to communicate enabled/disabled state.
- *
- * @param onClick Callback when FAB is clicked (only fires when [enabled])
- * @param icon Icon to display
- * @param text Label text
- * @param enabled Whether the FAB is actionable
- * @param isLoading Whether to show a loading indicator instead of the icon
- */
-@Composable
-fun ListenUpExtendedFab(
-    onClick: () -> Unit,
-    icon: ImageVector,
-    text: String,
-    enabled: Boolean = true,
-    isLoading: Boolean = false,
-) {
-    val haptics = LocalHaptics.current
-    val contentColor =
-        if (enabled) {
-            MaterialTheme.colorScheme.onPrimaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        }
-
-    ExtendedFloatingActionButton(
-        onClick = {
-            if (enabled && !isLoading) {
-                haptics.press()
-                onClick()
-            }
-        },
-        icon = {
-            if (isLoading) {
-                ListenUpLoadingIndicatorSmall(color = contentColor)
-            } else {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = contentColor,
-                )
-            }
-        },
-        text = {
-            Text(
-                text = text,
-                color = contentColor,
-            )
-        },
-        expanded = true,
-        containerColor =
-            if (enabled) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerHighest
-            },
-    )
 }

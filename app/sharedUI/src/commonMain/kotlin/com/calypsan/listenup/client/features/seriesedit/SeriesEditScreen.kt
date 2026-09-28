@@ -32,7 +32,6 @@ import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -62,7 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
+import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
@@ -112,7 +111,7 @@ import com.calypsan.listenup.client.design.theme.HeroInk
  * Layout:
  * - Color-blocked [SeriesIdentityHeader] hero (primaryContainer): cover + editable name + overflow
  * - Description card
- * - Extended FAB for save action
+ * - Save as a top-bar action, disabled until something changes
  */
 @Composable
 fun SeriesEditScreen(
@@ -152,15 +151,6 @@ fun SeriesEditScreen(
 
     ListenUpScaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        floatingActionButton = {
-            if (!state.isLoading) {
-                SaveFab(
-                    hasChanges = state.hasChanges,
-                    isSaving = state.isSaving,
-                    onSave = { viewModel.onEvent(SeriesEditUiEvent.SaveClicked) },
-                )
-            }
-        },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
             when {
@@ -278,25 +268,6 @@ private fun SeriesOverflowMenu(
 }
 
 // =============================================================================
-// FLOATING ACTION BUTTON
-// =============================================================================
-
-@Composable
-private fun SaveFab(
-    hasChanges: Boolean,
-    isSaving: Boolean,
-    onSave: () -> Unit,
-) {
-    ListenUpExtendedFab(
-        onClick = onSave,
-        icon = Icons.Default.Save,
-        text = if (isSaving) "Saving..." else "Save Changes",
-        enabled = hasChanges && !isSaving,
-        isLoading = isSaving,
-    )
-}
-
-// =============================================================================
 // DIALOGS
 // =============================================================================
 
@@ -387,6 +358,13 @@ private fun SeriesEditContent(
             onCoverClick = { imagePicker.launch() },
             onMergeClick = onMergeClick,
             onBackClick = onBackClick,
+            saveAction = {
+                SaveAction(
+                    onClick = { onEvent(SeriesEditUiEvent.SaveClicked) },
+                    enabled = state.hasChanges,
+                    isBusy = state.isSaving,
+                )
+            },
         )
 
         // Cards section — side by side from medium width, like ContributorEdit's studio cards.
@@ -412,8 +390,7 @@ private fun SeriesEditContent(
             }
         }
 
-        // Bottom spacing for FAB
-        Spacer(modifier = Modifier.height(88.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
     }
 }
 
@@ -431,6 +408,7 @@ private fun SeriesIdentityHeader(
     onCoverClick: () -> Unit,
     onMergeClick: () -> Unit,
     onBackClick: () -> Unit,
+    saveAction: @Composable () -> Unit,
 ) {
     val haptics = LocalHaptics.current
     Surface(
@@ -448,7 +426,7 @@ private fun SeriesIdentityHeader(
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 24.dp),
         ) {
-            // Top row: back navigation + screen title + overflow
+            // Top row: back navigation + screen title + Save + overflow
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -471,6 +449,7 @@ private fun SeriesIdentityHeader(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f).semantics { heading() },
                 )
+                saveAction()
                 SeriesOverflowMenu(onMergeClick = onMergeClick)
             }
 

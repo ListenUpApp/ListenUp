@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +56,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * Identity header with large avatar and name field side by side.
+ *
+ * @param actions Top-bar actions (the screen's Save), trailing the back button in the top row.
  */
 @Suppress("LongMethod")
 @Composable
@@ -68,6 +71,7 @@ fun ContributorIdentityHeader(
     onNameChange: (String) -> Unit,
     onAvatarClick: () -> Unit,
     onBackClick: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
 
@@ -78,22 +82,29 @@ fun ContributorIdentityHeader(
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(Spacing.lg),
     ) {
-        // Floating back button
-        IconButton(
-            onClick = onBackClick,
-            modifier =
-                Modifier
-                    .size(48.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = CircleShape,
-                    ),
+        // Floating back button, with the screen's actions at the row's end
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.common_back),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+            IconButton(
+                onClick = onBackClick,
+                modifier =
+                    Modifier
+                        .size(48.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = CircleShape,
+                        ),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(Res.string.common_back),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            actions()
         }
 
         Spacer(modifier = Modifier.height(Spacing.xl))
