@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.AvatarOverlayData
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
@@ -86,7 +87,7 @@ internal fun CurrentlyListeningSection(
     Column(modifier = modifier) {
         SectionTitle(
             title = stringResource(Res.string.discover_what_others_are_listening_to),
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
 
         Spacer(modifier = Modifier.height(12.dp))

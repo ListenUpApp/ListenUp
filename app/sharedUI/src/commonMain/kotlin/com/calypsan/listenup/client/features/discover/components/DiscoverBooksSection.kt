@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
@@ -55,7 +56,7 @@ fun DiscoverBooksSection(
         // Section header with refresh action (canonical SectionTitle + trailing icon slot)
         SectionTitle(
             title = stringResource(Res.string.discover_discover_something_new),
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             trailing = {
                 IconButton(
                     onClick = { viewModel.refresh() },

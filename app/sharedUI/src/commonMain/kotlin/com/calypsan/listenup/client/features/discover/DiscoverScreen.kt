@@ -46,6 +46,7 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.util.stableColorForId
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
 import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
@@ -212,7 +213,7 @@ private fun DiscoverContent(
                 top = contentPadding.calculateTopPadding() + 16.dp,
                 bottom = contentPadding.calculateBottomPadding() + 16.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         modifier = Modifier.fillMaxSize(),
     ) {
         // Custom shell header scrolls with the feed (search/sync/avatar live here).
@@ -260,8 +261,8 @@ private fun DiscoverContent(
         if (isWide) {
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     DiscoverLeaderboardSection(
                         onUserClick = onUserProfileClick,
@@ -279,6 +280,7 @@ private fun DiscoverContent(
             item {
                 DiscoverLeaderboardSection(
                     onUserClick = onUserProfileClick,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )
             }
             item {
@@ -286,6 +288,7 @@ private fun DiscoverContent(
                     onBookClick = onBookClick,
                     onShelfClick = onShelfClick,
                     onUserClick = onUserProfileClick,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 )
             }
         }
@@ -349,7 +352,7 @@ private fun UserShelvesSection(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = Spacing.screenMargin),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar - user header in a shelf list row
@@ -387,7 +390,7 @@ private fun UserShelvesSection(
             items = userShelves.shelves,
             itemWidth = 140.dp,
             itemSpacing = 12.dp,
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
             key = { it.id },
         ) { shelf ->
             DiscoverShelfCard(

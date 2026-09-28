@@ -77,9 +77,7 @@ fun ActivityFeedSection(
 
     Card(
         modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier.fillMaxWidth(),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
