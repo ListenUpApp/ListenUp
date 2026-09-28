@@ -1591,6 +1591,56 @@
         }
       }
     },
+    "admin.rating_source_error": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last attempt failed: %1$@"
+          }
+        }
+      }
+    },
+    "admin.rating_source_last_fetched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last fetched %1$@"
+          }
+        }
+      }
+    },
+    "admin.rating_source_never_fetched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not fetched yet"
+          }
+        }
+      }
+    },
+    "admin.rating_sources_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where the score on every book comes from. Switching one off hides its scores; switching it back on brings them back."
+          }
+        }
+      }
+    },
+    "admin.rating_sources_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rating sources"
+          }
+        }
+      }
+    },
     "admin.registration_approval_desc": {
       "localizations": {
         "en": {
@@ -4291,6 +4341,46 @@
         }
       }
     },
+    "book.detail_rating_external": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ ratings"
+          }
+        }
+      }
+    },
+    "book.detail_rating_external_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rated %1$@ out of 5 stars by %2$@ readers elsewhere"
+          }
+        }
+      }
+    },
+    "book.detail_rating_external_a11y_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rated %1$@ out of 5 stars by 1 reader elsewhere"
+          }
+        }
+      }
+    },
+    "book.detail_rating_external_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · 1 rating"
+          }
+        }
+      }
+    },
     "book.detail_rating_listeners": {
       "localizations": {
         "en": {
@@ -4351,6 +4441,16 @@
         }
       }
     },
+    "book.detail_rating_refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh ratings"
+          }
+        }
+      }
+    },
     "book.detail_rating_save": {
       "localizations": {
         "en": {
@@ -4367,6 +4467,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rate this book"
+          }
+        }
+      }
+    },
+    "book.detail_rating_source_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "book.detail_rating_sources_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ratings"
           }
         }
       }
@@ -14287,6 +14407,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Test notification"
+          }
+        }
+      }
+    },
+    "rating.source_audible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audible"
+          }
+        }
+      }
+    },
+    "rating.source_goodreads": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goodreads"
+          }
+        }
+      }
+    },
+    "rating.source_hardcover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hardcover"
           }
         }
       }
