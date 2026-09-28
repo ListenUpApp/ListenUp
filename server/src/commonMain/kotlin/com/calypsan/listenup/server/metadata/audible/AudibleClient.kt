@@ -72,6 +72,7 @@ class AudibleClient(
             json
                 .decodeFromString<RawSearchResponse>(body)
                 .products
+                .filterNot { it.isStub }
                 .map { it.toSearchResult() }
         }
     }
@@ -95,7 +96,11 @@ class AudibleClient(
                 put("image_sizes", IMAGE_SIZES)
             },
         ) { body ->
-            json.decodeFromString<RawBookResponse>(body).product?.toBook()
+            json
+                .decodeFromString<RawBookResponse>(body)
+                .product
+                ?.takeUnless { it.isStub }
+                ?.toBook()
         }
     }
 
