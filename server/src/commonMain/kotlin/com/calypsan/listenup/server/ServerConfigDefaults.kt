@@ -60,4 +60,6 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
         // bundle in and sets this itself; the default stays empty so a JVM dev run is unchanged and
         // an operator can turn the client off with an empty value.
         ServerConfigDefault("web.root", "", "LISTENUP_WEB_ROOT"),
+        // Blank = the Hardcover integration is off: connecting answers "not set up" (resolveHardcoverClientId).
+        ServerConfigDefault("hardcover.clientId", "", "LISTENUP_HARDCOVER_CLIENT_ID"),
     )

@@ -1,0 +1,42 @@
+-- hardcover_connections: one row per user connected to Hardcover. Tokens are stored ENCRYPTED
+-- (HardcoverTokenCipher); nothing here is ever sent to a client. broken_reason is set when a
+-- once-working connection needs a reconnect (HardcoverBrokenReason name); NULL means healthy.
+-- FK (→ users ON DELETE CASCADE) lives in the migration DDL.
+CREATE TABLE hardcover_connections (
+    user_id            TEXT    NOT NULL PRIMARY KEY,
+    hc_user_id         INTEGER NOT NULL,
+    hc_username        TEXT    NOT NULL,
+    access_token_enc   TEXT    NOT NULL,
+    access_expires_at  INTEGER NOT NULL,
+    refresh_token_enc  TEXT    NOT NULL,
+    refresh_expires_at INTEGER NOT NULL,
+    scopes             TEXT    NOT NULL,
+    connected_at       INTEGER NOT NULL,
+    broken_reason      TEXT
+);
+
+selectByUser:
+SELECT * FROM hardcover_connections WHERE user_id = :user_id;
+
+-- A fresh connection replaces any previous (broken) one for the user.
+upsertConnection:
+INSERT OR REPLACE INTO hardcover_connections (
+    user_id, hc_user_id, hc_username, access_token_enc, access_expires_at,
+    refresh_token_enc, refresh_expires_at, scopes, connected_at, broken_reason
+) VALUES (
+    :user_id, :hc_user_id, :hc_username, :access_token_enc, :access_expires_at,
+    :refresh_token_enc, :refresh_expires_at, :scopes, :connected_at, NULL
+);
+
+-- A rotated token pair from a refresh — committed BEFORE the new access token is used.
+updateTokens:
+UPDATE hardcover_connections
+SET access_token_enc = :access_token_enc, access_expires_at = :access_expires_at,
+    refresh_token_enc = :refresh_token_enc, refresh_expires_at = :refresh_expires_at, scopes = :scopes
+WHERE user_id = :user_id;
+
+markBroken:
+UPDATE hardcover_connections SET broken_reason = :broken_reason WHERE user_id = :user_id;
+
+deleteByUser:
+DELETE FROM hardcover_connections WHERE user_id = :user_id;

@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.di.adminUserRosterModule
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.hardcoverModule
 import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.libraryWriteModule
@@ -122,6 +123,7 @@ internal fun Application.installDependencies(
     watchEnabled: Boolean,
     pushRelayUrl: String,
     pushSenderToken: String?,
+    hardcoverClientId: String?,
 ) {
     // KoinIsolated (not Koin): the DI graph is scoped to THIS Application instance instead of the
     // process-global Koin context. Production runs one Application, so behaviour is unchanged — but
@@ -143,6 +145,7 @@ internal fun Application.installDependencies(
         modules += adminUserRosterModule()
         modules += shelfModule()
         modules += pushModule()
+        modules += hardcoverModule(hardcoverClientId, applicationScope)
         modules += notificationModule()
         val httpPort =
             environment.config

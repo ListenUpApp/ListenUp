@@ -223,6 +223,17 @@ internal fun Application.resolvePushSenderToken(): String? {
     return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
 }
 
+/**
+ * The ListenUp app's public OAuth client id on Hardcover: `hardcover.clientId` config key, else
+ * LISTENUP_HARDCOVER_CLIENT_ID env, else null. Blank reads as null: the Hardcover integration is off
+ * on this server, and connecting answers [com.calypsan.listenup.api.error.HardcoverError.NotConfigured].
+ */
+internal fun Application.resolveHardcoverClientId(): String? {
+    val fromConfig = environment.config.propertyOrNull("hardcover.clientId")?.getString()
+    val fromEnv = readEnv("LISTENUP_HARDCOVER_CLIENT_ID")
+    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
 
