@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.settings
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
@@ -8,6 +9,7 @@ import com.calypsan.listenup.client.presentation.storage.StorageUiState
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.client.testing.assertSideBySide
 import com.calypsan.listenup.client.testing.assertStacked
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,7 +18,8 @@ import org.robolectric.annotation.Config
 
 /**
  * Storage on a tablet keeps the usage summary in a side panel and flows the downloaded books into
- * columns beside it; on a phone it is the summary card over a single list.
+ * columns beside it. A small tablet has no room for the panel, so the summary heads the page and the
+ * books still flow into columns under it. On a phone it is the summary card over a single list.
  */
 @RunWith(RobolectricTestRunner::class)
 class StorageWideLayoutTest {
@@ -29,6 +32,17 @@ class StorageWideLayoutTest {
         setContent()
 
         assertSideBySide(composeRule.onNodeWithText("2.0 GB"), composeRule.onNodeWithText("Downloaded Books"))
+        assertSideBySide(composeRule.onNodeWithText("The Way of Kings"), composeRule.onNodeWithText("Words of Radiance"))
+    }
+
+    @Test
+    @Config(qualifiers = Windows.SMALL_TABLET)
+    fun `on a small tablet the summary heads the page and the books flow into columns under it`() {
+        setContent()
+
+        val summary = composeRule.onNodeWithText("2.0 GB").getUnclippedBoundsInRoot()
+        composeRule.onNodeWithText("Downloaded Books").getUnclippedBoundsInRoot().top shouldBeGreaterThanOrEqualTo
+            summary.bottom
         assertSideBySide(composeRule.onNodeWithText("The Way of Kings"), composeRule.onNodeWithText("Words of Radiance"))
     }
 

@@ -8,13 +8,17 @@ import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 
 /**
- * Robolectric window qualifiers for the two widths a responsive screen is pinned at: a landscape
- * tablet, where the wide layout has to use the width, and a phone, where the single column must stay
+ * Robolectric window qualifiers for the widths a responsive screen is pinned at: a landscape tablet,
+ * where the wide layout has to use the width; a small tablet, where a side panel would starve the
+ * content but one column would waste the width; and a phone, where the single column must stay
  * exactly as it was.
  */
 object Windows {
     const val TABLET = "w1280dp-h800dp"
     const val PHONE = "w400dp-h800dp"
+
+    /** A small tablet or an unfolded foldable: medium width, below the side-panel breakpoint. */
+    const val SMALL_TABLET = "w700dp-h1000dp"
 }
 
 /**

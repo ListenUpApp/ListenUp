@@ -132,9 +132,10 @@ fun CreateBackupScreen(
 
 /**
  * The backup options with their create action. A phone stacks what to include, the summary of what
- * the backup will hold, and the action in one column. From the medium width up the options take the
- * main column and the summary becomes a side panel that ends in the action — the admin sees what the
- * choice means next to the button that commits to it.
+ * the backup will hold, and the action in one column. From the medium width up the options and the
+ * summary sit side by side, the summary ending in the action — the admin sees what the choice means
+ * next to the button that commits to it. On a small tablet the two share the width evenly; from the
+ * expanded width the summary settles into a fixed side panel and the options take the rest.
  */
 @Composable
 internal fun CreateBackupForm(
@@ -144,11 +145,9 @@ internal fun CreateBackupForm(
     onCreateClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
-        )
-    if (isWide) {
+    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
+        val hasRoomForPanel = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
         Row(
             modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
@@ -169,7 +168,7 @@ internal fun CreateBackupForm(
             Column(
                 modifier =
                     Modifier
-                        .width(BackupSummaryPanelWidth)
+                        .then(if (hasRoomForPanel) Modifier.width(BackupSummaryPanelWidth) else Modifier.weight(1f))
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
                         .padding(vertical = 16.dp),

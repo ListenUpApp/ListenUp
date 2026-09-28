@@ -203,9 +203,10 @@ fun StorageScreen(
 
 /**
  * The screen's loaded body, hosted by its scaffold. A phone stacks the usage summary over the list of
- * downloads. From the medium width up the summary becomes a side panel and the downloads flow into a
- * [GridCells.Adaptive] grid beside it — the tablet sees what is using the space and how much is left
- * at once, without the summary scrolling away.
+ * downloads. From the expanded width up the summary becomes a side panel and the downloads flow into
+ * a [GridCells.Adaptive] grid beside it — the tablet sees what is using the space and how much is left
+ * at once, without the summary scrolling away. Between the two, a small tablet has no room for the
+ * panel, so the summary heads the page and the downloads flow into the same grid under it.
  */
 @Composable
 internal fun StorageContent(
@@ -223,14 +224,62 @@ internal fun StorageContent(
         return
     }
 
-    val isWide =
-        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
-        )
-    if (isWide) {
-        StorageWideLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
-    } else {
-        StoragePhoneLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    when {
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> {
+            StorageWideLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+        }
+
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> {
+            StorageMediumLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+        }
+
+        else -> {
+            StoragePhoneLayout(state = state, onDeleteBook = onDeleteBook, modifier = modifier)
+        }
+    }
+}
+
+/** A small tablet: the summary across the top, then the downloads in columns. */
+@Composable
+private fun StorageMediumLayout(
+    state: StorageUiState,
+    onDeleteBook: (DownloadedBookSummary) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = DownloadGridMinColumn),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+        verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            StorageSummaryCard(
+                totalUsed = state.totalStorageUsed,
+                available = state.availableStorage,
+                bookCount = state.downloadedBooks.size,
+            )
+        }
+        if (state.downloadedBooks.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EmptyDownloadsMessage()
+            }
+        } else {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
+            }
+            items(
+                items = state.downloadedBooks,
+                key = { it.bookId },
+            ) { book ->
+                DownloadedBookItem(
+                    book = book,
+                    onDelete = { onDeleteBook(book) },
+                    isDeleting = state.isDeleting,
+                )
+            }
+        }
     }
 }
 
@@ -327,8 +376,11 @@ private fun StorageWideLayout(
     }
 }
 
-/** The narrowest a downloaded-book card gets in the wide grid before the column count drops. */
-private val DownloadGridMinColumn = 320.dp
+/**
+ * The narrowest a downloaded-book card gets before the column count drops — narrow enough that a
+ * 600dp small tablet still gets two columns.
+ */
+private val DownloadGridMinColumn = 264.dp
 
 @Composable
 private fun DownloadedBooksHeading(modifier: Modifier = Modifier) {

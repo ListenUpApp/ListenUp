@@ -1,12 +1,15 @@
 package com.calypsan.listenup.client.features.admin.backup
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.client.testing.assertRightOf
 import com.calypsan.listenup.client.testing.assertSideBySide
 import com.calypsan.listenup.client.testing.assertStacked
+import androidx.compose.ui.unit.width
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,7 +18,8 @@ import org.robolectric.annotation.Config
 
 /**
  * Creating a backup on a tablet sets what goes into it beside a summary panel that ends in the create
- * action; on a phone the options, the summary and the action stack in one column.
+ * action. A small tablet splits the width evenly between the two, so neither is starved; on a phone
+ * the options, the summary and the action stack in one column.
  */
 @RunWith(RobolectricTestRunner::class)
 class CreateBackupWideLayoutTest {
@@ -29,6 +33,21 @@ class CreateBackupWideLayoutTest {
 
         assertSideBySide(composeRule.onNodeWithText(INTRO), composeRule.onNodeWithText(SUMMARY))
         assertRightOf(composeRule.onNodeWithText("Create Backup"), composeRule.onNodeWithText("What to include"))
+    }
+
+    @Test
+    @Config(qualifiers = Windows.SMALL_TABLET)
+    fun `on a small tablet the options and the summary share the width evenly`() {
+        setContent()
+
+        assertSideBySide(composeRule.onNodeWithText(INTRO), composeRule.onNodeWithText(SUMMARY))
+        assertRightOf(composeRule.onNodeWithText("Create Backup"), composeRule.onNodeWithText("What to include"))
+        // The action fills the summary's column. A fixed side panel would leave the options column
+        // narrower than that; here the options get at least as much of the width.
+        val intro = composeRule.onNodeWithText(INTRO).getUnclippedBoundsInRoot()
+        val create = composeRule.onNodeWithText("Create Backup").getUnclippedBoundsInRoot()
+        val optionsColumn = create.left - intro.left
+        optionsColumn shouldBeGreaterThanOrEqualTo create.width
     }
 
     @Test
