@@ -252,7 +252,7 @@ private fun ShelfFormPhoneLayout(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.lg, vertical = Spacing.xl),
+                    .padding(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
             ShelfDetailsSection(

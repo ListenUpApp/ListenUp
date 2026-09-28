@@ -42,6 +42,13 @@ object Spacing {
     /** Horizontal page margin — where section titles, headers, and rows start. */
     val screenMargin = xl
 
+    /**
+     * Horizontal margin of Library's browse tabs (the book and series cover grids, and the author
+     * and narrator lists beside them): 16dp, denser than [screenMargin] on purpose, so a cover
+     * grid gives its width to the covers rather than to the page edge.
+     */
+    val gridMargin = lg
+
     /** Vertical gap between major page sections (e.g. Continue Listening → This Week). */
     val sectionGap = xl
 

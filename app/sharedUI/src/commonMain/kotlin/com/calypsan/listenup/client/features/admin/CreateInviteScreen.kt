@@ -288,7 +288,7 @@ private fun CreateInviteForm(
                     .fillMaxSize()
                     .imePadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = Spacing.lg, vertical = Spacing.xl),
+                    .padding(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             sections()

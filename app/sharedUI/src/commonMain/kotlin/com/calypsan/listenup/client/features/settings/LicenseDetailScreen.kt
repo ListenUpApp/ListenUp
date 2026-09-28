@@ -82,7 +82,7 @@ private fun LicenseDetailBody(
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.lg),
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
                     )
                 }
 
@@ -93,7 +93,12 @@ private fun LicenseDetailBody(
                             text = row.spdxId,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm),
+                            modifier =
+                                Modifier.padding(
+                                    start = Spacing.screenMargin,
+                                    end = Spacing.screenMargin,
+                                    top = Spacing.sm,
+                                ),
                         )
                     }
                     TextButton(

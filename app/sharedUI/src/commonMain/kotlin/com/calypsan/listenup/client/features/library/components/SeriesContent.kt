@@ -111,8 +111,8 @@ fun SeriesContent(
                         columns = GridCells.Adaptive(minSize = 200.dp),
                         contentPadding =
                             PaddingValues(
-                                start = Spacing.lg,
-                                end = Spacing.lg,
+                                start = Spacing.gridMargin,
+                                end = Spacing.gridMargin,
                                 top = 12.dp,
                                 bottom = 16.dp,
                             ),

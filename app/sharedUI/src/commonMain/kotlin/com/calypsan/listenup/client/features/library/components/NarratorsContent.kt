@@ -87,8 +87,8 @@ fun NarratorsContent(
                 state = listState,
                 contentPadding =
                     PaddingValues(
-                        start = Spacing.lg,
-                        end = Spacing.lg,
+                        start = Spacing.gridMargin,
+                        end = Spacing.gridMargin,
                         top = 48.dp,
                         bottom = 16.dp,
                     ),

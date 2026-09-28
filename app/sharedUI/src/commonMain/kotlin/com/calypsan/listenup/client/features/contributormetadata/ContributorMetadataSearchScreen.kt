@@ -158,7 +158,7 @@ fun ContributorMetadataSearchScreen(
                     Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(horizontal = Spacing.lg),
+                        .padding(horizontal = Spacing.screenMargin),
             ) {
                 controls()
                 results()

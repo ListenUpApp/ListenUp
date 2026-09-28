@@ -227,7 +227,7 @@ internal fun LibrarySettingsContent(
     } else {
         LazyColumn(
             modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xl),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
             item { ScanPathsSection(state = state, onRemoveRequest = onRemoveRequest, onAddFolder = onAddFolder) }

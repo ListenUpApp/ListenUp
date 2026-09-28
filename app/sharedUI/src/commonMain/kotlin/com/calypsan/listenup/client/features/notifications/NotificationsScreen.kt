@@ -153,7 +153,7 @@ internal fun NotificationList(
     } else {
         LazyColumn(
             modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(notifications, key = { it.id }) { notification ->

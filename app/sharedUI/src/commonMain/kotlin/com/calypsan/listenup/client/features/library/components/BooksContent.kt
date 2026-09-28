@@ -363,8 +363,8 @@ private fun BookGrid(
             columns = GridCells.Adaptive(minSize = 160.dp),
             contentPadding =
                 PaddingValues(
-                    start = Spacing.lg,
-                    end = Spacing.lg,
+                    start = Spacing.gridMargin,
+                    end = Spacing.gridMargin,
                     top = 12.dp,
                     bottom = 16.dp,
                 ),

@@ -153,13 +153,18 @@ private fun LicensesPhoneLayout(
                 onSubmit = {},
                 placeholder = searchPlaceholder,
                 onClear = { onQueryChange("") },
-                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.lg),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
         }
         item {
             LibrariesSectionHeader(
                 label = sectionLabel,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+                modifier =
+                    Modifier.padding(
+                        start = Spacing.screenMargin,
+                        end = Spacing.screenMargin,
+                        bottom = Spacing.xs,
+                    ),
             )
         }
         itemsIndexed(filtered, key = { _, row -> row.uniqueId }) { index, row ->
@@ -167,7 +172,7 @@ private fun LicensesPhoneLayout(
                 row = row,
                 onClick = { onLicenseClick(row.uniqueId) },
                 showDivider = index < filtered.lastIndex,
-                modifier = Modifier.padding(horizontal = Spacing.lg),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             )
         }
         item {

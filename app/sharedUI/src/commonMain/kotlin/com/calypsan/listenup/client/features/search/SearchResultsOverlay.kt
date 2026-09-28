@@ -303,7 +303,7 @@ private fun TypeFilterRow(
             modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.lg),
+                .padding(horizontal = Spacing.screenMargin),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PillChip(
@@ -417,7 +417,13 @@ private fun SearchResultsList(
 ) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.xl),
+        contentPadding =
+            PaddingValues(
+                start = Spacing.screenMargin,
+                end = Spacing.screenMargin,
+                top = Spacing.sm,
+                bottom = Spacing.xl,
+            ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (books.isNotEmpty()) {
@@ -793,7 +799,13 @@ private fun SeeAllList(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.xl),
+        contentPadding =
+            PaddingValues(
+                start = Spacing.screenMargin,
+                end = Spacing.screenMargin,
+                top = Spacing.sm,
+                bottom = Spacing.xl,
+            ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         when (type) {

@@ -439,7 +439,7 @@ private fun ProfileEditButton(onEditClick: () -> Unit) {
 private fun ProfileHeroIdentity(state: UserProfileUiState.Ready) {
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         ProfileScallopAvatar(state = state)
@@ -685,7 +685,7 @@ private fun ShelvesGrid(
     // Two tiles per row; the add tile trails the list.
     val tiles: List<ProfileShelfSummary?> = shelves + if (showAddTile) listOf(null) else emptyList()
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         tiles.chunked(2).forEach { rowTiles ->
@@ -820,7 +820,7 @@ private fun RecentBooksRow(
         modifier = modifier,
         itemWidth = RecentCoverWidth,
         itemSpacing = 16.dp,
-        contentPadding = PaddingValues(horizontal = Spacing.lg),
+        contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
         key = { it.bookId },
     ) { book ->
         RecentBookCard(book = book, onClick = { onBookClick(book.bookId) }, modifier = Modifier.width(RecentCoverWidth))

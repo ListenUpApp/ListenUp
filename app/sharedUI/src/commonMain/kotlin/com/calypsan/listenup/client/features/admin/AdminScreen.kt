@@ -464,7 +464,7 @@ private fun AdminContent(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .padding(horizontal = Spacing.lg),
+                    .padding(horizontal = Spacing.screenMargin),
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {

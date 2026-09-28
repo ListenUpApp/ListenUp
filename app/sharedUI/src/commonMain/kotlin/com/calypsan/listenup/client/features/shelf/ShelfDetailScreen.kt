@@ -203,6 +203,15 @@ fun ShelfDetailScreen(
 /** Description length beyond which the expandable "Read more" toggle is shown. */
 private const val DESCRIPTION_EXPAND_THRESHOLD = 150
 
+/** The shelf grid's padding: the page margin at the sides, a little air above, room below. */
+private val ShelfGridContentPadding =
+    PaddingValues(
+        start = Spacing.screenMargin,
+        end = Spacing.screenMargin,
+        top = Spacing.sm,
+        bottom = Spacing.xl,
+    )
+
 /**
  * Ready-state content: an adaptive cover grid with full-span hero, optional description,
  * and a "Books in shelf" header.
@@ -275,7 +284,7 @@ private fun ShelfDetailContent(
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.xl),
+        contentPadding = ShelfGridContentPadding,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier =

@@ -200,7 +200,7 @@ internal fun UserDetailContent(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .padding(horizontal = Spacing.lg),
+                    .padding(horizontal = Spacing.screenMargin),
         ) {
             // User info section
             item {
