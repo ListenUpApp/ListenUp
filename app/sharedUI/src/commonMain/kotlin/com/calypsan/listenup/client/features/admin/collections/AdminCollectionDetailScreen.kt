@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FolderSpecial
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Person
@@ -77,6 +76,7 @@ import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.components.UserAvatar
@@ -524,31 +524,31 @@ private fun NameSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_collection_name),
-        icon = Icons.Outlined.Edit,
-        accent = MaterialTheme.colorScheme.primary,
         modifier = modifier,
     ) {
-        Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            ListenUpTextField(
-                value = state.editedName,
-                onValueChange = onNameChange,
-                label = stringResource(Res.string.admin_collection_name),
-                enabled = !state.isSaving && !state.collection.isSystem,
-                supportingText =
-                    if (state.collection.isSystem) {
-                        stringResource(Res.string.admin_system_collection_locked)
-                    } else {
-                        stringResource(Res.string.admin_the_display_name_for_this)
-                    },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-            if (state.isDirty && !state.collection.isSystem) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onSaveClick, enabled = !state.isSaving) {
-                        if (state.isSaving) {
-                            ListenUpLoadingIndicatorSmall()
+        SectionSegment {
+            Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ListenUpTextField(
+                    value = state.editedName,
+                    onValueChange = onNameChange,
+                    label = stringResource(Res.string.admin_collection_name),
+                    enabled = !state.isSaving && !state.collection.isSystem,
+                    supportingText =
+                        if (state.collection.isSystem) {
+                            stringResource(Res.string.admin_system_collection_locked)
                         } else {
-                            Text(stringResource(Res.string.common_save_changes))
+                            stringResource(Res.string.admin_the_display_name_for_this)
+                        },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                )
+                if (state.isDirty && !state.collection.isSystem) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onSaveClick, enabled = !state.isSaving) {
+                            if (state.isSaving) {
+                                ListenUpLoadingIndicatorSmall()
+                            } else {
+                                Text(stringResource(Res.string.common_save_changes))
+                            }
                         }
                     }
                 }
@@ -567,8 +567,6 @@ private fun BooksSection(
     val haptics = LocalHaptics.current
     SectionGroup(
         label = stringResource(Res.string.admin_books_in_collection),
-        icon = Icons.AutoMirrored.Outlined.MenuBook,
-        accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
         trailing =
             if (!state.collection.isSystem) {
@@ -594,27 +592,29 @@ private fun BooksSection(
                 null
             },
     ) {
-        if (state.books.isEmpty()) {
-            EmptyBooksPanel()
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = COVER_GRID_MIN_TILE_DP.dp),
-                // Nested in a scrollable parent, so the grid needs a bounded viewport: reserve
-                // ~4 rows of adaptive (square) tiles, capped, and let it scroll internally.
-                modifier =
-                    Modifier
-                        .height(((COVER_GRID_MIN_TILE_DP.dp + 8.dp) * 4).coerceAtMost(480.dp))
-                        .fillMaxWidth(),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(items = state.books, key = { it.id }) { book ->
-                    BookCoverTile(
-                        book = book,
-                        isRemoving = state.removingBookId == book.id,
-                        onRemoveClick = { onRemoveBookClick(book) },
-                    )
+        SectionSegment {
+            if (state.books.isEmpty()) {
+                EmptyBooksPanel()
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = COVER_GRID_MIN_TILE_DP.dp),
+                    // Nested in a scrollable parent, so the grid needs a bounded viewport: reserve
+                    // ~4 rows of adaptive (square) tiles, capped, and let it scroll internally.
+                    modifier =
+                        Modifier
+                            .height(((COVER_GRID_MIN_TILE_DP.dp + 8.dp) * 4).coerceAtMost(480.dp))
+                            .fillMaxWidth(),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(items = state.books, key = { it.id }) { book ->
+                        BookCoverTile(
+                            book = book,
+                            isRemoving = state.removingBookId == book.id,
+                            onRemoveClick = { onRemoveBookClick(book) },
+                        )
+                    }
                 }
             }
         }
@@ -701,8 +701,6 @@ private fun MembersSection(
     val haptics = LocalHaptics.current
     SectionGroup(
         label = stringResource(Res.string.common_members),
-        icon = Icons.Outlined.Group,
-        accent = MaterialTheme.colorScheme.secondary,
         modifier = modifier,
         trailing = {
             TextButton(
@@ -724,13 +722,12 @@ private fun MembersSection(
         },
     ) {
         if (state.shares.isEmpty()) {
-            EmptyMembersPanel()
+            SectionSegment { EmptyMembersPanel() }
         } else {
-            state.shares.forEachIndexed { index, share ->
+            state.shares.forEach { share ->
                 MemberRow(
                     share = share,
                     isRemoving = state.removingShareUserId == share.userId,
-                    showDivider = index > 0,
                     onRemoveClick = { onRemoveMemberClick(share) },
                 )
             }
@@ -769,7 +766,6 @@ private fun EmptyMembersPanel(modifier: Modifier = Modifier) {
 private fun MemberRow(
     share: CollectionShareItem,
     isRemoving: Boolean,
-    showDivider: Boolean,
     onRemoveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -786,7 +782,6 @@ private fun MemberRow(
     SettingRow(
         title = memberName,
         subtitle = share.permission,
-        showDivider = showDivider,
         modifier = modifier,
         leading = {
             UserAvatar(userId = share.userId, size = AvatarSize.Medium)

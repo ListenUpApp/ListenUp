@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
@@ -647,35 +648,27 @@ private fun DevicesOtherSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.devices_other_devices),
-        icon = Icons.Outlined.Devices,
-        accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
     ) {
         if (otherDevices.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.devices_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
-            )
+            SectionSegment {
+                Text(
+                    text = stringResource(Res.string.devices_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
+                )
+            }
         } else {
-            otherDevices.forEachIndexed { index, device ->
-                if (index > 0) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(start = 73.dp, end = 14.dp)
-                                .height(1.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant),
+            otherDevices.forEach { device ->
+                SectionSegment {
+                    DeviceRowItem(
+                        device = device,
+                        isSigningOut = device.sessionId in signingOut,
+                        nowMs = nowMs,
+                        onRevoke = { onRevokeDevice(device.sessionId) },
                     )
                 }
-                DeviceRowItem(
-                    device = device,
-                    isSigningOut = device.sessionId in signingOut,
-                    nowMs = nowMs,
-                    onRevoke = { onRevokeDevice(device.sessionId) },
-                )
             }
         }
     }

@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
@@ -57,6 +56,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
@@ -548,31 +548,31 @@ private fun ShelfDetailsSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.shelf_shelf_details),
-        icon = Icons.Outlined.BookmarkAdd,
-        accent = MaterialTheme.colorScheme.primary,
         modifier = modifier,
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            ListenUpTextField(
-                value = name,
-                onValueChange = onNameChange,
-                label = stringResource(Res.string.shelf_form_name),
-                placeholder = stringResource(Res.string.common_shelf_name_hint),
-                leadingIcon = Icons.Outlined.Label,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
+        SectionSegment {
+            Column(
+                modifier = Modifier.padding(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                ListenUpTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = stringResource(Res.string.shelf_form_name),
+                    placeholder = stringResource(Res.string.common_shelf_name_hint),
+                    leadingIcon = Icons.Outlined.Label,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                )
 
-            ListenUpTextArea(
-                value = description,
-                onValueChange = onDescriptionChange,
-                label = stringResource(Res.string.shelf_description_optional),
-                placeholder = stringResource(Res.string.shelf_whats_this_shelf_for),
-                minLines = 3,
-                maxLines = 5,
-            )
+                ListenUpTextArea(
+                    value = description,
+                    onValueChange = onDescriptionChange,
+                    label = stringResource(Res.string.shelf_description_optional),
+                    placeholder = stringResource(Res.string.shelf_whats_this_shelf_for),
+                    minLines = 3,
+                    maxLines = 5,
+                )
+            }
         }
     }
 }
@@ -585,8 +585,6 @@ private fun ShelfVisibilitySection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.shelf_visibility),
-        icon = Icons.Outlined.Visibility,
-        accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
     ) {
         SettingToggleRow(
@@ -710,15 +708,15 @@ private fun ShelfPreviewContent(
 private fun ShelfAboutCard(modifier: Modifier = Modifier) {
     SectionGroup(
         label = stringResource(Res.string.shelf_about_shelves),
-        icon = Icons.Outlined.Info,
-        accent = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier,
     ) {
-        Text(
-            text = stringResource(Res.string.shelf_about_shelves_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(Spacing.lg),
-        )
+        SectionSegment {
+            Text(
+                text = stringResource(Res.string.shelf_about_shelves_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(Spacing.lg),
+            )
+        }
     }
 }

@@ -28,12 +28,12 @@ class SettingsWideLayoutTest {
         setContent()
 
         assertSideBySide(
-            composeRule.onNodeWithText("APPEARANCE"),
-            composeRule.onNodeWithText("PLAYBACK"),
+            composeRule.onNodeWithText("Appearance"),
+            composeRule.onNodeWithText("Playback"),
         )
         assertSideBySide(
-            composeRule.onNodeWithText("PLAYBACK"),
-            composeRule.onNodeWithText("SLEEP TIMER"),
+            composeRule.onNodeWithText("Playback"),
+            composeRule.onNodeWithText("Sleep timer"),
         )
     }
 
@@ -43,8 +43,8 @@ class SettingsWideLayoutTest {
         setContent()
 
         assertStacked(
-            composeRule.onNodeWithText("APPEARANCE"),
-            composeRule.onNodeWithText("PLAYBACK"),
+            composeRule.onNodeWithText("Appearance"),
+            composeRule.onNodeWithText("Playback"),
         )
     }
 

@@ -33,7 +33,7 @@ class NotificationPrefRowTest {
     fun `each switch names its channel and its notification type`() {
         composeRule.setContent {
             MaterialTheme {
-                NotificationPrefRow(pref = PREF, showDivider = false, onChange = {})
+                NotificationPrefRow(pref = PREF, onChange = {})
             }
         }
 
@@ -52,7 +52,7 @@ class NotificationPrefRowTest {
         var changed: NotificationPreference? = null
         composeRule.setContent {
             MaterialTheme {
-                NotificationPrefRow(pref = PREF, showDivider = false, onChange = { changed = it })
+                NotificationPrefRow(pref = PREF, onChange = { changed = it })
             }
         }
 
@@ -65,7 +65,7 @@ class NotificationPrefRowTest {
     fun `a push-ineligible type disables its push switch`() {
         composeRule.setContent {
             MaterialTheme {
-                NotificationPrefRow(pref = PREF.copy(pushEligible = false), showDivider = false, onChange = {})
+                NotificationPrefRow(pref = PREF.copy(pushEligible = false), onChange = {})
             }
         }
 

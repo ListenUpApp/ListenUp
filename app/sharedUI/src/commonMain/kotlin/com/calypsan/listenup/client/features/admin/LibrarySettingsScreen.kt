@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
@@ -249,16 +248,13 @@ private fun ScanPathsSection(
     val library = state.library
     SectionGroup(
         label = stringResource(Res.string.admin_scan_paths),
-        icon = Icons.Outlined.Folder,
-        accent = MaterialTheme.colorScheme.secondary,
     ) {
-        library.folders.forEachIndexed { index, folder ->
+        library.folders.forEach { folder ->
             val canRemove = library.folders.size > 1 && !state.isSaving
             SettingRow(
                 title = folder.rootPath ?: folder.id,
                 icon = Icons.Outlined.Folder,
                 accent = MaterialTheme.colorScheme.secondary,
-                showDivider = index > 0,
                 trailing =
                     if (canRemove) {
                         {
@@ -284,7 +280,6 @@ private fun ScanPathsSection(
             title = stringResource(Res.string.admin_add_folder),
             icon = Icons.Outlined.Add,
             accent = MaterialTheme.colorScheme.primary,
-            showDivider = true,
             onClick = if (state.isSaving) null else onAddFolder,
         )
     }
@@ -298,8 +293,6 @@ private fun ScanningSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_scanning),
-        icon = Icons.Outlined.Refresh,
-        accent = MaterialTheme.colorScheme.primary,
     ) {
         SettingRow(
             title = stringResource(Res.string.admin_rescan_library),
@@ -412,11 +405,6 @@ private fun FolderBrowserDialog(
                                     text = entry.name,
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.weight(1f),
-                                )
-                                Icon(
-                                    Icons.Outlined.ChevronRight,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }

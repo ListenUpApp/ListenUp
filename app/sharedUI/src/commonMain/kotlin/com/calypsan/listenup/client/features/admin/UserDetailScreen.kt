@@ -36,6 +36,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.material3.Text
@@ -414,37 +415,27 @@ private fun PermissionsCard(
     onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Column {
-            // Can Edit — the permission UserPermissionPolicy gates every metadata mutation on.
-            // It had no UI at all until #1270, so a member could never be granted edit rights.
-            PermissionRow(
-                icon = Icons.Outlined.Edit,
-                title = stringResource(Res.string.admin_can_edit),
-                subtitle = stringResource(Res.string.admin_allow_editing_content_metadata),
-                checked = canEdit,
-                isProtected = isProtected,
-                isSaving = isSaving,
-                onToggle = onToggleCanEdit,
-            )
-            HorizontalDivider()
-            PermissionRow(
-                icon = Icons.Outlined.Share,
-                title = stringResource(Res.string.admin_can_share),
-                subtitle = stringResource(Res.string.admin_allow_sharing_collections_with_other),
-                checked = canShare,
-                isProtected = isProtected,
-                isSaving = isSaving,
-                onToggle = onToggleCanShare,
-            )
-        }
+    SegmentedGroup(modifier = modifier) {
+        // Can Edit — the permission UserPermissionPolicy gates every metadata mutation on.
+        // It had no UI at all until #1270, so a member could never be granted edit rights.
+        PermissionRow(
+            icon = Icons.Outlined.Edit,
+            title = stringResource(Res.string.admin_can_edit),
+            subtitle = stringResource(Res.string.admin_allow_editing_content_metadata),
+            checked = canEdit,
+            isProtected = isProtected,
+            isSaving = isSaving,
+            onToggle = onToggleCanEdit,
+        )
+        PermissionRow(
+            icon = Icons.Outlined.Share,
+            title = stringResource(Res.string.admin_can_share),
+            subtitle = stringResource(Res.string.admin_allow_sharing_collections_with_other),
+            checked = canShare,
+            isProtected = isProtected,
+            isSaving = isSaving,
+            onToggle = onToggleCanShare,
+        )
     }
 }
 

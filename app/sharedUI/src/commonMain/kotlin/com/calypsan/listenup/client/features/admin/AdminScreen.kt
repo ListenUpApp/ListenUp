@@ -28,7 +28,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Inbox
@@ -84,6 +83,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.RoleChip
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.util.relativeTime
@@ -625,42 +625,43 @@ private fun ServerSettingsSection(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_server_settings),
-        icon = Icons.Outlined.Badge,
-        accent = MaterialTheme.colorScheme.primary,
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            ListenUpTextField(
-                value = serverName,
-                onValueChange = onServerNameChange,
-                label = stringResource(Res.string.admin_server_name),
-                placeholder = stringResource(Res.string.connect_listenup_server),
-                leadingIcon = Icons.Outlined.Badge,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            )
-            ListenUpTextField(
-                value = remoteUrl,
-                onValueChange = onRemoteUrlChange,
-                label = stringResource(Res.string.admin_remote_url),
-                placeholder = stringResource(Res.string.admin_remote_url_placeholder),
-                leadingIcon = Icons.Outlined.CloudDownload,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        SectionSegment {
+            Column(
+                modifier = Modifier.padding(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                ListenUpTextField(
+                    value = serverName,
+                    onValueChange = onServerNameChange,
+                    label = stringResource(Res.string.admin_server_name),
+                    placeholder = stringResource(Res.string.connect_listenup_server),
+                    leadingIcon = Icons.Outlined.Badge,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                )
+                ListenUpTextField(
+                    value = remoteUrl,
+                    onValueChange = onRemoteUrlChange,
+                    label = stringResource(Res.string.admin_remote_url),
+                    placeholder = stringResource(Res.string.admin_remote_url_placeholder),
+                    leadingIcon = Icons.Outlined.CloudDownload,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                )
+            }
+        }
+        SectionSegment {
+            RegistrationPolicyControl(
+                policy = state.registrationPolicy,
+                isToggling = state.isTogglingRegistrationPolicy,
+                onChange = onRegistrationPolicyChange,
             )
         }
-        RegistrationPolicyControl(
-            policy = state.registrationPolicy,
-            isToggling = state.isTogglingRegistrationPolicy,
-            onChange = onRegistrationPolicyChange,
-        )
         SettingToggleRow(
             icon = Icons.Outlined.Inbox,
             title = stringResource(Res.string.admin_inbox_setting_title),
             subtitle = stringResource(Res.string.admin_inbox_setting_subtitle),
             checked = holdNewBooksForReview,
             onCheckedChange = onHoldNewBooksForReviewChange,
-            showDivider = true,
         )
         SettingToggleRow(
             icon = Icons.Outlined.Notifications,
@@ -668,7 +669,6 @@ private fun ServerSettingsSection(
             subtitle = stringResource(Res.string.admin_push_setting_subtitle),
             checked = pushNotificationsEnabled,
             onCheckedChange = onPushNotificationsEnabledChange,
-            showDivider = true,
         )
     }
 }
@@ -817,8 +817,6 @@ private fun UsersGroup(
 ) {
     SectionGroup(
         label = stringResource(Res.string.common_users),
-        icon = Icons.Outlined.Group,
-        accent = MaterialTheme.colorScheme.primary,
         trailing = {
             ScallopBadge(
                 size = 26.dp,
@@ -839,18 +837,19 @@ private fun UsersGroup(
         },
     ) {
         if (state.users.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.common_no_items_found, "users"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(Spacing.lg),
-            )
+            SectionSegment {
+                Text(
+                    text = stringResource(Res.string.common_no_items_found, "users"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(Spacing.lg),
+                )
+            }
         } else {
-            state.users.forEachIndexed { index, user ->
+            state.users.forEach { user ->
                 UserRow(
                     user = user,
                     isDeleting = state.deletingUserId == user.id,
-                    showDivider = index > 0,
                     onClick = { onUserClick(user.id) },
                     onDeleteClick = { onDeleteUserClick(user) },
                 )
@@ -863,7 +862,6 @@ private fun UsersGroup(
 private fun UserRow(
     user: AdminUserInfo,
     isDeleting: Boolean,
-    showDivider: Boolean,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
@@ -878,7 +876,6 @@ private fun UserRow(
     SettingRow(
         title = user.displayName ?: user.email,
         subtitle = user.email,
-        showDivider = showDivider,
         onClick = onClick,
         leading = { UserAvatar(userId = user.id, size = AvatarSize.Medium) },
     ) {
@@ -915,26 +912,24 @@ private fun PendingRegistrationsGroup(
     onApproveUserClick: (AdminUserInfo) -> Unit,
     onDenyUserClick: (AdminUserInfo) -> Unit,
 ) {
-    val accent = MaterialTheme.colorScheme.tertiary
     SectionGroup(
         label = stringResource(Res.string.admin_pending_registrations),
-        icon = Icons.Outlined.HowToReg,
-        accent = accent,
     ) {
         if (state.pendingUsers.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.admin_no_pending_registrations),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(Spacing.lg),
-            )
+            SectionSegment {
+                Text(
+                    text = stringResource(Res.string.admin_no_pending_registrations),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(Spacing.lg),
+                )
+            }
         } else {
-            state.pendingUsers.forEachIndexed { index, user ->
+            state.pendingUsers.forEach { user ->
                 PendingUserRow(
                     user = user,
                     isApproving = state.approvingUserId == user.id,
                     isDenying = state.denyingUserId == user.id,
-                    showDivider = index > 0,
                     onApproveClick = { onApproveUserClick(user) },
                     onDenyClick = { onDenyUserClick(user) },
                 )
@@ -956,7 +951,6 @@ private fun PendingUserRow(
     user: AdminUserInfo,
     isApproving: Boolean,
     isDenying: Boolean,
-    showDivider: Boolean,
     onApproveClick: () -> Unit,
     onDenyClick: () -> Unit,
 ) {
@@ -971,7 +965,6 @@ private fun PendingUserRow(
         SettingRow(
             title = name,
             subtitle = user.email,
-            showDivider = showDivider,
             // A pending registrant has no server-side public profile yet, so drive initials from
             // their name rather than the generic add-person glyph / an indefinite loading circle.
             leading = { UserAvatar(userId = user.id, size = AvatarSize.Medium, fallbackName = name) },
@@ -1056,15 +1049,12 @@ private fun PendingInvitesGroup(
     val accent = MaterialTheme.colorScheme.secondary
     SectionGroup(
         label = stringResource(Res.string.admin_pending_invites),
-        icon = Icons.Outlined.PersonAdd,
-        accent = accent,
     ) {
-        state.pendingInvites.forEachIndexed { index, invite ->
+        state.pendingInvites.forEach { invite ->
             InviteRow(
                 invite = invite,
                 accent = accent,
                 isRevoking = state.revokingInviteId == invite.id,
-                showDivider = index > 0,
                 onCopyClick = { onCopyInviteClick(invite) },
                 onRevokeClick = { onRevokeInviteClick(invite) },
             )
@@ -1077,7 +1067,6 @@ private fun InviteRow(
     invite: InviteInfo,
     accent: Color,
     isRevoking: Boolean,
-    showDivider: Boolean,
     onCopyClick: () -> Unit,
     onRevokeClick: () -> Unit,
 ) {
@@ -1087,7 +1076,6 @@ private fun InviteRow(
         accent = accent,
         title = invite.name,
         subtitle = invite.email,
-        showDivider = showDivider,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1138,25 +1126,23 @@ private fun PasswordResetsGroup(
     onApproveClick: (PasswordResetRequest) -> Unit,
     onDenyClick: (PasswordResetRequest) -> Unit,
 ) {
-    val accent = MaterialTheme.colorScheme.tertiary
     SectionGroup(
         label = stringResource(Res.string.admin_password_resets),
-        icon = Icons.Outlined.Key,
-        accent = accent,
     ) {
         if (state.pendingPasswordResets.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.admin_no_pending_password_resets),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(Spacing.lg),
-            )
+            SectionSegment {
+                Text(
+                    text = stringResource(Res.string.admin_no_pending_password_resets),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(Spacing.lg),
+                )
+            }
         } else {
-            state.pendingPasswordResets.forEachIndexed { index, request ->
+            state.pendingPasswordResets.forEach { request ->
                 PasswordResetRow(
                     request = request,
                     isDeciding = state.decidingPasswordResetId == request.id,
-                    showDivider = index > 0,
                     onApproveClick = { onApproveClick(request) },
                     onDenyClick = { onDenyClick(request) },
                 )
@@ -1169,7 +1155,6 @@ private fun PasswordResetsGroup(
 private fun PasswordResetRow(
     request: PasswordResetRequest,
     isDeciding: Boolean,
-    showDivider: Boolean,
     onApproveClick: () -> Unit,
     onDenyClick: () -> Unit,
 ) {
@@ -1179,7 +1164,6 @@ private fun PasswordResetRow(
     SettingRow(
         title = request.displayName,
         subtitle = "${request.email} · ${relativeTime(request.requestedAt)}",
-        showDivider = showDivider,
         leading = {
             UserAvatar(
                 userId = request.userId.value,

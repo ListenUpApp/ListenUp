@@ -28,12 +28,12 @@ class OrganizeSettingsWideLayoutTest {
         setContent()
 
         assertSideBySide(
-            composeRule.onNodeWithText("FOLDER STRUCTURE"),
-            composeRule.onNodeWithText("SERIES NUMBER STYLE"),
+            composeRule.onNodeWithText("Folder structure"),
+            composeRule.onNodeWithText("Series number style"),
         )
         assertSideBySide(
-            composeRule.onNodeWithText("SERIES NUMBER STYLE"),
-            composeRule.onNodeWithText("AUTHOR NAME STYLE"),
+            composeRule.onNodeWithText("Series number style"),
+            composeRule.onNodeWithText("Author name style"),
         )
     }
 
@@ -43,8 +43,8 @@ class OrganizeSettingsWideLayoutTest {
         setContent()
 
         assertStacked(
-            composeRule.onNodeWithText("FOLDER STRUCTURE"),
-            composeRule.onNodeWithText("SERIES NUMBER STYLE"),
+            composeRule.onNodeWithText("Folder structure"),
+            composeRule.onNodeWithText("Series number style"),
         )
     }
 

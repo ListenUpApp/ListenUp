@@ -17,8 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -44,6 +42,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
@@ -258,7 +257,6 @@ private fun StructurePicker(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_organize_structure),
-        icon = Icons.Outlined.Folder,
     ) {
         RadioRow(
             label = stringResource(Res.string.admin_organize_preset_author_series_title),
@@ -283,7 +281,6 @@ private fun SeriesPrefixPicker(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_organize_series_prefix),
-        icon = Icons.Outlined.Tag,
     ) {
         RadioRow(
             label = stringResource(Res.string.admin_organize_prefix_book_n_dash),
@@ -312,7 +309,6 @@ private fun AuthorFormPicker(
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_organize_author_form),
-        icon = Icons.Outlined.Person,
     ) {
         RadioRow(
             label = stringResource(Res.string.admin_organize_author_first_last),
@@ -331,17 +327,19 @@ private fun RadioRow(
     selected: Boolean,
     onSelect: () -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .selectable(selected = selected, onClick = onSelect)
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+    SectionSegment {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .selectable(selected = selected, onClick = onSelect)
+                    .padding(horizontal = Spacing.xs, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            RadioButton(selected = selected, onClick = onSelect)
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 

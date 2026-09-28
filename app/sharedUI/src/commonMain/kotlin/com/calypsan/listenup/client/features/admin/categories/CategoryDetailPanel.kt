@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.admin.categories
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -17,13 +16,13 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Genre
@@ -145,48 +144,37 @@ private fun CategoryActions(
     onMergeHistory: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column {
-            SettingRow(
-                title = stringResource(Res.string.admin_add_subgenre),
-                icon = Icons.Outlined.Add,
-                onClick = onAddChild,
-            )
-            SettingRow(
-                title = stringResource(Res.string.common_rename),
-                icon = Icons.Outlined.Edit,
-                showDivider = true,
-                onClick = onRename,
-            )
-            SettingRow(
-                title = stringResource(Res.string.admin_move_to),
-                icon = Icons.AutoMirrored.Outlined.ArrowForward,
-                showDivider = true,
-                onClick = onMove,
-            )
-            SettingRow(
-                title = stringResource(Res.string.admin_merge_into),
-                icon = Icons.AutoMirrored.Outlined.CallMerge,
-                showDivider = true,
-                onClick = onMerge,
-            )
-            SettingRow(
-                title = stringResource(Res.string.merge_history_open),
-                icon = Icons.Outlined.History,
-                showDivider = true,
-                onClick = onMergeHistory,
-            )
-            SettingRow(
-                title = stringResource(Res.string.common_delete),
-                icon = Icons.Outlined.Delete,
-                danger = true,
-                showDivider = true,
-                onClick = onDelete,
-            )
-        }
+    SegmentedGroup {
+        SettingRow(
+            title = stringResource(Res.string.admin_add_subgenre),
+            icon = Icons.Outlined.Add,
+            onClick = onAddChild,
+        )
+        SettingRow(
+            title = stringResource(Res.string.common_rename),
+            icon = Icons.Outlined.Edit,
+            onClick = onRename,
+        )
+        SettingRow(
+            title = stringResource(Res.string.admin_move_to),
+            icon = Icons.AutoMirrored.Outlined.ArrowForward,
+            onClick = onMove,
+        )
+        SettingRow(
+            title = stringResource(Res.string.admin_merge_into),
+            icon = Icons.AutoMirrored.Outlined.CallMerge,
+            onClick = onMerge,
+        )
+        SettingRow(
+            title = stringResource(Res.string.merge_history_open),
+            icon = Icons.Outlined.History,
+            onClick = onMergeHistory,
+        )
+        SettingRow(
+            title = stringResource(Res.string.common_delete),
+            icon = Icons.Outlined.Delete,
+            danger = true,
+            onClick = onDelete,
+        )
     }
 }

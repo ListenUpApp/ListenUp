@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SectionSegment
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingRow
@@ -183,14 +184,11 @@ internal fun NotificationPrefsContent(
                     .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         ) {
             SectionGroup(
-                icon = Icons.Default.Notifications,
                 label = stringResource(Res.string.notifications_settings_row_title),
-                accent = MaterialTheme.colorScheme.primary,
             ) {
-                knownPrefs.forEachIndexed { index, pref ->
+                knownPrefs.forEach { pref ->
                     NotificationPrefRow(
                         pref = pref,
-                        showDivider = index > 0,
                         onChange = { onChange(pref.type, it) },
                     )
                 }
@@ -208,17 +206,17 @@ private fun NotificationPrefCard(
     val nameRes = notificationTypeNameRes(pref.type) ?: return
     val typeName = stringResource(nameRes)
     SectionGroup(
-        icon = notificationTypeIcon(pref.type),
         label = typeName,
-        accent = MaterialTheme.colorScheme.primary,
     ) {
-        ChannelSwitches(
-            pref = pref,
-            typeName = typeName,
-            onChange = onChange,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        )
+        SectionSegment {
+            ChannelSwitches(
+                pref = pref,
+                typeName = typeName,
+                onChange = onChange,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            )
+        }
     }
 }
 
@@ -229,7 +227,6 @@ private fun NotificationPrefCard(
 @Composable
 internal fun NotificationPrefRow(
     pref: NotificationPreferenceDto,
-    showDivider: Boolean,
     onChange: (NotificationPreference) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -238,7 +235,6 @@ internal fun NotificationPrefRow(
     SettingRow(
         title = typeName,
         icon = notificationTypeIcon(pref.type),
-        showDivider = showDivider,
         modifier = modifier,
     ) {
         ChannelSwitches(pref = pref, typeName = typeName, onChange = onChange)

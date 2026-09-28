@@ -19,10 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.DarkMode
@@ -31,16 +29,11 @@ import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PersonOutline
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Vibration
@@ -71,6 +64,7 @@ import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.SettingNavigationRow
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.SignOutConfirmDialog
@@ -417,9 +411,7 @@ private fun AppearanceSection(
     actions: SettingsActions,
 ) {
     SectionGroup(
-        icon = Icons.Default.Palette,
         label = stringResource(Res.string.settings_appearance),
-        accent = MaterialTheme.colorScheme.primary,
     ) {
         SelectorRow(
             icon = Icons.Default.DarkMode,
@@ -445,7 +437,6 @@ private fun AppearanceSection(
                 subtitle = "Use colors from your wallpaper (Material You)",
                 checked = state.dynamicColorsEnabled,
                 onCheckedChange = actions.onDynamicColorsChange,
-                showDivider = true,
             )
         }
     }
@@ -460,9 +451,7 @@ private fun PlaybackSection(
     val pillContainer = MaterialTheme.colorScheme.tertiaryContainer
     val pillContent = MaterialTheme.colorScheme.onTertiaryContainer
     SectionGroup(
-        icon = Icons.Default.PlayCircle,
         label = stringResource(Res.string.common_playback),
-        accent = accent,
     ) {
         SelectorRow(
             icon = Icons.Default.Speed,
@@ -505,7 +494,6 @@ private fun PlaybackSection(
             onValueSelected = actions.onVolumeBoostChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
-            showDivider = true,
         )
         SelectorRow(
             icon = Icons.Default.Forward30,
@@ -518,7 +506,6 @@ private fun PlaybackSection(
             onValueSelected = actions.onSkipForwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
-            showDivider = true,
         )
         SelectorRow(
             icon = Icons.Default.Replay10,
@@ -531,7 +518,6 @@ private fun PlaybackSection(
             onValueSelected = actions.onSkipBackwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
-            showDivider = true,
         )
         SettingToggleRow(
             icon = Icons.Default.History,
@@ -540,7 +526,6 @@ private fun PlaybackSection(
             subtitle = stringResource(Res.string.settings_rewind_a_few_seconds_when),
             checked = state.autoRewindEnabled,
             onCheckedChange = actions.onAutoRewindChange,
-            showDivider = false,
         )
     }
 }
@@ -552,9 +537,7 @@ private fun SleepTimerSection(
 ) {
     val accent = MaterialTheme.colorScheme.secondary
     SectionGroup(
-        icon = Icons.Default.Bedtime,
         label = stringResource(Res.string.settings_sleep_timer),
-        accent = accent,
     ) {
         SelectorRow(
             icon = Icons.Default.Timer,
@@ -578,9 +561,7 @@ private fun LibrarySection(
 ) {
     val accent = MaterialTheme.colorScheme.primary
     SectionGroup(
-        icon = Icons.AutoMirrored.Filled.LibraryBooks,
         label = stringResource(Res.string.common_library),
-        accent = accent,
     ) {
         SettingToggleRow(
             icon = Icons.Default.SortByAlpha,
@@ -597,7 +578,6 @@ private fun LibrarySection(
             subtitle = stringResource(Res.string.settings_hide_series_with_only_one),
             checked = state.hideSingleBookSeries,
             onCheckedChange = actions.onHideSingleBookSeriesChange,
-            showDivider = true,
         )
     }
 }
@@ -611,11 +591,8 @@ private fun AccountSection(
 ) {
     val accent = MaterialTheme.colorScheme.primary
     SectionGroup(
-        icon = Icons.Default.PersonOutline,
         label = stringResource(Res.string.common_account),
-        accent = accent,
     ) {
-        val hasServerRow = state.serverUrl != null
         state.serverUrl?.let { url ->
             InfoRow(
                 icon = Icons.Default.Dns,
@@ -625,13 +602,12 @@ private fun AccountSection(
             )
         }
         if (onNavigateToDevices != null) {
-            NavigationRow(
+            SettingNavigationRow(
                 icon = Icons.Default.Devices,
                 accent = accent,
                 title = stringResource(Res.string.settings_devices),
                 subtitle = stringResource(Res.string.devices_manage_active_sessions),
                 onClick = onNavigateToDevices,
-                showDivider = hasServerRow,
             )
         }
         SettingToggleRow(
@@ -641,7 +617,6 @@ private fun AccountSection(
             subtitle = stringResource(Res.string.settings_haptic_feedback_subtitle),
             checked = state.hapticFeedbackEnabled,
             onCheckedChange = actions.onHapticFeedbackChange,
-            showDivider = hasServerRow || onNavigateToDevices != null,
         )
     }
     SignOutTile(onClick = onSignOutClick)
@@ -654,9 +629,7 @@ private fun DownloadsSection(
 ) {
     val accent = MaterialTheme.colorScheme.tertiary
     SectionGroup(
-        icon = Icons.Default.Download,
         label = stringResource(Res.string.settings_downloads),
-        accent = accent,
     ) {
         SettingToggleRow(
             icon = Icons.Default.Wifi,
@@ -673,11 +646,9 @@ private fun DownloadsSection(
 private fun StorageSection(onNavigateToStorage: () -> Unit) {
     val accent = MaterialTheme.colorScheme.tertiary
     SectionGroup(
-        icon = Icons.Default.Storage,
         label = stringResource(Res.string.common_storage),
-        accent = accent,
     ) {
-        NavigationRow(
+        SettingNavigationRow(
             icon = Icons.Default.Download,
             accent = accent,
             title = stringResource(Res.string.settings_manage_storage),
@@ -697,9 +668,7 @@ private fun AboutSection(
 ) {
     val accent = MaterialTheme.colorScheme.onSurfaceVariant
     SectionGroup(
-        icon = Icons.Default.Info,
         label = stringResource(Res.string.common_about),
-        accent = accent,
     ) {
         InfoRow(
             icon = Icons.Default.Verified,
@@ -713,46 +682,41 @@ private fun AboutSection(
                 accent = accent,
                 title = stringResource(Res.string.settings_server_version),
                 value = version,
-                showDivider = true,
             )
         }
         if (onNavigateToLicenses != null) {
-            NavigationRow(
+            SettingNavigationRow(
                 icon = Icons.Default.Gavel,
                 accent = accent,
                 title = stringResource(Res.string.settings_open_source_licenses),
                 subtitle = stringResource(Res.string.settings_view_thirdparty_licenses),
                 onClick = onNavigateToLicenses,
-                showDivider = true,
             )
         }
-        NavigationRow(
+        SettingRow(
             icon = Icons.Default.Share,
             accent = accent,
             title = stringResource(Res.string.settings_share_logs),
             subtitle = stringResource(Res.string.settings_share_logs_subtitle),
             onClick = onShareLogs,
-            showDivider = true,
         )
         if (onNavigateToNotificationSettings != null) {
-            NavigationRow(
+            SettingNavigationRow(
                 icon = Icons.Default.Notifications,
                 accent = accent,
                 title = stringResource(Res.string.notifications_settings_row_title),
                 subtitle = stringResource(Res.string.notifications_settings_row_subtitle),
                 onClick = onNavigateToNotificationSettings,
-                showDivider = true,
             )
         }
         // Beside Share logs deliberately: both answer "is this thing actually working?", which is
         // the only question a user has when a notification never arrived.
-        NavigationRow(
+        SettingRow(
             icon = Icons.Default.NotificationsActive,
             accent = accent,
             title = stringResource(Res.string.settings_test_notification),
             subtitle = stringResource(Res.string.settings_test_notification_subtitle),
             onClick = onSendTestNotification,
-            showDivider = true,
         )
     }
 }
@@ -769,7 +733,6 @@ private fun <T> SelectorRow(
     onValueSelected: (T) -> Unit,
     pillContainerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
     pillContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
-    showDivider: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
     var expanded by remember { mutableStateOf(false) }
@@ -778,7 +741,6 @@ private fun <T> SelectorRow(
         accent = accent,
         title = title,
         subtitle = subtitle,
-        showDivider = showDivider,
     ) {
         Box {
             ValuePill(
@@ -807,44 +769,17 @@ private fun <T> SelectorRow(
 }
 
 @Composable
-private fun NavigationRow(
-    icon: ImageVector,
-    accent: Color,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    showDivider: Boolean = false,
-) {
-    SettingRow(
-        icon = icon,
-        accent = accent,
-        title = title,
-        subtitle = subtitle,
-        showDivider = showDivider,
-        onClick = onClick,
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
 private fun InfoRow(
     icon: ImageVector,
     accent: Color,
     title: String,
     value: String,
-    showDivider: Boolean = false,
 ) {
     SettingRow(
         icon = icon,
         accent = accent,
         title = title,
         subtitle = null,
-        showDivider = showDivider,
     ) {
         Text(
             text = value,

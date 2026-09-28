@@ -16,8 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,7 +43,6 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.LicenseChip
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.MeterSegment
-import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -400,32 +397,21 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
 }
 
 /**
- * Accent-tinted section header that mirrors [SectionGroup]'s header row — an icon tile paired
- * with an uppercased bold label — but emitted as a standalone composable so it can live as a
- * lazy [item] rather than being constrained to a non-lazy [SectionGroup.content] slot.
+ * The libraries list's subheader, in [SectionGroup]'s header voice — a sentence-case `titleSmall`
+ * heading in `primary` — but emitted as a standalone composable so it can live as a lazy [item]
+ * rather than inside a non-lazy [SectionGroup.content] slot.
  */
 @Composable
 private fun LibrariesSectionHeader(
     label: String,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        TonalIconTile(
-            icon = Icons.Outlined.Code,
-            size = 30.dp,
-            accent = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    Text(
+        text = label,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.semantics { heading() },
+    )
 }
 
 @Composable
@@ -471,12 +457,6 @@ private fun LicenseLibraryRow(
                     color = licenseFamilyColor(row.spdxId),
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp),
-            )
         }
         if (showDivider) {
             HorizontalDivider(modifier = Modifier.padding(horizontal = Spacing.lg))

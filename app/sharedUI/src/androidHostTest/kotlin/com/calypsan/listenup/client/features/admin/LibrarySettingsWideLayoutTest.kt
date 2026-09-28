@@ -30,7 +30,7 @@ class LibrarySettingsWideLayoutTest {
     fun `on a tablet scan paths and scanning sit side by side`() {
         setContent()
 
-        assertSideBySide(composeRule.onNodeWithText("SCAN PATHS"), composeRule.onNodeWithText("SCANNING"))
+        assertSideBySide(composeRule.onNodeWithText("Scan paths"), composeRule.onNodeWithText("Scanning"))
     }
 
     @Test
@@ -38,7 +38,7 @@ class LibrarySettingsWideLayoutTest {
     fun `on a phone scan paths and scanning stack`() {
         setContent()
 
-        assertStacked(composeRule.onNodeWithText("SCAN PATHS"), composeRule.onNodeWithText("SCANNING"))
+        assertStacked(composeRule.onNodeWithText("Scan paths"), composeRule.onNodeWithText("Scanning"))
     }
 
     private fun setContent() {
