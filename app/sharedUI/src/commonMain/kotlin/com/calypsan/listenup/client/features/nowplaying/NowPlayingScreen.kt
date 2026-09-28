@@ -22,6 +22,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
+import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlinx.coroutines.CancellationException
@@ -42,8 +43,9 @@ private const val TV_AMBIENT_DELAY_MS = 15_000L
  * Full screen Now Playing view.
  *
  * Hosts the screen-level chrome — predictive-back dismissal, drag-to-dismiss, and TV ambient
- * fade — then dispatches the body to an adaptive layout: [WideNowPlaying] on expanded-width
- * viewports (large tablets, desktop, TV) and [CompactNowPlaying] everywhere else.
+ * fade — then dispatches the body to an adaptive layout ([nowPlayingLayout]): [TabletopNowPlaying]
+ * split at the hinge on a foldable half open on a table, [WideNowPlaying] on wide or short windows
+ * and in book posture, and [CompactNowPlaying] everywhere else.
  */
 @Suppress("LongMethod", "LongParameterList")
 @Composable
@@ -141,7 +143,8 @@ fun NowPlayingScreen(
         if (backProgress.value != 0f && dragOffset.value != 0f) dragOffset.snapTo(0f)
     }
 
-    val expanded = useWideNowPlaying(currentWindowAdaptiveInfo().windowSizeClass)
+    val fold = LocalFold.current
+    val layout = nowPlayingLayout(currentWindowAdaptiveInfo().windowSizeClass, fold)
 
     Surface(
         modifier =
@@ -194,58 +197,92 @@ fun NowPlayingScreen(
                 },
         color = MaterialTheme.colorScheme.surface,
     ) {
-        if (expanded) {
-            WideNowPlaying(
-                state = state,
-                progress = progress,
-                onCollapse = onCollapse,
-                onPlayPause = onPlayPause,
-                onSeek = onSeek,
-                onSkipBack = onSkipBack,
-                onSkipForward = onSkipForward,
-                onPreviousChapter = onPreviousChapter,
-                onNextChapter = onNextChapter,
-                onSpeedClick = onSpeedClick,
-                onBoostClick = onBoostClick,
-                onSleepClick = onSleepTimerClick,
-                onChaptersClick = onChaptersClick,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
-                onShowAuthorPicker = onShowAuthorPicker,
-                onShowNarratorPicker = onShowNarratorPicker,
-                onCloseBook = onCloseBook,
-                skipBackwardSec = skipBackwardSec,
-                skipForwardSec = skipForwardSec,
-                hasPdf = hasPdf,
-                onOpenPdf = onOpenPdf,
-            )
-        } else {
-            CompactNowPlaying(
-                state = state,
-                progress = progress,
-                onCollapse = onCollapse,
-                onPlayPause = onPlayPause,
-                onSeek = onSeek,
-                onSkipBack = onSkipBack,
-                onSkipForward = onSkipForward,
-                onPreviousChapter = onPreviousChapter,
-                onNextChapter = onNextChapter,
-                onSpeedClick = onSpeedClick,
-                onBoostClick = onBoostClick,
-                onSleepClick = onSleepTimerClick,
-                onChaptersClick = onChaptersClick,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
-                onShowAuthorPicker = onShowAuthorPicker,
-                onShowNarratorPicker = onShowNarratorPicker,
-                onCloseBook = onCloseBook,
-                skipBackwardSec = skipBackwardSec,
-                skipForwardSec = skipForwardSec,
-                hasPdf = hasPdf,
-                onOpenPdf = onOpenPdf,
-            )
+        when (layout) {
+            NowPlayingLayout.Tabletop -> {
+                TabletopNowPlaying(
+                    state = state,
+                    progress = progress,
+                    // nowPlayingLayout only answers Tabletop when the fold has bounds.
+                    hingeBounds = requireNotNull(fold.hingeBounds),
+                    onCollapse = onCollapse,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    onSkipBack = onSkipBack,
+                    onSkipForward = onSkipForward,
+                    onPreviousChapter = onPreviousChapter,
+                    onNextChapter = onNextChapter,
+                    onSpeedClick = onSpeedClick,
+                    onBoostClick = onBoostClick,
+                    onSleepClick = onSleepTimerClick,
+                    onChaptersClick = onChaptersClick,
+                    onGoToBook = onGoToBook,
+                    onGoToSeries = onGoToSeries,
+                    onGoToContributor = onGoToContributor,
+                    onShowAuthorPicker = onShowAuthorPicker,
+                    onShowNarratorPicker = onShowNarratorPicker,
+                    onCloseBook = onCloseBook,
+                    skipBackwardSec = skipBackwardSec,
+                    skipForwardSec = skipForwardSec,
+                    hasPdf = hasPdf,
+                    onOpenPdf = onOpenPdf,
+                )
+            }
+
+            NowPlayingLayout.SideBySide -> {
+                WideNowPlaying(
+                    state = state,
+                    progress = progress,
+                    onCollapse = onCollapse,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    onSkipBack = onSkipBack,
+                    onSkipForward = onSkipForward,
+                    onPreviousChapter = onPreviousChapter,
+                    onNextChapter = onNextChapter,
+                    onSpeedClick = onSpeedClick,
+                    onBoostClick = onBoostClick,
+                    onSleepClick = onSleepTimerClick,
+                    onChaptersClick = onChaptersClick,
+                    onGoToBook = onGoToBook,
+                    onGoToSeries = onGoToSeries,
+                    onGoToContributor = onGoToContributor,
+                    onShowAuthorPicker = onShowAuthorPicker,
+                    onShowNarratorPicker = onShowNarratorPicker,
+                    onCloseBook = onCloseBook,
+                    skipBackwardSec = skipBackwardSec,
+                    skipForwardSec = skipForwardSec,
+                    hasPdf = hasPdf,
+                    onOpenPdf = onOpenPdf,
+                )
+            }
+
+            NowPlayingLayout.Stacked -> {
+                CompactNowPlaying(
+                    state = state,
+                    progress = progress,
+                    onCollapse = onCollapse,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    onSkipBack = onSkipBack,
+                    onSkipForward = onSkipForward,
+                    onPreviousChapter = onPreviousChapter,
+                    onNextChapter = onNextChapter,
+                    onSpeedClick = onSpeedClick,
+                    onBoostClick = onBoostClick,
+                    onSleepClick = onSleepTimerClick,
+                    onChaptersClick = onChaptersClick,
+                    onGoToBook = onGoToBook,
+                    onGoToSeries = onGoToSeries,
+                    onGoToContributor = onGoToContributor,
+                    onShowAuthorPicker = onShowAuthorPicker,
+                    onShowNarratorPicker = onShowNarratorPicker,
+                    onCloseBook = onCloseBook,
+                    skipBackwardSec = skipBackwardSec,
+                    skipForwardSec = skipForwardSec,
+                    hasPdf = hasPdf,
+                    onOpenPdf = onOpenPdf,
+                )
+            }
         }
     }
 }
