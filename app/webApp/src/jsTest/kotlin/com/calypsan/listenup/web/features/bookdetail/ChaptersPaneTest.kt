@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.features.admin.fixedRestore
 import com.calypsan.listenup.web.features.admin.fixedServerSettings
 import com.calypsan.listenup.web.features.admin.fixedLibrarySettings
 import com.calypsan.listenup.web.features.devices.fixedDevices
+import com.calypsan.listenup.web.features.hardcover.fixedHardcover
 import com.calypsan.listenup.web.features.settings.fixedSettings
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
@@ -135,6 +136,7 @@ class ChaptersPaneTest :
                     openSettings = fixedSettings(),
                     openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
                     openDevices = fixedDevices(),
+                    openHardcover = fixedHardcover(),
                     openAdmin = fixedAdmin(),
                     admin =
                         AdminSessions(

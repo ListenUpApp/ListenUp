@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
+import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsEvent
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction
@@ -109,6 +110,8 @@ import com.calypsan.listenup.web.features.admin.UserDetailPage
 import com.calypsan.listenup.web.features.admin.OpenAdmin
 import com.calypsan.listenup.web.features.devices.DevicesPage
 import com.calypsan.listenup.web.features.devices.OpenDevices
+import com.calypsan.listenup.web.features.hardcover.HardcoverPage
+import com.calypsan.listenup.web.features.hardcover.OpenHardcover
 import com.calypsan.listenup.web.features.serieslist.SeriesListPage
 import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.licences.LicencesPage
@@ -248,6 +251,7 @@ fun WebAppRoot(
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
     openDevices: OpenDevices,
+    openHardcover: OpenHardcover,
     openAdmin: OpenAdmin,
     admin: AdminSessions,
     openShelfDetail: OpenShelfDetail,
@@ -345,6 +349,7 @@ fun WebAppRoot(
             openDiscover = openDiscover,
             openSettings = openSettings,
             openDevices = openDevices,
+            openHardcover = openHardcover,
             openAdmin = openAdmin,
             admin = admin,
             openShelfDetail = openShelfDetail,
@@ -682,6 +687,7 @@ private fun RouteContent(
     openDiscover: OpenDiscover,
     openSettings: OpenSettings,
     openDevices: OpenDevices,
+    openHardcover: OpenHardcover,
     openAdmin: OpenAdmin,
     admin: AdminSessions,
     openShelfDetail: OpenShelfDetail,
@@ -822,6 +828,7 @@ private fun RouteContent(
             router = router,
             openSettings = openSettings,
             openDevices = openDevices,
+            openHardcover = openHardcover,
             openAdmin = openAdmin,
             openNotificationPrefs = openNotificationPrefs,
             openLicences = openLicences,
@@ -2240,6 +2247,43 @@ private fun NotificationPrefsRoute(
 }
 
 /**
+ * `/settings/hardcover` — connecting a Hardcover account.
+ *
+ * A sub-route of Settings for the reason [NotificationPrefsRoute] is: the connection is a live
+ * server stream with its own phases, and the Settings page stays a page of instant local choices.
+ *
+ * The ViewModel's automatic open of the approval page is honoured best-effort only. It arrives after
+ * an awaited RPC, not inside the click, so a popup blocker may refuse it — which is why the page
+ * always carries a real new-tab link to the same URL rather than depending on this.
+ */
+@Composable
+private fun HardcoverRoute(
+    router: Router,
+    openHardcover: OpenHardcover,
+    onToast: (String) -> Unit,
+) {
+    val session = remember { openHardcover() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                is HardcoverSettingsEvent.OpenVerificationPage -> window.open(event.url, "_blank", "noopener")
+
+                // `AppError.message` is a user-facing constant per subtype — printed, not reworded.
+                is HardcoverSettingsEvent.ShowError -> onToast(event.error.message)
+            }
+        }
+    }
+
+    HardcoverPage(
+        state = session.state.collectAsState().value,
+        onConnect = session.onConnect,
+        onDisconnect = session.onDisconnect,
+        onOpenSettings = { router.navigate(Route(listOf(SETTINGS_KEY))) },
+    )
+}
+
+/**
  * The profile family: a listener's page, and — if it is your own — the form over it.
  *
  * Pulled out of [RouteContent] for the same reason `BookRouteContent` was: a page and the editor
@@ -2994,6 +3038,9 @@ private const val LICENCES_KEY = "licences"
 
 private const val DEVICES_KEY = "devices"
 
+/** `/settings/hardcover` — connecting a Hardcover account. */
+private const val HARDCOVER_KEY = "hardcover"
+
 /** The path segment that opens a listener's own page — `/profile/{userId}`. */
 private const val PROFILE_KEY = "profile"
 
@@ -3171,6 +3218,8 @@ private fun SettingsRoute(
         onOpenDevices = { router.navigate(Route(listOf(SETTINGS_KEY, DEVICES_KEY))) },
         onOpenNotifications = { router.navigate(Route(listOf(SETTINGS_KEY, NOTIFICATIONS_KEY))) },
         onOpenLicences = { router.navigate(Route(listOf(SETTINGS_KEY, LICENCES_KEY))) },
+        hardcoverRow = session.hardcoverRow.collectAsState().value,
+        onOpenHardcover = { router.navigate(Route(listOf(SETTINGS_KEY, HARDCOVER_KEY))) },
     )
 }
 
@@ -3506,6 +3555,7 @@ private fun AccountRouteContent(
     router: Router,
     openSettings: OpenSettings,
     openDevices: OpenDevices,
+    openHardcover: OpenHardcover,
     openAdmin: OpenAdmin,
     openNotificationPrefs: OpenNotificationPrefs,
     openLicences: OpenLicences,
@@ -3529,6 +3579,10 @@ private fun AccountRouteContent(
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == NOTIFICATIONS_KEY -> {
             NotificationPrefsRoute(router = router, openNotificationPrefs = openNotificationPrefs)
+        }
+
+        segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == HARDCOVER_KEY -> {
+            HardcoverRoute(router = router, openHardcover = openHardcover, onToast = onToast)
         }
 
         segments.firstOrNull() == SETTINGS_KEY && segments.getOrNull(1) == LICENCES_KEY -> {

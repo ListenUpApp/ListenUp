@@ -103,6 +103,7 @@
 .bd-series-chip:active { transform: translateY(1px); }
 
 /* Cards and tiles — big targets where 1px would be invisible. */
+.luw .set-link:active,
 .luw .home-card:active,
 .luw .disc-card:active,
 .luw .home-shelf:active,

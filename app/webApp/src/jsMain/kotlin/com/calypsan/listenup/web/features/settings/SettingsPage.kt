@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.settings
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits
 import com.calypsan.listenup.web.features.nowplaying.formatBoost
@@ -49,6 +50,8 @@ fun SettingsPage(
     onOpenDevices: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenLicences: () -> Unit = {},
+    hardcoverRow: HardcoverRowState? = null,
+    onOpenHardcover: () -> Unit = {},
 ) {
     Div(attrs = { classes("set") }) {
         H1(attrs = { classes("set-title") }) { Text("Settings") }
@@ -118,14 +121,15 @@ fun SettingsPage(
         Section("Account", null) {
             Button(attrs = {
                 classes("btn-o")
-                attr("type", "button")
+                attr("type", TYPE_BUTTON)
                 onClick { onOpenDevices() }
             }) { Text("Devices you are signed in on") }
             Button(attrs = {
                 classes("btn-o")
-                attr("type", "button")
+                attr("type", TYPE_BUTTON)
                 onClick { onOpenNotifications() }
             }) { Text("Which notifications reach you") }
+            hardcoverRow?.let { row -> HardcoverEntry(row, onOpenHardcover) }
         }
 
         Section("About", null) {
@@ -134,12 +138,40 @@ fun SettingsPage(
             state.serverVersion?.let { Row("Server version", it) }
             Button(attrs = {
                 classes("btn-o")
-                attr("type", "button")
+                attr("type", TYPE_BUTTON)
                 onClick { onOpenLicences() }
             }) { Text("Open Source Licenses") }
         }
     }
 }
+
+/**
+ * Settings → Account → Hardcover: a title and where the connection stands, so the state is readable
+ * without opening the page. Called only with a row — a null row is no entry at all.
+ */
+@Composable
+private fun HardcoverEntry(
+    row: HardcoverRowState,
+    onOpen: () -> Unit,
+) {
+    Button(attrs = {
+        classes("set-link")
+        attr("type", TYPE_BUTTON)
+        onClick { onOpen() }
+    }) {
+        Span(attrs = { classes("set-link-t") }) { Text("Hardcover") }
+        Span(attrs = { classes("set-link-sub") }) { Text(hardcoverSubtitle(row)) }
+    }
+}
+
+/** The entry's second line, from en.json's `hardcover.row_subtitle_*`. */
+private fun hardcoverSubtitle(row: HardcoverRowState): String =
+    when (row) {
+        HardcoverRowState.NotConnected -> "Share what you finish with Hardcover"
+        is HardcoverRowState.Connected -> "Connected as ${row.username}"
+        HardcoverRowState.Connecting -> "Waiting for you to approve on Hardcover"
+        HardcoverRowState.NeedsAttention -> "Needs reconnecting"
+    }
 
 @Composable
 private fun Section(
@@ -165,6 +197,8 @@ private fun Row(
         Span(attrs = { classes("set-row-v", "mono") }) { Text(value) }
     }
 }
+
+private const val TYPE_BUTTON = "button"
 
 /** The theme choices, in the order someone reasons about them: follow, then override. */
 private val THEME_OPTIONS =
