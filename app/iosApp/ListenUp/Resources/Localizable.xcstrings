@@ -46,7 +46,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Folder"
+            "value": "Add folder"
           }
         }
       }
@@ -56,7 +56,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Genre"
+            "value": "Add genre"
           }
         }
       }
@@ -66,7 +66,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Member"
+            "value": "Add member"
           }
         }
       }
@@ -86,7 +86,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Sub-genre"
+            "value": "Add sub-genre"
           }
         }
       }
@@ -206,7 +206,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Backup & Restore"
+            "value": "Backup & restore"
           }
         }
       }
@@ -306,7 +306,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Can Edit Metadata"
+            "value": "Can edit metadata"
           }
         }
       }
@@ -326,7 +326,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Can Share"
+            "value": "Can share"
           }
         }
       }
@@ -356,7 +356,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Collapse All"
+            "value": "Collapse all"
           }
         }
       }
@@ -376,7 +376,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Collection Details"
+            "value": "Collection details"
           }
         }
       }
@@ -486,7 +486,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copy Link"
+            "value": "Copy link"
           }
         }
       }
@@ -536,7 +536,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create Another"
+            "value": "Create another"
           }
         }
       }
@@ -546,7 +546,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create Backup"
+            "value": "Create backup"
           }
         }
       }
@@ -576,7 +576,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create Collection"
+            "value": "Create collection"
           }
         }
       }
@@ -586,7 +586,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create Invite"
+            "value": "Create invite"
           }
         }
       }
@@ -596,7 +596,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Creating Backup..."
+            "value": "Creating backup..."
           }
         }
       }
@@ -606,7 +606,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Backup"
+            "value": "Delete backup"
           }
         }
       }
@@ -616,7 +616,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deny Registration"
+            "value": "Deny registration"
           }
         }
       }
@@ -666,7 +666,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Expand All"
+            "value": "Expand all"
           }
         }
       }
@@ -726,7 +726,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Inbox Empty"
+            "value": "Inbox empty"
           }
         }
       }
@@ -956,7 +956,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Inbox Workflow"
+            "value": "Inbox workflow"
           }
         }
       }
@@ -976,7 +976,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invite Created!"
+            "value": "Invite created!"
           }
         }
       }
@@ -1016,7 +1016,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invite Someone"
+            "value": "Invite someone"
           }
         }
       }
@@ -1026,7 +1026,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Library Settings"
+            "value": "Library settings"
           }
         }
       }
@@ -1246,7 +1246,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "File Organization"
+            "value": "File organization"
           }
         }
       }
@@ -1486,7 +1486,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Organize Library"
+            "value": "Organize library"
           }
         }
       }
@@ -1566,7 +1566,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Protected User"
+            "value": "Protected user"
           }
         }
       }
@@ -1666,7 +1666,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Release Anyway"
+            "value": "Release anyway"
           }
         }
       }
@@ -1676,7 +1676,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Release Without Collections"
+            "value": "Release without collections"
           }
         }
       }
@@ -1706,7 +1706,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove Book"
+            "value": "Remove book"
           }
         }
       }
@@ -1716,7 +1716,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove Member"
+            "value": "Remove member"
           }
         }
       }
@@ -1746,7 +1746,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove Scan Path"
+            "value": "Remove scan path"
           }
         }
       }
@@ -1756,7 +1756,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rename Genre"
+            "value": "Rename genre"
           }
         }
       }
@@ -1766,7 +1766,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rescan Library"
+            "value": "Rescan library"
           }
         }
       }
@@ -1836,7 +1836,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restore Backup"
+            "value": "Restore backup"
           }
         }
       }
@@ -1866,7 +1866,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restore Backup?"
+            "value": "Restore backup?"
           }
         }
       }
@@ -2146,7 +2146,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revoke Invite"
+            "value": "Revoke invite"
           }
         }
       }
@@ -2156,7 +2156,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save & Scan Folder"
+            "value": "Save & scan folder"
           }
         }
       }
@@ -2216,7 +2216,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Select Folder"
+            "value": "Select folder"
           }
         }
       }
@@ -2236,7 +2236,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Server Name"
+            "value": "Server name"
           }
         }
       }
@@ -2366,7 +2366,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Upload Books"
+            "value": "Upload books"
           }
         }
       }
@@ -2376,7 +2376,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cancel Upload"
+            "value": "Cancel upload"
           }
         }
       }
@@ -2386,7 +2386,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose Files"
+            "value": "Choose files"
           }
         }
       }
@@ -2396,7 +2396,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose Folder"
+            "value": "Choose folder"
           }
         }
       }
@@ -2706,7 +2706,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Upload New Import"
+            "value": "Upload new import"
           }
         }
       }
@@ -2786,7 +2786,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cancel Registration"
+            "value": "Cancel registration"
           }
         }
       }
@@ -2796,7 +2796,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Change Server"
+            "value": "Change server"
           }
         }
       }
@@ -2806,7 +2806,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check Status"
+            "value": "Check status"
           }
         }
       }
@@ -2826,7 +2826,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confirm Password"
+            "value": "Confirm password"
           }
         }
       }
@@ -2836,7 +2836,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create Account"
+            "value": "Create account"
           }
         }
       }
@@ -2846,7 +2846,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create Admin Account"
+            "value": "Create admin account"
           }
         }
       }
@@ -2886,7 +2886,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "First Name"
+            "value": "First name"
           }
         }
       }
@@ -3166,7 +3166,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Last Name"
+            "value": "Last name"
           }
         }
       }
@@ -3306,7 +3306,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Request Account"
+            "value": "Request account"
           }
         }
       }
@@ -3376,7 +3376,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign In"
+            "value": "Sign in"
           }
         }
       }
@@ -3396,7 +3396,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign Up"
+            "value": "Sign up"
           }
         }
       }
@@ -3416,7 +3416,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Waiting for Approval"
+            "value": "Waiting for approval"
           }
         }
       }
@@ -3446,7 +3446,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Download"
+            "value": "Delete download"
           }
         }
       }
@@ -3476,7 +3476,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add to Collection"
+            "value": "Add to collection"
           }
         }
       }
@@ -3486,7 +3486,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add to Shelf"
+            "value": "Add to shelf"
           }
         }
       }
@@ -3576,7 +3576,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$d Narrator"
+            "value": "%1$d narrator"
           }
         }
       }
@@ -3586,7 +3586,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$d Narrators"
+            "value": "%1$d narrators"
           }
         }
       }
@@ -3656,7 +3656,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add to Collection"
+            "value": "Add to collection"
           }
         }
       }
@@ -3736,7 +3736,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Forever"
+            "value": "Delete forever"
           }
         }
       }
@@ -3786,7 +3786,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All Pages"
+            "value": "All pages"
           }
         }
       }
@@ -3936,7 +3936,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Edit Book"
+            "value": "Edit book"
           }
         }
       }
@@ -4046,7 +4046,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mark as Finished"
+            "value": "Mark as finished"
           }
         }
       }
@@ -4066,7 +4066,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mark as Not Started"
+            "value": "Mark as not started"
           }
         }
       }
@@ -4076,7 +4076,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mark as Read"
+            "value": "Mark as read"
           }
         }
       }
@@ -4146,7 +4146,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Collection"
+            "value": "New collection"
           }
         }
       }
@@ -4156,7 +4156,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Shelf"
+            "value": "New shelf"
           }
         }
       }
@@ -4506,7 +4506,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restart Book"
+            "value": "Restart book"
           }
         }
       }
@@ -4596,7 +4596,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show Less"
+            "value": "Show less"
           }
         }
       }
@@ -4746,7 +4746,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Role"
+            "value": "Add role"
           }
         }
       }
@@ -4856,7 +4856,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Date Added"
+            "value": "Date added"
           }
         }
       }
@@ -4946,7 +4946,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keep Editing"
+            "value": "Keep editing"
           }
         }
       }
@@ -5166,7 +5166,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sort Title"
+            "value": "Sort title"
           }
         }
       }
@@ -5226,7 +5226,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unsaved Changes"
+            "value": "Unsaved changes"
           }
         }
       }
@@ -6056,7 +6056,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "By Author"
+            "value": "By author"
           }
         }
       }
@@ -6066,7 +6066,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "By Series"
+            "value": "By series"
           }
         }
       }
@@ -6076,7 +6076,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Continue Listening"
+            "value": "Continue listening"
           }
         }
       }
@@ -7276,7 +7276,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ Information"
+            "value": "%1$@ information"
           }
         }
       }
@@ -7406,7 +7406,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ListenUp Logo"
+            "value": "ListenUp logo"
           }
         }
       }
@@ -7476,7 +7476,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "My Profile"
+            "value": "My profile"
           }
         }
       }
@@ -7746,7 +7746,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save Changes"
+            "value": "Save changes"
           }
         }
       }
@@ -7916,7 +7916,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign Out"
+            "value": "Sign out"
           }
         }
       }
@@ -8026,7 +8026,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Try Again"
+            "value": "Try again"
           }
         }
       }
@@ -8056,7 +8056,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "View All"
+            "value": "View all"
           }
         }
       }
@@ -8066,7 +8066,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Server"
+            "value": "Add server"
           }
         }
       }
@@ -8076,7 +8076,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add Server Manually"
+            "value": "Add server manually"
           }
         }
       }
@@ -8106,7 +8106,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connect to Server"
+            "value": "Connect to server"
           }
         }
       }
@@ -8156,7 +8156,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ListenUp Server"
+            "value": "ListenUp server"
           }
         }
       }
@@ -8206,7 +8206,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Select Server"
+            "value": "Select server"
           }
         }
       }
@@ -8286,7 +8286,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Also Known As"
+            "value": "Also known as"
           }
         }
       }
@@ -8316,7 +8316,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Audible Region"
+            "value": "Audible region"
           }
         }
       }
@@ -8346,7 +8346,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Birth Date"
+            "value": "Birth date"
           }
         }
       }
@@ -8396,7 +8396,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Change Match"
+            "value": "Change match"
           }
         }
       }
@@ -8466,7 +8466,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Death Date"
+            "value": "Death date"
           }
         }
       }
@@ -8536,7 +8536,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Edit Contributor"
+            "value": "Edit contributor"
           }
         }
       }
@@ -8766,7 +8766,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Other Books"
+            "value": "Other books"
           }
         }
       }
@@ -8776,7 +8776,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Preview Changes"
+            "value": "Preview changes"
           }
         }
       }
@@ -8816,7 +8816,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keep Separate"
+            "value": "Keep separate"
           }
         }
       }
@@ -8836,7 +8836,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This Author Already Exists"
+            "value": "This author already exists"
           }
         }
       }
@@ -9116,7 +9116,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activity Feed"
+            "value": "Activity feed"
           }
         }
       }
@@ -9226,7 +9226,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Discover Something New"
+            "value": "Discover something new"
           }
         }
       }
@@ -9406,7 +9406,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Shelves to Discover Yet"
+            "value": "No shelves to discover yet"
           }
         }
       }
@@ -9446,7 +9446,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recently Added"
+            "value": "Recently added"
           }
         }
       }
@@ -9526,7 +9526,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What Others Are Listening To"
+            "value": "What others are listening to"
           }
         }
       }
@@ -9726,7 +9726,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Browse by Genre"
+            "value": "Browse by genre"
           }
         }
       }
@@ -9876,7 +9876,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Browse Library"
+            "value": "Browse library"
           }
         }
       }
@@ -10046,7 +10046,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This Week"
+            "value": "This week"
           }
         }
       }
@@ -10066,7 +10066,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Top Genres"
+            "value": "Top genres"
           }
         }
       }
@@ -10126,7 +10126,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apply Import"
+            "value": "Apply import"
           }
         }
       }
@@ -10156,7 +10156,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Audiobookshelf Imports"
+            "value": "Audiobookshelf imports"
           }
         }
       }
@@ -10266,7 +10266,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose Backup File"
+            "value": "Choose backup file"
           }
         }
       }
@@ -10316,7 +10316,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Import"
+            "value": "Delete import"
           }
         }
       }
@@ -10346,7 +10346,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Import Complete"
+            "value": "Import complete"
           }
         }
       }
@@ -10366,7 +10366,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Import Failed"
+            "value": "Import failed"
           }
         }
       }
@@ -10386,7 +10386,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ABS Import"
+            "value": "ABS import"
           }
         }
       }
@@ -10446,7 +10446,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ABS Import"
+            "value": "ABS import"
           }
         }
       }
@@ -10616,7 +10616,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Import"
+            "value": "New import"
           }
         }
       }
@@ -10626,7 +10626,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Import"
+            "value": "New import"
           }
         }
       }
@@ -10906,7 +10906,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Upload Failed"
+            "value": "Upload failed"
           }
         }
       }
@@ -11266,7 +11266,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Collection Name"
+            "value": "Collection name"
           }
         }
       }
@@ -11306,7 +11306,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create & Add"
+            "value": "Create & add"
           }
         }
       }
@@ -11316,7 +11316,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create New Collection"
+            "value": "Create new collection"
           }
         }
       }
@@ -11326,7 +11326,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create New Shelf"
+            "value": "Create new shelf"
           }
         }
       }
@@ -11356,7 +11356,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your Library is Empty"
+            "value": "Your library is empty"
           }
         }
       }
@@ -11526,7 +11526,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sync Failed"
+            "value": "Sync failed"
           }
         }
       }
@@ -11936,7 +11936,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start Scanning"
+            "value": "Start scanning"
           }
         }
       }
@@ -12006,7 +12006,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Source"
+            "value": "Open source"
           }
         }
       }
@@ -12306,7 +12306,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apply Metadata"
+            "value": "Apply metadata"
           }
         }
       }
@@ -12316,7 +12316,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apply Selected Metadata"
+            "value": "Apply selected metadata"
           }
         }
       }
@@ -12826,7 +12826,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Release Date"
+            "value": "Release date"
           }
         }
       }
@@ -12976,7 +12976,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Select Metadata"
+            "value": "Select metadata"
           }
         }
       }
@@ -13076,7 +13076,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use This Match"
+            "value": "Use this match"
           }
         }
       }
@@ -13486,7 +13486,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Close Book"
+            "value": "Close book"
           }
         }
       }
@@ -13566,7 +13566,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to Author"
+            "value": "Go to author"
           }
         }
       }
@@ -13576,7 +13576,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to Author…"
+            "value": "Go to author…"
           }
         }
       }
@@ -13586,7 +13586,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to Book"
+            "value": "Go to book"
           }
         }
       }
@@ -13596,7 +13596,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to Narrator"
+            "value": "Go to narrator"
           }
         }
       }
@@ -13606,7 +13606,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to Narrator…"
+            "value": "Go to narrator…"
           }
         }
       }
@@ -13616,7 +13616,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to Series"
+            "value": "Go to series"
           }
         }
       }
@@ -13646,7 +13646,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Now Playing"
+            "value": "Now playing"
           }
         }
       }
@@ -13826,7 +13826,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer Active"
+            "value": "Timer active"
           }
         }
       }
@@ -13836,7 +13836,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unknown Book"
+            "value": "Unknown book"
           }
         }
       }
@@ -13886,7 +13886,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volume Boost"
+            "value": "Volume boost"
           }
         }
       }
@@ -13916,7 +13916,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Change Password"
+            "value": "Change password"
           }
         }
       }
@@ -13956,7 +13956,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Edit Profile"
+            "value": "Edit profile"
           }
         }
       }
@@ -14006,7 +14006,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recently Finished"
+            "value": "Recently finished"
           }
         }
       }
@@ -14016,7 +14016,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove Photo"
+            "value": "Remove photo"
           }
         }
       }
@@ -14126,7 +14126,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Upload Photo"
+            "value": "Upload photo"
           }
         }
       }
@@ -14456,7 +14456,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Search Your Library"
+            "value": "Search your library"
           }
         }
       }
@@ -14516,7 +14516,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Search Unavailable"
+            "value": "Search unavailable"
           }
         }
       }
@@ -14696,7 +14696,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Books in Series"
+            "value": "Books in series"
           }
         }
       }
@@ -14706,7 +14706,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Books in Series"
+            "value": "Books in series"
           }
         }
       }
@@ -14796,7 +14796,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Edit Series"
+            "value": "Edit series"
           }
         }
       }
@@ -14836,7 +14836,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Listen Again"
+            "value": "Listen again"
           }
         }
       }
@@ -14936,7 +14936,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Cover"
+            "value": "No cover"
           }
         }
       }
@@ -14946,7 +14946,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not Started"
+            "value": "Not started"
           }
         }
       }
@@ -14976,7 +14976,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Series Name"
+            "value": "Series name"
           }
         }
       }
@@ -14996,7 +14996,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start Listening"
+            "value": "Start listening"
           }
         }
       }
@@ -15156,7 +15156,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clear All"
+            "value": "Clear all"
           }
         }
       }
@@ -15166,7 +15166,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clear All Downloads?"
+            "value": "Clear all downloads?"
           }
         }
       }
@@ -15236,7 +15236,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Downloaded Books"
+            "value": "Downloaded books"
           }
         }
       }
@@ -15286,7 +15286,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Haptic Feedback"
+            "value": "Haptic feedback"
           }
         }
       }
@@ -15366,7 +15366,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Downloads"
+            "value": "No downloads"
           }
         }
       }
@@ -15376,7 +15376,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Source Licenses"
+            "value": "Open source licenses"
           }
         }
       }
@@ -15436,7 +15436,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign Out"
+            "value": "Sign out"
           }
         }
       }
@@ -15606,7 +15606,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Download on Wi-Fi Only"
+            "value": "Download on Wi-Fi only"
           }
         }
       }
@@ -15786,7 +15786,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create Shelf"
+            "value": "Create shelf"
           }
         }
       }
@@ -15796,7 +15796,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Shelf"
+            "value": "Delete shelf"
           }
         }
       }
@@ -15826,7 +15826,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Edit Shelf"
+            "value": "Edit shelf"
           }
         }
       }
@@ -16036,7 +16036,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Library Changed"
+            "value": "Library changed"
           }
         }
       }
@@ -16146,7 +16146,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sync Status"
+            "value": "Sync status"
           }
         }
       }

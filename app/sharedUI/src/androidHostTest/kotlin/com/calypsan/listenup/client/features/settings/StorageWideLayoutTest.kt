@@ -31,7 +31,7 @@ class StorageWideLayoutTest {
     fun `on a tablet the summary sits beside the books, which flow into columns`() {
         setContent()
 
-        assertSideBySide(composeRule.onNodeWithText("2.0 GB"), composeRule.onNodeWithText("Downloaded Books"))
+        assertSideBySide(composeRule.onNodeWithText("2.0 GB"), composeRule.onNodeWithText("Downloaded books"))
         assertSideBySide(composeRule.onNodeWithText("The Way of Kings"), composeRule.onNodeWithText("Words of Radiance"))
     }
 
@@ -41,7 +41,7 @@ class StorageWideLayoutTest {
         setContent()
 
         val summary = composeRule.onNodeWithText("2.0 GB").getUnclippedBoundsInRoot()
-        composeRule.onNodeWithText("Downloaded Books").getUnclippedBoundsInRoot().top shouldBeGreaterThanOrEqualTo
+        composeRule.onNodeWithText("Downloaded books").getUnclippedBoundsInRoot().top shouldBeGreaterThanOrEqualTo
             summary.bottom
         assertSideBySide(composeRule.onNodeWithText("The Way of Kings"), composeRule.onNodeWithText("Words of Radiance"))
     }

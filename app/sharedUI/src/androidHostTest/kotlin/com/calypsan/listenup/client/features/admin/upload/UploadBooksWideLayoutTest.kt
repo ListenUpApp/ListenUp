@@ -30,7 +30,7 @@ class UploadBooksWideLayoutTest {
         setContent(UploadBooksUiState.Idle)
 
         assertSideBySide(composeRule.onNodeWithText("Choose books"), composeRule.onNodeWithText(DESCRIPTION, substring = true))
-        assertRightOf(composeRule.onNodeWithText("Choose Folder"), composeRule.onNodeWithText("Choose books"))
+        assertRightOf(composeRule.onNodeWithText("Choose folder"), composeRule.onNodeWithText("Choose books"))
     }
 
     @Test
@@ -39,7 +39,7 @@ class UploadBooksWideLayoutTest {
         setContent(UPLOADING)
 
         composeRule.onNodeWithText("Import").assertIsDisplayed()
-        assertRightOf(composeRule.onNodeWithText("Cancel Upload"), composeRule.onNodeWithText("Import"))
+        assertRightOf(composeRule.onNodeWithText("Cancel upload"), composeRule.onNodeWithText("Import"))
     }
 
     @Test
@@ -47,7 +47,7 @@ class UploadBooksWideLayoutTest {
     fun `on a phone the choice is one column without steps`() {
         setContent(UploadBooksUiState.Idle)
 
-        assertStacked(composeRule.onNodeWithText("Choose Folder"), composeRule.onNodeWithText("Choose Files"))
+        assertStacked(composeRule.onNodeWithText("Choose folder"), composeRule.onNodeWithText("Choose files"))
         composeRule.onNodeWithText("Choose books").assertDoesNotExist()
     }
 

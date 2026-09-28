@@ -28,7 +28,7 @@ class UserDetailWideLayoutTest {
     fun `on a tablet information and permissions sit side by side`() {
         setContent()
 
-        assertSideBySide(composeRule.onNodeWithText("User Information"), composeRule.onNodeWithText("Permissions"))
+        assertSideBySide(composeRule.onNodeWithText("User information"), composeRule.onNodeWithText("Permissions"))
     }
 
     @Test
@@ -36,7 +36,7 @@ class UserDetailWideLayoutTest {
     fun `on a phone information and permissions stack`() {
         setContent()
 
-        assertStacked(composeRule.onNodeWithText("User Information"), composeRule.onNodeWithText("Permissions"))
+        assertStacked(composeRule.onNodeWithText("User information"), composeRule.onNodeWithText("Permissions"))
     }
 
     private fun setContent() {

@@ -117,7 +117,7 @@ class ManagementSectionTest {
     }
 
     private companion object {
-        const val LIBRARY_SETTINGS_TITLE = "Library Settings"
-        const val UPLOAD_BOOKS_TITLE = "Upload Books"
+        const val LIBRARY_SETTINGS_TITLE = "Library settings"
+        const val UPLOAD_BOOKS_TITLE = "Upload books"
     }
 }

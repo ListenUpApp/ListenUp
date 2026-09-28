@@ -28,7 +28,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * "What Others Are Listening To" renders two kinds of row, and the difference has to be visible.
+ * "What others are listening to" renders two kinds of row, and the difference has to be visible.
  *
  * The section used to show live presence only and hide itself whenever nobody was listening — which,
  * on a server with three people, is nearly always. A section that silently disappears is
@@ -114,7 +114,7 @@ class CurrentlyListeningSectionTest {
                 )
             }
         }
-        composeRule.onNodeWithText("What Others Are Listening To").assertDoesNotExist()
+        composeRule.onNodeWithText("What others are listening to").assertDoesNotExist()
     }
 
     @Test
@@ -131,7 +131,7 @@ class CurrentlyListeningSectionTest {
                 )
             }
         }
-        composeRule.onNodeWithText("What Others Are Listening To").assertIsDisplayed()
+        composeRule.onNodeWithText("What others are listening to").assertIsDisplayed()
         composeRule.onNodeWithText("Wind and Truth").assertIsDisplayed()
         composeRule.onNodeWithText("Listening now").assertIsDisplayed()
     }

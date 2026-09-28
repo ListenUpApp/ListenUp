@@ -404,7 +404,7 @@ private fun CreateGenreDialog(
 
     if (showCreateDialog) {
         GenreNameDialog(
-            title = if (createParentName != null) "Add Sub-genre" else "Add Root Genre",
+            title = if (createParentName != null) "Add sub-genre" else "Add root genre",
             subtitle = createParentName?.let { "Under: $it" },
             initialName = "",
             confirmLabel = "Create",

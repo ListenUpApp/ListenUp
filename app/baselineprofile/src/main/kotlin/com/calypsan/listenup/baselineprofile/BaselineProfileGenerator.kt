@@ -94,7 +94,7 @@ class BaselineProfileGenerator {
         check(fields.size >= 2) { "Sign-in form not shown; is the rig server at ${account.serverUrl} running?" }
         fields[0].text = account.email
         fields[1].text = account.password
-        // Two nodes read "Sign In": the screen title, then the button.
+        // Two nodes read "Sign in": the screen title, then the button.
         device.findObjects(By.text(SIGN_IN)).last().click()
 
         check(device.wait(Until.hasObject(By.text(LIBRARY_TAB)), NETWORK_TIMEOUT_MS)) {
@@ -186,10 +186,10 @@ class BaselineProfileGenerator {
             )
 
         // On-screen text and accessibility labels (English resources).
-        const val ADD_SERVER_MANUALLY = "Add Server Manually"
+        const val ADD_SERVER_MANUALLY = "Add server manually"
         const val CONNECT = "Connect"
         const val FORGOT_PASSWORD = "Forgot password?"
-        const val SIGN_IN = "Sign In"
+        const val SIGN_IN = "Sign in"
         const val LIBRARY_TAB = "Library"
         const val PLAY = "Play"
         const val MINI_PLAYER_COVER = "Book cover"

@@ -113,7 +113,7 @@ fun BookEditScreen(
                     tonalElevation = 3.dp,
                 ) {
                     ListenUpButton(
-                        text = if (state.isSaving) "Saving..." else "Save Changes",
+                        text = if (state.isSaving) "Saving..." else "Save changes",
                         onClick = { viewModel.onEvent(BookEditUiEvent.Save) },
                         enabled = state.hasChanges && !state.isSaving,
                         isLoading = state.isSaving,

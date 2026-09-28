@@ -32,7 +32,7 @@ class AdminBackupWideLayoutTest {
     fun `on a tablet backups and imports are two lanes`() {
         setContent()
 
-        assertSideBySide(composeRule.onNodeWithText("Restore from file"), composeRule.onNodeWithText("Upload New Import"))
+        assertSideBySide(composeRule.onNodeWithText("Restore from file"), composeRule.onNodeWithText("Upload new import"))
         assertSideBySide(composeRule.onNodeWithText("backup-2026-09-01"), composeRule.onNodeWithText("42 books"))
     }
 
@@ -41,7 +41,7 @@ class AdminBackupWideLayoutTest {
     fun `on a phone the imports follow the backups`() {
         setContent()
 
-        assertStacked(composeRule.onNodeWithText("Restore from file"), composeRule.onNodeWithText("Upload New Import"))
+        assertStacked(composeRule.onNodeWithText("Restore from file"), composeRule.onNodeWithText("Upload new import"))
     }
 
     private fun setContent() {

@@ -49,7 +49,7 @@ class SignOutConfirmationTest {
     fun avatarMenuSignOutAsksBeforeSigningOut() {
         setShell(avatarMenuOpen = true)
 
-        composeRule.onNode(hasText("Sign Out") and hasClickAction()).performClick()
+        composeRule.onNode(hasText("Sign out") and hasClickAction()).performClick()
 
         composeRule.onNodeWithText(SIGN_OUT_BODY).assertIsDisplayed()
         signOuts shouldBe 0
@@ -60,7 +60,7 @@ class SignOutConfirmationTest {
         setShell()
 
         composeRule.onNodeWithText("Logout").performClick()
-        composeRule.onNode(hasText("Sign Out") and hasClickAction()).performClick()
+        composeRule.onNode(hasText("Sign out") and hasClickAction()).performClick()
 
         signOuts shouldBe 1
         composeRule.onNodeWithText(SIGN_OUT_BODY).assertDoesNotExist()

@@ -32,7 +32,7 @@ class CreateBackupWideLayoutTest {
         setContent()
 
         assertSideBySide(composeRule.onNodeWithText(INTRO), composeRule.onNodeWithText(SUMMARY))
-        assertRightOf(composeRule.onNodeWithText("Create Backup"), composeRule.onNodeWithText("What to include"))
+        assertRightOf(composeRule.onNodeWithText("Create backup"), composeRule.onNodeWithText("What to include"))
     }
 
     @Test
@@ -41,11 +41,11 @@ class CreateBackupWideLayoutTest {
         setContent()
 
         assertSideBySide(composeRule.onNodeWithText(INTRO), composeRule.onNodeWithText(SUMMARY))
-        assertRightOf(composeRule.onNodeWithText("Create Backup"), composeRule.onNodeWithText("What to include"))
+        assertRightOf(composeRule.onNodeWithText("Create backup"), composeRule.onNodeWithText("What to include"))
         // The action fills the summary's column. A fixed side panel would leave the options column
         // narrower than that; here the options get at least as much of the width.
         val intro = composeRule.onNodeWithText(INTRO).getUnclippedBoundsInRoot()
-        val create = composeRule.onNodeWithText("Create Backup").getUnclippedBoundsInRoot()
+        val create = composeRule.onNodeWithText("Create backup").getUnclippedBoundsInRoot()
         val optionsColumn = create.left - intro.left
         optionsColumn shouldBeGreaterThanOrEqualTo create.width
     }
@@ -55,7 +55,7 @@ class CreateBackupWideLayoutTest {
     fun `on a phone the options, summary and action stack`() {
         setContent()
 
-        assertStacked(composeRule.onNodeWithText(INTRO), composeRule.onNodeWithText("Create Backup"))
+        assertStacked(composeRule.onNodeWithText(INTRO), composeRule.onNodeWithText("Create backup"))
     }
 
     private fun setContent() {

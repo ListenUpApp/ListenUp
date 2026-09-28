@@ -86,7 +86,7 @@ class ForgotPasswordScreenTest {
             .assertIsDisplayed()
         composeRule.onNodeWithText("Request #7F2A").assertExists()
         composeRule.onNodeWithText("You can close ListenUp — your request is kept.").assertExists()
-        composeRule.onNodeWithText("Check Status").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithText("Check status").performSemanticsAction(SemanticsActions.OnClick)
 
         checked shouldBe true
     }
@@ -196,7 +196,7 @@ class ForgotPasswordScreenTest {
         setContent(state = ForgotPasswordUiState.Error("Your reset request expired. Please start again."), onBack = { back = true })
 
         composeRule.onNodeWithText("Your reset request expired. Please start again.").assertIsDisplayed()
-        composeRule.onNodeWithText("Try Again").performClick()
+        composeRule.onNodeWithText("Try again").performClick()
 
         back shouldBe true
     }

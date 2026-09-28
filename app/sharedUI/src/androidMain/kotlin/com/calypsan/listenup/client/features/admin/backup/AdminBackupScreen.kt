@@ -99,7 +99,7 @@ import listenup.composeapp.generated.resources.common_open
 import listenup.composeapp.generated.resources.import_audiobookshelf_imports
 import listenup.composeapp.generated.resources.import_delete_confirm
 import listenup.composeapp.generated.resources.import_delete_import
-import listenup.composeapp.generated.resources.import_flow_eyebrow
+import listenup.composeapp.generated.resources.common_administration
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -166,7 +166,7 @@ fun AdminBackupScreen(
                 badgeIcon = Icons.Outlined.Archive,
                 onBack = onBackClick,
                 modifier = Modifier.fillMaxWidth(),
-                overline = stringResource(Res.string.import_flow_eyebrow),
+                overline = stringResource(Res.string.common_administration),
             )
             AdminBackupBody(
                 state = backupState,

@@ -91,7 +91,7 @@ class MatchPreviewWideLayoutTest {
     }
 
     private companion object {
-        const val APPLY = "Apply Selected Metadata"
+        const val APPLY = "Apply selected metadata"
 
         val CURRENT_BOOK =
             BookDetail(

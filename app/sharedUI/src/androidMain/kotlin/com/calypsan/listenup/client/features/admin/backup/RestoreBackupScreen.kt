@@ -161,7 +161,7 @@ internal fun RestoreBackupContent(
     if (state == RestoreBackupUiState.Confirming) {
         ListenUpDestructiveDialog(
             onDismissRequest = onCancelRestore,
-            title = "Restore Backup?",
+            title = "Restore backup?",
             text =
                 "This replaces everything on this server, including all user accounts, with the " +
                     "contents of this backup. You'll be signed out and must sign in again with an " +
