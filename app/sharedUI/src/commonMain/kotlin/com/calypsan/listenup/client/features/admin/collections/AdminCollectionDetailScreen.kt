@@ -81,6 +81,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -347,7 +348,7 @@ private fun NarrowDetailContent(
             DetailHero(state = state, onBackClick = onBackClick)
         }
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = SECTION_SPACING_DP.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = SECTION_SPACING_DP.dp)) {
                 NameSection(state = state, onNameChange = onNameChange, onSaveClick = onSaveClick)
                 Spacer(modifier = Modifier.height(SECTION_SPACING_DP.dp))
                 BooksSection(
@@ -530,7 +531,7 @@ private fun NameSection(
         accent = MaterialTheme.colorScheme.primary,
         modifier = modifier,
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ListenUpTextField(
                 value = state.editedName,
                 onValueChange = onNameChange,
@@ -841,7 +842,7 @@ private fun AddMemberBottomSheet(
             Text(
                 text = stringResource(Res.string.admin_add_member),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
             when {
                 isLoading -> AddMemberLoadingPanel()
@@ -947,7 +948,7 @@ private fun AddBooksToCollectionSheet(
             Text(
                 text = stringResource(Res.string.admin_add_books),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
             ListenUpSearchField(
                 value = query,
@@ -956,7 +957,7 @@ private fun AddBooksToCollectionSheet(
                 placeholder = stringResource(Res.string.admin_add_books_search_placeholder),
                 isLoading = isSearching,
                 onClear = { onQueryChange("") },
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.lg),
             )
             if (query.isNotBlank() && results.isEmpty() && !isSearching) {
                 Text(

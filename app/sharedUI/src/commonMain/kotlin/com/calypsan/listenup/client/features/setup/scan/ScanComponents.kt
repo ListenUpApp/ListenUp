@@ -56,6 +56,7 @@ import com.calypsan.listenup.client.design.components.BookCoverFallback
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.motion.LocalReduceMotion
 import com.calypsan.listenup.client.design.motion.rememberAmbientLoop
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.scan_scanning
 import org.jetbrains.compose.resources.stringResource
@@ -284,7 +285,7 @@ fun ScanFileLine(
                 .height(46.dp)
                 .clip(RoundedCornerShape(50))
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = Spacing.lg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

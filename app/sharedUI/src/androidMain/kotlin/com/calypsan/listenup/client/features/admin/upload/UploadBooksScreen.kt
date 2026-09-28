@@ -80,6 +80,7 @@ import listenup.composeapp.generated.resources.admin_upload_books_uploading
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_ok
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -341,7 +342,7 @@ private fun IdleContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
@@ -384,7 +385,7 @@ private fun UploadingContent(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -444,7 +445,7 @@ private fun FinalizingContent(modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -479,10 +480,10 @@ private fun FinishedContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.xl))
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
                 imageVector = Icons.Outlined.CheckCircle,
@@ -541,7 +542,7 @@ private fun FailedContent(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

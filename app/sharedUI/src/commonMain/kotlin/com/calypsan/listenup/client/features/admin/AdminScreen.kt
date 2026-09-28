@@ -90,6 +90,7 @@ import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
@@ -473,8 +474,8 @@ private fun AdminContent(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+                    .padding(horizontal = Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
@@ -556,12 +557,12 @@ private fun AdminTwoPaneContent(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        modifier = modifier.fillMaxSize().padding(horizontal = Spacing.screenMargin),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
         LazyColumn(
             modifier = Modifier.weight(1.1f),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
@@ -595,7 +596,7 @@ private fun AdminTwoPaneContent(
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
@@ -852,7 +853,7 @@ private fun UsersGroup(
                 text = stringResource(Res.string.common_no_items_found, "users"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(Spacing.lg),
             )
         } else {
             state.users.forEachIndexed { index, user ->
@@ -935,7 +936,7 @@ private fun PendingRegistrationsGroup(
                 text = stringResource(Res.string.admin_no_pending_registrations),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(Spacing.lg),
             )
         } else {
             state.pendingUsers.forEachIndexed { index, user ->
@@ -1158,7 +1159,7 @@ private fun PasswordResetsGroup(
                 text = stringResource(Res.string.admin_no_pending_password_resets),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(Spacing.lg),
             )
         } else {
             state.pendingPasswordResets.forEachIndexed { index, request ->

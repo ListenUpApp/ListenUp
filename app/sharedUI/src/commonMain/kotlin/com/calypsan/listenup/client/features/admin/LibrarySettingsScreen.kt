@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
 import com.calypsan.listenup.client.design.components.SectionColumns
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.rememberScrollState
@@ -57,6 +56,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
@@ -246,8 +246,8 @@ internal fun LibrarySettingsContent(
     } else {
         LazyColumn(
             modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
             item { ScanPathsSection(state = state, onRemoveRequest = onRemoveRequest, onAddFolder = onAddFolder) }
             item { ScanningSection(isScanning = state.isScanning, onTriggerScan = onTriggerScan) }
@@ -388,7 +388,7 @@ private fun FolderBrowserDialog(
                     text = state.browserPath,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
                 )
 
                 // Select current folder button
@@ -416,7 +416,7 @@ private fun FolderBrowserDialog(
                                     Modifier
                                         .fillMaxWidth()
                                         .clickable { onNavigate(entry.path) }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {

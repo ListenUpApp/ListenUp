@@ -57,6 +57,7 @@ import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.FolderRow
 import com.calypsan.listenup.client.features.setup.components.SetupBreadcrumb
@@ -162,7 +163,12 @@ private fun PhoneLayout(
                     Modifier
                         .fillMaxWidth()
                         .systemBarsPadding()
-                        .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
+                        .padding(
+                            start = Spacing.screenMargin,
+                            end = Spacing.screenMargin,
+                            top = Spacing.md,
+                            bottom = Spacing.xl,
+                        ),
             ) {
                 BrandMark(onColor = true)
                 Spacer(Modifier.height(18.dp))
@@ -536,7 +542,7 @@ private fun EmptyFolder(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
         ListenUpButton(text = "Select this folder", onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())
     }
 }

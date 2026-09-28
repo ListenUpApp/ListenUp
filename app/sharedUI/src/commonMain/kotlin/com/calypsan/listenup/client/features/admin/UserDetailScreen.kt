@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
 import com.calypsan.listenup.client.design.components.SectionColumns
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.rememberScrollState
@@ -52,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
@@ -216,7 +216,7 @@ internal fun UserDetailContent(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = Spacing.lg),
         ) {
             // User info section
             item {
@@ -232,7 +232,7 @@ internal fun UserDetailContent(
 
             // Permissions section
             item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
                 SectionHeading(stringResource(Res.string.common_permissions))
             }
 
@@ -304,7 +304,7 @@ private fun UserInfoCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Name row
@@ -493,7 +493,7 @@ private fun ProtectedUserNotice(modifier: Modifier = Modifier) {
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {

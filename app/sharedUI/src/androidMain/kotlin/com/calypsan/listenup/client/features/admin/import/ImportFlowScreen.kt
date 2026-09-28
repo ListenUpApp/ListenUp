@@ -70,6 +70,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.StatTile
 import com.calypsan.listenup.client.design.components.StatTileTone
 import com.calypsan.listenup.client.design.components.WizardStepTracker
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.imports.BookSearchState
@@ -342,7 +343,7 @@ private fun IdleContent(onChooseFile: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
@@ -655,7 +656,10 @@ private fun UserMatchCard(
                 else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
             },
     ) {
-        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             UserIdentityRow(
                 match = match,
                 matched = matched,
@@ -867,7 +871,10 @@ private fun BookReviewCard(
                 else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
             },
     ) {
-        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             BookTitleRow(
                 item = item,
                 statusText =
@@ -1035,7 +1042,7 @@ private fun ApplyingContent(state: ImportFlowUiState.Applying) {
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(Spacing.lg)) {
                     Text(
                         text = stringResource(Res.string.import_currently_writing_label),
                         style = MaterialTheme.typography.labelMedium,
@@ -1115,7 +1122,7 @@ private fun DoneContent(
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Outlined.SkipNext,
                         contentDescription = null,

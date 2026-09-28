@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel
 import com.calypsan.listenup.client.presentation.error.localized
@@ -172,7 +173,7 @@ private fun IdleUploadContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
@@ -209,7 +210,7 @@ private fun UploadingContent(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -243,7 +244,7 @@ private fun ErrorUploadContent(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -270,7 +271,7 @@ private fun ErrorUploadContent(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                 ),
         ) {
-            Box(modifier = Modifier.padding(16.dp)) {
+            Box(modifier = Modifier.padding(Spacing.lg)) {
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodyMedium,

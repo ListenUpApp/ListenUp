@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.admin.organize
 
 import com.calypsan.listenup.client.design.components.SectionColumns
-import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +46,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpFab
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
@@ -167,7 +167,7 @@ fun OrganizeSettingsScreen(
                 Text(
                     text = current.error.localized(),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(innerPadding).padding(24.dp),
+                    modifier = Modifier.padding(innerPadding).padding(Spacing.xl),
                 )
             }
 
@@ -233,7 +233,7 @@ internal fun OrganizeSettingsContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = if (isWide) Spacing.screenMargin else 16.dp)
                 .padding(top = 12.dp, bottom = FabClearance),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
         if (isWide) {
             SectionColumns {

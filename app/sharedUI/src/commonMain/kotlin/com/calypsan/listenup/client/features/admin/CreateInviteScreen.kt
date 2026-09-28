@@ -64,6 +64,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SelectableOptionCard
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType
 import com.calypsan.listenup.client.presentation.admin.CreateInviteField
 import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
@@ -273,8 +274,8 @@ private fun CreateInviteForm(
                     .fillMaxSize()
                     .imePadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    .padding(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
             Box(modifier = Modifier.weight(1.2f)) { sections() }
             Box(modifier = Modifier.weight(1f)) { submitButton() }
@@ -286,7 +287,7 @@ private fun CreateInviteForm(
                     .fillMaxSize()
                     .imePadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             sections()

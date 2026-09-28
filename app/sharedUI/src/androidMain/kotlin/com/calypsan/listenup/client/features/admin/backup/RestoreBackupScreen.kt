@@ -44,6 +44,7 @@ import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
@@ -216,7 +217,7 @@ private fun IdleContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
@@ -226,7 +227,7 @@ private fun IdleContent(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                 ),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
                     icon = Icons.Default.Warning,
                     title = "Destructive action",
@@ -250,7 +251,7 @@ private fun IdleContent(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 Text(
                     text = stringResource(Res.string.admin_backup),
                     style = MaterialTheme.typography.labelMedium,
@@ -289,7 +290,7 @@ private fun CompletedContent(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card(
@@ -299,7 +300,7 @@ private fun CompletedContent(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
                     icon = Icons.Default.CheckCircle,
                     title = "Restore complete",
@@ -388,7 +389,7 @@ private fun ErrorCard(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
             ),
     ) {
-        Box(modifier = Modifier.padding(16.dp)) {
+        Box(modifier = Modifier.padding(Spacing.lg)) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,

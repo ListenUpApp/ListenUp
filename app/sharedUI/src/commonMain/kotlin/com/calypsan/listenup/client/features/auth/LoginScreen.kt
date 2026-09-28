@@ -50,6 +50,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.presentation.auth.LoginErrorType
@@ -148,7 +149,7 @@ fun LoginScreen(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .systemBarsPadding()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
         )
     }
 

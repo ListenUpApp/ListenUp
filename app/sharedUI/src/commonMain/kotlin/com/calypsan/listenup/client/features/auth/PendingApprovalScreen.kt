@@ -46,6 +46,7 @@ import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.design.components.FlowStepRow
 import com.calypsan.listenup.client.design.components.FlowStepState
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -125,7 +126,7 @@ fun PendingApprovalScreen(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .systemBarsPadding()
-                    .padding(16.dp),
+                    .padding(Spacing.lg),
         )
     }
 }

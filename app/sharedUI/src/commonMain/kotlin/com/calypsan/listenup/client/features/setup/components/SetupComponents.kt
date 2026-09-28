@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.library_setup_include_folder
 
 /** Soft decorative blob echoing the design hero. Purely cosmetic. */
@@ -153,7 +154,7 @@ fun FolderRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(rowBackground)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = Spacing.lg, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
