@@ -18,6 +18,7 @@ struct BookDetailView: View {
     @State private var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
     @State private var showRateSheet = false
+    @State private var showRatingBreakdown = false
     /// Counts completed book actions (download, delete download, mark finished) so `commit`
     /// fires once per deliberate action.
     @State private var bookActionCount = 0
@@ -82,6 +83,17 @@ struct BookDetailView: View {
                     onSave: { ratingsObserver.rate(halfStars: $0, note: $1) },
                     onClear: { ratingsObserver.clear() },
                     onClose: { showRateSheet = false }
+                )
+            }
+        }
+        .sheet(isPresented: $showRatingBreakdown) {
+            if let ratingsObserver, case .ready(let snapshot) = ratingsObserver.phase {
+                RatingBreakdownSheet(
+                    breakdown: snapshot.breakdown,
+                    canRefresh: snapshot.canRefresh,
+                    isRefreshingExternal: snapshot.isRefreshingExternal,
+                    onRefresh: { ratingsObserver.refreshExternal() },
+                    onClose: { showRatingBreakdown = false }
                 )
             }
         }
@@ -320,7 +332,11 @@ struct BookDetailView: View {
     private var ratingSection: some View {
         if case .ready(let snapshot) = ratingsObserver?.phase {
             Divider()
-            BookRatingSection(snapshot: snapshot, onOpenSheet: { showRateSheet = true })
+            BookRatingSection(
+                snapshot: snapshot,
+                onOpenSheet: { showRateSheet = true },
+                onOpenBreakdown: { showRatingBreakdown = true }
+            )
         }
     }
 

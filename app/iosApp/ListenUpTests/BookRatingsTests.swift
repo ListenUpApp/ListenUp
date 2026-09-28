@@ -44,24 +44,106 @@ struct BookRatingsTests {
         #expect(BookRatingsObserver.phase(from: BookRatingsUiStateLoading.shared) == .loading)
     }
 
-    @Test func readyWithNobodyRatingHasNoAverageAndNoRatingOfMine() {
-        let phase = BookRatingsObserver.phase(from: BookRatingsUiStateReady(listeners: nil, mine: nil))
+    private func externalRating(source: ExternalRatingSource, average: Double, count: Int) -> ExternalRating {
+        ExternalRating(source: source, average: average, count: Int32(count))
+    }
 
-        #expect(phase == .ready(BookRatingsSnapshot(listeners: nil, mine: nil)))
+    @Test func readyWithNobodyRatingHasNoAverageAndNoRatingOfMine() {
+        let phase = BookRatingsObserver.phase(from: BookRatingsUiStateReady(
+            listeners: nil,
+            mine: nil,
+            external: nil,
+            breakdown: [],
+            canRefresh: false,
+            isRefreshingExternal: false
+        ))
+
+        #expect(phase == .ready(BookRatingsSnapshot(
+            listeners: nil,
+            mine: nil,
+            external: nil,
+            breakdown: [],
+            canRefresh: false,
+            isRefreshingExternal: false
+        )))
     }
 
     @Test func readyCarriesTheAverageAndMyRatingAsNativeValues() {
         let state = BookRatingsUiStateReady(
             listeners: ListenerAverage(averageHalfStars: 7.5, count: 3),
-            mine: rating(halfStars: 7, note: "Loved the narrator")
+            mine: rating(halfStars: 7, note: "Loved the narrator"),
+            external: nil,
+            breakdown: [],
+            canRefresh: false,
+            isRefreshingExternal: false
         )
 
         let phase = BookRatingsObserver.phase(from: state)
 
         #expect(phase == .ready(BookRatingsSnapshot(
             listeners: ListenersAverage(averageHalfStars: 7.5, count: 3),
-            mine: MyRating(halfStars: 7, note: "Loved the narrator")
+            mine: MyRating(halfStars: 7, note: "Loved the narrator"),
+            external: nil,
+            breakdown: [],
+            canRefresh: false,
+            isRefreshingExternal: false
         )))
+    }
+
+    @Test func readyMapsTheExternalScoreAndBreakdownAndCanRefreshAndIsRefreshing() {
+        let state = BookRatingsUiStateReady(
+            listeners: nil,
+            mine: nil,
+            external: CombinedScore(average: 4.4, count: 12_000),
+            breakdown: [
+                externalRating(source: .audible, average: 4.5, count: 8_100),
+                externalRating(source: .goodreads, average: 4.1, count: 3_900),
+            ],
+            canRefresh: true,
+            isRefreshingExternal: true
+        )
+
+        let phase = BookRatingsObserver.phase(from: state)
+
+        #expect(phase == .ready(BookRatingsSnapshot(
+            listeners: nil,
+            mine: nil,
+            external: ExternalScore(average: 4.4, count: 12_000),
+            breakdown: [
+                ExternalRatingRow(source: .audible, average: 4.5, count: 8_100),
+                ExternalRatingRow(source: .goodreads, average: 4.1, count: 3_900),
+            ],
+            canRefresh: true,
+            isRefreshingExternal: true
+        )))
+    }
+
+    // MARK: - Headline text (averageLabel + compactCount, NOT starsLabel — starsLabel rounds to a
+    // half-star, which read wrong for the outside-world headline)
+
+    @Test func externalHeadlineShowsOneDecimalAndCompactCount() {
+        let headline = BookRatingSection.externalHeadline(ExternalScore(average: 4.4, count: 12_000))
+        #expect(headline == "\u{2605} 4.4 · 12k ratings")
+    }
+
+    @Test func externalHeadlineShowsAWholeNumberWithATrailingZero() {
+        let headline = BookRatingSection.externalHeadline(ExternalScore(average: 4.0, count: 812))
+        #expect(headline == "\u{2605} 4.0 · 812 ratings")
+    }
+
+    @Test func externalHeadlineSaysOneRatingForExactlyOne() {
+        let headline = BookRatingSection.externalHeadline(ExternalScore(average: 4.4, count: 1))
+        #expect(headline == "\u{2605} 4.4 · 1 rating")
+    }
+
+    @Test func externalSentenceSpeaksAverageAndCompactCount() {
+        let sentence = BookRatingSection.externalSentence(ExternalScore(average: 4.4, count: 12_000))
+        #expect(sentence == "Rated 4.4 out of 5 stars by 12k readers elsewhere")
+    }
+
+    @Test func externalSentenceSaysOneReaderForExactlyOne() {
+        let sentence = BookRatingSection.externalSentence(ExternalScore(average: 4.4, count: 1))
+        #expect(sentence == "Rated 4.4 out of 5 stars by 1 reader elsewhere")
     }
 
     @Test func starsLabelSpeaksTheSharedDefinition() {
@@ -79,6 +161,18 @@ struct BookRatingsTests {
     @Test func severalListenersRatingsAreSpokenAsRatings() {
         let sentence = BookRatingSection.listenersSentence(ListenersAverage(averageHalfStars: 7, count: 3))
         #expect(sentence == "Your listeners: 3.5 out of 5 stars, from 3 ratings")
+    }
+
+    // MARK: - Breakdown sheet
+
+    @Test func sourceRowShowsNameAverageAndCompactCount() {
+        let row = RatingBreakdownSheet.sourceRow(ExternalRatingRow(source: .audible, average: 4.5, count: 8_100))
+        #expect(row == "Audible · 4.5 · 8.1k")
+    }
+
+    @Test func sourceRowSpeaksAGoodreadsRowToo() {
+        let row = RatingBreakdownSheet.sourceRow(ExternalRatingRow(source: .goodreads, average: 4.1, count: 620))
+        #expect(row == "Goodreads · 4.1 · 620")
     }
 
     // MARK: - Hit-testing

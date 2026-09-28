@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.RatingLabels
 import com.calypsan.listenup.client.domain.model.combineExternalRatings
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -69,6 +70,13 @@ class BookRatingsViewModel(
      * read the one definition instead of mirroring it.
      */
     val limits: ListenerRatingLimits = ListenerRatingLimits
+
+    /**
+     * Formats headline averages and compact counts the same way every platform does. Exposed here
+     * because Swift Export only reaches a `:contract` top-level function when something in
+     * `:app:sharedLogic`'s own surface uses it — see [RatingLabels].
+     */
+    val ratingLabels: RatingLabels = RatingLabels
 
     private val isRefreshingExternal = MutableStateFlow(false)
 
