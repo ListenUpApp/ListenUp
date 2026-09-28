@@ -57,9 +57,10 @@ import listenup.composeapp.generated.resources.admin_cover_images
 import listenup.composeapp.generated.resources.admin_create_a_backup_of_your
 import listenup.composeapp.generated.resources.admin_create_backup
 import listenup.composeapp.generated.resources.admin_creating_backup
-import listenup.composeapp.generated.resources.admin_info_emoji
 import listenup.composeapp.generated.resources.admin_significantly_increases_backup_size
 import listenup.composeapp.generated.resources.admin_what_to_include
+import androidx.compose.material.icons.outlined.Info
+import com.calypsan.listenup.client.design.components.TonalIconTile
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -294,10 +295,12 @@ private fun BackupSummaryCard(includeImages: Boolean) {
         Row(
             modifier = Modifier.padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = stringResource(Res.string.admin_info_emoji),
-                style = MaterialTheme.typography.titleMedium,
+            TonalIconTile(
+                icon = Icons.Outlined.Info,
+                accent = MaterialTheme.colorScheme.onSecondaryContainer,
+                size = 40.dp,
             )
             Text(
                 text =
