@@ -1,14 +1,12 @@
 package com.calypsan.listenup.client.features.notifications
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.SectionColumnMinWidth
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,11 +28,8 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -59,7 +54,6 @@ import com.calypsan.listenup.client.presentation.notifications.NotificationsUiSt
 import com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel
 import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.notifications_empty_subtitle
 import listenup.composeapp.generated.resources.notifications_empty_title
 import listenup.composeapp.generated.resources.notifications_title
@@ -92,26 +86,9 @@ fun NotificationsScreen(
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(Res.string.notifications_title),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onNavigateBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.notifications_title),
+                onBack = onNavigateBack,
             )
         },
     ) { padding ->

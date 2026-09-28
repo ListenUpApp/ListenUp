@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.features.documentviewer
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.ui.semantics.heading
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -33,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -54,7 +52,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -77,7 +74,6 @@ import listenup.composeapp.generated.resources.book_detail_document_viewer_error
 import listenup.composeapp.generated.resources.book_detail_document_viewer_loading
 import listenup.composeapp.generated.resources.book_detail_document_viewer_page_of
 import listenup.composeapp.generated.resources.book_detail_more_options
-import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -294,28 +290,9 @@ private fun ReaderTopBar(
         enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
     ) {
-        TopAppBar(
-            title = {
-                Text(
-                    text = title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.semantics { heading() },
-                )
-            },
-            navigationIcon = {
-                IconButton(
-                    onClick = {
-                        haptics.press()
-                        onBack()
-                    },
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = stringResource(Res.string.common_back),
-                    )
-                }
-            },
+        ListenUpTopAppBar(
+            title = title,
+            onBack = onBack,
             actions = {
                 IconButton(
                     onClick = {

@@ -1,13 +1,11 @@
 package com.calypsan.listenup.client.features.admin.backup
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.layout.widthIn
 import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
 import com.calypsan.listenup.client.design.components.flowActionWidth
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,13 +25,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,7 +54,6 @@ import listenup.composeapp.generated.resources.admin_restore_from_file_descripti
 import listenup.composeapp.generated.resources.admin_restore_from_file_detail
 import listenup.composeapp.generated.resources.admin_restore_from_file_upload_failed
 import listenup.composeapp.generated.resources.admin_restore_from_file_uploading
-import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -87,28 +82,9 @@ fun RestoreFromFileScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(Res.string.admin_restore_from_file),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                },
-                navigationIcon = {
-                    if (canNavigateBack) {
-                        IconButton(
-                            onClick = {
-                                haptics.press()
-                                onBackClick()
-                            },
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = stringResource(Res.string.common_back),
-                            )
-                        }
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.admin_restore_from_file),
+                onBack = if (canNavigateBack) onBackClick else null,
             )
         },
     ) { paddingValues ->

@@ -1,13 +1,11 @@
 package com.calypsan.listenup.client.features.admin.upload
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.layout.widthIn
 import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
 import com.calypsan.listenup.client.design.components.flowActionWidth
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,11 +24,9 @@ import androidx.compose.material.icons.outlined.InsertDriveFile
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,7 +73,6 @@ import listenup.composeapp.generated.resources.admin_upload_books_too_large_titl
 import listenup.composeapp.generated.resources.admin_upload_books_too_many_files_body
 import listenup.composeapp.generated.resources.admin_upload_books_too_many_files_title
 import listenup.composeapp.generated.resources.admin_upload_books_uploading
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_ok
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -172,28 +167,14 @@ fun UploadBooksScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(Res.string.admin_upload_books),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                },
-                navigationIcon = {
-                    if (!finalizing) {
-                        IconButton(
-                            onClick = {
-                                haptics.press()
-                                if (uploading) confirmingStop = true else onBackClick()
-                            },
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = stringResource(Res.string.common_back),
-                            )
-                        }
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.admin_upload_books),
+                onBack =
+                    if (finalizing) {
+                        null
+                    } else {
+                        { if (uploading) confirmingStop = true else onBackClick() }
+                    },
             )
         },
     ) { padding ->

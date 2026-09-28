@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.presentation.settings.SettingsEvent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.SnackbarHostState
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Dns
@@ -42,12 +40,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,7 +75,6 @@ import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_account
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_library
 import listenup.composeapp.generated.resources.common_playback
 import listenup.composeapp.generated.resources.common_server
@@ -262,21 +257,9 @@ fun SettingsScreen(
     ListenUpScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(Res.string.common_settings),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.common_settings),
+                onBack = onNavigateBack,
             )
         },
     ) { padding ->

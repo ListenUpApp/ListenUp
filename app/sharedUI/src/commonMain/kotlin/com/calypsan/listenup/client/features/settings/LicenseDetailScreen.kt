@@ -1,25 +1,19 @@
 package com.calypsan.listenup.client.features.settings
 
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -28,7 +22,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.licenses_text_unavailable
 import listenup.composeapp.generated.resources.licenses_view_license
 import org.jetbrains.compose.resources.stringResource
@@ -45,21 +38,9 @@ fun LicenseDetailScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(row?.name ?: "", modifier = Modifier.semantics { heading() }) },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onNavigateBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = row?.name ?: "",
+                onBack = onNavigateBack,
             )
         },
     ) { padding ->

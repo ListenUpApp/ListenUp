@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
@@ -12,8 +12,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +37,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -61,7 +58,6 @@ import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_delete_download
 import listenup.composeapp.generated.resources.book_detail_you_can_redownload_anytime_by
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_ok
 import listenup.composeapp.generated.resources.common_storage
@@ -150,26 +146,9 @@ fun StorageScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(Res.string.common_storage),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onNavigateBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.common_storage),
+                onBack = onNavigateBack,
                 actions = {
                     if (state.downloadedBooks.isNotEmpty()) {
                         TextButton(

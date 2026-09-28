@@ -1,18 +1,15 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MoreVert
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +23,6 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_close
 import listenup.composeapp.generated.resources.book_detail_more_options
-import listenup.composeapp.generated.resources.common_back
 
 /**
  * Plain (non-collapsing) top app bar for the Book Detail screen.
@@ -59,30 +55,14 @@ fun BookDetailTopBar(
 ) {
     val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
+    val inDetailPane = LocalInDetailPane.current
 
-    TopAppBar(
-        title = { Text(text = title, modifier = Modifier.semantics { heading() }) },
-        navigationIcon = {
-            IconButton(
-                onClick = {
-                    haptics.press()
-                    onBackClick()
-                },
-            ) {
-                // Beside its list, Back no longer leaves anything — it closes this pane.
-                if (LocalInDetailPane.current) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.book_detail_close),
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(Res.string.common_back),
-                    )
-                }
-            }
-        },
+    ListenUpTopAppBar(
+        title = title,
+        onBack = onBackClick,
+        // Beside its list, Back no longer leaves anything — it closes this pane.
+        navigationIcon = if (inDetailPane) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.ArrowBack,
+        navigationContentDescription = if (inDetailPane) stringResource(Res.string.book_detail_close) else null,
         actions = {
             Box {
                 IconButton(
@@ -92,7 +72,7 @@ fun BookDetailTopBar(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
+                        imageVector = Icons.Outlined.MoreVert,
                         contentDescription = stringResource(Res.string.book_detail_more_options),
                     )
                 }

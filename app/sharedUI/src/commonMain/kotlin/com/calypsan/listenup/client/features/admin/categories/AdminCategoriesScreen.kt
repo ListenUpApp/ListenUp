@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
@@ -9,7 +10,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.selected
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.theme.Spacing
-import androidx.compose.ui.semantics.heading
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.common_collapsed
 import listenup.composeapp.generated.resources.common_expanded
@@ -45,7 +45,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Add
@@ -69,7 +68,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -117,7 +115,6 @@ import listenup.composeapp.generated.resources.admin_no_move_target_top_level_on
 import listenup.composeapp.generated.resources.admin_rename_genre
 import listenup.composeapp.generated.resources.admin_tap_to_create_your_first
 import listenup.composeapp.generated.resources.admin_top_level
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_categories
 import listenup.composeapp.generated.resources.common_collapse
@@ -309,18 +306,9 @@ private fun CategoriesTopBar(
 ) {
     val haptics = LocalHaptics.current
     Column {
-        TopAppBar(
-            title = { Text(stringResource(Res.string.common_categories), modifier = Modifier.semantics { heading() }) },
-            navigationIcon = {
-                IconButton(
-                    onClick = {
-                        haptics.press()
-                        onBackClick()
-                    },
-                ) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
-                }
-            },
+        ListenUpTopAppBar(
+            title = stringResource(Res.string.common_categories),
+            onBack = onBackClick,
             actions = {
                 val ready = state as? AdminCategoriesUiState.Ready
                 if (ready != null && ready.tree.isNotEmpty()) {

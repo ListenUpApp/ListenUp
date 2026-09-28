@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.features.shelf
 
-import androidx.compose.ui.semantics.heading
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Book
@@ -46,7 +45,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
@@ -86,7 +84,6 @@ import com.calypsan.listenup.client.presentation.shelf.sortShelfBooks
 import kotlin.time.Duration.Companion.seconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_no_items_yet
 import listenup.composeapp.generated.resources.common_private
 import listenup.composeapp.generated.resources.common_read_less
@@ -141,28 +138,9 @@ fun ShelfDetailScreen(
     ListenUpScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.semantics { heading() },
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onBack()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
+                onBack = onBack,
                 actions = {
                     if (readyState?.isOwner == true && onEditClick != null) {
                         IconButton(

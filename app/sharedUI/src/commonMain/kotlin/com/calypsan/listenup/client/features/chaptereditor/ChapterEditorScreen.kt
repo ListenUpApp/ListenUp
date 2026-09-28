@@ -1,10 +1,8 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
 import com.calypsan.listenup.client.domain.model.Chapter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +19,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -56,7 +52,6 @@ import listenup.composeapp.generated.resources.chapter_editor_subtitle
 import listenup.composeapp.generated.resources.chapter_editor_title
 import listenup.composeapp.generated.resources.chapter_editor_undo
 import listenup.composeapp.generated.resources.chapter_editor_unsaved
-import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -154,13 +149,13 @@ fun ChapterEditorScreen(
 
     ListenUpScaffold(
         topBar = {
-            TopAppBar(
-                title = { EditorTitle(editing) },
-                navigationIcon = {
-                    IconButton(onClick = leave) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.chapter_editor_title),
+                subtitle =
+                    editing?.let {
+                        stringResource(Res.string.chapter_editor_subtitle, it.bookTitle, it.chapters.size)
+                    },
+                onBack = leave,
                 actions = {
                     IconButton(
                         onClick = viewModel::beginDrift,
@@ -429,27 +424,6 @@ private fun driftGhosts(state: ChapterEditorUiState.Editing): List<TimelineChapt
     val ready = state.drift?.preview as? DriftPreview.Ready ?: return emptyList()
     return ready.corrected.mapIndexed { index, chapter ->
         TimelineChapter(id = chapter.id, number = index + 1, startMs = chapter.startTime)
-    }
-}
-
-@Composable
-private fun EditorTitle(editing: ChapterEditorUiState.Editing?) {
-    Column {
-        Text(
-            stringResource(Res.string.chapter_editor_title),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.semantics { heading() },
-        )
-        if (editing != null) {
-            Text(
-                stringResource(Res.string.chapter_editor_subtitle, editing.bookTitle, editing.chapters.size),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
     }
 }
 

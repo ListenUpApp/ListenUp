@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.documentviewer
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.ui.semantics.heading
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,14 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -86,26 +81,10 @@ internal fun PageGridOverlay(
         color = MaterialTheme.colorScheme.surfaceDim,
     ) {
         Column {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(Res.string.book_detail_document_pages_title),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            onClose()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(Res.string.book_detail_document_pages_back),
-                        )
-                    }
-                },
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.book_detail_document_pages_title),
+                onBack = onClose,
+                navigationContentDescription = stringResource(Res.string.book_detail_document_pages_back),
             )
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 96.dp),

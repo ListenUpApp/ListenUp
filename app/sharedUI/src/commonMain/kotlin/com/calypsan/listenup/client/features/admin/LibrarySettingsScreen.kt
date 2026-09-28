@@ -1,13 +1,12 @@
 package com.calypsan.listenup.client.features.admin
 
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Folder
@@ -39,7 +37,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -328,25 +325,9 @@ private fun FolderBrowserDialog(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header
-                TopAppBar(
-                    title = {
-                        Text(
-                            stringResource(Res.string.admin_select_folder),
-                            modifier = Modifier.semantics { heading() },
-                        )
-                    },
-                    navigationIcon = {
-                        if (!state.browserIsRoot) {
-                            IconButton(
-                                onClick = {
-                                    haptics.press()
-                                    onNavigateUp()
-                                },
-                            ) {
-                                Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
-                            }
-                        }
-                    },
+                ListenUpTopAppBar(
+                    title = stringResource(Res.string.admin_select_folder),
+                    onBack = if (state.browserIsRoot) null else onNavigateUp,
                     actions = {
                         IconButton(
                             onClick = {
