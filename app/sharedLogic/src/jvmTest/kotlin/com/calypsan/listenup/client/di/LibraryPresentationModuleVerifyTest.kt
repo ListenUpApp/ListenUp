@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
@@ -39,6 +40,7 @@ import org.koin.test.verify.verify
  *  - [UserRepository] — owned by `socialModule`.
  *  - [CollectionRepository] — owned by `collectionModule`.
  *  - [ShelfRepository] — owned by `shelfModule`.
+ *  - [BookRatingRepository] — owned by `shelfModule`.
  *  - [AddBooksToShelfUseCase] — owned by `shelfModule`.
  *  - [AddBooksToCollectionUseCase] — owned by `collectionModule`.
  *  - [CreateShelfUseCase] — owned by `shelfModule`.
@@ -65,6 +67,7 @@ class LibraryPresentationModuleVerifyTest :
                         UserRepository::class,
                         CollectionRepository::class,
                         ShelfRepository::class,
+                        BookRatingRepository::class,
                         AddBooksToShelfUseCase::class,
                         AddBooksToCollectionUseCase::class,
                         CreateShelfUseCase::class,

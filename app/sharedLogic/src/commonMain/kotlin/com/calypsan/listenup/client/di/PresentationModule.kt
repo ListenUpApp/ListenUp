@@ -288,6 +288,7 @@ internal val libraryPresentationModule =
                 authSession = get(),
                 libraryPreferences = get(),
                 syncStatusRepository = get(),
+                bookRatingRepository = get(),
             )
         }
 

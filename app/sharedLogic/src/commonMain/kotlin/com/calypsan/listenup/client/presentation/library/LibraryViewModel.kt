@@ -9,11 +9,13 @@ import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
@@ -66,6 +68,7 @@ private data class RawContent(
     val series: List<SeriesWithBooks>,
     val authors: List<ContributorWithBookCount>,
     val narrators: List<ContributorWithBookCount>,
+    val listenerAverages: Map<String, ListenerAverage>,
 )
 
 /** Snapshot of sync-related state from [SyncRepository]. */
@@ -136,6 +139,7 @@ class LibraryViewModel(
     private val authSession: AuthSession,
     private val libraryPreferences: LibraryPreferences,
     private val syncStatusRepository: SyncStatusRepository,
+    private val bookRatingRepository: BookRatingRepository,
     // CPU-bound sort/filter of the library runs on this dispatcher, off the main thread. Defaulted
     // for production; tests inject their scheduler-backed dispatcher so the pipeline stays controllable.
     private val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -176,6 +180,12 @@ class LibraryViewModel(
                     logger.error(e) { "observeContributorsByRole(NARRATOR) failed; emitting empty list" }
                     emptyList()
                 },
+            bookRatingRepository
+                .observeAverages()
+                .fallbackTo { e ->
+                    logger.error(e) { "observeAverages failed; emitting empty map" }
+                    emptyMap()
+                },
             ::RawContent,
         ).shareIn(
             scope = viewModelScope,
@@ -199,7 +209,13 @@ class LibraryViewModel(
                 }
             SortedContent(
                 intent = intentValue,
-                books = sortBooks(content.books, intentValue.booksSortState, intentValue.ignoreTitleArticles),
+                books =
+                    sortBooks(
+                        content.books,
+                        intentValue.booksSortState,
+                        intentValue.ignoreTitleArticles,
+                        content.listenerAverages,
+                    ),
                 series = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles),
                 authors = sortContributors(content.authors, intentValue.authorsSortState),
                 narrators = sortContributors(content.narrators, intentValue.narratorsSortState),
@@ -520,6 +536,7 @@ class LibraryViewModel(
         books: List<BookListItem>,
         state: SortState,
         ignoreArticles: Boolean,
+        listenerAverages: Map<String, ListenerAverage>,
     ): List<BookListItem> {
         val isAsc = state.direction == SortDirection.ASCENDING
 
@@ -577,6 +594,18 @@ class LibraryViewModel(
                 } else {
                     books.sortedByDescending { it.addedAt.epochMillis }
                 }
+            }
+
+            SortCategory.LISTENER_RATING -> {
+                // Unrated books last in BOTH directions: an absent average is not a zero.
+                val (rated, unrated) = books.partition { listenerAverages[it.id.value] != null }
+                val sorted =
+                    if (isAsc) {
+                        rated.sortedBy { listenerAverages.getValue(it.id.value).averageHalfStars }
+                    } else {
+                        rated.sortedByDescending { listenerAverages.getValue(it.id.value).averageHalfStars }
+                    }
+                sorted + unrated
             }
 
             SortCategory.SERIES -> {
