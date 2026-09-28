@@ -205,11 +205,12 @@ private fun DiscoverContent(
         )
 
     LazyColumn(
-        // Shell system-bar/nav insets fold into the feed's own 16dp so content scrolls under the
-        // bars and rests clear of them — no outer pad that would clip the first/last item.
+        // Shell system-bar/nav insets fold into the feed's padding so content scrolls under the bars
+        // and rests clear of them — no outer pad that would clip the first/last item. The top takes
+        // the insets alone, as Home and Library do, so the header sits at the same height on every tab.
         contentPadding =
             PaddingValues(
-                top = contentPadding.calculateTopPadding() + 16.dp,
+                top = contentPadding.calculateTopPadding(),
                 bottom = contentPadding.calculateBottomPadding() + 16.dp,
             ),
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
