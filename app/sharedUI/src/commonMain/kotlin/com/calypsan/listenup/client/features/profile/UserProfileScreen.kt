@@ -63,7 +63,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -93,6 +92,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.ui.platform.LocalDensity
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -492,13 +492,21 @@ private fun ProfileScallopAvatar(state: UserProfileUiState.Ready) {
             )
         } else {
             Box(
-                modifier = Modifier.size(120.dp).clip(scallop).background(MaterialTheme.colorScheme.primaryContainer),
+                modifier =
+                    Modifier
+                        .size(
+                            HERO_AVATAR_SIZE,
+                        ).clip(scallop)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
+                // Initials are sized to the avatar, not the font scale (DESIGN.md's geometry exception),
+                // so they never overflow the scallop — the same rule as UserAvatar's initials.
+                val initialsSize = with(LocalDensity.current) { (HERO_AVATAR_SIZE * INITIALS_FRACTION).toSp() }
                 Text(
                     text = initialsOf(state.displayName),
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontSize = 42.sp,
+                    style = MaterialTheme.typography.displaySmall.copy(fontSize = initialsSize),
                     fontWeight = FontWeight.ExtraBold,
                 )
             }
@@ -875,3 +883,9 @@ private fun initialsOf(displayName: String): String =
                 else -> displayName.take(1)
             }
         }.uppercase()
+
+/** The profile hero's avatar diameter. */
+private val HERO_AVATAR_SIZE = 120.dp
+
+/** Initials fill this fraction of the avatar: 42sp in the 120dp hero avatar at 1x. */
+private const val INITIALS_FRACTION = 0.35f

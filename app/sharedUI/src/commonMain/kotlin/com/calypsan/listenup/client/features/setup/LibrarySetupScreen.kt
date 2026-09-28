@@ -49,7 +49,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.DirectoryEntry
@@ -255,8 +254,7 @@ private fun DockedSelectionBar(
                 )
                 Text(
                     text = state.selectedPaths.firstOrNull() ?: state.currentPath,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 12.5.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -410,8 +408,7 @@ private fun DesktopPickerPanel(
                 )
                 Text(
                     text = state.selectedPaths.firstOrNull() ?: state.currentPath,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

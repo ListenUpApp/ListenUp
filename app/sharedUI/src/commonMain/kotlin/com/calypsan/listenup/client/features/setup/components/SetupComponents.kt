@@ -29,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -193,8 +192,7 @@ fun FolderRow(
                         },
                         entry.itemCount,
                     ),
-                style = MaterialTheme.typography.bodyMedium,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = subtitleColor,
             )
         }
@@ -294,8 +292,7 @@ fun LibrarySummaryCard(
             val folderLabel = if (folderCount == 1) "1 folder" else "$folderCount folders"
             Text(
                 text = if (firstPath != null) "$folderLabel · $firstPath" else folderLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

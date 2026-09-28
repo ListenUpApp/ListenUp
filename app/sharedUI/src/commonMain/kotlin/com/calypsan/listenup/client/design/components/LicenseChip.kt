@@ -16,13 +16,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.theme.CategoryColor
 import com.calypsan.listenup.client.design.theme.CategoryPalette
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import androidx.compose.foundation.shape.CircleShape
-
-private const val CHIP_FONT_SIZE = 12
 
 /**
  * A small color-coded tonal pill for displaying a license identifier (e.g. "MIT", "Apache 2.0",
@@ -51,8 +48,8 @@ fun LicenseChip(
         Text(
             text = label,
             color = tone.content,
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            fontSize = CHIP_FONT_SIZE.sp,
         )
     }
 }
