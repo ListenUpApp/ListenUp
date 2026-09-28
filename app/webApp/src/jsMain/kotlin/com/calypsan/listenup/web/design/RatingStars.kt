@@ -5,6 +5,7 @@ import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.domain.RatingKeyStep
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 import kotlin.math.ceil
 
@@ -13,7 +14,8 @@ import kotlin.math.ceil
  *
  * Read-only when [onHalfStarsChange] is null — small, for reader lines — and announced as one
  * image ("3.5 out of 5 stars"). With a callback it is an input: a focusable `role="slider"` that a
- * click sets by where it lands (the left half of a star counts half of it), and that the keyboard
+ * click sets by where it lands, measured from the start edge (the first half of a star counts half
+ * of it; in a right-to-left page the stars run from the right), and that the keyboard
  * steps one half at a time — the arrows, with Home and End jumping to one and five stars.
  *
  * Every star count it shows or speaks goes through [ListenerRatingLimits.starsLabel], so the
@@ -50,9 +52,7 @@ fun RatingStars(
             }
             onClick { event ->
                 val element = event.nativeEvent.currentTarget as? HTMLElement ?: return@onClick
-                val rect = element.getBoundingClientRect()
-                if (rect.width <= 0.0) return@onClick
-                val picked = halfStarsAt(event.clientX - rect.left, rect.width)
+                val picked = halfStarsForClick(element, event.clientX.toDouble()) ?: return@onClick
                 if (picked != halfStars) onHalfStarsChange(picked)
             }
         }
@@ -83,8 +83,23 @@ internal fun halfStarsForKey(
     }?.applyTo(current)
 
 /**
+ * The half-star rating a click at [clientX] on [element] sets, measured from the start edge — the
+ * right in a right-to-left page, as Android and iOS mirror the stars — or null before layout.
+ */
+private fun halfStarsForClick(
+    element: HTMLElement,
+    clientX: Double,
+): Int? {
+    val rect = element.getBoundingClientRect()
+    if (rect.width <= 0.0) return null
+    val fromLeft = clientX - rect.left
+    val isRtl = window.getComputedStyle(element).direction == "rtl"
+    return halfStarsAt(if (isRtl) rect.width - fromLeft else fromLeft, rect.width)
+}
+
+/**
  * The half-star rating a click [x] pixels from the start of five equal stars spanning [width] sets:
- * the left half of a star counts half of it, the right half counts it whole. Clamped to one..five.
+ * the first half of a star counts half of it, the second half counts it whole. Clamped to one..five.
  */
 internal fun halfStarsAt(
     x: Double,

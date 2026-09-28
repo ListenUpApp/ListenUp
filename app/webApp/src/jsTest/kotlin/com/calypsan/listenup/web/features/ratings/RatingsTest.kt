@@ -14,6 +14,7 @@ import com.calypsan.listenup.web.RECOMPOSE_TIMEOUT_MS
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.awaitGone
 import com.calypsan.listenup.web.awaitPresent
+import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.halfStarsAt
 import com.calypsan.listenup.web.design.halfStarsForKey
 import com.calypsan.listenup.web.features.library.BOOK_SORT_CATEGORIES
@@ -40,6 +41,8 @@ import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
+import org.w3c.dom.events.MouseEvent
+import org.w3c.dom.events.MouseEventInit
 
 private fun rating(
     halfStars: Int,
@@ -63,6 +66,25 @@ private fun button(
         .firstOrNull { it.textContent?.trim() == label }
 
 private fun slider(host: HTMLElement): HTMLElement = host.querySelector("[role=slider]") as HTMLElement
+
+/** Clicks [element] [fraction] of the way across it from its left edge. */
+private fun clickAcross(
+    element: HTMLElement,
+    fraction: Double,
+) {
+    val rect = element.getBoundingClientRect()
+    element.dispatchEvent(
+        MouseEvent(
+            "click",
+            MouseEventInit(
+                clientX = (rect.left + rect.width * fraction).toInt(),
+                clientY = (rect.top + rect.height / 2).toInt(),
+                bubbles = true,
+                cancelable = true,
+            ),
+        ),
+    )
+}
 
 private fun EventTarget.press(key: String) {
     dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = key, bubbles = true, cancelable = true)))
@@ -204,6 +226,20 @@ class RatingsTest :
             halfStarsAt(55.0, 100.0) shouldBe 6
             halfStarsAt(0.0, 100.0) shouldBe 2
             halfStarsAt(100.0, 100.0) shouldBe 10
+        }
+
+        test("a click counts stars from the start edge, which is the right in a right-to-left page") {
+            var chosen: Int? = null
+            val ltr = mounts.mount { RatingStars(halfStars = 0, onHalfStarsChange = { chosen = it }) }
+            clickAcross(slider(ltr), 0.75)
+            chosen shouldBe 8
+
+            chosen = null
+            val rtl = mounts.mount { RatingStars(halfStars = 0, onHalfStarsChange = { chosen = it }) }
+            rtl.dir = "rtl"
+            // Three quarters from the left is a quarter from the start: the left half of star two.
+            clickAcross(slider(rtl), 0.75)
+            chosen shouldBe 3
         }
 
         test("Save is disabled until a star is chosen, then saves the rating and the trimmed note") {
