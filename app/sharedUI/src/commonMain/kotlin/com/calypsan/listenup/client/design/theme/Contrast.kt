@@ -16,8 +16,11 @@ internal fun contrastRatio(
     val seen = if (foreground.alpha < 1f) foreground.compositeOver(background) else foreground
     val lighter = maxOf(seen.luminance(), background.luminance()).toDouble()
     val darker = minOf(seen.luminance(), background.luminance()).toDouble()
-    return (lighter + 0.05) / (darker + 0.05)
+    return (lighter + FLARE) / (darker + FLARE)
 }
+
+/** WCAG's ambient-flare term, added to both luminances so pure black never divides by zero. */
+private const val FLARE = 0.05
 
 /** WCAG AA minimum for normal-size text. */
 internal const val AA_TEXT = 4.5
