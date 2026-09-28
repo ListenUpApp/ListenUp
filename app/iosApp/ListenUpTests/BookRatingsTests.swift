@@ -71,6 +71,16 @@ struct BookRatingsTests {
         #expect(RatingStarsView.starsLabel(7.4) == "3.5")
     }
 
+    @Test func oneListenersRatingIsSpokenAsOneRating() {
+        let sentence = BookRatingSection.listenersSentence(ListenersAverage(averageHalfStars: 8, count: 1))
+        #expect(sentence == "Your listeners: 4 out of 5 stars, from 1 rating")
+    }
+
+    @Test func severalListenersRatingsAreSpokenAsRatings() {
+        let sentence = BookRatingSection.listenersSentence(ListenersAverage(averageHalfStars: 7, count: 3))
+        #expect(sentence == "Your listeners: 3.5 out of 5 stars, from 3 ratings")
+    }
+
     // MARK: - Hit-testing
 
     @Test func touchesMapToHalfStarsFromTheLeadingEdge() {

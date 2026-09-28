@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
@@ -46,5 +47,35 @@ class BookRatingSectionTest {
         composeRule.onNodeWithText("Your rating").assertIsDisplayed()
         composeRule.onNodeWithText("Edit").assertIsDisplayed()
         composeRule.onNodeWithText("Rate").assertDoesNotExist()
+    }
+
+    @Test
+    fun `one listener's rating is read as one rating`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state = BookRatingsUiState.Ready(listeners = ListenerAverage(8.0, 1), mine = null),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Your listeners: 4 out of 5 stars, from 1 rating")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `several listeners' ratings are read as ratings`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state = BookRatingsUiState.Ready(listeners = ListenerAverage(7.0, 3), mine = null),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Your listeners: 3.5 out of 5 stars, from 3 ratings")
+            .assertIsDisplayed()
     }
 }

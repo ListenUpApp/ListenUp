@@ -41,11 +41,20 @@ struct BookRatingSection: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
         // VoiceOver hears a sentence, not "black star".
-        .accessibilityLabel(String(
+        .accessibilityLabel(Self.listenersSentence(listeners))
+    }
+
+    /// What VoiceOver says for the listeners' average — "from 1 rating", never "from 1 ratings".
+    static func listenersSentence(_ listeners: ListenersAverage) -> String {
+        let stars = RatingStarsView.starsLabel(listeners.averageHalfStars)
+        if listeners.count == 1 {
+            return String(format: String(localized: "book.detail_rating_listeners_a11y_one"), stars)
+        }
+        return String(
             format: String(localized: "book.detail_rating_listeners_a11y"),
             stars,
             listeners.count
-        ))
+        )
     }
 
     private func yourRatingRow(_ mine: MyRating) -> some View {

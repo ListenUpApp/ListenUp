@@ -36,6 +36,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_rating_edit
 import listenup.composeapp.generated.resources.book_detail_rating_listeners
 import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y
+import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y_one
 import listenup.composeapp.generated.resources.book_detail_rating_rate
 import listenup.composeapp.generated.resources.book_detail_rating_yours
 import org.jetbrains.compose.resources.stringResource
@@ -110,7 +111,12 @@ fun BookRatingSection(
         ) {
             ready.listeners?.let { listeners ->
                 val stars = ListenerRatingLimits.starsLabel(listeners.averageHalfStars)
-                val spoken = stringResource(Res.string.book_detail_rating_listeners_a11y, stars, listeners.count)
+                val spoken =
+                    if (listeners.count == 1) {
+                        stringResource(Res.string.book_detail_rating_listeners_a11y_one, stars)
+                    } else {
+                        stringResource(Res.string.book_detail_rating_listeners_a11y, stars, listeners.count)
+                    }
                 Text(
                     text =
                         stringResource(

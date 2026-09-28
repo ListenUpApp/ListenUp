@@ -142,6 +142,13 @@ class RatingsTest :
                 "Your listeners: 4 out of 5 stars, from 3 ratings"
         }
 
+        test("one listener's rating is read as one rating, in the words Android and iOS use") {
+            val host = panel(ready(mine = null, listeners = ListenerAverage(averageHalfStars = 8.0, count = 1)))
+
+            (host.querySelector(".rt-avg .rt-sr") as HTMLElement).textContent shouldBe
+                "Your listeners: 4 out of 5 stars, from 1 rating"
+        }
+
         test("the stars step one half per arrow key, and Home and End jump to one and five") {
             val host = panel(ready(mine = rating(6)))
             button(host, "Edit")!!.click()
