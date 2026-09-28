@@ -82,7 +82,7 @@ internal fun MergeGenreDialog(
             } else {
                 stringResource(Res.string.admin_merge_into_named, sourceName)
             },
-        confirmText = if (target != null) stringResource(Res.string.admin_merge_confirm) else null,
+        confirmText = target?.let { stringResource(Res.string.admin_merge_confirm) },
         onConfirm = { target?.let { onConfirm(it.id) } },
         confirmColor = MaterialTheme.colorScheme.error,
         dismissText = stringResource(if (target != null) Res.string.common_back else Res.string.common_cancel),

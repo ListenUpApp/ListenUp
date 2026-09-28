@@ -113,6 +113,7 @@ fun ChapterEditorScreen(
     val leave = { if (isDirty) pendingDiscard = true else onBack() }
 
     val newChapterTitle = stringResource(Res.string.chapter_editor_new_chapter_title)
+    val rowMenu = rememberRowMenu(viewModel, isThisBookLoaded, newChapterTitle) { rowAction = it }
 
     // The toolbar arrow is not the only way out. Without this the system back gesture pops the
     // screen straight past the confirmation, and the draft — the only copy of the work — is gone.
@@ -203,15 +204,7 @@ fun ChapterEditorScreen(
             },
             newChapterTitle = newChapterTitle,
             viewModel = viewModel,
-            rowMenu =
-                remember(isThisBookLoaded, viewModel, newChapterTitle) {
-                    ChapterRowMenuActions(
-                        onRename = { rowAction = RowAction.Renaming(it) },
-                        onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
-                        onPlayFromHere = if (isThisBookLoaded) viewModel::playFrom else null,
-                        onDelete = { rowAction = RowAction.Deleting(it) },
-                    )
-                },
+            rowMenu = rowMenu,
             onEditTime = { rowAction = RowAction.EditingTime(it) },
         )
     }
@@ -236,6 +229,26 @@ fun ChapterEditorScreen(
         onDelete = viewModel::remove,
     )
 }
+
+/**
+ * A row's overflow actions: rename and delete open their dialogs through [onAction]; insert and
+ * play act at once. Play is offered only while this book is the one loaded.
+ */
+@Composable
+private fun rememberRowMenu(
+    viewModel: ChapterEditorViewModel,
+    canPlayFromHere: Boolean,
+    newChapterTitle: String,
+    onAction: (RowAction) -> Unit,
+): ChapterRowMenuActions =
+    remember(viewModel, canPlayFromHere, newChapterTitle) {
+        ChapterRowMenuActions(
+            onRename = { onAction(RowAction.Renaming(it)) },
+            onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
+            onPlayFromHere = viewModel::playFrom.takeIf { canPlayFromHere },
+            onDelete = { onAction(RowAction.Deleting(it)) },
+        )
+    }
 
 /** Which of a row's dialogs is open, if any. The overflow itself is the row's own menu. */
 private sealed interface RowAction {

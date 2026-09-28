@@ -324,61 +324,66 @@ private fun RootResetDialog(
         }
     }
 
+    if (succeeded) {
+        ListenUpAlertDialog(
+            onDismissRequest = onDismissRequest,
+            title = stringResource(Res.string.auth_reset_root),
+            text = stringResource(Res.string.auth_forgot_password_complete),
+            confirmText = stringResource(Res.string.common_done),
+            onConfirm = onDismissRequest,
+            dismissText = null,
+        )
+        return
+    }
+
     ListenUpAlertDialog(
         onDismissRequest = onDismissRequest,
         title = stringResource(Res.string.auth_reset_root),
-        confirmText = stringResource(if (succeeded) Res.string.common_done else Res.string.common_continue),
-        onConfirm = { if (succeeded) onDismissRequest() else submit() },
-        dismissText = if (succeeded) null else stringResource(Res.string.common_cancel),
+        confirmText = stringResource(Res.string.common_continue),
+        onConfirm = ::submit,
+        dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismissRequest,
-        confirmEnabled = succeeded || (!isSubmitting && token.isNotBlank() && newPassword.isNotBlank()),
+        confirmEnabled = !isSubmitting && token.isNotBlank() && newPassword.isNotBlank(),
         dismissEnabled = !isSubmitting,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (succeeded) {
-                Text(
-                    text = stringResource(Res.string.auth_forgot_password_complete),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            } else {
-                Text(
-                    text = stringResource(Res.string.auth_reset_root_explainer),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                ListenUpTextField(
-                    value = token,
-                    onValueChange = {
-                        token = it
-                        errorMessage = null
-                    },
-                    label = stringResource(Res.string.auth_reset_root_token_label),
-                    enabled = !isSubmitting,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                )
-                ListenUpTextField(
-                    value = newPassword,
-                    onValueChange = {
-                        newPassword = it
-                        errorMessage = null
-                    },
-                    label = stringResource(Res.string.auth_password_label),
-                    enabled = !isSubmitting,
-                    isError = errorMessage != null,
-                    supportingText = errorMessage,
-                    trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                    onTrailingClick = { passwordVisible = !passwordVisible },
-                    trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
-                    visualTransformation =
-                        if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done,
-                        ),
-                    keyboardActions = KeyboardActions(onDone = { submit() }),
-                )
-            }
+            Text(
+                text = stringResource(Res.string.auth_reset_root_explainer),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            ListenUpTextField(
+                value = token,
+                onValueChange = {
+                    token = it
+                    errorMessage = null
+                },
+                label = stringResource(Res.string.auth_reset_root_token_label),
+                enabled = !isSubmitting,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+            )
+            ListenUpTextField(
+                value = newPassword,
+                onValueChange = {
+                    newPassword = it
+                    errorMessage = null
+                },
+                label = stringResource(Res.string.auth_password_label),
+                enabled = !isSubmitting,
+                isError = errorMessage != null,
+                supportingText = errorMessage,
+                trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                onTrailingClick = { passwordVisible = !passwordVisible },
+                trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
+                visualTransformation =
+                    if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    ),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+            )
         }
     }
 }

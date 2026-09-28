@@ -35,11 +35,12 @@ class ChapterRowMenuTest {
     private val haptics = CountingHaptics()
 
     private fun render(canPlayFromHere: Boolean = true) {
+        val playFromHere: (String) -> Unit = { calls += "play:$it" }
         val menu =
             ChapterRowMenuActions(
                 onRename = { calls += "rename:$it" },
                 onInsertBelow = { calls += "insert:$it" },
-                onPlayFromHere = if (canPlayFromHere) ({ id -> calls += "play:$id" }) else null,
+                onPlayFromHere = playFromHere.takeIf { canPlayFromHere },
                 onDelete = { calls += "delete:$it" },
             )
         composeRule.setContent {
