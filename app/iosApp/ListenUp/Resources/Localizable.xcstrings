@@ -4061,6 +4061,16 @@
         }
       }
     },
+    "book.detail_rating_listeners_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your listeners: %1$@ out of 5 stars, from %2$d ratings"
+          }
+        }
+      }
+    },
     "book.detail_rating_note_counter": {
       "localizations": {
         "en": {
@@ -13931,12 +13941,22 @@
         }
       }
     },
-    "rating.stars_adjustable_a11y": {
+    "rating.stars_label": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rating, %1$@ out of 5 stars, adjustable"
+            "value": "Rating"
+          }
+        }
+      }
+    },
+    "rating.stars_unrated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not rated"
           }
         }
       }

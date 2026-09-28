@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.design.components
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.StarHalf
@@ -13,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -30,7 +32,8 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.rating_stars_a11y
-import listenup.composeapp.generated.resources.rating_stars_adjustable_a11y
+import listenup.composeapp.generated.resources.rating_stars_label
+import listenup.composeapp.generated.resources.rating_stars_unrated
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -42,6 +45,9 @@ private val ReadOnlyStarSize = 16.dp
 
 /** An input star, big enough to hit with a thumb in half-star steps. */
 private val InputStarSize = 44.dp
+
+/** The input's minimum touch height. */
+private val MinInputHeight = 48.dp
 
 /**
  * Five stars filled in halves from [halfStars] (2..10; 0 draws five empty stars).
@@ -64,22 +70,29 @@ fun RatingStars(
     onHalfStarsChange: ((Int) -> Unit)? = null,
     starSize: Dp = if (onHalfStarsChange == null) ReadOnlyStarSize else InputStarSize,
 ) {
-    val label = ListenerRatingLimits.starsLabel(halfStars.toDouble())
-    val spoken = stringResource(Res.string.rating_stars_a11y, label)
+    val spoken =
+        stringResource(Res.string.rating_stars_a11y, ListenerRatingLimits.starsLabel(halfStars.toDouble()))
     val stars =
         if (onHalfStarsChange == null) {
             modifier.clearAndSetSemantics { contentDescription = spoken }
         } else {
-            modifier.ratingInput(
-                halfStars = halfStars,
-                description = stringResource(Res.string.rating_stars_adjustable_a11y, label),
-                state = spoken,
-                onHalfStarsChange = onHalfStarsChange,
-            )
+            modifier
+                .heightIn(min = MinInputHeight)
+                .ratingInput(
+                    halfStars = halfStars,
+                    description = stringResource(Res.string.rating_stars_label),
+                    state =
+                        if (halfStars < ListenerRatingLimits.MIN_HALF_STARS) {
+                            stringResource(Res.string.rating_stars_unrated)
+                        } else {
+                            spoken
+                        },
+                    onHalfStarsChange = onHalfStarsChange,
+                )
         }
     val filled = MaterialTheme.colorScheme.primary
     val empty = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(modifier = stars) {
+    Row(modifier = stars, verticalAlignment = Alignment.CenterVertically) {
         repeat(STAR_COUNT) { index ->
             val glyph = starGlyph(halfStars, index)
             Icon(
@@ -92,7 +105,10 @@ fun RatingStars(
     }
 }
 
-/** Tap, drag and TalkBack adjustment for the input variant of [RatingStars]. */
+/**
+ * Tap, drag and TalkBack adjustment for the input variant of [RatingStars]. TalkBack hears a static
+ * [description] ("Rating") and the value as [state], so the stars are read once, not twice.
+ */
 @Composable
 private fun Modifier.ratingInput(
     halfStars: Int,
@@ -105,47 +121,50 @@ private fun Modifier.ratingInput(
     val current by rememberUpdatedState(halfStars)
     val onChange by rememberUpdatedState(onHalfStarsChange)
 
-    fun pick(
-        x: Float,
-        width: Int,
-    ) {
-        val fromStart = if (isRtl) width - x else x
-        val picked = halfStarsAt(fromStart, width.toFloat())
-        if (picked != current) {
+    // Reports [picked] if it differs from [previous] (one tick per half crossed) and returns it.
+    fun report(
+        picked: Int,
+        previous: Int,
+    ): Int {
+        if (picked != previous) {
             haptics.selectionTick()
             onChange(picked)
         }
+        return picked
     }
 
+    fun pickAt(
+        x: Float,
+        width: Int,
+    ): Int = halfStarsAt(if (isRtl) width - x else x, width.toFloat())
+
     return this
-        .pointerInput(isRtl) { detectTapGestures { pick(it.x, size.width) } }
+        .pointerInput(isRtl) { detectTapGestures { report(pickAt(it.x, size.width), current) } }
         .pointerInput(isRtl) {
+            // The last half this drag reported, tracked here rather than read back from
+            // composition, so a fast drag ticks once per half even before the parent recomposes.
+            var last = current
             detectHorizontalDragGestures(
-                onDragStart = { pick(it.x, size.width) },
-                onHorizontalDrag = { change, _ -> pick(change.position.x, size.width) },
+                onDragStart = { last = report(pickAt(it.x, size.width), current) },
+                onHorizontalDrag = { change, _ -> last = report(pickAt(change.position.x, size.width), last) },
             )
         }.clearAndSetSemantics {
             contentDescription = description
             stateDescription = state
+            // 0..10 so an unrated control reports 0 ("Not rated"); a step up from there asks for 1,
+            // which setProgress lifts to one star.
             progressBarRangeInfo =
                 ProgressBarRangeInfo(
-                    current =
-                        halfStars
-                            .coerceIn(ListenerRatingLimits.MIN_HALF_STARS, ListenerRatingLimits.MAX_HALF_STARS)
-                            .toFloat(),
-                    range =
-                        ListenerRatingLimits.MIN_HALF_STARS.toFloat()..ListenerRatingLimits.MAX_HALF_STARS.toFloat(),
-                    steps = ListenerRatingLimits.MAX_HALF_STARS - ListenerRatingLimits.MIN_HALF_STARS - 1,
+                    current = halfStars.coerceIn(0, ListenerRatingLimits.MAX_HALF_STARS).toFloat(),
+                    range = 0f..ListenerRatingLimits.MAX_HALF_STARS.toFloat(),
+                    steps = ListenerRatingLimits.MAX_HALF_STARS - 1,
                 )
             setProgress { target ->
                 val picked =
                     target
                         .roundToInt()
                         .coerceIn(ListenerRatingLimits.MIN_HALF_STARS, ListenerRatingLimits.MAX_HALF_STARS)
-                if (picked != current) {
-                    haptics.selectionTick()
-                    onChange(picked)
-                }
+                report(picked, current)
                 true
             }
         }

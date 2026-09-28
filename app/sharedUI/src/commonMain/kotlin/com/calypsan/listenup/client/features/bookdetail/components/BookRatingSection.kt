@@ -35,6 +35,7 @@ import com.calypsan.listenup.domain.ListenerRatingLimits
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_rating_edit
 import listenup.composeapp.generated.resources.book_detail_rating_listeners
+import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y
 import listenup.composeapp.generated.resources.book_detail_rating_rate
 import listenup.composeapp.generated.resources.book_detail_rating_yours
 import org.jetbrains.compose.resources.stringResource
@@ -109,7 +110,7 @@ fun BookRatingSection(
         ) {
             ready.listeners?.let { listeners ->
                 val stars = ListenerRatingLimits.starsLabel(listeners.averageHalfStars)
-                val spoken = stringResource(Res.string.book_detail_rating_listeners, stars, listeners.count)
+                val spoken = stringResource(Res.string.book_detail_rating_listeners_a11y, stars, listeners.count)
                 Text(
                     text =
                         stringResource(
@@ -173,5 +174,5 @@ fun BookRatingSection(
     }
 }
 
-/** The star shown before your listeners' average; spoken without it. */
+/** The star shown before your listeners' average; TalkBack reads a plain sentence instead. */
 private const val STAR_GLYPH = "★"

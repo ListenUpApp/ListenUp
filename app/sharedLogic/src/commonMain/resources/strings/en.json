@@ -449,6 +449,7 @@
     "detail_rating_yours": "Your rating",
     "detail_rating_edit": "Edit",
     "detail_rating_listeners": "Your listeners %1$s (%2$d)",
+    "detail_rating_listeners_a11y": "Your listeners: %1$s out of 5 stars, from %2$d ratings",
     "detail_rating_sheet_title": "Rate this book",
     "detail_rating_note_hint": "Add a note (optional)",
     "detail_rating_note_counter": "%1$d/%2$d",
@@ -1664,6 +1665,7 @@
   },
   "rating": {
     "stars_a11y": "%1$s out of 5 stars",
-    "stars_adjustable_a11y": "Rating, %1$s out of 5 stars, adjustable"
+    "stars_label": "Rating",
+    "stars_unrated": "Not rated"
   }
 }
