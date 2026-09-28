@@ -98,7 +98,7 @@ private fun closingParen(
 private val LITERAL_OR_COMMENT = Regex(""""(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\])*'|//[^\n]*|/\*[\s\S]*?\*/""")
 
 /** [text] with `//` and block comments replaced by spaces, keeping newlines so line numbers hold. */
-private fun blankComments(text: String): String =
+internal fun blankComments(text: String): String =
     LITERAL_OR_COMMENT.replace(text) { match ->
         val token = match.value
         if (token.startsWith("//") || token.startsWith("/*")) {
