@@ -336,6 +336,7 @@ private fun ServerRowTrailing(
     isSelected: Boolean,
     isConnecting: Boolean,
 ) {
+    // An idle row shows no trailing mark: the whole row is the button, with no disclosure chevron.
     when {
         isConnecting -> {
             ListenUpLoadingIndicatorSmall()
@@ -356,11 +357,6 @@ private fun ServerRowTrailing(
                     )
                 }
             }
-        }
-
-        // An idle row needs no trailing mark: the whole row is the button, with no disclosure chevron.
-        else -> {
-            Unit
         }
     }
 }
