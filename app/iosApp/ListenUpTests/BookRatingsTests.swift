@@ -97,7 +97,7 @@ struct BookRatingsTests {
             external: CombinedScore(average: 4.4, count: 12_000),
             breakdown: [
                 externalRating(source: .audible, average: 4.5, count: 8_100),
-                externalRating(source: .goodreads, average: 4.1, count: 3_900),
+                externalRating(source: .goodreads, average: 4.1, count: 3_900)
             ],
             canRefresh: true,
             isRefreshingExternal: true
@@ -111,7 +111,7 @@ struct BookRatingsTests {
             external: ExternalScore(average: 4.4, count: 12_000),
             breakdown: [
                 ExternalRatingRow(source: .audible, average: 4.5, count: 8_100),
-                ExternalRatingRow(source: .goodreads, average: 4.1, count: 3_900),
+                ExternalRatingRow(source: .goodreads, average: 4.1, count: 3_900)
             ],
             canRefresh: true,
             isRefreshingExternal: true

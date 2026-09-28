@@ -70,7 +70,7 @@ struct RatingBreakdownSheet: View {
     RatingBreakdownSheet(
         breakdown: [
             ExternalRatingRow(source: .audible, average: 4.5, count: 8_100),
-            ExternalRatingRow(source: .goodreads, average: 4.1, count: 620),
+            ExternalRatingRow(source: .goodreads, average: 4.1, count: 620)
         ],
         canRefresh: true,
         isRefreshingExternal: false,

@@ -72,7 +72,7 @@ struct AdminSettingsObserverTests {
             pushNotificationsEnabled: true,
             ratingSources: [
                 RatingSourceStatus(source: .audible, enabled: true, lastFetchedAt: nil, lastError: nil),
-                RatingSourceStatus(source: .hardcover, enabled: false, lastFetchedAt: nil, lastError: nil),
+                RatingSourceStatus(source: .hardcover, enabled: false, lastFetchedAt: nil, lastError: nil)
             ],
             isDirty: false,
             isSaving: false,
