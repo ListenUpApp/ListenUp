@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.LibraryAdd
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -38,7 +37,7 @@ enum class StatChipTone {
 }
 
 /**
- * Row of stat chips showing rating, duration, year, and date added.
+ * Row of stat chips showing duration, year, and date added.
  *
  * @param onHeroBand When true, the chips are recoloured to read on the wide hero's
  *   [MaterialTheme.colorScheme.primaryContainer] band — content in `onPrimaryContainer` tones, the
@@ -48,7 +47,6 @@ enum class StatChipTone {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatsRow(
-    rating: Double?,
     duration: Long,
     year: Int?,
     addedAt: Long? = null,
@@ -61,7 +59,7 @@ fun StatsRow(
         horizontalArrangement = horizontalArrangement,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Order: Added (accent) → Duration → Year, with Rating last when present.
+        // Order: Added (accent) → Duration → Year.
         addedAt?.let { timestamp ->
             StatChip(
                 icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
@@ -81,14 +79,6 @@ fun StatsRow(
             StatChip(
                 icon = { Icon(Icons.Default.CalendarMonth, null, Modifier.size(16.dp)) },
                 text = y.toString(),
-                onHeroBand = onHeroBand,
-            )
-        }
-
-        rating?.takeIf { it > 0 }?.let { r ->
-            StatChip(
-                icon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) },
-                text = ((r * 10).toInt() / 10.0).toString(),
                 onHeroBand = onHeroBand,
             )
         }

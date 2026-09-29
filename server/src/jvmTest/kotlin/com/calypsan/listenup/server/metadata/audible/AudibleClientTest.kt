@@ -187,6 +187,52 @@ class AudibleClientTest :
             }
         }
 
+        // Audible nests the rating COUNT as overall_distribution.num_ratings; the top-level num_reviews
+        // counts written reviews and is often 0. Reading num_reviews inside the distribution (where it
+        // doesn't exist) parsed every book as unrated — found on device 2026-09-28, B002VA9N14.
+        test("getBook reads the rating count Audible actually sends") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = BOOK_RATED_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client = makeClient(engine)
+                val book =
+                    client
+                        .getBook(AudibleRegion.US, "B002VA9N14")
+                        .shouldBeInstanceOf<AppResult.Success<AudibleBook?>>()
+                        .data
+                        .shouldNotBeNull()
+
+                book.rating shouldBe 4.7f
+                book.ratingCount shouldBe 1007
+            }
+        }
+
+        // An ASIN Audible doesn't sell in this marketplace still answers 200, with a stub: the asin and
+        // an all-zero rating, but no title (seen 2026-09-28 for B072HRZ7LD on the US store). That is
+        // "no such book here", not a malformed reply — the rating sweep reported Audible as failing.
+        test("getBook answers no book for a marketplace stub that carries no title") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = BOOK_STUB_NO_TITLE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client = makeClient(engine)
+                val result = client.getBook(AudibleRegion.US, "B072HRZ7LD")
+
+                result.shouldBeInstanceOf<AppResult.Success<AudibleBook?>>().data shouldBe null
+            }
+        }
+
         // Audible sends two descriptions. merchandising_summary is its own marketing teaser, cut to a
         // sentence or two and ending in an ellipsis; publisher_summary is the full description. The
         // client requested the product_desc group that carries publisher_summary, then read only the
@@ -397,12 +443,34 @@ private val SEARCH_200 =
       "rating": {
         "overall_distribution": {
           "display_average_rating": 4.8,
-          "num_reviews": 50000
+          "num_ratings": 50000
         }
       }
     }
   ]
 }
+    """.trimIndent()
+
+// Trimmed from Audible's real US response for B002VA9N14 (rating response group), 2026-09-28.
+private val BOOK_RATED_200 =
+    """
+    {"product":{"asin":"B002VA9N14","title":"The Best Christmas Pageant Ever",
+    "authors":[{"asin":"B000APU2DG","name":"Barbara Robinson"}],
+    "narrators":[{"name":"Elaine Stritch"}],"runtime_length_min":86,
+    "rating":{"num_reviews":84,
+    "overall_distribution":{"average_rating":4.665342601787487,"display_average_rating":"4.7",
+    "display_stars":4.5,"num_five_star_ratings":747,"num_four_star_ratings":187,
+    "num_one_star_ratings":14,"num_ratings":1007,"num_three_star_ratings":41,"num_two_star_ratings":18},
+    "performance_distribution":{"average_rating":4.7,"display_average_rating":"4.7","num_ratings":900},
+    "story_distribution":{"average_rating":4.6,"display_average_rating":"4.6","num_ratings":900}}},
+    "response_groups":["rating","always-returned"]}
+    """.trimIndent()
+
+private val BOOK_STUB_NO_TITLE =
+    """
+    {"product":{"asin":"B072HRZ7LD","asset_details":[],"is_vvab":false,"rating":{"num_reviews":0,
+    "overall_distribution":{"average_rating":0.0,"display_average_rating":"0.0","display_stars":0.0,
+    "num_ratings":0}}},"response_groups":["rating","always-returned"]}
     """.trimIndent()
 
 private val BOOK_200 =

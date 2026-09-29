@@ -2,9 +2,12 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.db.SwappableSqlDriver
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
+import com.calypsan.listenup.server.ratings.RatingSourceSettings
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.SessionRevoker
+import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -66,6 +69,12 @@ class AuthModuleVerifyTest :
                         // (get<SessionService>()::revokeAll), not as its own Koin definition. Verify()
                         // inspects the constructor's static type, blind to how the lambda supplies it.
                         SessionRevoker::class,
+                        // AdminSettingsServiceImpl's outside-ratings params resolve from metadataModule
+                        // (RatingSourceSettings, MetadataProviderRegistry) / syncModule
+                        // (BookExternalRatingRepository) — neither loaded here.
+                        RatingSourceSettings::class,
+                        BookExternalRatingRepository::class,
+                        MetadataProviderRegistry::class,
                     ),
             )
         }

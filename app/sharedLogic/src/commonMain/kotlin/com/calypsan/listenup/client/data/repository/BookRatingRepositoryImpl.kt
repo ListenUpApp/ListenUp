@@ -1,18 +1,27 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.BookRatingService
 import com.calypsan.listenup.api.dto.BookRatingMutation
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.core.error.ClientValidationException
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.local.db.BookExternalRatingDao
+import com.calypsan.listenup.client.data.local.db.BookExternalRatingEntity
 import com.calypsan.listenup.client.data.local.db.BookRatingDao
 import com.calypsan.listenup.client.data.local.db.BookRatingEntity
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.domain.model.CombinedScore
+import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.combineExternalRatings
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import kotlinx.coroutines.flow.Flow
@@ -31,11 +40,20 @@ import kotlin.uuid.Uuid
  * FIRST time a listener rates a book, [rate] mints a fresh [Uuid]; every following [rate] or [clear]
  * of the same pair reuses [BookRatingEntity.syncId] off the existing local row — [BookRatingDao.find]
  * returns a tombstoned row too, so a clear-then-re-rate keeps the same id rather than minting another.
+ *
+ * Outside ratings ([observeExternalForBook], [observeCombinedScores]) are a second, unrelated
+ * surface on the same interface: server-written rows mirrored by [externalRatingDao], read-only
+ * from the client, with no [OfflineEditor] involvement — see [BookExternalRatingDao]'s KDoc.
+ * [refreshExternal] is the one write path, and it is a direct online RPC through [ratingChannel],
+ * not the outbox: there is nothing to queue offline, since only the server can reach an outside
+ * catalog.
  */
 internal class BookRatingRepositoryImpl(
     private val dao: BookRatingDao,
+    private val externalRatingDao: BookExternalRatingDao,
     private val offlineEditor: OfflineEditor,
     private val authSession: AuthSession,
+    private val ratingChannel: RpcChannel<BookRatingService>,
 ) : BookRatingRepository {
     override fun observeForBook(bookId: String): Flow<List<ListenerRating>> =
         dao.observeForBook(bookId).map { rows -> rows.map { it.toDomain() } }
@@ -123,7 +141,31 @@ internal class BookRatingRepositoryImpl(
             dao.tombstone(bookId = bookId, userId = me, deletedAt = currentEpochMilliseconds())
         }
     }
+
+    override fun observeExternalForBook(bookId: String): Flow<List<ExternalRating>> =
+        externalRatingDao.observeEnabledForBook(bookId).map { rows -> rows.map { it.toExternalRating() } }
+
+    override fun observeCombinedScores(): Flow<Map<String, CombinedScore>> =
+        externalRatingDao.observeAllEnabled().map { rows ->
+            rows
+                .groupBy { it.bookId }
+                .mapNotNull { (bookId, group) ->
+                    combineExternalRatings(group.map { it.toExternalRating() })?.let { bookId to it }
+                }.toMap()
+        }
+
+    override suspend fun refreshExternal(bookId: String): AppResult<Unit> =
+        ratingChannel.call { it.refreshExternalRatings(BookId(bookId)) }
 }
 
 private fun BookRatingEntity.toDomain(): ListenerRating =
     ListenerRating(bookId = bookId, userId = userId, halfStars = halfStars, note = note, ratedAtMs = ratedAt)
+
+/**
+ * [BookExternalRatingEntity.source] is always a real [ExternalRatingSource] name, never a foreign
+ * literal — the sync apply stores `payload.source.name`, and that `source` was already decoded
+ * through the wire serializer's `UNKNOWN` fallback. [observeEnabledForBook] and [observeAllEnabled]
+ * additionally filter `"UNKNOWN"` rows out before they ever reach here, so [valueOf] is safe.
+ */
+private fun BookExternalRatingEntity.toExternalRating(): ExternalRating =
+    ExternalRating(source = ExternalRatingSource.valueOf(source), average = average, count = count)

@@ -9,7 +9,8 @@ import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
 
 /**
- * An open ratings session for one book: its state, and the two things a listener can do to it.
+ * An open ratings session for one book: its state, and the things a listener (or an admin) can do
+ * to it.
  *
  * ⛔ The actions are part of the seam, not an afterthought. Web's history is sessions that carried
  * `(state, close)` and nothing else — a page that could show a rating and never take one.
@@ -18,6 +19,7 @@ class BookRatingsSession(
     val state: StateFlow<BookRatingsUiState>,
     val rate: (halfStars: Int, note: String?) -> Unit,
     val clear: () -> Unit,
+    val refreshExternal: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -36,6 +38,7 @@ fun graphBookRatings(koin: Koin): OpenBookRatings =
             state = viewModel.state,
             rate = viewModel::rate,
             clear = viewModel::clear,
+            refreshExternal = viewModel::refreshExternal,
             close = store::clear,
         )
     }
@@ -45,7 +48,14 @@ fun fixedBookRatings(
     state: BookRatingsUiState,
     onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
     onClear: () -> Unit = {},
+    onRefreshExternal: () -> Unit = {},
 ): OpenBookRatings =
     {
-        BookRatingsSession(state = MutableStateFlow(state), rate = onRate, clear = onClear, close = {})
+        BookRatingsSession(
+            state = MutableStateFlow(state),
+            rate = onRate,
+            clear = onClear,
+            refreshExternal = onRefreshExternal,
+            close = {},
+        )
     }

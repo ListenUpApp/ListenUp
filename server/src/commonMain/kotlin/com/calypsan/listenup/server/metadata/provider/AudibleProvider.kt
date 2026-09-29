@@ -13,11 +13,14 @@ import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterSource
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
+import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.GenreLadderSource
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.GenreSource
 import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
+import com.calypsan.listenup.server.metadata.spi.RatingSource
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 import com.calypsan.listenup.server.metadata.spi.SeriesSource
 import com.calypsan.listenup.server.services.MetadataService
@@ -27,9 +30,9 @@ import com.calypsan.listenup.server.services.MetadataService
  *
  * A single object implementing every capability Audible's catalog supports —
  * [BookIdentitySource] (search), [BookCoreSource] (book + credits), [ChapterSource],
- * [CoverSource], [SeriesSource], and [GenreSource]. It deliberately does *not*
- * implement `ContributorSource`: Audible's contributor-profile scrape is dead, and
- * that capability moves to Audnexus in a later step.
+ * [CoverSource], [SeriesSource], [GenreSource], and [RatingSource]. It deliberately
+ * does *not* implement `ContributorSource`: Audible's contributor-profile scrape is
+ * dead, and that capability moves to Audnexus in a later step.
  *
  * Orchestration only — every method is a thin `.map { it.toX() }` over
  * [MetadataService] (which owns TTL caching and region-aware fallback); the actual
@@ -42,6 +45,12 @@ import com.calypsan.listenup.server.services.MetadataService
  * lookups and to [defaultRegion] for ASIN-keyed lookups — the never-strand rule at the
  * provider edge. Proper locale plumbing lands with the region migration in a later step.
  *
+ * [getRating] is the one ASIN-keyed lookup that doesn't stop at a single storefront: some ASINs
+ * are region-locked (an Audible Canada title has no listing on .com, .co.uk or .com.au), so it
+ * walks stores via [MetadataService.getBookInAnyRegion] starting from the resolved region — see
+ * that method's KDoc for the store order and the stub-vs-failure distinction. `getBookCore` and
+ * the other ASIN-keyed lookups above are unchanged and still query a single region.
+ *
  * Server-internal: provider ids never cross the RPC wire.
  */
 internal class AudibleProvider(
@@ -53,8 +62,10 @@ internal class AudibleProvider(
     CoverSource,
     SeriesSource,
     GenreSource,
-    GenreLadderSource {
+    GenreLadderSource,
+    RatingSource {
     override val id: MetadataProviderId = MetadataProviderId.AUDIBLE
+    override val ratingSource: ExternalRatingSource = ExternalRatingSource.AUDIBLE
 
     override suspend fun searchBooks(
         query: String,
@@ -108,6 +119,17 @@ internal class AudibleProvider(
     ): AppResult<List<List<String>>?> {
         val asin = book.asin ?: return AppResult.Success(null)
         return metadataService.getBook(regionFor(locale), asin).map { it?.genreLadders }
+    }
+
+    override suspend fun getRating(
+        book: BookIdentity,
+        locale: MetadataLocale,
+        refresh: Boolean,
+    ): AppResult<ExternalRatingMeta?> {
+        val asin = book.asin ?: return AppResult.Success(null)
+        return metadataService
+            .getBookInAnyRegion(asin, preferred = regionFor(locale), refresh = refresh)
+            .map { regional -> regional?.let { it.book.toExternalRatingMeta(it.region) } }
     }
 
     /**

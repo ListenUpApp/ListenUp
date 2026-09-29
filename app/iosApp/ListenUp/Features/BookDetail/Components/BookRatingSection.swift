@@ -1,17 +1,32 @@
 import SwiftUI
+import Shared
 
 /// The rating block on Book Detail, directly above Readers.
 ///
-/// Your listeners' average leads when anyone has rated the book ("Your listeners ★ 4 (3)"), then
-/// either an invitation to rate it or your own stars with an Edit button. Both "Rate" and "Edit"
-/// open the `RateBookSheet`. Pure/presentational: the assembly screen hands it the snapshot and
-/// owns the sheet.
+/// The outside world's headline ("★ 4.4 · 12k ratings") leads when an enabled source has rated the
+/// book — tapping it opens `RatingBreakdownSheet`. Before any source has rated it, an admin
+/// (`canRefresh`) sees a quiet "Refresh ratings" action where the headline would sit instead, so
+/// they can fetch a first score without being stranded behind a headline that only exists once one
+/// arrives. Your listeners' average comes next when anyone has rated the book ("Your listeners ★ 4
+/// (3)"), then either an invitation to rate it or your own stars with an Edit button. Both "Rate"
+/// and "Edit" open the `RateBookSheet`.
+/// Pure/presentational: the assembly screen hands it the snapshot and owns both sheets.
 struct BookRatingSection: View {
     let snapshot: BookRatingsSnapshot
     let onOpenSheet: () -> Void
+    let onOpenBreakdown: () -> Void
+    let onRefreshExternal: () -> Void
+
+    /// Fires `.press` only on a genuine tap of the headline — not merely whenever `external` changes.
+    @State private var breakdownTapCount = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let external = snapshot.external {
+                externalRow(external)
+            } else if Self.showsRefreshAction(snapshot) {
+                refreshAction
+            }
             if let listeners = snapshot.listeners {
                 listenersRow(listeners)
             }
@@ -27,9 +42,83 @@ struct BookRatingSection: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .haptic(.press, trigger: breakdownTapCount)
     }
 
     // MARK: - Rows
+
+    private func externalRow(_ external: ExternalScore) -> some View {
+        Button {
+            breakdownTapCount += 1
+            onOpenBreakdown()
+        } label: {
+            Text(Self.externalHeadline(external))
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Self.externalSentence(external))
+    }
+
+    /// The quiet "Refresh ratings" action shown where the headline would sit before any enabled
+    /// source has rated the book — admin only. Styled like the section's "Rate" button: a
+    /// bordered, quiet pill, never prominent. Its busy/disabled state binds to
+    /// `isRefreshingExternal` directly, exactly like `RatingBreakdownSheet`'s own refresh button.
+    private var refreshAction: some View {
+        Button(action: onRefreshExternal) {
+            HStack(spacing: 7) {
+                if snapshot.isRefreshingExternal {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.luTint)
+                }
+                Text(String(localized: "book.detail_rating_refresh"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.luSeparator, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.pressScaleChip)
+        .frame(maxWidth: 220)
+        .disabled(snapshot.isRefreshingExternal)
+        .accessibilityLabel(String(localized: "book.detail_rating_refresh"))
+    }
+
+    /// Whether `refreshAction` shows: before any score exists (`external == nil`), admin only.
+    /// Once a score exists the headline itself carries refresh, one tap away via
+    /// `RatingBreakdownSheet`. `nonisolated` so tests can call it off the main actor, same as
+    /// `BookRatingsObserver.phase(from:)`.
+    nonisolated static func showsRefreshAction(_ snapshot: BookRatingsSnapshot) -> Bool {
+        snapshot.external == nil && snapshot.canRefresh
+    }
+
+    /// "★ 4.4 · 12k ratings", or "★ 4.4 · 1 rating" for exactly one.
+    static func externalHeadline(_ external: ExternalScore) -> String {
+        let average = RatingLabels.shared.averageLabel(average: external.average)
+        if external.count == 1 {
+            return String(format: String(localized: "book.detail_rating_external_one"), "\u{2605} \(average)")
+        }
+        let compact = RatingLabels.shared.compactCount(count: Int32(external.count))
+        return String(format: String(localized: "book.detail_rating_external"), "\u{2605} \(average)", compact)
+    }
+
+    /// What VoiceOver says for the headline — "Rated 4.4 out of 5 stars by 12k readers elsewhere".
+    static func externalSentence(_ external: ExternalScore) -> String {
+        let average = RatingLabels.shared.averageLabel(average: external.average)
+        if external.count == 1 {
+            return String(format: String(localized: "book.detail_rating_external_a11y_one"), average)
+        }
+        let compact = RatingLabels.shared.compactCount(count: Int32(external.count))
+        return String(format: String(localized: "book.detail_rating_external_a11y"), average, compact)
+    }
 
     private func listenersRow(_ listeners: ListenersAverage) -> some View {
         let stars = RatingStarsView.starsLabel(listeners.averageHalfStars)
@@ -77,15 +166,43 @@ struct BookRatingSection: View {
 #Preview("Rating section") {
     VStack(alignment: .leading, spacing: 32) {
         BookRatingSection(
-            snapshot: BookRatingsSnapshot(listeners: nil, mine: nil),
-            onOpenSheet: {}
+            snapshot: BookRatingsSnapshot(
+                listeners: nil,
+                mine: nil,
+                external: nil,
+                breakdown: [],
+                canRefresh: false,
+                isRefreshingExternal: false
+            ),
+            onOpenSheet: {},
+            onOpenBreakdown: {},
+            onRefreshExternal: {}
         )
         BookRatingSection(
             snapshot: BookRatingsSnapshot(
                 listeners: ListenersAverage(averageHalfStars: 7.6, count: 3),
-                mine: MyRating(halfStars: 7, note: "Loved it")
+                mine: MyRating(halfStars: 7, note: "Loved it"),
+                external: ExternalScore(average: 4.4, count: 12_000),
+                breakdown: [ExternalRatingRow(source: .audible, average: 4.4, count: 12_000)],
+                canRefresh: true,
+                isRefreshingExternal: false
             ),
-            onOpenSheet: {}
+            onOpenSheet: {},
+            onOpenBreakdown: {},
+            onRefreshExternal: {}
+        )
+        BookRatingSection(
+            snapshot: BookRatingsSnapshot(
+                listeners: nil,
+                mine: nil,
+                external: nil,
+                breakdown: [],
+                canRefresh: true,
+                isRefreshingExternal: false
+            ),
+            onOpenSheet: {},
+            onOpenBreakdown: {},
+            onRefreshExternal: {}
         )
     }
     .padding()

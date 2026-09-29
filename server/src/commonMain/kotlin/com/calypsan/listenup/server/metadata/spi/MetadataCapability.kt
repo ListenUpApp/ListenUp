@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.metadata.spi
 
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 
 /**
  * The root of the metadata provider SPI: one narrow capability a provider *may*
@@ -191,4 +192,20 @@ interface CharacterSource : MetadataCapability {
         book: BookIdentity,
         locale: MetadataLocale,
     ): AppResult<List<CharacterMeta>?>
+}
+
+/**
+ * How the catalog's readers rate an identified book. `Success(null)` when the catalog has no rating
+ * for it (or no confident match — a wrong score is worse than none); [AppResult.Failure] only on a
+ * provider error. Pass [refresh] = `true` to bypass any provider-side cache.
+ */
+interface RatingSource : MetadataCapability {
+    /** Which outside source this capability's ratings are stored under. */
+    val ratingSource: ExternalRatingSource
+
+    suspend fun getRating(
+        book: BookIdentity,
+        locale: MetadataLocale,
+        refresh: Boolean = false,
+    ): AppResult<ExternalRatingMeta?>
 }

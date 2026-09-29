@@ -45,6 +45,7 @@ internal val BOOK_SORT_CATEGORIES =
         SortCategory.DURATION,
         SortCategory.YEAR,
         SortCategory.ADDED,
+        SortCategory.RATING,
         SortCategory.LISTENER_RATING,
         SortCategory.SERIES,
     )

@@ -177,7 +177,6 @@ fun WideBookDetail(
                     onShowCast = { castRole = it },
                     progress = state.progress,
                     timeRemaining = state.timeRemainingFormatted,
-                    rating = state.rating,
                     duration = book.duration,
                     year = state.year,
                     addedAt = state.addedAt,

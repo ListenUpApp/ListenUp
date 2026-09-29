@@ -8,15 +8,24 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
+import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.ratings.RatingSourceSettings
 import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.ScannerBundle
@@ -29,9 +38,12 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -291,6 +303,121 @@ class AdminSettingsServiceImplTest :
                 }
             }
         }
+
+        // (l) getRatingSources lists every registered RatingSource with its enabled flag and health
+        test("getRatingSources lists AUDIBLE, enabled by default with no health yet") {
+            withSqlDatabase {
+                runTest {
+                    val sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.OPEN))
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                            sourceSettings = sourceSettings,
+                            externalRatings = BookExternalRatingRepository(sql, ChangeBus(), SyncRegistry(), driver),
+                            providerRegistry = singleRatingSourceRegistry(),
+                        )
+
+                    val sources = svc.getRatingSources().shouldSucceed()
+
+                    sources shouldBe
+                        listOf(
+                            RatingSourceStatus(
+                                source = ExternalRatingSource.AUDIBLE,
+                                enabled = true,
+                                lastFetchedAt = null,
+                                lastError = null,
+                            ),
+                        )
+                }
+            }
+        }
+
+        // (m) getRatingSources by a MEMBER is rejected with PermissionDenied
+        test("getRatingSources by a MEMBER is rejected with PermissionDenied") {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("m1", UserRole.MEMBER),
+                            sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.OPEN)),
+                            externalRatings = BookExternalRatingRepository(sql, ChangeBus(), SyncRegistry(), driver),
+                            providerRegistry = singleRatingSourceRegistry(),
+                        )
+                    svc.getRatingSources().shouldFail<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        // (n) setRatingSourceEnabled(false) flips every row of that source AND the next getRatingSources reports it
+        test("setRatingSourceEnabled(false) flips every row of that source and the next getRatingSources reports it") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "B001")
+                sql.seedTestBook("book2", asin = "B002")
+                runTest {
+                    val ratingsRepo = BookExternalRatingRepository(sql, ChangeBus(), SyncRegistry(), driver)
+                    ratingsRepo.recordFetch("book1", ExternalRatingSource.AUDIBLE, 4.2, 100, "us", fetchedAt = 1_000L)
+                    ratingsRepo.recordFetch("book2", ExternalRatingSource.AUDIBLE, 3.9, 40, "us", fetchedAt = 1_000L)
+
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                            sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.OPEN)),
+                            externalRatings = ratingsRepo,
+                            providerRegistry = singleRatingSourceRegistry(),
+                        )
+
+                    val updated = svc.setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, enabled = false).shouldSucceed()
+
+                    updated shouldBe
+                        listOf(
+                            RatingSourceStatus(
+                                source = ExternalRatingSource.AUDIBLE,
+                                enabled = false,
+                                lastFetchedAt = null,
+                                lastError = null,
+                            ),
+                        )
+                    ratingsRepo.findForBook("book1").single().enabled shouldBe false
+                    ratingsRepo.findForBook("book2").single().enabled shouldBe false
+
+                    // Reported again by a fresh read, not just the returned value.
+                    svc
+                        .getRatingSources()
+                        .shouldSucceed()
+                        .single()
+                        .enabled shouldBe false
+                }
+            }
+        }
+
+        // (o) setRatingSourceEnabled by a MEMBER is rejected with PermissionDenied, and flips nothing
+        test("setRatingSourceEnabled by a MEMBER is rejected with PermissionDenied") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "B001")
+                runTest {
+                    val ratingsRepo = BookExternalRatingRepository(sql, ChangeBus(), SyncRegistry(), driver)
+                    ratingsRepo.recordFetch("book1", ExternalRatingSource.AUDIBLE, 4.2, 100, "us", fetchedAt = 1_000L)
+
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("m1", UserRole.MEMBER),
+                            sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.OPEN)),
+                            externalRatings = ratingsRepo,
+                            providerRegistry = singleRatingSourceRegistry(),
+                        )
+
+                    svc.setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, enabled = false).shouldFail<AuthError.PermissionDenied>()
+
+                    ratingsRepo.findForBook("book1").single().enabled shouldBe true
+                }
+            }
+        }
     })
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
@@ -305,6 +432,9 @@ private fun makeAdminSettingsService(
     db: SqlTestDatabases,
     bus: ChangeBus = ChangeBus(),
     principal: PrincipalProvider,
+    sourceSettings: RatingSourceSettings? = null,
+    externalRatings: BookExternalRatingRepository? = null,
+    providerRegistry: MetadataProviderRegistry? = null,
 ): AdminSettingsFixture {
     val libraryRepo = LibraryRepository(db = db.sql, bus = bus, registry = SyncRegistry())
     val libraryRegistry = LibraryRegistry(sql = db.sql)
@@ -314,9 +444,30 @@ private fun makeAdminSettingsService(
             changeBus = bus,
             libraryRegistry = libraryRegistry,
             libraryRepository = libraryRepo,
+            sourceSettings = sourceSettings,
+            externalRatings = externalRatings,
+            providerRegistry = providerRegistry,
         ).copyWith(principal)
     return AdminSettingsFixture(svc, libraryRepo, libraryRegistry)
 }
+
+/** A single-source (AUDIBLE) [MetadataProviderRegistry] — enough for [AdminSettingsServiceImpl]'s
+ *  outside-ratings surface, which only needs [RatingSource]-capable providers. */
+private fun singleRatingSourceRegistry(): MetadataProviderRegistry =
+    MetadataProviderRegistry(
+        listOf(
+            object : RatingSource {
+                override val id: MetadataProviderId = MetadataProviderId.AUDIBLE
+                override val ratingSource: ExternalRatingSource = ExternalRatingSource.AUDIBLE
+
+                override suspend fun getRating(
+                    book: BookIdentity,
+                    locale: MetadataLocale,
+                    refresh: Boolean,
+                ): AppResult<ExternalRatingMeta?> = AppResult.Success(null)
+            },
+        ),
+    )
 
 /**
  * Seeds the single library for tests that invoke [AdminSettingsServiceImpl.getServerSettings]

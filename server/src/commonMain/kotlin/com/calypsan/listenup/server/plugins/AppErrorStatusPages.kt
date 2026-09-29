@@ -22,6 +22,7 @@ import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.PushError
+import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
@@ -203,10 +204,11 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is BackupError -> toHttpStatus()
 
-        // PushError + HardcoverError share one branch (delegating to an exhaustive helper) to keep
-        // this function under the cyclomatic-complexity threshold. Both are the server reaching a
-        // service beyond itself: the push relay, and Hardcover.
-        is PushError, is HardcoverError -> outboundServiceHttpStatus()
+        // PushError + HardcoverError + RatingError share one branch (delegating to an exhaustive
+        // helper) to keep this function under the cyclomatic-complexity threshold. All three are
+        // the server reaching a service beyond itself: the push relay, Hardcover, and an outside
+        // rating source.
+        is PushError, is HardcoverError, is RatingError -> outboundServiceHttpStatus()
 
         is ValidationError -> HttpStatusCode.BadRequest
 
@@ -601,10 +603,19 @@ private fun HardcoverError.toHttpStatus(): HttpStatusCode =
         is HardcoverError.AlreadyConnected -> HttpStatusCode.Conflict
     }
 
-/** [PushError] and [HardcoverError], split from [toHttpStatus] for its complexity ceiling. */
+private fun RatingError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is RatingError.SourceUnavailable -> HttpStatusCode.ServiceUnavailable
+    }
+
+/**
+ * [PushError], [HardcoverError] and [RatingError], split from [toHttpStatus] for its complexity
+ * ceiling.
+ */
 private fun AppError.outboundServiceHttpStatus(): HttpStatusCode =
     when (this) {
         is PushError -> toHttpStatus()
         is HardcoverError -> toHttpStatus()
+        is RatingError -> toHttpStatus()
         else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch above
     }

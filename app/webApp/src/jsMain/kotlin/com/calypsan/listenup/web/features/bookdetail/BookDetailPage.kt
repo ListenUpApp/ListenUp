@@ -79,6 +79,7 @@ fun BookDetailPage(
     ratings: BookRatingsUiState = BookRatingsUiState.Loading,
     onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
     onClearRating: () -> Unit = {},
+    onRefreshExternalRating: () -> Unit = {},
     /**
      * The book's supplementary documents, from the sibling flow of the same name. Defaulted empty
      * because most books have none, and a book with none renders no Documents panel at all.
@@ -191,6 +192,7 @@ fun BookDetailPage(
                             ratings = ratings,
                             onRate = onRate,
                             onClearRating = onClearRating,
+                            onRefreshExternalRating = onRefreshExternalRating,
                             readers = readers,
                             nowMs = nowMs,
                             onOpenProfile = onOpenProfile,
@@ -380,6 +382,7 @@ private fun OverviewPane(
     ratings: BookRatingsUiState,
     onRate: (halfStars: Int, note: String?) -> Unit,
     onClearRating: () -> Unit,
+    onRefreshExternalRating: () -> Unit,
     readers: BookReadersUiState,
     nowMs: Long,
     onOpenProfile: (String) -> Unit,
@@ -408,7 +411,12 @@ private fun OverviewPane(
                 MetaList(details(state))
             }
             // Directly above Readers, as on Android and iOS; silent while loading — see [RatingsPanel].
-            RatingsPanel(state = ratings, onRate = onRate, onClear = onClearRating)
+            RatingsPanel(
+                state = ratings,
+                onRate = onRate,
+                onClear = onClearRating,
+                onRefreshExternal = onRefreshExternalRating,
+            )
             // Under Details, and silent when there is nothing to say — see [ReadersPanel].
             ReadersPanel(
                 state = readers,

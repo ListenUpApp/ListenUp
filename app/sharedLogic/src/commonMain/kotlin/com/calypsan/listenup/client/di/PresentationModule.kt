@@ -356,6 +356,7 @@ internal val bookPresentationModule =
                 repository = get(),
                 currentUserId = get<AuthSession>().authState.signedInUserId(),
                 errorBus = get(),
+                userRepository = get(),
             )
         }
         factory {

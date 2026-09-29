@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -9,6 +11,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
@@ -24,6 +27,7 @@ internal fun readyServerSettings(
     remoteUrl: String = "",
     holdNewBooksForReview: Boolean = false,
     pushNotificationsEnabled: Boolean = true,
+    ratingSources: List<RatingSourceStatus> = emptyList(),
     isDirty: Boolean = false,
     isSaving: Boolean = false,
     error: com.calypsan.listenup.api.error.AppError? = null,
@@ -33,6 +37,7 @@ internal fun readyServerSettings(
         remoteUrl = remoteUrl,
         holdNewBooksForReview = holdNewBooksForReview,
         pushNotificationsEnabled = pushNotificationsEnabled,
+        ratingSources = ratingSources,
         isDirty = isDirty,
         isSaving = isSaving,
         error = error,
@@ -45,10 +50,12 @@ private fun page(
     onRemoteUrl: (String) -> Unit = {},
     onHoldNewBooks: (Boolean) -> Unit = {},
     onPushNotifications: (Boolean) -> Unit = {},
+    onSetRatingSourceEnabled: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
     onSave: () -> Unit = {},
     onClearError: () -> Unit = {},
     onRetry: () -> Unit = {},
     onOpenAdmin: () -> Unit = {},
+    nowMs: Long = 0L,
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -60,10 +67,12 @@ private fun page(
             onRemoteUrl = onRemoteUrl,
             onHoldNewBooks = onHoldNewBooks,
             onPushNotifications = onPushNotifications,
+            onSetRatingSourceEnabled = onSetRatingSourceEnabled,
             onSave = onSave,
             onClearError = onClearError,
             onRetry = onRetry,
             onOpenAdmin = onOpenAdmin,
+            nowMs = nowMs,
         )
     }
     return host
@@ -242,5 +251,71 @@ class ServerSettingsPageTest :
             awaitFrame()
 
             back shouldBe 1
+        }
+
+        test("no rating sources draws no rating-sources section") {
+            val host = page(readyServerSettings(ratingSources = emptyList()))
+
+            host.textContent.orEmpty() shouldNotContain "Rating sources"
+            // Only the two server-wide switches — see the count pinned two tests up.
+            switches(host).size shouldBe 2
+        }
+
+        test("one row per rating source: its name, its switch, and its health") {
+            val host =
+                page(
+                    readyServerSettings(
+                        ratingSources =
+                            listOf(
+                                RatingSourceStatus(
+                                    source = ExternalRatingSource.AUDIBLE,
+                                    enabled = true,
+                                    lastFetchedAt = null,
+                                    lastError = null,
+                                ),
+                                RatingSourceStatus(
+                                    source = ExternalRatingSource.GOODREADS,
+                                    enabled = false,
+                                    lastFetchedAt = 1_000L,
+                                    lastError = "rate limited",
+                                ),
+                            ),
+                    ),
+                    nowMs = 2_000L,
+                )
+
+            val text = host.textContent.orEmpty()
+            text shouldContain "Rating sources"
+            text shouldContain "Audible"
+            text shouldContain "Not fetched yet"
+            text shouldContain "Goodreads"
+            // ⛔ A failed attempt takes priority over a stale success timestamp — see
+            // [ratingSourceHealth]: the row says why the fetch is unreliable, not merely when.
+            text shouldContain "Last attempt failed: rate limited"
+
+            // The two server-wide switches, plus one per rating source.
+            switches(host).size shouldBe 4
+            switches(host).map { it.hasAttribute("checked") } shouldContainExactly
+                listOf(false, true, true, false)
+        }
+
+        test("each rating-source switch reports which source flicked, and to what") {
+            val flicked = mutableListOf<Pair<ExternalRatingSource, Boolean>>()
+            val host =
+                page(
+                    readyServerSettings(
+                        ratingSources =
+                            listOf(
+                                RatingSourceStatus(ExternalRatingSource.AUDIBLE, enabled = true, lastFetchedAt = null, lastError = null),
+                            ),
+                    ),
+                    onSetRatingSourceEnabled = { source, enabled -> flicked += source to enabled },
+                )
+
+            // The two server-wide switches come first — the rating source is the third.
+            switches(host)[2].click()
+            awaitFrame()
+
+            flicked shouldContainExactly listOf(ExternalRatingSource.AUDIBLE to false)
         }
     })

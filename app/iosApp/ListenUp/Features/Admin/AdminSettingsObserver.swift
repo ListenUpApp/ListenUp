@@ -39,6 +39,11 @@ final class AdminSettingsObserver {
     func setHoldNewBooksForReview(_ enabled: Bool) { viewModel.setHoldNewBooksForReview(enabled: enabled) }
 
     func setPushNotificationsEnabled(_ enabled: Bool) { viewModel.setPushNotificationsEnabled(enabled: enabled) }
+
+    func setRatingSourceEnabled(_ source: ExternalRatingSource, _ enabled: Bool) {
+        viewModel.setRatingSourceEnabled(source: source, enabled: enabled)
+    }
+
     func save() { viewModel.saveAll() }
     func clearError() { viewModel.clearError() }
 
@@ -73,6 +78,8 @@ struct AdminSettingsReadyModel: Equatable {
     let remoteUrl: String
     let holdNewBooksForReview: Bool
     let pushNotificationsEnabled: Bool
+    /// Every outside rating source, with its enabled flag and last-fetch health.
+    let ratingSources: [RatingSourceRowModel]
     let isDirty: Bool
     let isSaving: Bool
     /// Transient save/load failure message (nil when none), surfaced as an inline banner.
@@ -86,9 +93,47 @@ struct AdminSettingsReadyModel: Equatable {
             remoteUrl: ready.remoteUrl,
             holdNewBooksForReview: ready.holdNewBooksForReview,
             pushNotificationsEnabled: ready.pushNotificationsEnabled,
+            ratingSources: ready.ratingSources.map { RatingSourceRowModel.from($0) },
             isDirty: ready.isDirty,
             isSaving: ready.isSaving,
             error: ready.error?.message
         )
+    }
+}
+
+/// One outside rating source in the admin Rating Sources list: its display name (via
+/// `ExternalRatingSource.displayName`), a switch bound to `enabled`, and a health line — error
+/// beats a fetch time beats never-fetched — mirroring Android's `RatingSourceRow`.
+struct RatingSourceRowModel: Equatable, Identifiable {
+    let source: ExternalRatingSource
+    let enabled: Bool
+    let lastFetchedAtMs: Int64?
+    let lastError: String?
+
+    var id: ExternalRatingSource { source }
+
+    nonisolated static func from(_ status: RatingSourceStatus) -> RatingSourceRowModel {
+        RatingSourceRowModel(
+            source: status.source,
+            enabled: status.enabled,
+            lastFetchedAtMs: status.lastFetchedAt,
+            lastError: status.lastError
+        )
+    }
+
+    /// The subtitle line: error > last fetched > never fetched. `now` is injectable so tests get a
+    /// deterministic relative phrase.
+    nonisolated func healthLine(now: Date = Date()) -> String {
+        if let lastError {
+            return String(format: String(localized: "admin.rating_source_error"), lastError)
+        }
+        if let lastFetchedAtMs {
+            let fetched = Date(timeIntervalSince1970: Double(lastFetchedAtMs) / 1000)
+            let relative = RelativeDateTimeFormatter()
+            relative.unitsStyle = .full
+            let phrase = relative.localizedString(for: fetched, relativeTo: now)
+            return String(format: String(localized: "admin.rating_source_last_fetched"), phrase)
+        }
+        return String(localized: "admin.rating_source_never_fetched")
     }
 }

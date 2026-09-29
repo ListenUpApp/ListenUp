@@ -257,8 +257,10 @@ private fun withTwoListenersAgainstServer(block: suspend TwoListenerScope.() -> 
                     aliceRatings =
                         BookRatingRepositoryImpl(
                             dao = aliceDb.bookRatingDao(),
+                            externalRatingDao = aliceDb.bookExternalRatingDao(),
                             offlineEditor = OfflineEditor(aliceQueue, RoomTransactionRunner(aliceDb), aliceSession),
                             authSession = aliceSession,
+                            ratingChannel = ratingChannel,
                         ),
                     bobReaders = bobReaders(bobDb),
                 ).block()

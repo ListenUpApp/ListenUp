@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -280,6 +281,7 @@ private fun Module.moodBindings() {
             ratings = get<BookRatingRepository>(),
             accessPolicy = get<BookAccessPolicy>(),
             principal = unscopedPlaceholder("BookRatingService"),
+            fetcher = get<ExternalRatingsFetcher>(),
         )
     }
     single { MoodDomainSeeder(sql = get(), moodRepository = get<MoodRepository>()) }

@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
@@ -68,9 +70,13 @@ class AdminSettingsViewModelTest :
                 )
         }
 
-        fun createFixture(settings: ServerSettings = createServerSettings()): TestFixture {
+        fun createFixture(
+            settings: ServerSettings = createServerSettings(),
+            ratingSources: List<RatingSourceStatus> = emptyList(),
+        ): TestFixture {
             val fixture = TestFixture()
             everySuspend { fixture.loadServerSettingsUseCase() } returns AppResult.Success(settings)
+            everySuspend { fixture.loadServerSettingsUseCase.ratingSources() } returns AppResult.Success(ratingSources)
             return fixture
         }
 
@@ -327,6 +333,70 @@ class AdminSettingsViewModelTest :
 
                 val cleared = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 cleared.error shouldBe null
+            }
+        }
+
+        // ========== Rating Sources ==========
+
+        test("load populates ratingSources alongside the rest of the settings") {
+            runTest {
+                val sources =
+                    listOf(
+                        RatingSourceStatus(ExternalRatingSource.AUDIBLE, enabled = true, lastFetchedAt = 1L, lastError = null),
+                    )
+                val fixture = createFixture(ratingSources = sources)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.ratingSources shouldBe sources
+            }
+        }
+
+        test("setRatingSourceEnabled persists immediately and does not mark dirty") {
+            runTest {
+                val before = RatingSourceStatus(ExternalRatingSource.AUDIBLE, enabled = true, lastFetchedAt = null, lastError = null)
+                val after = before.copy(enabled = false)
+                val fixture = createFixture(ratingSources = listOf(before))
+                everySuspend {
+                    fixture.updateServerSettingsUseCase.setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, false)
+                } returns AppResult.Success(listOf(after))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, false)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.ratingSources shouldBe listOf(after)
+                ready.isDirty shouldBe false
+                verifySuspend(VerifyMode.atLeast(1)) {
+                    fixture.updateServerSettingsUseCase.setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, false)
+                }
+            }
+        }
+
+        test("setRatingSourceEnabled failure reverts the toggle and surfaces the error") {
+            runTest {
+                val before = RatingSourceStatus(ExternalRatingSource.AUDIBLE, enabled = true, lastFetchedAt = null, lastError = null)
+                val fixture = createFixture(ratingSources = listOf(before))
+                everySuspend {
+                    fixture.updateServerSettingsUseCase.setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, false)
+                } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Forbidden"),
+                    )
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setRatingSourceEnabled(ExternalRatingSource.AUDIBLE, false)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                // The optimistic flip reverts to the server-confirmed list on failure.
+                ready.ratingSources shouldBe listOf(before)
+                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
             }
         }
     })

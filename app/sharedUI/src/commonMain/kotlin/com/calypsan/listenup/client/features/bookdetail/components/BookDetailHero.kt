@@ -244,7 +244,6 @@ fun CompactHero(
  *   open the full-cast overlay for that role
  * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
  * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
- * @param rating Average rating (0–5); null/≤0 hides the rating stat chip
  * @param duration Total duration in milliseconds, shown as the duration stat chip
  * @param year Publication year; null/≤0 hides the year stat chip
  * @param addedAt Epoch millis the book was added; null hides the lead "Added" accent stat chip
@@ -268,7 +267,6 @@ fun WideHeroBand(
     onShowCast: (CastRole) -> Unit,
     progress: Float?,
     timeRemaining: String?,
-    rating: Double?,
     duration: Long,
     year: Int?,
     addedAt: Long?,
@@ -345,7 +343,6 @@ fun WideHeroBand(
                     onContributorClick = onContributorClick,
                     onSeriesClick = onSeriesClick,
                     onShowCast = onShowCast,
-                    rating = rating,
                     duration = duration,
                     year = year,
                     addedAt = addedAt,
@@ -375,7 +372,6 @@ private fun WideHeroIdentity(
     onContributorClick: (contributorId: String) -> Unit,
     onSeriesClick: (seriesId: String) -> Unit,
     onShowCast: (CastRole) -> Unit,
-    rating: Double?,
     duration: Long,
     year: Int?,
     addedAt: Long?,
@@ -440,10 +436,9 @@ private fun WideHeroIdentity(
             )
         }
 
-        // Stats — Added (accent) · Duration · Year · Rating, last in the identity column and
+        // Stats — Added (accent) · Duration · Year, last in the identity column and
         // recoloured to read on the colour band.
         StatsRow(
-            rating = rating,
             duration = duration,
             year = year,
             addedAt = addedAt,

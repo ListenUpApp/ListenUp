@@ -90,6 +90,10 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onHoldNewBooksForReviewChange = { settingsViewModel.setHoldNewBooksForReview(it) },
             pushNotificationsEnabled = readySettings?.pushNotificationsEnabled ?: true,
             onPushNotificationsEnabledChange = { settingsViewModel.setPushNotificationsEnabled(it) },
+            ratingSources = readySettings?.ratingSources ?: emptyList(),
+            onRatingSourceEnabledChange = { source, enabled ->
+                settingsViewModel.setRatingSourceEnabled(source, enabled)
+            },
             isDirty = readySettings?.isDirty == true,
             onSave = { settingsViewModel.saveAll() },
             settingsError =

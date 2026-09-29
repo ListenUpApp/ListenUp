@@ -228,3 +228,34 @@ internal val MIGRATION_8_9 =
             )
         }
     }
+
+/**
+ * v9 → v10: the `book_external_ratings` table arrives.
+ *
+ * One row per (book, outside catalog): the average and count Audible (and later Hardcover/
+ * Goodreads) report for a book, mirroring `book_ratings`' shape but with no per-client write path
+ * — the server is the sole writer, so there is no outbox for this table. Non-destructive by
+ * construction — pure `CREATE TABLE`/`CREATE INDEX`, touching no existing rows, per the migration
+ * policy in [ListenUpDatabase].
+ *
+ * DDL is copied verbatim from the exported `schemas/…/10.json` `createSql` entries so
+ * `runMigrationsAndValidate` sees an identical schema to a fresh v10 install.
+ */
+internal val MIGRATION_9_10 =
+    object : Migration(9, 10) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `book_external_ratings` (`bookId` TEXT NOT NULL, `source` TEXT NOT NULL, " +
+                    "`syncId` TEXT NOT NULL, `average` REAL NOT NULL, `count` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, " +
+                    "`revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`, `source`))",
+            )
+            connection.executeDdl(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_book_external_ratings_syncId` " +
+                    "ON `book_external_ratings` (`syncId`)",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_book_external_ratings_deletedAt` " +
+                    "ON `book_external_ratings` (`deletedAt`)",
+            )
+        }
+    }

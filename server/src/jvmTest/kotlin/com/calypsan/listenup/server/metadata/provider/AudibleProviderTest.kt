@@ -1,17 +1,34 @@
 package com.calypsan.listenup.server.metadata.provider
 
 import com.calypsan.listenup.api.dto.ContributorRole
+import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributor
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
+import com.calypsan.listenup.server.metadata.audible.ProductTag
+import com.calypsan.listenup.server.metadata.audible.SearchParams
+import com.calypsan.listenup.server.metadata.itunes.ITunesApi
+import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
+import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.GenreKind
+import com.calypsan.listenup.server.services.MetadataCacheRepository
+import com.calypsan.listenup.server.services.MetadataService
+import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Instant
+import kotlinx.coroutines.test.runTest
 
 /**
  * Covers the Audible → neutral-SPI mappers that back [AudibleProvider]. The provider methods
@@ -167,4 +184,154 @@ class AudibleProviderTest :
                 listOf(CoverMeta(url = "https://a/cover.jpg", sourceKey = "B2"))
             listOf(hit("B1", "")).toCoverMetas() shouldBe emptyList()
         }
+
+        // ─── RatingSource ──────────────────────────────────────────────────────────
+
+        test("AudibleBook maps to ExternalRatingMeta when rated") {
+            audibleBook().toExternalRatingMeta() shouldBe ExternalRatingMeta(average = 4.8, count = 100)
+        }
+
+        test("a zero average or zero count maps to null — Audible's unrated-book signal") {
+            audibleBook().copy(rating = 0f, ratingCount = 0).toExternalRatingMeta().shouldBeNull()
+            audibleBook().copy(rating = 0f, ratingCount = 100).toExternalRatingMeta().shouldBeNull()
+            audibleBook().copy(rating = 4.8f, ratingCount = 0).toExternalRatingMeta().shouldBeNull()
+        }
+
+        test("getRating returns null without touching the catalog when the book has no ASIN") {
+            withSqlDatabase {
+                val audible = FakeAudibleApi()
+                val provider = AudibleProvider(testMetadataService(audible, sql))
+                runTest {
+                    val result = provider.getRating(BookIdentity(title = "No Asin"), MetadataLocale.DEFAULT)
+                    result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data.shouldBeNull()
+                    audible.bookCalls shouldBe 0
+                }
+            }
+        }
+
+        test("getRating maps a rated Audible book's average and count") {
+            withSqlDatabase {
+                val audible = FakeAudibleApi(bookResult = AppResult.Success(audibleBook()))
+                val provider = AudibleProvider(testMetadataService(audible, sql))
+                runTest {
+                    val result =
+                        provider.getRating(BookIdentity(asin = "B01", title = "The Way of Kings"), MetadataLocale.DEFAULT)
+                    result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data shouldBe
+                        ExternalRatingMeta(4.8, 100)
+                }
+            }
+        }
+
+        test("getRating falls through to the Audible storefront that actually sells a region-locked book") {
+            withSqlDatabase {
+                val caBook = audibleBook().copy(asin = "B071L4NKN4")
+                val audible =
+                    object : AudibleApi {
+                        override suspend fun search(
+                            region: AudibleRegion,
+                            params: SearchParams,
+                        ): AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList())
+
+                        override suspend fun getBook(
+                            region: AudibleRegion,
+                            asin: String,
+                        ): AppResult<AudibleBook?> = if (region == AudibleRegion.CA) AppResult.Success(caBook) else AppResult.Success(null)
+
+                        override suspend fun getChapters(
+                            region: AudibleRegion,
+                            asin: String,
+                        ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
+
+                        override suspend fun getProductTags(
+                            region: AudibleRegion,
+                            asin: String,
+                        ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
+                    }
+                val provider = AudibleProvider(testMetadataService(audible, sql))
+                runTest {
+                    val result =
+                        provider.getRating(BookIdentity(asin = "B071L4NKN4", title = "T"), MetadataLocale.DEFAULT)
+                    val meta = result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data
+                    meta.shouldNotBeNull()
+                    meta.average shouldBe 4.8
+                    meta.count shouldBe 100
+                    meta.region shouldBe "ca"
+                }
+            }
+        }
+
+        test("getRating returns null for an unrated Audible book") {
+            withSqlDatabase {
+                val unrated = audibleBook().copy(rating = 0f, ratingCount = 0)
+                val audible = FakeAudibleApi(bookResult = AppResult.Success(unrated))
+                val provider = AudibleProvider(testMetadataService(audible, sql))
+                runTest {
+                    val result = provider.getRating(BookIdentity(asin = "B01", title = "T"), MetadataLocale.DEFAULT)
+                    result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data.shouldBeNull()
+                }
+            }
+        }
     })
+
+// ─── Test helpers ──────────────────────────────────────────────────────────────
+
+/** A [MetadataService] wired to a fake [AudibleApi], with a throwaway iTunes fake and a fixed clock. */
+private fun testMetadataService(
+    audible: AudibleApi,
+    db: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+): MetadataService {
+    val clock = FixedClock(Instant.parse("2026-05-24T12:00:00Z"))
+    return MetadataService(
+        audible = audible,
+        itunes = FakeITunesApi(),
+        cache = MetadataCacheRepository(db, clock),
+        defaultRegion = AudibleRegion.US,
+        clock = clock,
+    )
+}
+
+/** Minimal hand-rolled [AudibleApi] fake — no network, no MockEngine needed at this layer. */
+private class FakeAudibleApi(
+    private val searchResult: AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList()),
+    private val bookResult: AppResult<AudibleBook?> = AppResult.Success(null),
+    private val chaptersResult: AppResult<List<AudibleChapter>> = AppResult.Success(emptyList()),
+) : AudibleApi {
+    var bookCalls = 0
+        private set
+
+    override suspend fun search(
+        region: AudibleRegion,
+        params: SearchParams,
+    ): AppResult<List<AudibleSearchResult>> = searchResult
+
+    override suspend fun getBook(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleBook?> {
+        bookCalls++
+        return bookResult
+    }
+
+    override suspend fun getChapters(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<AudibleChapter>> = chaptersResult
+
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
+}
+
+/** Minimal hand-rolled [ITunesApi] fake — [AudibleProvider] never calls it, but [MetadataService] requires one. */
+private class FakeITunesApi : ITunesApi {
+    override suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?> = AppResult.Success(null)
+
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> = AppResult.Success(emptyList())
+}

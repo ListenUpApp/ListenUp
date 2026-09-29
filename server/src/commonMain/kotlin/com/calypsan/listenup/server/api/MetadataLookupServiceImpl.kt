@@ -34,6 +34,7 @@ import com.calypsan.listenup.server.metadata.spi.ContributorHitRanker
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
+import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
@@ -87,6 +88,12 @@ internal class MetadataLookupServiceImpl(
     private val probeDimensions: suspend (String) -> Pair<Int, Int>? = { _ -> null },
     private val principal: PrincipalProvider = PrincipalProvider.None,
     /**
+     * Best-effort outside-ratings refresh after a successful [applyBookMetadata] — threaded into
+     * [BookMetadataApplier] as its `externalRatingsFetch` lambda. Null in tests and wherever the
+     * feature is unwired.
+     */
+    private val externalRatingsFetcher: ExternalRatingsFetcher? = null,
+    /**
      * Per-user throttle for the open read methods. Nullable + defaulted on the same terms as
      * `AuthServiceImpl.loginRateLimiter`: non-null in production, absent in the direct-construction
      * unit tests, where it is a no-op.
@@ -110,6 +117,7 @@ internal class MetadataLookupServiceImpl(
             genreRepository = genreRepository,
             probeDimensions = probeDimensions,
             principal = principal,
+            externalRatingsFetcher = externalRatingsFetcher,
             rateLimiter = rateLimiter,
         )
 
@@ -299,6 +307,10 @@ internal class MetadataLookupServiceImpl(
                 sqlDb = sqlDb,
                 ladderSource = { locale, a -> coordinator.composeGenreLadders(bookIdentity(a), locale) },
                 enrichmentDeps = enrichmentDeps,
+                externalRatingsFetch =
+                    externalRatingsFetcher?.let { fetcher ->
+                        { id, locale -> fetcher.fetch(id, locale, refresh = true) }
+                    },
             ).apply(bookId, asin, region, selection)
         }
     }

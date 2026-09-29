@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
@@ -28,4 +30,10 @@ open class UpdateServerSettingsUseCase(
     /** Enable or disable server-wide push notifications (FCM relay delivery). */
     open suspend fun updatePushNotificationsEnabled(enabled: Boolean): AppResult<ServerSettings> =
         adminRepository.updateServerSettings(pushNotificationsEnabled = enabled)
+
+    /** Switches [source] on or off; disabling flips `enabled` on each of its existing rows. */
+    open suspend fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ): AppResult<List<RatingSourceStatus>> = adminRepository.setRatingSourceEnabled(source, enabled)
 }

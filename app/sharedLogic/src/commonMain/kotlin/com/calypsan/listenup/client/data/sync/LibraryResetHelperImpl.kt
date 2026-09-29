@@ -49,6 +49,7 @@ internal class LibraryResetHelperImpl(
             database.bookTagDao().deleteAll()
             database.bookMoodDao().deleteAll()
             database.bookRatingDao().deleteAll()
+            database.bookExternalRatingDao().deleteAll()
             database.shelfBookDao().deleteAll()
             database.collectionBookDao().deleteAll()
             database.collectionShareDao().deleteAll()

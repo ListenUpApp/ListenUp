@@ -173,6 +173,7 @@ CollectionError_SealedType
 CollectionRepository
 CollectionShare
 CollectionShareItem
+CombinedScore
 ConnectionCoordinator
 ConnectionHealthUi
 ConnectionHealthUi_SealedType
@@ -298,6 +299,8 @@ EditableSeries
 EditableTag
 ErrorBus
 EventStreamRepository
+ExternalRating
+ExternalRatingSource
 FacetCount
 FacetIcon
 FacetIdentity
@@ -566,6 +569,10 @@ PushRegistrar
 PushRepository
 PushTapRouting
 PushTokenProvider
+RatingError
+RatingError_SealedType
+RatingLabels
+RatingSourceStatus
 Reachability
 Reachability_SealedType
 Reader

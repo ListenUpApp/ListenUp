@@ -39,7 +39,6 @@ data class BookDetail(
     val isbn: String? = null,
     val asin: String? = null,
     val abridged: Boolean = false,
-    val rating: Double? = null,
     val allContributors: List<BookContributor> = emptyList(),
     val genres: List<Genre> = emptyList(),
     val tags: List<Tag> = emptyList(),
@@ -79,7 +78,6 @@ data class BookDetail(
             isbn = isbn,
             asin = asin,
             abridged = abridged,
-            rating = rating,
         )
 }
 

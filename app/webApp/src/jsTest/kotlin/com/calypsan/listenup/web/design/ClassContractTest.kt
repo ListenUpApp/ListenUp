@@ -1550,7 +1550,7 @@ private fun inboxShapes(): List<@Composable () -> Unit> {
 private fun serverSettingsShapes(): List<@Composable () -> Unit> {
     fun page(state: AdminSettingsUiState): @Composable () -> Unit =
         {
-            ServerSettingsPage(state, {}, {}, {}, {}, {}, {}, {}, {})
+            ServerSettingsPage(state, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
         }
 
     return listOf(
@@ -2452,11 +2452,30 @@ private val contractMergeHistory =
 private fun ratingShapes(): List<@Composable () -> Unit> {
     val mine = ListenerRating(bookId = "b1", userId = "me", halfStars = 7, note = "Loved it", ratedAtMs = 0L)
     val rated =
-        BookRatingsUiState.Ready(listeners = ListenerAverage(averageHalfStars = 8.0, count = 3), mine = mine)
+        BookRatingsUiState.Ready(
+            listeners = ListenerAverage(averageHalfStars = 8.0, count = 3),
+            mine = mine,
+            external = null,
+            breakdown = emptyList(),
+            canRefresh = false,
+        )
     val ratedReader = reader(userId = "me", displayName = "Ada Lovelace", rating = mine)
     return listOf(
         { RatingsPanel(state = rated, onRate = { _, _ -> }, onClear = {}) },
-        { RatingsPanel(state = BookRatingsUiState.Ready(listeners = null, mine = null), onRate = { _, _ -> }, onClear = {}) },
+        {
+            RatingsPanel(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                    ),
+                onRate = { _, _ -> },
+                onClear = {},
+            )
+        },
         { RateBookDialog(open = true, current = mine, onSave = { _, _ -> }, onClear = {}, onDismiss = {}) },
         { ReadersPanel(state = readersData(ratedReader), nowMs = 0L, onOpenProfile = {}, onSeeAll = {}) },
     )

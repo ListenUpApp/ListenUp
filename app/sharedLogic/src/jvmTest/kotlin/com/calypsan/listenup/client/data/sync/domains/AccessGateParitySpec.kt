@@ -50,6 +50,7 @@ class AccessGateParitySpec :
                         "book_tags",
                         "book_moods",
                         "book_ratings",
+                        "book_external_ratings",
                     )
             }
 

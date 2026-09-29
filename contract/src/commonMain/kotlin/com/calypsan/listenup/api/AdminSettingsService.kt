@@ -2,7 +2,9 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import kotlinx.rpc.annotations.Rpc
 
 /**
@@ -20,4 +22,13 @@ interface AdminSettingsService {
 
     /** Applies [patch] (null fields unchanged; `remoteUrl=""` clears) and returns the new settings. */
     suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings>
+
+    /** Every outside rating source, with its enabled flag and last-fetch health. */
+    suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>>
+
+    /** Switches [source] on or off; disabling flips `enabled` on each of its existing rows. */
+    suspend fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ): AppResult<List<RatingSourceStatus>>
 }

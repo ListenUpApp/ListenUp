@@ -193,7 +193,6 @@ internal fun BookWithContributors.toListItem(
         isbn = book.isbn,
         asin = book.asin,
         abridged = book.abridged,
-        rating = null,
         hasDocuments = hasDocuments,
     )
 }
@@ -266,7 +265,6 @@ internal fun BookWithContributors.toDetail(
         isbn = book.isbn,
         asin = book.asin,
         abridged = book.abridged,
-        rating = null,
         allContributors = allContributors,
         genres = genres,
         tags = tags,

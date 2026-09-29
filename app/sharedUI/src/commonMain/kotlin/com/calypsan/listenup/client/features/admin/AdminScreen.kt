@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -61,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,8 +70,10 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.design.components.ActionTile
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ColorBlockHero
@@ -86,6 +90,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -135,6 +140,11 @@ import listenup.composeapp.generated.resources.admin_pending_invites
 import listenup.composeapp.generated.resources.admin_pending_registrations
 import listenup.composeapp.generated.resources.admin_push_setting_subtitle
 import listenup.composeapp.generated.resources.admin_push_setting_title
+import listenup.composeapp.generated.resources.admin_rating_source_error
+import listenup.composeapp.generated.resources.admin_rating_source_last_fetched
+import listenup.composeapp.generated.resources.admin_rating_source_never_fetched
+import listenup.composeapp.generated.resources.admin_rating_sources_hint
+import listenup.composeapp.generated.resources.admin_rating_sources_title
 import listenup.composeapp.generated.resources.admin_remote_url
 import listenup.composeapp.generated.resources.admin_remote_url_placeholder
 import listenup.composeapp.generated.resources.admin_reset_code_copied
@@ -192,6 +202,8 @@ fun AdminScreen(
     onHoldNewBooksForReviewChange: (Boolean) -> Unit = {},
     pushNotificationsEnabled: Boolean = true,
     onPushNotificationsEnabledChange: (Boolean) -> Unit = {},
+    ratingSources: List<RatingSourceStatus> = emptyList(),
+    onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit = { _, _ -> },
     isDirty: Boolean = false,
     onSave: () -> Unit = {},
     settingsError: String? = null,
@@ -278,6 +290,8 @@ fun AdminScreen(
                     onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
                     pushNotificationsEnabled = pushNotificationsEnabled,
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
+                    ratingSources = ratingSources,
+                    onRatingSourceEnabledChange = onRatingSourceEnabledChange,
                     modifier = Modifier.padding(innerPadding),
                 )
             }
@@ -421,6 +435,8 @@ private fun AdminContent(
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
+    ratingSources: List<RatingSourceStatus>,
+    onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isExpanded =
@@ -457,6 +473,8 @@ private fun AdminContent(
             onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
             pushNotificationsEnabled = pushNotificationsEnabled,
             onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
+            ratingSources = ratingSources,
+            onRatingSourceEnabledChange = onRatingSourceEnabledChange,
             modifier = modifier,
         )
     } else {
@@ -480,6 +498,13 @@ private fun AdminContent(
                     pushNotificationsEnabled = pushNotificationsEnabled,
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     onRegistrationPolicyChange = onRegistrationPolicyChange,
+                )
+            }
+
+            item {
+                RatingSourcesGroup(
+                    sources = ratingSources,
+                    onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
             }
 
@@ -544,6 +569,8 @@ private fun AdminTwoPaneContent(
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
+    ratingSources: List<RatingSourceStatus>,
+    onRatingSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -567,6 +594,13 @@ private fun AdminTwoPaneContent(
                     pushNotificationsEnabled = pushNotificationsEnabled,
                     onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     onRegistrationPolicyChange = onRegistrationPolicyChange,
+                )
+            }
+
+            item {
+                RatingSourcesGroup(
+                    sources = ratingSources,
+                    onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
             }
 
@@ -749,6 +783,73 @@ private fun registrationPolicyDescription(policy: RegistrationPolicy): StringRes
         RegistrationPolicy.APPROVAL_QUEUE -> Res.string.admin_registration_approval_desc
         RegistrationPolicy.CLOSED -> Res.string.admin_registration_closed_desc
     }
+
+// ---------------------------------------------------------------------------
+// Rating sources section
+// ---------------------------------------------------------------------------
+
+/**
+ * "Rating sources": one row per outside catalog the server can fetch a book's rating from, a
+ * switch to enable/disable it, and a health line reporting its last fetch. Switching a source off
+ * hides its scores at once everywhere (each of its rows flips `enabled`); switching it back on
+ * brings them back.
+ */
+@Composable
+internal fun RatingSourcesGroup(
+    sources: List<RatingSourceStatus>,
+    onSourceEnabledChange: (ExternalRatingSource, Boolean) -> Unit,
+) {
+    SectionGroup(
+        label = stringResource(Res.string.admin_rating_sources_title),
+    ) {
+        SectionSegment {
+            Text(
+                text = stringResource(Res.string.admin_rating_sources_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(Spacing.lg),
+            )
+        }
+        sources.forEach { status ->
+            RatingSourceRow(
+                status = status,
+                onEnabledChange = { enabled -> onSourceEnabledChange(status.source, enabled) },
+            )
+        }
+    }
+}
+
+/** One source: the whole row is its switch, and the subtitle says how its last fetch went. */
+@Composable
+private fun RatingSourceRow(
+    status: RatingSourceStatus,
+    onEnabledChange: (Boolean) -> Unit,
+) {
+    val lastError = status.lastError
+    val lastFetchedAt = status.lastFetchedAt
+    val healthLine =
+        when {
+            lastError != null -> {
+                stringResource(Res.string.admin_rating_source_error, lastError)
+            }
+
+            lastFetchedAt != null -> {
+                stringResource(Res.string.admin_rating_source_last_fetched, relativeTime(lastFetchedAt))
+            }
+
+            else -> {
+                stringResource(Res.string.admin_rating_source_never_fetched)
+            }
+        }
+    SettingToggleRow(
+        icon = Icons.Outlined.Star,
+        title = ratingSourceLabel(status.source),
+        subtitle = healthLine,
+        checked = status.enabled,
+        onCheckedChange = onEnabledChange,
+        modifier = Modifier.testTag("ratingSourceSwitch_${status.source.name}"),
+    )
+}
 
 // ---------------------------------------------------------------------------
 // Users section (users table + pending registrations + pending invites)

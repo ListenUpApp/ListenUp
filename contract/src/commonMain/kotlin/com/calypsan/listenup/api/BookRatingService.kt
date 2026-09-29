@@ -20,4 +20,10 @@ interface BookRatingService {
 
     /** Remove the caller's rating of [bookId]. */
     suspend fun clearRating(bookId: BookId): AppResult<Unit>
+
+    /**
+     * Re-fetch every enabled outside source for [bookId] now — admin only. Answers
+     * `RatingError.SourceUnavailable` when every enabled source failed.
+     */
+    suspend fun refreshExternalRatings(bookId: BookId): AppResult<Unit>
 }

@@ -2,9 +2,14 @@ package com.calypsan.listenup.web.features.ratings
 
 import androidx.compose.runtime.collectAsState
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
+import com.calypsan.listenup.client.domain.model.CombinedScore
+import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -24,6 +29,8 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain as shouldContainString
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +60,18 @@ private fun rating(
 private fun ready(
     mine: ListenerRating? = null,
     listeners: ListenerAverage? = null,
-) = BookRatingsUiState.Ready(listeners = listeners, mine = mine)
+    external: CombinedScore? = null,
+    breakdown: List<ExternalRating> = emptyList(),
+    canRefresh: Boolean = false,
+    isRefreshingExternal: Boolean = false,
+) = BookRatingsUiState.Ready(
+    listeners = listeners,
+    mine = mine,
+    external = external,
+    breakdown = breakdown,
+    canRefresh = canRefresh,
+    isRefreshingExternal = isRefreshingExternal,
+)
 
 private fun button(
     host: HTMLElement,
@@ -90,11 +108,20 @@ private fun EventTarget.press(key: String) {
     dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = key, bubbles = true, cancelable = true)))
 }
 
-/** A repository over an in-memory list, recording the writes the ViewModel sends it. */
-private class FakeBookRatingRepository : BookRatingRepository {
+/**
+ * A repository over an in-memory list, recording the writes the ViewModel sends it.
+ *
+ * [refreshGate] is already-completed by default, so [refreshExternal] returns at once; a test of
+ * the in-flight window passes its own incomplete [CompletableDeferred] and completes it itself.
+ */
+private class FakeBookRatingRepository(
+    private val refreshGate: CompletableDeferred<Unit> = CompletableDeferred(Unit),
+) : BookRatingRepository {
     val ratings = MutableStateFlow<List<ListenerRating>>(emptyList())
     val rated = mutableListOf<Triple<String, Int, String?>>()
     val cleared = mutableListOf<String>()
+    val refreshed = mutableListOf<String>()
+    var external = MutableStateFlow<List<ExternalRating>>(emptyList())
 
     override fun observeForBook(bookId: String): Flow<List<ListenerRating>> = ratings.map { all -> all.filter { it.bookId == bookId } }
 
@@ -116,6 +143,33 @@ private class FakeBookRatingRepository : BookRatingRepository {
         ratings.value = ratings.value.filterNot { it.userId == "me" }
         return AppResult.Success(Unit)
     }
+
+    override fun observeExternalForBook(bookId: String): Flow<List<ExternalRating>> = external
+
+    override fun observeCombinedScores(): Flow<Map<String, CombinedScore>> = flowOf(emptyMap())
+
+    override suspend fun refreshExternal(bookId: String): AppResult<Unit> {
+        refreshed += bookId
+        refreshGate.await()
+        return AppResult.Success(Unit)
+    }
+}
+
+/** [BookRatingsViewModel] only reads [observeIsAdmin] here — [isAdmin] governs `canRefresh`. */
+private class FakeUserRepository(
+    private val isAdmin: Boolean = false,
+) : UserRepository {
+    override fun observeCurrentUser(): Flow<User?> = flowOf(null)
+
+    override fun observeIsAdmin(): Flow<Boolean> = flowOf(isAdmin)
+
+    override suspend fun getCurrentUser(): User? = null
+
+    override suspend fun saveUser(user: User) = Unit
+
+    override suspend fun clearUsers() = Unit
+
+    override suspend fun refreshCurrentUser(): User? = null
 }
 
 /**
@@ -134,7 +188,11 @@ class RatingsTest :
             state: BookRatingsUiState,
             onRate: (Int, String?) -> Unit = { _, _ -> },
             onClear: () -> Unit = {},
-        ): HTMLElement = mounts.mount { RatingsPanel(state = state, onRate = onRate, onClear = onClear) }
+            onRefreshExternal: () -> Unit = {},
+        ): HTMLElement =
+            mounts.mount {
+                RatingsPanel(state = state, onRate = onRate, onClear = onClear, onRefreshExternal = onRefreshExternal)
+            }
 
         test("the panel draws nothing while the ratings are loading") {
             panel(BookRatingsUiState.Loading).textContent?.trim() shouldBe ""
@@ -292,7 +350,7 @@ class RatingsTest :
                     modules(
                         module {
                             factory { params ->
-                                BookRatingsViewModel(params.get(), repository, flowOf("me"), ErrorBus())
+                                BookRatingsViewModel(params.get(), repository, flowOf("me"), ErrorBus(), FakeUserRepository())
                             }
                         },
                     )
@@ -329,9 +387,199 @@ class RatingsTest :
             }
         }
 
-        test("the library sorts books by your listeners' rating") {
+        test("the outside score stays hidden until an enabled source has rated the book") {
+            val host = panel(ready())
+
+            host.querySelector(".rt-external").shouldBeNull()
+        }
+
+        test("an admin can refresh ratings before any score exists") {
+            var refreshed = false
+            val host = panel(ready(canRefresh = true), onRefreshExternal = { refreshed = true })
+
+            val action = host.querySelector(".rt-refresh-empty") as HTMLElement
+            action.textContent shouldBe "Refresh ratings"
+            action.dispatchEvent(MouseEvent("click", MouseEventInit(bubbles = true, cancelable = true)))
+
+            refreshed shouldBe true
+        }
+
+        test("the inline refresh action is busy while a refresh is in flight") {
+            val host = panel(ready(canRefresh = true, isRefreshingExternal = true))
+
+            val action = host.querySelector(".rt-refresh-empty") as HTMLElement
+            action.textContent shouldBe "Refreshing…"
+            action.hasAttribute("disabled") shouldBe true
+        }
+
+        test("a non-admin sees no refresh action before any score exists") {
+            val host = panel(ready(canRefresh = false))
+
+            host.querySelector(".rt-refresh-empty").shouldBeNull()
+        }
+
+        test("no inline refresh action once a score exists") {
+            val host = panel(ready(external = CombinedScore(average = 4.4, count = 12_000), canRefresh = true))
+
+            host.querySelector(".rt-refresh-empty").shouldBeNull()
+            host.querySelector(".rt-external").shouldNotBeNull()
+        }
+
+        test("the outside headline shows one decimal, never a dropped trailing zero") {
+            val host = panel(ready(external = CombinedScore(average = 4.0, count = 12_000)))
+
+            val headline = host.querySelector(".rt-external") as HTMLElement
+            // ⛔ "4.0", never "4": a JS double drops the trailing zero, and starsLabel would round
+            // a continuous average to the nearest half star ("4.5") instead of printing it exactly.
+            headline.getAttribute("aria-label") shouldBe "Rated 4.0 out of 5 stars by 12k readers elsewhere"
+            headline.textContent shouldBe "★ 4.0 · 12k ratings"
+        }
+
+        test("the headline rounds half up, never to the nearest half star") {
+            val host = panel(ready(external = CombinedScore(average = 4.45, count = 900)))
+
+            val headline = host.querySelector(".rt-external") as HTMLElement
+            // ⛔ 4.45 reads "4.5" — round half up on the true average. `starsLabel(average * 2)`
+            // would instead round to the nearest half star and print the same "4.5" only by
+            // coincidence here; the regression it guards against is 4.4 printing "4.5".
+            headline.getAttribute("aria-label") shouldBe "Rated 4.5 out of 5 stars by 900 readers elsewhere"
+            headline.textContent shouldBe "★ 4.5 · 900 ratings"
+        }
+
+        test("one outside rating reads as one rating, in the words the listener average uses") {
+            val host = panel(ready(external = CombinedScore(average = 4.4, count = 1)))
+
+            val headline = host.querySelector(".rt-external") as HTMLElement
+            headline.getAttribute("aria-label") shouldBe "Rated 4.4 out of 5 stars by 1 reader elsewhere"
+            headline.textContent shouldBe "★ 4.4 · 1 rating"
+        }
+
+        test("tapping the headline opens a breakdown sheet listing one row per source") {
+            val host =
+                panel(
+                    ready(
+                        external = CombinedScore(average = 4.4, count = 8_400),
+                        breakdown =
+                            listOf(
+                                ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.5, count = 8_100),
+                                ExternalRating(source = ExternalRatingSource.GOODREADS, average = 4.0, count = 300),
+                            ),
+                    ),
+                )
+
+            (host.querySelector(".rt-external") as HTMLElement).click()
+            val dialog = awaitPresent(host, "dialog")
+
+            dialog.textContent.orEmpty() shouldContainString "Ratings"
+            val rows = dialog.querySelectorAll(".rt-source-row").asList().map { it.textContent }
+            rows shouldContainExactly listOf("Audible · 4.5 · 8.1k", "Goodreads · 4.0 · 300")
+        }
+
+        test("the refresh button offers itself only to an admin") {
+            val host =
+                panel(
+                    ready(
+                        external = CombinedScore(average = 4.4, count = 100),
+                        breakdown = listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.4, count = 100)),
+                        canRefresh = false,
+                    ),
+                )
+
+            (host.querySelector(".rt-external") as HTMLElement).click()
+            awaitPresent(host, "dialog")
+
+            host.querySelector(".rt-refresh").shouldBeNull()
+        }
+
+        test("the refresh button is busy while isRefreshingExternal is true, and plain when it is not") {
+            val breakdown = listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.4, count = 100))
+            val idle =
+                panel(
+                    ready(
+                        external = CombinedScore(average = 4.4, count = 100),
+                        breakdown = breakdown,
+                        canRefresh = true,
+                        isRefreshingExternal = false,
+                    ),
+                )
+            (idle.querySelector(".rt-external") as HTMLElement).click()
+            awaitPresent(idle, "dialog")
+            (idle.querySelector(".rt-refresh") as HTMLElement).hasAttribute("disabled") shouldBe false
+            (idle.querySelector(".rt-refresh") as HTMLElement).textContent shouldBe "Refresh ratings"
+
+            val busy =
+                panel(
+                    ready(
+                        external = CombinedScore(average = 4.4, count = 100),
+                        breakdown = breakdown,
+                        canRefresh = true,
+                        isRefreshingExternal = true,
+                    ),
+                )
+            (busy.querySelector(".rt-external") as HTMLElement).click()
+            awaitPresent(busy, "dialog")
+            (busy.querySelector(".rt-refresh") as HTMLElement).hasAttribute("disabled") shouldBe true
+            (busy.querySelector(".rt-refresh") as HTMLElement).textContent shouldBe "Refreshing…"
+        }
+
+        test("refresh reaches the real ViewModel's refreshExternal, admin-gated end to end, and stays busy until it answers") {
+            val refreshGate = CompletableDeferred<Unit>()
+            val repository =
+                FakeBookRatingRepository(refreshGate = refreshGate).apply {
+                    external.value = listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.4, count = 100))
+                }
+            val koin =
+                koinApplication {
+                    modules(
+                        module {
+                            factory { params ->
+                                BookRatingsViewModel(
+                                    params.get(),
+                                    repository,
+                                    flowOf("me"),
+                                    ErrorBus(),
+                                    FakeUserRepository(isAdmin = true),
+                                )
+                            }
+                        },
+                    )
+                }.koin
+            val session = graphBookRatings(koin)("b1")
+            val host =
+                mounts.mount {
+                    RatingsPanel(
+                        state = session.state.collectAsState().value,
+                        onRate = session.rate,
+                        onClear = session.clear,
+                        onRefreshExternal = session.refreshExternal,
+                    )
+                }
+            try {
+                awaitPresent(host, ".rt-external").click()
+                awaitPresent(host, ".rt-refresh").click()
+
+                withTimeout(RECOMPOSE_TIMEOUT_MS) { while (repository.refreshed.isEmpty()) delay(10) }
+                repository.refreshed shouldContainExactly listOf("b1")
+
+                // ⛔ The RPC hasn't answered yet (the gate is still open) — the button must say so.
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (button(host, "Refreshing…")?.hasAttribute("disabled") != true) delay(10)
+                }
+
+                refreshGate.complete(Unit)
+
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (button(host, "Refresh ratings")?.hasAttribute("disabled") != false) delay(10)
+                }
+            } finally {
+                session.close()
+            }
+        }
+
+        test("the library sorts books by the outside world's rating and by your listeners'") {
+            BOOK_SORT_CATEGORIES shouldContain SortCategory.RATING
             BOOK_SORT_CATEGORIES shouldContain SortCategory.LISTENER_RATING
             BOOK_SORT_CATEGORIES.indexOf(SortCategory.LISTENER_RATING) shouldBe
-                BOOK_SORT_CATEGORIES.indexOf(SortCategory.ADDED) + 1
+                BOOK_SORT_CATEGORIES.indexOf(SortCategory.ADDED) + 2
         }
     })

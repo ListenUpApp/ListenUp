@@ -237,12 +237,14 @@ fun ListenUpDatabase.seedTestLibraryAndFolder(
  * @param folderId the `books.folder_id` value (default `"test-folder"`).
  * @param rootRelPath the `books.root_rel_path` value — the book directory relative to the
  *   folder root (default keeps the historic `"$bookId/book.m4b"` placeholder).
+ * @param asin the `books.asin` value (default null — most fixtures don't care).
  */
 fun ListenUpDatabase.seedTestBook(
     bookId: String,
     libraryId: String = "test-library",
     folderId: String = "test-folder",
     rootRelPath: String = "$bookId/book.m4b",
+    asin: String? = null,
 ) {
     val now = System.currentTimeMillis()
     transaction {
@@ -259,7 +261,7 @@ fun ListenUpDatabase.seedTestBook(
             publisher = null,
             language = null,
             isbn = null,
-            asin = null,
+            asin = asin,
             abridged = 0L,
             explicit = 0L,
             has_scan_warning = 0L,

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -12,6 +13,8 @@ import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.LibraryWriteStatus
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.mdns.launchMdnsRefreshOnServerInfoChange
+import com.calypsan.listenup.server.ratings.ExternalRatingsBackfill
+import com.calypsan.listenup.server.ratings.triggerExternalRatingsBackfillOnScanCompletion
 import com.calypsan.listenup.server.scanner.RescanScheduler
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
@@ -20,6 +23,7 @@ import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import com.calypsan.listenup.server.transcode.TranscoderProvisioner
 import com.calypsan.listenup.server.scheduler.ExpiredPasswordResetCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
+import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.scheduler.SidecarRetryTask
@@ -32,6 +36,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
 import org.koin.ktor.ext.get as koinGet
@@ -77,6 +82,16 @@ internal fun Application.startBackgroundTasks(
     cleanupTask.start(scope)
     val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
     metadataCacheCleanupTask.start(scope)
+    val externalRatingsSweepTask by inject<ExternalRatingsSweepTask>()
+    externalRatingsSweepTask.start(scope)
+    // Catches a book up on its outside rating the moment a scan (full or incremental) commits it,
+    // rather than waiting for its turn in the sweep above — BookPersister emits ScanEvent.Completed
+    // for both, so this one subscription covers a freshly-scanned book with an embedded ASIN even
+    // when nobody ever matches it.
+    scope.triggerExternalRatingsBackfillOnScanCompletion(
+        events = koinGet<SharedFlow<ScanEvent>>(),
+        backfill = koinGet<ExternalRatingsBackfill>(),
+    )
     val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
     orphanImageCleanupTask.start(scope)
     val statsFreshnessSweepTask by inject<StatsFreshnessSweepTask>()

@@ -55,7 +55,6 @@ object TestData {
         isbn: String? = null,
         asin: String? = null,
         abridged: Boolean = false,
-        rating: Double? = 4.5,
     ): BookDetail {
         val seriesList =
             if (seriesId != null && seriesName != null) {
@@ -88,7 +87,6 @@ object TestData {
             isbn = isbn,
             asin = asin,
             abridged = abridged,
-            rating = rating,
         )
     }
 
@@ -118,7 +116,6 @@ object TestData {
         isbn: String? = null,
         asin: String? = null,
         abridged: Boolean = false,
-        rating: Double? = 4.5,
     ): BookListItem {
         val seriesList =
             if (seriesId != null && seriesName != null) {
@@ -149,7 +146,6 @@ object TestData {
             isbn = isbn,
             asin = asin,
             abridged = abridged,
-            rating = rating,
         )
     }
 

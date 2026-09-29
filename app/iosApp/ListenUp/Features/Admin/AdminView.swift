@@ -171,6 +171,44 @@ struct AdminView: View {
                 isOn: pushNotificationsEnabledBinding(settings: settings, model: settingsModel(settings))
             )
             .fieldCard()
+            if let model = settingsModel(settings), !model.ratingSources.isEmpty {
+                Spacer().frame(height: 14)
+                ratingSourcesSection(model: model, settings: settings)
+            }
+        }
+    }
+
+    // MARK: - Rating sources section
+
+    /// "Rating sources": one row per outside catalog the server can fetch a book's rating from, a
+    /// switch to enable/disable it, and a health line reporting its last fetch. Switching a source
+    /// off hides its scores at once everywhere; switching it back on brings them back.
+    @ViewBuilder
+    private func ratingSourcesSection(model: AdminSettingsReadyModel, settings: AdminSettingsObserver) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            AdminSectionHeader(String(localized: "admin.rating_sources_title"))
+            Text(String(localized: "admin.rating_sources_hint"))
+                .font(.footnote)
+                .foregroundStyle(Color.luLabel2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
+            VStack(spacing: 0) {
+                ForEach(Array(model.ratingSources.enumerated()), id: \.element.id) { index, row in
+                    if index > 0 { rowSeparator }
+                    ToggleRow(
+                        systemImage: "star.fill",
+                        tint: .luTint,
+                        title: row.source.displayName,
+                        subtitle: row.healthLine(),
+                        isOn: Binding(
+                            get: { row.enabled },
+                            set: { settings.setRatingSourceEnabled(row.source, $0) }
+                        )
+                    )
+                }
+            }
+            .fieldCard()
         }
     }
 

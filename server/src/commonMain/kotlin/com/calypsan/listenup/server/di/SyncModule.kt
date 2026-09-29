@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.OrphanParentPurger
+import com.calypsan.listenup.server.sync.BookExternalRatingRepository
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookRatingRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -72,6 +73,9 @@ fun syncModule(): Module =
         single(
             createdAtStart = true,
         ) { BookRatingRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
+        single(
+            createdAtStart = true,
+        ) { BookExternalRatingRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
         // Orphan-purge collaborator, co-located with the tag/mood/junction repos it reads: when a
         // book removal leaves a parent (contributor/series/genre/tag/mood) with zero live children,
         // BookRepository.softDelete captures the parents, then this tombstones the orphaned ones.

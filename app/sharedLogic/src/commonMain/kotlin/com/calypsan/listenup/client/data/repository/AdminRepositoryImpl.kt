@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
@@ -16,6 +17,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
 import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
@@ -224,6 +226,14 @@ internal class AdminRepositoryImpl(
                     ),
                 )
             }.map { ServerSettings(it.serverName, it.remoteUrl, it.holdNewBooksForReview, it.pushNotificationsEnabled) }
+
+    override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> =
+        adminSettingsChannel.call(idempotent = true) { it.getRatingSources() }
+
+    override suspend fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ): AppResult<List<RatingSourceStatus>> = adminSettingsChannel.call { it.setRatingSourceEnabled(source, enabled) }
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT

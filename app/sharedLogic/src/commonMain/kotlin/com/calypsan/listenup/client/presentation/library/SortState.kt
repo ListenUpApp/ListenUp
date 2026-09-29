@@ -87,6 +87,12 @@ enum class SortCategory(
         defaultDirection = SortDirection.DESCENDING,
     ),
 
+    RATING(
+        label = "Rating",
+        ascLabel = "Lowest",
+        descLabel = "Highest",
+        defaultDirection = SortDirection.DESCENDING,
+    ),
     LISTENER_RATING(
         label = "Listener rating",
         ascLabel = "Lowest",
@@ -123,6 +129,7 @@ enum class SortCategory(
                 DURATION,
                 YEAR,
                 ADDED,
+                RATING,
                 LISTENER_RATING,
                 SERIES,
             )

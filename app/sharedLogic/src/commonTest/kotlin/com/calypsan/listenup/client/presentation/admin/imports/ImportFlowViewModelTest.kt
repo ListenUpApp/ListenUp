@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin.imports
 
+import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -15,6 +16,7 @@ import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.FacetCount
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -1172,6 +1174,13 @@ private class FakeAdminRepository(
         holdNewBooksForReview: Boolean?,
         pushNotificationsEnabled: Boolean?,
     ): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = serverName ?: "Test", remoteUrl = remoteUrl))
+
+    override suspend fun getRatingSources(): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
+
+    override suspend fun setRatingSourceEnabled(
+        source: ExternalRatingSource,
+        enabled: Boolean,
+    ): AppResult<List<RatingSourceStatus>> = AppResult.Success(emptyList())
 
     override suspend fun getLibrary(): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
