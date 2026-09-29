@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -53,7 +54,7 @@ fun UploadPage(
             }
 
             UploadBooksUiState.Finalizing -> {
-                Progress(label = "Adding them to your library…", percent = null)
+                Progress(label = "Adding them to your library…", fraction = null)
             }
 
             is UploadBooksUiState.Finished -> {
@@ -136,19 +137,19 @@ private fun Uploading(
 ) {
     Progress(
         label = "Sending ${state.filename} (${state.fileIndex + 1} of ${state.fileCount})",
-        percent = state.fraction?.let { (it * PERCENT).toInt() },
+        fraction = state.fraction,
     )
     Button(kind = ButtonKind.Secondary, onClick = { onCancel() }) { Text("Cancel") }
 }
 
 /**
- * ⛔ A null [percent] is an indeterminate bar, never a bar pinned at zero — a selection that could
+ * ⛔ A null [fraction] is an indeterminate bar, never a bar pinned at zero — a selection that could
  * not report its sizes is unknown progress, and a stuck bar reads as a hung upload.
  */
 @Composable
 private fun Progress(
     label: String,
-    percent: Int?,
+    fraction: Float?,
 ) {
     Div(attrs = {
         classes("upl-live")
@@ -156,16 +157,8 @@ private fun Progress(
         attr("aria-live", "polite")
     }) {
         P(attrs = { classes("upl-step") }) { Text(label) }
-        Div(attrs = {
-            classes("upl-bar")
-            if (percent == null) classes("is-idle")
-        }) {
-            Div(attrs = {
-                classes("upl-bar-fill")
-                // A scale, not a width: see `.upl-bar-fill` — the transition stays on the compositor.
-                percent?.let { style { property("transform", "scaleX(${it / PERCENT.toDouble()})") } }
-            })
-        }
+        // The step above already says it in words, inside this live region; the bar is its picture.
+        ProgressBar(value = fraction, decorative = true)
     }
 }
 
@@ -236,5 +229,3 @@ internal fun finishedSummary(state: UploadBooksUiState.Finished): String {
 }
 
 private const val AUDIO_ACCEPT = ".m4b,.m4a,.mp3,.opus,.ogg,.flac,.aac,.wma,audio/*"
-
-private const val PERCENT = 100

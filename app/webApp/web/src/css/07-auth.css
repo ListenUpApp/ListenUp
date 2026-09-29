@@ -193,7 +193,6 @@
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
   height: calc(0.8rem * 1.2);
 }
-.lib-progress { height: 3px; border-radius: 2px; overflow: hidden; background: var(--surface-3); }
 /* `visibility`, not `display`, so the rail still occupies its row — the grid is virtualised and
    depends on every card being exactly the same height. */
 .lib-progress.is-empty { visibility: hidden; }
@@ -215,7 +214,6 @@
    so the caller's own card is still the grid item its stylesheet lays out. */
 .vl-spacer { grid-column: 1 / -1; overflow-anchor: none; }
 .vl-item, .vl-head { display: contents; }
-.lib-progress-fill { height: 100%; background: var(--coral); }
 
 /* Contributors — the A→Z people list (Library facet). */
 .contrib-count {
@@ -318,7 +316,6 @@
   background:linear-gradient(150deg, var(--coral-soft), var(--paper-2));
   color:var(--ink-2); font-size:var(--fs-small); font-weight:800; line-height:1.15; overflow:hidden;
 }
-.cd-tile-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
 .cd-tile-title {
   font-size:var(--fs-small); font-weight:600; color:var(--ink); margin-top:var(--sp-8);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -396,7 +393,6 @@
   width:100%; height:100%; padding:6px; box-sizing:border-box; display:flex; align-items:flex-end;
   font-size:var(--fs-caption); font-weight:800; line-height:1.1; color:var(--ink-2);
 }
-.sd-book-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
 .sd-book-text { flex:1; min-width:0; }
 .sd-book-t { font-size:var(--fs-body); font-weight:700; letter-spacing:-0.01em; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .sd-book-sub { font-size:var(--fs-small); color:var(--ink-2); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -24,11 +24,7 @@
 }
 .luw .home-status-t { font-weight: 700; font-size: 0.9rem; color: var(--ink); }
 .luw .home-status-sub { font-size: var(--fs-small); color: var(--ink-2); }
-.luw .home-status-track {
-  flex: 1; min-width: 8rem; height: 6px; border-radius: var(--r-pill); background: var(--surface-3);
-  overflow: hidden;
-}
-.luw .home-status-fill { height: 100%; border-radius: var(--r-pill); background: var(--coral); }
+.luw .home-status-track { flex: 1; min-width: 8rem; }
 
 /* ---- The confirm dialog. `<dialog>` gives the top layer and the backdrop pseudo-element, so all
    this has to do is look like the rest of the app. */
@@ -535,10 +531,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-card-cover-skel { width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; }
 .luw .home-card:focus { outline: none; }
 @media (hover: hover) { .luw .home-card:hover .home-card-t { color: var(--coral-text); } }
-.luw .home-card-progress {
-  height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden;
-}
-.luw .home-card-progress-fill { height: 100%; border-radius: var(--r-pill); background: var(--coral); }
+.luw .home-card-progress { width: 100%; }
 .luw .home-card-t {
   font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1140,9 +1133,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bke-row.off .bke-row-c { color: var(--ink-3); }
 /* The count again, in a form nobody has to count. `role=presentation` because the number beside it
    already says this — a screen reader should not hear it twice. */
-.luw .bke-bar { height: 6px; margin-top: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
-.luw .bke-bar-fill { height: 100%; border-radius: var(--r-pill); background: var(--coral); }
-.luw .bke-row.off .bke-bar-fill { background: var(--ink-3); }
+.luw .bke-bar { margin-top: 6px; }
+.luw .bke-row.off .bke-bar .progress-fill { background: var(--ink-3); }
 .luw .bke-row-note { margin: 6px 0 0; font-size: var(--fs-small); color: var(--ink-3); }
 .luw .bke-apply { display: flex; justify-content: flex-end; padding-top: 6px; }
 

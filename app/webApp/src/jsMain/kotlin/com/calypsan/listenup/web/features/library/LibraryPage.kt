@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -28,8 +30,6 @@ import com.calypsan.listenup.web.motion.flyHeroInto
 import com.calypsan.listenup.web.motion.recordHeroOrigin
 import org.w3c.dom.Element
 import org.jetbrains.compose.web.attributes.alt
-import org.jetbrains.compose.web.css.percent
-import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
@@ -268,17 +268,17 @@ internal fun BookCard(
         // its author line would be shorter than its neighbours and the row arithmetic would drift.
         Div(attrs = { classes("lib-author") }) { Text(book.authors.joinToString(", ") { it.name }) }
         run {
-            Div(attrs = {
-                classes("lib-progress")
-                // Holds its row so every card is the same height, but shows nothing until there is
-                // progress to show — a rail on an unstarted book would claim the reader had begun it.
-                if (progress <= 0f) classes("is-empty")
-            }) {
-                Div(attrs = {
-                    classes("lib-progress-fill")
-                    style { width((progress * PERCENT).percent) }
-                })
-            }
+            ProgressBar(
+                value = progress,
+                label = "Listening progress",
+                look = ProgressLook.Rail,
+                attrs = {
+                    classes("lib-progress")
+                    // Holds its row so every card is the same height, but shows nothing until there
+                    // is progress — a rail on an unstarted book would claim the reader had begun it.
+                    if (progress <= 0f) classes("is-empty")
+                },
+            )
         }
     }
 }
@@ -369,8 +369,6 @@ private fun coverSrcset(
 ): String =
     "${coverUrl(bookId, coverHash, GRID_RUNG)} 1x, " +
         "${coverUrl(bookId, coverHash, GRID_RUNG_DENSE)} 2x"
-
-private const val PERCENT = 100
 
 private const val TICK_ICON = 14
 

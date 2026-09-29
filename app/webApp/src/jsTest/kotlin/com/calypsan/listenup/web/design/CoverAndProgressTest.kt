@@ -76,7 +76,7 @@ class CoverAndProgressTest :
         }
 
         test("progress reports itself to assistive technology") {
-            val host = mounts.mount { ProgressLine(percent = 49, remaining = "9h 18m left") }
+            val host = mounts.mount { ProgressBar(value = 0.49f, label = "Listening progress", caption = "49% · 9h 18m left") }
 
             val bar = host.querySelector("[role=progressbar]") as HTMLElement
             bar.getAttribute("aria-valuenow") shouldBe "49"
@@ -84,7 +84,7 @@ class CoverAndProgressTest :
 
         test("a position past the end cannot overflow the track") {
             // Re-encoding a file can leave a stored position slightly beyond the new duration.
-            val host = mounts.mount { ProgressLine(percent = 140, remaining = "0m left") }
+            val host = mounts.mount { ProgressBar(value = 1.4f, label = "Listening progress", caption = "${percentOf(1.4f)}%") }
 
             host.textContent!! shouldContain "100%"
             (host.querySelector("[role=progressbar]") as HTMLElement)
@@ -92,9 +92,10 @@ class CoverAndProgressTest :
         }
 
         test("a negative position clamps to zero rather than inverting the bar") {
-            val host = mounts.mount { ProgressLine(percent = -5, remaining = "18h left") }
+            val host = mounts.mount { ProgressBar(value = -0.05f, label = "Listening progress", caption = "${percentOf(-0.05f)}%") }
 
             host.textContent!! shouldContain "0%"
+            (host.querySelector(".progress-fill") as HTMLElement).style.transform shouldBe "scaleX(0)"
         }
 
         test("a cover too small to hold a title legibly shows the gradient alone") {

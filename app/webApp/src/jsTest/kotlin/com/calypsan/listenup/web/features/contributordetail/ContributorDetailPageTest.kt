@@ -255,8 +255,8 @@ class ContributorDetailPageTest :
                 )
 
             val tiles = root.querySelectorAll(".cd-tile")
-            ((tiles.item(0) as HTMLElement).querySelector(".cd-tile-progress") != null) shouldBe true
-            ((tiles.item(1) as HTMLElement).querySelector(".cd-tile-progress") != null) shouldBe false
+            ((tiles.item(0) as HTMLElement).querySelector(".progress-overlay") != null) shouldBe true
+            ((tiles.item(1) as HTMLElement).querySelector(".progress-overlay") != null) shouldBe false
         }
 
         test("Loading renders the breadcrumb and says it is loading, not a blank frame") {

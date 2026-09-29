@@ -175,7 +175,7 @@ class SeriesDetailPageTest :
                     readySeries(bookProgress = mapOf(BookId("b1") to 0.5f)),
                 )
 
-            root.querySelectorAll(".sd-book-progress").length shouldBe 1
+            root.querySelectorAll(".progress-overlay").length shouldBe 1
         }
 
         test("a finished book is marked finished") {

@@ -6,14 +6,13 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.window
 import org.jetbrains.compose.web.dom.Aside
-import org.jetbrains.compose.web.dom.Div
 import org.w3c.dom.HTMLElement
 
 /**
  * What the progress bars and the sidebar animate — against the real sheet.
  *
  * A `width` transition lays the page out again on every frame it runs; a `transform` is composited.
- * The organize and upload bars moved to `scaleX`, and the sidebar collapse stopped animating at
+ * Every progress bar is the shared `ProgressBar`, whose fill is scaled with `scaleX`, and the sidebar collapse stopped animating at
  * all, since its labels snap out on the first frame and every card in the grid beside it re-flowed
  * sixty times a second for nothing.
  */
@@ -28,15 +27,12 @@ class CompositedMotionTest :
             property: String,
         ): String = window.getComputedStyle(host.querySelector(selector)!!).getPropertyValue(property)
 
-        listOf("org-bar" to "org-bar-fill", "upl-bar" to "upl-bar-fill").forEach { (track, fill) ->
-            test("the $track fill animates a transform, scaled from its left edge") {
-                val host =
-                    mounts.mount {
-                        WebAppSurface { Div(attrs = { classes(track) }) { Div(attrs = { classes(fill) }) } }
-                    }
+        ProgressLook.entries.forEach { look ->
+            test("a $look progress fill animates a transform, scaled from its left edge") {
+                val host = mounts.mount { WebAppSurface { ProgressBar(value = 0.5f, label = "Progress", look = look) } }
 
-                computed(host, ".$fill", "transition-property") shouldBe "transform"
-                computed(host, ".$fill", "transform-origin").split(" ").first() shouldBe "0px"
+                computed(host, ".progress-fill", "transition-property") shouldBe "transform"
+                computed(host, ".progress-fill", "transform-origin").split(" ").first() shouldBe "0px"
             }
         }
 

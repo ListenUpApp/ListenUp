@@ -319,8 +319,9 @@ class BulkEditPageTest :
                     ),
                 )
 
-            host.querySelector(".bke-bar")?.getAttribute("role") shouldBe "presentation"
-            (host.querySelector(".bke-bar-fill") as HTMLElement).style.width shouldBe "25%"
+            // It restates the count printed beside it, so it is hidden rather than read twice.
+            host.querySelector(".bke-bar")?.getAttribute("aria-hidden") shouldBe "true"
+            (host.querySelector(".bke-bar .progress-fill") as HTMLElement).style.transform shouldBe "scaleX(0.25)"
         }
 
         // ⛔ The count is the promise, so it goes on the button.

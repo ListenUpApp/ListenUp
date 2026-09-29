@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -21,7 +23,6 @@ import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.alt
-import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -265,10 +266,7 @@ private fun BookRow(
             // past its finished threshold into `finishedBookIds` instead — so an unstarted book
             // draws no bar rather than a zero-width one that reads as data.
             progress?.let { fraction ->
-                Div(attrs = {
-                    classes("sd-book-progress")
-                    style { width((fraction.coerceIn(0f, 1f) * PERCENT).percent) }
-                })
+                ProgressBar(value = fraction, label = "Listening progress", look = ProgressLook.Overlay)
             }
         }
 
@@ -331,5 +329,3 @@ private const val PLAY_ICON_SIZE = 17
 private const val STAT_ICON_SIZE = 17
 
 private const val DONE_ICON_SIZE = 15
-
-private const val PERCENT = 100

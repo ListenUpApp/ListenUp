@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -210,13 +211,7 @@ private fun RunDialog(
             return@ModalDialog
         }
         P(attrs = { classes("dlg-p") }) { Text("${run.completed} of ${run.total} books") }
-        Div(attrs = { classes("org-bar") }) {
-            Div(attrs = {
-                classes("org-bar-fill")
-                // A scale, not a width: see `.org-bar-fill` — the transition stays on the compositor.
-                style { property("transform", "scaleX(${runFraction(run) / PERCENT.toDouble()})") }
-            })
-        }
+        ProgressBar(value = runFraction(run) / PERCENT.toFloat(), label = "Organizing", attrs = { classes("org-bar") })
     }
 }
 

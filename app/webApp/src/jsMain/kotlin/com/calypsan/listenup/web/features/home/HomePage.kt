@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -136,12 +138,11 @@ private fun LibraryStatus(state: HomeUiState.Ready) {
             Div(attrs = { classes("home-status") }) {
                 Span(attrs = { classes("home-status-t") }) { Text(scan.phaseDisplayName) }
                 scan.progressFraction?.let { fraction ->
-                    Div(attrs = { classes("home-status-track") }) {
-                        Div(attrs = {
-                            classes("home-status-fill")
-                            style { property("width", "${(fraction * PERCENT).toInt()}%") }
-                        })
-                    }
+                    ProgressBar(
+                        value = fraction,
+                        label = scan.phaseDisplayName,
+                        attrs = { classes("home-status-track") },
+                    )
                 }
                 scan.changesSummary?.let { summary ->
                     Span(attrs = { classes("home-status-sub") }) { Text(summary) }
@@ -236,12 +237,13 @@ private fun ContinueCard(
                     size = CONTINUE_COVER_WIDTH,
                     decorative = true,
                 )
-                Div(attrs = { classes("home-card-progress") }) {
-                    Div(attrs = {
-                        classes("home-card-progress-fill")
-                        style { property("width", "${book.progressPercent}%") }
-                    })
-                }
+                // The time left under the title says it in words; the rail is its picture.
+                ProgressBar(
+                    value = book.progressPercent / PERCENT.toFloat(),
+                    look = ProgressLook.Rail,
+                    decorative = true,
+                    attrs = { classes("home-card-progress") },
+                )
                 Span(attrs = { classes("home-card-t") }) { Text(book.title) }
                 Span(attrs = { classes("home-card-sub") }) { Text(book.timeRemainingFormatted) }
             }

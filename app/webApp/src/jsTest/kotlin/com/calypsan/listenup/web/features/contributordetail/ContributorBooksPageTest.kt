@@ -117,7 +117,7 @@ class ContributorBooksPageTest :
                 )
 
             root.querySelectorAll(".cd-tile").length shouldBe 2
-            root.querySelectorAll(".cd-tile-progress").length shouldBe 1
+            root.querySelectorAll(".progress-overlay").length shouldBe 1
         }
 
         test("clicking a tile opens that book, not the first one on the page") {

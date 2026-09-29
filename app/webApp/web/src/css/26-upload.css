@@ -7,17 +7,6 @@
 .luw .upl-picks { display: flex; flex-wrap: wrap; gap: 10px; }
 .luw .upl-live { display: flex; flex-direction: column; gap: var(--sp-8); }
 .luw .upl-step { margin: 0; font-size: var(--fs-ui); color: var(--ink-2); overflow-wrap: anywhere; }
-.luw .upl-bar { height: 8px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
-/* Scaled, not sized: a `width` transition lays the page out again every frame of the animation,
-   where a transform is composited. The track's own radius and overflow round the ends. */
-.luw .upl-bar-fill { height: 100%; background: var(--coral); transform: scaleX(0); transform-origin: left; }
-@media (prefers-reduced-motion: no-preference) { .luw .upl-bar-fill { transition: transform var(--dur-slow) linear; } }
-/* ⛔ Indeterminate, not zero: a selection that could not report its sizes is unknown progress, and
-   a bar pinned at zero reads as a hung upload. */
-.luw .upl-bar.is-idle .upl-bar-fill { transform: scaleX(0.4); }
-@media (prefers-reduced-motion: no-preference) {
-  .luw .upl-bar.is-idle .upl-bar-fill { animation: shim 1.5s linear infinite; background: linear-gradient(90deg, var(--coral-soft), var(--coral), var(--coral-soft)); background-size: 200% 100%; }
-}
 .luw .upl-done { display: flex; flex-direction: column; gap: var(--gap); }
 .luw .upl-sum { margin: 0; font-size: 1rem; font-weight: 700; color: var(--ink); }
 .luw .upl-err { margin: 0 0 var(--sp-12); font-size: 0.9rem; color: var(--coral-text); }

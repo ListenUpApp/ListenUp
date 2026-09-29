@@ -1299,7 +1299,16 @@ class ClassContractTest :
                         LinkButton("Back to sign in", onClick = {})
                         Pill("Horror", selected = true, onRemove = {})
                         Cover(title = "The Institute")
-                        ProgressLine(percent = 49, remaining = "9h 18m left")
+                        ProgressLook.entries.forEach { look -> ProgressBar(value = 0.49f, label = "Progress", look = look) }
+                        ProgressBar(value = null, label = "Progress", caption = "9h 18m left")
+                        EmptyState(title = "Nothing yet", body = "Body", icon = WebIcon.Book) {}
+                        EmptyState(title = "Nothing yet", look = EmptyLook.Inset)
+                        EmptyState(title = "Nothing yet", look = EmptyLook.Inline)
+                        LoadingState()
+                        PageHeader(title = "Title", eyebrow = "Eyebrow", subtitle = "Sub", display = true, pending = true) {}
+                        ButtonKind.entries.forEach { kind ->
+                            ButtonSize.entries.forEach { size -> Button(kind = kind, size = size, label = "Go", fill = true) {} }
+                        }
                         Field(label = "Email", value = "", leading = WebIcon.Mail, onInput = {})
                         Field(label = "Email", value = "", error = true, onInput = {})
                         PasswordField(label = "Password", value = "", onInput = {})

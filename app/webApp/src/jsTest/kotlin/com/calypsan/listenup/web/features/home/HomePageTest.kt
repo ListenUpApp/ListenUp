@@ -264,7 +264,7 @@ class HomePageTest :
             val host = homePage(readyHome(scanProgress = scanning(books = 40, booksTotal = 100)))
 
             host.textOf(".home-status-t") shouldBe "Analyzing"
-            (host.querySelector(".home-status-fill") as HTMLElement).style.width shouldBe "40%"
+            (host.querySelector(".home-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
         }
 
         test("a scan outranks the initial seed, because only the scan can say how far along it is") {

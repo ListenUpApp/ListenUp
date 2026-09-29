@@ -368,6 +368,25 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (prefers-reduced-motion: no-preference) { .skel { animation: shim 1.5s linear infinite; } }
 @keyframes shim { to { background-position:-200% 0; } }
 
+/* ---- progress — `ProgressBar` draws all of these. The fill is scaled, never resized: a `width`
+   transition lays the page out on every frame, a transform is composited. Rail: 3px under a card.
+   Bar: 6px, the working bar. Overlay: 4px along a cover tile's bottom edge, no track. */
+.progress { position:relative; overflow:hidden; background:var(--surface-3); border-radius:var(--r-pill); }
+.progress-fill { height:100%; background:var(--coral); transform:scaleX(0); transform-origin:left; }
+@media (prefers-reduced-motion: no-preference) { .progress-fill { transition:transform var(--dur-slow) linear; } }
+.progress-rail { height:3px; }
+.progress-bar { height:6px; }
+.progress-overlay { position:absolute; left:0; right:0; bottom:0; height:4px; background:transparent; border-radius:0; }
+/* Indeterminate, not zero: work of unknown size, not a bar pinned at the start that reads as hung. */
+.progress.is-indeterminate .progress-fill { transform:scaleX(.4); }
+@media (prefers-reduced-motion: no-preference) {
+  .progress.is-indeterminate .progress-fill { animation:shim 1.5s linear infinite; background:linear-gradient(90deg, var(--coral-soft), var(--coral), var(--coral-soft)); background-size:200% 100%; }
+}
+/* A bar with its words beside it: the bar flexes, only the caption is intrinsic. */
+.progress-line { display:flex; align-items:center; gap:var(--sp-12); width:100%; }
+.progress-line .progress { flex:1; min-width:32px; }
+.progress-caption { flex-shrink:0; font-size:var(--fs-caption); color:var(--ink-2); white-space:nowrap; }
+
 /* ---- tabs ---- */
 .tabs { display:flex; gap:2px; border-bottom:1px solid var(--line); }
 .tab { height:42px; padding:0 14px; display:inline-flex; align-items:center; gap:var(--sp-8); font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }

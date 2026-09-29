@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.design.ProgressLook
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -25,7 +27,6 @@ import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.initialsFor
 import com.calypsan.listenup.web.design.tintGradient
 import org.jetbrains.compose.web.attributes.alt
-import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -375,10 +376,7 @@ internal fun RoleTile(
             // Absent, not zero-width: a book [progress] doesn't know about (never started, or
             // finished — `calculateProgressMap` excludes both) draws no bar rather than a false one.
             progress?.let { fraction ->
-                Div(attrs = {
-                    classes("cd-tile-progress")
-                    style { width((fraction.coerceIn(0f, 1f) * PERCENT).percent) }
-                })
+                ProgressBar(value = fraction, label = "Listening progress", look = ProgressLook.Overlay)
             }
         }
         Div(attrs = { classes("cd-tile-title") }) { Text(book.title) }
@@ -479,8 +477,6 @@ internal fun creditedAsLine(bookCreditedAs: Map<String, String>): String? {
 }
 
 private const val STAT_ICON_SIZE = 17
-
-private const val PERCENT = 100
 
 /** The tile grid's covers are small; the smallest server rung comfortably covers a 6-column cell. */
 private const val TILE_COVER_RUNG = 200

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.percentOf
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -25,7 +27,6 @@ import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.Pill
-import com.calypsan.listenup.web.design.ProgressLine
 import com.calypsan.listenup.web.design.TabItem
 import com.calypsan.listenup.web.design.TabPanel
 import com.calypsan.listenup.web.design.Tabs
@@ -275,9 +276,10 @@ private fun SharedHeader(
                 Byline(ready, onOpenContributor)
                 SeriesChips(ready, onOpenSeries)
                 ready.progress?.let { fraction ->
-                    ProgressLine(
-                        percent = (fraction * PERCENT).toInt(),
-                        remaining = ready.timeRemainingFormatted.orEmpty(),
+                    ProgressBar(
+                        value = fraction,
+                        label = "Listening progress",
+                        caption = "${percentOf(fraction)}% · ${ready.timeRemainingFormatted.orEmpty()}",
                     )
                 }
                 // The row itself is not gated on `canPlay`: a book with no playable audio is
@@ -540,8 +542,6 @@ internal fun PaneHint(text: String) {
         Text(text)
     }
 }
-
-private const val PERCENT = 100
 
 /** The byline's author/narrator divider — "Author · read by Narrator". */
 private const val BYLINE_SEPARATOR = "·"

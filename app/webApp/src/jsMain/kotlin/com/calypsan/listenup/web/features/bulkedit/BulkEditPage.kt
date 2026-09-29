@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bulkedit
 
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -480,15 +481,7 @@ private fun PreviewPanel(
                 }
                 // The count again, in a form nobody has to count: the eye catches "less than a
                 // third" before it parses "12 of 40".
-                Div(attrs = {
-                    classes("bke-bar")
-                    attr("role", "presentation")
-                }) {
-                    Div(attrs = {
-                        classes("bke-bar-fill")
-                        style { property("width", "${(proportionOf(row, bookCount) * PERCENT).toInt()}%") }
-                    })
-                }
+                ProgressBar(value = proportionOf(row, bookCount), decorative = true, attrs = { classes("bke-bar") })
                 leftAloneNote(row.edit, row.affectedCount, bookCount)?.let {
                     P(attrs = { classes("bke-row-note") }) { Text(it) }
                 }
@@ -515,5 +508,3 @@ private const val ATTR_TYPE = "type"
 private const val VALUE_BUTTON = "button"
 
 private const val SMALL_ICON = 14
-
-private const val PERCENT = 100

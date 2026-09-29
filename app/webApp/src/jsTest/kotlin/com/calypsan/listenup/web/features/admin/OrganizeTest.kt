@@ -268,7 +268,7 @@ class OrganizeTest :
             val host = page(readyOrganize(run = OrganizeRunProgress(completed = 3, total = 12)))
 
             host.textContent.orEmpty() shouldContain "3 of 12 books"
-            (host.querySelector(".org-bar-fill") as HTMLElement).getAttribute("style") shouldContain "scaleX(0.25)"
+            (host.querySelector(".org-bar .progress-fill") as HTMLElement).getAttribute("style") shouldContain "scaleX(0.25)"
         }
 
         test("a run with no total yet is zero, never a division by zero") {

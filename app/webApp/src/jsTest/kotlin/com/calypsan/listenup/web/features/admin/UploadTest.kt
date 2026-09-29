@@ -109,7 +109,7 @@ class UploadTest :
                 )
 
             text(host, ".upl-step").shouldNotBeNull() shouldContain "Sending 03.m4b (3 of 9)"
-            (host.querySelector(".upl-bar-fill") as HTMLElement).getAttribute("style") shouldContain "scaleX(0.5)"
+            (host.querySelector(".progress-fill") as HTMLElement).getAttribute("style") shouldContain "scaleX(0.5)"
 
             button(host, "Cancel").shouldNotBeNull().click()
             awaitFrame()
@@ -120,15 +120,15 @@ class UploadTest :
             val host =
                 page(UploadBooksUiState.Uploading(fileIndex = 0, fileCount = 3, filename = "a.m4b", fraction = null))
 
-            (host.querySelector(".upl-bar") as HTMLElement).classList.contains("is-idle") shouldBe true
-            (host.querySelector(".upl-bar-fill") as HTMLElement).getAttribute("style").shouldBeNull()
+            (host.querySelector(".progress") as HTMLElement).classList.contains("is-indeterminate") shouldBe true
+            (host.querySelector(".progress-fill") as HTMLElement).getAttribute("style").shouldBeNull()
         }
 
         test("finalizing says what the server is doing, with no false progress") {
             val host = page(UploadBooksUiState.Finalizing)
 
             text(host, ".upl-step").shouldNotBeNull() shouldContain "Adding them to your library"
-            (host.querySelector(".upl-bar") as HTMLElement).classList.contains("is-idle") shouldBe true
+            (host.querySelector(".progress") as HTMLElement).classList.contains("is-indeterminate") shouldBe true
         }
 
         test("progress is announced, because a long upload is when someone looks away") {
