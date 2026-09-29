@@ -109,7 +109,7 @@ class UploadTest :
                 )
 
             text(host, ".upl-step").shouldNotBeNull() shouldContain "Sending 03.m4b (3 of 9)"
-            (host.querySelector(".upl-bar-fill") as HTMLElement).getAttribute("style") shouldContain "50%"
+            (host.querySelector(".upl-bar-fill") as HTMLElement).getAttribute("style") shouldContain "scaleX(0.5)"
 
             button(host, "Cancel").shouldNotBeNull().click()
             awaitFrame()

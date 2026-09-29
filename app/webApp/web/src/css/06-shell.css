@@ -23,7 +23,10 @@
 .skip-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 /* Focused by script (a skip, or arriving on a page), never by Tab: no ring around the whole page. */
 .shell-main:focus, .shell-main h1:focus { outline:none; }
-.sidebar { width:252px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface); border-right:1px solid var(--line); padding:18px 16px; transition:width .2s; overflow-y:auto; }
+.sidebar { width:252px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface); border-right:1px solid var(--line); padding:18px 16px; overflow-y:auto; }
+/* No width transition on the collapse, deliberately: animating `width` lays out the whole content
+   region every frame for 200ms — every card in the library grid re-flowing sixty times — while the
+   labels snap out at the first frame anyway. An instant collapse reads as crisper, not as missing. */
 .sb-brand { display:flex; align-items:center; justify-content:space-between; height:40px; margin-bottom:14px; }
 /* Mark + wordmark travel together so `space-between` still pushes the collapse toggle to the edge. */
 .sb-lockup { display:flex; align-items:center; gap:9px; min-width:0; }

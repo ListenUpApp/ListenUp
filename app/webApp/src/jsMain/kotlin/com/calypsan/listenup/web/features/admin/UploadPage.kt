@@ -178,7 +178,8 @@ private fun Progress(
         }) {
             Div(attrs = {
                 classes("upl-bar-fill")
-                percent?.let { style { property("width", "$it%") } }
+                // A scale, not a width: see `.upl-bar-fill` — the transition stays on the compositor.
+                percent?.let { style { property("transform", "scaleX(${it / PERCENT.toDouble()})") } }
             })
         }
     }

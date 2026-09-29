@@ -210,7 +210,8 @@ private fun RunDialog(
         Div(attrs = { classes("org-bar") }) {
             Div(attrs = {
                 classes("org-bar-fill")
-                style { property("width", "${runFraction(run)}%") }
+                // A scale, not a width: see `.org-bar-fill` — the transition stays on the compositor.
+                style { property("transform", "scaleX(${runFraction(run) / PERCENT.toDouble()})") }
             })
         }
     }

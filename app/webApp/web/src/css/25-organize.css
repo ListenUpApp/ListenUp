@@ -26,5 +26,8 @@
 .luw .org-clash { flex: none; padding: 1px 7px; border-radius: 999px; background: var(--surface-3); font-family: var(--font-a); font-size: 0.66rem; font-weight: 700; color: var(--ink-3); }
 .luw .org-more { margin: 4px 0 0; font-size: 0.74rem; color: var(--ink-3); }
 .luw .org-bar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; margin-top: 10px; }
-.luw .org-bar-fill { height: 100%; background: var(--coral); border-radius: inherit; transition: width .2s linear; }
+/* Scaled, not sized: a `width` transition lays the page out again every frame of the animation,
+   where a transform is composited. The track's own radius and overflow round the ends. */
+.luw .org-bar-fill { height: 100%; background: var(--coral); transform: scaleX(0); transform-origin: left; }
+@media (prefers-reduced-motion: no-preference) { .luw .org-bar-fill { transition: transform .2s linear; } }
 
