@@ -4,6 +4,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>ListenUp</title>
+    <!-- The theme, before first paint. The app's ThemeEffect owns `data-theme` once it mounts, but
+         that is after the bundle, the store and the stored preferences have all loaded; until then
+         a reader who chose dark would stare at a white page. This reads the same stored mode
+         (BrowserSecureStorage's "listenup." namespace, ThemeMode's lower-case name) and resolves
+         SYSTEM the way shouldUseDarkTheme does, so ThemeEffect's first write agrees with it.
+         Inline because it must run before the sheets paint; the server sends no CSP, and COEP
+         governs subresources, not inline script. WebThemeTest runs this very script. -->
+    <script>
+      (function () {
+        try {
+          var mode = (localStorage.getItem("listenup.theme_mode") || "").toLowerCase();
+          var dark = mode === "dark" ||
+            (mode !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.setAttribute("data-theme", "dark");
+          else document.documentElement.removeAttribute("data-theme");
+        } catch (e) { /* storage refused (private mode, blocked site data): ThemeEffect decides */ }
+      })();
+    </script>
     <!-- Our web sheet, adapted from the design project's. Edit it here; the comps are the
          reference, not a contract to transcribe.
          The house web voice lives in it too: Hanken Grotesk for everything, JetBrains Mono for

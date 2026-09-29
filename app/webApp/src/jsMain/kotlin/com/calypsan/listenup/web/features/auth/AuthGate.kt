@@ -499,7 +499,10 @@ private fun AuthBoot() {
  */
 @Composable
 private fun ThemeEffect(observeThemeMode: () -> Flow<ThemeMode>) {
-    var mode by remember { mutableStateOf(ThemeMode.SYSTEM) }
+    // Null until the reader's stored mode arrives. `index.html` has already painted that mode
+    // before the bundle loaded, so guessing SYSTEM here would overwrite the right theme with a
+    // wrong one for a frame — the flash the pre-paint seed exists to prevent.
+    var mode by remember { mutableStateOf<ThemeMode?>(null) }
     var systemDark by remember { mutableStateOf(systemPrefersDark()) }
 
     LaunchedEffect(Unit) { observeThemeMode().collect { mode = it } }
@@ -509,5 +512,5 @@ private fun ThemeEffect(observeThemeMode: () -> Flow<ThemeMode>) {
     }
 
     // A plain effect keyed on both, so the attribute is rewritten exactly when one of them moves.
-    LaunchedEffect(mode, systemDark) { applyTheme(shouldUseDarkTheme(mode, systemDark)) }
+    LaunchedEffect(mode, systemDark) { mode?.let { applyTheme(shouldUseDarkTheme(it, systemDark)) } }
 }

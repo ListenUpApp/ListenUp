@@ -731,6 +731,20 @@ class AuthGateTest :
             document.documentElement?.hasAttribute("data-theme") shouldBe false
         }
 
+        test("the theme index.html painted stands until the reader's mode arrives") {
+            // index.html seeds `data-theme` before first paint. The gate's own starting guess
+            // (SYSTEM) must not overwrite it in the moment before the stored mode is read: on a
+            // dark OS with Light chosen, or the reverse, that guess is exactly the flash the seed
+            // exists to prevent.
+            document.documentElement?.setAttribute("data-theme", "dark")
+
+            mountGate(FakeAuthGraph(AuthState.NeedsLogin()), themeMode = MutableSharedFlow())
+            awaitFrame()
+
+            document.documentElement?.getAttribute("data-theme") shouldBe "dark"
+            document.documentElement?.removeAttribute("data-theme")
+        }
+
         test("a later change reaches the document too, not just the first value") {
             // A `LaunchedEffect(Unit)` that read one value and stopped would pass the specs above
             // and leave the switcher dead after its first use.
