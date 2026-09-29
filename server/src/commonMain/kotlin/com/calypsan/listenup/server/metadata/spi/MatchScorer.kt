@@ -39,6 +39,50 @@ internal object MatchScorer {
      */
     private const val DURATION_TOLERANCE: Double = 0.5
 
+    /** Separates a main title from its subtitle ("Project Hail Mary: A Novel"). */
+    private const val SUBTITLE_DELIMITER: Char = ':'
+
+    /**
+     * The title-and-author score at or above which a rating-catalog hit is accepted as
+     * the same book. A wrong score is worse than no score, so this errs strict.
+     *
+     * Title and author are renormalised to `2/3` and `1/3`. A right author with a
+     * one-word-different title ("The Pursuit of God" vs "The Pursuit of Happiness")
+     * scores 0.833, so the bar sits just above it at 0.85; exact matches and
+     * accent/hyphen variants of the author clear it comfortably.
+     */
+    const val CONFIDENT_RATING_MATCH: Double = 0.85
+
+    /**
+     * Whether [candidate] is unmistakably the same book as [local], judged on title and
+     * author alone. Rating catalogs rarely carry a runtime, so duration is excluded, and
+     * both an author and a title are required: a title by itself is how a study guide
+     * borrows a classic's rating.
+     *
+     * A subtitle present on only one side ("Project Hail Mary" vs "Project Hail Mary: A
+     * Novel") is forgiven; two different subtitles ("Dune: Messiah" vs "Dune: Children
+     * of Dune") are not. [score] and [rank] are unaffected.
+     */
+    fun isConfidentRatingMatch(
+        local: BookIdentity,
+        candidate: BookMatch,
+    ): Boolean {
+        if (local.primaryAuthor == null || candidate.author == null) return false
+        val titleAndAuthorOnly = local.copy(durationMs = null) to candidate.copy(durationMs = null)
+        val (localSignals, candidateSignals) = titleAndAuthorOnly
+        if (score(localSignals, candidateSignals) >= CONFIDENT_RATING_MATCH) return true
+
+        val localHasSubtitle = SUBTITLE_DELIMITER in local.title
+        val candidateHasSubtitle = SUBTITLE_DELIMITER in candidate.title
+        if (localHasSubtitle == candidateHasSubtitle) return false
+        val withoutSubtitle =
+            score(
+                localSignals.copy(title = local.title.substringBefore(SUBTITLE_DELIMITER)),
+                candidateSignals.copy(title = candidate.title.substringBefore(SUBTITLE_DELIMITER)),
+            )
+        return withoutSubtitle >= CONFIDENT_RATING_MATCH
+    }
+
     /**
      * Scores [candidate] against the [local] book in `0.0..1.0`. Higher is a better
      * match. See the class KDoc for the weighting and degradation rules.
