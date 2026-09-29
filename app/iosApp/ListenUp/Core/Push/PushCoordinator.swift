@@ -20,13 +20,13 @@ import UserNotifications
 final class PushCoordinator: NSObject {
     static let shared = PushCoordinator()
 
-    /// Where shade taps land, set by `RootView` (which owns the router as `@State` so cold-launch
-    /// taps outlive the tab shell). A property on this singleton — not a `PushTapRouter.shared`
-    /// global — because the coordinator already owns every delegate callback and `RootView`
-    /// already talks to `PushCoordinator.shared`; weak so the coordinator never keeps UI state
-    /// alive. `didReceive` cannot fire before it is set: the delegate is only assigned in
-    /// `activate()`, which `RootView` calls after wiring the router.
-    weak var tapRouter: PushTapRouter?
+    /// Where shade taps land — one router for the process, as this coordinator is one per process.
+    /// Owned here rather than by a window's `RootView`: with several iPad windows, each window used
+    /// to overwrite this with its own router, so a tap landed in whichever window happened to wire
+    /// it last (possibly one since closed). Every window's shell now observes this one router and
+    /// claims taps through it (`PushTapRouter.claimPending(for:)`). Built before `activate()` can
+    /// assign the delegate, so `didReceive` never meets a missing router.
+    let tapRouter = PushTapRouter()
 
     private var activated = false
 
@@ -78,6 +78,6 @@ extension PushCoordinator: UNUserNotificationCenterDelegate {
     ) async {
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
         let payload = response.notification.request.content.userInfo["payload"] as? String
-        await MainActor.run { tapRouter?.handleTap(payloadJson: payload) }
+        await MainActor.run { tapRouter.handleTap(payloadJson: payload) }
     }
 }

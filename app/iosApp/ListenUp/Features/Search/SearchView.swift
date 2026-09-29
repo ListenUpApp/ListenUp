@@ -9,12 +9,15 @@ import Shared
 /// so tapped hits push onto the shared `path` through the standard `navigationDestination`s.
 struct SearchView: View {
     @Binding var path: NavigationPath
+    /// Changes when ⌘F asks for the search field (`MainShellModel.focusSearch`).
+    var focusRequest: Int = 0
 
     @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var observer: SearchObserver?
     @State private var searchText = ""
     @State private var scope: SearchScope = .all
+    @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
         Group {
@@ -25,6 +28,7 @@ struct SearchView: View {
                         placement: .navigationBarDrawer(displayMode: .always),
                         prompt: Text(String(localized: "search.search_placeholder"))
                     )
+                    .searchFocused($isSearchFieldFocused)
                     .searchScopes($scope) {
                         Text(String(localized: "search.tab_all")).tag(SearchScope.all)
                         Text(String(localized: "library.books")).tag(SearchScope.books)
@@ -50,6 +54,8 @@ struct SearchView: View {
                 observer = SearchObserver(viewModel: deps.searchViewModel)
             }
         }
+        // ⌘F from the menu bar puts the cursor in the field (HIG, Keyboards: Command-F is find).
+        .onChange(of: focusRequest) { _, _ in isSearchFieldFocused = true }
     }
 
     // MARK: - Content by phase

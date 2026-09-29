@@ -3,7 +3,7 @@ import SwiftUI
 /// Tabs available in the Library screen.
 ///
 /// Each tab represents a different view of the user's audiobook collection.
-enum LibraryTab: String, CaseIterable, Identifiable {
+enum LibraryTab: String, CaseIterable, Identifiable, Codable {
     case books
     case series
     case authors

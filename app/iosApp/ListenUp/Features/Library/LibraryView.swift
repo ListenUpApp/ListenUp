@@ -13,9 +13,13 @@ struct LibraryView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.dependencies) private var deps
 
-    @State private var observer: LibraryObserver?
+    /// The section on screen. Owned by the tab shell (`MainShellModel`), so the in-screen switcher
+    /// and the iPad sidebar's per-section entries drive the same value.
+    @Binding var selectedTab: LibraryTab
+    /// The window's one library projection, shared by every Library tab and sidebar entry; nil until
+    /// the shell has built it.
+    let observer: LibraryObserver?
     @State private var selection: BookSelectionObserver?
-    @State private var selectedTab: LibraryTab = .books
 
     private var user: User? { userObserver.user }
 
@@ -40,13 +44,14 @@ struct LibraryView: View {
         .toolbar(isSelecting ? .hidden : .automatic, for: .tabBar)
         .selectionSheets(selection)
         .onAppear {
-            if observer == nil {
-                observer = LibraryObserver(viewModel: deps.libraryViewModel)
-            }
             if selection == nil {
                 selection = BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
             }
             observer?.onScreenVisible()
+        }
+        // The shell may build the shared observer just after this screen first appears.
+        .onChange(of: observer == nil) { _, isMissing in
+            if !isMissing { observer?.onScreenVisible() }
         }
         // Leaving the Books tab cancels any in-progress selection so the bottom bar and circles
         // don't linger over the Series/Authors/Narrators tabs (which aren't selectable).
@@ -190,7 +195,7 @@ struct LibraryView: View {
 
 #Preview("Library View") {
     NavigationStack {
-        LibraryView()
+        LibraryView(selectedTab: .constant(.books), observer: nil)
     }
     .environment(CurrentUserObserver())
 }

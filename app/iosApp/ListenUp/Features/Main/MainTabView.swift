@@ -4,34 +4,40 @@ import Shared
 /// Root tab view for the main authenticated app experience.
 ///
 /// Structure:
-/// - Native iOS 26 `TabView` with Home, Library, Discover, and a search-role Search tab
-/// - Each tab wraps content in a `NavigationStack`
-/// - iPad gets the sidebar-adaptable style; the tab bar minimizes on scroll
+/// - Native iOS 26 `TabView` in the sidebar-adaptable style. The compact tab bar has Home, Library,
+///   Discover and a search-role Search tab; the iPad sidebar lists the four Library sections as
+///   their own entries and adds Downloads and Settings (HIG, Tab bars: "the tab bar's convertible
+///   sidebar-style appearance can provide access to content that people use less frequently").
+/// - Each tab wraps content in a `NavigationStack`; the routing rules live in `MainShellModel`.
+/// - The window's tab and stacks survive in `@SceneStorage`, per window.
 /// - The mini player is the tab view's bottom accessory; the full player is a `fullScreenCover`
 ///   that zooms out of the mini player's cover (`PlayerTransition`)
 struct MainTabView: View {
     @Environment(\.dependencies) private var deps
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(PushTapRouter.self) private var pushTapRouter
-    @State private var selectedTab: Tab = .home
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var shell = MainShellModel()
     @State private var playerCoordinator: PlayerCoordinator?
-    @State private var isPlayerPresented = false
+    /// One library projection for every Library tab and sidebar entry in this window.
+    @State private var libraryObserver: LibraryObserver?
     @State private var bookLinkError: BookLinkError?
+    /// Identifies this window to the process-wide `PushTapRouter`, so a tap lands in one window.
+    @State private var sceneID = UUID()
+    @State private var hasRestoredNavigation = false
+
+    /// The window's tab and stacks, restored when the system brings the window back.
+    @SceneStorage("shell.navigation") private var storedNavigation: Data?
+    /// The person's sidebar arrangement (HIG, Sidebars: "let people customize the contents of a
+    /// sidebar"), shared by every window.
+    @AppStorage("shell.sidebarCustomization") private var sidebarCustomization = TabViewCustomization()
 
     /// Pairs a list cell with the detail page it zooms into. One namespace for the whole shell so
     /// a hero works from any tab and any list that opens a book, contributor, or series.
     @Namespace private var heroNamespace
     /// Pairs the mini player's cover with the full player that zooms out of it.
     @Namespace private var playerNamespace
-
-    /// Per-tab navigation paths so the full player can push a destination onto the
-    /// *active* tab's stack (and so each tab keeps its own independent history).
-    @State private var paths: [Tab: NavigationPath] = [
-        .home: NavigationPath(),
-        .library: NavigationPath(),
-        .discover: NavigationPath(),
-        .search: NavigationPath()
-    ]
 
     private enum BookLinkError: Identifiable {
         case wrongServer, notConnected
@@ -44,22 +50,45 @@ struct MainTabView: View {
         }
     }
 
+    /// A regular width shows the sidebar; a compact one (iPhone, 1/3 Split View) the tab bar.
+    private var usesSidebar: Bool { horizontalSizeClass == .regular }
+
     var body: some View {
-        TabView(selection: $selectedTab) {
-            SwiftUI.Tab(Tab.home.title, systemImage: "house.fill", value: Tab.home) {
+        @Bindable var shell = shell
+        TabView(selection: $shell.selectedTab) {
+            SwiftUI.Tab(ShellTab.home.title, systemImage: "house.fill", value: ShellTab.home) {
                 tabStack(.home) { HomeView() }
             }
-            SwiftUI.Tab(Tab.library.title, systemImage: "books.vertical.fill", value: Tab.library) {
-                tabStack(.library) { LibraryView() }
-            }
-            SwiftUI.Tab(Tab.discover.title, systemImage: "sparkles", value: Tab.discover) {
+            .customizationID("listenup.home")
+
+            libraryTabs
+
+            SwiftUI.Tab(ShellTab.discover.title, systemImage: "sparkles", value: ShellTab.discover) {
                 tabStack(.discover) { DiscoverView() }
             }
-            SwiftUI.Tab(value: Tab.search, role: .search) {
-                tabStack(.search) { SearchView(path: pathBinding(.search)) }
+            .customizationID("listenup.discover")
+
+            if usesSidebar {
+                SwiftUI.Tab(ShellTab.downloads.title, systemImage: "arrow.down.circle", value: ShellTab.downloads) {
+                    tabStack(.downloads) { StorageView() }
+                }
+                .customizationID("listenup.downloads")
+                .tabPlacement(.sidebarOnly)
+
+                SwiftUI.Tab(ShellTab.settings.title, systemImage: "gearshape", value: ShellTab.settings) {
+                    tabStack(.settings) { SettingsView() }
+                }
+                .customizationID("listenup.settings")
+                .tabPlacement(.sidebarOnly)
             }
+
+            SwiftUI.Tab(value: ShellTab.search, role: .search) {
+                tabStack(.search) { SearchView(path: pathBinding(.search), focusRequest: shell.searchFocusRequest) }
+            }
+            .customizationID("listenup.search")
         }
         .tabViewStyle(.sidebarAdaptable)
+        .tabViewCustomization($sidebarCustomization)
         // HIG, Tab bars: an attached accessory "like the MiniPlayer in Music" moves inline with
         // the tab bar when it minimizes on scroll.
         .tabBarMinimizeBehavior(.onScrollDown)
@@ -68,40 +97,51 @@ struct MainTabView: View {
                 MiniPlayerBar(
                     observer: coordinator,
                     transitionNamespace: playerNamespace,
-                    onOpen: { isPlayerPresented = true }
+                    onOpen: { shell.isPlayerPresented = true }
                 )
             }
         })
         // The full player is a system full-screen modal (HIG, Modality: "a full-screen modal style
         // for in-depth content"), which brings VoiceOver modality, swipe-down dismissal and the
         // zoom back into the mini player with it.
-        .fullScreenCover(isPresented: $isPlayerPresented) {
+        .fullScreenCover(isPresented: $shell.isPlayerPresented) {
             if let coordinator = playerCoordinator {
                 FullScreenPlayerView(
                     observer: coordinator,
                     onViewDetails: {
-                        closePlayer()
-                        if let bookId = coordinator.currentBookId { pushBookDetail(bookId) }
+                        if let bookId = coordinator.currentBookId { shell.open(BookDestination(id: bookId)) }
                     },
-                    onViewSeries: { seriesId in closePlayer(); pushSeries(seriesId) },
-                    onViewContributor: { contributorId in closePlayer(); pushContributor(contributorId) }
+                    onViewSeries: { seriesId in shell.open(SeriesDestination(id: seriesId)) },
+                    onViewContributor: { contributorId in shell.open(ContributorDestination(id: contributorId)) }
                 )
                 .navigationTransition(.zoom(sourceID: PlayerTransition.coverID, in: playerNamespace))
             }
         }
+        // The menu bar's Playback and View commands act on the focused window's shell and player.
+        .focusedSceneValue(\.mainShell, shell)
+        .focusedSceneValue(\.playerCoordinator, playerCoordinator)
         // Closing the book (or anything else that ends the session) takes the player with it.
         .onChange(of: isMiniPlayerShown) { _, isShown in
-            if !isShown { closePlayer() }
+            if !isShown { shell.isPlayerPresented = false }
         }
         .onAppear {
             if playerCoordinator == nil {
                 playerCoordinator = deps.playerCoordinator
             }
+            if libraryObserver == nil {
+                libraryObserver = LibraryObserver(viewModel: deps.libraryViewModel)
+            }
+            restoreNavigationOnce()
         }
+        .onChange(of: usesSidebar, initial: true) { _, usesSidebar in
+            shell.adaptToLayout(usesSidebar: usesSidebar)
+        }
+        .onChange(of: shell.selectedTab) { _, _ in saveNavigation() }
+        .onChange(of: shell.paths) { _, _ in saveNavigation() }
         .onChange(of: deepLinkRouter.outcome) { _, outcome in
             switch outcome {
             case .openBook(let id):
-                paths[selectedTab, default: NavigationPath()].append(BookDestination(id: id))
+                shell.open(BookDestination(id: id))
                 deepLinkRouter.consume()
             case .wrongServer:
                 bookLinkError = .wrongServer
@@ -113,23 +153,69 @@ struct MainTabView: View {
                 break
             }
         }
-        // Shade-tap consumer (in-app inbox taps append directly via `routeNotificationTap` —
-        // they never go through `pending`). `initial: true` covers the cold-launch tap held
-        // from before this shell mounted.
-        .onChange(of: pushTapRouter.pending, initial: true) { _, pending in
-            guard let pending else { return }
-            routeNotificationTap(pending, on: selectedTab)
-            pushTapRouter.consume()
+        // Shade-tap consumer (in-app inbox taps route directly via `shell.route` — they never go
+        // through `pending`). `initial: true` covers the cold-launch tap held from before this shell
+        // mounted. The router hands a tap to one window only — the one most recently in front.
+        .onChange(of: pushTapRouter.pending, initial: true) { _, _ in
+            if let outcome = pushTapRouter.claimPending(for: sceneID) { shell.route(outcome) }
         }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            guard phase == .active else { return }
+            pushTapRouter.sceneBecameActive(sceneID)
+            if let outcome = pushTapRouter.claimPending(for: sceneID) { shell.route(outcome) }
+        }
+        .onDisappear { pushTapRouter.sceneWentAway(sceneID) }
         .alert(item: $bookLinkError) { error in
             Alert(title: Text(error.message))
         }
     }
 
+    // MARK: - Library
+
+    /// The compact tab bar's one Library tab, or — at regular width — a Library section holding one
+    /// entry per section. Verified in a real window on iPadOS 26: the section lists its four entries
+    /// in the sidebar and collapses to a single "Library" item in the floating tab bar when the
+    /// sidebar is hidden, so no separate Library tab is needed there (and hiding one from the
+    /// sidebar hid it from the tab bar too).
+    @TabContentBuilder<ShellTab>
+    private var libraryTabs: some TabContent<ShellTab> {
+        if usesSidebar {
+            TabSection(ShellTab.library.title) {
+                ForEach(LibraryTab.allCases) { section in
+                    SwiftUI.Tab(section.title, systemImage: section.icon, value: ShellTab.librarySection(section)) {
+                        tabStack(.librarySection(section)) { libraryView(for: .librarySection(section)) }
+                    }
+                    .customizationID("listenup.library.\(section.rawValue)")
+                }
+            }
+            .customizationID("listenup.librarySections")
+        } else {
+            SwiftUI.Tab(ShellTab.library.title, systemImage: "books.vertical.fill", value: ShellTab.library) {
+                tabStack(.library) { libraryView(for: .library) }
+            }
+            .customizationID("listenup.library")
+        }
+    }
+
+    /// A Library screen for `tab`, sharing this window's library projection. Its section switcher
+    /// and the sidebar drive one another through `MainShellModel.selectLibrarySection`.
+    private func libraryView(for tab: ShellTab) -> some View {
+        LibraryView(
+            selectedTab: Binding(
+                get: {
+                    if case .librarySection(let section) = tab { return section }
+                    return shell.librarySection
+                },
+                set: { shell.selectLibrarySection($0, from: tab) }
+            ),
+            observer: libraryObserver
+        )
+    }
+
     // MARK: - Tab Builder
 
     @ViewBuilder
-    private func tabStack<Content: View>(_ tab: Tab, @ViewBuilder _ content: () -> Content) -> some View {
+    private func tabStack<Content: View>(_ tab: ShellTab, @ViewBuilder _ content: () -> Content) -> some View {
         NavigationStack(path: pathBinding(tab)) {
             content()
                 .navigationDestinations()
@@ -139,78 +225,39 @@ struct MainTabView: View {
                 // Registered here (not in `contentDestinations()`) because a tapped row's
                 // outcome appends onto THIS tab's path — the same reason SeeAllSearch lives here.
                 .navigationDestination(for: NotificationsDestination.self) { _ in
-                    NotificationsView { outcome in routeNotificationTap(outcome, on: tab) }
+                    NotificationsView { outcome in shell.route(outcome, on: tab) }
                 }
         }
         // Applied on the NavigationStack (not its root content) so pushed destinations AND the
         // sheets they present inherit it — lets the Cast & Credits sheet push a contributor onto
         // THIS tab's main stack (a full page) instead of navigating inside the sheet.
-        .environment(\.navigateToContributor, pushContributor)
+        .environment(\.navigateToContributor, { shell.open(ContributorDestination(id: $0)) })
         .environment(\.heroNamespace, heroNamespace)
     }
 
-    /// Binding into the per-tab path dictionary, defaulting to an empty path so a
-    /// missing entry never traps.
-    private func pathBinding(_ tab: Tab) -> Binding<NavigationPath> {
+    /// Binding into the shell's per-tab paths, defaulting to an empty path so a missing entry
+    /// never traps.
+    private func pathBinding(_ tab: ShellTab) -> Binding<NavigationPath> {
         Binding(
-            get: { paths[tab] ?? NavigationPath() },
-            set: { paths[tab] = $0 }
+            get: { shell.path(for: tab) },
+            set: { shell.setPath($0, for: tab) }
         )
     }
 
     /// Whether a book is loaded (or failed to load) — the mini player shows exactly then.
     private var isMiniPlayerShown: Bool { playerCoordinator?.isVisible == true }
 
-    private func closePlayer() { isPlayerPresented = false }
-
-    /// Push the book's detail screen onto the currently selected tab's stack — the
-    /// destination for the full player's "Go to book" action.
-    private func pushBookDetail(_ bookId: String) {
-        paths[selectedTab, default: NavigationPath()].append(BookDestination(id: bookId))
+    /// Brings back the window's tab and stacks the first time the shell appears in this scene.
+    private func restoreNavigationOnce() {
+        guard !hasRestoredNavigation else { return }
+        hasRestoredNavigation = true
+        if let storedNavigation { shell.restore(from: storedNavigation) }
+        shell.adaptToLayout(usesSidebar: usesSidebar)
     }
 
-    private func pushSeries(_ seriesId: String) {
-        paths[selectedTab, default: NavigationPath()].append(SeriesDestination(id: seriesId))
-    }
-
-    private func pushContributor(_ contributorId: String) {
-        paths[selectedTab, default: NavigationPath()].append(ContributorDestination(id: contributorId))
-    }
-
-    /// Where a notification tap lands: append the outcome's destination onto the given tab's
-    /// stack. In-app inbox taps pass the inbox's own tab; the shade consumer passes the selected
-    /// tab. `.none` (unknown types, campfire until #1065, decision notices) stays put.
-    private func routeNotificationTap(_ outcome: NotificationTapOutcome, on tab: Tab) {
-        switch outcome {
-        case .book(let id):
-            paths[tab, default: NavigationPath()].append(BookDestination(id: id))
-        case .profile(let userId):
-            paths[tab, default: NavigationPath()].append(ProfileDestination(userId: userId))
-        case .adminApprovals:
-            paths[tab, default: NavigationPath()].append(AdminDestination())
-        case .none:
-            break
-        }
-    }
-}
-
-// MARK: - Tab Enum
-
-extension MainTabView {
-    enum Tab: Hashable {
-        case home
-        case library
-        case search
-        case discover
-
-        var title: String {
-            switch self {
-            case .home: String(localized: "common.home")
-            case .library: String(localized: "common.library")
-            case .search: String(localized: "common.search")
-            case .discover: String(localized: "common.discover")
-            }
-        }
+    private func saveNavigation() {
+        guard hasRestoredNavigation else { return }
+        storedNavigation = shell.sceneState()
     }
 }
 

@@ -36,6 +36,9 @@ struct ListenUpApp: App {
             RootView()
                 .tint(Color.listenUpOrange)
         }
+        // The iPad menu bar: Playback, and the tabs in View. Each command acts on the focused
+        // window's shell (see `ListenUpCommands`).
+        .commands { ListenUpCommands() }
         // Native background app-refresh. SwiftUI registers the handler for us (the Kotlin
         // BackgroundSyncScheduler is Android-only; iOS wires this natively — see BackgroundSync).
         // The closure runs detached from the view hierarchy, so it resolves Dependencies.shared
@@ -70,10 +73,6 @@ private struct RootView: View {
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
     @State private var deepLinkRouter = DeepLinkRouter()
-    /// Owned here (not by MainTabView) so a cold-launch shade tap's outcome survives until the
-    /// tab shell mounts; `PushCoordinator` reaches it through its `tapRouter` reference.
-    @State private var pushTapRouter = PushTapRouter()
-    @State private var syncSession: SyncSessionController?
     @State private var showReauthSheet = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
@@ -83,7 +82,9 @@ private struct RootView: View {
             .environment(currentUser)
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
-            .environment(pushTapRouter)
+            // One router per process, owned by the one push coordinator: every window's shell
+            // observes it and claims taps from it, so a tap lands in exactly one window.
+            .environment(PushCoordinator.shared.tapRouter)
             // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
             // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
             // does not fire for universal links under the SwiftUI lifecycle — kept only as a
@@ -111,11 +112,8 @@ private struct RootView: View {
                 // auth gate (shared) owns resuming the firehose + forced reconcile.
                 if newState == .authenticated { showReauthSheet = false }
                 // Post-auth is the one moment a notification prompt makes sense (Android parity:
-                // AppShell's once-per-session request). No-op on every later transition. The tap
-                // router is wired BEFORE activate() so `didReceive` (delegate set inside
-                // activate) can never fire against a nil router; re-assigning is idempotent.
+                // AppShell's once-per-session request). No-op on every later transition.
                 if newState == .authenticated {
-                    PushCoordinator.shared.tapRouter = pushTapRouter
                     PushCoordinator.shared.activate()
                     // The error surface belongs to the authenticated shell, so it is built here
                     // rather than at launch — resolving the bus pre-auth would touch the shared
@@ -173,32 +171,12 @@ private struct RootView: View {
         )
     }
 
-    /// Connect realtime sync + resume downloads when authenticated. Lazily builds the controller
-    /// from the shared `SyncRepository`/`DownloadService` on first use.
+    /// Connect realtime sync + resume downloads when authenticated, through the process's one
+    /// sync session — every window asks the same controller, so a second iPad window adds no
+    /// second session.
     private func activateSyncIfAuthenticated() {
         guard auth.state == .authenticated else { return }
-        let controller = syncSession ?? SyncSessionController(
-            connectRealtime: {
-                do {
-                    try await dependencies.syncRepository.connectRealtime()
-                } catch is CancellationError {
-                } catch {
-                    // Realtime sync is best-effort: pull-to-refresh is the manual fallback
-                    // (Never Stranded), but the failure must not vanish — log it.
-                    Log.error("Realtime sync connect failed", error: error)
-                }
-            },
-            resumeDownloads: {
-                do {
-                    try await dependencies.downloadService.resumeIncompleteDownloads()
-                } catch is CancellationError {
-                } catch {
-                    Log.error("Resume incomplete downloads failed", error: error)
-                }
-            }
-        )
-        syncSession = controller
-        controller.activate()
+        SyncSessionController.shared.activate()
     }
 
     @ViewBuilder
