@@ -148,6 +148,9 @@ private class FakeBookRatingRepository(
 
     override fun observeCombinedScores(): Flow<Map<String, CombinedScore>> = flowOf(emptyMap())
 
+    override fun observeCombinedScore(bookId: String): Flow<CombinedScore?> =
+        external.map { rows -> rows.takeIf { it.isNotEmpty() }?.let { CombinedScore(average = 4.4, count = it.sumOf { r -> r.count }) } }
+
     override suspend fun refreshExternal(bookId: String): AppResult<Unit> {
         refreshed += bookId
         refreshGate.await()

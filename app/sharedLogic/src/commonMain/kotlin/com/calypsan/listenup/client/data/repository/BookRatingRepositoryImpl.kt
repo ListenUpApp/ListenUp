@@ -18,13 +18,16 @@ import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
-import com.calypsan.listenup.client.domain.model.combineExternalRatings
+import com.calypsan.listenup.client.domain.model.SourceCalibration
+import com.calypsan.listenup.client.domain.model.listenUpScore
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlin.uuid.Uuid
 
@@ -41,12 +44,13 @@ import kotlin.uuid.Uuid
  * of the same pair reuses [BookRatingEntity.syncId] off the existing local row — [BookRatingDao.find]
  * returns a tombstoned row too, so a clear-then-re-rate keeps the same id rather than minting another.
  *
- * Outside ratings ([observeExternalForBook], [observeCombinedScores]) are a second, unrelated
- * surface on the same interface: server-written rows mirrored by [externalRatingDao], read-only
- * from the client, with no [OfflineEditor] involvement — see [BookExternalRatingDao]'s KDoc.
+ * Outside ratings ([observeExternalForBook]) are a second surface on the same interface:
+ * server-written rows mirrored by [externalRatingDao], read-only from the client, with no
+ * [OfflineEditor] involvement — see [BookExternalRatingDao]'s KDoc.
  * [refreshExternal] is the one write path, and it is a direct online RPC through [ratingChannel],
  * not the outbox: there is nothing to queue offline, since only the server can reach an outside
- * catalog.
+ * catalog. The two meet in [observeCombinedScores], the ListenUp score, where this server's
+ * listeners are one more source beside the outside catalogs.
  */
 internal class BookRatingRepositoryImpl(
     private val dao: BookRatingDao,
@@ -145,14 +149,31 @@ internal class BookRatingRepositoryImpl(
     override fun observeExternalForBook(bookId: String): Flow<List<ExternalRating>> =
         externalRatingDao.observeEnabledForBook(bookId).map { rows -> rows.map { it.toExternalRating() } }
 
+    /**
+     * One pass per emission: calibrate every source's curve over the whole library (every enabled
+     * known-source outside row, every book's listener average), then score each book against it.
+     * Nothing here reads the signed-in user, so every member gets the same scores.
+     */
     override fun observeCombinedScores(): Flow<Map<String, CombinedScore>> =
-        externalRatingDao.observeAllEnabled().map { rows ->
-            rows
-                .groupBy { it.bookId }
-                .mapNotNull { (bookId, group) ->
-                    combineExternalRatings(group.map { it.toExternalRating() })?.let { bookId to it }
+        combine(externalRatingDao.observeAllEnabled(), observeAverages()) { rows, listenerAverages ->
+            val outsideByBook = rows.groupBy(keySelector = { it.bookId }, valueTransform = { it.toExternalRating() })
+            val calibration =
+                SourceCalibration.from(
+                    outside = outsideByBook.values.flatten(),
+                    listeners = listenerAverages.values.toList(),
+                )
+            (outsideByBook.keys + listenerAverages.keys)
+                .mapNotNull { bookId ->
+                    listenUpScore(
+                        outside = outsideByBook[bookId].orEmpty(),
+                        listeners = listenerAverages[bookId],
+                        calibration = calibration,
+                    )?.let { bookId to it }
                 }.toMap()
         }
+
+    override fun observeCombinedScore(bookId: String): Flow<CombinedScore?> =
+        observeCombinedScores().map { it[bookId] }.distinctUntilChanged()
 
     override suspend fun refreshExternal(bookId: String): AppResult<Unit> =
         ratingChannel.call { it.refreshExternalRatings(BookId(bookId)) }

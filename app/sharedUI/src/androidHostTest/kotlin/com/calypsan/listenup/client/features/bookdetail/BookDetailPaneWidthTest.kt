@@ -89,6 +89,7 @@ class BookDetailPaneWidthTest {
             mock<BookRatingRepository>(MockMode.autoUnit) {
                 every { observeForBook(any()) } returns flowOf(emptyList())
                 every { observeExternalForBook(any()) } returns flowOf(emptyList())
+                every { observeCombinedScore(any()) } returns flowOf(null)
             }
         val users =
             mock<UserRepository>(MockMode.autoUnit) {

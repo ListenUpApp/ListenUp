@@ -30,8 +30,15 @@ interface BookRatingRepository {
     /** Every enabled, known-source outside rating of [bookId], highest rating count first. */
     fun observeExternalForBook(bookId: String): Flow<List<ExternalRating>>
 
-    /** Each book's combined outside score, over enabled known-source rows only, keyed by book id. */
+    /**
+     * Each book's ListenUp score, keyed by book id: every enabled known-source outside rating plus
+     * this server's listeners, calibrated over the whole library. Server-wide — the same for every
+     * member. The library's Rating sort reads this.
+     */
     fun observeCombinedScores(): Flow<Map<String, CombinedScore>>
+
+    /** [bookId]'s entry in [observeCombinedScores] — the headline, so it always agrees with the sort. */
+    fun observeCombinedScore(bookId: String): Flow<CombinedScore?>
 
     /**
      * Re-fetch every enabled outside source for [bookId] now — admin only. An online RPC, not the
