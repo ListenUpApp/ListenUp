@@ -161,3 +161,23 @@ custom_rules:
       Put the tray in `.safeAreaBar(edge:)` instead of painting `.background(.bar)` behind it — the
       system draws the bar's scroll-edge effect (HIG, Toolbars).
     severity: error
+
+  # A literal `.system(size:)` never follows Dynamic Type. 65 of them reached the app, ~7 on text a
+  # reader reads — a 10.5pt "THIS DEVICE" badge, a licence body, hero percentages (2026-09-29 iOS
+  # audit, accessibility). HIG, Typography: "Make sure your app's layout adapts to all font sizes."
+  # Content text takes a text style (`.largeTitle`…`.caption2`), or `.scaledFont(size:…relativeTo:)`
+  # for a size between the styles. A literal size stays only on a decorative glyph in a fixed-size
+  # container and says so on the same line with `// decorative fixed size`; the one sanctioned
+  # scaled site (`ScaledSystemFont`, and a view's own `@ScaledMetric`) carries
+  # `// scaled via @ScaledMetric`. iosApp/CLAUDE.md rule 12.
+  fixed_font_size:
+    name: "Fixed font size"
+    regex: '\.system\(\s*size:(?!.*(?:decorative fixed size|scaled via @ScaledMetric))'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+    message: >-
+      Content text follows Dynamic Type: use a text style or `.scaledFont(size:relativeTo:)`. A
+      decorative glyph in a fixed-size container keeps its size with `// decorative fixed size`.
+    severity: error

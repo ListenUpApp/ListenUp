@@ -118,7 +118,9 @@ struct LibraryScanView: View {
                     .animation(.easeOut(duration: 0.3), value: fraction)
                 VStack(spacing: 2) {
                     Text("\(Int((fraction * 100).rounded()))%")
-                        .font(.system(size: isWide ? 38 : 34, weight: .bold, design: .rounded))
+                        .scaledFont(size: isWide ? 38 : 34, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .monospacedDigit()
                         .foregroundStyle(.primary)
                         .contentTransition(.numericText())

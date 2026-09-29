@@ -43,7 +43,7 @@ struct LicenseDetailView: View {
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(.primary)
                         Text("v\(lib.version)")
-                            .font(.system(size: 13, design: .monospaced))
+                            .font(.footnote.monospaced())
                             .foregroundStyle(Color.luLabel2)
                     }
                     Spacer(minLength: 8)
@@ -71,7 +71,7 @@ struct LicenseDetailView: View {
 
                 // License text
                 Text(LicenseData.licenseText(for: lib.spdxId))
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.caption.monospaced())
                     .foregroundStyle(Color.luLabel2)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)

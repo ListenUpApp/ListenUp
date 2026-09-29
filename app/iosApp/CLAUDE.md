@@ -118,8 +118,9 @@ inline below.
     `@ScaledMetric`, so it scales with the user's text-size setting. A literal
     `.font(.system(size:))` is allowed **only** for a decorative glyph in a fixed-size container
     (a badge circle, an SF Symbol sized to its frame) and must carry a one-line
-    `// decorative fixed size` comment. The conversion is a phased rollout, one area per slice —
-    `LicensesView` is the reference precedent.
+    `// decorative fixed size` comment. A designed size between the text styles goes through
+    `.scaledFont(size:weight:design:relativeTo:)` (`DesignSystem/Styles/ScaledSystemFont.swift`).
+    The `fixed_font_size` SwiftLint guard fails the build on any other literal size.
 
 ## Media & process
 

@@ -151,7 +151,7 @@ struct AdminCollectionsView: View {
     private func emptyState(observer: AdminCollectionsObserver) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "folder")
-                .font(.system(size: 44))
+                .scaledFont(size: 44, relativeTo: .largeTitle)
                 .foregroundStyle(Color.luLabel2)
             Text(String(localized: "common.collections"))
                 .font(.headline)
@@ -236,7 +236,7 @@ private struct CollectionTile: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Image(systemName: "folder.fill")
-                        .font(.system(size: 36))
+                        .font(.system(size: 36)) // decorative fixed size
                         .foregroundStyle(Color.luTint)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -280,7 +280,7 @@ private struct NewCollectionTile: View {
                     .foregroundStyle(Color.luLabel3)
                     .aspectRatio(1, contentMode: .fit)
                 Image(systemName: "plus")
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.system(size: 28, weight: .medium)) // decorative fixed size
                     .foregroundStyle(Color.luLabel2)
             }
 

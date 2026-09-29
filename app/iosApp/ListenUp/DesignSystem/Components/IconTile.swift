@@ -72,7 +72,7 @@ struct IconTile: View {
             .frame(width: size, height: size)
             .overlay {
                 Image(systemName: systemImage)
-                    .font(.system(size: glyphSize, weight: .semibold))
+                    .font(.system(size: glyphSize, weight: .semibold)) // decorative fixed size
                     .foregroundStyle(glyphColor)
             }
             .accessibilityHidden(true)

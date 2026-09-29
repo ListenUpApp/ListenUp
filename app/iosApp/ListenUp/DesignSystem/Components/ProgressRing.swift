@@ -21,7 +21,7 @@ struct ProgressRing: View {
                 .rotationEffect(.degrees(-90))
             if showGlyph {
                 Image(systemName: "play.fill")
-                    .font(.system(size: size * 0.32))
+                    .font(.system(size: size * 0.32)) // decorative fixed size
                     .foregroundStyle(Color.luTint)
             }
         }

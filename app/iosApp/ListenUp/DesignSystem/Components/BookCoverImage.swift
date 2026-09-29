@@ -151,7 +151,7 @@ struct BookCoverImage: View {
                 endPoint: .bottomTrailing
             )
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 24))
+                .font(.system(size: 24)) // decorative fixed size
                 .foregroundStyle(.secondary)
         }
     }

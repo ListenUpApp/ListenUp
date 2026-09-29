@@ -111,7 +111,7 @@ struct ABSImportHubView: View {
                 .frame(width: 86, height: 86)
                 .overlay {
                     Image(systemName: "shippingbox")
-                        .font(.system(size: 38, weight: .regular))
+                        .font(.system(size: 38, weight: .regular)) // decorative fixed size
                         .foregroundStyle(Color.luTint)
                 }
             Text(String(localized: "import.hub_empty_title"))

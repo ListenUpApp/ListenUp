@@ -155,7 +155,7 @@ private struct ContributorHitRowView: View {
                 ZStack {
                     Circle().fill(Color.luFill)
                     Image(systemName: "person.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: 22)) // decorative fixed size
                         .foregroundStyle(Color.luLabel3)
                 }
                 .frame(width: 48, height: 48)

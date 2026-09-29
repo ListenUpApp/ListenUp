@@ -446,7 +446,7 @@ private struct SettingsLabel: View {
                 .frame(width: 29, height: 29)
                 .overlay {
                     Image(systemName: systemImage)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold)) // decorative fixed size
                         .foregroundStyle(.white)
                 }
                 .accessibilityHidden(true)

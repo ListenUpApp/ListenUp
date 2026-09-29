@@ -45,12 +45,23 @@ struct RatingStarsView: View {
 
     // MARK: - Drawing
 
+    /// Read-only stars sit in a line of text, so they scale with it (HIG, Typography: icons that
+    /// carry information stay easy to see at larger sizes). The input keeps its size: its touch
+    /// maths divides a fixed width into five slots, and the sheet it lives in gives it the room.
+    @ViewBuilder
+    private func starGlyph(_ image: Image) -> some View {
+        if onChange == nil {
+            image.scaledFont(size: starSize, relativeTo: .footnote)
+        } else {
+            image.font(.system(size: starSize)) // decorative fixed size: the input's five fixed slots
+        }
+    }
+
     private func stars(spacing: CGFloat) -> some View {
         HStack(spacing: spacing) {
             ForEach(0..<Self.starCount, id: \.self) { index in
                 let symbol = Self.symbol(halfStars: halfStars, index: index)
-                Image(systemName: symbol)
-                    .font(.system(size: starSize))
+                starGlyph(Image(systemName: symbol))
                     .foregroundStyle(symbol == Self.emptySymbol ? Color.secondary : Color.listenUpOrange)
                     // Five equal slots, so a slot is exactly a fifth of the input's width.
                     .frame(width: onChange == nil ? nil : starSize * 1.3)

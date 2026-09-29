@@ -47,7 +47,7 @@ struct BookCoverCard: View {
                 .overlay(alignment: .topTrailing) {
                     if book.hasDocuments {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold)) // decorative fixed size
                             .foregroundStyle(Color.listenUpOrange)
                             .padding(6)
                             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -60,7 +60,7 @@ struct BookCoverCard: View {
                 .overlay(alignment: .topLeading) {
                     if isSelecting {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 22))
+                            .font(.system(size: 22)) // decorative fixed size
                             .symbolRenderingMode(.palette)
                             .foregroundStyle(
                                 isSelected ? Color.luOnTint : .white,

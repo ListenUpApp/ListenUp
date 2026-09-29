@@ -147,7 +147,7 @@ struct DevicesView: View {
                         .foregroundStyle(.primary)
                     // "THIS DEVICE" badge
                     Text(String(localized: "devices.this_device").uppercased())
-                        .font(.system(size: 10.5, weight: .bold))
+                        .font(.caption2.bold())
                         .foregroundStyle(Color.luLabel2)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)

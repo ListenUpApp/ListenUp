@@ -43,7 +43,7 @@ struct SeriesBookRow: View {
             .overlay(alignment: .bottomTrailing) {
                 if isFinished {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 11, weight: .bold)) // decorative fixed size
                         .foregroundStyle(Color.luOnTint)
                         .frame(width: 22, height: 22)
                         .background(Circle().fill(Color.luTint))
@@ -81,7 +81,7 @@ struct SeriesBookRow: View {
     private var playButton: some View {
         Button(action: onPlayTapped) {
             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold)) // decorative fixed size
                 .foregroundStyle(isPlaying ? Color.luOnTint : Color.primary)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(isPlaying ? Color.luTint : Color.luFill))

@@ -196,7 +196,7 @@ struct AdminCategoriesView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "tag")
-                .font(.system(size: 44)) // decorative fixed size
+                .scaledFont(size: 44, relativeTo: .largeTitle)
                 .foregroundStyle(Color.luLabel2)
             Text(String(localized: "genre.no_genres_yet"))
                 .font(.subheadline)

@@ -70,7 +70,7 @@ struct ShelfCard: View {
             .overlay {
                 // Dynamic Type exclusion: fixed-box glyph inside a 64×64 cover placeholder tile
                 Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 22))
+                    .font(.system(size: 22)) // decorative fixed size
                     .foregroundStyle(.secondary)
             }
             .offset(x: offset)

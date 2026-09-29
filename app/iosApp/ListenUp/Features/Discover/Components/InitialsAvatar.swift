@@ -19,7 +19,7 @@ struct InitialsAvatar: View {
             .frame(width: size, height: size)
             .overlay {
                 Text(initials)
-                    .font(.system(size: size * 0.36, weight: .semibold))
+                    .font(.system(size: size * 0.36, weight: .semibold)) // decorative fixed size: initials sized to the avatar circle
                     .foregroundStyle(foreground)
             }
     }

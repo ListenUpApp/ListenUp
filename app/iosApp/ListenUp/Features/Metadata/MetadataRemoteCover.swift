@@ -15,7 +15,7 @@ struct MetadataRemoteCover: View {
                 ZStack {
                     Color.luFill
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 20)) // decorative fixed size
                         .foregroundStyle(Color.luLabel3)
                 }
             }

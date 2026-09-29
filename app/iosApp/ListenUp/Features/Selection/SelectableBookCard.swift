@@ -48,7 +48,7 @@ extension View {
             if let selection, selection.isSelecting {
                 let isSelected = selection.isSelected(bookId)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .font(.system(size: 22)) // decorative fixed size
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(
                         isSelected ? Color.luOnTint : .white,

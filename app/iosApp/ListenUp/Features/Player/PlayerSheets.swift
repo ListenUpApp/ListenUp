@@ -21,7 +21,7 @@ struct BoostPickerSheet: View {
         NavigationStack {
             VStack(spacing: 0) {
                 Text(Self.formatBoost(currentBoostDb))
-                    .font(.system(size: boostReadoutSize, weight: .bold))
+                    .font(.system(size: boostReadoutSize, weight: .bold)) // scaled via @ScaledMetric
                     .monospacedDigit()
                     .foregroundStyle(Color.luTint)
                     .padding(.top, 8)

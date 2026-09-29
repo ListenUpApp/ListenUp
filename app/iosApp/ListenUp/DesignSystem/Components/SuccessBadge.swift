@@ -15,7 +15,7 @@ struct SuccessBadge: View {
                 .fill(Color.luTint)
                 .frame(width: size * 0.74, height: size * 0.74)
             Image(systemName: "checkmark")
-                .font(.system(size: size * 0.32, weight: .bold))
+                .font(.system(size: size * 0.32, weight: .bold)) // decorative fixed size
                 .foregroundStyle(Color.luOnTint)
         }
         .accessibilityHidden(true)

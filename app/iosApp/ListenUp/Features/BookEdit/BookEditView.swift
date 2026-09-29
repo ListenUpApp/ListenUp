@@ -554,7 +554,7 @@ private struct RemovableChip: View {
                 .lineLimit(1)
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 10, weight: .bold)) // decorative fixed size
                     .foregroundStyle(Color.luLabel2)
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(Color.luFill))

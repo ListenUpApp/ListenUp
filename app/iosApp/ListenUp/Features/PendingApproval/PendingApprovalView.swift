@@ -82,7 +82,7 @@ struct PendingApprovalView: View {
             subtitle: String(localized: "auth.sign_in_to_access_your")
         ) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44))
+                .scaledFont(size: 44, relativeTo: .largeTitle)
                 .foregroundStyle(Color.listenUpOrange)
                 .accessibilityHidden(true)
         }
@@ -94,7 +94,7 @@ struct PendingApprovalView: View {
             subtitle: message
         ) {
             Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 44))
+                .scaledFont(size: 44, relativeTo: .largeTitle)
                 .foregroundStyle(.red)
                 .accessibilityHidden(true)
         }
@@ -152,7 +152,7 @@ private struct PendingSpinner: View {
                 .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                 .rotationEffect(.degrees(spin ? 360 : 0))
             Image(systemName: "clock")
-                .font(.system(size: 24, weight: .regular))
+                .font(.system(size: 24, weight: .regular)) // decorative fixed size
                 .foregroundStyle(Color.listenUpOrange)
         }
         .frame(width: 64, height: 64)
@@ -246,7 +246,7 @@ private struct RegStepRow: View {
             ZStack {
                 Circle().fill(circleColor)
                 Image(systemName: state == .done ? "checkmark" : icon)
-                    .font(.system(size: 15, weight: state == .done ? .bold : .regular))
+                    .font(.system(size: 15, weight: state == .done ? .bold : .regular)) // decorative fixed size
                     .foregroundStyle(iconColor)
             }
             .frame(width: 32, height: 32)
@@ -283,7 +283,7 @@ private struct AutoCheckRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.clockwise")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(String(localized: "auth.checking_automatically"))
                 .font(.footnote)

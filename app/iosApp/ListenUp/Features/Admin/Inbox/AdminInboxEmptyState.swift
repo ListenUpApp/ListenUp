@@ -14,7 +14,7 @@ struct AdminInboxEmptyState: View {
                     .fill(Color.luFill)
                     .frame(width: 96, height: 96)
                 Image(systemName: "tray")
-                    .font(.system(size: 46, weight: .light))
+                    .font(.system(size: 46, weight: .light)) // decorative fixed size
                     .foregroundStyle(Color.luLabel3)
             }
             VStack(spacing: 6) {

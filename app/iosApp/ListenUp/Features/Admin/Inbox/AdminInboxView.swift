@@ -228,7 +228,7 @@ struct AdminInboxView: View {
                     .kerning(0.5)
                     .foregroundStyle(Color.luTint)
                 Text(String(localized: "common.inbox"))
-                    .font(.system(size: 40, weight: .bold))
+                    .font(.largeTitle.bold())
                 if ready.hasBooks {
                     subtitleRow(ready: ready)
                         .font(.subheadline)
@@ -305,7 +305,7 @@ struct AdminInboxView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48, weight: .light))
+                .scaledFont(size: 48, weight: .light, relativeTo: .largeTitle)
                 .foregroundStyle(Color.luLabel3)
             Text(message)
                 .font(.subheadline)
@@ -407,7 +407,7 @@ private struct InboxBookRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(book.title)
-                            .font(.system(size: 15.5, weight: .semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         if let author = book.author {
@@ -470,7 +470,7 @@ private struct InboxBookRow: View {
                     .fill(Color.luTint)
                     .frame(width: 26, height: 26)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 12, weight: .bold)) // decorative fixed size
                     .foregroundStyle(Color.luOnTint)
             } else {
                 Circle()

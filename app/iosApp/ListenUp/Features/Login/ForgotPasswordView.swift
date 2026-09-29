@@ -85,7 +85,7 @@ struct ForgotPasswordView: View {
                 subtitle: message
             ) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 44))
+                    .scaledFont(size: 44, relativeTo: .largeTitle)
                     .foregroundStyle(Color.luWarning)
                     .accessibilityHidden(true)
             }
@@ -172,7 +172,7 @@ struct ForgotPasswordView: View {
     private var autoCheckRow: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.clockwise")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(String(localized: "auth.checking_automatically"))
                 .font(.footnote)

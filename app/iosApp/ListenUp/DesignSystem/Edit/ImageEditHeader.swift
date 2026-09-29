@@ -37,7 +37,7 @@ struct ImageEditHeader<ImageContent: View>: View {
                 PhotosPicker(selection: $item, matching: .images) {
                     // Dynamic Type exclusion: fixed-box glyph in a 34×34 camera badge circle
                     Image(systemName: "camera.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold)) // decorative fixed size
                         .foregroundStyle(Color.luOnTint)
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(Color.luTint))

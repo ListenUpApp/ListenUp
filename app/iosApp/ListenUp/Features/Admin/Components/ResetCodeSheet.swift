@@ -19,7 +19,7 @@ struct ResetCodeSheet: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "key.horizontal.fill")
-                .font(.system(size: 40))
+                .scaledFont(size: 40, relativeTo: .largeTitle)
                 .foregroundStyle(Color.luTint)
                 .accessibilityHidden(true)
                 .padding(.top, 36)

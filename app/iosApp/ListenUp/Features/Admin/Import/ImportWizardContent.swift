@@ -120,7 +120,9 @@ struct ImportProgressContent: View {
                         VStack(spacing: 2) {
                             if let centerPrimary {
                                 Text(centerPrimary)
-                                    .font(.system(size: 34, weight: .bold).monospacedDigit())
+                                    .font(.largeTitle.bold().monospacedDigit())
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
                                     .foregroundStyle(.primary)
                             } else {
                                 ProgressView().controlSize(.large)

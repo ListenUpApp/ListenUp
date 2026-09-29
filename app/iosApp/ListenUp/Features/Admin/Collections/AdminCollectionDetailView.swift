@@ -402,7 +402,7 @@ struct AdminCollectionDetailView: View {
         } else if ready.availableUsers.isEmpty {
             VStack(spacing: 12) {
                 Image(systemName: "person.2.slash")
-                    .font(.system(size: 40))
+                    .scaledFont(size: 40, relativeTo: .largeTitle)
                     .foregroundStyle(Color.luLabel2)
                 Text(String(localized: "admin.all_users_are_already_members"))
                     .font(.subheadline)
