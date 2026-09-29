@@ -79,7 +79,7 @@ struct ContributorAvatar: View {
             } else {
                 Text(initials)
                     .font(.system(size: initialsFontSize, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AvatarPalette.initialsInk)
             }
 
             // Streamed contributor photo, layered over the initials placeholder. Nuke
@@ -120,10 +120,10 @@ struct ContributorAvatar: View {
         return "?"
     }
 
+    /// The contributor's `AvatarPalette` slot — stable across launches (the old `hashValue` hue
+    /// changed every launch) and solved so the white initials read at 4.5:1.
     private var avatarColor: Color {
-        let hash = id.hashValue
-        let hue = Double(abs(hash) % 360) / 360.0
-        return Color(hue: hue, saturation: 0.5, brightness: 0.7)
+        AvatarPalette.fill(forKey: id)
     }
 }
 

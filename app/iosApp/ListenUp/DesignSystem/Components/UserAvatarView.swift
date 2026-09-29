@@ -69,7 +69,7 @@ struct UserAvatarView: View {
             .overlay {
                 Text(Self.initials(from: fallbackName))
                     .font(.system(size: size * 0.4, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AvatarPalette.initialsInk)
             }
     }
 

@@ -139,11 +139,7 @@ struct DevicesView: View {
     @ViewBuilder
     private func thisDeviceRow(_ device: DeviceRow) -> some View {
         HStack(spacing: 14) {
-            IconTile(
-                systemImage: deviceIcon(for: device.secondary),
-                tint: .blue,
-                size: 50
-            )
+            IconTile(systemImage: deviceIcon(for: device.secondary), size: 50)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
                     Text(device.displayName)
@@ -186,11 +182,7 @@ struct DevicesView: View {
     private func otherDeviceRow(_ device: DeviceRow, signingOut: Set<String>) -> some View {
         let target = RevokeTarget(sessionId: device.sessionId, displayName: device.displayName)
         HStack(spacing: 13) {
-            IconTile(
-                systemImage: deviceIcon(for: device.secondary),
-                tint: deviceTint(for: device.secondary),
-                size: 44
-            )
+            IconTile(systemImage: deviceIcon(for: device.secondary), size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(device.displayName)
                     .font(.callout.weight(.semibold))
@@ -247,15 +239,6 @@ struct DevicesView: View {
             return "globe"
         }
         return "ipad.and.iphone"
-    }
-
-    /// Tint palette for device icons — rotates through a small set of brand-adjacent blues.
-    private func deviceTint(for secondary: String) -> Color {
-        let lower = secondary.lowercased()
-        if lower.contains("ipad") { return Color(red: 0.48, green: 0.35, blue: 0.97) }
-        if lower.contains("mac") || lower.contains("desktop") { return .blue }
-        if lower.contains("web") || lower.contains("safari") || lower.contains("chrome") { return .teal }
-        return Color(red: 0.16, green: 0.54, blue: 0.86)
     }
 
     /// Formats `epochMs` as a relative date string ("2 hours ago", "Yesterday", etc.).

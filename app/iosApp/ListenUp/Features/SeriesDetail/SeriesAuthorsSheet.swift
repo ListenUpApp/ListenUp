@@ -8,19 +8,15 @@ struct SeriesAuthorsSheet: View {
     let authors: [SeriesAuthor]
     let onClose: () -> Void
 
-    private static let avatarHues: [Color] = [
-        Color(hex: "#7A5AF8"), Color(hex: "#1F8A5B"), Color(hex: "#E0613A"),
-        Color(hex: "#2A6FDB"), Color(hex: "#C2389B"), Color(hex: "#0E8C8C")
-    ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 16)],
                           alignment: .leading, spacing: 4) {
-                    ForEach(Array(authors.enumerated()), id: \.element.id) { index, author in
+                    ForEach(authors, id: \.id) { author in
                         NavigationLink(value: ContributorDestination(id: author.id)) {
-                            row(author, hueIndex: index)
+                            row(author)
                         }
                         .buttonStyle(.plain)
                         .simultaneousGesture(TapGesture().onEnded { onClose() })
@@ -46,9 +42,9 @@ struct SeriesAuthorsSheet: View {
         }
     }
 
-    private func row(_ author: SeriesAuthor, hueIndex: Int) -> some View {
+    private func row(_ author: SeriesAuthor) -> some View {
         HStack(spacing: 12) {
-            avatar(author, hueIndex: hueIndex)
+            avatar(author)
             Text(author.name)
                 .font(.subheadline)
                 .lineLimit(1)
@@ -58,13 +54,14 @@ struct SeriesAuthorsSheet: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func avatar(_ author: SeriesAuthor, hueIndex: Int) -> some View {
-        let hue = Self.avatarHues[abs(hueIndex) % Self.avatarHues.count]
-        return Text(initials(author.name))
+    /// The shared `AvatarPalette` fill, keyed by the contributor id so a person wears the same
+    /// colour here as on their own page.
+    private func avatar(_ author: SeriesAuthor) -> some View {
+        Text(initials(author.name))
             .font(.subheadline.weight(.bold))
-            .foregroundStyle(hue)
+            .foregroundStyle(AvatarPalette.initialsInk)
             .frame(width: 40, height: 40)
-            .background(hue.opacity(0.17), in: Circle())
+            .background(AvatarPalette.fill(forKey: author.id), in: Circle())
             .accessibilityHidden(true)
     }
 

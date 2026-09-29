@@ -154,28 +154,21 @@ struct ImportUserReviewRow: View {
 
 // MARK: - Avatar
 
-/// A circular initial avatar for an ABS user, tinted green when matched/resolved and coral when
-/// it still needs review.
+/// A circular initial avatar for an ABS user: green when matched/resolved, amber while it still needs
+/// review (the row's "Needs review" pill carries the same state in words). Both fills come from the
+/// shared `AvatarPalette` solve, so the white initial reads at 4.5:1.
 private struct ImportUserAvatar: View {
     let initial: String
     let isMatched: Bool
 
     var body: some View {
         Circle()
-            .fill(
-                LinearGradient(
-                    colors: isMatched
-                        ? [Color(hex: "4FBE7E"), Color(hex: "2E9E5B")]
-                        : [Color(hex: "F0894F"), Color(hex: "D8431F")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .fill(AvatarPalette.fill(hueDegrees: isMatched ? 145 : 40))
             .frame(width: 40, height: 40)
             .overlay {
                 Text(initial)
                     .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AvatarPalette.initialsInk)
             }
             .accessibilityHidden(true)
     }
