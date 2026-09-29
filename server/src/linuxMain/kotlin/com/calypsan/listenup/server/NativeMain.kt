@@ -3,6 +3,7 @@ package com.calypsan.listenup.server
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.logging.installNativeLogging
 import io.ktor.server.cio.CIO
+import io.ktor.server.cio.CIOApplicationEngine
 import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
@@ -26,8 +27,20 @@ fun main() {
     embeddedServer(
         factory = CIO,
         environment = applicationEnvironment { config = defaultServerConfig() },
-        configure = { connectors.add(EngineConnectorBuilder().apply { this.port = port }) },
+        configure = { listenOn(port) },
     ) { module() }.start(wait = true)
     // The process edge: nothing is left to block but the exit itself.
     runBlocking { logOutput.closeAndDrain(LOG_FLUSH_BUDGET) }
+}
+
+/**
+ * Listens on [port], with `SO_REUSEADDR` on. A server that stops while clients are connected leaves
+ * those connections in TIME_WAIT on [port] for about a minute, and every app reconnects the instant
+ * its server goes away — so without it, any restart of a live server failed to bind and the uncaught
+ * EADDRINUSE aborted the process. Ktor CIO leaves it off on Kotlin/Native; the JVM turns it on by
+ * default. On Linux it admits a bind over lingering connections only, never over a second listener.
+ */
+internal fun CIOApplicationEngine.Configuration.listenOn(port: Int) {
+    connectors.add(EngineConnectorBuilder().apply { this.port = port })
+    reuseAddress = true
 }
