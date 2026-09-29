@@ -15,23 +15,37 @@ struct CircularCheckToggle: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack {
-                if isOn {
-                    Circle().fill(tint)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: size * 0.55, weight: .heavy))
-                        .foregroundStyle(Color.luOnTint)
-                } else {
-                    Circle()
-                        .strokeBorder(Color.luLabel3, lineWidth: 2)
-                }
-            }
-            .frame(width: size, height: size)
-            .minimumTapTarget(visualSize: size)
+            CircularCheckMark(isOn: isOn, tint: tint, size: size)
+                .minimumTapTarget(visualSize: size)
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: isOn)
         .accessibilityAddTraits(isOn ? [.isSelected, .isButton] : .isButton)
+    }
+}
+
+/// The toggle's look without its button — for a row that is itself the button. A button inside a
+/// button is two controls stacked on one spot, and VoiceOver can reach only one of them (HIG,
+/// VoiceOver), so a whole-row toggle draws this and carries the selected trait on the row.
+struct CircularCheckMark: View {
+    let isOn: Bool
+    var tint: Color = .luTint
+    var size: CGFloat = 26
+
+    var body: some View {
+        ZStack {
+            if isOn {
+                Circle().fill(tint)
+                Image(systemName: "checkmark")
+                    .font(.system(size: size * 0.55, weight: .heavy)) // decorative fixed size
+                    .foregroundStyle(Color.luOnTint)
+            } else {
+                Circle()
+                    .strokeBorder(Color.luLabel3, lineWidth: 2)
+            }
+        }
+        .frame(width: size, height: size)
+        .animation(.easeOut(duration: 0.15), value: isOn)
+        .accessibilityHidden(true)
     }
 }
 

@@ -92,13 +92,16 @@ struct MetadataChaptersView: View {
                         .font(.callout.weight(.medium)).foregroundStyle(.primary).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                CircularCheckToggle(isOn: row.isSelected) { observer.toggleChapter(row.ordinal) }
+                // The row is the button; a toggle button nested inside it was a second control on
+                // the same spot that VoiceOver could not reach separately.
+                CircularCheckMark(isOn: row.isSelected)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleButtonStyle())
+        .accessibilityAddTraits(row.isSelected ? .isSelected : [])
     }
 
     private func selectionText(_ available: AvailableChapters) -> String {

@@ -144,11 +144,12 @@ struct MetadataSelectBody: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                     Spacer(minLength: 8)
-                    CircularCheckToggle(isOn: preview.coverEnabled, action: { observer.toggleField(.cover) })
+                    CircularCheckMark(isOn: preview.coverEnabled)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityAddTraits(preview.coverEnabled ? .isSelected : [])
 
             if !preview.coverOptions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {

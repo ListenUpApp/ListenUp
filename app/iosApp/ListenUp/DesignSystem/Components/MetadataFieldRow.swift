@@ -31,7 +31,7 @@ struct MetadataFieldRow<Value: View, Thumb: View>: View {
 
                 thumb()
 
-                CircularCheckToggle(isOn: isOn, action: onToggle)
+                CircularCheckMark(isOn: isOn)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
