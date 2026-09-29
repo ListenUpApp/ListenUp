@@ -784,7 +784,8 @@
     "start_listening_to_see_your": "Start listening to see your stats here",
     "this_week": "This week",
     "today": "Today",
-    "top_genres": "Top genres"
+    "top_genres": "Top genres",
+    "greeting_with_name": "%1$s, %2$s"
   },
   "profile": {
     "avatar": "Avatar",

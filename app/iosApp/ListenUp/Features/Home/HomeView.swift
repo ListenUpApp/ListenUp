@@ -41,7 +41,12 @@ struct HomeView: View {
             }
         }
         .background(Color(.systemBackground))
-        .navigationBarTitleDisplayMode(.inline)
+        // The tab's name as the system large title, with the greeting beneath it (HIG, Toolbars:
+        // a title "helps people understand where they are"). Selecting collapses it so the toolbar's
+        // "N selected" count has the bar, as Library does.
+        .navigationTitle(String(localized: "common.home"))
+        .navigationSubtitle(greetingSubtitle)
+        .navigationBarTitleDisplayMode(selection?.isSelecting == true ? .inline : .large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NotificationBell()
@@ -61,6 +66,12 @@ struct HomeView: View {
                 selection = BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
             }
         }
+    }
+
+    /// "Good evening, Simon" once Home has loaded; nothing while it loads.
+    private var greetingSubtitle: String {
+        guard case .ready(let ready) = home?.phase else { return "" }
+        return HomeTitle.subtitle(greeting: ready.timeGreeting, userName: ready.userName)
     }
 
     // MARK: - Content
@@ -107,9 +118,6 @@ struct HomeView: View {
         stats: HomeStatsObserver
     ) -> some View {
         let layout = layout
-        HomeHeader(greeting: ready.timeGreeting, userName: ready.userName)
-            .padding(.horizontal, layout.margin)
-
         // Inline, where the content that failed would be, following the `ErrorBanner` precedent.
         if let message = home.inlineError {
             ErrorBanner(message: message)
@@ -188,7 +196,7 @@ struct HomeView: View {
 
 // Note: `HomeView` @State-constructs its observers from `Dependencies`, which requires the app's
 // Koin graph to be initialized. The preview compiles and lays out chrome; live data needs the
-// running app. Preview the sub-components (`HomeHeader`, `ShelfCard`, `HomeStatsCard`) for rich
+// running app. Preview the sub-components (`ShelfCard`, `HomeStatsCard`) for rich
 // data-driven previews.
 #Preview {
     NavigationStack {
