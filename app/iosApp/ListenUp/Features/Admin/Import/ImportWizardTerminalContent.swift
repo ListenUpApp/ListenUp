@@ -118,7 +118,7 @@ struct ImportReviewContent: View {
                 .labelStyle(.titleAndIcon)
                 .imageScale(.small)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.luWarning)
             }
         }
         .padding(.horizontal, 6)
@@ -174,7 +174,7 @@ struct ImportReviewContent: View {
                 .labelStyle(.titleAndIcon)
                 .imageScale(.small)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.luWarning)
             }
             if review.matchedCount > 0 {
                 Label(
@@ -198,10 +198,10 @@ struct ImportReviewContent: View {
             systemImage: "exclamationmark.triangle"
         )
         .font(.footnote)
-        .foregroundStyle(.orange)
+        .foregroundStyle(Color.luWarning)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.luWarning.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var actionTray: some View {

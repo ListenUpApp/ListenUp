@@ -86,7 +86,7 @@ struct ForgotPasswordView: View {
             ) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 44))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.luWarning)
                     .accessibilityHidden(true)
             }
         }

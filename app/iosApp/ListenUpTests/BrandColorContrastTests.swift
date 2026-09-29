@@ -107,4 +107,31 @@ struct BrandColorContrastTests {
             #expect(ratio >= ContrastMinimum.glyph, "neutral tile \(ratio)")
         }
     }
+
+    @Test("the warning amber reads as text on every surface, and inside its own tonal pill")
+    func warningAmber() {
+        for traits in Traits.colorAppearances {
+            let amber = SRGBColor(UIColor(resource: .warningAmber), resolvedFor: traits)
+            let ratio = amber.minimumContrastRatio(against: surfaces(traits))
+            #expect(ratio >= ContrastMinimum.text, "warning text \(ratio)")
+            // The import review rows' "Needs review" pill: amber text on a 16% amber wash.
+            let row = surface(.secondarySystemGroupedBackground, traits)
+            let pill = amber.composited(opacity: 0.16, over: row)
+            #expect(amber.contrastRatio(against: pill) >= ContrastMinimum.largeText, "warning pill")
+        }
+    }
+
+    @Test("the warning amber is visibly not the brand coral")
+    func warningIsNotCoral() {
+        func hue(_ color: UIColor) -> Double {
+            var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+            color.resolvedColor(with: lightDefault)
+                .getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+            return Double(hue)
+        }
+        let coralHue = hue(.listenUpOrange)
+        let amberHue = hue(UIColor(resource: .warningAmber))
+        // More than 20° apart on the wheel (coral ≈ 12°, amber ≈ 40°).
+        #expect(abs(amberHue - coralHue) * 360 > 20)
+    }
 }

@@ -47,7 +47,7 @@ private struct ScanIssueCard: View {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.luWarning)
                 Text(issue.headline)
                     .font(.headline)
             }

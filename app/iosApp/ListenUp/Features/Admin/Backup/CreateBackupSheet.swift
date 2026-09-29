@@ -68,7 +68,7 @@ struct CreateBackupSheet: View {
                     }
                     Label(String(localized: "admin.significantly_increases_backup_size"), systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.luWarning)
                 }
                 .padding(14)
                 .fieldCard()

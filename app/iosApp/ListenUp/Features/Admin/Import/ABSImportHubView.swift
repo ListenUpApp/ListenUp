@@ -239,7 +239,7 @@ private struct ImportSummaryRow: View {
         switch summary.stage {
         case .imported: .green
         case .ready: .luTint
-        default: .orange
+        default: .luWarning
         }
     }
 }

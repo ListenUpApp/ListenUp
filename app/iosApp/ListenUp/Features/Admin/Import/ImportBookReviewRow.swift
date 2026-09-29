@@ -56,10 +56,10 @@ struct ImportBookReviewRow: View {
         case .needsReview:
             Text(String(localized: "import.user_needs_review"))
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.luWarning)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 5)
-                .background(Color.orange.opacity(0.16), in: Capsule())
+                .background(Color.luWarning.opacity(0.16), in: Capsule())
         case .assigned, .skipped:
             Label(
                 book.resolution == .skipped

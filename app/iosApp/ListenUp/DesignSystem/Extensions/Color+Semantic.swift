@@ -15,6 +15,14 @@ extension Color {
     /// glyph and spinner drawn on a coral fill takes this, never `.white`.
     static let luOnTint = Color(ColorResource.onBrandCoral)
 
+    /// Caution — the `WarningAmber` Color Set: `#8A5C00` light, `#FFD60A` dark (`#7A5200` / `#FFE55C`
+    /// under Increase Contrast). A warning must not read as the brand coral, which means "act here",
+    /// and system `.orange` sits beside it on the wheel (HIG, Color: "Avoid using the same color to
+    /// mean different things"). System yellow is 1.5:1 on white, so the light value is a deep amber
+    /// that holds 4.5:1 as text on every light surface (5.21:1 on `#F2F2F7`); pair it with
+    /// `exclamationmark.triangle` so the meaning never rests on colour alone.
+    static let luWarning = Color(ColorResource.warningAmber)
+
     /// Grouped screen background (`--sys-bg`).
     static let luSurface = Color(.systemGroupedBackground)
     /// Inset-list / card surface (`--sys-bg-2`).
@@ -35,7 +43,7 @@ extension Color {
 
 #Preview("Tokens") {
     let swatches: [(String, Color)] = [
-        ("luTint", .luTint), ("luOnTint", .luOnTint),
+        ("luTint", .luTint), ("luOnTint", .luOnTint), ("luWarning", .luWarning),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
         ("luLabel2", .luLabel2), ("luLabel3", .luLabel3)

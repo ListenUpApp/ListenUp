@@ -203,7 +203,7 @@ struct ForgotPasswordAttempts: View {
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(isLast ? .red : .orange)
+            .foregroundStyle(isLast ? Color.red : Color.luWarning)
         }
     }
 }
