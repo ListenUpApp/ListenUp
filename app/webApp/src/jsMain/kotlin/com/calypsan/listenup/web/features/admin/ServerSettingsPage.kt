@@ -6,8 +6,10 @@ import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
+import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
@@ -198,10 +200,13 @@ private fun ReadyContent(
 }
 
 /**
- * One outside rating source: its name, its switch, and the health line that says when it last
- * ran — "Last fetched 2 days ago", "Not fetched yet", or "Last attempt failed: …". A failed fetch
- * takes priority over a stale success: [RatingSourceStatus.lastError] is null only when the most
- * recent attempt worked.
+ * One outside rating source: its name, its switch, and the lines that say how it is doing. The
+ * health line reads, first match wins: why it cannot run at all, then until when it has paused
+ * itself (a future date, so an absolute one — "Paused until October 6, 2026"), then its last
+ * error, then when it last fetched, then that it never has. Hardcover adds a second line naming
+ * whose account it fetches with.
+ *
+ * An unavailable source's switch stays operable: turning it off is still meaningful.
  */
 @Composable
 private fun RatingSourceRow(
@@ -210,8 +215,15 @@ private fun RatingSourceRow(
     enabled: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
+    val connectionLine =
+        status.connectionUsername
+            ?.takeIf { status.source == ExternalRatingSource.HARDCOVER }
+            ?.let { "Using $it's Hardcover account" }
     Div(attrs = { classes("srv-toggle") }) {
-        Span(attrs = { classes("srv-toggle-d") }) { Text(ratingSourceHealth(status, nowMs)) }
+        Div(attrs = { classes("srv-toggle-d") }) {
+            Div { Text(ratingSourceHealth(status, nowMs)) }
+            connectionLine?.let { Div { Text(it) } }
+        }
         SwitchField(
             label = ratingSourceName(status.source),
             checked = status.enabled,
@@ -230,16 +242,43 @@ private fun ratingSourceName(source: ExternalRatingSource): String =
         ExternalRatingSource.UNKNOWN -> "Unknown"
     }
 
+/** [status]'s one-line health, in the priority [RatingSourceRow] documents — en.json's `admin.rating_source_*`. */
 private fun ratingSourceHealth(
     status: RatingSourceStatus,
     nowMs: Long,
 ): String {
+    val unavailable = status.unavailable
+    val pausedUntil = status.pausedUntil
     val lastError = status.lastError
     val lastFetchedAt = status.lastFetchedAt
     return when {
-        lastError != null -> "Last attempt failed: $lastError"
-        lastFetchedAt != null -> "Last fetched ${relativeLastActive(lastFetchedAt, nowMs)}"
-        else -> "Not fetched yet"
+        unavailable != null -> {
+            when (unavailable) {
+                RatingSourceUnavailable.NOT_CONFIGURED -> "Not set up on this server"
+                RatingSourceUnavailable.NO_CONNECTION -> "Connect a Hardcover account to enable"
+                RatingSourceUnavailable.UNKNOWN -> "Unavailable on this server"
+            }
+        }
+
+        pausedUntil != null && lastError != null -> {
+            "Paused until ${formatDateLong(pausedUntil)}: $lastError"
+        }
+
+        pausedUntil != null -> {
+            "Paused until ${formatDateLong(pausedUntil)}"
+        }
+
+        lastError != null -> {
+            "Last attempt failed: $lastError"
+        }
+
+        lastFetchedAt != null -> {
+            "Last fetched ${relativeLastActive(lastFetchedAt, nowMs)}"
+        }
+
+        else -> {
+            "Not fetched yet"
+        }
     }
 }
 
