@@ -225,7 +225,6 @@
 .div-or::before, .div-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .div-or span { font-size: 0.78125rem; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
 
-
 /* ---- TOUCH TARGETS. On a coarse pointer every control drawn smaller than 44×44 (WCAG 2.5.5, and
    the size every platform guideline agrees a fingertip needs) takes taps from a 44×44 square
    centred on it. The square is an invisible `::after`, so the hit area grows and the drawing does

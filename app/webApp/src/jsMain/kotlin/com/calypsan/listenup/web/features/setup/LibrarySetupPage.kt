@@ -5,11 +5,10 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -44,14 +43,11 @@ fun LibrarySetupPage(
     onComplete: () -> Unit,
     onDismissError: () -> Unit,
 ) {
-    PageTitle("Choose your audiobook folders")
     Div(attrs = { classes("lsetup") }) {
-        Div(attrs = { classes("lsetup-head") }) {
-            H1(attrs = { classes("lsetup-t") }) { Text("Choose your audiobook folders") }
-            P(attrs = { classes("lsetup-sub") }) {
-                Text("These folders are on the machine running your ListenUp server.")
-            }
-        }
+        PageHeader(
+            title = "Choose your audiobook folders",
+            subtitle = "These folders are on the machine running your ListenUp server.",
+        )
 
         state.error?.let { message ->
             Div(attrs = {

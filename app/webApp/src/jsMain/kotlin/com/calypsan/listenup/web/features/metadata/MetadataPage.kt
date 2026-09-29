@@ -7,10 +7,9 @@ import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -48,16 +47,17 @@ fun MetadataPage(
     reviewingChapters: Boolean = false,
     onReviewChapters: (Boolean) -> Unit = {},
 ) {
-    PageTitle("Match metadata")
     Div(attrs = { classes("mdx") }) {
-        Div(attrs = { classes("mdx-head") }) {
-            H1(attrs = { classes("mdx-t") }) { Text("Match metadata") }
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                onClick { onLeave() }
-            }) { Text("Back") }
-        }
+        PageHeader(
+            title = "Match metadata",
+            actions = {
+                Button(attrs = {
+                    classes("btn-o")
+                    attr("type", "button")
+                    onClick { onLeave() }
+                }) { Text("Back") }
+            },
+        )
 
         when (state) {
             is MetadataUiState.Idle -> {

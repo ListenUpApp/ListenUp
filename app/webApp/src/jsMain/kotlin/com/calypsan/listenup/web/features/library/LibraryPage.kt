@@ -14,7 +14,7 @@ import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -27,7 +27,6 @@ import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
@@ -78,25 +77,25 @@ fun LibraryPage(
     onToggleSelect: (String) -> Unit = {},
     onStartSelecting: (() -> Unit)? = null,
 ) {
-    PageTitle("Library")
     // Header and facet row render in EVERY state, because they are navigation rather than data: a
     // first sync can run for minutes, and hiding the row until the books land would strand a reader
     // at "Loading…" with no way to reach the people already in their library — an error state would
     // strand them for good. Sorting is the exception, and stays with the loaded branch: offering to
     // reorder nothing is an affordance whose only outcome is nothing.
     Div(attrs = { classes("lib-header") }) {
-        H1 { Text("Library") }
-        // Offered only once there is something to select. Arming selection over an empty grid is
-        // an affordance whose only outcome is nothing — the same reason Sort stays with the
-        // loaded branch.
-        if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
-            Button(attrs = {
-                classes("btn-o", "lib-select")
-                attr("type", "button")
-                onClick { onStartSelecting() }
-            }) { Text("Select") }
+        PageHeader(title = "Library") {
+            // Offered only once there is something to select. Arming selection over an empty grid
+            // is an affordance whose only outcome is nothing — the same reason Sort stays with the
+            // loaded branch.
+            if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
+                Button(attrs = {
+                    classes("btn-o", "lib-select")
+                    attr("type", "button")
+                    onClick { onStartSelecting() }
+                }) { Text("Select") }
+            }
+            if (state is LibraryUiState.Loaded) BookSortControl(state, onEvent)
         }
-        if (state is LibraryUiState.Loaded) BookSortControl(state, onEvent)
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
 

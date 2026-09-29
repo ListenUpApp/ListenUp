@@ -9,10 +9,7 @@
 /* `--brw-hue` is the genre's own accent, set inline from FacetIdentity — the same colour
    Android and iOS give it. A tag or mood has none, so it falls back to the house accent. */
 .luw .brw-icon { flex: none; width: 58px; height: 58px; border-radius: 18px; background: color-mix(in srgb, var(--brw-hue, var(--coral)) 15%, transparent); color: var(--brw-hue, var(--coral)); display: flex; align-items: center; justify-content: center; }
-.luw .brw-titles { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.luw .brw-eyebrow { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
-.luw .brw-t { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
-.luw .brw-blurb { margin: 2px 0 0; max-width: 62ch; font-size: 0.9rem; line-height: 1.55; color: var(--ink-2); }
+
 /* Two facts read as one sentence about the shelf, so they get a dot, not a divider. */
 .luw .brw-stats { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) 10px; margin-top: var(--sp-4); }
 .luw .brw-stat { font-size: var(--fs-small); font-weight: 650; color: var(--ink-3); }
@@ -24,10 +21,10 @@
    loses it. It says so in words rather than leaving a hero standing over nothing. */
 .luw .brw-none { margin: 0; padding: 28px 0; font-size: 0.9rem; color: var(--ink-3); }
 .luw .brw-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 40px 0; }
-.luw .brw-empty h1 { margin: 0; font-size: var(--fs-h2); font-weight: 750; color: var(--ink); }
+.luw .brw-empty h2 { margin: 0; font-size: var(--fs-h2); font-weight: 750; color: var(--ink); }
 .luw .brw-empty p { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
 @media (max-width: 639px) {
-  .luw .brw-t { font-size: 1.5rem; }
+
   .luw .brw-icon { width: 46px; height: 46px; border-radius: 14px; }
 }
 /* The genre, tag and mood chips on a book. Every one of them goes somewhere now. */

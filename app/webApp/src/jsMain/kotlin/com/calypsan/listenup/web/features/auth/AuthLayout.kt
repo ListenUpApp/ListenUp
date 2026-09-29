@@ -1,9 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
 import androidx.compose.runtime.Composable
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
@@ -28,7 +27,6 @@ fun AuthLayout(
     badge: String? = null,
     content: @Composable () -> Unit,
 ) {
-    PageTitle(title)
     Div(attrs = { classes("auth") }) {
         Div(attrs = { classes("auth-brand") }) {
             H2(attrs = { classes("auth-hd") }) { Text(BRAND_HEADLINE) }
@@ -38,8 +36,7 @@ fun AuthLayout(
         Div(attrs = { classes("auth-form") }) {
             Div(attrs = { classes("auth-col") }) {
                 badge?.let { Div(attrs = { classes("badge") }) { Text(it) } }
-                H1(attrs = { classes("auth-t") }) { Text(title) }
-                subtitle?.let { P(attrs = { classes("auth-st") }) { Text(it) } }
+                PageHeader(title = title, subtitle = subtitle, display = true)
                 content()
             }
         }

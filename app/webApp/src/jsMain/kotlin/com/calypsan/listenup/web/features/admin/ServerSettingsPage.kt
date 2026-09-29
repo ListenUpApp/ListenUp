@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.WebIcon
@@ -17,7 +17,6 @@ import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -53,7 +52,6 @@ fun ServerSettingsPage(
     onOpenAdmin: () -> Unit,
     nowMs: Long = 0L,
 ) {
-    PageTitle("Server settings")
     Div(attrs = { classes("srv") }) {
         Button(attrs = {
             classes("btn-o", "srv-back")
@@ -61,7 +59,7 @@ fun ServerSettingsPage(
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
 
-        H1(attrs = { classes("srv-title") }) { Text("Server settings") }
+        PageHeader(title = "Server settings")
 
         when (state) {
             AdminSettingsUiState.Loading -> {

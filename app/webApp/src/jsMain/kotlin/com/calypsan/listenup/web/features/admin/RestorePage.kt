@@ -4,11 +4,10 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -35,7 +34,6 @@ fun RestorePage(
     onConfirm: () -> Unit,
     onOpenBackups: () -> Unit,
 ) {
-    PageTitle("Restore from a backup")
     Div(attrs = { classes("rst") }) {
         // Absent while a restore is running: the server is swapping its own database out, and a
         // link away from the only page narrating that is an invitation to miss the outcome.
@@ -47,7 +45,7 @@ fun RestorePage(
             }) { Text("← Backups") }
         }
 
-        H1(attrs = { classes("rst-title") }) { Text("Restore from a backup") }
+        PageHeader(title = "Restore from a backup")
 
         when (state) {
             is RestoreBackupUiState.Idle -> {

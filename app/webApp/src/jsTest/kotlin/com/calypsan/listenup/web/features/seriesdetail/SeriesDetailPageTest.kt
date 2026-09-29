@@ -44,7 +44,7 @@ class SeriesDetailPageTest :
         test("the hero renders the series' name and its author") {
             val root = seriesDetailPage(readySeries())
 
-            (root.querySelector(".sd-t") as HTMLElement).textContent shouldBe "The Stormlight Archive"
+            (root.querySelector(".page-t") as HTMLElement).textContent shouldBe "The Stormlight Archive"
             (root.querySelector(".sd-by") as HTMLElement).textContent shouldBe "Brandon Sanderson"
         }
 

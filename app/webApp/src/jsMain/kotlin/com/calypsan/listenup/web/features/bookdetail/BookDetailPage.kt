@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.readers.ReadersPanel
 import com.calypsan.listenup.web.design.BookMarkdown
@@ -29,7 +29,6 @@ import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -108,7 +107,6 @@ fun BookDetailPage(
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
 ) {
-    PageTitle(crumb(state))
     Div(attrs = { classes("bd") }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
         // cannot show what you asked for must still show the way out of it.
@@ -138,6 +136,7 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Error -> {
+                PageHeader(title = crumb(state))
                 val (heading, body) = explain(state.error)
                 // A state that can't show what was asked for still owes the reader somewhere to
                 // go. Library is the only honest destination: web sync is unwritten, so a "sync
@@ -268,12 +267,11 @@ private fun SharedHeader(
         )
         Div(attrs = { classes("bd-tblock") }) {
             if (ready == null) {
-                // Says it is loading rather than showing a silent skeleton — `BookDetailTest` pins
-                // that, because a quiet empty header is indistinguishable from a book with no
-                // metadata at all.
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                // The page's H1 is there from the first frame, named "Book" for a screen reader and
+                // drawn as a skeleton bar — a page that is loading still says which page it is.
+                PageHeader(title = crumb(state), pending = true)
             } else {
-                H1(attrs = { classes("bd-t") }) { Text(ready.book.title) }
+                PageHeader(title = ready.book.title, display = true)
                 Byline(ready, onOpenContributor)
                 SeriesChips(ready, onOpenSeries)
                 ready.progress?.let { fraction ->
@@ -332,54 +330,6 @@ private fun SharedHeader(
                         attr("title", "Match metadata")
                         onClick { onMatchMetadata() }
                     }) { Icon(WebIcon.Sparkles) }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BookHeader(
-    state: BookDetailUiState.Ready,
-    onPlay: () -> Unit,
-) {
-    Div(attrs = { classes("bd-head") }) {
-        // The detail hero is the largest cover the web client shows, so it asks for its own rung
-        // rather than reusing the grid's — a 300px derivative upscaled to 180 CSS px looks soft on
-        // a 2x display. `coverHash` rides along so a re-covered book is not served a year-stale
-        // image from cache; see [coverUrl].
-        Cover(
-            title = state.book.title,
-            imageUrl = coverUrl(state.book.id.value, state.book.coverHash, COVER_RUNG),
-            size = COVER_SIZE,
-            radius = COVER_RADIUS,
-            heroName = HERO_COVER,
-            decorative = true,
-            eager = true,
-        )
-        Div(attrs = { classes("bd-tblock") }) {
-            H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
-            Byline(state, onOpenContributor = {})
-            // Only a book actually in progress gets a progress line — a 0% bar on an unstarted
-            // book is decoration that reads as data.
-            state.progress?.let { fraction ->
-                ProgressLine(
-                    percent = (fraction * PERCENT).toInt(),
-                    remaining = state.timeRemainingFormatted.orEmpty(),
-                )
-            }
-            // `canPlay` is the ViewModel's word on whether this book has anything to play at all.
-            // A Play button on a book with no audio is a promise the page cannot keep.
-            if (state.canPlay) {
-                Div(attrs = { classes("bd-actions") }) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", BUTTON_VALUE)
-                        onClick { onPlay() }
-                    }) {
-                        Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
-                        Text(if (state.progress != null) "Resume" else "Play")
-                    }
                 }
             }
         }

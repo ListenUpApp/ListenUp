@@ -246,7 +246,7 @@
    column so the element is structural only — it must not be visible in the layout. */
 .edit-body { display:flex; flex-direction:column; gap:20px; }
 .bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
-.bd-t { margin:0; font-size:2.125rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+
 .bd-by { font-size:var(--fs-body); font-weight:600; color:var(--ink-2); }
 /* A byline name is a control, not decoration — same activation contract as `.contrib-row`. */
 .bd-by-name { cursor:pointer; border-radius:var(--r-xs); }
@@ -397,7 +397,7 @@
 @media (max-width: 759px) {
   .bd { padding:var(--sp-16) 14px 28px; gap:var(--sp-16); }
   .bd-head { gap:var(--sp-16); }
-  .bd-t { font-size:1.625rem; }
+
 }
 
 /* ---- checkbox (table select) ---- */

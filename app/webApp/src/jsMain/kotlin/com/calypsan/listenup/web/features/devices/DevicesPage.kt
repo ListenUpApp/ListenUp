@@ -10,10 +10,9 @@ import com.calypsan.listenup.client.presentation.settings.DeviceRow
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.ConfirmDialog
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -36,11 +35,10 @@ fun DevicesPage(
     onSignOutEverywhere: () -> Unit,
     onRetry: () -> Unit,
 ) {
-    PageTitle("Devices")
     var confirming by remember { mutableStateOf(false) }
 
     Div(attrs = { classes("dev") }) {
-        H1(attrs = { classes("dev-title") }) { Text("Devices") }
+        PageHeader(title = "Devices")
 
         when (state) {
             is DevicesUiState.Loading -> {

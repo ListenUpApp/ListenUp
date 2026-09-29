@@ -438,14 +438,14 @@ class AuthGateTest :
         test("a server with no users asks for the first admin") {
             val host = mountGate(FakeAuthGraph(AuthState.NeedsSetup))
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "admin"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "admin"
             host.querySelectorAll("#auth-confirm").length shouldBe 1
         }
 
         test("needing a login shows sign in") {
             val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()))
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("the create-account link follows the server's registration setting") {
@@ -468,7 +468,7 @@ class AuthGateTest :
             host.linkNamed("Create account").click()
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Create"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Create"
             window.location.pathname shouldBe before
         }
 
@@ -482,7 +482,7 @@ class AuthGateTest :
             (host.querySelector(".auth-aside .lnk") as HTMLElement).click()
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Reset"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Reset"
             window.location.pathname shouldBe before
         }
 
@@ -510,7 +510,7 @@ class AuthGateTest :
             val host = mountGate(graph, inviteCode = "TREEHOUSE-42")
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
             graph.invitesLookedUp shouldBe listOf("TREEHOUSE-42")
         }
 
@@ -529,7 +529,7 @@ class AuthGateTest :
             val host = mountGate(FakeAuthGraph(AuthState.NeedsLogin()))
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("the redeem link opens the claim pane with nothing looked up") {
@@ -541,7 +541,7 @@ class AuthGateTest :
             host.linkNamed("Redeem it").click()
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Join"
             graph.invitesLookedUp shouldBe emptyList()
         }
 
@@ -560,7 +560,7 @@ class AuthGateTest :
             awaitFrame()
 
             graph.closed shouldContain "invite"
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("leaving NeedsLogin clears the register sub-state") {
@@ -576,7 +576,7 @@ class AuthGateTest :
             graph.state.value = AuthState.NeedsLogin(openRegistration = true)
             awaitFrame()
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("leaving NeedsLogin clears the reset sub-state, and tears its ViewModel down") {
@@ -594,7 +594,7 @@ class AuthGateTest :
             awaitFrame()
 
             graph.closed shouldContain "forgot"
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
         }
 
         test("pending approval shows the waiting room with the registered email") {

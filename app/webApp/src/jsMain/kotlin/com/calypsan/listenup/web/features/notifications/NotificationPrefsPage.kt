@@ -6,12 +6,11 @@ import com.calypsan.listenup.api.dto.NotificationPreferenceDto
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
 import com.calypsan.listenup.web.design.Breadcrumb
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SwitchField
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -36,12 +35,11 @@ fun NotificationPrefsPage(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    PageTitle("Notification settings")
     Div(attrs = { classes("nprefs") }) {
         // Renders in every state, including the ones with nothing to toggle: a page that cannot
         // show what you asked for must still show the way out of it.
         Breadcrumb(trail = listOf("Settings", "Notifications"), onNavigate = { onOpenSettings() })
-        H1(attrs = { classes("nprefs-title") }) { Text("Notifications") }
+        PageHeader(title = "Notifications", documentTitle = "Notification settings")
 
         when (state) {
             is NotificationPrefsUiState.Data -> {

@@ -253,7 +253,7 @@ class WebAppRootTest :
             val (host, router, composition) = mountAt("/library/contributors")
 
             try {
-                host.querySelectorAll(".contrib-header").length shouldBe 1
+                host.querySelectorAll(".lib-header").length shouldBe 1
                 facetChip(host, "Authors").classList.contains("is-active") shouldBe true
                 facetChip(host, "Narrators").classList.contains("is-active") shouldBe false
             } finally {
@@ -487,7 +487,7 @@ class WebAppRootTest :
 
             try {
                 host.querySelector(".search-types").shouldNotBeNull()
-                host.querySelector(".sall-t") shouldBe null
+                host.querySelector(".sall") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -618,8 +618,8 @@ class WebAppRootTest :
             val (host, router) = mountAt("/admin/upload", isAdmin = flowOf(true))
 
             try {
-                (host.querySelector(".upl-t") as HTMLElement).textContent shouldBe "Upload books"
-                host.querySelector(".adm-title") shouldBe null
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Upload books"
+                host.querySelector(".adm") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -634,7 +634,7 @@ class WebAppRootTest :
                 )
 
             try {
-                (host.querySelector(".org-t") as HTMLElement).textContent shouldBe "File organization"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "File organization"
                 host.textContent.orEmpty() shouldContain "Organize library"
             } finally {
                 router.dispose()
@@ -688,9 +688,9 @@ class WebAppRootTest :
             val (host, router) = mountAt("/admin/invite", isAdmin = flowOf(true))
 
             try {
-                (host.querySelector(".inv-t") as HTMLElement).textContent shouldBe "Invite someone"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Invite someone"
                 // The People page must not also be up — `/admin` is a prefix of this route.
-                host.querySelector(".adm-title") shouldBe null
+                host.querySelector(".adm") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -708,7 +708,7 @@ class WebAppRootTest :
 
             try {
                 asked shouldBe listOf("u-ada")
-                (host.querySelector(".usr-t") as HTMLElement).textContent shouldBe "Ada Lovelace"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Ada Lovelace"
             } finally {
                 router.dispose()
             }
@@ -728,7 +728,7 @@ class WebAppRootTest :
 
             try {
                 asked shouldBe emptyList()
-                host.querySelector(".usr-t") shouldBe null
+                host.querySelector(".usr") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -795,7 +795,7 @@ class WebAppRootTest :
 
             try {
                 recorder.requestedIds shouldBe listOf("b-stormlight")
-                (host.querySelector(".ched-t") as HTMLElement).textContent shouldBe "Edit chapters"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Edit chapters"
                 // ⛔ The book's own page must not also be up. `/book/{id}` is a prefix of this
                 // route, and a branch order that tests it first makes the editor unreachable.
                 host.querySelector(".bd-title") shouldBe null
@@ -909,9 +909,9 @@ class WebAppRootTest :
 
                 recorder.seeds.size shouldBe 1
                 recorder.seeds.single() shouldContain "b-kings|"
-                (host.querySelector(".mdx-t") as HTMLElement).textContent shouldBe "Match metadata"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match metadata"
                 // ⛔ The book's own page must not also be up.
-                host.querySelector(".bd-t") shouldBe null
+                host.querySelector(".bd-head") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -1236,7 +1236,7 @@ class WebAppRootTest :
                 )
 
             try {
-                (host.querySelector(".bke-t") as HTMLElement).textContent shouldBe "Edit 3 books"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Edit 3 books"
             } finally {
                 router.dispose()
             }
@@ -1245,8 +1245,8 @@ class WebAppRootTest :
         // ⛔ No ids is not an empty editor — it is not this route at all. A bulk editor over nothing
         // would offer a Change button with no books behind it.
         //
-        // ⛔ Asserts on `.bke`, the editor's own container, NOT on `.bke-t`. The default session is
-        // Loading, which draws a skeleton and no title — so a `.bke-t` assertion passed even when
+        // ⛔ Asserts on `.bke`, the editor's own container, NOT on `.page-t`. The default session is
+        // Loading, which draws a skeleton and no title — so a `.page-t` assertion passed even when
         // the route DID match, which sabotage proved.
         test("/books/edit with no ids is not the editor") {
             val (host, router) = mountAt("/books/edit")
@@ -1318,7 +1318,7 @@ class WebAppRootTest :
 
             try {
                 recorder.requestedIds shouldBe listOf("c-king")
-                (host.querySelector(".cd-name") as HTMLElement).textContent shouldBe "Contributor c-king"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Contributor c-king"
             } finally {
                 router.dispose()
             }
@@ -1384,7 +1384,7 @@ class WebAppRootTest :
 
             try {
                 recorder.requested shouldBe listOf("c-king" to "narrator")
-                (host.querySelector(".cb-role") as HTMLElement).textContent shouldBe "Role narrator"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Role narrator"
             } finally {
                 router.dispose()
             }
@@ -1509,10 +1509,10 @@ class WebAppRootTest :
                 )
 
             try {
-                (host.querySelector(".cmx-t") as HTMLElement).textContent shouldBe "Match contributor"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Match contributor"
                 // ⛔ `/contributor/{id}` is a prefix of this route; a branch order that tests it
                 // first makes the wizard unreachable by link.
-                host.querySelector(".cd-name") shouldBe null
+                host.querySelector(".cd-hero") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -1558,10 +1558,10 @@ class WebAppRootTest :
 
             try {
                 recorder.requestedIds shouldBe listOf("c-king")
-                (host.querySelector(".ced-title") as HTMLElement).textContent shouldBe "Person c-king"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Person c-king"
                 // ⛔ The detail page must not also be up. `/contributor/{id}` is a prefix of this
                 // route, and a branch order that tests it first makes the form unreachable by link.
-                host.querySelector(".cd-name") shouldBe null
+                host.querySelector(".cd-hero") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -1652,7 +1652,7 @@ class WebAppRootTest :
 
             try {
                 recorder.requestedIds shouldBe listOf("s-cosmere")
-                (host.querySelector(".sd-t") as HTMLElement).textContent shouldBe "Series s-cosmere"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Series s-cosmere"
             } finally {
                 router.dispose()
             }
@@ -1664,10 +1664,10 @@ class WebAppRootTest :
 
             try {
                 recorder.requestedIds shouldBe listOf("s-cosmere")
-                (host.querySelector(".sed-title") as HTMLElement).textContent shouldBe "Series s-cosmere"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Series s-cosmere"
                 // ⛔ The detail page must not also be up. `/series/{id}` is a prefix of this route,
                 // and a branch order that tests it first makes the form unreachable by link.
-                host.querySelector(".sd-t") shouldBe null
+                host.querySelector(".sd-head") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -2065,7 +2065,7 @@ class WebAppRootTest :
 
             try {
                 asked shouldBe listOf(FacetKind.Tag to "t-grimdark")
-                (host.querySelector(".brw-t") as HTMLElement).textContent shouldBe "Grimdark"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Grimdark"
             } finally {
                 router.dispose()
             }
@@ -2101,7 +2101,7 @@ class WebAppRootTest :
 
             try {
                 asked shouldBe listOf("g-fantasy")
-                (host.querySelector(".brw-t") as HTMLElement).textContent shouldBe "Fantasy"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Fantasy"
 
                 (host.querySelector(".brw-sub") as HTMLElement).click()
                 awaitFrame()

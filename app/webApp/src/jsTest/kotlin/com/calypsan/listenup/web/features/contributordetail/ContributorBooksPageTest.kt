@@ -51,14 +51,14 @@ class ContributorBooksPageTest :
                     ),
                 )
 
-            (root.querySelector(".cb-role") as HTMLElement).textContent shouldBe "Written By"
-            (root.querySelector(".cb-by") as HTMLElement).textContent shouldBe "3 books by Stephen King"
+            (root.querySelector(".page-t") as HTMLElement).textContent shouldBe "Written By"
+            (root.querySelector(".page-sub") as HTMLElement).textContent shouldBe "3 books by Stephen King"
         }
 
         test("one book reads as one book, not one books") {
             val root = booksPage(readyBooks(standaloneBooks = listOf(bookItem("b1", "Misery"))))
 
-            (root.querySelector(".cb-by") as HTMLElement).textContent shouldBe "1 book by Stephen King"
+            (root.querySelector(".page-sub") as HTMLElement).textContent shouldBe "1 book by Stephen King"
         }
 
         test("series groups keep the ViewModel's order and each reports its own size") {

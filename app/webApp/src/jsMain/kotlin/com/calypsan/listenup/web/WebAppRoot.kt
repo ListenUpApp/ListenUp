@@ -51,7 +51,6 @@ import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
-import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
@@ -200,13 +199,13 @@ import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * The root of the ListenUp web body: the Shell A chrome around a router-driven content region.
@@ -2860,9 +2859,8 @@ private fun animatedLibrary(session: LibrarySession): LibraryUiState {
 @Composable
 private fun PagePlaceholder(key: String) {
     val label = (PRIMARY_NAV.entries + FOOTER_NAV).firstOrNull { it.key == key }?.label ?: key
-    PageTitle(label)
+    PageHeader(title = label)
     Div(attrs = { classes("empty") }) {
-        H1 { Text(label) }
         P { Text("This page is not built yet.") }
     }
 }

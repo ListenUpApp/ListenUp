@@ -9,13 +9,12 @@ import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Field
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.TextAreaField
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -58,10 +57,9 @@ fun ShelfEditPage(
 
     val saving = state is CreateEditShelfUiState.Saving
     val heading = if (isEditing) "Edit shelf" else "New shelf"
-    PageTitle(heading)
 
     Div(attrs = { classes("shelf-edit") }) {
-        H1(attrs = { classes("shelf-title") }) { Text(heading) }
+        PageHeader(title = heading)
 
         if (state is CreateEditShelfUiState.LoadingExisting) {
             Div(attrs = { classes("skel", "shelf-skel") })

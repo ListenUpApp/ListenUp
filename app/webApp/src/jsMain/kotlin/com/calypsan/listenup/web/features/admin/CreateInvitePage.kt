@@ -12,12 +12,11 @@ import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
 import com.calypsan.listenup.client.presentation.admin.CreateInviteUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -38,7 +37,6 @@ fun CreateInvitePage(
     onCopy: (String) -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
-    PageTitle("Invite someone")
     Div(attrs = { classes("inv") }) {
         Breadcrumb(trail = listOf("People", "Invite"), onNavigate = { onOpenAdmin() })
 
@@ -49,10 +47,10 @@ fun CreateInvitePage(
             return@Div
         }
 
-        H1(attrs = { classes("inv-t") }) { Text("Invite someone") }
-        P(attrs = { classes("inv-lede") }) {
-            Text("Create an invite to share with someone who wants to join your audiobook library.")
-        }
+        PageHeader(
+            title = "Invite someone",
+            subtitle = "Create an invite to share with someone who wants to join your audiobook library.",
+        )
         InviteForm(status, onCreate, onClearError)
     }
 }
@@ -166,9 +164,12 @@ private fun InviteMade(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("inv-done") }) {
-        Span(attrs = { classes("inv-done-e") }) { Text("Invite created") }
-        H1(attrs = { classes("inv-t") }) { Text(invite.email) }
-        P(attrs = { classes("inv-lede") }) { Text("Send them this link. It expires on its own if nobody uses it.") }
+        PageHeader(
+            title = invite.email,
+            eyebrow = "Invite created",
+            subtitle = "Send them this link. It expires on its own if nobody uses it.",
+            documentTitle = "Invite someone",
+        )
         Div(attrs = { classes("inv-link") }) {
             Span(attrs = { classes("inv-url") }) { Text(invite.url) }
             Button(attrs = {

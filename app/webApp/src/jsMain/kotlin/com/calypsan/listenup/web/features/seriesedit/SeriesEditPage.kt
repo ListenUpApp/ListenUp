@@ -1,6 +1,5 @@
 package com.calypsan.listenup.web.features.seriesedit
 
-import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.compose.runtime.Composable
@@ -26,11 +25,11 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * Series Edit — what a series is called, what it is about, and what it is really.
@@ -52,14 +51,16 @@ fun SeriesEditPage(
     onEvent: (SeriesEditUiEvent) -> Unit,
     onMergeQuery: (String) -> Unit,
 ) {
-    PageTitle("Edit " + state.name.ifBlank { "series" })
     Div(attrs = { classes("sed") }) {
+        PageHeader(
+            title = state.name.ifBlank { "Series" },
+            documentTitle = "Edit " + state.name.ifBlank { "series" },
+            pending = state.isLoading,
+        )
         if (state.isLoading) {
             Div(attrs = { classes("skel", "sed-skel") })
             return@Div
         }
-
-        H1(attrs = { classes("sed-title") }) { Text(state.name.ifBlank { "Series" }) }
 
         state.error?.let { message ->
             Div(attrs = { classes("sed-err") }) {

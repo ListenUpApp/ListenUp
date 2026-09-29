@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
 import com.calypsan.listenup.web.design.ModalDialog
-import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
 import androidx.compose.runtime.Composable
@@ -20,10 +19,10 @@ import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * Categories — the genre tree, and the five things an admin does to it.
@@ -57,7 +56,6 @@ fun CategoriesPage(
     mergeHistory: GenreMergeHistory?,
     mergeHistoryActions: MergeHistoryActions,
 ) {
-    PageTitle("Categories")
     Div(attrs = { classes("cat") }) {
         Button(attrs = {
             classes(BTN_SECONDARY, "cat-back")
@@ -65,7 +63,7 @@ fun CategoriesPage(
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
 
-        H1(attrs = { classes("cat-title") }) { Text("Categories") }
+        PageHeader(title = "Categories")
 
         when (state) {
             AdminCategoriesUiState.Loading -> {

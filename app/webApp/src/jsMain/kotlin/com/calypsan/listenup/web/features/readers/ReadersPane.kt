@@ -9,14 +9,13 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.util.relativeOrMonthYear
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -75,10 +74,9 @@ fun ReadersPage(
     onOpenProfile: (String) -> Unit,
     onOpenBook: () -> Unit,
 ) {
-    PageTitle(READERS)
     Div(attrs = { classes("rdr") }) {
         Breadcrumb(trail = listOf(bookTitle, READERS), onNavigate = { onOpenBook() })
-        H1(attrs = { classes("rdr-t") }) { Text(READERS) }
+        PageHeader(title = READERS)
 
         when (state) {
             BookReadersUiState.Loading -> {

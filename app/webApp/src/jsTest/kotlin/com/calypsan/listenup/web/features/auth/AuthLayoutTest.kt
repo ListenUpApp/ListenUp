@@ -24,15 +24,15 @@ class AuthLayoutTest :
                     }
                 }
 
-            (host.querySelector(".auth-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
-            (host.querySelector(".auth-st") as HTMLElement).textContent.orEmpty() shouldContain "Pick up where"
+            (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "Sign in"
+            (host.querySelector(".page-sub") as HTMLElement).textContent.orEmpty() shouldContain "Pick up where"
             (host.querySelector(".auth-col") as HTMLElement).textContent.orEmpty() shouldContain "FORM"
         }
 
         test("the subtitle is optional") {
             val host = mount { AuthLayout(title = "Sign in") { Text("FORM") } }
 
-            host.querySelectorAll(".auth-st").length shouldBe 0
+            host.querySelectorAll(".page-sub").length shouldBe 0
         }
 
         test("the brand panel is always in the DOM so one media query can hide it") {

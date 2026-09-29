@@ -8,13 +8,12 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.uploads.UploadedBook
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.design.Breadcrumb
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.pickedFiles
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -38,10 +37,9 @@ fun UploadPage(
     onReset: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
-    PageTitle("Upload books")
     Div(attrs = { classes("upl") }) {
         Breadcrumb(trail = listOf("Admin", "Upload books"), onNavigate = { onOpenAdmin() })
-        H1(attrs = { classes("upl-t") }) { Text("Upload books") }
+        PageHeader(title = "Upload books")
 
         when (state) {
             UploadBooksUiState.Idle -> {

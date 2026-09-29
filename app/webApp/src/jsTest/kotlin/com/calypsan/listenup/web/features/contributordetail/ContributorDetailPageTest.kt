@@ -123,7 +123,7 @@ class ContributorDetailPageTest :
                     readyContributor(name = "Stephen King", bookCount = 64),
                 )
 
-            (root.querySelector(".cd-name") as HTMLElement).textContent shouldBe "Stephen King"
+            (root.querySelector(".page-t") as HTMLElement).textContent shouldBe "Stephen King"
             val stats = root.querySelectorAll(".cd-stat")
             (stats.item(0) as HTMLElement).textContent.orEmpty() shouldContain "64 books"
             (stats.item(1) as HTMLElement).textContent.orEmpty() shouldContain "of audio"

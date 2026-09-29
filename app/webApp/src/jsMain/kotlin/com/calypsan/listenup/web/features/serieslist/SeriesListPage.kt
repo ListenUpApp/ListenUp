@@ -8,14 +8,13 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.web.design.Cover
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -50,12 +49,12 @@ fun SeriesListPage(
     onOpenSeries: (String) -> Unit,
     onSelectFacet: (LibraryFacet) -> Unit,
 ) {
-    PageTitle("Series")
     // Header and facets render in every state, for the reason the Books tab gives: they are
     // navigation rather than data, and hiding them during a long first sync strands the reader.
     Div(attrs = { classes("lib-header") }) {
-        H1 { Text("Library") }
-        if (state is LibraryUiState.Loaded) SeriesSortControl(state, onEvent)
+        PageHeader(title = "Series") {
+            if (state is LibraryUiState.Loaded) SeriesSortControl(state, onEvent)
+        }
     }
     FacetRow(active = LibraryFacet.Series, onSelect = onSelectFacet)
 

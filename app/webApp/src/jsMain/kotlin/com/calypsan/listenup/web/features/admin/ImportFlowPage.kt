@@ -18,7 +18,7 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
@@ -27,7 +27,6 @@ import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -65,7 +64,6 @@ fun ImportFlowPage(
     onReset: () -> Unit,
     onOpenImports: () -> Unit,
 ) {
-    PageTitle("Import from Audiobookshelf")
     Div(attrs = { classes("iflow") }) {
         // Only where leaving is harmless: before a file is picked, and after the run has ended.
         if (state is ImportFlowUiState.Idle || state is ImportFlowUiState.Done || state is ImportFlowUiState.Error) {
@@ -76,7 +74,7 @@ fun ImportFlowPage(
             }) { Text("← Imports") }
         }
 
-        H1(attrs = { classes("iflow-title") }) { Text("Import from Audiobookshelf") }
+        PageHeader(title = "Import from Audiobookshelf")
 
         when (state) {
             ImportFlowUiState.Idle -> {

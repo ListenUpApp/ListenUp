@@ -2,7 +2,7 @@
    READERS — who else is on this book
    ============================================================ */
 .luw .rdr { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
-.luw .rdr-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+
 .luw .rdr-skel { height: 160px; }
 .luw .rdr-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
 .luw .rdr-now { margin-bottom: var(--sp-8); font-size: var(--fs-small); font-weight: 700; color: var(--coral-text); }
@@ -25,7 +25,6 @@
 .luw .rdr-all:active { transform: translateY(1px); }
 .luw .rdr-all:focus { outline: none; }
 .luw .rdr-all:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
-
 
 /* ============================================================
    RATINGS — five stars in halves, the Book Detail panel, the rate dialog

@@ -93,6 +93,7 @@ import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import io.kotest.matchers.shouldNotBe
 
 /**
  * Book Detail through the URL contract: `/book/{id}?tab=…` names the book and the pane, pane
@@ -275,19 +276,20 @@ class BookDetailTest :
                     .textContent
                     .orEmpty() shouldContain "Not in this browser's library"
                 (host.querySelector(".bd .crumb a") != null) shouldBe true
-                (host.querySelector(".bd-t") == null) shouldBe true
+                (host.querySelector(".bd-head") == null) shouldBe true
             } finally {
                 router.dispose()
             }
         }
 
-        test("a book still loading says that instead of showing an empty shell") {
+        test("a book still loading holds its heading's place instead of showing an empty shell") {
             val (host, router) = mountAt("/book/42", fixedBookDetail(BookDetailUiState.Loading))
 
             try {
-                (host.querySelector(".bd .empty") as HTMLElement)
-                    .textContent
-                    .orEmpty() shouldContain "Loading"
+                // The H1 is there from the first frame — named for a screen reader, drawn as a bar.
+                val heading = host.querySelector(".bd-head h1.page-t") as HTMLElement
+                heading.textContent.orEmpty() shouldContain "Book"
+                heading.querySelector(".skel") shouldNotBe null
             } finally {
                 router.dispose()
             }
@@ -297,7 +299,7 @@ class BookDetailTest :
             val (host, router) = mountAt("/book/42")
 
             try {
-                (host.querySelector(".bd-t") as HTMLElement).textContent shouldBe "The Institute"
+                (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "The Institute"
                 (host.querySelector(".bd-by") as HTMLElement)
                     .textContent
                     .orEmpty() shouldContain "Stephen King · read by Santino Fontana"
@@ -330,7 +332,7 @@ class BookDetailTest :
             try {
                 host.querySelectorAll(".bd .meta-r").length shouldBeGreaterThanOrEqual 4
                 (host.querySelector(".bd-side") != null) shouldBe true
-                (host.querySelector(".bd-t") as HTMLElement).textContent.orEmpty() shouldContain "The Institute"
+                (host.querySelector(".page-t") as HTMLElement).textContent.orEmpty() shouldContain "The Institute"
             } finally {
                 router.dispose()
             }

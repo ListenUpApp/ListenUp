@@ -261,7 +261,7 @@ class PeopleTest :
                 )
 
             text(host, ".inv-url") shouldBe "https://listen.example/join?code=ABC123"
-            text(host, ".inv-t") shouldBe "ada@example.com"
+            text(host, ".page-t") shouldBe "ada@example.com"
             button(host, "Copy").shouldNotBeNull().click()
             awaitFrame()
 
@@ -293,8 +293,8 @@ class PeopleTest :
         test("a member's page names them and what they are") {
             val host = userPage(readyUser(adminUser(displayName = "Ada Lovelace", email = "ada@example.com")))
 
-            text(host, ".usr-t") shouldBe "Ada Lovelace"
-            text(host, ".usr-e") shouldBe "ada@example.com"
+            text(host, ".page-t") shouldBe "Ada Lovelace"
+            text(host, ".page-sub") shouldBe "ada@example.com"
             host.textContent.orEmpty() shouldContain "Member"
         }
 
@@ -351,7 +351,7 @@ class PeopleTest :
 
             text(host, ".usr-err").shouldNotBeNull()
             // Still a page about a person, not an error screen.
-            text(host, ".usr-t") shouldBe "Ada Lovelace"
+            text(host, ".page-t") shouldBe "Ada Lovelace"
         }
 
         test("a member who could not be loaded is an error, not an empty shell") {

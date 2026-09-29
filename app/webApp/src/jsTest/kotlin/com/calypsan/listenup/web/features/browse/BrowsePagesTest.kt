@@ -117,8 +117,8 @@ class BrowsePagesTest :
         test("a tag's shelf names it and says what is on it") {
             val host = facetPage(facetReady(facetName = "Grimdark", bookCount = 3, totalDurationMs = 41 * HOUR))
 
-            text(host, ".brw-eyebrow") shouldBe "Tag"
-            text(host, ".brw-t") shouldBe "Grimdark"
+            text(host, ".page-eyebrow") shouldBe "Tag"
+            text(host, ".page-t") shouldBe "Grimdark"
             host.querySelectorAll(".brw-stat").asList().map { (it as HTMLElement).textContent?.trim() } shouldContainExactly
                 listOf("3 books", "41h of audio")
         }
@@ -128,7 +128,7 @@ class BrowsePagesTest :
             // is invisible until someone reads the eyebrow.
             val host = facetPage(facetReady(kind = FacetKind.Mood, facetName = "Cosy"))
 
-            text(host, ".brw-eyebrow") shouldBe "Mood"
+            text(host, ".page-eyebrow") shouldBe "Mood"
         }
 
         test("the count is the server's, not the number of cards on screen") {
@@ -179,7 +179,7 @@ class BrowsePagesTest :
             var left = 0
             val host = facetPage(BrowseFacetUiState.NotFound(FacetKind.Tag), onOpenLibrary = { left++ })
 
-            text(host, ".brw-empty h1") shouldBe "This tag is gone"
+            text(host, ".brw-empty h2") shouldBe "This tag is gone"
             button(host, "Back to Library").shouldNotBeNull().click()
             awaitFrame()
 
@@ -278,20 +278,20 @@ class BrowsePagesTest :
         }
 
         test("the curator's blurb is shown when there is one, and nothing stands in for it when there is not") {
-            text(genrePage(genreReady(blurb = "Fantasy with the shine taken off.")), ".brw-blurb") shouldBe
+            text(genrePage(genreReady(blurb = "Fantasy with the shine taken off.")), ".page-sub") shouldBe
                 "Fantasy with the shine taken off."
-            genrePage(genreReady(blurb = null)).querySelector(".brw-blurb").shouldBeNull()
+            genrePage(genreReady(blurb = null)).querySelector(".page-sub").shouldBeNull()
         }
 
         test("a blurb that is present but blank is not a blank line") {
-            genrePage(genreReady(blurb = "   ")).querySelector(".brw-blurb").shouldBeNull()
+            genrePage(genreReady(blurb = "   ")).querySelector(".page-sub").shouldBeNull()
         }
 
         test("a link to a genre that is gone is a way out too") {
             var left = 0
             val host = genrePage(GenreDestinationUiState.NotFound, onOpenLibrary = { left++ })
 
-            text(host, ".brw-empty h1") shouldBe "This genre is gone"
+            text(host, ".brw-empty h2") shouldBe "This genre is gone"
             button(host, "Back to Library").shouldNotBeNull().click()
             awaitFrame()
 

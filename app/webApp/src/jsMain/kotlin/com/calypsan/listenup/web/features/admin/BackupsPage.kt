@@ -12,14 +12,13 @@ import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -53,7 +52,6 @@ fun BackupsPage(
     onRestore: (BackupInfo) -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
-    PageTitle("Backups")
     Div(attrs = { classes("bkp") }) {
         Button(attrs = {
             classes("btn-o", "bkp-back")
@@ -61,7 +59,7 @@ fun BackupsPage(
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
 
-        H1(attrs = { classes("bkp-title") }) { Text("Backups") }
+        PageHeader(title = "Backups")
 
         when (state) {
             AdminBackupUiState.Loading -> {

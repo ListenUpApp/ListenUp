@@ -12,14 +12,13 @@ import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SortControl
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.initialsFor
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -54,17 +53,15 @@ fun ContributorsPage(
     sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
     onEvent: (LibraryUiEvent) -> Unit = {},
 ) {
-    PageTitle("Contributors")
-    Div(attrs = { classes("contrib-header") }) {
-        Div(attrs = { classes("contrib-title-row") }) {
-            H1 { Text("Contributors") }
+    Div(attrs = { classes("lib-header") }) {
+        PageHeader(title = "Contributors") {
             // Withheld rather than shown as "0" while state is null — a count is a fact about the
             // answer, and there isn't one yet.
             state?.let { list -> Span(attrs = { classes("contrib-count") }) { Text(list.size.toString()) } }
+            // Sorting stays with an answered list, the same rule the Library's own header follows:
+            // offering to reorder nothing is an affordance whose only outcome is nothing.
+            if (state != null) ContributorSortControl(sortState, role, onEvent)
         }
-        // Sorting stays with an answered list, the same rule the Library's own header follows:
-        // offering to reorder nothing is an affordance whose only outcome is nothing.
-        if (state != null) ContributorSortControl(sortState, role, onEvent)
     }
     // Books is never the active chip here — this page only ever renders for the Authors or
     // Narrators facet — but selecting it must still be able to navigate back to the library, so

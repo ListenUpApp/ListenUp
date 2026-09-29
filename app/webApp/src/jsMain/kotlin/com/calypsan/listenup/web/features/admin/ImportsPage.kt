@@ -10,13 +10,12 @@ import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -39,7 +38,6 @@ fun ImportsPage(
     onNewImport: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
-    PageTitle("Imports")
     Div(attrs = { classes("imp") }) {
         Button(attrs = {
             classes("btn-o", "imp-back")
@@ -47,10 +45,7 @@ fun ImportsPage(
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
 
-        H1(attrs = { classes("imp-title") }) { Text("Imports") }
-        P(attrs = { classes("imp-sub") }) {
-            Text("Bring listening history over from an Audiobookshelf backup.")
-        }
+        PageHeader(title = "Imports", subtitle = "Bring listening history over from an Audiobookshelf backup.")
 
         when (state) {
             ABSImportListUiState.Loading -> {

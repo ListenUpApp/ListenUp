@@ -17,7 +17,7 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.TextAreaField
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
@@ -29,7 +29,6 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
@@ -61,14 +60,16 @@ fun ContributorEditPage(
     onEvent: (ContributorEditUiEvent) -> Unit,
     onMergeQuery: (String) -> Unit,
 ) {
-    PageTitle("Edit " + state.name.ifBlank { "contributor" })
     Div(attrs = { classes("ced") }) {
+        PageHeader(
+            title = state.name.ifBlank { "Contributor" },
+            documentTitle = "Edit " + state.name.ifBlank { "contributor" },
+            pending = state.isLoading,
+        )
         if (state.isLoading) {
             Div(attrs = { classes("skel", "ced-skel") })
             return@Div
         }
-
-        H1(attrs = { classes("ced-title") }) { Text(state.name.ifBlank { "Contributor" }) }
 
         state.error?.let { message ->
             Div(attrs = { classes("ced-err") }) {

@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.WeekChartColumn
 import com.calypsan.listenup.client.presentation.home.genreShareBars
 import com.calypsan.listenup.client.presentation.home.weekChartColumns
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.design.Cover
@@ -20,7 +20,6 @@ import com.calypsan.listenup.web.features.shelf.bookCountLabel
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -62,14 +61,18 @@ fun HomePage(
     onCreateShelf: () -> Unit,
     selection: BookSelection? = null,
 ) {
-    PageTitle(null)
     Div(attrs = { classes("home") }) {
         when (state) {
             is HomeUiState.Loading -> {
-                HomeSkeleton()
+                // Deliberately silent about WHY: before the first emission the page genuinely does
+                // not know whether the library is empty, syncing or broken, and guessing out loud is
+                // how a healthy first run ends up reading like a failure. The greeting's place is
+                // held by a skeleton, under an H1 that still names the page.
+                PageHeader(title = HOME, documentTitle = null, display = true, pending = true)
             }
 
             is HomeUiState.Error -> {
+                PageHeader(title = HOME, documentTitle = null)
                 Div(attrs = { classes(EMPTY_CLASS) }) {
                     H2 { Text("Home is unavailable") }
                     P { Text(state.message) }
@@ -87,30 +90,12 @@ fun HomePage(
     }
 }
 
-/**
- * The pre-first-emission state. Deliberately silent about WHY: at this point the page genuinely
- * does not know whether the library is empty, syncing or broken, and guessing out loud is how a
- * healthy first run ends up reading like a failure.
- */
-@Composable
-private fun HomeSkeleton() {
-    Div(attrs = { classes("home-header") }) {
-        Div(attrs = { classes("home-greet") }) {
-            Div(attrs = { classes("skel", "home-skel-line") })
-            Div(attrs = { classes("skel", "home-skel-name") })
-        }
-    }
-}
-
 @Composable
 private fun HomeHeader(
     greeting: String,
     onOpenSearch: () -> Unit,
 ) {
-    Div(attrs = { classes("home-header") }) {
-        Div(attrs = { classes("home-greet") }) {
-            H1 { Text(greeting) }
-        }
+    PageHeader(title = greeting, documentTitle = null, display = true) {
         // A search affordance on the landing page, even though the sidebar and ⌘K both reach the
         // same place — this is where someone arrives, and "where do I type?" should not need a
         // shortcut to answer. The hint teaches the shortcut rather than replacing it.
@@ -444,3 +429,5 @@ private fun MyShelves(
 private const val ATTR_TYPE = "type"
 
 private const val VALUE_BUTTON = "button"
+
+private const val HOME = "Home"

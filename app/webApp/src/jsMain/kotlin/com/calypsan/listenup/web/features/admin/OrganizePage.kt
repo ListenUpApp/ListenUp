@@ -11,11 +11,10 @@ import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.ModalDialog
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -34,10 +33,9 @@ fun OrganizePage(
     actions: OrganizeActions,
     onOpenAdmin: () -> Unit,
 ) {
-    PageTitle("File organization")
     Div(attrs = { classes("org") }) {
         Breadcrumb(trail = listOf("Admin", "File organization"), onNavigate = { onOpenAdmin() })
-        H1(attrs = { classes("org-t") }) { Text("File organization") }
+        PageHeader(title = "File organization")
         P(attrs = { classes("org-lede") }) { Text("Keep library folders tidy and consistent.") }
 
         when (state) {

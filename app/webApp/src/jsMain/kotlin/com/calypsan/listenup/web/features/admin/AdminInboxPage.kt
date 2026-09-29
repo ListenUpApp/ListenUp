@@ -18,14 +18,13 @@ import com.calypsan.listenup.web.design.ActionsMenu
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -61,7 +60,6 @@ fun AdminInboxPage(
     onOpenBookEdit: (String) -> Unit = {},
     onOpenMatch: (String) -> Unit = {},
 ) {
-    PageTitle("Inbox")
     Div(attrs = { classes("inbox") }) {
         Button(attrs = {
             classes("btn-o", "inbox-back")
@@ -69,8 +67,7 @@ fun AdminInboxPage(
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
 
-        H1(attrs = { classes("inbox-title") }) { Text("Inbox") }
-        P(attrs = { classes("inbox-sub") }) { Text("Books that need a look before they join your library.") }
+        PageHeader(title = "Inbox", subtitle = "Books that need a look before they join your library.")
 
         when (state) {
             AdminInboxUiState.Loading -> {

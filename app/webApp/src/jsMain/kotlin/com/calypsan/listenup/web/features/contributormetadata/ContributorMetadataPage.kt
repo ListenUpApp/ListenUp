@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.presentation.contributormetadata.Contributor
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.features.contributoredit.contributorPhotoUrl
@@ -20,7 +20,6 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
@@ -50,16 +49,17 @@ fun ContributorMetadataPage(
     onApply: () -> Unit,
     onLeave: () -> Unit,
 ) {
-    PageTitle("Match contributor")
     Div(attrs = { classes("cmx") }) {
-        Div(attrs = { classes("cmx-head") }) {
-            H1(attrs = { classes("cmx-t") }) { Text("Match contributor") }
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onLeave() }
-            }) { Text("Back") }
-        }
+        PageHeader(
+            title = "Match contributor",
+            actions = {
+                Button(attrs = {
+                    classes(BTN_SECONDARY)
+                    attr(ATTR_TYPE, VALUE_BUTTON)
+                    onClick { onLeave() }
+                }) { Text("Back") }
+            },
+        )
 
         when (state) {
             is ContributorMetadataUiState.Idle -> {

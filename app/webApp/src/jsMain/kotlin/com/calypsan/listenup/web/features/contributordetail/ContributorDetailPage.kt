@@ -13,7 +13,6 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
@@ -26,11 +25,11 @@ import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * Contributor Detail — the person behind the books, over the shared
@@ -63,7 +62,6 @@ fun ContributorDetailPage(
     onConfirmDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
 ) {
-    PageTitle(crumb(state))
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page
         // that cannot show who you asked for must still show the way out of it.
@@ -87,6 +85,7 @@ fun ContributorDetailPage(
             }
 
             is ContributorDetailUiState.Error -> {
+                PageHeader(title = crumb(state))
                 WayBack(
                     heading = "This contributor can't be shown",
                     body = state.message,
@@ -97,6 +96,7 @@ fun ContributorDetailPage(
             ContributorDetailUiState.NotFound -> {
                 // Terminal per the ViewModel's own contract — no retry can produce this
                 // contributor, so the honest move is an explanation and a way back, not a spinner.
+                PageHeader(title = crumb(state))
                 WayBack(
                     heading = "This person isn't here any more",
                     body = "They may have been merged into another contributor, or the link is stale.",
@@ -105,6 +105,7 @@ fun ContributorDetailPage(
             }
 
             ContributorDetailUiState.Loading, ContributorDetailUiState.Idle -> {
+                PageHeader(title = crumb(state), pending = true)
                 Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
             }
         }
@@ -247,7 +248,7 @@ private fun Hero(
         }) { Text(initialsFor(state.contributor.name)) }
 
         Div(attrs = { classes("cd-name-block") }) {
-            H1(attrs = { classes("cd-name") }) { Text(state.contributor.name) }
+            PageHeader(title = state.contributor.name, display = true)
 
             Div(attrs = { classes("cd-roles") }) {
                 state.roleSections.forEach { section ->

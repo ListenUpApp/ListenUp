@@ -201,7 +201,7 @@ class ChapterEditorPageTest :
         test("the header names the book and counts its chapters") {
             val host = page(editingChapters(bookTitle = "Mistborn"))
 
-            host.querySelector(".ched-t")?.textContent shouldBe "Edit chapters"
+            host.querySelector(".page-t")?.textContent shouldBe "Edit chapters"
             host.querySelector(".ched-sub")?.textContent shouldContain "Mistborn · 3 chapters"
         }
 

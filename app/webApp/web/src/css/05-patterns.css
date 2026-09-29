@@ -346,6 +346,20 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .srv-chip.down .srv-dot { background:var(--danger); box-shadow:0 0 0 3px color-mix(in srgb, var(--danger) 24%, transparent); }
 @media (prefers-reduced-motion: no-preference) { .srv-chip.warn .srv-dot { animation: scanPulse 1.2s ease-in-out infinite; } }
 
+/* ---- page header — the one page title. `PageHeader` is the only thing that renders `.page-t`, so
+   every page's H1 is the same size, weight and tracking; the 31 per-page title rules it replaced
+   drifted between 1.5rem and 2.1rem. Actions sit at the trailing edge and wrap under the title
+   when the row runs out. */
+.page-h { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:var(--sp-12) var(--sp-16); min-width:0; }
+.page-h-text { display:flex; flex-direction:column; gap:var(--sp-4); flex:1 1 16rem; min-width:0; }
+.page-eyebrow { margin:0; font-family:var(--mono); font-size:var(--fs-caption); font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
+.page-t { margin:0; font-size:var(--fs-h1); font-weight:800; letter-spacing:-.03em; line-height:1.1; color:var(--ink); text-wrap:balance; overflow-wrap:anywhere; }
+.page-h.is-display .page-t { font-size:var(--fs-display); letter-spacing:-.04em; line-height:1.04; }
+.page-sub { margin:0; max-width:65ch; font-size:var(--fs-body); line-height:1.5; color:var(--ink-2); text-wrap:pretty; }
+.page-h-actions { display:flex; align-items:center; flex-wrap:wrap; gap:var(--sp-8); }
+/* A title still being read: the H1 is already there (named for a screen reader), drawn as a bar. */
+.page-t-skel { display:block; width:min(14ch, 100%); height:.9em; margin:.1em 0; border-radius:var(--r-sm); }
+
 /* ---- states ---- */
 .empty { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:52px var(--sp-24); gap:7px; }
 .empty .ico { width:56px; height:56px; border-radius:var(--r-lg); background:var(--surface-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink-3); margin-bottom:5px; }

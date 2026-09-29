@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
@@ -16,7 +16,6 @@ import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -44,7 +43,6 @@ fun ProfilePage(
     onRetry: () -> Unit,
     onEditProfile: () -> Unit,
 ) {
-    PageTitle((state as? UserProfileUiState.Ready)?.displayName ?: "Profile")
     Div(attrs = { classes("prof") }) {
         when (state) {
             is UserProfileUiState.Ready -> {
@@ -52,6 +50,7 @@ fun ProfilePage(
             }
 
             is UserProfileUiState.Error -> {
+                PageHeader(title = PROFILE)
                 Div(attrs = { classes("empty") }) {
                     H2 { Text("This profile can't be shown") }
                     P { Text(state.message) }
@@ -64,6 +63,7 @@ fun ProfilePage(
             }
 
             UserProfileUiState.Loading, UserProfileUiState.Idle -> {
+                PageHeader(title = PROFILE, pending = true)
                 Div(attrs = { classes("skel", "prof-skel") })
             }
         }
@@ -124,11 +124,12 @@ private fun Hero(
             avatarColor = state.avatarColor.takeIf { it.isNotBlank() },
         )
         Div(attrs = { classes("prof-idblock") }) {
-            H1(attrs = { classes("prof-name") }) { Text(state.displayName) }
             // Absent, not an empty line: a tagline nobody has written is not a blank one.
-            state.tagline?.takeIf { it.isNotBlank() }?.let { line ->
-                P(attrs = { classes("prof-tagline") }) { Text(line) }
-            }
+            PageHeader(
+                title = state.displayName,
+                subtitle = state.tagline?.takeIf { it.isNotBlank() },
+                display = true,
+            )
             Div(attrs = { classes("prof-stats") }) {
                 Stat(formatListenTime(state.totalListenTimeMs), "listened")
                 Stat(
@@ -249,3 +250,5 @@ private const val EDIT_ICON_SIZE = 18
 /** Every button here is an action, never a form submit. Named for the reason `TransportBar`
  *  names its own: four identical literals in one file is what the duplication rule is about. */
 private const val VALUE_BUTTON = "button"
+
+private const val PROFILE = "Profile"

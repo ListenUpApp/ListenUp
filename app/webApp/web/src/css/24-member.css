@@ -4,9 +4,7 @@
 .luw .usr { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 640px; }
 .luw .usr-skel { height: 200px; }
 .luw .usr-head { display: flex; align-items: center; gap: 14px; }
-.luw .usr-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.luw .usr-t { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
-.luw .usr-e { font-size: 0.84rem; color: var(--ink-3); }
+
 .luw .usr-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
 .luw .usr-note { margin: 0 0 10px; font-size: var(--fs-small); color: var(--ink-3); }
 .luw .usr-err { margin: 10px 0 0; font-size: var(--fs-small); font-weight: 600; color: var(--coral-text); }

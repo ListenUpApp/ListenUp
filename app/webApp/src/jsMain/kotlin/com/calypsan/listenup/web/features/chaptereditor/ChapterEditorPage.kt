@@ -1,6 +1,5 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
-import com.calypsan.listenup.web.design.PageTitle
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.Event
 import org.w3c.dom.HTMLElement
@@ -24,11 +23,11 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.PageHeader
 
 /**
  * The chapter editor — every boundary in a book, and everything that can be done to one.
@@ -69,16 +68,17 @@ fun ChapterEditorPage(
     onLeave: () -> Unit,
     problem: String? = null,
 ) {
-    PageTitle("Edit chapters")
     Div(attrs = { classes("ched") }) {
         when (state) {
             ChapterEditorUiState.Loading -> {
+                PageHeader(title = EDIT_CHAPTERS)
                 Div(attrs = { classes("skel", "ched-skel") })
             }
 
             is ChapterEditorUiState.Error -> {
+                PageHeader(title = EDIT_CHAPTERS)
                 Div(attrs = { classes("empty") }) {
-                    H1 { Text("These chapters can't be shown") }
+                    H2 { Text("These chapters can't be shown") }
                     P { Text(state.message) }
                     Button(attrs = {
                         classes("btn-o")
@@ -344,9 +344,9 @@ private fun EditorHeader(
     onSave: () -> Unit,
     onLeave: () -> Unit,
 ) {
-    Div(attrs = { classes("ched-head") }) {
-        Div(attrs = { classes("ched-titles") }) {
-            H1(attrs = { classes("ched-t") }) { Text("Edit chapters") }
+    PageHeader(
+        title = EDIT_CHAPTERS,
+        details = {
             Div(attrs = { classes("ched-sub") }) {
                 Text("${state.bookTitle} · ${state.chapters.size} chapters")
                 // Unsaved and Saving are the same slot: they are the same fact at two moments, and
@@ -357,34 +357,36 @@ private fun EditorHeader(
                     Span(attrs = { classes("ched-status", "on") }) { Text("Unsaved") }
                 }
             }
-        }
-        Div(attrs = { classes("ched-acts") }) {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onLeave() }
-            }) { Text("Back") }
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                // Nothing to interpolate between on an empty or single-chapter book.
-                disabledWhen(state.chapters.size <= 1 || state.drift != null)
-                onClick { onBeginDrift() }
-            }) { Text("Fix drift") }
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                disabledWhen(!state.canUndo)
-                onClick { onUndo() }
-            }) { Text("Undo") }
-            Button(attrs = {
-                classes("btn-c")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                disabledWhen(state.isSaving || !state.isDirty)
-                onClick { onSave() }
-            }) { Text("Save chapters") }
-        }
-    }
+        },
+        actions = {
+            Div(attrs = { classes("ched-acts") }) {
+                Button(attrs = {
+                    classes(BTN_SECONDARY)
+                    attr(ATTR_TYPE, VALUE_BUTTON)
+                    onClick { onLeave() }
+                }) { Text("Back") }
+                Button(attrs = {
+                    classes(BTN_SECONDARY)
+                    attr(ATTR_TYPE, VALUE_BUTTON)
+                    // Nothing to interpolate between on an empty or single-chapter book.
+                    disabledWhen(state.chapters.size <= 1 || state.drift != null)
+                    onClick { onBeginDrift() }
+                }) { Text("Fix drift") }
+                Button(attrs = {
+                    classes(BTN_SECONDARY)
+                    attr(ATTR_TYPE, VALUE_BUTTON)
+                    disabledWhen(!state.canUndo)
+                    onClick { onUndo() }
+                }) { Text("Undo") }
+                Button(attrs = {
+                    classes("btn-c")
+                    attr(ATTR_TYPE, VALUE_BUTTON)
+                    disabledWhen(state.isSaving || !state.isDirty)
+                    onClick { onSave() }
+                }) { Text("Save chapters") }
+            }
+        },
+    )
 }
 
 /**
@@ -500,3 +502,5 @@ private class KeyTargets(
 }
 
 private val TYPING_TAGS = setOf("INPUT", "TEXTAREA", "SELECT")
+
+private const val EDIT_CHAPTERS = "Edit chapters"

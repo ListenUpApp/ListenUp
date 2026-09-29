@@ -6,9 +6,8 @@ import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
 import com.calypsan.listenup.web.design.Breadcrumb
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -27,9 +26,21 @@ fun SeeAllPage(
     onOpenHit: (SearchHit) -> Unit,
     onOpenSearch: () -> Unit,
 ) {
-    PageTitle(seeAllTitle(state))
     Div(attrs = { classes("sall") }) {
         Breadcrumb(trail = listOf("Search", seeAllTitle(state)), onNavigate = { onOpenSearch() })
+        val results = (state as? SeeAllSearchUiState.Results)?.takeIf { it.hits.isNotEmpty() }
+        PageHeader(
+            title = seeAllTitle(state),
+            details =
+                results?.let { found ->
+                    {
+                        Div(attrs = { classes("sall-h") }) {
+                            Span(attrs = { classes("sall-n") }) { Text(hitCountLabel(found.hits.size)) }
+                            Span(attrs = { classes("sall-q") }) { Text("for “${found.query}”") }
+                        }
+                    }
+                },
+        )
 
         when (state) {
             SeeAllSearchUiState.Idle, SeeAllSearchUiState.Loading -> {
@@ -48,11 +59,6 @@ fun SeeAllPage(
                 if (state.hits.isEmpty()) {
                     NoResultsPrompt(query = state.query)
                     return@Div
-                }
-                Div(attrs = { classes("sall-h") }) {
-                    H1(attrs = { classes("sall-t") }) { Text(state.type.label()) }
-                    Span(attrs = { classes("sall-n") }) { Text(hitCountLabel(state.hits.size)) }
-                    Span(attrs = { classes("sall-q") }) { Text("for “${state.query}”") }
                 }
                 Div(attrs = { classes("search-results") }) {
                     state.hits.forEach { hit ->

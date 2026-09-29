@@ -16,7 +16,7 @@ import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.design.Cover
@@ -25,7 +25,6 @@ import com.calypsan.listenup.web.features.shelf.bookCountLabel
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -108,9 +107,8 @@ fun DiscoverPage(
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
 ) {
-    PageTitle("Discover")
     Div(attrs = { classes("disc") }) {
-        H1(attrs = { classes("disc-title") }) { Text("Discover") }
+        PageHeader(title = "Discover")
 
         CurrentlyListeningSection(currentlyListening, nowMs, onOpenBook, onOpenProfile, selection)
         DiscoverBooksSection(books, onOpenBook, selection)

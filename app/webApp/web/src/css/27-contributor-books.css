@@ -5,9 +5,6 @@
 
 .cb { display: flex; flex-direction: column; gap: 18px; }
 
-.cb-head { display: flex; flex-direction: column; gap: var(--sp-4); }
-.cb-role { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
-.cb-by { font-size: var(--fs-body); color: var(--ink-2); }
 /* Quieter than the count it sits under: the alias identifies, it does not headline. */
 .cb-alias { font-size: var(--fs-small); color: var(--ink-3); font-style: italic; }
 

@@ -8,11 +8,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -34,16 +33,17 @@ fun LicencesPage(
     state: LicencesUiState,
     onOpenSettings: () -> Unit,
 ) {
-    PageTitle("Open source licenses")
     Div(attrs = { classes("lic") }) {
         Breadcrumb(trail = listOf("Settings", "Open Source"), onNavigate = { onOpenSettings() })
 
         when (state) {
             LicencesUiState.Loading -> {
+                PageHeader(title = LICENSES)
                 Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
             }
 
             is LicencesUiState.Error -> {
+                PageHeader(title = LICENSES)
                 Div(attrs = { classes("empty") }) {
                     H2 { Text("The licences can't be shown") }
                     P { Text(state.message) }
@@ -66,11 +66,12 @@ private fun ReadyLicences(state: LicencesUiState.Ready) {
             .distinct()
             .size
 
-    Div(attrs = { classes("lic-head") }) {
-        Span(attrs = { classes("lic-overline") }) { Text("Open Source") }
-        H1(attrs = { classes("lic-title") }) { Text("${state.libraries.size} libraries") }
-        Div(attrs = { classes("lic-sub") }) { Text("that make ListenUp possible, across $families license families") }
-    }
+    PageHeader(
+        title = "${state.libraries.size} libraries",
+        eyebrow = "Open Source",
+        subtitle = "that make ListenUp possible, across $families license families",
+        documentTitle = LICENSES,
+    )
 
     Field(
         label = "Search libraries",
@@ -122,3 +123,5 @@ private fun LicencedLibrary.matches(query: String): Boolean {
     val needle = query.trim().lowercase()
     return name.lowercase().contains(needle) || licenses.any { it.lowercase().contains(needle) }
 }
+
+private const val LICENSES = "Open source licenses"

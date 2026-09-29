@@ -2,8 +2,7 @@
    INVITES — minting one, and the link it produces
    ============================================================ */
 .luw .inv { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 640px; }
-.luw .inv-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
-.luw .inv-lede { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-2); }
+
 .luw .inv-err { margin: var(--sp-8) 0 0; font-size: var(--fs-small); font-weight: 600; color: var(--coral-text); }
 .luw .inv-opts { display: flex; flex-direction: column; gap: var(--sp-8); }
 /* A pressed-state card rather than a radio: the two levels want a sentence of explanation each,
@@ -20,7 +19,7 @@
 .luw .inv-days { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
 .luw .inv-go { align-self: flex-start; }
 .luw .inv-done { display: flex; flex-direction: column; gap: var(--sp-12); }
-.luw .inv-done-e { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--coral-text); }
+
 /* ⛔ The URL is selectable text, never a button's label. `navigator.clipboard` is absent outside a
    secure context, so hand-selecting it has to stay possible — `user-select` and the wrap below are
    what make that the fallback rather than a dead end. */

@@ -2,7 +2,7 @@
    UPLOAD — putting books in from this machine
    ============================================================ */
 .luw .upl { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 720px; }
-.luw .upl-t { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+
 .luw .upl-lede { margin: 0 0 var(--sp-12); font-size: 0.9rem; color: var(--ink-2); }
 .luw .upl-picks { display: flex; flex-wrap: wrap; gap: 10px; }
 .luw .upl-live { display: flex; flex-direction: column; gap: var(--sp-8); }

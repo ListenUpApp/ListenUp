@@ -88,7 +88,7 @@ class ProfilePageTest :
         test("the header names the listener") {
             val host = page(readyProfile(displayName = "Simon Hull"))
 
-            (host.querySelector(".prof-name") as HTMLElement).textContent shouldBe "Simon Hull"
+            (host.querySelector(".page-t") as HTMLElement).textContent shouldBe "Simon Hull"
         }
 
         test("the avatar asks for this user's own picture") {
@@ -102,9 +102,9 @@ class ProfilePageTest :
             val blank = page(readyProfile(tagline = "   "))
             val written = page(readyProfile(tagline = "Mostly epic fantasy."))
 
-            without.querySelector(".prof-tagline") shouldBe null
-            blank.querySelector(".prof-tagline") shouldBe null
-            (written.querySelector(".prof-tagline") as HTMLElement).textContent shouldBe "Mostly epic fantasy."
+            without.querySelector(".page-sub") shouldBe null
+            blank.querySelector(".page-sub") shouldBe null
+            (written.querySelector(".page-sub") as HTMLElement).textContent shouldBe "Mostly epic fantasy."
         }
 
         test("the stats read the profile's own numbers") {
@@ -241,6 +241,6 @@ class ProfilePageTest :
             val host = page(UserProfileUiState.Loading)
 
             host.querySelector(".prof-skel").shouldNotBeNull()
-            host.querySelector(".prof-name") shouldBe null
+            host.querySelector(".prof-hero") shouldBe null
         }
     })

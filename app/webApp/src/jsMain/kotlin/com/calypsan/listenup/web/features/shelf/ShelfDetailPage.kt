@@ -7,14 +7,13 @@ import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.AttrsScope
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -48,16 +47,17 @@ fun ShelfDetailPage(
     onEditShelf: (String) -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
-    PageTitle((state as? ShelfDetailUiState.Ready)?.detail?.name ?: "Shelf")
     Div(attrs = { classes("shelf") }) {
         ShelfNotice(notice, onDismissNotice)
 
         when (state) {
             is ShelfDetailUiState.Idle, is ShelfDetailUiState.Loading -> {
+                PageHeader(title = SHELF, pending = true)
                 Div(attrs = { classes("skel", "shelf-skel") })
             }
 
             is ShelfDetailUiState.Error -> {
+                PageHeader(title = SHELF)
                 Div(attrs = { classes(EMPTY_CLASS) }) {
                     H2 { Text("This shelf could not be opened") }
                     P { Text(state.message) }
@@ -95,12 +95,10 @@ private fun ShelfHeader(
     detail: ShelfDetail,
     onEditShelf: (String) -> Unit,
 ) {
-    Div(attrs = { classes("shelf-head") }) {
-        Div(attrs = { classes("shelf-head-text") }) {
-            H1(attrs = { classes("shelf-title") }) { Text(detail.name) }
-            detail.description?.takeIf { it.isNotBlank() }?.let { description ->
-                P(attrs = { classes("shelf-desc") }) { Text(description) }
-            }
+    PageHeader(
+        title = detail.name,
+        subtitle = detail.description?.takeIf { it.isNotBlank() },
+        details = {
             Div(attrs = { classes("shelf-meta") }) {
                 Span { Text(bookCountLabel(detail.bookCount)) }
                 if (detail.totalDurationSeconds > 0) {
@@ -115,15 +113,20 @@ private fun ShelfHeader(
                     }
                 }
             }
-        }
-        if (detail.isOwner) {
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onEditShelf(detail.idString) }
-            }) { Text("Edit shelf") }
-        }
-    }
+        },
+        actions =
+            if (detail.isOwner) {
+                {
+                    Button(attrs = {
+                        classes("btn")
+                        attr(ATTR_TYPE, VALUE_BUTTON)
+                        onClick { onEditShelf(detail.idString) }
+                    }) { Text("Edit shelf") }
+                }
+            } else {
+                null
+            },
+    )
 }
 
 /**
@@ -309,3 +312,5 @@ private fun ShelfNotice(
         }) { Icon(WebIcon.Check, size = DRAG_ICON_SIZE) }
     }
 }
+
+private const val SHELF = "Shelf"

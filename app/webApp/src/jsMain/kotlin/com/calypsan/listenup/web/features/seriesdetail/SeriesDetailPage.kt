@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiStat
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
@@ -21,7 +21,6 @@ import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -56,7 +55,6 @@ fun SeriesDetailPage(
     onPlayBook: (String) -> Unit = {},
     onEdit: () -> Unit = {},
 ) {
-    PageTitle(crumb(state))
     Div(attrs = { classes("sd") }) {
         // Renders in every state, including the ones with no series: a page that cannot show what
         // you asked for must still show the way out of it.
@@ -68,6 +66,7 @@ fun SeriesDetailPage(
             }
 
             is SeriesDetailUiState.Error -> {
+                PageHeader(title = crumb(state))
                 WayBack(
                     heading = "This series can't be shown",
                     body = state.message,
@@ -76,6 +75,7 @@ fun SeriesDetailPage(
             }
 
             SeriesDetailUiState.Loading, SeriesDetailUiState.Idle -> {
+                PageHeader(title = crumb(state), pending = true)
                 Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
             }
         }
@@ -157,7 +157,7 @@ private fun Hero(
             decorative = true,
         )
         Div(attrs = { classes("sd-tblock") }) {
-            H1(attrs = { classes("sd-t") }) { Text(state.seriesName) }
+            PageHeader(title = state.seriesName, display = true)
 
             authorLine(state)?.let { line -> Div(attrs = { classes("sd-by") }) { Text(line) } }
 

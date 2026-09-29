@@ -13,12 +13,11 @@ import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.web.design.ConfirmDialog
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -60,9 +59,8 @@ fun AdminPage(
     onOpenOrganize: () -> Unit = {},
     onOpenUser: (String) -> Unit = {},
 ) {
-    PageTitle("People")
     Div(attrs = { classes("adm") }) {
-        H1(attrs = { classes("adm-title") }) { Text("People") }
+        PageHeader(title = "People")
 
         // The other admin surfaces web has. Links rather than sections: each is its own screen
         // with its own loading and failure states, and this page's own KDoc already says why it

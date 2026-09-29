@@ -30,7 +30,8 @@ import kotlin.coroutines.resume
  *
  * The page's H1 can arrive a few frames late (a book loading from the local database), so it is
  * polled for briefly. If none comes, the content region itself takes focus, which still restarts
- * Tab at the page rather than at the top of the chrome.
+ * Tab at the page rather than at the top of the chrome. For the same window it keeps watching the
+ * heading it focused, and follows it if a loading page's header gives way to its hero's.
  *
  * [content] is the shell's own `<main>`, read lazily: a document-wide query would find whichever
  * shell happened to be first in the document, not this one.
@@ -47,19 +48,37 @@ fun FocusPageOnNavigation(
         if (previous == null || previous == pageKey) return@LaunchedEffect
 
         val origin = document.activeElement
+        var focused: HTMLElement? = null
         repeat(HEADING_WAIT_FRAMES) {
             awaitAnimationFrame()
-            if (!focusIsStill(origin) || dialogIsOpen()) return@LaunchedEffect
+            if (dialogIsOpen()) return@LaunchedEffect
             val main = content() ?: return@LaunchedEffect
-            if (origin != null && origin != document.body && main.contains(origin)) return@LaunchedEffect
-            val heading = main.querySelector("h1") as? HTMLElement
-            if (heading != null) {
-                focusWithoutScroll(heading)
-                return@LaunchedEffect
+            val landed = focused
+            if (landed != null) {
+                focused = followReplacedHeading(landed, main)
+                return@repeat
             }
+            if (!focusIsStill(origin)) return@LaunchedEffect
+            if (origin != null && origin != document.body && main.contains(origin)) return@LaunchedEffect
+            focused = (main.querySelector("h1") as? HTMLElement)?.also(::focusWithoutScroll)
         }
-        if (focusIsStill(origin) && !dialogIsOpen()) content()?.let(::focusWithoutScroll)
+        if (focused == null && focusIsStill(origin) && !dialogIsOpen()) content()?.let(::focusWithoutScroll)
     }
+}
+
+/**
+ * A loading page names itself with a pending header, then its hero renders the real one somewhere
+ * else in the tree. The heading focus landed on is then gone, and focus with it; this carries focus
+ * to the heading that replaced it. Returns the heading that now holds focus.
+ */
+private fun followReplacedHeading(
+    landed: HTMLElement,
+    main: HTMLElement,
+): HTMLElement {
+    if (landed.isConnected || !focusIsStill(landed)) return landed
+    val replacement = main.querySelector("h1") as? HTMLElement ?: return landed
+    focusWithoutScroll(replacement)
+    return replacement
 }
 
 /** Plain holder rather than state: remembering the last key must not itself cause a recomposition. */

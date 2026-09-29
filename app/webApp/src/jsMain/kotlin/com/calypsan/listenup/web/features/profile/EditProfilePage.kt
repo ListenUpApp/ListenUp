@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
 import com.calypsan.listenup.web.design.Field
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.FormSection
@@ -25,7 +25,6 @@ import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.P
@@ -70,9 +69,8 @@ fun EditProfilePage(
     onCancel: () -> Unit,
     saveError: String? = null,
 ) {
-    PageTitle("Edit profile")
     Div(attrs = { classes("pedit") }) {
-        H1(attrs = { classes("pedit-title") }) { Text("Edit profile") }
+        PageHeader(title = "Edit profile")
 
         when (state) {
             EditProfileUiState.Loading -> {

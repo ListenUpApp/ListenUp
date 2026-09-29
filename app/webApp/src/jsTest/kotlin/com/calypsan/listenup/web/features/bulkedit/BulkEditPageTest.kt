@@ -147,8 +147,8 @@ class BulkEditPageTest :
         }
 
         test("the header counts the books being edited, in the right number") {
-            page(editing(bookCount = 40)).querySelector(".bke-t")?.textContent shouldBe "Edit 40 books"
-            page(editing(bookCount = 1)).querySelector(".bke-t")?.textContent shouldBe "Edit 1 book"
+            page(editing(bookCount = 40)).querySelector(".page-t")?.textContent shouldBe "Edit 40 books"
+            page(editing(bookCount = 1)).querySelector(".page-t")?.textContent shouldBe "Edit 1 book"
         }
 
         // ⛔ A book deleted from another device drops out of the selection silently. Editing

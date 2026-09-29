@@ -10,13 +10,12 @@ import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -41,7 +40,6 @@ fun CollectionsPage(
     onOpenCollection: (String) -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
-    PageTitle("Collections")
     Div(attrs = { classes("coll") }) {
         Button(attrs = {
             classes("btn-o", "coll-back")
@@ -49,7 +47,7 @@ fun CollectionsPage(
             onClick { onOpenAdmin() }
         }) { Text("← Admin") }
 
-        H1(attrs = { classes("coll-title") }) { Text("Collections") }
+        PageHeader(title = "Collections")
 
         when (state) {
             AdminCollectionsUiState.Loading -> {

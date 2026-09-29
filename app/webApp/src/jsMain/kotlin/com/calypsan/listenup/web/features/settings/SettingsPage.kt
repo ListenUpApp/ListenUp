@@ -6,14 +6,13 @@ import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.nowplaying.formatBoost
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -54,9 +53,8 @@ fun SettingsPage(
     hardcoverRow: HardcoverRowState? = null,
     onOpenHardcover: () -> Unit = {},
 ) {
-    PageTitle("Settings")
     Div(attrs = { classes("set") }) {
-        H1(attrs = { classes("set-title") }) { Text("Settings") }
+        PageHeader(title = "Settings")
 
         if (state.isLoading) {
             Div(attrs = { classes("skel", "set-skel") })

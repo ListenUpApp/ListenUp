@@ -11,13 +11,12 @@ import com.calypsan.listenup.client.presentation.search.SearchResultCaps
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Pill
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
@@ -59,9 +58,8 @@ fun SearchPage(
     openableTypes: Set<SearchHitType>,
     onSeeAll: (SearchHitType) -> Unit = {},
 ) {
-    PageTitle("Search")
     Div(attrs = { classes("search-page") }) {
-        Div(attrs = { classes("search-header") }) { H1 { Text("Search") } }
+        PageHeader(title = "Search")
 
         SearchField(query = state.query, onQueryChanged = onQueryChanged)
 

@@ -12,14 +12,13 @@ import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -52,10 +51,9 @@ fun LibrarySettingsPage(
     onClearError: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
-    PageTitle("Library folders")
     Div(attrs = { classes("lset") }) {
         Breadcrumb(trail = listOf("Admin", "Library"), onNavigate = { onOpenAdmin() })
-        H1(attrs = { classes("lset-title") }) { Text("Library folders") }
+        PageHeader(title = "Library folders")
 
         when (state) {
             is LibrarySettingsUiState.Ready -> {

@@ -68,7 +68,7 @@ class HomePageTest :
         test("the greeting is the ViewModel's, not one assembled in the page") {
             val host = homePage(readyHome(userName = "Simon", timeGreeting = "Good evening"))
 
-            host.textOf(".home-greet") shouldBe "Good evening, Simon"
+            host.textOf(".page-t") shouldBe "Good evening, Simon"
         }
 
         test("a Continue Listening card shows the book's own title and time remaining") {

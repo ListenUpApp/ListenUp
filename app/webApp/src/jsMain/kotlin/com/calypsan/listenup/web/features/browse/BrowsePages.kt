@@ -7,12 +7,12 @@ import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.PageTitle
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.library.VirtualBookGrid
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -32,11 +32,11 @@ fun BrowseFacetPage(
     onOpenBook: (String) -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
-    PageTitle((state as? BrowseFacetUiState.Ready)?.facetName ?: LIBRARY_CRUMB)
     Div(attrs = { classes("brw") }) {
         when (state) {
             BrowseFacetUiState.Loading -> {
                 Breadcrumb(trail = listOf(LIBRARY_CRUMB, "…"), onNavigate = { onOpenLibrary() })
+                PageHeader(title = LIBRARY_CRUMB, pending = true)
                 Div(attrs = { classes("skel", "brw-skel") })
             }
 
@@ -74,11 +74,11 @@ fun GenreDestinationPage(
     onOpenLibrary: () -> Unit,
     onToggleSubGenres: () -> Unit,
 ) {
-    PageTitle((state as? GenreDestinationUiState.Ready)?.identity?.name ?: GENRE)
     Div(attrs = { classes("brw") }) {
         when (state) {
             GenreDestinationUiState.Loading -> {
                 Breadcrumb(trail = listOf(LIBRARY_CRUMB, "…"), onNavigate = { onOpenLibrary() })
+                PageHeader(title = GENRE, pending = true)
                 Div(attrs = { classes("skel", "brw-skel") })
             }
 
@@ -162,14 +162,16 @@ private fun Hero(
             classes("brw-icon")
             if (hue != null) style { property("--brw-hue", hue) }
         }) { Icon(icon, size = HERO_ICON) }
-        Div(attrs = { classes("brw-titles") }) {
-            Span(attrs = { classes("brw-eyebrow") }) { Text(eyebrow) }
-            H1(attrs = { classes("brw-t") }) { Text(title) }
-            blurb?.takeIf { it.isNotBlank() }?.let { P(attrs = { classes("brw-blurb") }) { Text(it) } }
-            Div(attrs = { classes("brw-stats") }) {
-                stats.forEach { Span(attrs = { classes("brw-stat") }) { Text(it) } }
-            }
-        }
+        PageHeader(
+            title = title,
+            eyebrow = eyebrow,
+            subtitle = blurb?.takeIf { it.isNotBlank() },
+            details = {
+                Div(attrs = { classes("brw-stats") }) {
+                    stats.forEach { Span(attrs = { classes("brw-stat") }) { Text(it) } }
+                }
+            },
+        )
     }
 }
 
@@ -199,8 +201,9 @@ private fun Missing(
     what: String,
     onOpenLibrary: () -> Unit,
 ) {
+    PageHeader(title = what)
     Div(attrs = { classes("brw-empty") }) {
-        H1 { Text("This ${what.lowercase()} is gone") }
+        H2 { Text("This ${what.lowercase()} is gone") }
         P { Text("It was removed, or the link is older than your library.") }
         Button(attrs = {
             classes("btn-c")

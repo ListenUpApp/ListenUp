@@ -158,7 +158,7 @@ class CollectionDetailPageTest :
         test("the collection's name is the heading and the field") {
             val host = page(readyDetail(name = "Bedtime"))
 
-            host.querySelector(".cdet-title")?.textContent shouldBe "Bedtime"
+            host.querySelector(".page-t")?.textContent shouldBe "Bedtime"
             (host.querySelector("#cdet-name") as HTMLInputElement).value shouldBe "Bedtime"
         }
 

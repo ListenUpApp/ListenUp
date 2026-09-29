@@ -41,8 +41,8 @@ class LicencesPageTest :
                     ),
                 )
 
-            (root.querySelector(".lic-title") as HTMLElement).textContent shouldBe "3 libraries"
-            (root.querySelector(".lic-sub") as HTMLElement).textContent shouldContain "2 license families"
+            (root.querySelector(".page-t") as HTMLElement).textContent shouldBe "3 libraries"
+            (root.querySelector(".page-sub") as HTMLElement).textContent shouldContain "2 license families"
         }
 
         test("a library carries its version, and one without renders none rather than a placeholder") {
@@ -119,7 +119,7 @@ class LicencesPageTest :
 
             (root.querySelector(".empty h2") as HTMLElement).textContent shouldBe "The licences can't be shown"
             root.querySelector(".lic-list") shouldBe null
-            root.querySelector(".lic-title") shouldBe null
+            root.querySelector(".page-t")?.textContent shouldBe "Open source licenses"
         }
 
         test("loading says so and still offers the way back") {
