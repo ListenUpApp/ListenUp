@@ -33,6 +33,10 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -396,7 +400,7 @@ class ExternalRatingsFetcherTest :
         /** Wires a fetcher over [source] with real repos, and hands [block] the pieces. */
         suspend fun withFetcher(
             vararg sources: FakeRatingSource,
-            block: suspend (ExternalRatingsFetcher, RatingSourceSettings, BookExternalRatingRepository) -> Unit,
+            block: suspend TestScope.(ExternalRatingsFetcher, RatingSourceSettings, BookExternalRatingRepository) -> Unit,
         ) {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -475,6 +479,18 @@ class ExternalRatingsFetcherTest :
                 settings.pausedUntil(s, nowMs) shouldBe null
                 settings.recordFailure(s, "boom", nowMs)
                 settings.pausedUntil(s, nowMs) shouldBe null
+            }
+        }
+
+        test("switching a source on announces it may have books to catch up on; switching it off does not") {
+            withFetcher(FakeRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER)) { _, settings, _ ->
+                val announced = mutableListOf<ExternalRatingSource>()
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { settings.reenabled.toList(announced) }
+
+                settings.setEnabled(ExternalRatingSource.GOODREADS, false)
+                settings.setEnabled(ExternalRatingSource.GOODREADS, true)
+
+                announced shouldBe listOf(ExternalRatingSource.GOODREADS)
             }
         }
 

@@ -29,6 +29,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
@@ -201,6 +204,27 @@ class HardcoverConnectionsTest :
                 credentials.refreshToken shouldBe "hc_rt_1"
                 store.connectionState(USER) shouldBe connected
                 state(OTHER_USER) shouldBe HardcoverConnection.NotConnected()
+            }
+        }
+
+        test("a completed sign-in announces the connection; a declined one announces nothing") {
+            hardcoverTest {
+                val announced = mutableListOf<String>()
+                scope.backgroundScope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
+                    linker.connections.toList(announced)
+                }
+                fake.enqueue(FakeHardcover.DEVICE, HttpStatusCode.OK, deviceJson())
+                fake.enqueue(FakeHardcover.POLL, HttpStatusCode.BadRequest, oauthError("access_denied"))
+                linker.start(OTHER_USER).shouldBeInstanceOf<AppResult.Success<*>>()
+                settled(OTHER_USER)
+
+                fake.enqueue(FakeHardcover.DEVICE, HttpStatusCode.OK, deviceJson())
+                fake.enqueue(FakeHardcover.POLL, HttpStatusCode.OK, tokenJson("hc_at_1", "hc_rt_1"))
+                fake.enqueue(FakeHardcover.ME, HttpStatusCode.OK, ME_SIMON)
+                linker.start(USER).shouldBeInstanceOf<AppResult.Success<*>>()
+                settled().shouldBeInstanceOf<HardcoverConnection.Connected>()
+
+                announced shouldBe listOf(USER)
             }
         }
 
