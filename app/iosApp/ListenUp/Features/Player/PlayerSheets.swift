@@ -184,11 +184,15 @@ struct BoostPickerSheet: View {
 // MARK: - Chapter Row
 
 /// One chapter line — number · title · duration, with a now-playing equalizer on the
-/// current chapter and a play glyph on the rest. The current chapter sits on a coral
-/// wash with coral text; others carry a leading-inset hairline. Shared by
-/// `ChapterListSheet` (the sheet) and the iPad inline "Up Next" panel so both
-/// surfaces render chapters identically. `tint` highlights the current chapter (cover
-/// accent on iPad, coral in the sheet).
+/// current chapter and a play glyph on the rest. The current chapter sits on a tinted
+/// wash; others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet)
+/// and the iPad inline "Up Next" panel so both surfaces render chapters identically.
+///
+/// Text stays `.primary`/secondary on every row: the tint is decoration (the wash and the
+/// equalizer), never the colour a title is read in — a cover-derived tint can't promise text
+/// contrast. The current row is also `.isSelected` and says "Now playing", so it is marked by
+/// more than colour. At accessibility text sizes the row stacks (HIG, Typography: "consider
+/// using a stacked layout where text appears above secondary items").
 struct ChapterRow: View {
     let index: Int
     let title: String
@@ -198,39 +202,52 @@ struct ChapterRow: View {
     let tint: Color
     let onTap: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
+
     var body: some View {
+        let layout = isStacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+            : AnyLayout(HStackLayout(spacing: 14))
         Button(action: onTap) {
-            HStack(spacing: 14) {
-                Text("\(index + 1)")
-                    .font(.body.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(isCurrent ? tint : Color.luLabel3)
-                    .frame(width: 24)
+            layout {
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    Text("\(index + 1)")
+                        .font(.body.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(Color.luLabel3))
+                        .frame(minWidth: 24)
 
-                Text(title)
-                    .font(.body)
-                    .fontWeight(isCurrent ? .semibold : .regular)
-                    .foregroundStyle(isCurrent ? tint : .primary)
-                    .lineLimit(1)
+                    Text(title)
+                        .font(.body)
+                        .fontWeight(isCurrent ? .semibold : .regular)
+                        .foregroundStyle(.primary)
+                        .lineLimit(isStacked ? 3 : 1)
+                }
 
-                Spacer(minLength: 8)
+                if !isStacked {
+                    Spacer(minLength: 8)
+                }
 
-                Text(DurationFormatting.clock(ms: durationMs))
-                    .font(.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(isCurrent ? tint : Color.luLabel2)
+                HStack(spacing: 14) {
+                    Text(DurationFormatting.clock(ms: durationMs))
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(Color.luLabel2)
 
-                if isCurrent {
-                    EqualizerGlyph(color: tint, isAnimating: isPlaying)
-                } else {
-                    Image(systemName: "play.fill")
-                        .font(.caption)
-                        .foregroundStyle(Color.luLabel3)
+                    if isCurrent {
+                        EqualizerGlyph(color: tint, isAnimating: isPlaying)
+                    } else {
+                        Image(systemName: "play.fill")
+                            .font(.caption)
+                            .foregroundStyle(Color.luLabel3)
+                    }
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .frame(minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
             // Make the whole row tappable — without this the transparent gaps
             // (Spacer, the clear background of non-current rows) aren't hit-tested,
             // so only the text/glyphs register taps.
@@ -249,6 +266,8 @@ struct ChapterRow: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+        .accessibilityValue(isCurrent ? String(localized: "player.now_playing") : "")
     }
 }
 
@@ -411,8 +430,9 @@ struct SleepTimerSheet: View {
 
 // MARK: - Shared pieces
 
-/// A capsule chip used by the speed and sleep pickers. Coral-filled when selected,
-/// neutral fill otherwise.
+/// A capsule chip used by the speed and sleep pickers. Coral-filled when selected, neutral fill
+/// otherwise; the selected chip also carries the VoiceOver selected trait, so the state isn't
+/// colour alone.
 private struct PillButton: View {
     let title: String
     let isSelected: Bool
@@ -430,6 +450,7 @@ private struct PillButton: View {
                 .background(Capsule().fill(isSelected ? AnyShapeStyle(Color.luTint) : AnyShapeStyle(Color.luFill)))
         }
         .buttonStyle(.pressScaleChip)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
