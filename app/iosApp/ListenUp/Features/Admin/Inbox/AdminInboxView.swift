@@ -7,7 +7,8 @@ import Shared
 /// regular width (iPad, wide Split View) = adaptive multi-column grid.
 /// Selection mode: tap a row to toggle; select-all / release actions appear in the header.
 /// Release confirmation is a native alert. Transient errors surface as an alert.
-/// Released-count confirmation surfaces as an overlay toast.
+/// A release confirms itself: the books leave the inbox, with a success haptic and the count
+/// spoken to VoiceOver.
 ///
 /// SSE updates flow through the shared VM into the observer — no extra wiring here.
 struct AdminInboxView: View {
@@ -16,6 +17,8 @@ struct AdminInboxView: View {
 
     @State private var observer: AdminInboxObserver?
     @State private var showingReleaseConfirm = false
+    /// Bumped once per landed release, to fire the success haptic.
+    @State private var releases = 0
     /// The inbox book currently being edited in the BookEdit sheet (metadata + admin collections),
     /// so an admin can review and assign collections before releasing. `nil` when no sheet is open.
     @State private var editingBook: InboxEditTarget?
@@ -84,14 +87,15 @@ struct AdminInboxView: View {
                         Text(releaseConfirmMessage(count: ready.selectedCount))
                     }
                 )
-                .overlay(alignment: .bottom) {
-                    if let count = ready.lastReleasedCount {
-                        ReleasedToast(count: count, onDismiss: { observer.clearReleaseResult() })
-                            .padding(.bottom, 24)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+                // The released books leaving the list is the visible confirmation; the haptic and the
+                // announcement carry it to people not looking at the list (HIG, Feedback).
+                .haptic(.commit, trigger: releases)
+                .onChange(of: ready.lastReleasedCount) { _, count in
+                    guard let count else { return }
+                    releases += 1
+                    VoiceOverAnnouncement.post(releaseConfirmMessage(count: count))
+                    observer.clearReleaseResult()
                 }
-                .animation(.easeInOut(duration: 0.3), value: ready.lastReleasedCount)
         case .error(let message):
             errorBody(message: message, observer: observer)
         }
@@ -482,39 +486,6 @@ private struct InboxBookRow: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: isSelected)
-    }
-}
-
-// MARK: - Released toast
-
-private struct ReleasedToast: View {
-    let count: Int
-    let onDismiss: () -> Void
-
-    private var label: String {
-        count == 1
-            ? String(localized: "admin.inbox_released_count")
-            : String(format: String(localized: "admin.inbox_released_count_plural"), count)
-    }
-
-    var body: some View {
-        HStack(spacing: 11) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-            Text(label)
-                .font(.subheadline.weight(.medium))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 15)
-        .background(.black.opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
-        .padding(.horizontal, 16)
-        .onTapGesture { onDismiss() }
-        .task {
-            try? await Task.sleep(for: .seconds(2.5))
-            onDismiss()
-        }
     }
 }
 

@@ -2,7 +2,7 @@ import Foundation
 import Shared
 
 /// Observes `HomeViewModel` — flattens the sealed `HomeUiState` into a SwiftUI-native
-/// `HomePhase`, and surfaces transient `snackbarMessages` as a clearable string.
+/// `HomePhase`, and surfaces the VM's `snackbarMessages` as a clearable inline error.
 /// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers.
 @Observable
 @MainActor
@@ -11,9 +11,10 @@ final class HomeViewModelWrapper {
 
     private(set) var phase: HomePhase = .loading
 
-    /// Latest transient message from the VM's snackbar channel. The view reads it,
-    /// shows it, and calls `clearSnackbar()` once consumed.
-    private(set) var snackbar: String?
+    /// The latest failure from the VM's snackbar channel (a part of Home that failed to load while
+    /// the rest stayed up). iOS shows it inline, where the missing content would be, until the next
+    /// refresh — not as a snackbar (iosApp rule 10).
+    private(set) var inlineError: String?
 
     // MARK: - Dependencies
 
@@ -25,7 +26,7 @@ final class HomeViewModelWrapper {
     init(viewModel: HomeViewModel = Dependencies.shared.makeHomeViewModel()) {
         self.viewModel = viewModel
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
-        bridge.bind(viewModel.snackbarMessages) { [weak self] in self?.snackbar = $0 }
+        bridge.bind(viewModel.snackbarMessages) { [weak self] in self?.inlineError = $0 }
     }
 
     // Isolated deinit (SE-0371): runs hopped onto the main actor, so the non-Sendable Kotlin
@@ -38,13 +39,10 @@ final class HomeViewModelWrapper {
 
     // MARK: - Actions
 
+    /// Refresh, clearing the last inline failure — a retry that fails again says so again.
     func refresh() {
+        inlineError = nil
         viewModel.refresh()
-    }
-
-    /// Clear the transient snackbar once the view has shown it.
-    func clearSnackbar() {
-        snackbar = nil
     }
 
     // MARK: - State mapping

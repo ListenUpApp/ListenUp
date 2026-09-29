@@ -27,7 +27,8 @@ struct AdminView: View {
     @State private var pendingRevoke: AdminInviteRowModel?
     @State private var pendingDeny: AdminUserRowModel?
     @State private var pendingResetDeny: AdminResetRequestRowModel?
-    @State private var copiedToast = false
+    /// Bumped once per copy, to fire the success haptic.
+    @State private var copies = 0
 
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
@@ -75,13 +76,7 @@ struct AdminView: View {
                 .interactiveDismissDisabled()
             }
         }
-        .overlay(alignment: .bottom) {
-            if copiedToast {
-                CopiedToast(text: String(localized: "admin.link_copied"))
-                    .padding(.bottom, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
+        .haptic(.commit, trigger: copies)
     }
 
     // MARK: - Content
@@ -615,33 +610,12 @@ struct AdminView: View {
 
     // MARK: - Clipboard
 
+    /// A copy changes nothing on screen, so it is confirmed by a success haptic and a VoiceOver
+    /// announcement rather than a toast (HIG, Feedback; iosApp rule 10).
     private func copyToClipboard(_ url: String) {
         UIPasteboard.general.string = url
-        withAnimation { copiedToast = true }
-        Task {
-            try? await Task.sleep(for: .seconds(1.6))
-            withAnimation { copiedToast = false }
-        }
-    }
-}
-
-// MARK: - Copied toast
-
-/// A small capsule confirmation shown when an invite link is copied.
-private struct CopiedToast: View {
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "checkmark.circle.fill")
-            Text(text)
-        }
-        .font(.subheadline.weight(.medium))
-        .foregroundStyle(.white)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.black.opacity(0.82), in: Capsule())
-        .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+        copies += 1
+        VoiceOverAnnouncement.post(String(localized: "admin.link_copied"))
     }
 }
 

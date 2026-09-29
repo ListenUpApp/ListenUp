@@ -73,7 +73,10 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .refreshable { home.refresh() }
-        .overlay(alignment: .bottom) { snackbarOverlay(home: home) }
+        .onChange(of: home.inlineError) { _, message in
+            // An inline banner appearing is not narrated, so say it (HIG, Feedback).
+            if let message { VoiceOverAnnouncement.post(message) }
+        }
     }
 
     // MARK: - Phase
@@ -103,6 +106,12 @@ struct HomeView: View {
     ) -> some View {
         HomeHeader(greeting: ready.timeGreeting, userName: ready.userName)
             .padding(.horizontal, 20)
+
+        // Inline, where the content that failed would be, following the `ErrorBanner` precedent.
+        if let message = home.inlineError {
+            ErrorBanner(message: message)
+                .padding(.horizontal, 20)
+        }
 
         continueSection(ready.continueItems)
 
@@ -160,30 +169,6 @@ struct HomeView: View {
                     .padding(.horizontal, horizontalInset)
                 }
             }
-        }
-    }
-
-    // MARK: - Snackbar
-
-    /// A transient native banner for the VM's snackbar channel — auto-dismisses after a few seconds.
-    /// Deliberately not an alert: a snackbar should be unobtrusive and self-clearing.
-    @ViewBuilder
-    private func snackbarOverlay(home: HomeViewModelWrapper) -> some View {
-        if let message = home.snackbar {
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassControl(in: RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .task(id: message) {
-                    try? await Task.sleep(for: .seconds(3))
-                    home.clearSnackbar()
-                }
         }
     }
 }
