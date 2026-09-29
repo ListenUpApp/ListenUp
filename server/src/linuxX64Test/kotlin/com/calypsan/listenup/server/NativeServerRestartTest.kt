@@ -64,9 +64,11 @@ class NativeServerRestartTest :
                     // A connection still open when the server stops is closed from the server's side,
                     // which is what parks it in TIME_WAIT on `port` — exactly what a connected app's
                     // long-lived sockets do. (Ktor's client closes its own connections, so it can't.)
-                    val lingering = holdOpenConnection(port)
+                    val selector = SelectorManager()
+                    val lingering = holdOpenConnection(selector, port)
                     first.stop(0, 0)
                     lingering.close()
+                    selector.close()
 
                     val second = pingServer(port = port)
                     second.start(wait = false)
@@ -89,11 +91,14 @@ private fun pingServer(port: Int) =
     }
 
 /**
- * Opens a raw keep-alive connection to [port], completes one request on it, and leaves it open — the
+ * Opens a raw keep-alive connection to [port] on [selector] (which the caller closes), completes one request on it, and leaves it open — the
  * shape of a connected app's socket at the moment its server stops.
  */
-private suspend fun holdOpenConnection(port: Int): Socket {
-    val socket = aSocket(SelectorManager()).tcp().connect("127.0.0.1", port)
+private suspend fun holdOpenConnection(
+    selector: SelectorManager,
+    port: Int,
+): Socket {
+    val socket = aSocket(selector).tcp().connect("127.0.0.1", port)
     val output = socket.openWriteChannel(autoFlush = true)
     val request = listOf("GET /ping HTTP/1.1", "Host: 127.0.0.1", "Connection: keep-alive", "", "")
     output.writeStringUtf8(request.joinToString(CRLF))
