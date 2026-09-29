@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.error.RatingError
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.api.sync.ExternalRatingSyncPayload
@@ -43,6 +44,31 @@ class ExternalRatingContractTest :
                     lastError = null,
                 )
             contractJson.decodeFromString<RatingSourceStatus>(contractJson.encodeToString(status)) shouldBe status
+        }
+
+        test("RatingSourceStatus carries pause, unavailability and the connection it uses") {
+            val status =
+                RatingSourceStatus(
+                    source = ExternalRatingSource.HARDCOVER,
+                    enabled = true,
+                    lastFetchedAt = null,
+                    lastError = null,
+                    pausedUntil = 1_800_000_000_000,
+                    unavailable = RatingSourceUnavailable.NO_CONNECTION,
+                    connectionUsername = "simonhull",
+                )
+            contractJson.decodeFromString<RatingSourceStatus>(contractJson.encodeToString(status)) shouldBe status
+        }
+
+        test("an older server's status (no new fields) still decodes") {
+            val old = """{"source":"AUDIBLE","enabled":true,"lastFetchedAt":null,"lastError":null}"""
+            contractJson.decodeFromString<RatingSourceStatus>(old).pausedUntil shouldBe null
+        }
+
+        test("an unavailable reason from a newer server decodes as UNKNOWN") {
+            val newer =
+                """{"source":"AUDIBLE","enabled":true,"lastFetchedAt":null,"lastError":null,"unavailable":"BRAND_NEW"}"""
+            contractJson.decodeFromString<RatingSourceStatus>(newer).unavailable shouldBe RatingSourceUnavailable.UNKNOWN
         }
 
         test("RatingError.SourceUnavailable is retryable") {
