@@ -259,3 +259,20 @@ internal val MIGRATION_9_10 =
             )
         }
     }
+
+/**
+ * v10 → v11: outside ratings from sources an older build could not read come back.
+ *
+ * PR-2 builds decoded a `source` they did not know (HARDCOVER, GOODREADS) as `UNKNOWN` and hid the
+ * row. This build knows them, but the cursored pull never re-sends an unchanged row, so the rows
+ * would stay hidden forever. Dropping them and deleting the domain's cursor makes the next
+ * catch-up start from `since = 0` (`SyncCatchUpClient.catchUp`) and re-pull every row, decoded.
+ * No schema change: the only data touched is server-written and re-fetched, never the outbox.
+ */
+internal val MIGRATION_10_11 =
+    object : Migration(10, 11) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("DELETE FROM `book_external_ratings` WHERE `source` = 'UNKNOWN'")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'book_external_ratings'")
+        }
+    }
