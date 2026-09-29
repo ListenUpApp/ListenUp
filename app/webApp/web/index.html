@@ -29,6 +29,13 @@
          self-hosted from src/fonts (hashed into assets/ by the build) and declared as @font-face at the top of the sheet —
          nothing is fetched from Google. Matches Web/Foundations.html exactly, which does not
          load the Console face either. -->
+    <!-- The body face, requested alongside the sheets rather than after them: without this the
+         browser only learns it needs the font once the CSS has downloaded and parsed, so text
+         paints in the fallback and then reflows. Vite rewrites the href to the same hashed file
+         the @font-face points at. `crossorigin` is required even same-origin — fonts are fetched
+         in CORS mode, and a preload without it is a second, wasted download. The mono face is
+         left to load on demand; it only sets durations and paths. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/src/fonts/hanken-grotesk-latin-wght-normal.woff2" />
     <link rel="stylesheet" href="/src/css/00-base.css" />
     <link rel="stylesheet" href="/src/css/01-fields.css" />
     <link rel="stylesheet" href="/src/css/02-buttons.css" />
