@@ -111,6 +111,13 @@ internal class HtmlAudioPlayer : AudioPlayer {
     private var segments: List<AudioSegment> = emptyList()
     private var currentIndex: Int = 0
     private var hlsHandle: HlsHandle? = null
+
+    /**
+     * hls.js, fetched by [load] the first time a book needs it — never at startup. Held here so a
+     * segment advance, which fires from a media event with nothing to suspend on, can attach
+     * synchronously once the one fetch has landed.
+     */
+    private var hlsLibrary: HlsLibrary? = null
     private var speed: Float = 1.0f
 
     /**
@@ -195,6 +202,9 @@ internal class HtmlAudioPlayer : AudioPlayer {
             state.value = PlaybackState.Error(message = "Playback error. No audio segments were provided.")
             return
         }
+        // Fetched before anything is re-pointed, and only for a book that has an HLS segment at all:
+        // a directly-playable book never downloads hls.js.
+        if (hlsLibrary == null && segments.any { sourceFor(it) is SegmentSource.Hls }) hlsLibrary = loadHlsLibrary()
         this.segments = segments
         durationMs.value = segments.sumOf { it.durationMs }
         positionMs.value = 0
@@ -427,7 +437,7 @@ internal class HtmlAudioPlayer : AudioPlayer {
 
             is SegmentSource.Hls -> {
                 try {
-                    hlsHandle = attachHls(element, source.url, ::reportHlsError)
+                    hlsHandle = attachHls(hlsLibrary, element, source.url, ::reportHlsError)
                 } catch (unsupported: IllegalStateException) {
                     state.value = PlaybackState.Error(message = unsupported.message, isRecoverable = false)
                     return

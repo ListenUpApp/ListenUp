@@ -1,7 +1,9 @@
 package com.calypsan.listenup.web.playback
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.kotest.matchers.shouldNotBe
 import kotlinx.browser.document
 import org.w3c.dom.HTMLAudioElement
@@ -18,19 +20,33 @@ class HlsAttachmentTest :
     FunSpec({
 
         test("the hls.js import resolves to a constructible class, not a module namespace") {
-            // `Hls()` on a namespace object throws "is not a constructor" — the exact failure a
-            // compile-only check cannot see.
-            Hls().destroy()
+            // `new` on a namespace object throws "is not a constructor" — the exact failure a
+            // compile-only check cannot see. The import is dynamic now, so this also proves the
+            // on-demand chunk loads at all.
+            val library = loadHlsLibrary().shouldNotBeNull()
+            library.create().destroy()
+        }
+
+        test("the second load is the first one's answer, not a second fetch") {
+            loadHlsLibrary() shouldBeSameInstanceAs loadHlsLibrary()
         }
 
         test("this browser reports MSE support, so the transcode path has a decoder") {
-            Hls.isSupported() shouldBe true
+            loadHlsLibrary().shouldNotBeNull().isSupported() shouldBe true
+        }
+
+        test("without hls.js a browser with no native HLS says so rather than attaching silence") {
+            // The fallback when the chunk could not be fetched: Chromium's "maybe" is non-empty, so
+            // it takes the native branch — which is why the chunk failing is the only way there.
+            val element = document.createElement("audio") as HTMLAudioElement
+
+            attachHls(library = null, element, "/kotest-absent.m3u8", onFatalError = {}).usesHlsJs shouldBe false
         }
 
         test("attaching a playlist yields a handle that can be destroyed") {
             val element = document.createElement("audio") as HTMLAudioElement
 
-            val handle = attachHls(element, "/kotest-absent.m3u8", onFatalError = {})
+            val handle = attachHls(loadHlsLibrary(), element, "/kotest-absent.m3u8", onFatalError = {})
 
             handle shouldNotBe null
             // Destroying immediately is also the assertion: it aborts the in-flight manifest
@@ -47,10 +63,11 @@ class HlsAttachmentTest :
             //
             // Asserted through the same seam a browser would take: any browser reporting MSE must
             // come back hls.js-backed.
-            Hls.isSupported() shouldBe true
+            val library = loadHlsLibrary().shouldNotBeNull()
+            library.isSupported() shouldBe true
 
             val element = document.createElement("audio") as HTMLAudioElement
-            val handle = attachHls(element, "/kotest-absent.m3u8", onFatalError = {})
+            val handle = attachHls(library, element, "/kotest-absent.m3u8", onFatalError = {})
 
             handle.usesHlsJs shouldBe true
             handle.destroy()
