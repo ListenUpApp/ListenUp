@@ -126,6 +126,7 @@ struct ChapterEditRow: View {
             Image(systemName: symbol)
                 .font(.caption.weight(.semibold))
                 .frame(width: 30, height: 30)
+                .minimumTapTarget(visualSize: 30)
         }
         .buttonStyle(.bordered)
         .buttonBorderShape(.circle)

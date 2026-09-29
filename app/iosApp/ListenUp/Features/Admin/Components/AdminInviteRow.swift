@@ -43,20 +43,20 @@ struct AdminInviteRow: View {
             Image(systemName: "link")
                 .font(.body)
                 .foregroundStyle(Color.luLabel2)
-                .frame(width: 28, height: 28)
+                .frame(width: TapTarget.minimum, height: TapTarget.minimum)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(localized: "admin.copy_link"))
 
         if isRevoking {
-            ProgressView().frame(width: 28)
+            ProgressView().frame(width: TapTarget.minimum)
         } else {
             Button(role: .destructive, action: onRevoke) {
                 Image(systemName: "trash")
                     .font(.body)
                     .foregroundStyle(.red)
-                    .frame(width: 28, height: 28)
+                    .frame(width: TapTarget.minimum, height: TapTarget.minimum)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

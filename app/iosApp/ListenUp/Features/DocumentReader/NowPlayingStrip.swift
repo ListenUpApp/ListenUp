@@ -40,6 +40,7 @@ struct NowPlayingStrip: View {
                     .font(.title3).foregroundStyle(.white)
                     .frame(width: 38, height: 38)
                     .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .minimumTapTarget(visualSize: 38)
             }
             .accessibilityLabel(String(localized: player.isPlaybackActive ? "player.pause" : "player.play"))
         }

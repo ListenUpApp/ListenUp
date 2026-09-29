@@ -27,7 +27,7 @@ struct CircularCheckToggle: View {
                 }
             }
             .frame(width: size, height: size)
-            .contentShape(Circle())
+            .minimumTapTarget(visualSize: size)
         }
         .buttonStyle(.plain)
         .animation(.easeOut(duration: 0.15), value: isOn)

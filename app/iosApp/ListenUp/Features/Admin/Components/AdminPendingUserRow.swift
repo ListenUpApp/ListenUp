@@ -33,13 +33,15 @@ struct AdminPendingUserRow: View {
         if isBusy {
             ProgressView().frame(width: 64)
         } else {
-            HStack(spacing: 8) {
+            // 10pt apart, so the two widened 44pt hit areas meet without overlapping.
+            HStack(spacing: 10) {
                 Button(action: onDeny) {
                     Image(systemName: "xmark")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.luLabel2)
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(Color.luFill))
+                        .minimumTapTarget(visualSize: 34)
                 }
                 .buttonStyle(PressScaleButtonStyle(scale: .chip))
                 .accessibilityLabel(String(localized: "common.deny"))
@@ -50,6 +52,7 @@ struct AdminPendingUserRow: View {
                         .foregroundStyle(Color.luOnTint)
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(Color.luTint))
+                        .minimumTapTarget(visualSize: 34)
                 }
                 .buttonStyle(PressScaleButtonStyle(scale: .chip))
                 .accessibilityLabel(String(localized: "common.approve"))

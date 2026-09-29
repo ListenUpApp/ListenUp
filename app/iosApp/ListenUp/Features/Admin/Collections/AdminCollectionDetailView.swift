@@ -268,9 +268,10 @@ struct AdminCollectionDetailView: View {
                     pendingRemoveBookId = book.id
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.system(size: 18)) // decorative fixed size
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(.white, Color.black.opacity(0.6))
+                        .minimumTapTarget(visualSize: 22)
                 }
                 .padding(2)
             }
@@ -337,6 +338,8 @@ struct AdminCollectionDetailView: View {
                 } label: {
                     Image(systemName: "xmark.circle")
                         .foregroundStyle(Color.luLabel3)
+                        .frame(width: TapTarget.minimum, height: TapTarget.minimum)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

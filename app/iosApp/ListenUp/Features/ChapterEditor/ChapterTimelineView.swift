@@ -200,7 +200,7 @@ struct ChapterTimelineView: View {
 
     private func zoomButton(symbol: String, label: String, factor: Float) -> some View {
         Button { model.zoom(by: factor) } label: {
-            Image(systemName: symbol).frame(width: 30, height: 30)
+            Image(systemName: symbol).frame(width: TapTarget.minimum, height: TapTarget.minimum)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(label)

@@ -33,7 +33,7 @@ struct AdminUserRow: View {
     @ViewBuilder
     private var trailing: some View {
         if isDeleting {
-            ProgressView().frame(width: 28)
+            ProgressView().frame(width: TapTarget.minimum)
         } else if !user.isProtected {
             Menu {
                 Button(role: .destructive, action: onDelete) {
@@ -43,7 +43,7 @@ struct AdminUserRow: View {
                 Image(systemName: "ellipsis")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.luLabel3)
-                    .frame(width: 28, height: 28)
+                    .frame(width: TapTarget.minimum, height: TapTarget.minimum)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "common.menu"))

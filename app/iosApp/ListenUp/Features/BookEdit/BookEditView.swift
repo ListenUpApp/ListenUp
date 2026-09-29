@@ -538,6 +538,7 @@ private struct RemovableChip: View {
                     .foregroundStyle(Color.luLabel2)
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(Color.luFill))
+                    .minimumTapTarget(visualSize: 20)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(removeLabel)

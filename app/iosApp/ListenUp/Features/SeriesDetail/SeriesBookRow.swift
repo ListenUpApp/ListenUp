@@ -86,6 +86,7 @@ struct SeriesBookRow: View {
                 .foregroundStyle(isPlaying ? Color.luOnTint : Color.primary)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(isPlaying ? Color.luTint : Color.luFill))
+                .minimumTapTarget(visualSize: 40)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isPlaying ? "Pause" : "Play")
