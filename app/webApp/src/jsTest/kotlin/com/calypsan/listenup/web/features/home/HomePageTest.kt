@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -135,6 +136,12 @@ class HomePageTest :
             (host.querySelector(".empty .btn-primary") as HTMLElement).click()
 
             browsed shouldBe true
+        }
+
+        test("the search affordance names the shortcut as this keyboard labels it") {
+            val host = homePage(readyHome())
+
+            host.querySelector(".home-search .kbd")?.textContent shouldBe paletteShortcutLabel()
         }
 
         test("the search affordance leaves as the caller's event") {

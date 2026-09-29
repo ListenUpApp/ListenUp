@@ -79,7 +79,7 @@ fun graphLicences(): OpenLicences =
                     JSON_FORMAT.decodeFromString<LicenceManifest>(response.text().await())
                 }.fold(
                     onSuccess = { LicencesUiState.Ready(it.libraries) },
-                    onFailure = { LicencesUiState.Error("The licence list could not be loaded.") },
+                    onFailure = { LicencesUiState.Error("The license list could not be loaded.") },
                 )
         }
         LicencesSession(state = state, close = { scope.cancel() })

@@ -5,7 +5,7 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Text
 
 /**
- * An action that reads as a link: "Forgot your password?", "Create account", "Back to sign in".
+ * An action that reads as a link: "Forgot password?", "Create account", "Back to sign in".
  *
  * A real `<button type="button">` wearing `.lnk`. These were `<span onClick>`s, which look identical
  * and do nothing for anyone without a mouse: no tab stop, no Enter, announced as plain text. On the

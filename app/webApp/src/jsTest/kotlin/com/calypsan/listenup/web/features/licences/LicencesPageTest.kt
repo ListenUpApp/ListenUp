@@ -115,9 +115,9 @@ class LicencesPageTest :
         // ⛔ The one lie this page cannot afford. "No libraries" and "the file did not load" are
         // different facts, and an attribution page must never claim the first when the second is true.
         test("a manifest that failed to load says so rather than listing nothing") {
-            val root = licencesPage(LicencesUiState.Error("The licence list could not be loaded."))
+            val root = licencesPage(LicencesUiState.Error("The license list could not be loaded."))
 
-            (root.querySelector(".empty h2") as HTMLElement).textContent shouldBe "The licences can't be shown"
+            (root.querySelector(".empty h2") as HTMLElement).textContent shouldBe "The licenses can't be shown"
             root.querySelector(".lic-list") shouldBe null
             root.querySelector(".page-t")?.textContent shouldBe "Open source licenses"
         }

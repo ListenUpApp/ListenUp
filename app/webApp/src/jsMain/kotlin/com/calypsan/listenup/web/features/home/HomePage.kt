@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.design.paletteShortcutLabel
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.ButtonKind
@@ -95,7 +96,7 @@ private fun HomeHeader(
     onOpenSearch: () -> Unit,
 ) {
     PageHeader(title = greeting, documentTitle = null, display = true) {
-        // A search affordance on the landing page, even though the sidebar and ⌘K both reach the
+        // A search affordance on the landing page, even though the sidebar and the palette shortcut both reach the
         // same place — this is where someone arrives, and "where do I type?" should not need a
         // shortcut to answer. The hint teaches the shortcut rather than replacing it.
         Button(attrs = {
@@ -106,7 +107,7 @@ private fun HomeHeader(
         }) {
             Icon(WebIcon.Search, size = SEARCH_ICON_SIZE)
             Span(attrs = { classes("home-search-label") }) { Text("Search your library") }
-            Span(attrs = { classes("kbd") }) { Text("⌘K") }
+            Span(attrs = { classes("kbd") }) { Text(paletteShortcutLabel()) }
         }
     }
 }

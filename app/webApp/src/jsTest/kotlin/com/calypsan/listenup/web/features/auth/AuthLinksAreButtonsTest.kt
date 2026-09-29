@@ -10,6 +10,7 @@ import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
@@ -18,7 +19,7 @@ import org.w3c.dom.asList
  * Every way between the auth screens is a real button.
  *
  * ⛔ They were `<span onClick>` — no role, no tab stop, no key handler — so a keyboard user could not
- * reach "Forgot your password?", "Create account", "Redeem it" or "Back to sign in". Sign-in is the
+ * reach "Forgot password?", "Create account", "Redeem it" or "Back to sign in". Sign-in is the
  * one screen with no other route past it, so an unreachable link there strands someone completely.
  */
 class AuthLinksAreButtonsTest :
@@ -51,6 +52,23 @@ class AuthLinksAreButtonsTest :
                 }
 
             notButtons(host).shouldBeEmpty()
+        }
+
+        // The words every platform uses (`auth.forgot_password` in the shared strings).
+        test("sign-in's recovery link reads as the other platforms do") {
+            val host =
+                mount {
+                    LoginForm(
+                        state = LoginUiState.Idle,
+                        openRegistration = true,
+                        onSubmit = { _, _ -> },
+                        onRegister = {},
+                        onForgotPassword = {},
+                        onClaimInvite = {},
+                    )
+                }
+
+            host.querySelectorAll(".lnk").asList().map { it.textContent } shouldContain "Forgot password?"
         }
 
         test("registration's way back is a button") {

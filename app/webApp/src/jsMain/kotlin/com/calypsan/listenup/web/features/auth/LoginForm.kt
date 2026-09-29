@@ -110,7 +110,7 @@ fun LoginForm(
         // links: someone reaching for this has already failed to sign in, and the whole point is
         // that they find it without reading the page again.
         Div(attrs = { classes("auth-aside") }) {
-            LinkButton("Forgot your password?", onClick = onForgotPassword)
+            LinkButton("Forgot password?", onClick = onForgotPassword)
         }
 
         formProblem?.let { FormAlert(it) }

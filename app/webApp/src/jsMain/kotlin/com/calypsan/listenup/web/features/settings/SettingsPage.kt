@@ -133,7 +133,7 @@ fun SettingsPage(
             Row("App version", state.appVersion)
             Row("Server", state.serverUrl ?: "Not configured")
             state.serverVersion?.let { Row("Server version", it) }
-            Button(kind = ButtonKind.Secondary, onClick = { onOpenLicences() }) { Text("Open Source Licenses") }
+            Button(kind = ButtonKind.Secondary, onClick = { onOpenLicences() }) { Text("Open source licenses") }
         }
     }
 }

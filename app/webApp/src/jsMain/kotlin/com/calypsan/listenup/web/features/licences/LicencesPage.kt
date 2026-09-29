@@ -46,7 +46,7 @@ fun LicencesPage(
 
             is LicencesUiState.Error -> {
                 PageHeader(title = LICENSES)
-                EmptyState(title = "The licences can't be shown", body = state.message)
+                EmptyState(title = "The licenses can't be shown", body = state.message)
             }
 
             is LicencesUiState.Ready -> {
