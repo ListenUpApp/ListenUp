@@ -499,7 +499,11 @@ class AdminInboxPageTest :
             var back = 0
             val host = page(readyInbox(), onOpenAdmin = { back++ })
 
-            host.querySelector(".crumb").shouldNotBeNull().textContent?.trim() shouldBe "Admin/Inbox"
+            host
+                .querySelector(".crumb")
+                .shouldNotBeNull()
+                .textContent
+                ?.trim() shouldBe "Admin/Inbox"
             (host.querySelector(".crumb a") as HTMLElement).click()
             awaitFrame()
 

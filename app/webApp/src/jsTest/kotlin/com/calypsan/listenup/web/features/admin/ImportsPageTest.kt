@@ -186,7 +186,11 @@ class ImportsPageTest :
             var back = 0
             val host = page(readyImports(), onOpenAdmin = { back++ })
 
-            host.querySelector(".crumb").shouldNotBeNull().textContent?.trim() shouldBe "Admin/Imports"
+            host
+                .querySelector(".crumb")
+                .shouldNotBeNull()
+                .textContent
+                ?.trim() shouldBe "Admin/Imports"
             (host.querySelector(".crumb a") as HTMLElement).click()
             awaitFrame()
 

@@ -250,7 +250,11 @@ class CollectionsPageTest :
             var back = 0
             val host = page(readyCollections(listOf(collection())), onOpenAdmin = { back++ })
 
-            host.querySelector(".crumb").shouldNotBeNull().textContent?.trim() shouldBe "Admin/Collections"
+            host
+                .querySelector(".crumb")
+                .shouldNotBeNull()
+                .textContent
+                ?.trim() shouldBe "Admin/Collections"
             (host.querySelector(".crumb a") as HTMLElement).click()
             awaitFrame()
 

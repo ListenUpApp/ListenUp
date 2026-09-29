@@ -542,7 +542,11 @@ class CategoriesPageTest :
             var back = 0
             val host = page(readyCategories(tree = twoLevelTree()), onOpenAdmin = { back++ })
 
-            host.querySelector(".crumb").shouldNotBeNull().textContent?.trim() shouldBe "Admin/Categories"
+            host
+                .querySelector(".crumb")
+                .shouldNotBeNull()
+                .textContent
+                ?.trim() shouldBe "Admin/Categories"
             (host.querySelector(".crumb a") as HTMLElement).click()
             awaitFrame()
 

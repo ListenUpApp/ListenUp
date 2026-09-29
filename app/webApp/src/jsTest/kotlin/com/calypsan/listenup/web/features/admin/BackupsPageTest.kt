@@ -302,7 +302,11 @@ class BackupsPageTest :
             var back = 0
             val host = page(readyBackups(), onOpenAdmin = { back++ })
 
-            host.querySelector(".crumb").shouldNotBeNull().textContent?.trim() shouldBe "Admin/Backups"
+            host
+                .querySelector(".crumb")
+                .shouldNotBeNull()
+                .textContent
+                ?.trim() shouldBe "Admin/Backups"
             (host.querySelector(".crumb a") as HTMLElement).click()
             awaitFrame()
 

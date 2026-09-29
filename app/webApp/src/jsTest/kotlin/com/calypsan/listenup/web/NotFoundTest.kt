@@ -33,7 +33,11 @@ class NotFoundTest :
                 val (host, router, composition) = mountAt(path)
 
                 try {
-                    host.querySelector("h1").shouldNotBeNull().textContent?.trim() shouldBe "Page not found"
+                    host
+                        .querySelector("h1")
+                        .shouldNotBeNull()
+                        .textContent
+                        ?.trim() shouldBe "Page not found"
                     document.title shouldBe "Page not found · ListenUp"
                     host.textContent.orEmpty() shouldNotContain "not built yet"
                 } finally {
