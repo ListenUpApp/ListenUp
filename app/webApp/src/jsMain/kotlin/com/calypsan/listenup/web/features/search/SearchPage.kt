@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.search
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -214,12 +215,14 @@ internal fun ResultsList(
                         }
                     }
                     shown.forEach { hit ->
-                        SearchRow(
-                            hit = hit,
-                            isOpenable = type in openableTypes,
-                            onOpen = { onOpenHit(hit) },
-                            isHighlighted = hit == highlighted,
-                        )
+                        key(hit.id) {
+                            SearchRow(
+                                hit = hit,
+                                isOpenable = type in openableTypes,
+                                onOpen = { onOpenHit(hit) },
+                                isHighlighted = hit == highlighted,
+                            )
+                        }
                     }
                 }
             }

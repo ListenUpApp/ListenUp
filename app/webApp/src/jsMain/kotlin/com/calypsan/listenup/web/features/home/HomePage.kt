@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.home
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
@@ -202,7 +203,11 @@ private fun ContinueListening(
             }
         } else {
             Div(attrs = { classes("home-continue") }) {
-                items.forEach { item -> ContinueCard(item, onOpenBook, selection) }
+                items.forEach { item ->
+                    key(item.bookId) {
+                        ContinueCard(item, onOpenBook, selection)
+                    }
+                }
             }
         }
     }
@@ -368,15 +373,17 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
     Div(attrs = { classes("home-genres") }) {
         Span(attrs = { classes("home-genres-h") }) { Text("Top genres") }
         genreShareBars(stats.topGenres).forEach { bar ->
-            Div(attrs = { classes("home-genre") }) {
-                Span(attrs = { classes("home-genre-name") }) { Text(bar.genreName) }
-                Div(attrs = { classes("home-genre-track") }) {
-                    Div(attrs = {
-                        classes("home-genre-fill")
-                        style { property("width", "${bar.percent}%") }
-                    })
+            key(bar.genreName) {
+                Div(attrs = { classes("home-genre") }) {
+                    Span(attrs = { classes("home-genre-name") }) { Text(bar.genreName) }
+                    Div(attrs = { classes("home-genre-track") }) {
+                        Div(attrs = {
+                            classes("home-genre-fill")
+                            style { property("width", "${bar.percent}%") }
+                        })
+                    }
+                    Span(attrs = { classes("home-genre-pct") }) { Text("${bar.percent}%") }
                 }
-                Span(attrs = { classes("home-genre-pct") }) { Text("${bar.percent}%") }
             }
         }
     }
@@ -416,14 +423,16 @@ private fun MyShelves(
         } else {
             Div(attrs = { classes("home-shelves") }) {
                 shelves.forEach { shelf ->
-                    Button(attrs = {
-                        classes("home-shelf")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onOpenShelf(shelf.idString) }
-                    }) {
-                        Span(attrs = { classes("home-shelf-t") }) { Text(shelf.name) }
-                        Span(attrs = { classes("home-shelf-sub") }) {
-                            Text(bookCountLabel(shelf.bookCount))
+                    key(shelf.idString) {
+                        Button(attrs = {
+                            classes("home-shelf")
+                            attr(ATTR_TYPE, VALUE_BUTTON)
+                            onClick { onOpenShelf(shelf.idString) }
+                        }) {
+                            Span(attrs = { classes("home-shelf-t") }) { Text(shelf.name) }
+                            Span(attrs = { classes("home-shelf-sub") }) {
+                                Text(bookCountLabel(shelf.bookCount))
+                            }
                         }
                     }
                 }

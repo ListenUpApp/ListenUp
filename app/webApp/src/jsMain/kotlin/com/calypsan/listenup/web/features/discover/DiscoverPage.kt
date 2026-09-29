@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.discover
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
@@ -150,7 +151,11 @@ private fun CurrentlyListeningSection(
                     Empty("Nobody else is listening yet", "When they do, you will see them here.")
                 } else {
                     Div(attrs = { classes("disc-listeners") }) {
-                        state.sessions.forEach { s -> ListenerCard(s, nowMs, onOpenBook, onOpenProfile, selection) }
+                        state.sessions.forEach { s ->
+                            key(s.sessionId) {
+                                ListenerCard(s, nowMs, onOpenBook, onOpenProfile, selection)
+                            }
+                        }
                     }
                 }
             }
@@ -217,7 +222,9 @@ private fun DiscoverBooksSection(
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
-                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            key(book.id) {
+                                BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            }
                         }
                     }
                 }
@@ -249,7 +256,9 @@ private fun RecentlyAddedSection(
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
-                            BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            key(book.id) {
+                                BookCard(book.id, book.title, book.authorName, book.coverHash, onOpenBook, selection)
+                            }
                         }
                     }
                 }
@@ -340,11 +349,13 @@ private fun LeaderboardSection(
                 } else {
                     Div(attrs = { classes("disc-lb") }) {
                         entries.forEach { entry ->
-                            Div(attrs = { classes("disc-lb-row") }) {
-                                Span(attrs = { classes("disc-lb-rank") }) { Text("${entry.rank}") }
-                                PersonLink(entry.displayName, entry.userId, onOpenProfile, "disc-lb-name")
-                                Span(attrs = { classes("disc-lb-stat", "mono") }) {
-                                    Text(leaderboardLabel(entry, state.category))
+                            key(entry.userId) {
+                                Div(attrs = { classes("disc-lb-row") }) {
+                                    Span(attrs = { classes("disc-lb-rank") }) { Text("${entry.rank}") }
+                                    PersonLink(entry.displayName, entry.userId, onOpenProfile, "disc-lb-name")
+                                    Span(attrs = { classes("disc-lb-stat", "mono") }) {
+                                        Text(leaderboardLabel(entry, state.category))
+                                    }
                                 }
                             }
                         }
@@ -378,7 +389,11 @@ private fun ActivityFeedSection(
                     Empty("Nothing has happened yet", "Activity from everyone on this server shows up here.")
                 } else {
                     Div(attrs = { classes("disc-feed") }) {
-                        state.activities.forEach { item -> ActivityRow(item, nowMs, onOpenBook, onOpenProfile) }
+                        state.activities.forEach { item ->
+                            key(item.id) {
+                                ActivityRow(item, nowMs, onOpenBook, onOpenProfile)
+                            }
+                        }
                     }
                 }
             }
@@ -537,23 +552,27 @@ private fun SharedShelvesSection(
                     Empty("No shared shelves yet", "Shelves other people make public show up here.")
                 } else {
                     state.users.forEach { owner ->
-                        Div(attrs = { classes("disc-shelf-owner") }) {
-                            PersonLink(
-                                owner.user.displayName,
-                                owner.user.id,
-                                onOpenProfile,
-                                "disc-shelf-who",
-                            )
-                            Div(attrs = { classes("disc-shelves") }) {
-                                owner.shelves.forEach { shelf ->
-                                    Button(attrs = {
-                                        classes("disc-shelf")
-                                        attr(ATTR_TYPE, VALUE_BUTTON)
-                                        onClick { onOpenShelf(shelf.id) }
-                                    }) {
-                                        Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
-                                        Span(attrs = { classes("disc-shelf-sub") }) {
-                                            Text(bookCountLabel(shelf.bookCount))
+                        key(owner.user.id) {
+                            Div(attrs = { classes("disc-shelf-owner") }) {
+                                PersonLink(
+                                    owner.user.displayName,
+                                    owner.user.id,
+                                    onOpenProfile,
+                                    "disc-shelf-who",
+                                )
+                                Div(attrs = { classes("disc-shelves") }) {
+                                    owner.shelves.forEach { shelf ->
+                                        key(shelf.id) {
+                                            Button(attrs = {
+                                                classes("disc-shelf")
+                                                attr(ATTR_TYPE, VALUE_BUTTON)
+                                                onClick { onOpenShelf(shelf.id) }
+                                            }) {
+                                                Span(attrs = { classes("disc-shelf-t") }) { Text(shelf.name) }
+                                                Span(attrs = { classes("disc-shelf-sub") }) {
+                                                    Text(bookCountLabel(shelf.bookCount))
+                                                }
+                                            }
                                         }
                                     }
                                 }

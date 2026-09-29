@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -474,14 +475,16 @@ private fun SeriesChips(
     if (state.book.series.isEmpty()) return
     Div(attrs = { classes("bd-series") }) {
         state.book.series.forEach { membership ->
-            Button(attrs = {
-                classes("bd-series-chip")
-                attr("type", BUTTON_VALUE)
-                onClick { onOpenSeries(membership.seriesId) }
-            }) {
-                Text(membership.seriesName)
-                membership.sequenceLabel?.let { position ->
-                    Span(attrs = { classes("bd-series-seq") }) { Text("#$position") }
+            key(membership.seriesId) {
+                Button(attrs = {
+                    classes("bd-series-chip")
+                    attr("type", BUTTON_VALUE)
+                    onClick { onOpenSeries(membership.seriesId) }
+                }) {
+                    Text(membership.seriesName)
+                    membership.sequenceLabel?.let { position ->
+                        Span(attrs = { classes("bd-series-seq") }) { Text("#$position") }
+                    }
                 }
             }
         }
@@ -527,8 +530,10 @@ private fun ContributorNames(
     onOpen: (String) -> Unit,
 ) {
     contributors.forEachIndexed { index, contributor ->
-        if (index > 0) Text(", ")
-        ContributorNameLink(contributor, onOpen)
+        key(contributor.id) {
+            if (index > 0) Text(", ")
+            ContributorNameLink(contributor, onOpen)
+        }
     }
 }
 
@@ -667,10 +672,20 @@ private fun FacetChips(
         // block hangs an X on the chip and leaves it un-pressable — which is the exact opposite of
         // the point of this row.
         state.genres.forEach { genre ->
-            Pill(genre.name, icon = WebIcon.Layers, onClick = { onOpenGenre(genre.id) })
+            key(genre.id) {
+                Pill(genre.name, icon = WebIcon.Layers, onClick = { onOpenGenre(genre.id) })
+            }
         }
-        state.tags.forEach { tag -> Pill(tag.name, icon = WebIcon.Hash, onClick = { onOpenTag(tag.id) }) }
-        state.moods.forEach { mood -> Pill(mood.name, icon = WebIcon.Sparkles, onClick = { onOpenMood(mood.id) }) }
+        state.tags.forEach { tag ->
+            key(tag.id) {
+                Pill(tag.name, icon = WebIcon.Hash, onClick = { onOpenTag(tag.id) })
+            }
+        }
+        state.moods.forEach { mood ->
+            key(mood.id) {
+                Pill(mood.name, icon = WebIcon.Sparkles, onClick = { onOpenMood(mood.id) })
+            }
+        }
     }
 }
 

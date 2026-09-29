@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -164,12 +165,14 @@ private fun ReadyContent(
         } else {
             Div(attrs = { classes("cdet-books") }) {
                 state.books.forEach { book ->
-                    BookRow(
-                        book = book,
-                        isRemoving = state.removingBookId == book.id,
-                        canRemove = !managed,
-                        onRemove = { onRemoveBook(book.id) },
-                    )
+                    key(book.id) {
+                        BookRow(
+                            book = book,
+                            isRemoving = state.removingBookId == book.id,
+                            canRemove = !managed,
+                            onRemove = { onRemoveBook(book.id) },
+                        )
+                    }
                 }
             }
         }
@@ -191,11 +194,13 @@ private fun ReadyContent(
         } else {
             Div(attrs = { classes("cdet-shares") }) {
                 state.shares.forEach { share ->
-                    ShareRow(
-                        share = share,
-                        isRemoving = state.removingShareUserId == share.userId,
-                        onRevoke = { onRevokeShare(share.userId) },
-                    )
+                    key(share.userId) {
+                        ShareRow(
+                            share = share,
+                            isRemoving = state.removingShareUserId == share.userId,
+                            onRevoke = { onRevokeShare(share.userId) },
+                        )
+                    }
                 }
             }
         }
@@ -317,13 +322,15 @@ private fun AddBooksDialog(
 
                 else -> {
                     results.forEach { hit ->
-                        Button(attrs = {
-                            classes("cdet-result")
-                            attr("type", VALUE_BUTTON)
-                            onClick { onAdd(hit.id) }
-                        }) {
-                            Span(attrs = { classes("cdet-result-t") }) { Text(hit.name) }
-                            Icon(WebIcon.Plus, size = SMALL_ICON)
+                        key(hit.id) {
+                            Button(attrs = {
+                                classes("cdet-result")
+                                attr("type", VALUE_BUTTON)
+                                onClick { onAdd(hit.id) }
+                            }) {
+                                Span(attrs = { classes("cdet-result-t") }) { Text(hit.name) }
+                                Icon(WebIcon.Plus, size = SMALL_ICON)
+                            }
                         }
                     }
                 }
@@ -372,13 +379,15 @@ private fun AddMemberDialog(
             else -> {
                 Div(attrs = { classes("cdet-people") }) {
                     offerable.forEach { user ->
-                        Button(attrs = {
-                            classes("cdet-person")
-                            attr("type", VALUE_BUTTON)
-                            onClick { onShare(user.id) }
-                        }) {
-                            Span(attrs = { classes("cdet-person-n") }) { Text(user.displayName ?: user.email) }
-                            Icon(WebIcon.Plus, size = SMALL_ICON)
+                        key(user.id) {
+                            Button(attrs = {
+                                classes("cdet-person")
+                                attr("type", VALUE_BUTTON)
+                                onClick { onShare(user.id) }
+                            }) {
+                                Span(attrs = { classes("cdet-person-n") }) { Text(user.displayName ?: user.email) }
+                                Icon(WebIcon.Plus, size = SMALL_ICON)
+                            }
                         }
                     }
                 }

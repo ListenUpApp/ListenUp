@@ -4,6 +4,7 @@ import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -234,13 +235,15 @@ private fun MergeDialog(
                 P(attrs = { classes(NONE) }) { Text("Nothing matched \"$query\".") }
             } else {
                 candidates.forEach { candidate ->
-                    Button(attrs = {
-                        classes("sed-result")
-                        if (selected == candidate.id) classes("on")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-pressed", (selected == candidate.id).toString())
-                        onClick { selected = candidate.id }
-                    }) { Span(attrs = { classes("sed-result-n") }) { Text(candidate.displayName) } }
+                    key(candidate.id.value) {
+                        Button(attrs = {
+                            classes("sed-result")
+                            if (selected == candidate.id) classes("on")
+                            attr(ATTR_TYPE, VALUE_BUTTON)
+                            attr("aria-pressed", (selected == candidate.id).toString())
+                            onClick { selected = candidate.id }
+                        }) { Span(attrs = { classes("sed-result-n") }) { Text(candidate.displayName) } }
+                    }
                 }
             }
         }

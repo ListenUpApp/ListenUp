@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -102,12 +103,14 @@ private fun ReadyContent(
     } else {
         Div(attrs = { classes("coll-list") }) {
             state.collections.forEach { collection ->
-                CollectionRow(
-                    collection = collection,
-                    isDeleting = state.deletingCollectionId == collection.id,
-                    onOpen = { onOpenCollection(collection.id) },
-                    onAskDelete = { pendingDelete = collection },
-                )
+                key(collection.id) {
+                    CollectionRow(
+                        collection = collection,
+                        isDeleting = state.deletingCollectionId == collection.id,
+                        onOpen = { onOpenCollection(collection.id) },
+                        onAskDelete = { pendingDelete = collection },
+                    )
+                }
             }
         }
     }

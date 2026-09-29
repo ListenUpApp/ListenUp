@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.contributordetail
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.web.design.ConfirmDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -183,25 +184,29 @@ private fun ReadyContent(
     )
 
     state.roleSections.forEach { section ->
-        Div(attrs = { classes("cd-role-section") }) {
-            Panel(title = section.displayName, trailing = { CountBadge(section.bookCount) }) {
-                Div(attrs = { classes("cd-tile-grid") }) {
-                    section.previewBooks.forEach { book ->
-                        RoleTile(
-                            book = book,
-                            progress = state.bookProgress[book.id],
-                            onOpen = { onOpenBook(book.id.value) },
-                        )
+        key(section.role) {
+            Div(attrs = { classes("cd-role-section") }) {
+                Panel(title = section.displayName, trailing = { CountBadge(section.bookCount) }) {
+                    Div(attrs = { classes("cd-tile-grid") }) {
+                        section.previewBooks.forEach { book ->
+                            key(book.id.value) {
+                                RoleTile(
+                                    book = book,
+                                    progress = state.bookProgress[book.id],
+                                    onOpen = { onOpenBook(book.id.value) },
+                                )
+                            }
+                        }
                     }
-                }
-                // Only when there is genuinely more than the preview holds. A "View all" over a
-                // panel already showing everything sends the reader to the same books twice.
-                if (section.showViewAll) {
-                    Button(attrs = {
-                        classes("btn-c", "cd-view-all")
-                        attr("type", BUTTON_VALUE)
-                        onClick { onOpenRoleBooks(section.role) }
-                    }) { Text("View all ${section.bookCount}") }
+                    // Only when there is genuinely more than the preview holds. A "View all" over a
+                    // panel already showing everything sends the reader to the same books twice.
+                    if (section.showViewAll) {
+                        Button(attrs = {
+                            classes("btn-c", "cd-view-all")
+                            attr("type", BUTTON_VALUE)
+                            onClick { onOpenRoleBooks(section.role) }
+                        }) { Text("View all ${section.bookCount}") }
+                    }
                 }
             }
         }
@@ -212,10 +217,12 @@ private fun ReadyContent(
             Panel(title = "Series", trailing = { CountBadge(state.series.size) }) {
                 Div(attrs = { classes("cd-series-grid") }) {
                     state.series.forEach { seriesWithBooks ->
-                        SeriesCard(
-                            seriesWithBooks = seriesWithBooks,
-                            onOpen = { onOpenSeries(seriesWithBooks.series.id.value) },
-                        )
+                        key(seriesWithBooks.series.id.value) {
+                            SeriesCard(
+                                seriesWithBooks = seriesWithBooks,
+                                onOpen = { onOpenSeries(seriesWithBooks.series.id.value) },
+                            )
+                        }
                     }
                 }
             }
@@ -244,10 +251,12 @@ private fun Hero(
 
             Div(attrs = { classes("cd-roles") }) {
                 state.roleSections.forEach { section ->
-                    Span(attrs = {
-                        classes("cd-role-chip")
-                        if (section.role != ContributorRole.AUTHOR.apiValue) classes("is-muted")
-                    }) { Text(heroChipLabel(section.role)) }
+                    key(section.role) {
+                        Span(attrs = {
+                            classes("cd-role-chip")
+                            if (section.role != ContributorRole.AUTHOR.apiValue) classes("is-muted")
+                        }) { Text(heroChipLabel(section.role)) }
+                    }
                 }
                 creditedAsLine(state.bookCreditedAs)?.let { line ->
                     Span(attrs = { classes("cd-alias") }) { Text(line) }

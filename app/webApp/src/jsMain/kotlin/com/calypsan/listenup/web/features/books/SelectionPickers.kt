@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.books
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,14 +53,16 @@ internal fun SelectionPicker(
         } else {
             Div(attrs = { classes("sel-targets") }) {
                 targets.forEach { target ->
-                    Button(attrs = {
-                        classes("sel-target")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        disabledWhen(isBusy)
-                        onClick { onPick(target.id) }
-                    }) {
-                        Span(attrs = { classes("sel-target-n") }) { Text(target.name) }
-                        target.subtitle?.let { Span(attrs = { classes("sel-target-s") }) { Text(it) } }
+                    key(target.id) {
+                        Button(attrs = {
+                            classes("sel-target")
+                            attr(ATTR_TYPE, VALUE_BUTTON)
+                            disabledWhen(isBusy)
+                            onClick { onPick(target.id) }
+                        }) {
+                            Span(attrs = { classes("sel-target-n") }) { Text(target.name) }
+                            target.subtitle?.let { Span(attrs = { classes("sel-target-s") }) { Text(it) } }
+                        }
                     }
                 }
             }

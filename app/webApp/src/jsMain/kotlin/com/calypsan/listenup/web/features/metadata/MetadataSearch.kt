@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.metadata
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
@@ -98,7 +99,11 @@ internal fun MetadataSearchPhase(
                     classes("mdx-results")
                     attr("role", "list")
                 }) {
-                    load.results.forEach { result -> ResultRow(result) { onSelectMatch(result) } }
+                    load.results.forEach { result ->
+                        key(result.asin) {
+                            ResultRow(result) { onSelectMatch(result) }
+                        }
+                    }
                 }
             }
         }

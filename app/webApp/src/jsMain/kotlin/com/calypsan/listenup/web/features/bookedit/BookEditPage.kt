@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.bookedit
 import com.calypsan.listenup.web.design.PageTitle
 import kotlin.js.Date
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.Language
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
@@ -265,39 +266,41 @@ private fun ContributorFields(
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     state.visibleRoles.sortedBy { it.ordinal }.forEach { role ->
-        val attached = state.contributorsForRole(role)
-        Div(attrs = { classes("rel-section") }) {
-            RelationField(
-                label = "${role.displayName}s",
-                attached = attached.map { RelationChip(id = it.name, label = it.name) },
-                query = state.roleSearchQueries[role].orEmpty(),
-                results =
-                    state.roleSearchResults[role]
-                        .orEmpty()
-                        .map { RelationChip(id = it.id, label = it.name, subtitle = booksLabel(it.bookCount)) },
-                loading = state.roleSearchLoading[role] == true,
-                offline = state.roleOfflineResults[role] == true,
-                onQueryChange = { onEvent(BookEditUiEvent.RoleSearchQueryChanged(role, it)) },
-                onSelect = { chip ->
-                    state.roleSearchResults[role]
-                        .orEmpty()
-                        .firstOrNull { it.id == chip.id }
-                        ?.let { onEvent(BookEditUiEvent.RoleContributorSelected(role, it)) }
-                },
-                onRemove = { chip ->
-                    attached
-                        .firstOrNull { it.name == chip.id }
-                        ?.let { onEvent(BookEditUiEvent.RemoveContributor(it, role)) }
-                },
-                onCreate = { name -> onEvent(BookEditUiEvent.RoleContributorEntered(role, name)) },
-                placeholder = "Add ${indefiniteArticle(role.displayName)} ${role.displayName.lowercase()}…",
-                id = "edit-role-${role.name.lowercase()}",
-            )
-            Button(attrs = {
-                classes("rel-drop")
-                attr("type", "button")
-                onClick { onEvent(BookEditUiEvent.RemoveRoleSection(role)) }
-            }) { Text("Remove all ${role.displayName.lowercase()}s") }
+        key(role) {
+            val attached = state.contributorsForRole(role)
+            Div(attrs = { classes("rel-section") }) {
+                RelationField(
+                    label = "${role.displayName}s",
+                    attached = attached.map { RelationChip(id = it.name, label = it.name) },
+                    query = state.roleSearchQueries[role].orEmpty(),
+                    results =
+                        state.roleSearchResults[role]
+                            .orEmpty()
+                            .map { RelationChip(id = it.id, label = it.name, subtitle = booksLabel(it.bookCount)) },
+                    loading = state.roleSearchLoading[role] == true,
+                    offline = state.roleOfflineResults[role] == true,
+                    onQueryChange = { onEvent(BookEditUiEvent.RoleSearchQueryChanged(role, it)) },
+                    onSelect = { chip ->
+                        state.roleSearchResults[role]
+                            .orEmpty()
+                            .firstOrNull { it.id == chip.id }
+                            ?.let { onEvent(BookEditUiEvent.RoleContributorSelected(role, it)) }
+                    },
+                    onRemove = { chip ->
+                        attached
+                            .firstOrNull { it.name == chip.id }
+                            ?.let { onEvent(BookEditUiEvent.RemoveContributor(it, role)) }
+                    },
+                    onCreate = { name -> onEvent(BookEditUiEvent.RoleContributorEntered(role, name)) },
+                    placeholder = "Add ${indefiniteArticle(role.displayName)} ${role.displayName.lowercase()}…",
+                    id = "edit-role-${role.name.lowercase()}",
+                )
+                Button(attrs = {
+                    classes("rel-drop")
+                    attr("type", "button")
+                    onClick { onEvent(BookEditUiEvent.RemoveRoleSection(role)) }
+                }) { Text("Remove all ${role.displayName.lowercase()}s") }
+            }
         }
     }
 

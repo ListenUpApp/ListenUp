@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.design
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -101,38 +102,40 @@ fun ToastHost(
 
     Div(attrs = { classes("toastwrap") }) {
         queue.messages.forEach { message ->
-            if (message.tone == ToastTone.Notice) {
-                LaunchedEffect(message.id, message.id in held) {
-                    if (message.id in held) return@LaunchedEffect
-                    delay(noticeLifetimeMs)
-                    queue.dismiss(message.id)
+            key(message.id) {
+                if (message.tone == ToastTone.Notice) {
+                    LaunchedEffect(message.id, message.id in held) {
+                        if (message.id in held) return@LaunchedEffect
+                        delay(noticeLifetimeMs)
+                        queue.dismiss(message.id)
+                    }
                 }
-            }
 
-            Div(attrs = {
-                classes("toast")
-                onMouseEnter { held = held + message.id }
-                onMouseLeave { held = held - message.id }
-                onFocusIn { held = held + message.id }
-                onFocusOut { held = held - message.id }
-                // A failure is the only report the reader gets, so it interrupts; a notice waits
-                // for a pause. `alert` and `status` carry their own aria-live semantics.
-                attr("role", if (message.tone == ToastTone.Failure) "alert" else "status")
-            }) {
                 Div(attrs = {
-                    classes("t-dot")
-                    if (message.tone == ToastTone.Failure) classes("t-bad")
-                }) {}
-                Span { Text(message.text) }
-                // A real button: this was a `<span role="button">` — announced as a button and then
-                // impossible to press from the keyboard, with no tab stop and no key handler.
-                Button(attrs = {
-                    classes("t-x")
-                    attr("type", "button")
-                    attr("aria-label", "Dismiss notification")
-                    onClick { queue.dismiss(message.id) }
+                    classes("toast")
+                    onMouseEnter { held = held + message.id }
+                    onMouseLeave { held = held - message.id }
+                    onFocusIn { held = held + message.id }
+                    onFocusOut { held = held - message.id }
+                    // A failure is the only report the reader gets, so it interrupts; a notice waits
+                    // for a pause. `alert` and `status` carry their own aria-live semantics.
+                    attr("role", if (message.tone == ToastTone.Failure) "alert" else "status")
                 }) {
-                    Icon(WebIcon.X, size = DISMISS_ICON_SIZE)
+                    Div(attrs = {
+                        classes("t-dot")
+                        if (message.tone == ToastTone.Failure) classes("t-bad")
+                    }) {}
+                    Span { Text(message.text) }
+                    // A real button: this was a `<span role="button">` — announced as a button and then
+                    // impossible to press from the keyboard, with no tab stop and no key handler.
+                    Button(attrs = {
+                        classes("t-x")
+                        attr("type", "button")
+                        attr("aria-label", "Dismiss notification")
+                        onClick { queue.dismiss(message.id) }
+                    }) {
+                        Icon(WebIcon.X, size = DISMISS_ICON_SIZE)
+                    }
                 }
             }
         }

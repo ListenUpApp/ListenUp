@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.seriesdetail
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -126,13 +127,15 @@ private fun ReadyContent(
     Panel(title = "Books", trailing = { CountBadge(state.books.size) }) {
         Div(attrs = { classes("sd-books") }) {
             state.books.forEach { book ->
-                BookRow(
-                    book = book,
-                    seriesId = state.seriesId,
-                    progress = state.bookProgress[book.id],
-                    isFinished = book.id in state.finishedBookIds,
-                    onOpen = { onOpenBook(book.id.value) },
-                )
+                key(book.id.value) {
+                    BookRow(
+                        book = book,
+                        seriesId = state.seriesId,
+                        progress = state.bookProgress[book.id],
+                        isFinished = book.id in state.finishedBookIds,
+                        onOpen = { onOpenBook(book.id.value) },
+                    )
+                }
             }
         }
     }

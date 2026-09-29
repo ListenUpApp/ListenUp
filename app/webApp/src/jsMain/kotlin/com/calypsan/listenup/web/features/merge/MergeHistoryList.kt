@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.merge
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,13 +62,15 @@ fun MergeHistoryList(
                     P(attrs = { classes(HINT) }) { Text("Nothing has been merged into this.") }
                 }
                 state.receipts.forEach { receipt ->
-                    ReceiptRow(
-                        receipt = receipt,
-                        isUndoing = receipt.id == state.undoingId,
-                        // One undo at a time: the others wait rather than queue behind it.
-                        canUndo = state.undoingId == null,
-                        onUndo = { confirming = receipt },
-                    )
+                    key(receipt.id.value) {
+                        ReceiptRow(
+                            receipt = receipt,
+                            isUndoing = receipt.id == state.undoingId,
+                            // One undo at a time: the others wait rather than queue behind it.
+                            canUndo = state.undoingId == null,
+                            onUndo = { confirming = receipt },
+                        )
+                    }
                 }
                 P(attrs = { classes(HINT) }) { Text("Merges made before this version can't be undone.") }
             }

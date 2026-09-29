@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.search
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
@@ -55,11 +56,13 @@ fun SeeAllPage(
                 }
                 Div(attrs = { classes("search-results") }) {
                     state.hits.forEach { hit ->
-                        SearchRow(
-                            hit = hit,
-                            isOpenable = hit.type in openableTypes,
-                            onOpen = { onOpenHit(hit) },
-                        )
+                        key(hit.type, hit.id) {
+                            SearchRow(
+                                hit = hit,
+                                isOpenable = hit.type in openableTypes,
+                                onOpen = { onOpenHit(hit) },
+                            )
+                        }
                     }
                 }
             }

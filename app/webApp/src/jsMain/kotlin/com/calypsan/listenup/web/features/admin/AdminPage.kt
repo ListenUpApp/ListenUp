@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -244,19 +245,21 @@ private fun PendingSection(
 
     Section("Waiting for you") {
         state.pendingUsers.forEach { user ->
-            PersonRow(user, subtitle = user.email) {
-                Button(attrs = {
-                    classes("btn")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    if (state.approvingUserId == user.id) attr(ATTR_DISABLED, "")
-                    onClick { onApprove(user.id) }
-                }) { Text(if (state.approvingUserId == user.id) "Approving…" else "Approve") }
-                Button(attrs = {
-                    classes(QUIET_BUTTON)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    if (state.denyingUserId == user.id) attr(ATTR_DISABLED, "")
-                    onClick { onDeny(user.id) }
-                }) { Text("Deny") }
+            key(user.id) {
+                PersonRow(user, subtitle = user.email) {
+                    Button(attrs = {
+                        classes("btn")
+                        attr(ATTR_TYPE, VALUE_BUTTON)
+                        if (state.approvingUserId == user.id) attr(ATTR_DISABLED, "")
+                        onClick { onApprove(user.id) }
+                    }) { Text(if (state.approvingUserId == user.id) "Approving…" else "Approve") }
+                    Button(attrs = {
+                        classes(QUIET_BUTTON)
+                        attr(ATTR_TYPE, VALUE_BUTTON)
+                        if (state.denyingUserId == user.id) attr(ATTR_DISABLED, "")
+                        onClick { onDeny(user.id) }
+                    }) { Text("Deny") }
+                }
             }
         }
     }
@@ -272,7 +275,9 @@ private fun ResetsSection(
 
     Section("Password reset requests") {
         state.pendingPasswordResets.forEach { request ->
-            ResetRow(request, nowMs, state.decidingPasswordResetId == request.id, onDecide)
+            key(request.id) {
+                ResetRow(request, nowMs, state.decidingPasswordResetId == request.id, onDecide)
+            }
         }
     }
 }
@@ -289,17 +294,19 @@ private fun MembersSection(
             return@Section
         }
         state.users.forEach { user ->
-            PersonRow(user, subtitle = user.email, onOpen = { onOpenUser(user.id) }) {
-                // The root account is the server's own owner; removing it would leave nobody able
-                // to administer anything, so it is not offered rather than refused.
-                if (!user.isRoot) {
-                    Button(attrs = {
-                        classes(QUIET_BUTTON)
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-label", "Remove ${user.displayName ?: user.email}")
-                        if (state.deletingUserId == user.id) attr(ATTR_DISABLED, "")
-                        onClick { onAskRemove(user) }
-                    }) { Text("Remove") }
+            key(user.id) {
+                PersonRow(user, subtitle = user.email, onOpen = { onOpenUser(user.id) }) {
+                    // The root account is the server's own owner; removing it would leave nobody able
+                    // to administer anything, so it is not offered rather than refused.
+                    if (!user.isRoot) {
+                        Button(attrs = {
+                            classes(QUIET_BUTTON)
+                            attr(ATTR_TYPE, VALUE_BUTTON)
+                            attr("aria-label", "Remove ${user.displayName ?: user.email}")
+                            if (state.deletingUserId == user.id) attr(ATTR_DISABLED, "")
+                            onClick { onAskRemove(user) }
+                        }) { Text("Remove") }
+                    }
                 }
             }
         }
@@ -315,19 +322,21 @@ private fun InvitesSection(
 
     Section("Open invites") {
         state.pendingInvites.forEach { invite ->
-            Div(attrs = { classes("adm-row") }) {
-                Div(attrs = { classes(ROW_TEXT) }) {
-                    Span(attrs = { classes("adm-row-t") }) { Text(invite.name) }
-                    Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
-                }
-                Div(attrs = { classes("adm-row-actions") }) {
-                    Button(attrs = {
-                        classes(QUIET_BUTTON)
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-label", "Revoke the invite for ${invite.email}")
-                        if (state.revokingInviteId == invite.id) attr(ATTR_DISABLED, "")
-                        onClick { onAskRevoke(invite) }
-                    }) { Text("Revoke") }
+            key(invite.id) {
+                Div(attrs = { classes("adm-row") }) {
+                    Div(attrs = { classes(ROW_TEXT) }) {
+                        Span(attrs = { classes("adm-row-t") }) { Text(invite.name) }
+                        Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
+                    }
+                    Div(attrs = { classes("adm-row-actions") }) {
+                        Button(attrs = {
+                            classes(QUIET_BUTTON)
+                            attr(ATTR_TYPE, VALUE_BUTTON)
+                            attr("aria-label", "Revoke the invite for ${invite.email}")
+                            if (state.revokingInviteId == invite.id) attr(ATTR_DISABLED, "")
+                            onClick { onAskRevoke(invite) }
+                        }) { Text("Revoke") }
+                    }
                 }
             }
         }

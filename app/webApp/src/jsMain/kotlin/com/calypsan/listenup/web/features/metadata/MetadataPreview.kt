@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.metadata
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -135,7 +136,11 @@ private fun CoverField(
     if (!ready.selections.cover || ready.coverEntries.isEmpty()) return
 
     Div(attrs = { classes("mdx-covers") }) {
-        ready.coverEntries.forEach { entry -> CoverOption(entry, ready.selectedCoverUrl, onSelectCover) }
+        ready.coverEntries.forEach { entry ->
+            key(entry.url) {
+                CoverOption(entry, ready.selectedCoverUrl, onSelectCover)
+            }
+        }
     }
 }
 
@@ -285,8 +290,10 @@ private fun ValueRows(
     if (values.isEmpty()) return
     Div(attrs = { classes("mdx-values") }) {
         Span(attrs = { classes("mdx-values-l") }) { Text(label) }
-        values.forEach { (key, text) ->
-            CheckboxField(label = text, checked = key in selected, onChange = { onToggle(key) })
+        values.forEach { (valueKey, text) ->
+            key(valueKey) {
+                CheckboxField(label = text, checked = valueKey in selected, onChange = { onToggle(valueKey) })
+            }
         }
     }
 }

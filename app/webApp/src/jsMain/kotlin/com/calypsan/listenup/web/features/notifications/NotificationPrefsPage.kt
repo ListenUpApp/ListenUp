@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.notifications
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.NotificationPreferenceDto
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
@@ -95,7 +96,9 @@ private fun Rows(
 
     Div(attrs = { classes("nprefs-list") }) {
         known.forEach { pref ->
-            PrefRow(pref, onSetPreference)
+            key(pref.type) {
+                PrefRow(pref, onSetPreference)
+            }
         }
     }
 }

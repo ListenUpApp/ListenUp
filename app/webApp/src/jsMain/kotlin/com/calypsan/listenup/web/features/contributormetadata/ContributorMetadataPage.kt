@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.contributormetadata
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -137,13 +138,15 @@ private fun SearchPhase(
                     attr("role", "list")
                 }) {
                     load.results.forEach { hit ->
-                        Button(attrs = {
-                            classes("cmx-hit")
-                            attr(ATTR_TYPE, VALUE_BUTTON)
-                            onClick { onSelectCandidate(hit) }
-                        }) {
-                            Span(attrs = { classes("cmx-hit-n") }) { Text(hit.name) }
-                            Span(attrs = { classes("cmx-asin") }) { Text(hit.asin) }
+                        key(hit.asin) {
+                            Button(attrs = {
+                                classes("cmx-hit")
+                                attr(ATTR_TYPE, VALUE_BUTTON)
+                                onClick { onSelectCandidate(hit) }
+                            }) {
+                                Span(attrs = { classes("cmx-hit-n") }) { Text(hit.name) }
+                                Span(attrs = { classes("cmx-asin") }) { Text(hit.asin) }
+                            }
                         }
                     }
                 }

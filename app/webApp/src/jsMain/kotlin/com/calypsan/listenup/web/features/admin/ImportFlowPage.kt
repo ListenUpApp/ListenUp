@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -216,14 +217,16 @@ private fun ReviewStep(
             )
         }
         state.analysis.userMatches.forEach { match ->
-            UserRow(
-                match = match,
-                mappedTo = state.userMappings[match.absUserId],
-                isSkipped = match.absUserId in state.skippedUsers,
-                candidates = state.listenupUsers,
-                onMap = { userId -> onMapUser(match, userId) },
-                onSkip = { onSkipUser(match) },
-            )
+            key(match.absUserId.value) {
+                UserRow(
+                    match = match,
+                    mappedTo = state.userMappings[match.absUserId],
+                    isSkipped = match.absUserId in state.skippedUsers,
+                    candidates = state.listenupUsers,
+                    onMap = { userId -> onMapUser(match, userId) },
+                    onSkip = { onSkipUser(match) },
+                )
+            }
         }
         if (state.listenupUsers.isEmpty()) {
             // The ViewModel treats a failed user-list load as non-fatal, so the page has to
@@ -244,13 +247,15 @@ private fun ReviewStep(
                 Text("These could not be matched confidently. Everything else was matched already and is not listed.")
             }
             needsAttention.forEach { item ->
-                BookRow(
-                    item = item,
-                    decision = state.bookOverrides[item.absItemId],
-                    isDecided = item.absItemId in state.bookOverrides,
-                    onFind = { onOpenBookSearch(item.absItemId) },
-                    onSkip = { onSkipBook(item.absItemId) },
-                )
+                key(item.absItemId.value) {
+                    BookRow(
+                        item = item,
+                        decision = state.bookOverrides[item.absItemId],
+                        isDecided = item.absItemId in state.bookOverrides,
+                        onFind = { onOpenBookSearch(item.absItemId) },
+                        onSkip = { onSkipBook(item.absItemId) },
+                    )
+                }
             }
         }
     }
@@ -374,14 +379,16 @@ private fun BookSearchDialog(
 
                 else -> {
                     search.results.forEach { hit ->
-                        Button(attrs = {
-                            classes("iflow-result")
-                            attr("type", VALUE_BUTTON)
-                            onClick { onSelect(hit.bookId) }
-                        }) {
-                            Span(attrs = { classes("iflow-result-t") }) { Text(hit.title) }
-                            Span(attrs = { classes("iflow-result-b") }) { Text(hit.author) }
-                            Icon(WebIcon.Plus, size = SMALL_ICON)
+                        key(hit.bookId.value) {
+                            Button(attrs = {
+                                classes("iflow-result")
+                                attr("type", VALUE_BUTTON)
+                                onClick { onSelect(hit.bookId) }
+                            }) {
+                                Span(attrs = { classes("iflow-result-t") }) { Text(hit.title) }
+                                Span(attrs = { classes("iflow-result-b") }) { Text(hit.author) }
+                                Icon(WebIcon.Plus, size = SMALL_ICON)
+                            }
                         }
                     }
                 }

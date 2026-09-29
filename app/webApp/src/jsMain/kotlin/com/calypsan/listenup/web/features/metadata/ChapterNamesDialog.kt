@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.metadata
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ModalDialog
@@ -44,15 +45,17 @@ internal fun ChapterNamesDialog(
 
         Div(attrs = { classes("mdx-chrows") }) {
             available.rows.forEach { row ->
-                Div(attrs = { classes("mdx-chrow") }) {
-                    CheckboxField(
-                        label = row.suggestedName,
-                        checked = row.ordinal in available.selectedOrdinals,
-                        onChange = { onToggleChapter(row.ordinal) },
-                    )
-                    // The current name, so the reader can see what is being replaced rather than
-                    // only what it is being replaced with.
-                    Span(attrs = { classes("mdx-chwas") }) { Text(row.currentName) }
+                key(row.ordinal) {
+                    Div(attrs = { classes("mdx-chrow") }) {
+                        CheckboxField(
+                            label = row.suggestedName,
+                            checked = row.ordinal in available.selectedOrdinals,
+                            onChange = { onToggleChapter(row.ordinal) },
+                        )
+                        // The current name, so the reader can see what is being replaced rather than
+                        // only what it is being replaced with.
+                        Span(attrs = { classes("mdx-chwas") }) { Text(row.currentName) }
+                    }
                 }
             }
         }

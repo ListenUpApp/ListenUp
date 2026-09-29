@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.contributoredit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -278,15 +279,17 @@ private fun AliasList(
     } else {
         Div(attrs = { classes("ced-aliases") }) {
             state.aliases.forEach { alias ->
-                Div(attrs = { classes("ced-alias") }) {
-                    Span(attrs = { classes("ced-alias-n") }) { Text(alias) }
-                    Button(attrs = {
-                        classes(BTN_SECONDARY, "ced-split")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        attr("aria-label", "Split $alias back out")
-                        disabledWhen(state.mergeInProgress)
-                        onClick { splitting = alias }
-                    }) { Text("Split out") }
+                key(alias) {
+                    Div(attrs = { classes("ced-alias") }) {
+                        Span(attrs = { classes("ced-alias-n") }) { Text(alias) }
+                        Button(attrs = {
+                            classes(BTN_SECONDARY, "ced-split")
+                            attr(ATTR_TYPE, VALUE_BUTTON)
+                            attr("aria-label", "Split $alias back out")
+                            disabledWhen(state.mergeInProgress)
+                            onClick { splitting = alias }
+                        }) { Text("Split out") }
+                    }
                 }
             }
         }
@@ -357,16 +360,18 @@ private fun MergeDialog(
 
                 else -> {
                     candidates.forEach { candidate ->
-                        Button(attrs = {
-                            classes("ced-result")
-                            attr(ATTR_TYPE, VALUE_BUTTON)
-                            onClick { onPick(candidate) }
-                        }) {
-                            // ⛔ Name only. `ContributorCandidate.bookCount` is a placeholder the
-                            // ViewModel always fills with 0 — showing it would tell every reader
-                            // that every contributor has no books. Compose omits it for the same
-                            // reason; when a real count exists, both surfaces gain it together.
-                            Span(attrs = { classes("ced-result-n") }) { Text(candidate.displayName) }
+                        key(candidate.id.value) {
+                            Button(attrs = {
+                                classes("ced-result")
+                                attr(ATTR_TYPE, VALUE_BUTTON)
+                                onClick { onPick(candidate) }
+                            }) {
+                                // ⛔ Name only. `ContributorCandidate.bookCount` is a placeholder the
+                                // ViewModel always fills with 0 — showing it would tell every reader
+                                // that every contributor has no books. Compose omits it for the same
+                                // reason; when a real count exists, both surfaces gain it together.
+                                Span(attrs = { classes("ced-result-n") }) { Text(candidate.displayName) }
+                            }
                         }
                     }
                 }

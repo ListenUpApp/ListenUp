@@ -4,6 +4,7 @@ import androidx.compose.runtime.DisposableEffectResult
 import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -177,26 +178,32 @@ private fun DetailLane(
         ref { element -> laneGestures(element, live) }
     }) {
         state.fileBoundaries.forEach { file ->
-            Div(attrs = {
-                classes("ctl-file")
-                attr("title", file.label)
-                style { property("left", pct(file.startMs, start, end)) }
-            })
+            key(file.startMs) {
+                Div(attrs = {
+                    classes("ctl-file")
+                    attr("title", file.label)
+                    style { property("left", pct(file.startMs, start, end)) }
+                })
+            }
         }
         ghosts.forEach { ghost ->
-            Div(attrs = {
-                classes("ctl-mk", "ctl-ghost")
-                style { property("left", pct(ghost.startMs, start, end)) }
-            })
+            key(ghost.id) {
+                Div(attrs = {
+                    classes("ctl-mk", "ctl-ghost")
+                    style { property("left", pct(ghost.startMs, start, end)) }
+                })
+            }
         }
         markers.forEach { marker ->
-            Div(attrs = {
-                classes("ctl-mk")
-                if (marker.selected) classes("on")
-                if (marker.locked) classes("locked")
-                attr("data-chapter", marker.id)
-                style { property("left", pct(marker.startMs, start, end)) }
-            }) { Span(attrs = { classes("ctl-mk-n") }) { Text(marker.number.toString()) } }
+            key(marker.id) {
+                Div(attrs = {
+                    classes("ctl-mk")
+                    if (marker.selected) classes("on")
+                    if (marker.locked) classes("locked")
+                    attr("data-chapter", marker.id)
+                    style { property("left", pct(marker.startMs, start, end)) }
+                }) { Span(attrs = { classes("ctl-mk-n") }) { Text(marker.number.toString()) } }
+            }
         }
         playheadMs?.let { at ->
             Div(attrs = {

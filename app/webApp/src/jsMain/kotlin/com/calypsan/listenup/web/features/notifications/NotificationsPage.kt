@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.notifications
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.util.relativeLastActive
@@ -44,7 +45,9 @@ fun NotificationsPage(
             is NotificationsUiState.Data -> {
                 Div(attrs = { classes("ntf-list") }) {
                     state.notifications.forEach { notification ->
-                        NotificationRow(notification, nowMs, onOpen)
+                        key(notification.id) {
+                            NotificationRow(notification, nowMs, onOpen)
+                        }
                     }
                 }
             }

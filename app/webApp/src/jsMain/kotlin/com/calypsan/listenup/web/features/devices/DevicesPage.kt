@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.devices
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -84,12 +85,14 @@ fun DevicesPage(
                         }
                     } else {
                         others.forEach { device ->
-                            DeviceCard(
-                                device = device,
-                                nowMs = nowMs,
-                                revoking = device.sessionId in state.signingOut,
-                                onRevoke = { onRevoke(device.sessionId) },
-                            )
+                            key(device.sessionId) {
+                                DeviceCard(
+                                    device = device,
+                                    nowMs = nowMs,
+                                    revoking = device.sessionId in state.signingOut,
+                                    onRevoke = { onRevoke(device.sessionId) },
+                                )
+                            }
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.setup
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.web.design.Icon
@@ -83,12 +84,14 @@ fun LibrarySetupPage(
             else -> {
                 Div(attrs = { classes("lsetup-list") }) {
                     state.directories.forEach { entry ->
-                        FolderRow(
-                            entry = entry,
-                            selected = entry.path in state.selectedPaths,
-                            onOpen = { onOpenFolder(entry.path) },
-                            onToggle = { onToggleFolder(entry.path) },
-                        )
+                        key(entry.path) {
+                            FolderRow(
+                                entry = entry,
+                                selected = entry.path in state.selectedPaths,
+                                onOpen = { onOpenFolder(entry.path) },
+                                onToggle = { onToggleFolder(entry.path) },
+                            )
+                        }
                     }
                 }
             }

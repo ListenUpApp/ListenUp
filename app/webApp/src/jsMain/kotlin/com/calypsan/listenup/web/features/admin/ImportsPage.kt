@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -109,7 +110,9 @@ private fun ReadyContent(
     } else {
         Div(attrs = { classes("imp-list") }) {
             state.imports.forEach { summary ->
-                ImportRow(summary) { pendingDelete = summary }
+                key(summary.id.value) {
+                    ImportRow(summary) { pendingDelete = summary }
+                }
             }
         }
     }

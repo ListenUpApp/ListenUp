@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.profile
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
@@ -81,7 +82,11 @@ private fun ReadyContent(
     if (state.recentBooks.isNotEmpty()) {
         Panel(title = if (state.isOwnProfile) "What you've been listening to" else "Recently listened") {
             Div(attrs = { classes("prof-books") }) {
-                state.recentBooks.forEach { book -> RecentBook(book, onOpenBook) }
+                state.recentBooks.forEach { book ->
+                    key(book.bookId) {
+                        RecentBook(book, onOpenBook)
+                    }
+                }
             }
         }
     }
@@ -89,7 +94,11 @@ private fun ReadyContent(
     if (state.publicShelves.isNotEmpty()) {
         Panel(title = if (state.isOwnProfile) "Your shelves" else "Shelves") {
             Div(attrs = { classes("prof-shelves") }) {
-                state.publicShelves.forEach { shelf -> ShelfRow(shelf, onOpenShelf) }
+                state.publicShelves.forEach { shelf ->
+                    key(shelf.id) {
+                        ShelfRow(shelf, onOpenShelf)
+                    }
+                }
             }
         }
     }

@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.sync
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,7 +61,11 @@ fun DeadLetterNotice(
                 )
             }
             Div(attrs = { classes("dlq-list") }) {
-                failed.forEach { op -> FailedRow(op, onRetry, onDismiss) }
+                failed.forEach { op ->
+                    key(op.id) {
+                        FailedRow(op, onRetry, onDismiss)
+                    }
+                }
             }
             Div(attrs = { classes("dlg-actions") }) {
                 Button(attrs = {

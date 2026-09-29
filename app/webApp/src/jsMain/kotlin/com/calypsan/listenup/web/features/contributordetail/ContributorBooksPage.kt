@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.contributordetail
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.web.design.Breadcrumb
@@ -131,9 +132,11 @@ private fun ReadyBooks(
     }
 
     state.seriesGroups.forEach { group ->
-        Div(attrs = { classes("cb-series") }) {
-            Panel(title = group.seriesName, trailing = { BookCount(group.books.size) }) {
-                BookGrid(group.books, state, onOpenBook)
+        key(group.seriesName) {
+            Div(attrs = { classes("cb-series") }) {
+                Panel(title = group.seriesName, trailing = { BookCount(group.books.size) }) {
+                    BookGrid(group.books, state, onOpenBook)
+                }
             }
         }
     }
@@ -162,14 +165,16 @@ private fun BookGrid(
 ) {
     Div(attrs = { classes("cd-tile-grid") }) {
         books.forEach { book ->
-            // The same tile Contributor Detail's role panels draw, deliberately: this page is that
-            // page's preview continued, and a reader who has just clicked "View all" should land
-            // on more of what they were looking at, not a second way of drawing a book.
-            RoleTile(
-                book = book,
-                progress = state.bookProgress[book.id],
-                onOpen = { onOpenBook(book.id.value) },
-            )
+            key(book.id.value) {
+                // The same tile Contributor Detail's role panels draw, deliberately: this page is that
+                // page's preview continued, and a reader who has just clicked "View all" should land
+                // on more of what they were looking at, not a second way of drawing a book.
+                RoleTile(
+                    book = book,
+                    progress = state.bookProgress[book.id],
+                    onOpen = { onOpenBook(book.id.value) },
+                )
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -35,28 +36,30 @@ internal fun ChapterPicker(
     ) {
         Div(attrs = { classes("chap-list") }) {
             chapters.forEachIndexed { index, chapter ->
-                val isCurrent = index == currentIndex
-                Button(attrs = {
-                    classes("chap-row")
-                    if (isCurrent) classes("on")
-                    attr("type", "button")
-                    // `aria-current`, not just a class: the highlight is information, and a class
-                    // alone says nothing to a reader who cannot see it.
-                    if (isCurrent) attr("aria-current", "true")
-                    onClick { onPick(index) }
-                    if (isCurrent) {
-                        ref { element ->
-                            // A book can carry hundreds of marks. Opening at the top while the
-                            // listener is at chapter 200 makes the picker useless exactly when it
-                            // is most needed, so the chapter they are in is brought into view.
-                            (element as? HTMLElement)?.scrollIntoView(scrollToCentre())
-                            onDispose { }
+                key(chapter.startMs) {
+                    val isCurrent = index == currentIndex
+                    Button(attrs = {
+                        classes("chap-row")
+                        if (isCurrent) classes("on")
+                        attr("type", "button")
+                        // `aria-current`, not just a class: the highlight is information, and a class
+                        // alone says nothing to a reader who cannot see it.
+                        if (isCurrent) attr("aria-current", "true")
+                        onClick { onPick(index) }
+                        if (isCurrent) {
+                            ref { element ->
+                                // A book can carry hundreds of marks. Opening at the top while the
+                                // listener is at chapter 200 makes the picker useless exactly when it
+                                // is most needed, so the chapter they are in is brought into view.
+                                (element as? HTMLElement)?.scrollIntoView(scrollToCentre())
+                                onDispose { }
+                            }
                         }
+                    }) {
+                        Span(attrs = { classes("chap-n") }) { Text("${index + 1}") }
+                        Span(attrs = { classes("chap-t") }) { Text(chapter.title) }
+                        Span(attrs = { classes("mono", "chap-at") }) { Text(formatElapsed(chapter.startMs)) }
                     }
-                }) {
-                    Span(attrs = { classes("chap-n") }) { Text("${index + 1}") }
-                    Span(attrs = { classes("chap-t") }) { Text(chapter.title) }
-                    Span(attrs = { classes("mono", "chap-at") }) { Text(formatElapsed(chapter.startMs)) }
                 }
             }
         }

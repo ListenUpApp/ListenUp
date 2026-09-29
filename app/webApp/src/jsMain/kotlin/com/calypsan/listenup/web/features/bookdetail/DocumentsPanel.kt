@@ -40,7 +40,7 @@ internal fun DocumentsPanel(
         flush = true,
         trailing = { MachineNote(formatBytes(documents.sumOf { it.size })) },
     ) {
-        DataTable(columns = documentColumns(bookId), rows = documents)
+        DataTable(columns = documentColumns(bookId), rows = documents, rowKey = { it.id })
     }
 }
 

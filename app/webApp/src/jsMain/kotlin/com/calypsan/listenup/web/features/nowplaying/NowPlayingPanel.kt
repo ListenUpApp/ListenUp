@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
@@ -153,12 +154,14 @@ private fun Byline(
     if (authors.isEmpty()) return
     Div(attrs = { classes("np-by") }) {
         authors.forEachIndexed { index, author ->
-            if (index > 0) Span(attrs = { classes("np-sep") }) { Text(", ") }
-            Button(attrs = {
-                classes("np-by-name")
-                attr("type", TYPE_BUTTON)
-                onClick { onOpenContributor(author.id) }
-            }) { Text(author.name) }
+            key(author.id) {
+                if (index > 0) Span(attrs = { classes("np-sep") }) { Text(", ") }
+                Button(attrs = {
+                    classes("np-by-name")
+                    attr("type", TYPE_BUTTON)
+                    onClick { onOpenContributor(author.id) }
+                }) { Text(author.name) }
+            }
         }
     }
 }
@@ -173,14 +176,16 @@ private fun SeriesLine(
     if (series.isEmpty()) return
     Div(attrs = { classes("np-series") }) {
         series.forEach { membership ->
-            Button(attrs = {
-                classes("np-series-chip")
-                attr("type", TYPE_BUTTON)
-                onClick { onOpenSeries(membership.id) }
-            }) {
-                Text(membership.name)
-                membership.sequenceLabel?.let { position ->
-                    Span(attrs = { classes("np-series-seq") }) { Text("#$position") }
+            key(membership.id) {
+                Button(attrs = {
+                    classes("np-series-chip")
+                    attr("type", TYPE_BUTTON)
+                    onClick { onOpenSeries(membership.id) }
+                }) {
+                    Text(membership.name)
+                    membership.sequenceLabel?.let { position ->
+                        Span(attrs = { classes("np-series-seq") }) { Text("#$position") }
+                    }
                 }
             }
         }

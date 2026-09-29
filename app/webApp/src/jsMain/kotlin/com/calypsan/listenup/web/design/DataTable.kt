@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.CheckboxInput
@@ -77,6 +78,9 @@ class SelectionLabel<T>(
  * sorting is a `<button>` in each sortable header with `aria-sort` on the sorted one — so the whole
  * table works from the keyboard. [onRowClick] stays as a mouse convenience on the `<tr>`; the
  * checkbox is the keyboard's way to the same selection.
+ *
+ * [rowKey] names each row's stable identity, so a row keeps its DOM node and remembered state when
+ * the rows reorder, insert or remove. Without it rows are matched by position.
  */
 @Composable
 fun <T> DataTable(
@@ -94,6 +98,7 @@ fun <T> DataTable(
     onToggleRow: ((T) -> Unit)? = null,
     onToggleAll: (() -> Unit)? = null,
     onSort: ((String) -> Unit)? = null,
+    rowKey: ((T) -> Any)? = null,
 ) {
     Div(attrs = { classes("tblwrap") }) {
         Table(attrs = { classes("tbl") }) {
@@ -111,17 +116,19 @@ fun <T> DataTable(
             }
             Tbody {
                 rows.forEach { row ->
-                    BodyRow(
-                        row = row,
-                        columns = columns,
-                        selectable = selectable,
-                        selected = isSelected(row),
-                        playing = isPlaying(row),
-                        selectLabel = selectionLabel.row(row),
-                        rowActions = rowActions,
-                        onRowClick = onRowClick,
-                        onToggleRow = onToggleRow,
-                    )
+                    key(rowKey?.invoke(row)) {
+                        BodyRow(
+                            row = row,
+                            columns = columns,
+                            selectable = selectable,
+                            selected = isSelected(row),
+                            playing = isPlaying(row),
+                            selectLabel = selectionLabel.row(row),
+                            rowActions = rowActions,
+                            onRowClick = onRowClick,
+                            onToggleRow = onToggleRow,
+                        )
+                    }
                 }
             }
         }

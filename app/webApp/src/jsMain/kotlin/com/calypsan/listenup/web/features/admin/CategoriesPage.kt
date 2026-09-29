@@ -5,6 +5,7 @@ import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -184,15 +185,17 @@ private fun ReadyContent(
             attr("role", "tree")
         }) {
             state.tree.forEach { node ->
-                GenreRows(
-                    node = node,
-                    expandedIds = state.expandedIds,
-                    isSaving = state.isSaving,
-                    onToggleExpanded = onToggleExpanded,
-                    onAct = { act ->
-                        if (act is CategoryDialog.History) onOpenMergeHistory(act.genre.id) else dialog = act
-                    },
-                )
+                key(node.genre.id) {
+                    GenreRows(
+                        node = node,
+                        expandedIds = state.expandedIds,
+                        isSaving = state.isSaving,
+                        onToggleExpanded = onToggleExpanded,
+                        onAct = { act ->
+                            if (act is CategoryDialog.History) onOpenMergeHistory(act.genre.id) else dialog = act
+                        },
+                    )
+                }
             }
         }
     }
@@ -299,7 +302,9 @@ private fun GenreRows(
     )
     if (expanded) {
         node.children.forEach { child ->
-            GenreRows(child, expandedIds, isSaving, onToggleExpanded, onAct)
+            key(child.genre.id) {
+                GenreRows(child, expandedIds, isSaving, onToggleExpanded, onAct)
+            }
         }
     }
 }

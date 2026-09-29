@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.readers
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.readers.ReaderLine
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
@@ -120,9 +121,24 @@ private fun ReaderRows(
     onOpenProfile: (String) -> Unit,
 ) {
     Div(attrs = { classes("rdr-list") }) {
-        lines.forEach { line -> ReaderRow(line, nowMs, onOpenProfile) }
+        lines.forEach { line ->
+            key(line.stableKey()) {
+                ReaderRow(line, nowMs, onOpenProfile)
+            }
+        }
     }
 }
+
+/**
+ * A line's identity: its reader plus which of their states it is. The reader alone is not unique —
+ * a re-reader has a Reading line and a Finished line per pass.
+ */
+private fun ReaderLine.stableKey(): String =
+    when (val lineKind = kind) {
+        is ReaderLineKind.Reading -> "$userId:reading"
+        is ReaderLineKind.Finished -> "$userId:finished:${lineKind.finishedAtMs}"
+        ReaderLineKind.Rated -> "$userId:rated"
+    }
 
 /**
  * One line, which is one *state* of one reader — not one reader.

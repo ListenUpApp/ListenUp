@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -218,22 +219,24 @@ private fun EditingContent(
                     attr("role", "list")
                 }) {
                     shown.forEach { numbered ->
-                        ChapterRow(
-                            numbered = numbered,
-                            isSelected = numbered.chapter.id == state.selectedChapterId,
-                            isLocked = numbered.chapter.id in state.lockedChapterIds,
-                            isPlaying = playheadMs != null && numbered.chapter.holds(playheadMs),
-                            playheadMs = playheadMs,
-                            onSelect = { onSelect(numbered.chapter.id) },
-                            onNudge = { delta -> onNudge(numbered.chapter.id, delta) },
-                            onSnapToPlayhead = { playheadMs?.let { onSnapToPlayhead(numbered.chapter.id, it) } },
-                            onToggleLock = { onToggleLock(numbered.chapter.id) },
-                            onEditTime = { rowAction = RowAction.EditingTime(numbered.chapter.id) },
-                            onInsertBelow = { onInsertBelow(numbered.chapter.id, NEW_CHAPTER_TITLE) },
-                            onPlayFrom = { onPlayFrom(numbered.chapter.id) },
-                            onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
-                            onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
-                        )
+                        key(numbered.chapter.id) {
+                            ChapterRow(
+                                numbered = numbered,
+                                isSelected = numbered.chapter.id == state.selectedChapterId,
+                                isLocked = numbered.chapter.id in state.lockedChapterIds,
+                                isPlaying = playheadMs != null && numbered.chapter.holds(playheadMs),
+                                playheadMs = playheadMs,
+                                onSelect = { onSelect(numbered.chapter.id) },
+                                onNudge = { delta -> onNudge(numbered.chapter.id, delta) },
+                                onSnapToPlayhead = { playheadMs?.let { onSnapToPlayhead(numbered.chapter.id, it) } },
+                                onToggleLock = { onToggleLock(numbered.chapter.id) },
+                                onEditTime = { rowAction = RowAction.EditingTime(numbered.chapter.id) },
+                                onInsertBelow = { onInsertBelow(numbered.chapter.id, NEW_CHAPTER_TITLE) },
+                                onPlayFrom = { onPlayFrom(numbered.chapter.id) },
+                                onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
+                                onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
+                            )
+                        }
                     }
                 }
             }

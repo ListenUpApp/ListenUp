@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -204,13 +205,15 @@ private fun WaitingForReview(
             // the count comes from the ids — the authoritative set — while the rows come from
             // whatever has hydrated. A row that has not arrived yet is simply not drawn.
             state.books.forEach { book ->
-                InboxBookRow(
-                    book = book,
-                    selected = book.id in state.selectedBookIds,
-                    onToggle = { onToggleBook(book.id) },
-                    onEdit = { onOpenBookEdit(book.id) },
-                    onMatch = { onOpenMatch(book.id) },
-                )
+                key(book.id) {
+                    InboxBookRow(
+                        book = book,
+                        selected = book.id in state.selectedBookIds,
+                        onToggle = { onToggleBook(book.id) },
+                        onEdit = { onOpenBookEdit(book.id) },
+                        onMatch = { onOpenMatch(book.id) },
+                    )
+                }
             }
         }
     }
@@ -296,7 +299,11 @@ private fun NeedsAttention(
             Text("ListenUp walked these folders but couldn't make a book from them.")
         }
         Div(attrs = { classes("inbox-issues") }) {
-            issues.forEach { issue -> IssueRow(issue, onDismissIssue) }
+            issues.forEach { issue ->
+                key(issue.id) {
+                    IssueRow(issue, onDismissIssue)
+                }
+            }
         }
     }
 }

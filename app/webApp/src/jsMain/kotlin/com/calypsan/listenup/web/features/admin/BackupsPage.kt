@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -157,13 +158,15 @@ private fun ReadyContent(
     } else {
         Div(attrs = { classes("bkp-list") }) {
             state.backups.forEach { backup ->
-                BackupRow(
-                    backup = backup,
-                    isDeleting = state.isDeleting,
-                    onDownload = { onDownload(backup) },
-                    onRestore = { onRestore(backup) },
-                    onAskDelete = { onAskDelete(backup) },
-                )
+                key(backup.id) {
+                    BackupRow(
+                        backup = backup,
+                        isDeleting = state.isDeleting,
+                        onDownload = { onDownload(backup) },
+                        onRestore = { onRestore(backup) },
+                        onAskDelete = { onAskDelete(backup) },
+                    )
+                }
             }
         }
     }

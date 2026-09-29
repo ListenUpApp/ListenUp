@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.admin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -142,7 +143,9 @@ private fun ReadyContent(
         } else {
             Div(attrs = { classes("lset-list") }) {
                 state.library.folders.forEach { folder ->
-                    FolderRow(folder, state.isSaving) { pendingRemove = folder }
+                    key(folder.id) {
+                        FolderRow(folder, state.isSaving) { pendingRemove = folder }
+                    }
                 }
             }
         }
@@ -254,7 +257,11 @@ private fun FolderBrowser(
 
             else -> {
                 Div(attrs = { classes("lset-browse") }) {
-                    state.browserEntries.forEach { entry -> BrowserRow(entry, onAddPath, onOpenBrowserPath) }
+                    state.browserEntries.forEach { entry ->
+                        key(entry.path) {
+                            BrowserRow(entry, onAddPath, onOpenBrowserPath)
+                        }
+                    }
                 }
             }
         }

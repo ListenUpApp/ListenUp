@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.licences
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -87,22 +88,24 @@ private fun ReadyLicences(state: LicencesUiState.Ready) {
 
     Div(attrs = { classes("lic-list") }) {
         shown.forEach { library ->
-            Div(attrs = { classes("lic-row") }) {
-                Div(attrs = { classes("lic-row-top") }) {
-                    Span(attrs = { classes("lic-name") }) { Text(library.name) }
-                    // Absent rather than "v?" — a version this manifest does not carry is a fact
-                    // about the manifest, not something to render a placeholder for.
-                    library.artifactVersion?.let { Span(attrs = { classes("lic-ver") }) { Text("v$it") } }
-                }
-                library.licenses.forEach { licence ->
-                    Span(attrs = { classes("lic-badge") }) { Text(licence) }
-                }
-                library.website?.let { url ->
-                    A(href = url, attrs = {
-                        classes("lic-link")
-                        attr("target", "_blank")
-                        attr("rel", "noopener noreferrer")
-                    }) { Text("View project") }
+            key(library.uniqueId) {
+                Div(attrs = { classes("lic-row") }) {
+                    Div(attrs = { classes("lic-row-top") }) {
+                        Span(attrs = { classes("lic-name") }) { Text(library.name) }
+                        // Absent rather than "v?" — a version this manifest does not carry is a fact
+                        // about the manifest, not something to render a placeholder for.
+                        library.artifactVersion?.let { Span(attrs = { classes("lic-ver") }) { Text("v$it") } }
+                    }
+                    library.licenses.forEach { licence ->
+                        Span(attrs = { classes("lic-badge") }) { Text(licence) }
+                    }
+                    library.website?.let { url ->
+                        A(href = url, attrs = {
+                            classes("lic-link")
+                            attr("target", "_blank")
+                            attr("rel", "noopener noreferrer")
+                        }) { Text("View project") }
+                    }
                 }
             }
         }
