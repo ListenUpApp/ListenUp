@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.ScoreSource
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
@@ -320,6 +321,74 @@ class BookRatingSectionTest {
         composeRule.onNodeWithText("Refresh ratings").assertDoesNotExist()
         composeRule
             .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere")
+            .assertIsDisplayed()
+    }
+
+    // --- A book only your listeners have rated ---
+
+    private val listenersOnly =
+        BookRatingsUiState.Ready(
+            listeners = ListenerAverage(averageHalfStars = 9.0, count = 3),
+            mine = null,
+            // The score reads 4.5 off the listeners' own curve onto ListenUp's: a different number
+            // from the same three ratings.
+            external = CombinedScore(average = 4.3, count = 3, shares = mapOf(ScoreSource.Listeners to 1.0)),
+            breakdown = emptyList(),
+            canRefresh = false,
+        )
+
+    @Test
+    fun `a book only your listeners rated shows their average once, not a second recalibrated number`() {
+        composeRule.setContent {
+            BookRatingSection(state = listenersOnly, onRate = {}, onEdit = {})
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Your listeners: 4.5 out of 5 stars, from 3 ratings")
+            .assertIsDisplayed()
+        composeRule
+            .onNodeWithContentDescription("Rated 4.3 out of 5 stars by 3 readers elsewhere")
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun `an admin can still refresh a book only your listeners rated`() {
+        composeRule.setContent {
+            BookRatingSection(state = listenersOnly.copy(canRefresh = true), onRate = {}, onEdit = {})
+        }
+
+        composeRule.onNodeWithText("Refresh ratings").assertIsDisplayed()
+    }
+
+    @Test
+    fun `once an outside source joins your listeners the headline returns beside their line`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    listenersOnly.copy(
+                        external =
+                            CombinedScore(
+                                average = 4.4,
+                                count = 1_010,
+                                shares =
+                                    mapOf(
+                                        ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.8,
+                                        ScoreSource.Listeners to 0.2,
+                                    ),
+                            ),
+                        breakdown =
+                            listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.7, count = 1_007)),
+                    ),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 1k readers elsewhere")
+            .assertIsDisplayed()
+        composeRule
+            .onNodeWithContentDescription("Your listeners: 4.5 out of 5 stars, from 3 ratings")
             .assertIsDisplayed()
     }
 }

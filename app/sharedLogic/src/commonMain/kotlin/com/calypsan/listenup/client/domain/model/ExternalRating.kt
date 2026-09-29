@@ -24,4 +24,11 @@ data class CombinedScore(
 ) {
     /** How many sources the score was combined from ("Combined from N sources"). */
     val sourceCount: Int get() = shares.size
+
+    /**
+     * Whether this server's listeners are the score's only source. Book Detail then shows no
+     * headline: the listeners' own line already says what they think, and a second number read
+     * off ListenUp's curve (a lone 5★ scores about 4.4) would look like a contradiction.
+     */
+    val isListenersOnly: Boolean get() = shares.keys == setOf(ScoreSource.Listeners)
 }
