@@ -43,13 +43,14 @@ struct PrimaryButton: View {
     }
 }
 
-/// Subtle press feedback: scale + deepen toward the pressed tint.
+/// Subtle press feedback: scale + deepen the fill. The deepening is a black wash rather than a fixed
+/// pressed hex, so it follows the adaptive coral in both appearances.
 private struct PrimaryPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.listenUpTintPressed.opacity(configuration.isPressed ? 0.5 : 0))
+                    .fill(Color.black.opacity(configuration.isPressed ? 0.12 : 0))
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)

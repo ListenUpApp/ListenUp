@@ -9,8 +9,11 @@ import SwiftUI
 extension Color {
     /// The single action tint (coral). Alias of `listenUpOrange`.
     static let luTint = Color.listenUpOrange
-    /// Foreground on a coral fill.
-    static let luOnTint = Color.white
+    /// Text and glyphs on a coral fill — the `OnBrandCoral` Color Set: white in light, deep ink
+    /// `#1C0A04` in dark, black under dark Increase Contrast. White on the dark coral `#FF6A3D` is
+    /// only 2.85:1; the ink is 6.74:1 (HIG, Accessibility: 4.5:1 for text up to 17pt). Every label,
+    /// glyph and spinner drawn on a coral fill takes this, never `.white`.
+    static let luOnTint = Color(ColorResource.onBrandCoral)
 
     /// Grouped screen background (`--sys-bg`).
     static let luSurface = Color(.systemGroupedBackground)
