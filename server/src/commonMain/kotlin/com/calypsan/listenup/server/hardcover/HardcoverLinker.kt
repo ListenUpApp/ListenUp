@@ -57,7 +57,8 @@ class HardcoverLinker(
     private val states = HashMap<String, MutableStateFlow<HardcoverConnection>>()
     private val pollJobs = HashMap<String, Job>()
     private val userLocks = KeyedMutex()
-    private val connected = MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val connected =
+        MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /**
      * The id of each user whose sign-in completes, as it completes. A new connection can make
