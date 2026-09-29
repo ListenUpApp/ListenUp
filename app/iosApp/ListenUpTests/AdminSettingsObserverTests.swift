@@ -71,8 +71,8 @@ struct AdminSettingsObserverTests {
             holdNewBooksForReview: false,
             pushNotificationsEnabled: true,
             ratingSources: [
-                RatingSourceStatus(source: .audible, enabled: true, lastFetchedAt: nil, lastError: nil),
-                RatingSourceStatus(source: .hardcover, enabled: false, lastFetchedAt: nil, lastError: nil)
+                status(.audible, enabled: true),
+                status(.hardcover, enabled: false)
             ],
             isDirty: false,
             isSaving: false,
@@ -87,30 +87,112 @@ struct AdminSettingsObserverTests {
     }
 
     @Test func neverFetchedHealthLine() {
-        let row = RatingSourceRowModel.from(
-            RatingSourceStatus(source: .audible, enabled: true, lastFetchedAt: nil, lastError: nil)
-        )
+        let row = RatingSourceRowModel.from(status(.audible))
         #expect(row.healthLine() == "Not fetched yet")
     }
 
     @Test func lastFetchedHealthLineReportsHowLongAgo() {
         let now = Date()
         let twoDaysAgoMs = Int64(now.addingTimeInterval(-2 * 24 * 3_600).timeIntervalSince1970 * 1_000)
-        let row = RatingSourceRowModel.from(
-            RatingSourceStatus(source: .audible, enabled: true, lastFetchedAt: twoDaysAgoMs, lastError: nil)
-        )
+        let row = RatingSourceRowModel.from(status(.audible, lastFetchedAt: twoDaysAgoMs))
         #expect(row.healthLine(now: now) == "Last fetched 2 days ago")
     }
 
     @Test func errorHealthLineBeatsALastFetchedTime() {
         let row = RatingSourceRowModel.from(
-            RatingSourceStatus(
-                source: .hardcover,
+            status(
+                .hardcover,
                 enabled: false,
                 lastFetchedAt: Int64(Date().timeIntervalSince1970 * 1_000),
                 lastError: "Rate limited"
             )
         )
         #expect(row.healthLine() == "Last attempt failed: Rate limited")
+    }
+
+    // MARK: - Why a source is paused or waiting (first match wins: unavailable, paused, error,
+    // last fetched, never)
+
+    /// Noon UTC on October 6, 2026 — a date that reads the same in the fixed test time zone.
+    private let october6Ms: Int64 = 1_791_288_000_000
+    private let utc = TimeZone(identifier: "UTC")!
+    private let english = Locale(identifier: "en_US")
+
+    @Test func notConfiguredBeatsEveryOtherHealthLine() {
+        let row = RatingSourceRowModel.from(status(
+            .hardcover,
+            lastFetchedAt: october6Ms,
+            lastError: "Timed out",
+            pausedUntil: october6Ms,
+            unavailable: .notConfigured
+        ))
+        #expect(row.healthLine() == "Not set up on this server")
+    }
+
+    @Test func noConnectionAsksTheAdminToConnectHardcover() {
+        let row = RatingSourceRowModel.from(status(.hardcover, unavailable: .noConnection))
+        #expect(row.healthLine() == "Connect a Hardcover account to enable")
+    }
+
+    @Test func anUnavailabilityThisBuildCannotNameReadsAsUnavailable() {
+        let row = RatingSourceRowModel.from(status(.hardcover, unavailable: .unknown))
+        #expect(row.healthLine() == "Unavailable on this server")
+    }
+
+    @Test func pausedWithAReasonSaysUntilWhenAndWhy() {
+        let row = RatingSourceRowModel.from(status(
+            .goodreads,
+            lastFetchedAt: october6Ms,
+            lastError: "Rate limited",
+            pausedUntil: october6Ms
+        ))
+        #expect(row.healthLine(timeZone: utc, locale: english) == "Paused until October 6, 2026: Rate limited")
+    }
+
+    @Test func pausedWithoutAReasonSaysUntilWhen() {
+        let row = RatingSourceRowModel.from(status(.goodreads, pausedUntil: october6Ms))
+        #expect(row.healthLine(timeZone: utc, locale: english) == "Paused until October 6, 2026")
+    }
+
+    @Test func hardcoverSaysWhoseAccountItFetchesWith() {
+        let row = RatingSourceRowModel.from(status(.hardcover, connectionUsername: "simonhull"))
+        #expect(row.connectionLine == "Using simonhull's Hardcover account")
+        #expect(row.subtitle() == "Not fetched yet\nUsing simonhull's Hardcover account")
+    }
+
+    @Test func onlyHardcoverNamesAConnection() {
+        let row = RatingSourceRowModel.from(status(.audible, connectionUsername: "simonhull"))
+        #expect(row.connectionLine == nil)
+        #expect(row.subtitle() == "Not fetched yet")
+    }
+
+    @Test func anUnavailableSourceKeepsItsSwitchState() {
+        // The switch stays operable: switching off a source that cannot run is still meaningful.
+        let row = RatingSourceRowModel.from(status(.hardcover, enabled: true, unavailable: .noConnection))
+        #expect(row.enabled == true)
+        #expect(row.unavailable == .noConnection)
+    }
+
+    // MARK: - Fixtures
+
+    /// A `RatingSourceStatus` naming every field — Swift Export does not carry Kotlin's defaults.
+    private func status(
+        _ source: ExternalRatingSource,
+        enabled: Bool = true,
+        lastFetchedAt: Int64? = nil,
+        lastError: String? = nil,
+        pausedUntil: Int64? = nil,
+        unavailable: RatingSourceUnavailable? = nil,
+        connectionUsername: String? = nil
+    ) -> RatingSourceStatus {
+        RatingSourceStatus(
+            source: source,
+            enabled: enabled,
+            lastFetchedAt: lastFetchedAt,
+            lastError: lastError,
+            pausedUntil: pausedUntil,
+            unavailable: unavailable,
+            connectionUsername: connectionUsername
+        )
     }
 }
