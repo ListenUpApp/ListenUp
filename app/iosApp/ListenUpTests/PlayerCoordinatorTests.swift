@@ -59,11 +59,11 @@ func awaitObservation(_ condition: @escaping @MainActor () -> Bool) async {
 
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
-    private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
-        // partTitle/bookTitle are the chapter-grouping headers; nil means this chapter opens
-        // no section. Kotlin default arguments do not survive Swift Export, so Swift spells
-        // them out even though commonMain defaults both to null.
-        Chapter(id: id, title: id, duration: duration, startTime: start, partTitle: nil, bookTitle: nil)
+    /// The index runs over the native `ChapterRowModel` projection, never the bridged Kotlin
+    /// `[Chapter]`: it is recomputed on every engine position tick (~4×/s), and each bridged
+    /// property read crosses the Swift Export boundary.
+    private func chapter(_ id: String, start: Int64, duration: Int64) -> ChapterRowModel {
+        ChapterRowModel(id: id, title: id, startMs: start, durationMs: duration)
     }
 
     @Test func indexIsNilForEmpty() {
@@ -474,6 +474,34 @@ struct EndOfChapterTests {
         await sleep.waitForChapterChange(to: 1)
 
         #expect(sleep.chapterChanges.contains(1))
+    }
+
+    /// The mini player's "time left in chapter" and its progress hairline read the COARSE
+    /// chapter position, so they re-render ~1×/s instead of on every display frame.
+    @Test func displayChapterPositionIsTheCoarsePositionWithinTheChapter() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        let chapters = [
+            Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil),
+            Chapter(id: "c1", title: "c1", duration: 9000, startTime: 1000, partTitle: nil, bookTitle: nil)
+        ]
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
+            resumePositionMs: 3750, chapters: chapters,
+            timeline: PreparedTimeline(totalDurationMs: 10000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 10000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
+            engine: engine)
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        // 3750 floors to 3000 on the coarse clock; chapter 1 starts at 1000.
+        #expect(coordinator.chapterIndex == 1)
+        #expect(coordinator.displayChapterPositionMs == 2000)
     }
 }
 

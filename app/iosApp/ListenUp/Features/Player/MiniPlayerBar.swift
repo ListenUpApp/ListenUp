@@ -135,7 +135,7 @@ struct MiniPlayerBar: View {
     /// to the chapter name. A chapterless book falls back to the whole-book window.
     private var subtitle: String {
         if let chapter = observer.chapterTitle, !chapter.isEmpty {
-            let remainingMs = max(0, observer.chapterDurationMs - observer.chapterPositionMs)
+            let remainingMs = max(0, observer.chapterDurationMs - observer.displayChapterPositionMs)
             return "\(chapter) · \(formatTimeLeft(remainingMs: remainingMs))"
         }
         return formatTimeLeft(remainingMs: observer.bookDurationMs - observer.displayBookPositionMs)
@@ -172,7 +172,7 @@ struct MiniPlayerBar: View {
     private var chapterProgress: Float {
         let durationMs = observer.chapterDurationMs
         guard durationMs > 0 else { return observer.displayBookProgress }
-        return min(1, Float(observer.chapterPositionMs) / Float(durationMs))
+        return min(1, Float(observer.displayChapterPositionMs) / Float(durationMs))
     }
 
     private var playPauseButton: some View {

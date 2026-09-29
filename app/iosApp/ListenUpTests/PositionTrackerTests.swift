@@ -75,3 +75,14 @@ struct PositionQuantizerTests {
         #expect(PositionQuantizer.displayMs(1_999) != PositionQuantizer.displayMs(2_000))
     }
 }
+
+@Suite("PositionTracker frame rate")
+struct PositionTrackerFrameRateTests {
+    /// The display link only moves a scrubber thumb a fraction of a point per second, so it asks
+    /// for a modest rate instead of ProMotion's 120 Hz.
+    @Test func displayLinkCapsItsFrameRate() {
+        let range = PositionTracker.preferredFrameRateRange
+        #expect(range.maximum <= 30)
+        #expect(range.minimum > 0)
+    }
+}
