@@ -187,6 +187,7 @@ import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.OpenLibrarySettings
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.shell.NotFoundPage
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -823,7 +824,7 @@ private fun RouteContent(
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router, openDiscover, feeds)
     } else {
-        PagePlaceholder(active)
+        NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
     }
 }
 
@@ -2851,17 +2852,6 @@ private fun animatedLibrary(session: LibrarySession): LibraryUiState {
     return shown
 }
 
-/**
- * Stands in for the pages that arrive next (Book Detail first). Honest about being unbuilt
- * rather than mocked up — a placeholder that looks real is a bug report waiting to happen.
- */
-@Composable
-private fun PagePlaceholder(key: String) {
-    val label = (PRIMARY_NAV.entries + FOOTER_NAV).firstOrNull { it.key == key }?.label ?: key
-    PageHeader(title = label)
-    EmptyState(title = "This page is not built yet.")
-}
-
 /** `sel=9,10` → the selected chapter numbers; junk entries are dropped rather than crashing. */
 private fun parseSelection(raw: String?): Set<Int> =
     raw
@@ -3429,7 +3419,7 @@ private fun AdminRouteContent(
                 UserDetailRoute(router = router, openUserDetail = admin.userDetail, userId = id)
             } else {
                 // `/admin/user` with nobody named is not a page — it is a link that lost its id.
-                PagePlaceholder(ADMIN_KEY)
+                NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
             }
         }
 
@@ -3437,7 +3427,7 @@ private fun AdminRouteContent(
         // resolution the `size <= 1` guard reaches for `/admin/nonsense`, stated here as the
         // absence of a branch rather than as a length test.
         else -> {
-            PagePlaceholder(ADMIN_KEY)
+            NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
         }
     }
 }
@@ -3637,7 +3627,7 @@ private fun AccountRouteContent(
         // A `/settings/anything-else` URL. Falls through to the shell's own not-found rather than
         // silently showing Settings, so a mistyped path says so.
         else -> {
-            PagePlaceholder(active)
+            NotFoundPage(onGoHome = { router.navigate(Route(emptyList())) })
         }
     }
 }

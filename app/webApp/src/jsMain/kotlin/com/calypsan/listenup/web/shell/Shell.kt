@@ -355,7 +355,8 @@ private fun NavBadge(count: Int) {
     }) { Text(badgeText(count)) }
 }
 
-private fun SyntheticMouseEvent.isPlainPrimaryClick(): Boolean =
+/** A click the app routes itself; anything modified is the reader asking the browser for a new tab. */
+internal fun SyntheticMouseEvent.isPlainPrimaryClick(): Boolean =
     button == PRIMARY_BUTTON && !ctrlKey && !metaKey && !shiftKey && !altKey
 
 private const val PRIMARY_BUTTON: Short = 0
