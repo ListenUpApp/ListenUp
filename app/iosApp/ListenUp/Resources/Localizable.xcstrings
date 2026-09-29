@@ -4031,6 +4031,26 @@
         }
       }
     },
+    "book.detail_download_failed_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download failed"
+          }
+        }
+      }
+    },
+    "book.detail_download_partial_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partly downloaded"
+          }
+        }
+      }
+    },
     "book.detail_downloaded": {
       "localizations": {
         "en": {
