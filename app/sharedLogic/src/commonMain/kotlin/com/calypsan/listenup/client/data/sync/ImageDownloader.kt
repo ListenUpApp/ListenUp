@@ -90,7 +90,8 @@ internal class ImageDownloader(
         // cover files (written before the marker column existed) get marked ahead of the
         // startup reconciler running.
         if (imageStorage.exists(bookId)) {
-            logger.info { "Cover already exists locally for book ${bookId.value}" }
+            // Debug, not info: iOS asks for every cover a list shows, so this is the common case.
+            logger.debug { "Cover already exists locally for book ${bookId.value}" }
             bookDao.markCoverDownloaded(bookId, Timestamp.now())
             return AppResult.Success(false)
         }
