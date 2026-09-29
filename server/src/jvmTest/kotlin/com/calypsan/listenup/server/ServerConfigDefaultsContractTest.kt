@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.hardcover.HARDCOVER_LISTENUP_CLIENT_ID
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigResolveOptions
 import io.kotest.assertions.withClue
@@ -29,6 +30,12 @@ class ServerConfigDefaultsContractTest :
                     applicationConf.getValue(entry.key).unwrapped().toString() shouldBe entry.default
                 }
             }
+        }
+
+        test("a stock install offers Hardcover: both runtimes default to ListenUp's registered client id") {
+            SERVER_CONFIG_DEFAULTS.single { it.key == "hardcover.clientId" }.default shouldBe
+                HARDCOVER_LISTENUP_CLIENT_ID
+            applicationConf.getString("hardcover.clientId") shouldBe HARDCOVER_LISTENUP_CLIENT_ID
         }
 
         test("every LISTENUP_ env override in application.conf is declared in SERVER_CONFIG_DEFAULTS") {

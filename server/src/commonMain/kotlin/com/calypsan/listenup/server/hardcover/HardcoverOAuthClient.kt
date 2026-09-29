@@ -21,6 +21,13 @@ const val HARDCOVER_SCOPES = "read:me:content read:catalog read:library write:li
 /** Hardcover's production API origin. Tests pass their own. */
 const val HARDCOVER_API_BASE_URL = "https://api.hardcover.app"
 
+/**
+ * ListenUp's own OAuth client id on Hardcover — a public client (device grant, no secret), registered
+ * once for the project, so every self-hosted server can connect Hardcover with no setup. Public by
+ * design: a device-flow client id identifies the app, it authorises nothing.
+ */
+const val HARDCOVER_LISTENUP_CLIENT_ID = "002ce38a-6eb0-4bea-b690-ad51833159cf"
+
 /** Sent on every request — Hardcover asks API callers to identify themselves. */
 internal const val HARDCOVER_USER_AGENT = "ListenUp/$SERVER_VERSION"
 
