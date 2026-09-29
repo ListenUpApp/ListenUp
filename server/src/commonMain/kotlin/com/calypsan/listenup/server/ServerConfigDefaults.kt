@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.hardcover.HARDCOVER_LISTENUP_CLIENT_ID
+
 /**
  * One server configuration knob: its [key], its [default] value, and the optional [envVar] that
  * overrides it. The single source of truth for the server's configuration defaults — shared by the
@@ -60,6 +62,7 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
         // bundle in and sets this itself; the default stays empty so a JVM dev run is unchanged and
         // an operator can turn the client off with an empty value.
         ServerConfigDefault("web.root", "", "LISTENUP_WEB_ROOT"),
-        // Blank = the Hardcover integration is off: connecting answers "not set up" (resolveHardcoverClientId).
-        ServerConfigDefault("hardcover.clientId", "", "LISTENUP_HARDCOVER_CLIENT_ID"),
+        // ListenUp's registered app, so every install can connect Hardcover with no setup. An operator
+        // who sets it empty turns the integration off: connecting answers "not set up".
+        ServerConfigDefault("hardcover.clientId", HARDCOVER_LISTENUP_CLIENT_ID, "LISTENUP_HARDCOVER_CLIENT_ID"),
     )
