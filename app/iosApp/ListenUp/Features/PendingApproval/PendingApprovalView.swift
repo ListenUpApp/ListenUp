@@ -226,7 +226,7 @@ private struct RegStepRow: View {
 
     private var iconColor: Color {
         switch state {
-        case .done: return .white
+        case .done: return Color.luOnTint
         case .active: return Color.listenUpOrange
         case .todo: return .secondary
         }

@@ -57,7 +57,7 @@ struct ResetCodeSheet: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color.luTint)
+                .foregroundStyle(Color.luOnTint)
                 .controlSize(.large)
             }
             .padding(.horizontal, 20)

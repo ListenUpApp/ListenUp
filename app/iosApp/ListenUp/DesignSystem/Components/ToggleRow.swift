@@ -34,7 +34,6 @@ struct ToggleRow: View {
             } else {
                 Toggle("", isOn: $isOn)
                     .labelsHidden()
-                    .tint(.luTint)
             }
         }
         .padding(.horizontal, 14)

@@ -37,7 +37,7 @@ struct NowPlayingStrip: View {
                 // `isPlaybackActive` (playing OR buffering) so the glyph reads "pause" during the
                 // startup buffer, matching what a tap does.
                 Image(systemName: player.isPlaybackActive ? "pause.fill" : "play.fill")
-                    .font(.title3).foregroundStyle(.white)
+                    .font(.title3).foregroundStyle(Color.luOnTint)
                     .frame(width: 38, height: 38)
                     .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                     .minimumTapTarget(visualSize: 38)

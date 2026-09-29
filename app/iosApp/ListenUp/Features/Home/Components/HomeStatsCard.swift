@@ -89,7 +89,6 @@ struct HomeStatsCard: View {
             Spacer()
             ProgressView()
                 .controlSize(.regular)
-                .tint(Color.listenUpOrange)
             Spacer()
         }
         .frame(height: 160)

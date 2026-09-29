@@ -275,7 +275,7 @@ private struct FolderRow: View {
             .frame(width: 40, height: 40)
             .overlay {
                 Image(systemName: item.isSelected ? "folder.fill" : "folder")
-                    .foregroundStyle(item.isSelected ? .white : .secondary)
+                    .foregroundStyle(item.isSelected ? Color.luOnTint : .secondary)
             }
     }
 

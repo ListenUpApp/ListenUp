@@ -14,7 +14,7 @@ struct NotificationBell: View {
                     if let count = observer?.unreadCount, count > 0 {
                         Text(count > 99 ? "99+" : "\(count)")
                             .font(.system(size: 10, weight: .bold)) // decorative fixed size
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.luOnTint)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .background(Color.luTint, in: Capsule())

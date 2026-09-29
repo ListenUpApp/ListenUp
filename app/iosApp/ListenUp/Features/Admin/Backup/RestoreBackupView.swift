@@ -168,7 +168,7 @@ struct RestoreBackupView: View {
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.luTint)
+                .foregroundStyle(Color.luOnTint)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)

@@ -66,7 +66,6 @@ struct CreateBackupSheet: View {
                                 .foregroundStyle(Color.luLabel2)
                         }
                     }
-                    .tint(.luTint)
                     Label(String(localized: "admin.significantly_increases_backup_size"), systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
@@ -88,7 +87,9 @@ struct CreateBackupSheet: View {
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.luTint)
+                // The accent fill is the adaptive brand coral; its label takes the on-coral ink
+                // (white in light, deep ink in dark — white on the dark coral is 2.85:1).
+                .foregroundStyle(Color.luOnTint)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)

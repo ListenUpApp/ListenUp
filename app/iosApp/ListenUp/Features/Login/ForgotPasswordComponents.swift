@@ -260,7 +260,7 @@ struct ForgotPasswordTimeline: View {
             if index < activeStep {
                 Image(systemName: "checkmark")
                     .font(.system(size: 11, weight: .bold)) // decorative fixed size
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.luOnTint)
             } else {
                 Circle()
                     .fill(index == activeStep ? Color.listenUpOrange : Color.secondary.opacity(0.5))

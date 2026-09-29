@@ -66,6 +66,7 @@ struct DriftPanel: View {
                 Spacer()
                 Button(String(localized: "chapter_editor.drift_apply"), action: onApply)
                     .buttonStyle(.borderedProminent)
+                    .foregroundStyle(Color.luOnTint)
                     .disabled(!drift.canApply)
             }
         }

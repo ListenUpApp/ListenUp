@@ -196,7 +196,7 @@ struct AdminCollectionDetailView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color.luTint)
+                .foregroundStyle(Color.luOnTint)
                 .disabled(ready.isSaving)
                 .padding(.top, 8)
             }

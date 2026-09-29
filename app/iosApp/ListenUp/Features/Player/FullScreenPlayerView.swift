@@ -144,7 +144,7 @@ struct FullScreenPlayerView: View {
                 Button { observer.togglePlayback() } label: {
                     Text("book.detail_retry")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.luOnTint)
                         .padding(.horizontal, 28)
                         .frame(minHeight: 44)
                         .background(Capsule().fill(tint))

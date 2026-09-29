@@ -47,7 +47,7 @@ struct SyncStatusIndicator: View {
                     if let count = presentation.badgeCount {
                         Text("\(count)")
                             .font(.system(size: 10, weight: .bold)) // decorative fixed size
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.luOnTint)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .background(Color.listenUpOrange, in: Capsule())

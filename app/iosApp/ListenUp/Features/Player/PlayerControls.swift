@@ -110,13 +110,13 @@ struct PlayerTransportControls: View {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .controlSize(.large)
-                        .tint(.white)
+                        .tint(Color.luOnTint)
                 } else {
                     // `isPlaybackActive` here means "playing" (buffering handled above); it
                     // reads "pause" while playing because a tap pauses.
                     Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
                         .font(.title)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.luOnTint)
                         .contentTransition(.symbolEffect(.replace.downUp))
                 }
             }

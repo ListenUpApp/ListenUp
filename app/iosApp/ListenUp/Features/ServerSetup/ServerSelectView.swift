@@ -99,7 +99,7 @@ private struct ServerRow: View {
                     .frame(width: 40, height: 40)
                     .overlay {
                         Image(systemName: "server.rack")
-                            .foregroundStyle(isSelected ? .white : .secondary)
+                            .foregroundStyle(isSelected ? Color.luOnTint : .secondary)
                     }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(server.name).font(.headline).foregroundStyle(.primary)

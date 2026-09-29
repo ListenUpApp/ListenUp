@@ -186,7 +186,6 @@ private struct StorageSummaryCard: View {
             }
 
             ProgressView(value: usageFraction)
-                .tint(Color.listenUpOrange)
         }
         .padding(.vertical, 4)
     }

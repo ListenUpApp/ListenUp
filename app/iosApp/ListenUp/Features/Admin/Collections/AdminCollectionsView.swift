@@ -163,7 +163,7 @@ struct AdminCollectionsView: View {
                 showingCreateSheet = true
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color.luTint)
+            .foregroundStyle(Color.luOnTint)
             .padding(.top, 4)
         }
         .padding()

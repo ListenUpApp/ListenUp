@@ -118,7 +118,7 @@ struct ChapterTimelineView: View {
                 if let readout = model.readout {
                     Text(readout)
                         .font(.caption.weight(.bold).monospacedDigit())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.luOnTint)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 8))

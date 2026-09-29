@@ -237,7 +237,6 @@ private struct HardcoverLinkingPhase: View {
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
-            .tint(.luTint)
             .haptic(.commit, trigger: copied)
         }
         .frame(maxWidth: .infinity)
@@ -443,7 +442,7 @@ private struct HardcoverPrimaryButton: View {
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .tint(.luTint)
+        .foregroundStyle(Color.luOnTint)
         .disabled(isBusy)
         .accessibilityLabel(title)
     }
@@ -464,7 +463,7 @@ private struct HardcoverSecondaryButton: View {
         .buttonStyle(.glass)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .tint(role == .destructive ? .red : .luTint)
+        .tint(role == .destructive ? .red : nil)
     }
 }
 

@@ -29,8 +29,10 @@ struct ListenUpApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // No `.tint` here: the catalog's `AccentColor` is the adaptive brand coral, wired as the
+            // global accent (ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME), so every window, sheet
+            // and system control already picks it up (HIG, Color: "the app accent color").
             RootView()
-                .tint(Color.listenUpOrange)
         }
         // Native background app-refresh. SwiftUI registers the handler for us (the Kotlin
         // BackgroundSyncScheduler is Android-only; iOS wires this natively — see BackgroundSync).
