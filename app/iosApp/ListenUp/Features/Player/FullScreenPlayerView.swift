@@ -17,7 +17,7 @@ private struct ContributorPickerRequest: Identifiable {
 /// modality, the swipe-down dismiss, and the zoom back into the mini player.
 ///
 /// Layout (`PlayerLayoutMode`, from the space actually available):
-/// - stacked: header · cover · titles · scrubber · transport · secondary row
+/// - stacked: header · cover · titles · scrubber · transport · volume · secondary row
 /// - compact height: the cover beside that column (a phone in landscape)
 /// - regular: the column beside the always-visible "Up Next" chapter pane (iPad)
 /// Every column falls back to scrolling when it cannot fit (small phones, AX text sizes).
@@ -224,7 +224,7 @@ struct FullScreenPlayerView: View {
         }
     }
 
-    /// Titles, scrubber, transport, and the secondary row.
+    /// Titles, scrubber, transport, volume, and the secondary row.
     private func controlsColumn(showsChapters: Bool) -> some View {
         VStack(spacing: 0) {
             titleBlock
@@ -235,7 +235,9 @@ struct FullScreenPlayerView: View {
             ChapterScrubberSection(observer: observer, tint: tint)
             Spacer(minLength: 12)
             PlayerTransportControls(observer: observer)
-            Spacer(minLength: 20)
+            Spacer(minLength: 8)
+            SystemVolumeSlider()
+            Spacer(minLength: 12)
             PlayerSecondaryControls(
                 observer: observer,
                 tint: tint,
