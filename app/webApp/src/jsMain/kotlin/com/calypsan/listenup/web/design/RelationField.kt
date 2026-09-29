@@ -95,7 +95,7 @@ fun RelationField(
                                 // is unusable by anyone who cannot see which chip they sit on.
                                 attr("aria-label", "Remove ${chip.label}")
                                 onClick { onRemove(chip) }
-                            }) { Text("×") }
+                            }) { Icon(WebIcon.X, size = CHIP_REMOVE_ICON_SIZE) }
                         }
                     }
                 }
@@ -167,3 +167,6 @@ fun RelationField(
         }
     }
 }
+
+/** The remove glyph inside a 20px chip button. */
+private const val CHIP_REMOVE_ICON_SIZE = 12

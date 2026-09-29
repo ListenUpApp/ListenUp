@@ -12,6 +12,8 @@ import com.calypsan.listenup.api.dto.organize.OrganizeSeriesPrefix
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
 import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.ModalDialog
@@ -183,7 +185,7 @@ private fun PreviewRow(entry: OrganizePreviewEntryDto) {
     val (before, after) = rowText(entry)
     Div(attrs = { classes("org-row") }) {
         Span(attrs = { classes("org-from") }) { Text(before) }
-        Span(attrs = { classes("org-arrow") }) { Text("→") }
+        Span(attrs = { classes("org-arrow") }) { Icon(WebIcon.ArrowRight, size = ORGANIZE_ARROW_SIZE) }
         Span(attrs = { classes("org-to") }) { Text(after) }
         if (entry.collisionResolved) {
             Span(attrs = { classes("org-clash") }) { Text("name taken") }
@@ -287,3 +289,6 @@ private const val VALUE_BUTTON = "button"
 private const val ATTR_DISABLED = "disabled"
 
 private const val PERCENT = 100
+
+/** The arrow between a book's current path and its destination, at the row's text size. */
+private const val ORGANIZE_ARROW_SIZE = 14

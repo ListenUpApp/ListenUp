@@ -255,6 +255,9 @@ class OrganizeTest :
 
             host.querySelectorAll(".org-row").length shouldBe 2
             host.querySelectorAll(".org-clash").length shouldBe 1
+            // The arrow between a path and its destination is the shared icon, not a typed glyph.
+            (host.querySelector(".org-arrow svg") != null) shouldBe true
+            host.querySelector(".org-arrow")!!.textContent.orEmpty().trim() shouldBe ""
             host.querySelector(".org-more").shouldBeNull()
         }
 

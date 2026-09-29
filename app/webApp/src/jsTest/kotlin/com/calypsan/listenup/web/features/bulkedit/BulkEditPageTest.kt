@@ -496,8 +496,6 @@ class BulkEditPageTest :
                 it.textContent
                     .orEmpty()
                     .trim()
-                    .removeSuffix("×")
-                    .trim()
             } shouldContainExactly
                 listOf("Neil Gaiman · Author", "Neil Gaiman · Narrator")
         }
