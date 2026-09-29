@@ -26,7 +26,11 @@ class V75MigrationTest :
     FunSpec({
         test("an attempt recorded before V75 becomes an AUDIBLE attempt, and a book can hold one per source") {
             val path =
-                Files.createTempFile("listenup-v75-", ".db").toFile().apply { deleteOnExit() }.absolutePath
+                Files
+                    .createTempFile("listenup-v75-", ".db")
+                    .toFile()
+                    .apply { deleteOnExit() }
+                    .absolutePath
             val ds = fileBackedTestDataSource("jdbc:sqlite:$path")
             MigrationRunner(path).migrate(upTo = 74)
             ds.execute("INSERT INTO libraries (id, name, created_at, updated_at) VALUES ('lib', 'Library', 0, 0)")
