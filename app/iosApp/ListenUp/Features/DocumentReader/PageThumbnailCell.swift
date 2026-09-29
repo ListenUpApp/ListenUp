@@ -24,6 +24,8 @@ struct PageThumbnailCell: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(format: String(localized: "book.reader_scrubber_page_label"), index + 1))
+        // The current page is marked only by a coral outline; say it (HIG, Accessibility).
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
     }
 
     @ViewBuilder

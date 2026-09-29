@@ -167,6 +167,7 @@ struct ChooseFoldersView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isCurrentSelected ? .isSelected : [])
     }
 
     // MARK: - Footer summary

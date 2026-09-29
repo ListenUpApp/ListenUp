@@ -89,6 +89,10 @@ struct BookChaptersSection: View {
         }
         .padding(.vertical, 11)
         .accessibilityElement(children: .combine)
+        // The current chapter is marked by coral and a glyph; VoiceOver gets it as state (HIG,
+        // Accessibility — don't rely on colour alone).
+        .accessibilityAddTraits(chapter.isCurrent ? .isSelected : [])
+        .accessibilityValue(chapter.isCurrent ? String(localized: "player.now_playing") : "")
     }
 }
 

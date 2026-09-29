@@ -125,6 +125,7 @@ private struct ServerRow: View {
         }
         .buttonStyle(.plain)
         .disabled(isConnecting)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).padding(.leading, 67)
         }
