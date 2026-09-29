@@ -472,6 +472,8 @@
     "detail_rating_external_a11y_one": "Rated %1$s out of 5 stars by 1 reader elsewhere",
     "detail_rating_sources_title": "Ratings",
     "detail_rating_source_row": "%1$s · %2$s",
+    "detail_rating_source_row_share": "%1$s · %2$s · %3$s · %4$s%",
+    "detail_rating_combined_from": "Combined from %1$s sources",
     "detail_rating_refresh": "Refresh ratings"
   },
   "series": {
@@ -1213,7 +1215,13 @@
     "rating_sources_hint": "Where the score on every book comes from. Switching one off hides its scores; switching it back on brings them back.",
     "rating_source_last_fetched": "Last fetched %1$s",
     "rating_source_never_fetched": "Not fetched yet",
-    "rating_source_error": "Last attempt failed: %1$s"
+    "rating_source_error": "Last attempt failed: %1$s",
+    "rating_source_paused": "Paused until %1$s: %2$s",
+    "rating_source_paused_plain": "Paused until %1$s",
+    "rating_source_not_configured": "Not set up on this server",
+    "rating_source_no_connection": "Connect a Hardcover account to enable",
+    "rating_source_unavailable": "Unavailable on this server",
+    "rating_source_using_connection": "Using %1$s's Hardcover account"
   },
   "import": {
     "title": "Import from Audiobookshelf",
@@ -1770,6 +1778,7 @@
     "stars_unrated": "Not rated",
     "source_audible": "Audible",
     "source_hardcover": "Hardcover",
-    "source_goodreads": "Goodreads"
+    "source_goodreads": "Goodreads",
+    "source_listeners": "Your listeners"
   }
 }

@@ -1621,6 +1621,66 @@
         }
       }
     },
+    "admin.rating_source_no_connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect a Hardcover account to enable"
+          }
+        }
+      }
+    },
+    "admin.rating_source_not_configured": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not set up on this server"
+          }
+        }
+      }
+    },
+    "admin.rating_source_paused": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused until %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "admin.rating_source_paused_plain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused until %1$@"
+          }
+        }
+      }
+    },
+    "admin.rating_source_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unavailable on this server"
+          }
+        }
+      }
+    },
+    "admin.rating_source_using_connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Using %1$@'s Hardcover account"
+          }
+        }
+      }
+    },
     "admin.rating_sources_hint": {
       "localizations": {
         "en": {
@@ -4331,6 +4391,16 @@
         }
       }
     },
+    "book.detail_rating_combined_from": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Combined from %1$@ sources"
+          }
+        }
+      }
+    },
     "book.detail_rating_edit": {
       "localizations": {
         "en": {
@@ -4477,6 +4547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "book.detail_rating_source_row_share": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ · %3$@ · %4$@%"
           }
         }
       }
@@ -14907,6 +14987,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hardcover"
+          }
+        }
+      }
+    },
+    "rating.source_listeners": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your listeners"
           }
         }
       }
