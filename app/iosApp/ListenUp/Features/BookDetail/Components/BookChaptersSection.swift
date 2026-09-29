@@ -23,7 +23,9 @@ struct BookChaptersSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Lazy: "All N" on a long audiobook is hundreds of rows, and an eager stack built every one
+        // of them on the tap (2026-09-29 iOS audit, performance).
+        LazyVStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.bottom, 8)
 
