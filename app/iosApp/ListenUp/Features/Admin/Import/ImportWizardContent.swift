@@ -29,7 +29,6 @@ struct ImportIntroContent: View {
                         .foregroundStyle(Color.luLabel2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
             Section {

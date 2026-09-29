@@ -345,6 +345,7 @@ struct MetadataSelectBody: View {
                 }
                 .contentShape(Rectangle())
             }
+            .foregroundStyle(Color.primary)
         }
     }
 

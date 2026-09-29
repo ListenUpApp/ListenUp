@@ -39,6 +39,8 @@ struct SelectableOptionRow: View {
             }
             .contentShape(Rectangle())
         }
+        // A list button tints its label with the accent; the option's words stay label-coloured.
+        .foregroundStyle(Color.primary)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
     }

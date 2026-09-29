@@ -89,7 +89,6 @@ private struct ContributorMetadataSearchView: View {
                         ) { observer.changeRegion($0) }
                     }
                 }
-                .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
 
@@ -173,6 +172,7 @@ private struct ContributorHitRowView: View {
             }
             .contentShape(Rectangle())
         }
+        .foregroundStyle(Color.primary)
     }
 }
 

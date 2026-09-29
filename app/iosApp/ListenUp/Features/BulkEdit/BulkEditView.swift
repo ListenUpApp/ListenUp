@@ -86,7 +86,6 @@ struct BulkEditView: View {
                     selectedCount: observer.requestedCount
                 )
                 .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
                 if let notice = BulkEditFormatting.notLoadedNotice(
                     bookCount: observer.bookCount,
                     requestedCount: observer.requestedCount

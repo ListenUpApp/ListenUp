@@ -165,6 +165,7 @@ struct LibrarySettingsView: View {
                     }
                 }
             }
+            .foregroundStyle(Color.primary)
             .disabled(model.isScanning)
         }
     }

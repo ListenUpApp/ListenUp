@@ -66,6 +66,8 @@ struct NotificationsView: View {
         } label: {
             rowLabel(row)
         }
+        // A list button tints its label with the accent; the notification's words stay label-coloured.
+        .foregroundStyle(Color.primary)
     }
 
     private func rowLabel(_ row: NotificationRowModel) -> some View {

@@ -39,7 +39,6 @@ struct MetadataFindView: View {
                         ) { observer.changeRegion($0) }
                     }
                 }
-                .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
 
@@ -197,6 +196,8 @@ struct MetadataSearchResultRow: View {
             }
             .contentShape(Rectangle())
         }
+        // A list button tints its label with the accent; the match's words stay label-coloured.
+        .foregroundStyle(Color.primary)
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 }

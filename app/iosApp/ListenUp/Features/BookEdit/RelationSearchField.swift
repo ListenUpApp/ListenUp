@@ -108,6 +108,7 @@ struct RelationSearchField: View {
             }
             .contentShape(Rectangle())
         }
+        .foregroundStyle(Color.primary)
         .accessibilityLabel(String(format: String(localized: "common.add_name"), result.name))
     }
 

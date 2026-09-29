@@ -102,6 +102,7 @@ struct MetadataChaptersView: View {
             }
             .contentShape(Rectangle())
         }
+        .foregroundStyle(Color.primary)
         .accessibilityAddTraits(row.isSelected ? .isSelected : [])
     }
 

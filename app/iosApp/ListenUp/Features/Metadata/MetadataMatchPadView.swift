@@ -82,7 +82,6 @@ struct MetadataMatchPadView<Destination: View>: View {
                         }
                     }
                 }
-                .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
 
