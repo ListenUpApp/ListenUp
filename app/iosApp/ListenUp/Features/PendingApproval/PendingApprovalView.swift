@@ -131,6 +131,7 @@ struct PendingApprovalView: View {
 // MARK: - Pending spinner (indeterminate clock)
 
 private struct PendingSpinner: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var spin = false
 
     var body: some View {
@@ -147,6 +148,9 @@ private struct PendingSpinner: View {
         }
         .frame(width: 64, height: 64)
         .onAppear {
+            // Reduce Motion: the arc holds still — the clock glyph and the copy already say
+            // "waiting" (HIG, Motion; Accessibility).
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) { spin = true }
         }
         .accessibilityHidden(true)
