@@ -61,6 +61,7 @@ import com.calypsan.listenup.web.features.home.OpenHome
 import com.calypsan.listenup.web.features.home.fixedHome
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchSession
@@ -96,6 +97,8 @@ import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.web.nav.Router
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
+import androidx.compose.runtime.CompositionLocalProvider
+import com.calypsan.listenup.web.design.LocalCompositionProbe
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.channels.Channel
@@ -224,6 +227,8 @@ internal fun mountAt(
     openUpload: OpenUpload = fixedUpload(UploadBooksUiState.Idle),
     openOrganize: OpenOrganize = fixedOrganize(OrganizeSettingsUiState.Loading),
     onToast: (String) -> Unit = {},
+    openPlayback: OpenPlayback = fixedPlayback(),
+    compositionProbe: (String) -> Unit = {},
 ): Triple<HTMLElement, Router, Composition> {
     // A backstop for the ~60 callers that destructure only `(host, router)` and never dispose: an
     // orphaned shell keeps its palette's window key listener, and once the palette became a modal
@@ -238,64 +243,66 @@ internal fun mountAt(
     document.body!!.appendChild(host)
     val composition =
         renderComposable(root = host) {
-            WebAppRoot(
-                router = router,
-                openBookDetail = openBookDetail,
-                openBookEdit = openBookEdit,
-                openChapterEditor = openChapterEditor,
-                openMetadata = openMetadata,
-                openContributorDetail = openContributorDetail,
-                openContributorBooks = openContributorBooks,
-                openContributorEdit = openContributorEdit,
-                openContributorMetadata = openContributorMetadata,
-                openSeriesDetail = openSeriesDetail,
-                openSeriesEdit = openSeriesEdit,
-                openNotifications = openNotifications,
-                openNotificationPrefs = openNotificationPrefs,
-                openProfile = openProfile,
-                openEditProfile = openEditProfile,
-                openHome = openHome,
-                openDiscover = fixedDiscover(),
-                openSettings = openSettings,
-                openLicences = openLicences,
-                openDevices = fixedDevices(),
-                openHardcover = openHardcover,
-                openAdmin = openAdmin,
-                admin =
-                    AdminSessions(
-                        librarySettings = openLibrarySettings,
-                        inbox = openAdminInbox,
-                        serverSettings = openServerSettings,
-                        categories = openCategories,
-                        collections = openCollections,
-                        collectionDetail = openCollectionDetail,
-                        backups = openBackups,
-                        restore = openRestore,
-                        imports = openImports,
-                        importFlow = openImportFlow,
-                        createInvite = openCreateInvite,
-                        userDetail = openUserDetail,
-                        upload = openUpload,
-                        organize = openOrganize,
-                    ),
-                openShelfDetail = fixedShelfDetail(),
-                openShelfEdit = fixedShelfEdit(),
-                openLibrary = openLibrary,
-                openSearch = openSearch,
-                openMultiSelect = openMultiSelect,
-                openBulkEdit = openBulkEdit,
-                openBrowseFacet = openBrowseFacet,
-                openGenreDestination = openGenreDestination,
-                openBookReaders = openBookReaders,
-                openBookRatings = openBookRatings,
-                openSeeAll = openSeeAll,
-                openDeadLetters = openDeadLetters,
-                onToast = onToast,
-                openNotificationBell = openNotificationBell,
-                openPlayback = fixedPlayback(),
-                observeIsAdmin = { isAdmin },
-                observeCurrentUserId = { currentUserId },
-            )
+            CompositionLocalProvider(LocalCompositionProbe provides compositionProbe) {
+                WebAppRoot(
+                    router = router,
+                    openBookDetail = openBookDetail,
+                    openBookEdit = openBookEdit,
+                    openChapterEditor = openChapterEditor,
+                    openMetadata = openMetadata,
+                    openContributorDetail = openContributorDetail,
+                    openContributorBooks = openContributorBooks,
+                    openContributorEdit = openContributorEdit,
+                    openContributorMetadata = openContributorMetadata,
+                    openSeriesDetail = openSeriesDetail,
+                    openSeriesEdit = openSeriesEdit,
+                    openNotifications = openNotifications,
+                    openNotificationPrefs = openNotificationPrefs,
+                    openProfile = openProfile,
+                    openEditProfile = openEditProfile,
+                    openHome = openHome,
+                    openDiscover = fixedDiscover(),
+                    openSettings = openSettings,
+                    openLicences = openLicences,
+                    openDevices = fixedDevices(),
+                    openHardcover = openHardcover,
+                    openAdmin = openAdmin,
+                    admin =
+                        AdminSessions(
+                            librarySettings = openLibrarySettings,
+                            inbox = openAdminInbox,
+                            serverSettings = openServerSettings,
+                            categories = openCategories,
+                            collections = openCollections,
+                            collectionDetail = openCollectionDetail,
+                            backups = openBackups,
+                            restore = openRestore,
+                            imports = openImports,
+                            importFlow = openImportFlow,
+                            createInvite = openCreateInvite,
+                            userDetail = openUserDetail,
+                            upload = openUpload,
+                            organize = openOrganize,
+                        ),
+                    openShelfDetail = fixedShelfDetail(),
+                    openShelfEdit = fixedShelfEdit(),
+                    openLibrary = openLibrary,
+                    openSearch = openSearch,
+                    openMultiSelect = openMultiSelect,
+                    openBulkEdit = openBulkEdit,
+                    openBrowseFacet = openBrowseFacet,
+                    openGenreDestination = openGenreDestination,
+                    openBookReaders = openBookReaders,
+                    openBookRatings = openBookRatings,
+                    openSeeAll = openSeeAll,
+                    openDeadLetters = openDeadLetters,
+                    onToast = onToast,
+                    openNotificationBell = openNotificationBell,
+                    openPlayback = openPlayback,
+                    observeIsAdmin = { isAdmin },
+                    observeCurrentUserId = { currentUserId },
+                )
+            }
         }
     liveShells += composition
     return Triple(host, router, composition)

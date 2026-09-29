@@ -90,7 +90,7 @@ import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
-import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.discover.DiscoverPage
 import com.calypsan.listenup.web.features.discover.OpenDiscover
@@ -136,6 +136,7 @@ import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
 import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
@@ -315,6 +316,7 @@ fun WebAppRoot(
             router.navigate(Route(segments))
         },
     ) {
+        LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
         AccountMenu(
             onSignOut = onSignOut,
             onOpenProfile =
@@ -393,28 +395,9 @@ fun WebAppRoot(
             message = playback.error.collectAsState().value,
             onDismiss = playback.onDismissError,
         )
-        TransportBar(
-            state = playback.state.collectAsState().value,
-            onPlayPause = playback.onPlayPause,
-            onSeek = playback.onSeek,
-            onSkipBack = playback.onSkipBack,
-            onSkipForward = playback.onSkipForward,
-            onSetSpeed = playback.onSetSpeed,
-            onResetSpeed = playback.onResetSpeed,
-            defaultSpeed = playback.defaultSpeed.collectAsState().value,
-            chapters = playback.chapters.collectAsState().value,
-            currentChapterIndex = playback.currentChapterIndex.collectAsState().value,
-            onSeekToChapter = playback.onSeekToChapter,
-            sleepTimer = playback.sleepTimer.collectAsState().value,
-            onSetSleepTimer = playback.onSetSleepTimer,
-            onCancelSleepTimer = playback.onCancelSleepTimer,
-            onExtendSleepTimer = playback.onExtendSleepTimer,
-            volumeBoostDb = playback.volumeBoostDb.collectAsState().value,
-            defaultBoostDb = playback.defaultBoostDb.collectAsState().value,
-            boostUnavailable = playback.boostUnavailable.collectAsState().value,
-            onSetBoost = playback.onSetBoost,
-            onResetBoost = playback.onResetBoost,
-            nowPlaying = playback.nowPlaying.collectAsState().value,
+        // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
+        TransportBarHost(
+            playback = playback,
             // The expanded player's three destinations. `navigate`, not `replace`: leaving the
             // player for a book is a page change, and Back should return to where you were.
             onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
@@ -2942,6 +2925,9 @@ private fun routeFor(facet: LibraryFacet): Route =
 
 /** The shell's content region — the thing a page change fades. See [fadePageIn]. */
 private const val SHELL_MAIN = ".shell-main"
+
+/** What the shell's content lambda reports to [LocalCompositionProbe] each time it runs. */
+internal const val SHELL_CONTENT_PROBE = "shell-content"
 
 private const val HOME_KEY = "home"
 
