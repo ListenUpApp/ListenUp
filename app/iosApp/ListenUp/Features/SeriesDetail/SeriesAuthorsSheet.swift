@@ -8,7 +8,6 @@ struct SeriesAuthorsSheet: View {
     let authors: [SeriesAuthor]
     let onClose: () -> Void
 
-
     var body: some View {
         NavigationStack {
             ScrollView {

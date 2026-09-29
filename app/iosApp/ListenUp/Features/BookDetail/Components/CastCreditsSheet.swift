@@ -12,7 +12,6 @@ struct CastCreditsSheet: View {
     /// navigate there rather than inside this sheet so a tapped cast member opens their full page.
     @Environment(\.navigateToContributor) private var navigateToContributor
 
-
     private var members: (authors: [CastMember], narrators: [CastMember], all: [CastMember]) {
         func map(_ c: BookContributor) -> CastMember {
             CastMember(id: c.id, name: c.name, roles: Array(c.roles))

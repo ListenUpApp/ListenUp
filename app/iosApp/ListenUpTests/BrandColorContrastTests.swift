@@ -30,8 +30,8 @@ struct BrandColorContrastTests {
     @Test("the Color Set carries the decided values")
     func decidedValues() {
         func hex(_ color: SRGBColor) -> String {
-            String(format: "%02lX%02lX%02lX",
-                   Int((color.red * 255).rounded()), Int((color.green * 255).rounded()), Int((color.blue * 255).rounded()))
+            let channels = [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
+            return String(format: "%02lX%02lX%02lX", channels[0], channels[1], channels[2])
         }
         #expect(hex(coral(lightDefault)) == "D73812")
         #expect(hex(coral(darkDefault)) == "FF6A3D")

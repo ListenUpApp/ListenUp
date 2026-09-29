@@ -62,7 +62,10 @@ struct BookCoverCard: View {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 22))
                             .symbolRenderingMode(.palette)
-                            .foregroundStyle(isSelected ? Color.luOnTint : .white, isSelected ? Color.listenUpOrange : Color.black.opacity(0.35))
+                            .foregroundStyle(
+                                isSelected ? Color.luOnTint : .white,
+                                isSelected ? Color.listenUpOrange : Color.black.opacity(0.35)
+                            )
                             .padding(6)
                             .accessibilityLabel(Text(isSelected
                                 ? String(localized: "common.selected")
