@@ -91,7 +91,9 @@ struct SleepTimerMenu<Label: View>: View {
         .accessibilityLabel(String(localized: "player.sleep_timer"))
         // The time left (or "End of chapter") while a timer runs, "Off" otherwise — the moon
         // glyph's fill alone is state by colour and shape only.
-        .accessibilityValue(observer.sleepTimerActive ? observer.sleepTimerLabel : String(localized: "player.sleep_off"))
+        .accessibilityValue(
+            observer.sleepTimerActive ? observer.sleepTimerLabel : String(localized: "player.sleep_off")
+        )
     }
 
     private var selection: Binding<SleepTimerOption?> {

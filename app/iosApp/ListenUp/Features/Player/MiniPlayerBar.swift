@@ -145,7 +145,11 @@ struct MiniPlayerBar: View {
 
     private var cover: some View {
         let side: CGFloat = isInline ? 28 : 36
-        return BookCoverImage(bookId: observer.currentBookId, coverPath: observer.coverPath, coverHash: observer.coverHash)
+        return BookCoverImage(
+            bookId: observer.currentBookId,
+            coverPath: observer.coverPath,
+            coverHash: observer.coverHash
+        )
             .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .matchedTransitionSource(id: PlayerTransition.coverID, in: transitionNamespace) { source in

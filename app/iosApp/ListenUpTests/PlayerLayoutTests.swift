@@ -20,13 +20,16 @@ struct PlayerLayoutTests {
     /// Pro Max landscape reports a REGULAR width, which used to buy it the iPad two-pane layout in
     /// ~420pt of height. Short-and-wide puts the cover beside the controls instead.
     @Test func phoneLandscapePutsTheCoverBesideTheControls() {
-        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 832, height: 419), isAccessibilitySize: false) == .compactHeight)
-        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 832, height: 419), isAccessibilitySize: true) == .compactHeight)
+        let landscape = CGSize(width: 832, height: 419)
+        #expect(PlayerLayoutMode.resolve(size: landscape, isAccessibilitySize: false) == .compactHeight)
+        #expect(PlayerLayoutMode.resolve(size: landscape, isAccessibilitySize: true) == .compactHeight)
     }
 
     @Test func iPadFullScreenShowsTheChapterPane() {
-        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 1376, height: 990), isAccessibilitySize: false) == .regular)
-        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 834, height: 1150), isAccessibilitySize: false) == .regular)
+        let fullScreen = CGSize(width: 1376, height: 990)
+        let portrait = CGSize(width: 834, height: 1150)
+        #expect(PlayerLayoutMode.resolve(size: fullScreen, isAccessibilitySize: false) == .regular)
+        #expect(PlayerLayoutMode.resolve(size: portrait, isAccessibilitySize: false) == .regular)
     }
 
     /// A third-width Split View is phone-narrow, however tall the iPad is.
