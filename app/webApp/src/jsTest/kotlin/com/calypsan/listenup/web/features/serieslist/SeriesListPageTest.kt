@@ -173,7 +173,7 @@ class SeriesListPageTest :
         test("the header and facets survive a state with no data to show") {
             val root = seriesPage(LibraryUiState.Loading)
 
-            (root.querySelector(".empty p") as HTMLElement).textContent shouldBe "Loading…"
+            (root.querySelector(".loading") as HTMLElement).textContent shouldBe "Loading…"
             root.querySelector(".facet-row") shouldNotBe null
             (root.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Series"
             // Sorting stays with the loaded branch: offering to reorder nothing does nothing.

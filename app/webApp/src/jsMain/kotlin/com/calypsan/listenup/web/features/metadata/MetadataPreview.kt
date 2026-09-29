@@ -10,6 +10,8 @@ import com.calypsan.listenup.client.presentation.metadata.CoverEntry
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import com.calypsan.listenup.client.presentation.metadata.PreviewLoadState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
@@ -17,7 +19,6 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -65,10 +66,11 @@ internal fun MetadataPreviewPhase(
     }
 
     if (!preview.hasAnyData()) {
-        Div(attrs = { classes("mdx-empty") }) {
-            H2 { Text("No metadata available") }
-            P { Text("Try selecting a different region above.") }
-        }
+        EmptyState(
+            title = "No metadata available",
+            body = "Try selecting a different region above.",
+            look = EmptyLook.Inset,
+        )
         return
     }
 

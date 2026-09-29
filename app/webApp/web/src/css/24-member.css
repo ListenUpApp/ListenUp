@@ -5,7 +5,6 @@
 .luw .usr-skel { height: 200px; }
 .luw .usr-head { display: flex; align-items: center; gap: 14px; }
 
-.luw .usr-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
 .luw .usr-note { margin: 0 0 10px; font-size: var(--fs-small); color: var(--ink-3); }
 .luw .usr-err { margin: 10px 0 0; font-size: var(--fs-small); font-weight: 600; color: var(--coral-text); }
 /* The member's name on the People page is the way into their page — a control, so it says so. */

@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
@@ -16,7 +17,6 @@ import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
@@ -67,9 +67,7 @@ fun BackupsPage(
             }
 
             is AdminBackupUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Backups can't be shown") }
-                    P { Text(state.error.message) }
+                EmptyState(title = "Backups can't be shown", body = state.error.message) {
                     Button(attrs = {
                         classes("btn-c")
                         attr("type", VALUE_BUTTON)
@@ -149,10 +147,10 @@ private fun ReadyContent(
     }
 
     if (state.backups.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text("No backups yet") }
-            P { Text("A backup is a single file holding your library's database, and optionally its covers.") }
-        }
+        EmptyState(
+            title = "No backups yet",
+            body = "A backup is a single file holding your library's database, and optionally its covers.",
+        )
     } else {
         Div(attrs = { classes("bkp-list") }) {
             state.backups.forEach { backup ->

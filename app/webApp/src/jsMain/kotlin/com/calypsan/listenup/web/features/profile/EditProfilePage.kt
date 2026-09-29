@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
@@ -21,7 +22,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.onSubmit
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
@@ -78,10 +78,7 @@ fun EditProfilePage(
             }
 
             is EditProfileUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("This profile can't be edited") }
-                    P { Text(state.message) }
-                }
+                EmptyState(title = "This profile can't be edited", body = state.message)
             }
 
             is EditProfileUiState.Ready -> {

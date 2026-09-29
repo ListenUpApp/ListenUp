@@ -256,7 +256,7 @@ class BulkEditPageTest :
         test("the preview names its resting state rather than showing an empty panel") {
             val host = page(editing())
 
-            host.querySelector(".bke-empty")?.textContent.shouldNotBeNull() shouldContain "Nothing to change yet"
+            host.querySelector(".empty.is-inset")?.textContent.shouldNotBeNull() shouldContain "Nothing to change yet"
             host.querySelectorAll(".bke-row").asList().size shouldBe 0
         }
 

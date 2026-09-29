@@ -9,6 +9,8 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
@@ -16,10 +18,8 @@ import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -71,10 +71,7 @@ fun LibrarySettingsPage(
             }
 
             is LibrarySettingsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("These settings can't be loaded") }
-                    P { Text(state.error.message) }
-                }
+                EmptyState(title = "These settings can't be loaded", body = state.error.message)
             }
 
             LibrarySettingsUiState.Loading -> {
@@ -135,9 +132,7 @@ private fun ReadyContent(
         if (state.library.folders.isEmpty()) {
             // Reachable: every folder can be removed. A library watching nothing is not broken,
             // but it is why the app looks empty, so it says so rather than showing a bare panel.
-            Div(attrs = { classes("lset-empty") }) {
-                P { Text("This library watches no folders, so there is nothing to scan.") }
-            }
+            EmptyState(title = "This library watches no folders, so there is nothing to scan.", look = EmptyLook.Inline)
         } else {
             Div(attrs = { classes("lset-list") }) {
                 state.library.folders.forEach { folder ->
@@ -250,7 +245,7 @@ private fun FolderBrowser(
             }
 
             state.browserEntries.isEmpty() -> {
-                Div(attrs = { classes("lset-empty") }) { P { Text("Nothing in this folder.") } }
+                EmptyState(title = "Nothing in this folder.", look = EmptyLook.Inline)
             }
 
             else -> {

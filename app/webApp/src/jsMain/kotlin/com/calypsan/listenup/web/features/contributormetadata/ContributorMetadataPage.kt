@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -20,7 +22,6 @@ import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
@@ -118,7 +119,7 @@ private fun SearchPhase(
 
     when (val load = state.loadState) {
         ContributorSearchLoadState.Idle -> {
-            P(attrs = { classes(NONE) }) { Text("Enter a name to search.") }
+            EmptyState(title = "Enter a name to search.", look = EmptyLook.Inline)
         }
 
         ContributorSearchLoadState.InFlight -> {
@@ -131,7 +132,7 @@ private fun SearchPhase(
 
         is ContributorSearchLoadState.Loaded -> {
             if (load.results.isEmpty()) {
-                P(attrs = { classes(NONE) }) { Text("No contributors match that search.") }
+                EmptyState(title = "No contributors match that search.", look = EmptyLook.Inline)
             } else {
                 Div(attrs = {
                     classes("cmx-hits")
@@ -176,10 +177,11 @@ private fun PreviewPhase(
         // cross-region fetch with an empty HTTP-200 shell, and the server refuses to apply one —
         // so the page says which catalogue was empty and offers the region switch that fixes it.
         ContributorPreviewLoadState.Missing -> {
-            Div(attrs = { classes("cmx-empty") }) {
-                H2 { Text("No profile in this catalog") }
-                P { Text("No profile data in the ${state.region.displayName} catalog. Try a different region:") }
-            }
+            EmptyState(
+                title = "No profile in this catalog",
+                body = "No profile data in the ${state.region.displayName} catalog. Try a different region:",
+                look = EmptyLook.Inset,
+            )
             RegionSelector(state.region, onRegion)
             ChangeMatch(onClearSelection)
         }
@@ -324,8 +326,6 @@ private const val ATTR_TYPE = "type"
 private const val BTN_SECONDARY = "btn-o"
 
 private const val VALUE_BUTTON = "button"
-
-private const val NONE = "cmx-none"
 
 private const val SMALL_ICON = 16
 

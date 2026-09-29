@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookedit
 
+import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.PageHeader
 import kotlin.js.Date
 import androidx.compose.runtime.Composable
@@ -62,7 +63,7 @@ fun BookEditPage(
         )
 
         if (state.isLoading) {
-            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            LoadingState()
             return@Div
         }
 

@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.dto.scan.ScanIssueReason
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.InboxBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.web.design.MenuAction
@@ -22,7 +23,6 @@ import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -75,9 +75,7 @@ fun AdminInboxPage(
             }
 
             is AdminInboxUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("The inbox can't be shown") }
-                    P { Text(state.message) }
+                EmptyState(title = "The inbox can't be shown", body = state.message) {
                     Button(attrs = {
                         classes("btn-c")
                         attr("type", VALUE_BUTTON)
@@ -141,10 +139,10 @@ private fun ReadyContent(
     // Both halves absent is the good outcome, not a failure — say so rather than trailing off
     // after the heading and looking like the page failed to finish loading.
     if (state.isEmpty) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text("Inbox empty") }
-            P { Text("Newly scanned books will appear here, and so will anything the scan could not make sense of.") }
-        }
+        EmptyState(
+            title = "Inbox empty",
+            body = "Newly scanned books will appear here, and so will anything the scan could not make sense of.",
+        )
     }
 
     if (state.hasSelection) {

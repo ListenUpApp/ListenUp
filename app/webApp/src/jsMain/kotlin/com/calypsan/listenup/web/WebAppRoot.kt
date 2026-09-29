@@ -51,6 +51,7 @@ import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.OpenContributorEdit
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
@@ -199,8 +200,6 @@ import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
-import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
@@ -2860,9 +2859,7 @@ private fun animatedLibrary(session: LibrarySession): LibraryUiState {
 private fun PagePlaceholder(key: String) {
     val label = (PRIMARY_NAV.entries + FOOTER_NAV).firstOrNull { it.key == key }?.label ?: key
     PageHeader(title = label)
-    Div(attrs = { classes("empty") }) {
-        P { Text("This page is not built yet.") }
-    }
+    EmptyState(title = "This page is not built yet.")
 }
 
 /** `sel=9,10` → the selected chapter numbers; junk entries are dropped rather than crashing. */

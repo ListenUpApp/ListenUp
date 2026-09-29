@@ -161,7 +161,7 @@ class BrowsePagesTest :
         test("a facet with no books says so instead of leaving a hero over nothing") {
             val host = facetPage(facetReady(books = emptyList(), bookCount = 0))
 
-            text(host, ".brw-none") shouldBe "No books here yet."
+            text(host, ".empty-line") shouldBe "No books here yet."
             host.querySelector(".lib-grid").shouldBeNull()
         }
 
@@ -179,7 +179,7 @@ class BrowsePagesTest :
             var left = 0
             val host = facetPage(BrowseFacetUiState.NotFound(FacetKind.Tag), onOpenLibrary = { left++ })
 
-            text(host, ".brw-empty h2") shouldBe "This tag is gone"
+            text(host, ".empty h2") shouldBe "This tag is gone"
             button(host, "Back to Library").shouldNotBeNull().click()
             awaitFrame()
 
@@ -190,7 +190,7 @@ class BrowsePagesTest :
             val host = facetPage(BrowseFacetUiState.Loading)
 
             host.querySelector(".brw-skel").shouldNotBeNull()
-            host.querySelector(".brw-none").shouldBeNull()
+            host.querySelector(".empty-line").shouldBeNull()
         }
 
         test("a genre wears the accent its own name derives") {
@@ -291,7 +291,7 @@ class BrowsePagesTest :
             var left = 0
             val host = genrePage(GenreDestinationUiState.NotFound, onOpenLibrary = { left++ })
 
-            text(host, ".brw-empty h2") shouldBe "This genre is gone"
+            text(host, ".empty h2") shouldBe "This genre is gone"
             button(host, "Back to Library").shouldNotBeNull().click()
             awaitFrame()
 
@@ -301,6 +301,6 @@ class BrowsePagesTest :
         test("a genre with no books in scope says so rather than showing a bare hero") {
             val host = genrePage(genreReady(books = emptyList(), bookCount = 0))
 
-            text(host, ".brw-none") shouldBe "No books here yet."
+            text(host, ".empty-line") shouldBe "No books here yet."
         }
     })

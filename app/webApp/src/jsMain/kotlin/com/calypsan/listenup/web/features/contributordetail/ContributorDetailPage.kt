@@ -2,6 +2,8 @@ package com.calypsan.listenup.web.features.contributordetail
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,11 +24,9 @@ import com.calypsan.listenup.web.design.tintGradient
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.PageHeader
@@ -106,7 +106,7 @@ fun ContributorDetailPage(
 
             ContributorDetailUiState.Loading, ContributorDetailUiState.Idle -> {
                 PageHeader(title = crumb(state), pending = true)
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                LoadingState()
             }
         }
     }
@@ -125,9 +125,7 @@ private fun WayBack(
     body: String,
     onOpenContributors: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H2 { Text(heading) }
-        P { Text(body) }
+    EmptyState(title = heading, body = body) {
         Button(attrs = {
             classes("btn-c")
             attr("type", BUTTON_VALUE)

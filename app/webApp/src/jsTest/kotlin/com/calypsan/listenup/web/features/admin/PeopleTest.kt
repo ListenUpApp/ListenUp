@@ -357,7 +357,7 @@ class PeopleTest :
         test("a member who could not be loaded is an error, not an empty shell") {
             val host = userPage(UserDetailUiState.Error(InternalError(debugInfo = "boom")))
 
-            text(host, ".usr-none").shouldNotBeNull()
+            text(host, ".empty").shouldNotBeNull()
             host.querySelector(".sw-in").shouldBeNull()
         }
 

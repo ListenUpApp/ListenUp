@@ -5,6 +5,8 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -12,8 +14,6 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.library.VirtualBookGrid
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -187,7 +187,7 @@ private fun BookGrid(
     onOpenBook: (String) -> Unit,
 ) {
     if (books.isEmpty()) {
-        P(attrs = { classes("brw-none") }) { Text("No books here yet.") }
+        EmptyState(title = "No books here yet.", look = EmptyLook.Inline)
         return
     }
     // Windowed like the library: a broad genre with sub-genres included is most of a library, and
@@ -202,9 +202,10 @@ private fun Missing(
     onOpenLibrary: () -> Unit,
 ) {
     PageHeader(title = what)
-    Div(attrs = { classes("brw-empty") }) {
-        H2 { Text("This ${what.lowercase()} is gone") }
-        P { Text("It was removed, or the link is older than your library.") }
+    EmptyState(
+        title = "This ${what.lowercase()} is gone",
+        body = "It was removed, or the link is older than your library.",
+    ) {
         Button(attrs = {
             classes("btn-c")
             attr("type", "button")

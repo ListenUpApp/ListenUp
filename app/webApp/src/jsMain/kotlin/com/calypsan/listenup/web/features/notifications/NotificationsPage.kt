@@ -5,13 +5,12 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.presentation.notifications.NotificationsUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -51,10 +50,7 @@ fun NotificationsPage(
             }
 
             NotificationsUiState.Empty -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Nothing waiting") }
-                    P { Text("Invitations and account news land here.") }
-                }
+                EmptyState(title = "Nothing waiting", body = "Invitations and account news land here.")
             }
 
             NotificationsUiState.Loading -> {

@@ -175,7 +175,7 @@ class ContributorBooksPageTest :
         test("loading says so and still offers the breadcrumb out") {
             val root = booksPage(ContributorBooksUiState.Loading)
 
-            (root.querySelector(".empty p") as HTMLElement).textContent shouldBe "Loading…"
+            (root.querySelector(".loading") as HTMLElement).textContent shouldBe "Loading…"
             root.querySelector(".crumb") shouldNotBe null
         }
 

@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.ratings.RatingsPanel
 import com.calypsan.listenup.web.features.readers.ReadersPanel
@@ -26,7 +27,6 @@ import com.calypsan.listenup.web.design.TabItem
 import com.calypsan.listenup.web.design.TabPanel
 import com.calypsan.listenup.web.design.Tabs
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -141,7 +141,7 @@ fun BookDetailPage(
                 // A state that can't show what was asked for still owes the reader somewhere to
                 // go. Library is the only honest destination: web sync is unwritten, so a "sync
                 // this browser" button would be a control with nothing behind it.
-                EmptyState(WebIcon.Book, heading, body) {
+                EmptyState(title = heading, body = body, icon = WebIcon.Book) {
                     Button(attrs = {
                         classes("btn-c")
                         onClick { onOpenLibrary() }
@@ -532,26 +532,6 @@ private fun explain(error: AppError): Pair<String, String> =
         "This book can't be shown" to error.message
     }
 
-/**
- * The shape every state with no book takes: a mark, what happened, and — when there is somewhere
- * honest to go — the way out. The `.empty` rule in the sheet has always carried an `.ico` slot;
- * drawing it is what turns a bare sentence into a page.
- */
-@Composable
-private fun EmptyState(
-    icon: WebIcon,
-    heading: String,
-    body: String,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Div(attrs = { classes("empty") }) {
-        Div(attrs = { classes("ico") }) { Icon(icon, size = ICON_SIZE) }
-        H2 { Text(heading) }
-        P { Text(body) }
-        action?.let { it() }
-    }
-}
-
 @Composable
 internal fun PaneHint(text: String) {
     P(attrs = {
@@ -583,8 +563,6 @@ private const val COVER_SIZE = 180
 private const val COVER_RUNG = 360
 
 private const val COVER_RADIUS = 16
-
-private const val ICON_SIZE = 24
 
 /**
  * What the Play button says.

@@ -17,12 +17,7 @@
 .luw .brw-subs { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
 .luw .brw-sub { gap: var(--sp-8); }
 .luw .brw-sub-n { font-family: var(--mono); font-size: var(--fs-caption); color: var(--ink-3); }
-/* ⛔ An empty facet is not a broken page — it is what a tag looks like the moment its last book
-   loses it. It says so in words rather than leaving a hero standing over nothing. */
-.luw .brw-none { margin: 0; padding: 28px 0; font-size: 0.9rem; color: var(--ink-3); }
-.luw .brw-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 40px 0; }
-.luw .brw-empty h2 { margin: 0; font-size: var(--fs-h2); font-weight: 750; color: var(--ink); }
-.luw .brw-empty p { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+
 @media (max-width: 639px) {
 
   .luw .brw-icon { width: 46px; height: 46px; border-radius: 14px; }

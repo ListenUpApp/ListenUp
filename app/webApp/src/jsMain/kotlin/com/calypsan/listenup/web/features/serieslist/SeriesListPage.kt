@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SortControl
@@ -14,10 +16,8 @@ import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -60,11 +60,11 @@ fun SeriesListPage(
 
     when (state) {
         is LibraryUiState.Loading -> {
-            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            LoadingState()
         }
 
         is LibraryUiState.Error -> {
-            Div(attrs = { classes("empty") }) { P { Text(state.message) } }
+            EmptyState(title = "Your library can't be shown", body = state.message)
         }
 
         is LibraryUiState.Loaded -> {
@@ -79,18 +79,15 @@ private fun LoadedSeries(
     onOpenSeries: (String) -> Unit,
 ) {
     if (state.series.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text(if (state.isBuildingInitialLibrary) "Still reading your library" else "No series yet") }
-            P {
-                Text(
-                    if (state.isBuildingInitialLibrary) {
-                        "Series appear as the scan works through your books."
-                    } else {
-                        "Books grouped into a series will show up here."
-                    },
-                )
-            }
-        }
+        EmptyState(
+            title = if (state.isBuildingInitialLibrary) "Still reading your library" else "No series yet",
+            body =
+                if (state.isBuildingInitialLibrary) {
+                    "Series appear as the scan works through your books."
+                } else {
+                    "Books grouped into a series will show up here."
+                },
+        )
         return
     }
 

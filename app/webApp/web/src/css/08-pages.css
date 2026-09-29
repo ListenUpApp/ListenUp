@@ -72,7 +72,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .lsetup { width: 100%; max-width: 640px; margin: 0 auto; padding: 40px var(--sp-24); display: flex; flex-direction: column; gap: var(--sp-16); }
 
 .luw .lsetup-skel { height: 16rem; border-radius: var(--r-lg); }
-.luw .lsetup-empty { padding: 2rem 1rem; text-align: center; color: var(--ink-2); font-size: 0.9rem; }
 
 .luw .lsetup-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; }
 .luw .lsetup-err-t { flex: 1; min-width: 0; }
@@ -170,7 +169,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .lset { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: var(--sp-16); }
 
 .luw .lset-skel, .luw .lset-browse-skel { height: 12rem; border-radius: var(--r-lg); }
-.luw .lset-empty { padding: 1.4rem 0.4rem; color: var(--ink-2); font-size: 0.9rem; }
+
 .luw .lset-err { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; }
 .luw .lset-err-t { flex: 1; min-width: 0; }
 .luw .lset-err-x { flex: none; width: 26px; height: 26px; padding: 0; border: none; border-radius: var(--r-sm); background: transparent; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
@@ -230,7 +229,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ntf-when { flex: none; font-size: var(--fs-small); color: var(--ink-3); white-space: nowrap; }
 .luw .adm-section { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .adm-section-h { margin: 0; font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
-.luw .adm-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+
 .luw .adm-row {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   padding: 0.8rem 1.1rem; border-radius: 14px;
@@ -260,7 +259,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .dev-skel { height: 12rem; border-radius: var(--r-lg); }
 .luw .dev-section { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .dev-section-h { margin: 0; font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
-.luw .dev-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+
 .luw .dev-card {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   padding: 0.9rem 1.1rem; border-radius: 14px;
@@ -734,7 +733,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cdet { width: 100%; max-width: 760px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
 
 .luw .cdet-hint { margin: 0; font-size: 0.84rem; color: var(--ink-3); line-height: 1.5; }
-.luw .cdet-none { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
 .luw .cdet-sec-act { display: flex; justify-content: flex-end; }
 .luw .cdet-add, .luw .cdet-share { padding: var(--sp-4) 11px; font-size: var(--fs-small); }
 .luw .cdet-books, .luw .cdet-shares { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -808,7 +807,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .iflow-body { margin: 0; font-size: var(--fs-body); color: var(--ink-2); line-height: 1.6; max-width: 60ch; }
 .luw .iflow-hint { margin: 0 0 var(--sp-12); font-size: var(--fs-ui); color: var(--ink-3); line-height: 1.5; }
 .luw .iflow-note { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); line-height: 1.5; }
-.luw .iflow-none { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
 .luw .iflow-live { display: flex; flex-direction: column; gap: 0.6rem; }
 .luw .iflow-bar { height: 6px; border-radius: var(--r-pill); }
 .luw .iflow-phase { margin: 0; font-size: var(--fs-body); font-weight: 650; color: var(--ink); }
@@ -832,7 +831,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 .luw .ced-skel { height: 22rem; border-radius: var(--r-lg); }
 .luw .ced-hint { margin: 0 0 10px; font-size: var(--fs-ui); color: var(--ink-3); line-height: 1.5; }
-.luw .ced-none { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
 .luw .ced-portrait { display: flex; align-items: center; gap: 20px; }
 /* Fixed to the frame's own size so a tall photo cannot stretch the row while it is staged. */
 .luw .ced-photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; display: block; background: var(--surface-3); }
@@ -860,7 +859,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 
 .luw .sed-skel { height: 22rem; border-radius: var(--r-lg); }
 .luw .sed-hint { margin: 0 0 10px; font-size: var(--fs-ui); color: var(--ink-3); line-height: 1.5; }
-.luw .sed-none { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
 .luw .sed-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
 .luw .sed-cover-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--surface-3); color: var(--ink-3); font-size: 0.72rem; font-weight: 600; text-align: center; }
 .luw .sed-merge-act { display: flex; justify-content: flex-end; }
@@ -899,10 +898,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .ched-tools { display: flex; align-items: flex-end; gap: var(--sp-12); flex-wrap: wrap; }
 .luw .ched-tools .f-wrap { flex: 1; min-width: 12rem; }
 .luw .ched-add { flex: none; }
-.luw .ched-none { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
-.luw .ched-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 28px; border-radius: var(--r-lg); background: var(--surface-2); }
-.luw .ched-empty h2 { margin: 0; font-size: 1.15rem; font-weight: 750; color: var(--ink); }
-.luw .ched-empty p { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); max-width: 34rem; line-height: 1.5; }
+
 .luw .ched-list { display: flex; flex-direction: column; gap: 2px; }
 
 /* One boundary. The row is a container, not a control — it holds six buttons — so selection is a
@@ -989,12 +985,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .mdx { width: 100%; max-width: 820px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
 
 .luw .mdx-skel { height: 22rem; border-radius: var(--r-lg); }
-.luw .mdx-none { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
 .luw .mdx-err { margin: 0; padding: 10px 14px; border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; }
 .luw .mdx-count { margin: 0; font-size: var(--fs-small); color: var(--ink-3); }
-.luw .mdx-empty { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-24); border-radius: var(--r-lg); background: var(--surface-2); }
-.luw .mdx-empty h2 { margin: 0; font-size: var(--fs-title); font-weight: 750; color: var(--ink); }
-.luw .mdx-empty p { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
 
 /* What we are matching — stated before the search box, so the reader can tell at a glance whether
    they opened the wizard on the book they meant. */
@@ -1066,7 +1059,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .cmx { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-24) 28px 40px; display: flex; flex-direction: column; gap: 14px; }
 
 .luw .cmx-skel { height: 18rem; border-radius: var(--r-lg); }
-.luw .cmx-none { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
 .luw .cmx-err { margin: 0; padding: 10px 14px; border-radius: var(--r-md); background: var(--coral-soft); color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; }
 .luw .cmx-ctx { display: flex; align-items: baseline; gap: var(--sp-8); }
 .luw .cmx-ctx-l { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
@@ -1078,9 +1071,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 @media (hover: hover) { .luw .cmx-hit:hover { border-color: var(--coral); background: var(--surface); } }
 .luw .cmx-hit-n { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 650; }
 .luw .cmx-asin { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); }
-.luw .cmx-empty { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: var(--r-lg); background: var(--surface-2); }
-.luw .cmx-empty h2 { margin: 0; font-size: var(--fs-title); font-weight: 750; color: var(--ink); }
-.luw .cmx-empty p { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
 /* Which person was matched. NOT a before-and-after: Apply never renames anybody. */
 .luw .cmx-who { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .luw .cmx-who-n { font-size: 1.15rem; font-weight: 750; color: var(--ink); }
@@ -1118,7 +1109,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .disc-listener.is-sel { outline: 2px solid var(--coral); outline-offset: 2px; }
 .lib-tick { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--shadow-card); }
 .lib-tick.on { background: var(--coral-fill); border-color: var(--coral-fill); }
-.luw .sel-none { margin: 0 0 10px; font-size: var(--fs-ui); color: var(--ink-3); }
+
 .luw .sel-targets { display: flex; flex-direction: column; gap: 3px; max-height: 15rem; overflow-y: auto; margin: 10px 0; }
 .luw .sel-target { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: var(--sp-8) 10px; border: none; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-align: left; cursor: pointer; font-family: inherit; }
 @media (hover: hover) { .luw .sel-target:hover { background: var(--surface-3); } }
@@ -1146,9 +1137,6 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bke-consequence { margin: 6px 0 0; font-size: var(--fs-small); color: var(--ink-3); }
 .luw .bke-field.armed .bke-consequence { color: var(--coral-text); font-weight: 650; }
 
-.luw .bke-empty { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: 14px; background: var(--surface-2); }
-.luw .bke-empty h2 { margin: 0; font-size: var(--fs-title); font-weight: 750; color: var(--ink); }
-.luw .bke-empty p { margin: 0; font-size: var(--fs-ui); color: var(--ink-3); }
 .luw .bke-rows { display: flex; flex-direction: column; gap: var(--sp-16); }
 /* A row that changes nothing is dimmed, never hidden — a vanished row reads as a lost edit. */
 .luw .bke-row.off { opacity: 0.6; }

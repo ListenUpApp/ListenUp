@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
@@ -13,7 +14,6 @@ import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.onSubmit
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
@@ -67,9 +67,7 @@ fun ServerSettingsPage(
             }
 
             is AdminSettingsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Server settings can't be shown") }
-                    P { Text(state.error.message) }
+                EmptyState(title = "Server settings can't be shown", body = state.error.message) {
                     Button(attrs = {
                         classes("btn-c")
                         attr("type", VALUE_BUTTON)

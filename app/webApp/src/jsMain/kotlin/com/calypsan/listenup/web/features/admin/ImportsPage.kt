@@ -8,12 +8,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -53,9 +53,7 @@ fun ImportsPage(
             }
 
             is ABSImportListUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Imports can't be shown") }
-                    P { Text(state.error.message) }
+                EmptyState(title = "Imports can't be shown", body = state.error.message) {
                     Button(attrs = {
                         classes("btn-c")
                         attr("type", VALUE_BUTTON)
@@ -94,14 +92,10 @@ private fun ReadyContent(
     }
 
     if (state.imports.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text("Nothing imported yet") }
-            P {
-                Text(
-                    "An import reads an Audiobookshelf backup and writes its listening history onto the matching books here.",
-                )
-            }
-        }
+        EmptyState(
+            title = "Nothing imported yet",
+            body = "An import reads an Audiobookshelf backup and writes its listening history onto the matching books here.",
+        )
     } else {
         Div(attrs = { classes("imp-list") }) {
             state.imports.forEach { summary ->

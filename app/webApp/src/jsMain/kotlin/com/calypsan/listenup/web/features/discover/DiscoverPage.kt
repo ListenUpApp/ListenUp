@@ -16,6 +16,8 @@ import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.UnderHeading
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.press
 import com.calypsan.listenup.web.features.books.BookSelection
@@ -29,9 +31,6 @@ import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-
-/** The shared empty-state block, borrowed rather than restyled per section. */
-private const val EMPTY_CLASS = "empty"
 
 /** Cover size for a discovery card, in px. Square, like the artwork. */
 private const val CARD_COVER_WIDTH = 140
@@ -146,7 +145,7 @@ private fun CurrentlyListeningSection(
 
             is CurrentlyListeningUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nobody else is listening yet", "When they do, you will see them here.")
+                    EmptyState(title = "Nobody else is listening yet", body = "When they do, you will see them here.")
                 } else {
                     Div(attrs = { classes("disc-listeners") }) {
                         state.sessions.forEach { s ->
@@ -216,7 +215,7 @@ private fun DiscoverBooksSection(
 
             is DiscoverBooksUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nothing left to discover", "You have started everything in the library.")
+                    EmptyState(title = "Nothing left to discover", body = "You have started everything in the library.")
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
@@ -250,7 +249,7 @@ private fun RecentlyAddedSection(
 
             is RecentlyAddedUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nothing new yet", "Books appear here as they are added to the library.")
+                    EmptyState(title = "Nothing new yet", body = "Books appear here as they are added to the library.")
                 } else {
                     Div(attrs = { classes("disc-grid") }) {
                         state.books.forEach { book ->
@@ -312,7 +311,7 @@ private fun LeaderboardSection(
             }
 
             is LeaderboardUiState.Empty -> {
-                Empty("No listening recorded yet", "The board fills in as people listen.")
+                EmptyState(title = "No listening recorded yet", body = "The board fills in as people listen.")
             }
 
             is LeaderboardUiState.Error -> {
@@ -343,7 +342,7 @@ private fun LeaderboardSection(
 
                 val entries = leaderboardEntries(state.snapshot, state.category)
                 if (entries.isEmpty()) {
-                    Empty("Nothing in this category yet", "Try another period.")
+                    EmptyState(title = "Nothing in this category yet", body = "Try another period.")
                 } else {
                     Div(attrs = { classes("disc-lb") }) {
                         entries.forEach { entry ->
@@ -384,7 +383,10 @@ private fun ActivityFeedSection(
 
             is ActivityFeedUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("Nothing has happened yet", "Activity from everyone on this server shows up here.")
+                    EmptyState(
+                        title = "Nothing has happened yet",
+                        body = "Activity from everyone on this server shows up here.",
+                    )
                 } else {
                     Div(attrs = { classes("disc-feed") }) {
                         state.activities.forEach { item ->
@@ -452,7 +454,7 @@ private fun Section(
 ) {
     Div(attrs = { classes("disc-section") }) {
         H2(attrs = { classes("disc-section-h") }) { Text(heading) }
-        content()
+        UnderHeading(level = SECTION_HEADING_LEVEL, content = content)
     }
 }
 
@@ -470,17 +472,6 @@ private fun SectionSkeleton() {
 @Composable
 private fun SectionError(message: String) {
     P(attrs = { classes("disc-error") }) { Text(message) }
-}
-
-@Composable
-private fun Empty(
-    heading: String,
-    detail: String,
-) {
-    Div(attrs = { classes(EMPTY_CLASS) }) {
-        H3 { Text(heading) }
-        P { Text(detail) }
-    }
 }
 
 @Composable
@@ -547,7 +538,7 @@ private fun SharedShelvesSection(
 
             is DiscoverShelvesUiState.Ready -> {
                 if (state.isEmpty) {
-                    Empty("No shared shelves yet", "Shelves other people make public show up here.")
+                    EmptyState(title = "No shared shelves yet", body = "Shelves other people make public show up here.")
                 } else {
                     state.users.forEach { owner ->
                         key(owner.user.id) {
@@ -582,3 +573,6 @@ private fun SharedShelvesSection(
         }
     }
 }
+
+/** A section's own heading is an H2, so anything headed inside it is an H3. */
+private const val SECTION_HEADING_LEVEL = 2

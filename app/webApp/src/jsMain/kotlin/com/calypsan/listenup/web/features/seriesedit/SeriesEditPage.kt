@@ -12,6 +12,8 @@ import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.CoverPickerField
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
@@ -233,7 +235,7 @@ private fun MergeDialog(
         }
         Div(attrs = { classes("sed-results") }) {
             if (candidates.isEmpty()) {
-                P(attrs = { classes(NONE) }) { Text("Nothing matched \"$query\".") }
+                EmptyState(title = "Nothing matched \"$query\".", look = EmptyLook.Inline)
             } else {
                 candidates.forEach { candidate ->
                     key(candidate.id.value) {
@@ -301,8 +303,6 @@ private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "
 private const val ATTR_TYPE = "type"
 
 private const val BTN_SECONDARY = "btn-o"
-
-private const val NONE = "sed-none"
 
 private const val VALUE_BUTTON = "button"
 

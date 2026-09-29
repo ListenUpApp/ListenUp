@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ModalDialog
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
 import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
@@ -16,7 +17,6 @@ import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -71,10 +71,7 @@ fun CategoriesPage(
             }
 
             is AdminCategoriesUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Categories can't be shown") }
-                    P { Text(state.error.message) }
-                }
+                EmptyState(title = "Categories can't be shown", body = state.error.message)
             }
 
             is AdminCategoriesUiState.Ready -> {
@@ -173,10 +170,10 @@ private fun ReadyContent(
     }
 
     if (state.tree.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text("No genres yet") }
-            P { Text("Genres arrive with your books, and you can add your own here to group them.") }
-        }
+        EmptyState(
+            title = "No genres yet",
+            body = "Genres arrive with your books, and you can add your own here to group them.",
+        )
     } else {
         Div(attrs = {
             classes("cat-tree")

@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.CollectionShareItem
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.DialogText
@@ -18,7 +20,6 @@ import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.disabledWhen
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -72,10 +73,7 @@ fun CollectionDetailPage(
             }
 
             is AdminCollectionDetailUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("This collection can't be shown") }
-                    P { Text(state.message) }
-                }
+                EmptyState(title = "This collection can't be shown", body = state.message)
             }
 
             is AdminCollectionDetailUiState.Ready -> {
@@ -401,7 +399,7 @@ private fun AddMemberDialog(
 /** A line saying there is nothing here — which of the several nothings is the caller's to say. */
 @Composable
 private fun Nothing(text: String) {
-    P(attrs = { classes("cdet-none") }) { Text(text) }
+    EmptyState(title = text, look = EmptyLook.Inline)
 }
 
 private const val VALUE_BUTTON = "button"

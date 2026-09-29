@@ -6,6 +6,8 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.ModalDialog
@@ -49,7 +51,7 @@ internal fun SelectionPicker(
         P(attrs = { classes("dlg-p") }) { Text(bookCountLabel(count)) }
 
         if (targets.isEmpty()) {
-            P(attrs = { classes("sel-none") }) { Text(emptyMessage) }
+            EmptyState(title = emptyMessage, look = EmptyLook.Inline)
         } else {
             Div(attrs = { classes("sel-targets") }) {
                 targets.forEach { target ->

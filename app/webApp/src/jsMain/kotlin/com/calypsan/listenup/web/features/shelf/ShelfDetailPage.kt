@@ -5,21 +5,18 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.AttrsScope
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
-
-private const val EMPTY_CLASS = "empty"
 
 private const val SHELF_COVER_WIDTH = 120
 
@@ -58,9 +55,7 @@ fun ShelfDetailPage(
 
             is ShelfDetailUiState.Error -> {
                 PageHeader(title = SHELF)
-                Div(attrs = { classes(EMPTY_CLASS) }) {
-                    H2 { Text("This shelf could not be opened") }
-                    P { Text(state.message) }
+                EmptyState(title = "This shelf could not be opened", body = state.message) {
                     Button(attrs = {
                         classes("btn")
                         attr(ATTR_TYPE, VALUE_BUTTON)
@@ -72,10 +67,7 @@ fun ShelfDetailPage(
             is ShelfDetailUiState.Ready -> {
                 ShelfHeader(state.detail, onEditShelf)
                 if (state.detail.books.isEmpty()) {
-                    Div(attrs = { classes(EMPTY_CLASS) }) {
-                        H2 { Text("This shelf is empty") }
-                        P { Text("Add books to it from any book's page.") }
-                    }
+                    EmptyState(title = "This shelf is empty", body = "Add books to it from any book's page.")
                 } else {
                     ShelfBooks(
                         books = state.detail.books,

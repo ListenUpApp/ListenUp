@@ -14,6 +14,8 @@ import com.calypsan.listenup.client.presentation.admin.imports.BookSearchState
 import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
@@ -24,7 +26,6 @@ import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.InputType
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
@@ -118,9 +119,7 @@ fun ImportFlowPage(
             }
 
             is ImportFlowUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("The import stopped") }
-                    P(attrs = { attr("role", "alert") }) { Text(state.error.message) }
+                EmptyState(title = "The import stopped", body = state.error.message, announce = true) {
                     Button(attrs = {
                         classes(BTN_PRIMARY)
                         attr("type", VALUE_BUTTON)
@@ -407,11 +406,9 @@ private fun DoneStep(
     state: ImportFlowUiState.Done,
     onOpenImports: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H2 { Text("Imported") }
-        P { Text(doneSummary(state)) }
-        // The books it could not place are the reason a number looks lower than expected, so they
-        // are stated rather than left as a silent difference.
+    // The books it could not place are the reason a number looks lower than expected, so they
+    // are stated rather than left as a silent difference.
+    EmptyState(title = "Imported", body = doneSummary(state)) {
         if (state.result.booksNotInLibrary > 0) {
             P(attrs = { classes("iflow-note") }) {
                 Text(
@@ -431,7 +428,7 @@ private fun DoneStep(
 
 @Composable
 private fun Nothing(text: String) {
-    P(attrs = { classes("iflow-none") }) { Text(text) }
+    EmptyState(title = text, look = EmptyLook.Inline)
 }
 
 private fun analyzingHeadline(state: ImportFlowUiState.Analyzing): String =

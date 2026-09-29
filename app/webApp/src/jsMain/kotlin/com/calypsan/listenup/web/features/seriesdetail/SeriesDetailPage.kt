@@ -8,6 +8,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
@@ -18,7 +20,6 @@ import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
@@ -76,7 +77,7 @@ fun SeriesDetailPage(
 
             SeriesDetailUiState.Loading, SeriesDetailUiState.Idle -> {
                 PageHeader(title = crumb(state), pending = true)
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                LoadingState()
             }
         }
     }
@@ -95,9 +96,7 @@ private fun WayBack(
     body: String,
     onOpenLibrary: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H2 { Text(heading) }
-        P { Text(body) }
+    EmptyState(title = heading, body = body) {
         Button(attrs = {
             classes("btn-c")
             attr("type", BUTTON_VALUE)

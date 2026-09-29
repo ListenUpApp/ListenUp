@@ -271,7 +271,7 @@ class ChapterEditorPageTest :
             awaitFrame()
 
             rows(host).shouldBeEmptyList()
-            host.querySelector(".ched-none")?.textContent shouldBe "No chapters match “Elantris”."
+            host.querySelector(".empty-line")?.textContent shouldBe "No chapters match “Elantris”."
         }
 
         test("selecting a row reports it, and the row says it is selected") {
@@ -656,7 +656,7 @@ class ChapterEditorPageTest :
                     onAddAt = { at, title -> added += at to title },
                 )
 
-            host.querySelector(".ched-empty").shouldNotBeNull()
+            host.querySelector(".empty.is-inset").shouldNotBeNull()
             button(host, "Add first chapter at playhead").shouldNotBeNull().click()
             awaitFrame()
 
@@ -667,7 +667,7 @@ class ChapterEditorPageTest :
             val host = page(editingChapters(chapters = emptyList()), playheadMs = null)
 
             button(host, "Add first chapter at playhead").shouldBeNull()
-            host.querySelector(".ched-none")?.textContent shouldBe "Play this book to place the first boundary."
+            host.querySelector(".empty-line")?.textContent shouldBe "Play this book to place the first boundary."
         }
 
         test("a page still loading draws nothing it does not know yet") {

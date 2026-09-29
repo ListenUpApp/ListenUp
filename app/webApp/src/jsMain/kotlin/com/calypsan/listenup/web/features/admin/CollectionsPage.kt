@@ -8,12 +8,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.WebIcon
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -55,10 +55,7 @@ fun CollectionsPage(
             }
 
             is AdminCollectionsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Collections can't be shown") }
-                    P { Text(state.message) }
-                }
+                EmptyState(title = "Collections can't be shown", body = state.message)
             }
 
             is AdminCollectionsUiState.Ready -> {
@@ -94,10 +91,10 @@ private fun ReadyContent(
     }
 
     if (state.collections.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text("No collections yet") }
-            P { Text("A collection is a group of books you can hand to one person, or to everyone.") }
-        }
+        EmptyState(
+            title = "No collections yet",
+            body = "A collection is a group of books you can hand to one person, or to everyone.",
+        )
     } else {
         Div(attrs = { classes("coll-list") }) {
             state.collections.forEach { collection ->

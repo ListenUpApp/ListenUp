@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.util.nameLetter
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -18,9 +20,7 @@ import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
 import com.calypsan.listenup.web.design.initialsFor
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -72,7 +72,7 @@ fun ContributorsPage(
     )
 
     if (state == null) {
-        Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+        LoadingState()
         return
     }
 
@@ -210,9 +210,7 @@ private fun ContributorRow(
  */
 @Composable
 private fun EmptyContributors(role: ContributorRole) {
-    Div(attrs = { classes("empty") }) {
-        H2 { Text(if (role == ContributorRole.NARRATOR) "No narrators yet." else "No authors yet.") }
-    }
+    EmptyState(title = if (role == ContributorRole.NARRATOR) "No narrators yet." else "No authors yet.")
 }
 
 private fun roleLabel(role: ContributorRole): String = if (role == ContributorRole.NARRATOR) "Narrator" else "Author"

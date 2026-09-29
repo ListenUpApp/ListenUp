@@ -91,7 +91,7 @@ class LicencesPageTest :
             typeSearch(root, "nothing-matches-this")
             awaitFrame()
 
-            (root.querySelector(".empty p") as HTMLElement).textContent shouldBe "No libraries match that."
+            (root.querySelector(".empty-line") as HTMLElement).textContent shouldBe "No libraries match that."
             root.querySelector(".lic-list") shouldBe null
         }
 
@@ -125,7 +125,7 @@ class LicencesPageTest :
         test("loading says so and still offers the way back") {
             val root = licencesPage(LicencesUiState.Loading)
 
-            (root.querySelector(".empty p") as HTMLElement).textContent shouldBe "Loading…"
+            (root.querySelector(".loading") as HTMLElement).textContent shouldBe "Loading…"
             root.querySelector(".crumb") shouldNotBe null
         }
 

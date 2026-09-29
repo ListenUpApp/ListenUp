@@ -17,13 +17,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -77,9 +78,7 @@ fun ChapterEditorPage(
 
             is ChapterEditorUiState.Error -> {
                 PageHeader(title = EDIT_CHAPTERS)
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("These chapters can't be shown") }
-                    P { Text(state.message) }
+                EmptyState(title = "These chapters can't be shown", body = state.message) {
                     Button(attrs = {
                         classes("btn-o")
                         attr(ATTR_TYPE, VALUE_BUTTON)
@@ -172,7 +171,7 @@ private fun EditingContent(
     }
 
     if (state.isEmpty) {
-        EmptyState(playheadMs, onAddAt)
+        NoChapters(playheadMs, onAddAt)
         return
     }
 
@@ -212,7 +211,7 @@ private fun EditingContent(
             }
 
             if (shown.isEmpty()) {
-                P(attrs = { classes("ched-none") }) { Text("No chapters match “$query”.") }
+                EmptyState(title = "No chapters match “$query”.", look = EmptyLook.Inline)
             } else {
                 Div(attrs = {
                     classes("ched-list")
@@ -396,13 +395,15 @@ private fun EditorHeader(
  * a dead end that waits for a scraper to do better next time.
  */
 @Composable
-private fun EmptyState(
+private fun NoChapters(
     playheadMs: Long?,
     onAddAt: (Long, String) -> Unit,
 ) {
-    Div(attrs = { classes("ched-empty") }) {
-        H2 { Text("No chapters yet") }
-        P { Text("This book was never chaptered. Play it to where a chapter starts, then add your first boundary.") }
+    EmptyState(
+        title = "No chapters yet",
+        body = "This book was never chaptered. Play it to where a chapter starts, then add your first boundary.",
+        look = EmptyLook.Inset,
+    ) {
         if (playheadMs != null) {
             Button(attrs = {
                 classes("btn-c")
@@ -410,7 +411,7 @@ private fun EmptyState(
                 onClick { onAddAt(playheadMs, NEW_CHAPTER_TITLE) }
             }) { Text("Add first chapter at playhead") }
         } else {
-            P(attrs = { classes("ched-none") }) { Text("Play this book to place the first boundary.") }
+            EmptyState(title = "Play this book to place the first boundary.", look = EmptyLook.Inline)
         }
     }
 }

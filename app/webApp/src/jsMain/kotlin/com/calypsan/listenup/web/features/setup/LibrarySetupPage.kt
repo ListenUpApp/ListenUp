@@ -4,12 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -72,9 +73,7 @@ fun LibrarySetupPage(
             }
 
             state.directories.isEmpty() -> {
-                Div(attrs = { classes("lsetup-empty") }) {
-                    P { Text("Nothing in this folder. Go up and try another.") }
-                }
+                EmptyState(title = "Nothing in this folder. Go up and try another.", look = EmptyLook.Inline)
             }
 
             else -> {

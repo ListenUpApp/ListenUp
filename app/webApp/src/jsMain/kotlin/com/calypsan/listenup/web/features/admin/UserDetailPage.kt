@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.admin
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
@@ -39,7 +40,7 @@ fun UserDetailPage(
 
             is UserDetailUiState.Error -> {
                 PageHeader(title = userCrumb(state))
-                P(attrs = { classes("usr-none") }) { Text(state.error.message) }
+                EmptyState(title = "This member can't be shown", body = state.error.message)
             }
 
             is UserDetailUiState.Ready -> {

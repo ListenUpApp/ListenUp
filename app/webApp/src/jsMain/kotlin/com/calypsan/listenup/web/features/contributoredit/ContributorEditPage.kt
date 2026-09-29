@@ -12,6 +12,8 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorCand
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
@@ -276,7 +278,7 @@ private fun AliasList(
         Text("Other spellings folded into this contributor. Splitting one out makes it a contributor again.")
     }
     if (state.aliases.isEmpty()) {
-        P(attrs = { classes(NONE) }) { Text("No other names.") }
+        EmptyState(title = "No other names.", look = EmptyLook.Inline)
     } else {
         Div(attrs = { classes("ced-aliases") }) {
             state.aliases.forEach { alias ->
@@ -352,11 +354,11 @@ private fun MergeDialog(
         Div(attrs = { classes("ced-results") }) {
             when {
                 query.isBlank() -> {
-                    P(attrs = { classes(NONE) }) { Text("Type a name.") }
+                    EmptyState(title = "Type a name.", look = EmptyLook.Inline)
                 }
 
                 candidates.isEmpty() -> {
-                    P(attrs = { classes(NONE) }) { Text("Nobody matched \"$query\".") }
+                    EmptyState(title = "Nobody matched \"$query\".", look = EmptyLook.Inline)
                 }
 
                 else -> {
@@ -472,8 +474,6 @@ private const val ATTR_TYPE = "type"
 private const val BTN_SECONDARY = "btn-o"
 
 private const val PHOTO = "ced-photo"
-
-private const val NONE = "ced-none"
 
 private const val VALUE_BUTTON = "button"
 

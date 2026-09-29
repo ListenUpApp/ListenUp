@@ -19,6 +19,8 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bookedit.displayName
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
@@ -31,7 +33,6 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -461,10 +462,11 @@ private fun PreviewPanel(
     if (rows.isEmpty()) {
         // Named rather than blank: an empty panel is indistinguishable from a broken one, and this
         // is the first thing every user of this screen sees.
-        Div(attrs = { classes("bke-empty") }) {
-            H2 { Text("Nothing to change yet") }
-            P { Text("Type into a field above. Every book keeps the values you don’t touch.") }
-        }
+        EmptyState(
+            title = "Nothing to change yet",
+            body = "Type into a field above. Every book keeps the values you don’t touch.",
+            look = EmptyLook.Inset,
+        )
         return
     }
 

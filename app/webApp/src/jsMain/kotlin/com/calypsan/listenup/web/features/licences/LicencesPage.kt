@@ -6,10 +6,12 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.PageHeader
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -39,15 +41,12 @@ fun LicencesPage(
         when (state) {
             LicencesUiState.Loading -> {
                 PageHeader(title = LICENSES)
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                LoadingState()
             }
 
             is LicencesUiState.Error -> {
                 PageHeader(title = LICENSES)
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("The licences can't be shown") }
-                    P { Text(state.message) }
-                }
+                EmptyState(title = "The licences can't be shown", body = state.message)
             }
 
             is LicencesUiState.Ready -> {
@@ -83,7 +82,7 @@ private fun ReadyLicences(state: LicencesUiState.Ready) {
 
     val shown = state.libraries.filter { it.matches(query) }
     if (shown.isEmpty()) {
-        Div(attrs = { classes("empty") }) { P { Text("No libraries match that.") } }
+        EmptyState(title = "No libraries match that.", look = EmptyLook.Inline)
         return
     }
 

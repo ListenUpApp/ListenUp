@@ -318,7 +318,7 @@ class OrganizeTest :
         test("settings that could not be loaded are an error, not an empty form") {
             val host = page(OrganizeSettingsUiState.Error(InternalError(debugInfo = "boom")))
 
-            text(host, ".org-none").shouldNotBeNull()
+            text(host, ".empty").shouldNotBeNull()
             button(host, "Organize library").shouldBeNull()
         }
 

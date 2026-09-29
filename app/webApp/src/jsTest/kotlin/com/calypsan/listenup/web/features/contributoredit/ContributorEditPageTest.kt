@@ -268,7 +268,7 @@ class ContributorEditPageTest :
             val host = page(editingContributor(aliases = emptyList()))
 
             host.querySelector(".ced-aliases").shouldBeNull()
-            host.querySelector(".ced-none")?.textContent shouldBe "No other names."
+            host.querySelector(".empty-line")?.textContent shouldBe "No other names."
         }
 
         test("every alias is listed") {

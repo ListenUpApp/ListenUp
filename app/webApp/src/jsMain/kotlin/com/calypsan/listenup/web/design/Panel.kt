@@ -62,7 +62,10 @@ fun Panel(
         Div(attrs = {
             style { property("padding", if (flush) "0" else "18px") }
         }) {
-            content()
+            // Anything headed inside a titled panel sits under its H2.
+            if (title != null) UnderHeading(level = PANEL_HEADING_LEVEL, content = content) else content()
         }
     }
 }
+
+private const val PANEL_HEADING_LEVEL = 2

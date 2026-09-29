@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.util.relativeOrMonthYear
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -16,7 +18,6 @@ import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -84,17 +85,17 @@ fun ReadersPage(
             }
 
             BookReadersUiState.NoReaders -> {
-                P(attrs = { classes("rdr-none") }) { Text("Nobody has started this book yet.") }
+                EmptyState(title = "Nobody has started this book yet.", look = EmptyLook.Inline)
             }
 
             is BookReadersUiState.Error -> {
-                P(attrs = { classes("rdr-none") }) { Text("Couldn't load who is reading this. Try again in a moment.") }
+                EmptyState(title = "Couldn't load who is reading this. Try again in a moment.", look = EmptyLook.Inline)
             }
 
             is BookReadersUiState.Data -> {
                 val lines = flattenToLines(state.readers.readers)
                 if (lines.isEmpty()) {
-                    P(attrs = { classes("rdr-none") }) { Text("Nobody has started this book yet.") }
+                    EmptyState(title = "Nobody has started this book yet.", look = EmptyLook.Inline)
                     return@Div
                 }
                 ListeningNow(lines)

@@ -1113,7 +1113,7 @@ class WebAppRootTest :
                     .click()
                 awaitFrame()
 
-                host.querySelector(".sel-none")?.textContent shouldBe "You have no shelves yet."
+                host.querySelector(".empty-line")?.textContent shouldBe "You have no shelves yet."
 
                 val field = host.querySelector("#sel-new-name") as HTMLInputElement
                 field.value = "Winter reading"

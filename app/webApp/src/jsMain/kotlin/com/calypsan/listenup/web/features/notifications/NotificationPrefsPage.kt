@@ -5,10 +5,10 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.NotificationPreferenceDto
 import com.calypsan.listenup.api.notifications.NotificationPreference
 import com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SwitchField
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -47,11 +47,9 @@ fun NotificationPrefsPage(
             }
 
             is NotificationPrefsUiState.Error -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("These settings can't be loaded") }
-                    // The typed error's own words. `AppError.message` is a user-facing constant
-                    // per subtype, so it is printed rather than reworded here.
-                    P { Text(state.error.message) }
+                // The typed error's own words. `AppError.message` is a user-facing constant
+                // per subtype, so it is printed rather than reworded here.
+                EmptyState(title = "These settings can't be loaded", body = state.error.message) {
                     Button(attrs = {
                         classes("btn-c")
                         attr("type", "button")
@@ -81,10 +79,10 @@ private fun Rows(
 ) {
     val known = prefs.filter { notificationTypeName(it.type) != null }
     if (known.isEmpty()) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text("Nothing to set yet") }
-            P { Text("This server sends notification types your browser doesn't know about yet.") }
-        }
+        EmptyState(
+            title = "Nothing to set yet",
+            body = "This server sends notification types your browser doesn't know about yet.",
+        )
         return
     }
 

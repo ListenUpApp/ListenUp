@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.organize.OrganizePreviewEntryDto
 import com.calypsan.listenup.api.dto.organize.OrganizeSeriesPrefix
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.DialogActions
 import com.calypsan.listenup.web.design.ModalDialog
@@ -39,9 +40,17 @@ fun OrganizePage(
         P(attrs = { classes("org-lede") }) { Text("Keep library folders tidy and consistent.") }
 
         when (state) {
-            OrganizeSettingsUiState.Loading -> Div(attrs = { classes("skel", "org-skel") })
-            is OrganizeSettingsUiState.Error -> P(attrs = { classes("org-none") }) { Text(state.error.message) }
-            is OrganizeSettingsUiState.Ready -> ReadyOrganize(state, actions)
+            OrganizeSettingsUiState.Loading -> {
+                Div(attrs = { classes("skel", "org-skel") })
+            }
+
+            is OrganizeSettingsUiState.Error -> {
+                EmptyState(title = "File organization can't be shown", body = state.error.message)
+            }
+
+            is OrganizeSettingsUiState.Ready -> {
+                ReadyOrganize(state, actions)
+            }
         }
     }
 }

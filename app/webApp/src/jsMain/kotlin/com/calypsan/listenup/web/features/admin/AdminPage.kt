@@ -12,6 +12,8 @@ import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.util.relativeLastActive
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SelectField
@@ -19,7 +21,6 @@ import com.calypsan.listenup.web.design.SelectOption
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -288,7 +289,7 @@ private fun MembersSection(
 ) {
     Section("Members") {
         if (state.users.isEmpty()) {
-            P(attrs = { classes("adm-none") }) { Text("Nobody has joined yet.") }
+            EmptyState(title = "Nobody has joined yet.", look = EmptyLook.Inline)
             return@Section
         }
         state.users.forEach { user ->

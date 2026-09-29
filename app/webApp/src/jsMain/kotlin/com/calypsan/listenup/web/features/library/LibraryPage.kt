@@ -12,6 +12,8 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -26,11 +28,9 @@ import org.w3c.dom.Element
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -101,11 +101,11 @@ fun LibraryPage(
 
     when (state) {
         is LibraryUiState.Loading -> {
-            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            LoadingState()
         }
 
         is LibraryUiState.Error -> {
-            Div(attrs = { classes("empty") }) { P { Text(state.message) } }
+            EmptyState(title = "Your library can't be shown", body = state.message)
         }
 
         is LibraryUiState.Loaded -> {
@@ -200,14 +200,10 @@ private fun openWithOrigin(
  */
 @Composable
 private fun EmptyLibrary(isBuilding: Boolean) {
-    Div(attrs = { classes("empty") }) {
-        if (isBuilding) {
-            H2 { Text("Syncing your library…") }
-            P { Text("Books will appear here as they arrive.") }
-        } else {
-            H2 { Text("No books yet") }
-            P { Text("Add a folder on the server and run a scan.") }
-        }
+    if (isBuilding) {
+        EmptyState(title = "Syncing your library…", body = "Books will appear here as they arrive.")
+    } else {
+        EmptyState(title = "No books yet", body = "Add a folder on the server and run a scan.")
     }
 }
 

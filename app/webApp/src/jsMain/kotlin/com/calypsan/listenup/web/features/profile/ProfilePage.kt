@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
@@ -13,10 +14,8 @@ import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
@@ -51,9 +50,7 @@ fun ProfilePage(
 
             is UserProfileUiState.Error -> {
                 PageHeader(title = PROFILE)
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("This profile can't be shown") }
-                    P { Text(state.message) }
+                EmptyState(title = "This profile can't be shown", body = state.message) {
                     Button(attrs = {
                         classes("btn-c")
                         attr("type", VALUE_BUTTON)
@@ -165,18 +162,15 @@ private fun Hero(
 /** A profile with nothing on it — a new account, or someone who shares nothing. */
 @Composable
 private fun NothingYet(isOwnProfile: Boolean) {
-    Div(attrs = { classes("empty") }) {
-        H2 { Text(if (isOwnProfile) "Nothing here yet" else "Nothing shared yet") }
-        P {
-            Text(
-                if (isOwnProfile) {
-                    "Books you listen to and shelves you make public will show up here."
-                } else {
-                    "This listener hasn't shared any books or shelves."
-                },
-            )
-        }
-    }
+    EmptyState(
+        title = if (isOwnProfile) "Nothing here yet" else "Nothing shared yet",
+        body =
+            if (isOwnProfile) {
+                "Books you listen to and shelves you make public will show up here."
+            } else {
+                "This listener hasn't shared any books or shelves."
+            },
+    )
 }
 
 @Composable

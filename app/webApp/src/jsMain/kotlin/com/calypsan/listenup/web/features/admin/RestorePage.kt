@@ -3,9 +3,9 @@ package com.calypsan.listenup.web.features.admin
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.PageHeader
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -99,19 +99,17 @@ fun RestorePage(
             }
 
             is RestoreBackupUiState.Completed -> {
-                Div(attrs = { classes("empty") }) {
-                    H2 { Text("Restored") }
-                    P {
-                        Text(
-                            if (state.result.includedImages) {
-                                "The library and its covers are back as they were."
-                            } else {
-                                "The library is back as it was. This backup carried no covers, so those are unchanged."
-                            },
-                        )
-                    }
-                    // The schema pair is the one detail worth surfacing: a restore that migrated
-                    // across versions is the case where something might behave differently after.
+                // The schema pair is the one detail worth surfacing: a restore that migrated
+                // across versions is the case where something might behave differently after.
+                EmptyState(
+                    title = "Restored",
+                    body =
+                        if (state.result.includedImages) {
+                            "The library and its covers are back as they were."
+                        } else {
+                            "The library is back as it was. This backup carried no covers, so those are unchanged."
+                        },
+                ) {
                     if (state.result.schemaMigratedFrom != state.result.schemaMigratedTo) {
                         P(attrs = { classes("rst-schema") }) {
                             Text(

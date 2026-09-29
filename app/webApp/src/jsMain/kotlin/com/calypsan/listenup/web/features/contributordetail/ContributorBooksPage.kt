@@ -4,13 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
+import com.calypsan.listenup.web.design.LoadingState
+import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -67,7 +67,7 @@ fun ContributorBooksPage(
             }
 
             ContributorBooksUiState.Loading, ContributorBooksUiState.Idle -> {
-                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                LoadingState()
             }
         }
     }
@@ -113,9 +113,7 @@ private fun BooksWayBack(
     body: String,
     onOpenContributor: () -> Unit,
 ) {
-    Div(attrs = { classes("empty") }) {
-        H2 { Text(heading) }
-        P { Text(body) }
+    EmptyState(title = heading, body = body) {
         Button(attrs = {
             classes("btn-c")
             attr("type", "button")
@@ -134,14 +132,10 @@ private fun ReadyBooks(
     // A Ready state with nothing in it is reachable: the role's last book can be re-credited while
     // the page is open. Saying so beats a page that is simply blank below its own heading.
     if (state.totalBooks == 0) {
-        Div(attrs = { classes("empty") }) {
-            H2 { Text("No books in this role") }
-            P {
-                Text(
-                    "${state.contributorName} is no longer credited as ${state.roleDisplayName.lowercase()} on any book.",
-                )
-            }
-        }
+        EmptyState(
+            title = "No books in this role",
+            body = "${state.contributorName} is no longer credited as ${state.roleDisplayName.lowercase()} on any book.",
+        )
         return
     }
 

@@ -4,7 +4,7 @@
 .luw .rdr { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 
 .luw .rdr-skel { height: 160px; }
-.luw .rdr-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
+
 .luw .rdr-now { margin-bottom: var(--sp-8); font-size: var(--fs-small); font-weight: 700; color: var(--coral-text); }
 .luw .rdr-list { display: flex; flex-direction: column; gap: 2px; }
 .luw .rdr-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px var(--sp-8); border: none; border-radius: 10px; background: transparent; color: var(--ink); text-align: left; font-family: inherit; cursor: pointer; }

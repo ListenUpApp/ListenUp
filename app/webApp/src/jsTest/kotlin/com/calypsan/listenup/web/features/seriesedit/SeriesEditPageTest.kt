@@ -310,7 +310,7 @@ class SeriesEditPageTest :
         test("a query that matches nothing says so, and says what was searched for") {
             val host = page(editingSeries(mergeDialogVisible = true, mergeQuery = "Elantris"))
 
-            host.querySelector(".sed-none")?.textContent shouldBe "Nothing matched \"Elantris\"."
+            host.querySelector(".empty-line")?.textContent shouldBe "Nothing matched \"Elantris\"."
         }
 
         test("the picker reports what was typed into it") {
