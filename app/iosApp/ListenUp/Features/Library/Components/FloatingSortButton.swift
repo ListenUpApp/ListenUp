@@ -72,8 +72,9 @@ struct FloatingSortButton: View {
             .padding(.vertical, 8)
             .glassControl(in: .capsule)
         }
-        .accessibilityLabel("Sort by \(sortState.category.label)")
-        .accessibilityHint("Double tap to change sort options")
+        // No "Double tap to…" hint: VoiceOver already says how to activate a button, and a hint
+        // that repeats it is noise (HIG, VoiceOver).
+        .accessibilityLabel(String(format: String(localized: "library.sort_by_a11y"), sortState.category.label))
         .haptic(.selectionTick, trigger: sortState)
     }
 

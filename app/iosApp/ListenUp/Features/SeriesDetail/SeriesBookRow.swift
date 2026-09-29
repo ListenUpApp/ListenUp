@@ -89,6 +89,6 @@ struct SeriesBookRow: View {
                 .minimumTapTarget(visualSize: 40)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isPlaying ? "Pause" : "Play")
+        .accessibilityLabel(String(localized: isPlaying ? "player.pause" : "player.play"))
     }
 }

@@ -1811,6 +1811,16 @@
         }
       }
     },
+    "admin.remove_access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove access"
+          }
+        }
+      }
+    },
     "admin.remove_book": {
       "localizations": {
         "en": {
@@ -7511,6 +7521,16 @@
         }
       }
     },
+    "common.error_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error: %1$@"
+          }
+        }
+      }
+    },
     "common.expand": {
       "localizations": {
         "en": {
@@ -7857,6 +7877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Profile"
+          }
+        }
+      }
+    },
+    "common.progress_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progress"
           }
         }
       }
@@ -12181,6 +12211,16 @@
         }
       }
     },
+    "library.sort_by_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort by %1$@"
+          }
+        }
+      }
+    },
     "library.sort_descending": {
       "localizations": {
         "en": {
@@ -15707,6 +15747,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Series name"
+          }
+        }
+      }
+    },
+    "series.sort_ascending_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort ascending"
+          }
+        }
+      }
+    },
+    "series.sort_descending_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort descending"
           }
         }
       }

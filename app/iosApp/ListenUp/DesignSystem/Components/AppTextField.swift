@@ -160,8 +160,7 @@ struct AppTextField: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(isSecure ? "Show password" : "Hide password")
-            .accessibilityHint("Double tap to \(isSecure ? "reveal" : "hide") password")
+            .accessibilityLabel(String(localized: isSecure ? "common.show_password" : "common.hide_password"))
         case .search, .text:
             if Self.showsClearButton(kind: kind, text: text, clearable: clearable) {
                 Button { text = "" } label: {
@@ -191,7 +190,7 @@ struct AppTextField: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Error: \(message)")
+        .accessibilityLabel(String(format: String(localized: "common.error_a11y"), message))
         .accessibilityAddTraits(.isStaticText)
     }
 }

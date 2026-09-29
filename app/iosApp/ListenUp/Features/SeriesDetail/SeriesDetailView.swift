@@ -253,7 +253,9 @@ struct SeriesDetailView: View {
                     .foregroundStyle(Color.luTint)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(reversed ? "Sort ascending" : "Sort descending")
+            .accessibilityLabel(
+                String(localized: reversed ? "series.sort_ascending_a11y" : "series.sort_descending_a11y")
+            )
         }
     }
 

@@ -29,7 +29,7 @@ struct ProgressRing: View {
         // Implicit animations honor Reduce Motion automatically; the arc eases on change.
         .animation(.easeOut(duration: 0.3), value: clamped)
         .accessibilityElement()
-        .accessibilityLabel(Text("Progress"))
+        .accessibilityLabel(String(localized: "common.progress_a11y"))
         .accessibilityValue(Text(clamped, format: .percent.precision(.fractionLength(0))))
     }
 }

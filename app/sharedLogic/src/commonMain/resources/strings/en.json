@@ -1,5 +1,7 @@
 {
   "common": {
+    "error_a11y": "Error: %1$s",
+    "progress_a11y": "Progress",
     "about": "About",
     "continue": "Continue",
     "accessibility_loading": "Loading",
@@ -233,6 +235,7 @@
     "server_url_hint": "Your server address looks like https://yourname.listenup.app — find it in your server dashboard."
   },
   "library": {
+    "sort_by_a11y": "Sort by %1$s",
     "add_audiobooks_to_your_server": "Add audiobooks to your server to get started",
     "authors": "Authors",
     "bookcount": "%1$s",
@@ -479,6 +482,8 @@
     "detail_rating_refresh": "Refresh ratings"
   },
   "series": {
+    "sort_descending_a11y": "Sort descending",
+    "sort_ascending_a11y": "Sort ascending",
     "book_sequence": "Book %1$s",
     "books_in_series": "Books in series",
     "label": "SERIES",
@@ -938,6 +943,7 @@
     "title": "Devices"
   },
   "admin": {
+    "remove_access": "Remove access",
     "1_day": "1 day",
     "add_folder": "Add folder",
     "add_books": "Add books",

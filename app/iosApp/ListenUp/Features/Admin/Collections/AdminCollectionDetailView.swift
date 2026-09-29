@@ -121,8 +121,9 @@ struct AdminCollectionDetailView: View {
             }
             Button(String(localized: "common.cancel"), role: .cancel) { pendingRemoveBookId = nil }
         }
+        // "Remove access" says what happens to the member in plain words; "Revoke" is jargon.
         .confirmationDialog(
-            String(localized: "common.revoke"),
+            String(localized: "admin.remove_access"),
             isPresented: Binding(
                 get: { pendingRevokeUserId != nil },
                 set: { if !$0 { pendingRevokeUserId = nil } }
@@ -130,7 +131,7 @@ struct AdminCollectionDetailView: View {
             titleVisibility: .visible
         ) {
             if let userId = pendingRevokeUserId {
-                Button(String(localized: "common.revoke"), role: .destructive) {
+                Button(String(localized: "admin.remove_access"), role: .destructive) {
                     observer.revokeShare(userId: userId)
                     pendingRevokeUserId = nil
                 }
@@ -273,6 +274,7 @@ struct AdminCollectionDetailView: View {
                         .foregroundStyle(.white, Color.black.opacity(0.6))
                         .minimumTapTarget(visualSize: 22)
                 }
+                .accessibilityLabel(String(format: String(localized: "common.remove_name"), book.title))
                 .padding(2)
             }
         }
@@ -342,6 +344,9 @@ struct AdminCollectionDetailView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                // Says what it does, not what it looks like — VoiceOver would otherwise read the
+                // glyph's own name (HIG, VoiceOver).
+                .accessibilityLabel(String(localized: "admin.remove_access"))
             }
         }
         .padding(.horizontal, 14)
