@@ -94,7 +94,7 @@ class RestorePageTest :
             var requested = 0
             val host = page(RestoreBackupUiState.Idle(), onRequest = { requested++ })
 
-            (host.querySelector(".btn-c") as HTMLElement).click()
+            (host.querySelector(".btn-primary") as HTMLElement).click()
             awaitFrame()
 
             requested shouldBe 1

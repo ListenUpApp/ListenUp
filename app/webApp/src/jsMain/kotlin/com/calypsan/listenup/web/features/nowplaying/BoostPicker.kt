@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.nowplaying.isSameVolumeBoost
 import com.calypsan.listenup.domain.VolumeBoostLimits
@@ -82,11 +84,13 @@ internal fun BoostPicker(
         // Only when there is something to go back to, exactly as the speed picker does: a reset
         // that is already at its target is a control whose press changes nothing.
         if (!isSameVolumeBoost(boostDb, defaultBoostDb)) {
-            Button(attrs = {
-                classes("btn-ghost", "boost-reset")
-                attr("type", "button")
-                onClick { onReset() }
-            }) {
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onReset() },
+                attrs = {
+                    classes("boost-reset")
+                },
+            ) {
                 Text("Reset to ${formatBoost(defaultBoostDb)}")
             }
         }

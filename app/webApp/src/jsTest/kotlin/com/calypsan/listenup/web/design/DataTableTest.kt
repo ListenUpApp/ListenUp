@@ -127,7 +127,7 @@ class DataTableTest :
                     )
                 }
 
-            host.querySelectorAll("tbody tr .rowact .iconbtn").length shouldBe CHAPTERS.size * 2
+            host.querySelectorAll("tbody tr .rowact .btn-icon").length shouldBe CHAPTERS.size * 2
         }
 
         test("clicking a row reports the row it was given") {

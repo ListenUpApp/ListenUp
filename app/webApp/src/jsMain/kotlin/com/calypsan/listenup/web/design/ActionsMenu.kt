@@ -39,7 +39,13 @@ fun ActionsMenu(
     enabled: Boolean = true,
 ) {
     if (items.isEmpty()) return
-    PopupMenu(items = items, label = label, icon = WebIcon.Grip, triggerClass = "btn-sq", enabled = enabled)
+    PopupMenu(
+        items = items,
+        label = label,
+        icon = WebIcon.Grip,
+        triggerClasses = buttonClasses(ButtonKind.Icon, ButtonSize.Lg),
+        enabled = enabled,
+    )
 }
 
 /**
@@ -63,7 +69,7 @@ fun PopupMenu(
     items: List<MenuAction>,
     label: String,
     icon: WebIcon,
-    triggerClass: String,
+    triggerClasses: Array<String>,
     enabled: Boolean = true,
     tooltip: Boolean = false,
 ) {
@@ -97,7 +103,7 @@ fun PopupMenu(
         }
     }) {
         Button(attrs = {
-            classes(triggerClass)
+            classes(*triggerClasses)
             attr("type", "button")
             attr("aria-label", label)
             if (tooltip) attr("title", label)

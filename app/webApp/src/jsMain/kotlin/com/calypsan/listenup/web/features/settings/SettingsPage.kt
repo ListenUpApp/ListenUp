@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.settings
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.nowplaying.PLAYBACK_SPEED_STEPS
@@ -119,16 +121,11 @@ fun SettingsPage(
         }
 
         Section("Account", null) {
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", TYPE_BUTTON)
-                onClick { onOpenDevices() }
-            }) { Text("Devices you are signed in on") }
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", TYPE_BUTTON)
-                onClick { onOpenNotifications() }
-            }) { Text("Which notifications reach you") }
+            Button(kind = ButtonKind.Secondary, onClick = { onOpenDevices() }) { Text("Devices you are signed in on") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onOpenNotifications() },
+            ) { Text("Which notifications reach you") }
             hardcoverRow?.let { row -> HardcoverEntry(row, onOpenHardcover) }
         }
 
@@ -136,11 +133,7 @@ fun SettingsPage(
             Row("App version", state.appVersion)
             Row("Server", state.serverUrl ?: "Not configured")
             state.serverVersion?.let { Row("Server version", it) }
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", TYPE_BUTTON)
-                onClick { onOpenLicences() }
-            }) { Text("Open Source Licenses") }
+            Button(kind = ButtonKind.Secondary, onClick = { onOpenLicences() }) { Text("Open Source Licenses") }
         }
     }
 }

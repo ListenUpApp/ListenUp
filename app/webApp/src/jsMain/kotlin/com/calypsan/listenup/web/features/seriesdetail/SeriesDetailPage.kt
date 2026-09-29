@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -97,11 +100,7 @@ private fun WayBack(
     onOpenLibrary: () -> Unit,
 ) {
     EmptyState(title = heading, body = body) {
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", BUTTON_VALUE)
-            onClick { onOpenLibrary() }
-        }) {
+        Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) {
             Text("Back to Library")
         }
     }
@@ -178,11 +177,7 @@ private fun Hero(
             // book one, which is a decision the reader did not make.
             state.resumeTarget?.let { target ->
                 Div(attrs = { classes("sd-actions") }) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", BUTTON_VALUE)
-                        onClick { onPlayBook(target.value) }
-                    }) {
+                    Button(kind = ButtonKind.Primary, onClick = { onPlayBook(target.value) }) {
                         Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
                         Text(if (state.bookProgress.containsKey(target)) "Continue" else "Start")
                     }
@@ -193,13 +188,15 @@ private fun Hero(
         // Icon-only, so the accessible name is the attribute rather than the content — the same
         // shape Book Detail and Contributor Detail use, for the same reason: a hero has no room
         // for a verb.
-        Button(attrs = {
-            classes("btn-sq", "sd-edit")
-            attr("type", BUTTON_VALUE)
-            attr("aria-label", "Edit series")
-            attr("title", "Edit series")
-            onClick { onEdit() }
-        }) { Icon(WebIcon.Pencil) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onEdit() },
+            label = "Edit series",
+            attrs = {
+                classes("sd-edit")
+            },
+        ) { Icon(WebIcon.Pencil) }
     }
 }
 

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.Event
 import org.w3c.dom.HTMLElement
@@ -79,11 +81,7 @@ fun ChapterEditorPage(
             is ChapterEditorUiState.Error -> {
                 PageHeader(title = EDIT_CHAPTERS)
                 EmptyState(title = "These chapters can't be shown", body = state.message) {
-                    Button(attrs = {
-                        classes("btn-o")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onLeave() }
-                    }) { Text("Back to the book") }
+                    Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back to the book") }
                 }
             }
 
@@ -199,11 +197,13 @@ private fun EditingContent(
                     id = "ched-search",
                 )
                 if (playheadMs != null) {
-                    Button(attrs = {
-                        classes(BTN_SECONDARY, "ched-add")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onAddAt(playheadMs, NEW_CHAPTER_TITLE) }
-                    }) {
+                    Button(
+                        kind = ButtonKind.Secondary,
+                        onClick = { onAddAt(playheadMs, NEW_CHAPTER_TITLE) },
+                        attrs = {
+                            classes("ched-add")
+                        },
+                    ) {
                         Icon(WebIcon.Plus, size = SMALL_ICON)
                         Text("Add chapter at playhead")
                     }
@@ -359,30 +359,25 @@ private fun EditorHeader(
         },
         actions = {
             Div(attrs = { classes("ched-acts") }) {
-                Button(attrs = {
-                    classes(BTN_SECONDARY)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onLeave() }
-                }) { Text("Back") }
-                Button(attrs = {
-                    classes(BTN_SECONDARY)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    // Nothing to interpolate between on an empty or single-chapter book.
-                    disabledWhen(state.chapters.size <= 1 || state.drift != null)
-                    onClick { onBeginDrift() }
-                }) { Text("Fix drift") }
-                Button(attrs = {
-                    classes(BTN_SECONDARY)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    disabledWhen(!state.canUndo)
-                    onClick { onUndo() }
-                }) { Text("Undo") }
-                Button(attrs = {
-                    classes("btn-c")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    disabledWhen(state.isSaving || !state.isDirty)
-                    onClick { onSave() }
-                }) { Text("Save chapters") }
+                Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onBeginDrift() },
+                    attrs = {
+                        // Nothing to interpolate between on an empty or single-chapter book.
+                        disabledWhen(state.chapters.size <= 1 || state.drift != null)
+                    },
+                ) { Text("Fix drift") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onUndo() },
+                    enabled = state.canUndo,
+                ) { Text("Undo") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    onClick = { onSave() },
+                    enabled = !(state.isSaving || !state.isDirty),
+                ) { Text("Save chapters") }
             }
         },
     )
@@ -405,10 +400,8 @@ private fun NoChapters(
         look = EmptyLook.Inset,
     ) {
         if (playheadMs != null) {
-            Button(attrs = {
-                classes("btn-c")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onAddAt(playheadMs, NEW_CHAPTER_TITLE) }
+            Button(kind = ButtonKind.Primary, onClick = {
+                onAddAt(playheadMs, NEW_CHAPTER_TITLE)
             }) { Text("Add first chapter at playhead") }
         } else {
             EmptyState(title = "Play this book to place the first boundary.", look = EmptyLook.Inline)
@@ -420,12 +413,6 @@ private fun NoChapters(
 private fun Chapter.holds(at: Long): Boolean = at >= startTime && at < startTime + duration
 
 internal const val NEW_CHAPTER_TITLE = "New chapter"
-
-private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
-
-private const val VALUE_BUTTON = "button"
 
 private const val SMALL_ICON = 16
 

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.web.design.LoadingState
@@ -126,11 +129,7 @@ private fun WayBack(
     onOpenContributors: () -> Unit,
 ) {
     EmptyState(title = heading, body = body) {
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", BUTTON_VALUE)
-            onClick { onOpenContributors() }
-        }) {
+        Button(kind = ButtonKind.Primary, onClick = { onOpenContributors() }) {
             Text("Back to Contributors")
         }
     }
@@ -157,12 +156,15 @@ private fun ReadyContent(
     state.deleteError?.let { message ->
         Div(attrs = { classes("banner", "err") }) {
             Span { Text(message) }
-            Button(attrs = {
-                classes("btn-o", "cd-err-x")
-                attr("type", BUTTON_VALUE)
-                attr(ARIA_LABEL, "Dismiss delete error")
-                onClick { onDismissDeleteError() }
-            }) { Text("Dismiss") }
+            Button(
+                kind = ButtonKind.Secondary,
+                size = ButtonSize.Sm,
+                onClick = { onDismissDeleteError() },
+                label = "Dismiss delete error",
+                attrs = {
+                    classes("cd-err-x")
+                },
+            ) { Text("Dismiss") }
         }
     }
 
@@ -200,11 +202,13 @@ private fun ReadyContent(
                     // Only when there is genuinely more than the preview holds. A "View all" over a
                     // panel already showing everything sends the reader to the same books twice.
                     if (section.showViewAll) {
-                        Button(attrs = {
-                            classes("btn-c", "cd-view-all")
-                            attr("type", BUTTON_VALUE)
-                            onClick { onOpenRoleBooks(section.role) }
-                        }) { Text("View all ${section.bookCount}") }
+                        Button(
+                            kind = ButtonKind.Primary,
+                            onClick = { onOpenRoleBooks(section.role) },
+                            attrs = {
+                                classes("cd-view-all")
+                            },
+                        ) { Text("View all ${section.bookCount}") }
                     }
                 }
             }
@@ -272,34 +276,41 @@ private fun Hero(
 
         // Icon-only, so the accessible name is the attribute rather than the content — the same
         // shape Book Detail's Edit uses, for the same reason: a hero has no room for a verb.
-        Button(attrs = {
-            classes("btn-sq", "cd-edit")
-            attr("type", BUTTON_VALUE)
-            attr(ARIA_LABEL, "Edit contributor")
-            attr("title", "Edit contributor")
-            onClick { onEdit() }
-        }) { Icon(WebIcon.Pencil) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onEdit() },
+            label = "Edit contributor",
+            attrs = {
+                classes("cd-edit")
+            },
+        ) { Icon(WebIcon.Pencil) }
 
         // Beside Edit, for the reason Book Detail's is: editing changes what the reader believes;
         // matching asks a catalogue and offers its answer.
-        Button(attrs = {
-            classes("btn-sq", "cd-match")
-            attr("type", BUTTON_VALUE)
-            attr(ARIA_LABEL, "Match contributor")
-            attr("title", "Match contributor")
-            onClick { onMatchMetadata() }
-        }) { Icon(WebIcon.Sparkles) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onMatchMetadata() },
+            label = "Match contributor",
+            attrs = {
+                classes("cd-match")
+            },
+        ) { Icon(WebIcon.Sparkles) }
 
         // Last, and disabled while its own work is in flight — a second press would ask the server
         // to delete someone already being deleted.
-        Button(attrs = {
-            classes("btn-sq", "cd-delete")
-            attr("type", BUTTON_VALUE)
-            attr(ARIA_LABEL, if (isDeleting) "Deleting contributor" else "Delete contributor")
-            attr("title", "Delete contributor")
-            if (isDeleting) attr("disabled", "")
-            onClick { onDeleteClick() }
-        }) { Icon(WebIcon.Trash) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Lg,
+            onClick = { onDeleteClick() },
+            label = if (isDeleting) "Deleting contributor" else "Delete contributor",
+            attrs = {
+                classes("cd-delete")
+                if (isDeleting) attr("disabled", "")
+                attr("title", "Delete contributor")
+            },
+        ) { Icon(WebIcon.Trash) }
     }
 }
 
@@ -496,6 +507,3 @@ private const val FAN_SECOND_LIGHTNESS = 14
 
 /** Every button here is an action, never a form submit. */
 private const val BUTTON_VALUE = "button"
-
-/** Extracted only because this page now sets enough of them to trip StringLiteralDuplication. */
-private const val ARIA_LABEL = "aria-label"

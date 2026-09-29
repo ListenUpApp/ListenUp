@@ -122,7 +122,7 @@ class SearchPageTest :
 
             root.querySelector(".is-error") shouldNotBe null
             (root.querySelector(".is-error") as HTMLElement).textContent!! shouldContain "Search unavailable."
-            root.querySelector(".is-error .btn-o") shouldNotBe null
+            root.querySelector(".is-error .btn-secondary") shouldNotBe null
         }
 
         test("retry fires the reported gesture") {
@@ -133,7 +133,7 @@ class SearchPageTest :
                     onRetry = { retried++ },
                 )
 
-            (root.querySelector(".is-error .btn-o") as HTMLElement).click()
+            (root.querySelector(".is-error .btn-secondary") as HTMLElement).click()
 
             retried shouldBe 1
         }

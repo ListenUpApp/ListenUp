@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.contributoredit
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -178,12 +181,11 @@ private fun PortraitField(
         }
 
         Div(attrs = { classes("ced-portrait-acts") }) {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                disabledWhen(state.isSaving || state.isUploadingImage)
-                onClick { input?.click() }
-            }) { Text(if (state.isUploadingImage) "Uploading…" else "Choose a photo") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { input?.click() },
+                enabled = !(state.isSaving || state.isUploadingImage),
+            ) { Text(if (state.isUploadingImage) "Uploading…" else "Choose a photo") }
             Span(attrs = { classes("ced-portrait-hint") }) { Text("JPG, PNG or WebP") }
         }
 
@@ -285,25 +287,31 @@ private fun AliasList(
                 key(alias) {
                     Div(attrs = { classes("ced-alias") }) {
                         Span(attrs = { classes("ced-alias-n") }) { Text(alias) }
-                        Button(attrs = {
-                            classes(BTN_SECONDARY, "ced-split")
-                            attr(ATTR_TYPE, VALUE_BUTTON)
-                            attr("aria-label", "Split $alias back out")
-                            disabledWhen(state.mergeInProgress)
-                            onClick { splitting = alias }
-                        }) { Text("Split out") }
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            size = ButtonSize.Sm,
+                            onClick = { splitting = alias },
+                            label = "Split $alias back out",
+                            attrs = {
+                                classes("ced-split")
+                                disabledWhen(state.mergeInProgress)
+                            },
+                        ) { Text("Split out") }
                     }
                 }
             }
         }
     }
     Div(attrs = { classes("ced-alias-act") }) {
-        Button(attrs = {
-            classes(BTN_SECONDARY, "ced-merge")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.mergeInProgress)
-            onClick { onEvent(ContributorEditUiEvent.MergeDialogOpened) }
-        }) { Text(if (state.mergeInProgress) "Merging…" else "Fold another contributor in") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onEvent(ContributorEditUiEvent.MergeDialogOpened) },
+            attrs = {
+                classes("ced-merge")
+                disabledWhen(state.mergeInProgress)
+            },
+        ) { Text(if (state.mergeInProgress) "Merging…" else "Fold another contributor in") }
     }
 
     val pending = splitting
@@ -381,11 +389,7 @@ private fun MergeDialog(
             }
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
         }
     }
 }
@@ -412,16 +416,8 @@ private fun RenameCollisionDialog(
             )
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onKeepSeparate() }
-            }) { Text("Keep separate") }
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onMerge() }
-            }) { Text("Fold into ${candidate.displayName}") }
+            Button(kind = ButtonKind.Secondary, onClick = { onKeepSeparate() }) { Text("Keep separate") }
+            Button(kind = ButtonKind.Primary, onClick = { onMerge() }) { Text("Fold into ${candidate.displayName}") }
         }
     }
 }
@@ -440,18 +436,17 @@ private fun EditActions(
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button: a <button> with no type inside a form defaults to SUBMIT, so this would
         // save the very edits Cancel exists to discard.
-        Button(attrs = {
-            classes(BTN_SECONDARY)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.isSaving)
-            onClick { onEvent(ContributorEditUiEvent.Cancel) }
-        }) { Text("Cancel") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onEvent(ContributorEditUiEvent.Cancel) },
+            enabled = !state.isSaving,
+        ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, "submit")
-            disabledWhen(state.isSaving || !state.hasChanges)
-        }) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.isSaving || !state.hasChanges),
+        ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
     }
 }
 
@@ -470,8 +465,6 @@ private fun stagePhoto(
 internal fun contributorPhotoUrl(contributorId: String): String = "/api/v1/contributors/$contributorId/photo"
 
 private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
 
 private const val PHOTO = "ced-photo"
 

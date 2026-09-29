@@ -260,7 +260,7 @@ private fun <T> BodyRow(
             Td {
                 Span(attrs = { classes("rowact") }) {
                     rowActions.forEach { action ->
-                        Button(attrs = { classes("iconbtn") }) {
+                        Button(kind = ButtonKind.Icon, size = ButtonSize.Sm, label = action.name) {
                             Icon(action, size = ROW_ACTION_ICON_SIZE)
                         }
                     }

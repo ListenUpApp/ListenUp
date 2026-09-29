@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.core.DurationFormatter
@@ -51,11 +54,7 @@ fun ProfilePage(
             is UserProfileUiState.Error -> {
                 PageHeader(title = PROFILE)
                 EmptyState(title = "This profile can't be shown", body = state.message) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -148,13 +147,15 @@ private fun Hero(
             }
         }
         if (state.isOwnProfile) {
-            Button(attrs = {
-                classes("iconbtn", "prof-edit")
-                attr("type", VALUE_BUTTON)
-                attr("aria-label", "Edit profile")
-                attr("title", "Edit profile")
-                onClick { onEditProfile() }
-            }) { Icon(WebIcon.Pencil, size = EDIT_ICON_SIZE) }
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Sm,
+                onClick = { onEditProfile() },
+                label = "Edit profile",
+                attrs = {
+                    classes("prof-edit")
+                },
+            ) { Icon(WebIcon.Pencil, size = EDIT_ICON_SIZE) }
         }
     }
 }

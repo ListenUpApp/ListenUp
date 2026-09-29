@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -115,11 +117,13 @@ private fun AdminLink(
     label: String,
     onClick: () -> Unit,
 ) {
-    Button(attrs = {
-        classes("btn-o", "adm-link")
-        attr("type", "button")
-        onClick { onClick() }
-    }) { Text(label) }
+    Button(
+        kind = ButtonKind.Secondary,
+        onClick = { onClick() },
+        attrs = {
+            classes("adm-link")
+        },
+    ) { Text(label) }
 }
 
 /**
@@ -220,16 +224,8 @@ private fun ErrorBanner(
 
     Div(attrs = { classes("adm-error") }) {
         Span(attrs = { classes("adm-error-t") }) { Text(message) }
-        Button(attrs = {
-            classes(QUIET_BUTTON)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onRetry() }
-        }) { Text("Try again") }
-        Button(attrs = {
-            classes(QUIET_BUTTON)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onClearError() }
-        }) { Text("Dismiss") }
+        Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
+        Button(kind = ButtonKind.Secondary, onClick = { onClearError() }) { Text("Dismiss") }
     }
 }
 
@@ -246,18 +242,20 @@ private fun PendingSection(
         state.pendingUsers.forEach { user ->
             key(user.id) {
                 PersonRow(user, subtitle = user.email) {
-                    Button(attrs = {
-                        classes("btn")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        if (state.approvingUserId == user.id) attr(ATTR_DISABLED, "")
-                        onClick { onApprove(user.id) }
-                    }) { Text(if (state.approvingUserId == user.id) "Approving…" else "Approve") }
-                    Button(attrs = {
-                        classes(QUIET_BUTTON)
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        if (state.denyingUserId == user.id) attr(ATTR_DISABLED, "")
-                        onClick { onDeny(user.id) }
-                    }) { Text("Deny") }
+                    Button(
+                        kind = ButtonKind.Primary,
+                        onClick = { onApprove(user.id) },
+                        attrs = {
+                            if (state.approvingUserId == user.id) attr(ATTR_DISABLED, "")
+                        },
+                    ) { Text(if (state.approvingUserId == user.id) "Approving…" else "Approve") }
+                    Button(
+                        kind = ButtonKind.Secondary,
+                        onClick = { onDeny(user.id) },
+                        attrs = {
+                            if (state.denyingUserId == user.id) attr(ATTR_DISABLED, "")
+                        },
+                    ) { Text("Deny") }
                 }
             }
         }
@@ -298,13 +296,14 @@ private fun MembersSection(
                     // The root account is the server's own owner; removing it would leave nobody able
                     // to administer anything, so it is not offered rather than refused.
                     if (!user.isRoot) {
-                        Button(attrs = {
-                            classes(QUIET_BUTTON)
-                            attr(ATTR_TYPE, VALUE_BUTTON)
-                            attr("aria-label", "Remove ${user.displayName ?: user.email}")
-                            if (state.deletingUserId == user.id) attr(ATTR_DISABLED, "")
-                            onClick { onAskRemove(user) }
-                        }) { Text("Remove") }
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            onClick = { onAskRemove(user) },
+                            label = "Remove ${user.displayName ?: user.email}",
+                            attrs = {
+                                if (state.deletingUserId == user.id) attr(ATTR_DISABLED, "")
+                            },
+                        ) { Text("Remove") }
                     }
                 }
             }
@@ -328,13 +327,14 @@ private fun InvitesSection(
                         Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
                     }
                     Div(attrs = { classes("adm-row-actions") }) {
-                        Button(attrs = {
-                            classes(QUIET_BUTTON)
-                            attr(ATTR_TYPE, VALUE_BUTTON)
-                            attr("aria-label", "Revoke the invite for ${invite.email}")
-                            if (state.revokingInviteId == invite.id) attr(ATTR_DISABLED, "")
-                            onClick { onAskRevoke(invite) }
-                        }) { Text("Revoke") }
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            onClick = { onAskRevoke(invite) },
+                            label = "Revoke the invite for ${invite.email}",
+                            attrs = {
+                                if (state.revokingInviteId == invite.id) attr(ATTR_DISABLED, "")
+                            },
+                        ) { Text("Revoke") }
                     }
                 }
             }
@@ -382,18 +382,20 @@ private fun ResetRow(
             Span(attrs = { classes("adm-row-when") }) { Text(relativeLastActive(request.requestedAt, nowMs)) }
         }
         Div(attrs = { classes("adm-row-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                if (deciding) attr(ATTR_DISABLED, "")
-                onClick { onDecide(request.id, true) }
-            }) { Text("Approve") }
-            Button(attrs = {
-                classes(QUIET_BUTTON)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                if (deciding) attr(ATTR_DISABLED, "")
-                onClick { onDecide(request.id, false) }
-            }) { Text("Decline") }
+            Button(
+                kind = ButtonKind.Primary,
+                onClick = { onDecide(request.id, true) },
+                attrs = {
+                    if (deciding) attr(ATTR_DISABLED, "")
+                },
+            ) { Text("Approve") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onDecide(request.id, false) },
+                attrs = {
+                    if (deciding) attr(ATTR_DISABLED, "")
+                },
+            ) { Text("Decline") }
         }
     }
 }
@@ -460,8 +462,6 @@ internal fun policyOf(raw: String): RegistrationPolicy =
 
 /** The outline button — every action here that is not the affirmative one. */
 private const val ROW_TEXT = "adm-row-text"
-
-private const val QUIET_BUTTON = "btn-o"
 
 private const val ATTR_DISABLED = "disabled"
 

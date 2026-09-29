@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.setup
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.DirectoryEntry
@@ -187,12 +189,14 @@ private fun SelectionBar(
     val count = state.selectedPaths.size
     Div(attrs = { classes("lsetup-bar") }) {
         Span(attrs = { classes("lsetup-count") }) { Text(selectionLabel(count)) }
-        Button(attrs = {
-            classes("btn-c", "lsetup-go")
-            attr("type", TYPE_BUTTON)
-            if (count == 0 || state.isCreatingLibrary) attr("disabled", "")
-            onClick { onComplete() }
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onComplete() },
+            attrs = {
+                classes("lsetup-go")
+                if (count == 0 || state.isCreatingLibrary) attr("disabled", "")
+            },
+        ) {
             Text(if (state.isCreatingLibrary) "Setting up…" else "Continue")
         }
     }

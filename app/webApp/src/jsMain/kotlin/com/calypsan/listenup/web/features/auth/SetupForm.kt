@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -110,12 +113,16 @@ fun SetupForm(
 
         formProblem?.let { FormAlert(it) }
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            if (state is SetupUiState.Loading) disabled()
-            // No onClick: a submit button inside a form already submits it.
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                if (state is SetupUiState.Loading) disabled()
+                // No onClick: a submit button inside a form already submits it.
+            },
+        ) {
             Icon(WebIcon.UserPlus, size = BUTTON_ICON_SIZE)
             Text(if (state is SetupUiState.Loading) "Creating…" else "Create admin account")
         }

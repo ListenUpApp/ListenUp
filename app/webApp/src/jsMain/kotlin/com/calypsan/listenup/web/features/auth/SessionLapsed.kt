@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -52,11 +54,13 @@ fun SessionLapsedBanner(authGraph: AuthGraph) {
             // reader is being told what still works.
             Span(attrs = { classes("lapse-b") }) { Text("Sign in to sync — your library still works.") }
         }
-        Button(attrs = {
-            classes("btn-c", "lapse-go")
-            attr("type", "button")
-            onClick { signingIn = true }
-        }) { Text("Sign in") }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { signingIn = true },
+            attrs = {
+                classes("lapse-go")
+            },
+        ) { Text("Sign in") }
     }
 
     if (signingIn) {
@@ -144,11 +148,13 @@ private fun OutdatedBanner(
                 Text("App ${state.clientVersion} / server ${state.serverVersion}. Some features may not sync.")
             }
         }
-        Button(attrs = {
-            classes("btn-o", "lapse-act")
-            attr("type", "button")
-            attr("aria-label", "Dismiss update hint")
-            onClick { onDismiss() }
-        }) { Text("Dismiss") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onDismiss() },
+            label = "Dismiss update hint",
+            attrs = {
+                classes("lapse-act")
+            },
+        ) { Text("Dismiss") }
     }
 }

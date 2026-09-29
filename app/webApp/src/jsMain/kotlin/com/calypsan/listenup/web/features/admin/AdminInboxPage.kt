@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -61,11 +64,13 @@ fun AdminInboxPage(
     onOpenMatch: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("inbox") }) {
-        Button(attrs = {
-            classes("btn-o", "inbox-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onOpenAdmin() },
+            attrs = {
+            classes("inbox-back")
+            },
+        ) { Text("← Admin") }
 
         PageHeader(title = "Inbox", subtitle = "Books that need a look before they join your library.")
 
@@ -76,11 +81,7 @@ fun AdminInboxPage(
 
             is AdminInboxUiState.Error -> {
                 EmptyState(title = "The inbox can't be shown", body = state.message) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -188,11 +189,13 @@ private fun WaitingForReview(
     Panel(
         title = "Waiting for review",
         trailing = {
-            Button(attrs = {
-                classes("btn-o", "inbox-selall")
-                attr("type", VALUE_BUTTON)
-                onClick { if (state.allSelected) onClearSelection() else onSelectAll() }
-            }) { Text(if (state.allSelected) "Deselect all" else "Select all") }
+            Button(
+                kind = ButtonKind.Secondary, size = ButtonSize.Sm,
+                onClick = { if (state.allSelected) onClearSelection() else onSelectAll() },
+                attrs = {
+                classes("inbox-selall")
+                },
+            ) { Text(if (state.allSelected) "Deselect all" else "Select all") }
         },
     ) {
         Div(attrs = { classes("inbox-books") }) {
@@ -321,11 +324,13 @@ private fun IssueRow(
                 Span(attrs = { classes("inbox-issue-detail") }) { Text(detail) }
             }
         }
-        Button(attrs = {
-            classes("btn-o", "inbox-issue-x")
-            attr("type", VALUE_BUTTON)
-            onClick { onDismissIssue(issue.id) }
-        }) { Text("Dismiss") }
+        Button(
+            kind = ButtonKind.Secondary, size = ButtonSize.Sm,
+            onClick = { onDismissIssue(issue.id) },
+            attrs = {
+            classes("inbox-issue-x")
+            },
+        ) { Text("Dismiss") }
     }
 }
 

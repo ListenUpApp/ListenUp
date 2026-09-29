@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.metadata.BookField
@@ -107,11 +109,7 @@ private fun MatchedHero(
             }
             Span(attrs = { classes("mdx-src") }) { Text("Audible · ${region.displayName}") }
         }
-        Button(attrs = {
-            classes(BTN_SECONDARY)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { onBackToResults() }
-        }) { Text("Back to results") }
+        Button(kind = ButtonKind.Secondary, onClick = { onBackToResults() }) { Text("Back to results") }
     }
 }
 
@@ -334,11 +332,13 @@ private fun ChapterNamesRow(
             Div(attrs = { classes("mdx-chapters") }) {
                 Span(attrs = { classes("mdx-chapters-l") }) { Text("Chapter names") }
                 P { Text("${suggestion.rows.size} chapters matched") }
-                Button(attrs = {
-                    classes(BTN_SECONDARY, "mdx-review")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onReview() }
-                }) { Text("Review & apply chapter names") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onReview() },
+                    attrs = {
+                        classes("mdx-review")
+                    },
+                ) { Text("Review & apply chapter names") }
             }
         }
     }
@@ -362,14 +362,15 @@ private fun ApplyBar(
                 Text("Merged from ${ready.contributingSources.joinToString(", ")}")
             }
         }
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            // Nothing ticked is nothing to apply, and a button that reports success for a change
-            // nobody made is the lie this whole screen exists to avoid.
-            disabledWhen(ready.isApplying || !ready.selections.hasAnySelected())
-            onClick { onApply() }
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onApply() },
+            attrs = {
+                // Nothing ticked is nothing to apply, and a button that reports success for a change
+                // nobody made is the lie this whole screen exists to avoid.
+                disabledWhen(ready.isApplying || !ready.selections.hasAnySelected())
+            },
+        ) {
             Icon(WebIcon.Check, size = SMALL_ICON)
             Text(if (ready.isApplying) "Applying…" else "Apply selected metadata")
         }
@@ -415,8 +416,6 @@ internal fun seriesLabel(
 ): String = if (sequence.isNullOrBlank()) title else "$title · $sequence"
 
 private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
 
 private const val VALUE_BUTTON = "button"
 

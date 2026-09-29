@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
@@ -38,11 +40,13 @@ fun RestorePage(
         // Absent while a restore is running: the server is swapping its own database out, and a
         // link away from the only page narrating that is an invitation to miss the outcome.
         if (state !is RestoreBackupUiState.Restoring) {
-            Button(attrs = {
-                classes("btn-o", "rst-back")
-                attr("type", VALUE_BUTTON)
-                onClick { onOpenBackups() }
-            }) { Text("← Backups") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onOpenBackups() },
+                attrs = {
+                    classes("rst-back")
+                },
+            ) { Text("← Backups") }
         }
 
         PageHeader(title = "Restore from a backup")
@@ -61,11 +65,7 @@ fun RestorePage(
                             "Anything added since it was taken is gone — books, listeners, progress, all of it.",
                     )
                 }
-                Button(attrs = {
-                    classes("btn-c")
-                    attr("type", VALUE_BUTTON)
-                    onClick { onRequest() }
-                }) { Text("Restore this backup") }
+                Button(kind = ButtonKind.Primary, onClick = { onRequest() }) { Text("Restore this backup") }
             }
 
             RestoreBackupUiState.Confirming -> {
@@ -118,11 +118,7 @@ fun RestorePage(
                             )
                         }
                     }
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onOpenBackups() }
-                    }) { Text("Back to backups") }
+                    Button(kind = ButtonKind.Primary, onClick = { onOpenBackups() }) { Text("Back to backups") }
                 }
             }
         }
@@ -165,5 +161,3 @@ private fun phaseLabel(event: BackupEvent?): String =
 
 /** What the create-side phases would say if a restore ever emitted one. It does not. */
 private const val WORKING = "Working…"
-
-private const val VALUE_BUTTON = "button"

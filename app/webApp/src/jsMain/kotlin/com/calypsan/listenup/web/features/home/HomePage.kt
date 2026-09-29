@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -174,11 +176,7 @@ private fun ContinueListening(
         UnderHeading(level = SECTION_HEADING_LEVEL) {
             if (items.isEmpty()) {
                 EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
-                    Button(attrs = {
-                        classes("btn")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onOpenLibrary() }
-                    }) { Text("Browse library") }
+                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) { Text("Browse library") }
                 }
             } else {
                 Div(attrs = { classes("home-continue") }) {
@@ -384,11 +382,7 @@ private fun MyShelves(
     Div(attrs = { classes("home-section") }) {
         Div(attrs = { classes("home-section-row") }) {
             H2(attrs = { classes("home-section-h") }) { Text("My shelves") }
-            Button(attrs = {
-                classes("btn-o")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onCreateShelf() }
-            }) { Text("New shelf") }
+            Button(kind = ButtonKind.Secondary, onClick = { onCreateShelf() }) { Text("New shelf") }
         }
         UnderHeading(level = SECTION_HEADING_LEVEL) {
             if (shelves.isEmpty()) {

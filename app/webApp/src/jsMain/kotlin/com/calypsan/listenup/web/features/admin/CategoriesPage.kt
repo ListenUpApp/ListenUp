@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ModalDialog
 import com.calypsan.listenup.web.features.merge.MergeHistoryList
@@ -57,11 +60,13 @@ fun CategoriesPage(
     mergeHistoryActions: MergeHistoryActions,
 ) {
     Div(attrs = { classes("cat") }) {
-        Button(attrs = {
-            classes(BTN_SECONDARY, "cat-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onOpenAdmin() },
+            attrs = {
+                classes("cat-back")
+            },
+        ) { Text("← Admin") }
 
         PageHeader(title = "Categories")
 
@@ -107,11 +112,7 @@ private fun GenreMergeHistoryDialog(
     ModalDialog(open = true, title = "Merged into ${open.genreName}", onDismiss = actions.close) {
         MergeHistoryList(state = open.history, onUndo = actions.undo, onRetry = actions.retry)
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr("type", VALUE_BUTTON)
-                onClick { actions.close() }
-            }) { Text("Done") }
+            Button(kind = ButtonKind.Secondary, onClick = { actions.close() }) { Text("Done") }
         }
     }
 }
@@ -151,22 +152,31 @@ private fun ReadyContent(
 
     Div(attrs = { classes("cat-bar") }) {
         Span(attrs = { classes("cat-count") }) { Text(genreSummary(state.genres.size, state.totalBookCount)) }
-        Button(attrs = {
-            classes(BTN_SECONDARY, "cat-bar-b")
-            attr("type", VALUE_BUTTON)
-            onClick { onExpandAll() }
-        }) { Text("Expand all") }
-        Button(attrs = {
-            classes(BTN_SECONDARY, "cat-bar-b")
-            attr("type", VALUE_BUTTON)
-            onClick { onCollapseAll() }
-        }) { Text("Collapse all") }
-        Button(attrs = {
-            classes("btn-c", "cat-bar-b")
-            attr("type", VALUE_BUTTON)
-            disabledWhen(state.isSaving)
-            onClick { dialog = CategoryDialog.Create(parent = null) }
-        }) { Text("New genre") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onExpandAll() },
+            attrs = {
+                classes("cat-bar-b")
+            },
+        ) { Text("Expand all") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onCollapseAll() },
+            attrs = {
+                classes("cat-bar-b")
+            },
+        ) { Text("Collapse all") }
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Sm,
+            onClick = { dialog = CategoryDialog.Create(parent = null) },
+            attrs = {
+                classes("cat-bar-b")
+                disabledWhen(state.isSaving)
+            },
+        ) { Text("New genre") }
     }
 
     if (state.tree.isEmpty()) {
@@ -378,14 +388,16 @@ private fun RowAction(
     isSaving: Boolean,
     onClick: () -> Unit,
 ) {
-    Button(attrs = {
-        classes("iconbtn", "cat-act")
-        attr("type", VALUE_BUTTON)
-        attr("aria-label", label)
-        attr("title", label)
-        disabledWhen(isSaving)
-        onClick { onClick() }
-    }) { Icon(icon, size = SMALL_ICON) }
+    Button(
+        kind = ButtonKind.Icon,
+        size = ButtonSize.Sm,
+        onClick = { onClick() },
+        label = label,
+        attrs = {
+            classes("cat-act")
+            disabledWhen(isSaving)
+        },
+    ) { Icon(icon, size = SMALL_ICON) }
 }
 
 /** What deleting this genre costs, in the only terms that matter. */
@@ -414,5 +426,3 @@ private const val SMALL_ICON = 16
 
 /** One step of indentation per level of the tree. */
 private const val INDENT_PX = 22
-
-private const val BTN_SECONDARY = "btn-o"

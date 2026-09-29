@@ -185,7 +185,7 @@ class AccountRoutesTest :
                 mountAt("/settings", openSettings = fixedSettings(SettingsUiState(isLoading = false)))
 
             try {
-                val links = host.querySelectorAll(".btn-o")
+                val links = host.querySelectorAll(".btn-secondary")
                 val notifications =
                     (0 until links.length)
                         .map { links.item(it) as HTMLElement }

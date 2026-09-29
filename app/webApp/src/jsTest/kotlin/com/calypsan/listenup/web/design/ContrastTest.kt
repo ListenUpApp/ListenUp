@@ -39,7 +39,7 @@ class ContrastTest :
                         Div(attrs = { classes("rs") }) {
                             Span(attrs = { classes("rs-s", "is-empty") }) { Text("★") }
                         }
-                        Button(attrs = { classes("btn") }) { Text("Sign in") }
+                        Button(kind = ButtonKind.Primary) { Text("Sign in") }
                     }
                 },
                 theme,
@@ -102,7 +102,7 @@ class ContrastTest :
 
             test("$theme: the primary button is filled with coral-fill, not the brand mark's coral") {
                 val palette = palette(theme)
-                val button = palette.frame.find(".btn")
+                val button = palette.frame.find(".btn-primary")
 
                 palette.elementColour(button, "background-color") shouldBe palette.token("--coral-fill")
             }

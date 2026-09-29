@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.bulkedit
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +32,6 @@ import com.calypsan.listenup.web.design.RelationField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -111,11 +112,7 @@ private fun EditingContent(
         eyebrow = "Library · ${state.bookCount} selected",
         documentTitle = "Edit books",
         actions = {
-            Button(attrs = {
-                classes(BTN_SECONDARY)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { actions.onLeave() }
-            }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { actions.onLeave() }) { Text("Cancel") }
         },
     )
 
@@ -163,12 +160,11 @@ private fun EditingContent(
     FormSection(title = "What will change") { PreviewPanel(state.preview, state.bookCount) }
 
     Div(attrs = { classes("bke-apply") }) {
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(state.isApplying || !state.canApply)
-            onClick { actions.onApply() }
-        }) { Text(applyLabel(state.changedBookCount, state.isApplying)) }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { actions.onApply() },
+            enabled = !(state.isApplying || !state.canApply),
+        ) { Text(applyLabel(state.changedBookCount, state.isApplying)) }
     }
 }
 
@@ -515,8 +511,6 @@ private fun <T> List<T>.matching(
 private const val MIXED = "Multiple values"
 
 private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
 
 private const val VALUE_BUTTON = "button"
 

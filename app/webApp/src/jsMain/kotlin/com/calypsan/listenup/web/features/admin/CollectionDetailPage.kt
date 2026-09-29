@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -56,11 +59,13 @@ fun CollectionDetailPage(
     onOpenCollections: () -> Unit,
 ) {
     Div(attrs = { classes("cdet") }) {
-        Button(attrs = {
-            classes("btn-o", "cdet-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenCollections() }
-        }) { Text("← Collections") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onOpenCollections() },
+            attrs = {
+                classes("cdet-back")
+            },
+        ) { Text("← Collections") }
 
         PageHeader(
             title = (state as? AdminCollectionDetailUiState.Ready)?.collection?.name ?: "Collection",
@@ -139,12 +144,11 @@ private fun ReadyContent(
         // permanently greyed on a screen you did not come here to edit is just furniture.
         if (state.isDirty && !managed) {
             Div(attrs = { classes("edit-actions") }) {
-                Button(attrs = {
-                    classes("btn-c")
-                    attr("type", VALUE_BUTTON)
-                    disabledWhen(state.isSaving)
-                    onClick { onSaveName() }
-                }) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    onClick = { onSaveName() },
+                    enabled = !state.isSaving,
+                ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
             }
         }
     }
@@ -152,11 +156,14 @@ private fun ReadyContent(
     FormSection(title = "Books") {
         if (!managed) {
             Div(attrs = { classes("cdet-sec-act") }) {
-                Button(attrs = {
-                    classes("btn-o", "cdet-add")
-                    attr("type", VALUE_BUTTON)
-                    onClick { onOpenAddBooks() }
-                }) { Text("Add books") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    size = ButtonSize.Sm,
+                    onClick = { onOpenAddBooks() },
+                    attrs = {
+                        classes("cdet-add")
+                    },
+                ) { Text("Add books") }
             }
         }
         if (state.books.isEmpty()) {
@@ -179,12 +186,15 @@ private fun ReadyContent(
 
     FormSection(title = "Shared with") {
         Div(attrs = { classes("cdet-sec-act") }) {
-            Button(attrs = {
-                classes("btn-o", "cdet-share")
-                attr("type", VALUE_BUTTON)
-                disabledWhen(state.isSharing)
-                onClick { onShowAddMember() }
-            }) { Text("Share with someone") }
+            Button(
+                kind = ButtonKind.Secondary,
+                size = ButtonSize.Sm,
+                onClick = { onShowAddMember() },
+                attrs = {
+                    classes("cdet-share")
+                    disabledWhen(state.isSharing)
+                },
+            ) { Text("Share with someone") }
         }
         if (state.shares.isEmpty()) {
             // Not "nobody can see this": the owner always can, and the all-books collection is
@@ -249,14 +259,17 @@ private fun BookRow(
             }
         }
         if (canRemove) {
-            Button(attrs = {
-                classes("iconbtn", "cdet-x")
-                attr("type", VALUE_BUTTON)
-                attr("aria-label", "Remove ${book.title} from this collection")
-                attr("title", "Remove from this collection")
-                disabledWhen(isRemoving)
-                onClick { onRemove() }
-            }) { Icon(WebIcon.X, size = SMALL_ICON) }
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Sm,
+                onClick = { onRemove() },
+                label = "Remove ${book.title} from this collection",
+                attrs = {
+                    classes("cdet-x")
+                    disabledWhen(isRemoving)
+                    attr("title", "Remove from this collection")
+                },
+            ) { Icon(WebIcon.X, size = SMALL_ICON) }
         }
     }
 }
@@ -270,14 +283,17 @@ private fun ShareRow(
     Div(attrs = { classes("cdet-share-row") }) {
         Span(attrs = { classes("cdet-share-n") }) { Text(share.displayName) }
         Span(attrs = { classes("cdet-share-p") }) { Text(share.permission.lowercase()) }
-        Button(attrs = {
-            classes("iconbtn", "cdet-x")
-            attr("type", VALUE_BUTTON)
-            attr("aria-label", "Stop sharing with ${share.displayName}")
-            attr("title", "Stop sharing")
-            disabledWhen(isRemoving)
-            onClick { onRevoke() }
-        }) { Icon(WebIcon.X, size = SMALL_ICON) }
+        Button(
+            kind = ButtonKind.Icon,
+            size = ButtonSize.Sm,
+            onClick = { onRevoke() },
+            label = "Stop sharing with ${share.displayName}",
+            attrs = {
+                classes("cdet-x")
+                disabledWhen(isRemoving)
+                attr("title", "Stop sharing")
+            },
+        ) { Icon(WebIcon.X, size = SMALL_ICON) }
     }
 }
 
@@ -338,11 +354,7 @@ private fun AddBooksDialog(
         Div(attrs = { classes("dlg-actions") }) {
             // No confirm: each result adds on click, and the dialog stays open so several books
             // can go in without reopening it. Done is the only way out, so it is the only button.
-            Button(attrs = {
-                classes("btn")
-                attr("type", VALUE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Done") }
+            Button(kind = ButtonKind.Primary, onClick = { onDismiss() }) { Text("Done") }
         }
     }
 }

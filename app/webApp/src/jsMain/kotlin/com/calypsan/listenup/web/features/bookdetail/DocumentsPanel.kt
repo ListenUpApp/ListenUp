@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.ButtonLink
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.web.design.ColumnAlign
@@ -84,17 +87,21 @@ private fun DocumentLink(
 ) {
     val viewable = doc.format.lowercase() == PDF
     val name = documentBasename(doc.filename)
-    A(href = documentUrl(bookId, doc.id), attrs = {
-        classes("btn-o", "doc-open")
-        if (viewable) {
-            target(ATarget.Blank)
-            attr("rel", "noopener")
-            attr("aria-label", "Open $name in a new tab")
-        } else {
-            attr("download", name)
-            attr("aria-label", "Download $name")
-        }
-    }) {
+    ButtonLink(
+        href = documentUrl(bookId, doc.id),
+        kind = ButtonKind.Secondary,
+        size = ButtonSize.Sm,
+        label = if (viewable) "Open $name in a new tab" else "Download $name",
+        attrs = {
+            classes("doc-open")
+            if (viewable) {
+                target(ATarget.Blank)
+                attr("rel", "noopener")
+            } else {
+                attr("download", name)
+            }
+        },
+    ) {
         Icon(if (viewable) WebIcon.Eye else WebIcon.Download, size = DOC_ICON)
         Text(if (viewable) " Open" else " Download")
     }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -112,13 +115,17 @@ fun LoginForm(
 
         formProblem?.let { FormAlert(it) }
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            // No onClick: a submit button inside a form already submits it. Keeping one would
-            // fire the handler twice for a click and once for Enter.
-            if (state is LoginUiState.Loading) disabled()
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                // No onClick: a submit button inside a form already submits it. Keeping one would
+                // fire the handler twice for a click and once for Enter.
+                if (state is LoginUiState.Loading) disabled()
+            },
+        ) {
             Icon(WebIcon.LogIn, size = BUTTON_ICON_SIZE)
             Text(if (state is LoginUiState.Loading) "Signing in…" else "Sign in")
         }

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.profile
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -13,7 +15,6 @@ import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.PasswordField
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.UserAvatar
@@ -252,19 +253,17 @@ private fun PhotoField(
         Div(attrs = { classes("pedit-photo-acts") }) {
             // ⛔ type=button on both. A <button> with no type defaults to SUBMIT, so inside the
             // form either of these would save the whole profile instead of touching the picture.
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                disabledWhen(state.isSaving)
-                onClick { fileInput?.click() }
-            }) { Text("Upload photo") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { fileInput?.click() },
+                enabled = !state.isSaving,
+            ) { Text("Upload photo") }
             if (state.hasImageAvatar && state.avatarChange !is AvatarChange.Upload) {
-                Button(attrs = {
-                    classes("btn-o")
-                    attr("type", "button")
-                    disabledWhen(state.isSaving || state.avatarChange == AvatarChange.RevertToAuto)
-                    onClick { onRemoveAvatar() }
-                }) { Text("Remove photo") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onRemoveAvatar() },
+                    enabled = !(state.isSaving || state.avatarChange == AvatarChange.RevertToAuto),
+                ) { Text("Remove photo") }
             }
             Span(attrs = { classes("pedit-photo-hint") }) { Text("JPG, PNG or WebP") }
         }
@@ -320,18 +319,17 @@ private fun EditActions(
     onCancel: () -> Unit,
 ) {
     Div(attrs = { classes("edit-actions") }) {
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", "button")
-            disabledWhen(state.isSaving)
-            onClick { onCancel() }
-        }) { Text("Cancel") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onCancel() },
+            enabled = !state.isSaving,
+        ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", "submit")
-            disabledWhen(state.isSaving || !state.isDirty)
-        }) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.isSaving || !state.isDirty),
+        ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
     }
 }
 

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -145,20 +147,20 @@ private fun ReadyContent(
     }
 
     Div(attrs = { classes("lset-actions") }) {
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", TYPE_BUTTON)
-            disabledWhen(state.isSaving)
-            onClick { onShowBrowser(true) }
-        }) { Text("Add a folder") }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onShowBrowser(true) },
+            enabled = !state.isSaving,
+        ) { Text("Add a folder") }
 
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", TYPE_BUTTON)
-            // Nothing to walk, and a scan already running should not be started twice.
-            disabledWhen(state.isScanning || state.library.folders.isEmpty())
-            onClick { onScan() }
-        }) { Text(if (state.isScanning) "Scanning…" else "Scan now") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onScan() },
+            attrs = {
+                // Nothing to walk, and a scan already running should not be started twice.
+                disabledWhen(state.isScanning || state.library.folders.isEmpty())
+            },
+        ) { Text(if (state.isScanning) "Scanning…" else "Scan now") }
     }
 
     val pending = pendingRemove
@@ -260,11 +262,7 @@ private fun FolderBrowser(
         }
 
         Div(attrs = { classes("lset-actions") }) {
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", TYPE_BUTTON)
-                onClick { onShowBrowser(false) }
-            }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { onShowBrowser(false) }) { Text("Cancel") }
         }
     }
 }

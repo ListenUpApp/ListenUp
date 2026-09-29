@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.MetadataBook
@@ -11,7 +13,6 @@ import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -61,11 +62,11 @@ internal fun MetadataSearchPhase(
             placeholder = "Title, author, narrator, or ASIN...",
             id = "mdx-query",
         )
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, "submit")
-            disabledWhen(state.loadState is SearchLoadState.InFlight || state.query.isBlank())
-        }) { Text(if (state.loadState is SearchLoadState.InFlight) "Searching…" else "Search Audible") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.loadState is SearchLoadState.InFlight || state.query.isBlank()),
+        ) { Text(if (state.loadState is SearchLoadState.InFlight) "Searching…" else "Search Audible") }
     }
 
     RegionSelector(state.region, onRegion)

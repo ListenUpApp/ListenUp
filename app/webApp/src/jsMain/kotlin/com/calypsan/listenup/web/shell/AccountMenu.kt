@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.shell
 
+import com.calypsan.listenup.web.design.buttonClasses
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.PopupMenu
@@ -30,5 +33,11 @@ fun AccountMenu(
             add(MenuAction("Sign out", WebIcon.LogOut, onSignOut))
         }
 
-    PopupMenu(items = items, label = "Account", icon = WebIcon.Shield, triggerClass = "iconbtn", tooltip = true)
+    PopupMenu(
+        items = items,
+        label = "Account",
+        icon = WebIcon.Shield,
+        triggerClasses = buttonClasses(ButtonKind.Icon, ButtonSize.Sm),
+        tooltip = true,
+    )
 }

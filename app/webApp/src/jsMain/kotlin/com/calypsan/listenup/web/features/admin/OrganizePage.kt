@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.organize.OrganizeAuthorForm
 import com.calypsan.listenup.api.dto.organize.OrganizePreset
@@ -107,18 +109,20 @@ private fun ReadyOrganize(
     }
 
     Div(attrs = { classes("org-actions") }) {
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            if (state.isWorking) attr(ATTR_DISABLED, "")
-            onClick { actions.onSaveRules() }
-        }) { Text("Save settings") }
-        Button(attrs = {
-            classes("btn-o")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            if (state.isWorking) attr(ATTR_DISABLED, "")
-            onClick { actions.onOrganize() }
-        }) { Text("Organize library") }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { actions.onSaveRules() },
+            attrs = {
+                if (state.isWorking) attr(ATTR_DISABLED, "")
+            },
+        ) { Text("Save settings") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { actions.onOrganize() },
+            attrs = {
+                if (state.isWorking) attr(ATTR_DISABLED, "")
+            },
+        ) { Text("Organize library") }
     }
     // ⛔ Said in words, not implied by button order: Save changes where *future* books land and
     // moves nothing that is already here. An admin who assumes otherwise either never presses it
@@ -199,17 +203,9 @@ private fun RunDialog(
             P(attrs = { classes("dlg-p") }) { Text(reportSummary(run)) }
             Div(attrs = { classes("dlg-actions") }) {
                 if (run.hasFailures) {
-                    Button(attrs = {
-                        classes("btn-o")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onResume() }
-                    }) { Text("Resume") }
+                    Button(kind = ButtonKind.Secondary, onClick = { onResume() }) { Text("Resume") }
                 }
-                Button(attrs = {
-                    classes("btn-c")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onDismiss() }
-                }) { Text("Done") }
+                Button(kind = ButtonKind.Primary, onClick = { onDismiss() }) { Text("Done") }
             }
             return@ModalDialog
         }

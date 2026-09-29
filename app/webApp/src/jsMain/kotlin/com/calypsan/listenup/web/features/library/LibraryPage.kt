@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.library
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,11 +90,13 @@ fun LibraryPage(
             // is an affordance whose only outcome is nothing — the same reason Sort stays with the
             // loaded branch.
             if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
-                Button(attrs = {
-                    classes("btn-o", "lib-select")
-                    attr("type", "button")
-                    onClick { onStartSelecting() }
-                }) { Text("Select") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onStartSelecting() },
+                    attrs = {
+                        classes("lib-select")
+                    },
+                ) { Text("Select") }
             }
             if (state is LibraryUiState.Loaded) BookSortControl(state, onEvent)
         }

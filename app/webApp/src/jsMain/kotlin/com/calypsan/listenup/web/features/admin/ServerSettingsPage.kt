@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -10,7 +12,6 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.FormSection
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
-import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.design.SwitchField
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.attributes.onSubmit
@@ -53,11 +54,13 @@ fun ServerSettingsPage(
     nowMs: Long = 0L,
 ) {
     Div(attrs = { classes("srv") }) {
-        Button(attrs = {
-            classes("btn-o", "srv-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onOpenAdmin() },
+            attrs = {
+                classes("srv-back")
+            },
+        ) { Text("← Admin") }
 
         PageHeader(title = "Server settings")
 
@@ -68,11 +71,7 @@ fun ServerSettingsPage(
 
             is AdminSettingsUiState.Error -> {
                 EmptyState(title = "Server settings can't be shown", body = state.error.message) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", VALUE_BUTTON)
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 
@@ -153,11 +152,11 @@ private fun ReadyContent(
 
         Div(attrs = { classes("edit-actions") }) {
             // No onClick: submitting the form is what saves, for click and Enter alike.
-            Button(attrs = {
-                classes("btn-c")
-                attr("type", "submit")
-                disabledWhen(state.isSaving || !state.isDirty)
-            }) { Text(if (state.isSaving) "Saving…" else "Save settings") }
+            Button(
+                kind = ButtonKind.Primary,
+                submit = true,
+                enabled = !(state.isSaving || !state.isDirty),
+            ) { Text(if (state.isSaving) "Saving…" else "Save settings") }
         }
     }
 

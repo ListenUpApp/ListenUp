@@ -43,6 +43,11 @@ class TouchTargetsTest :
                     SMALL_CONTROLS.forEach { cls ->
                         Button(attrs = { classes(cls) }) { Text("×") }
                     }
+                    // The shared Button at the sizes drawn under 44px: every kind and size is one
+                    // `.btn`, so these three stand for all of them.
+                    Button(kind = ButtonKind.Icon, size = ButtonSize.Sm, label = "Close") { Text("×") }
+                    Button(kind = ButtonKind.Secondary, size = ButtonSize.Sm) { Text("Undo") }
+                    Button(kind = ButtonKind.Primary) { Text("Save") }
                     Div(attrs = { classes("seg") }) { Button { Text("A") } }
                     Div(attrs = { classes("menu") }) { Button(attrs = { classes("menu-i") }) { Text("Open") } }
                 }
@@ -51,7 +56,7 @@ class TouchTargetsTest :
         test("on a touchscreen every small control takes a tap within 22px of its centre") {
             val frame = controls(Pointer.Touch)
 
-            (SMALL_CONTROLS.map { ".$it" } + ".seg button").forEach { selector ->
+            (SMALL_CONTROLS.map { ".$it" } + BUTTONS + ".seg button").forEach { selector ->
                 withClue(selector) {
                     frame.takesTapsWithin(frame.find(selector), MIN_TARGET_PX / 2 - 1) shouldBe true
                 }
@@ -62,7 +67,7 @@ class TouchTargetsTest :
             val touch = controls(Pointer.Touch)
             val mouse = controls(Pointer.Mouse)
 
-            SMALL_CONTROLS.map { ".$it" }.forEach { selector ->
+            (SMALL_CONTROLS.map { ".$it" } + BUTTONS).forEach { selector ->
                 withClue(selector) {
                     touch.rect(touch.find(selector)).width shouldBe mouse.rect(mouse.find(selector)).width
                     touch.rect(touch.find(selector)).height shouldBe mouse.rect(mouse.find(selector)).height
@@ -85,11 +90,10 @@ class TouchTargetsTest :
         }
     })
 
-/** The undersized controls the audit listed, from 20px (`.rel-x`) to 40px (`.btn-c`). */
+/** The undersized controls the audit listed, from 20px (`.rel-x`) to 36px. */
 private val SMALL_CONTROLS =
     listOf(
         "rel-x",
-        "iconbtn",
         "pill",
         "inbox-notice-x",
         "srv-err-x",
@@ -104,5 +108,7 @@ private val SMALL_CONTROLS =
         "bd-pick-x",
         "bke-clear",
         "np-chip",
-        "btn-c",
     )
+
+/** The shared [Button]'s undersized drawings: a 30px icon, a 32px small button and a 40px one. */
+private val BUTTONS = listOf(".btn-icon.btn-sm", ".btn-secondary.btn-sm", ".btn-primary.btn-md")

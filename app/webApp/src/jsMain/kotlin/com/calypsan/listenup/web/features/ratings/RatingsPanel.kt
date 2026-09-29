@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.ratings
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -61,11 +63,13 @@ fun RatingsPanel(
             ready.listeners?.let { ListenersAverage(it) }
             val mine = ready.mine
             if (mine == null) {
-                Button(attrs = {
-                    classes(BTN_SECONDARY, "rt-rate")
-                    attr("type", TYPE_BUTTON)
-                    onClick { isDialogOpen = true }
-                }) { Text("Rate") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { isDialogOpen = true },
+                    attrs = {
+                        classes("rt-rate")
+                    },
+                ) { Text("Rate") }
             } else {
                 Div(attrs = { classes("rt-mine") }) {
                     Span(attrs = { classes("rt-mine-l") }) { Text("Your rating") }

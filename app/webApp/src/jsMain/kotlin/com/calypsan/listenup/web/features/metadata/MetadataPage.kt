@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -51,11 +53,7 @@ fun MetadataPage(
         PageHeader(
             title = "Match metadata",
             actions = {
-                Button(attrs = {
-                    classes("btn-o")
-                    attr("type", "button")
-                    onClick { onLeave() }
-                }) { Text("Back") }
+                Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back") }
             },
         )
 
@@ -128,11 +126,7 @@ private fun PreviewPhase(
                 classes("mdx-err")
                 attr("role", "alert")
             }) { Text(load.message) }
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                onClick { onClearSelection() }
-            }) { Text("Back to results") }
+            Button(kind = ButtonKind.Secondary, onClick = { onClearSelection() }) { Text("Back to results") }
         }
 
         is PreviewLoadState.Ready -> {

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,14 +120,16 @@ private fun InviteForm(
         }) { Text(message) }
     }
 
-    Button(attrs = {
-        classes("btn-c", "inv-go")
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        // ⛔ A blank email cannot make an invite, and the server would answer with a validation
-        // error the reader has to read to learn what the form already knew.
-        if (submitting || email.isBlank()) attr("disabled", "")
-        onClick { onCreate(email, role, days) }
-    }) { Text(if (submitting) "Creating…" else "Create invite") }
+    Button(
+        kind = ButtonKind.Primary,
+        onClick = { onCreate(email, role, days) },
+        attrs = {
+            classes("inv-go")
+            // ⛔ A blank email cannot make an invite, and the server would answer with a validation
+            // error the reader has to read to learn what the form already knew.
+            if (submitting || email.isBlank()) attr("disabled", "")
+        },
+    ) { Text(if (submitting) "Creating…" else "Create invite") }
 }
 
 @Composable
@@ -172,23 +176,17 @@ private fun InviteMade(
         )
         Div(attrs = { classes("inv-link") }) {
             Span(attrs = { classes("inv-url") }) { Text(invite.url) }
-            Button(attrs = {
-                classes("btn-o", "inv-copy")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onCopy(invite.url) }
-            }) { Text("Copy") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onCopy(invite.url) },
+                attrs = {
+                    classes("inv-copy")
+                },
+            ) { Text("Copy") }
         }
         Div(attrs = { classes("inv-actions") }) {
-            Button(attrs = {
-                classes("btn-c")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onOpenAdmin() }
-            }) { Text("Done") }
-            Button(attrs = {
-                classes("btn-o")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                onClick { onCreateAnother() }
-            }) { Text("Create another") }
+            Button(kind = ButtonKind.Primary, onClick = { onOpenAdmin() }) { Text("Done") }
+            Button(kind = ButtonKind.Secondary, onClick = { onCreateAnother() }) { Text("Create another") }
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.WebAppSurface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -18,7 +21,6 @@ import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.lifecycle.Playhead
 import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
 import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
@@ -345,12 +347,14 @@ internal fun StoreDegradedBanner(
             Span(attrs = { classes("lapse-t") }) { Text("Your library is not being kept on this device") }
             Span(attrs = { classes("lapse-b") }) { Text("$reason It reloads from the server each visit.") }
         }
-        Button(attrs = {
-            classes("btn-o", "lapse-act")
-            attr("type", "button")
-            attr("aria-label", "Dismiss storage notice")
-            onClick { onDismiss() }
-        }) { Text("Dismiss") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onDismiss() },
+            label = "Dismiss storage notice",
+            attrs = {
+                classes("lapse-act")
+            },
+        ) { Text("Dismiss") }
     }
 }
 

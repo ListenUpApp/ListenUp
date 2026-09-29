@@ -202,7 +202,7 @@ class LibrarySettingsPageTest :
             val shown = mutableListOf<Boolean>()
             val host = page(readyLibrary(), onShowBrowser = { shown += it })
 
-            (host.querySelector(".lset-actions .btn-c") as HTMLElement).click()
+            (host.querySelector(".lset-actions .btn-primary") as HTMLElement).click()
 
             shown shouldBe listOf(true)
         }
@@ -211,7 +211,7 @@ class LibrarySettingsPageTest :
             val shown = mutableListOf<Boolean>()
             val host = page(readyLibrary(showFolderBrowser = true), onShowBrowser = { shown += it })
 
-            (host.querySelector(".lset-actions .btn-o") as HTMLElement).click()
+            (host.querySelector(".lset-actions .btn-secondary") as HTMLElement).click()
 
             shown shouldBe listOf(false)
         }

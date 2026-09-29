@@ -64,7 +64,7 @@ class BookActionsMenuTest :
             }
 
         suspend fun openMenu(host: HTMLElement): HTMLElement {
-            (host.querySelector(".btn-sq") as HTMLElement).click()
+            (host.querySelector(".btn-icon") as HTMLElement).click()
             awaitFrame()
             return host
         }
@@ -159,15 +159,15 @@ class BookActionsMenuTest :
                 readyBook().copy(isRestarting = true),
             ).forEach { state ->
                 val host = menu(state)
-                (host.querySelector(".btn-sq") as HTMLButtonElement).hasAttribute("disabled") shouldBe true
+                (host.querySelector(".btn-icon") as HTMLButtonElement).hasAttribute("disabled") shouldBe true
             }
         }
 
         test("the trigger says whether it is open, for a reader who cannot see it") {
             val host = menu(readyBook())
 
-            (host.querySelector(".btn-sq") as HTMLElement).getAttribute("aria-expanded") shouldBe "false"
+            (host.querySelector(".btn-icon") as HTMLElement).getAttribute("aria-expanded") shouldBe "false"
             openMenu(host)
-            (host.querySelector(".btn-sq") as HTMLElement).getAttribute("aria-expanded") shouldBe "true"
+            (host.querySelector(".btn-icon") as HTMLElement).getAttribute("aria-expanded") shouldBe "true"
         }
     })

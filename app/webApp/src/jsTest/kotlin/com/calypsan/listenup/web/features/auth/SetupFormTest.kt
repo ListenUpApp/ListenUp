@@ -51,7 +51,7 @@ class SetupFormTest :
             host.typeInto("#auth-email", "ada@example.com")
             host.typeInto("#auth-password", "hunter2")
             host.typeInto("#auth-confirm", "hunter2")
-            (host.querySelector(".btn") as HTMLButtonElement).click()
+            (host.querySelector(".btn-primary") as HTMLButtonElement).click()
 
             submitted shouldBe listOf("Ada", "Lovelace", "ada@example.com", "hunter2", "hunter2")
         }
@@ -59,7 +59,7 @@ class SetupFormTest :
         test("the submit button is disabled while setup is in flight") {
             val host = mount { SetupForm(state = SetupUiState.Loading, onSubmit = { _, _, _, _, _ -> }) }
 
-            (host.querySelector(".btn") as HTMLButtonElement).disabled shouldBe true
+            (host.querySelector(".btn-primary") as HTMLButtonElement).disabled shouldBe true
         }
 
         test("a mismatched confirmation marks the confirm field") {

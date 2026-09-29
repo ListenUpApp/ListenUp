@@ -1,11 +1,12 @@
 package com.calypsan.listenup.web.features.metadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.ModalDialog
-import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -61,17 +62,12 @@ internal fun ChapterNamesDialog(
         }
 
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr("type", "button")
-                onClick { onDismiss() }
-            }) { Text("Cancel") }
-            Button(attrs = {
-                classes("btn-c")
-                attr("type", "button")
-                disabledWhen(available.isApplying || available.selectedOrdinals.isEmpty())
-                onClick { onApply() }
-            }) { Text(if (available.isApplying) "Applying…" else "Apply chapter names") }
+            Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
+            Button(
+                kind = ButtonKind.Primary,
+                onClick = { onApply() },
+                enabled = !(available.isApplying || available.selectedOrdinals.isEmpty()),
+            ) { Text(if (available.isApplying) "Applying…" else "Apply chapter names") }
         }
     }
 }

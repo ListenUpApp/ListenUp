@@ -109,7 +109,7 @@ class LoginFormTest :
 
             host.typeInto("#auth-email", "ada@example.com")
             host.typeInto("#auth-password", "hunter2")
-            (host.querySelector(".btn") as HTMLButtonElement).click()
+            (host.querySelector(".btn-primary") as HTMLButtonElement).click()
 
             submitted shouldBe ("ada@example.com" to "hunter2")
         }
@@ -129,7 +129,7 @@ class LoginFormTest :
                     )
                 }
 
-            (host.querySelector(".btn") as HTMLButtonElement).disabled shouldBe true
+            (host.querySelector(".btn-primary") as HTMLButtonElement).disabled shouldBe true
         }
 
         test("bad credentials say so without naming which half was wrong") {

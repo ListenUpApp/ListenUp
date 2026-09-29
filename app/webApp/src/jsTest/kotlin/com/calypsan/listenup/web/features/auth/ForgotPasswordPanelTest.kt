@@ -82,7 +82,7 @@ class ForgotPasswordPanelTest :
             var checks = 0
             val host = panel(ForgotPasswordUiState.AwaitingApproval("t1"), onCheckStatus = { checks++ })
 
-            (host.querySelector(".btn-ghost") as HTMLElement).click()
+            (host.querySelector(".btn-secondary") as HTMLElement).click()
 
             checks shouldBe 1
         }
@@ -161,7 +161,7 @@ class ForgotPasswordPanelTest :
             var retries = 0
             val host = panel(ForgotPasswordUiState.Denied, onRetryRequest = { retries++ })
 
-            (host.querySelector(".btn") as HTMLElement).click()
+            (host.querySelector(".btn-primary") as HTMLElement).click()
 
             retries shouldBe 1
         }
@@ -170,7 +170,7 @@ class ForgotPasswordPanelTest :
             var backs = 0
             val host = panel(ForgotPasswordUiState.Complete, onBackToSignIn = { backs++ })
 
-            (host.querySelector(".btn") as HTMLElement).click()
+            (host.querySelector(".btn-primary") as HTMLElement).click()
 
             backs shouldBe 1
             host.querySelectorAll(".auth-alt").length shouldBe 0

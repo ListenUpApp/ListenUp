@@ -93,17 +93,12 @@ fun DialogActions(
     confirmEnabled: Boolean = true,
 ) {
     Div(attrs = { classes("dlg-actions") }) {
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", BUTTON_TYPE)
-            onClick { onDismiss() }
-        }) { Text("Cancel") }
-        Button(attrs = {
-            classes("btn")
-            attr("type", BUTTON_TYPE)
-            if (!confirmEnabled) attr("disabled", "")
-            onClick { if (confirmEnabled) onConfirm() }
-        }) { Text(confirmLabel) }
+        Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { if (confirmEnabled) onConfirm() },
+            enabled = confirmEnabled,
+        ) { Text(confirmLabel) }
     }
 }
 
@@ -112,8 +107,6 @@ fun DialogActions(
 fun DialogText(text: String) {
     P(attrs = { classes("dlg-p") }) { Text(text) }
 }
-
-private const val BUTTON_TYPE = "button"
 
 /**
  * Shared by every dialog, because only one is ever open: `showModal()` makes the rest of the page

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -114,11 +116,7 @@ private fun BooksWayBack(
     onOpenContributor: () -> Unit,
 ) {
     EmptyState(title = heading, body = body) {
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", "button")
-            onClick { onOpenContributor() }
-        }) {
+        Button(kind = ButtonKind.Primary, onClick = { onOpenContributor() }) {
             Text("Back to contributor")
         }
     }

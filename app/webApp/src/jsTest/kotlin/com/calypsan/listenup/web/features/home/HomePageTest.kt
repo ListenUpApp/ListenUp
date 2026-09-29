@@ -132,7 +132,7 @@ class HomePageTest :
             var browsed = false
             val host = homePage(readyHome(continueListening = emptyList()), onOpenLibrary = { browsed = true })
 
-            (host.querySelector(".empty .btn") as HTMLElement).click()
+            (host.querySelector(".empty .btn-primary") as HTMLElement).click()
 
             browsed shouldBe true
         }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -115,14 +118,18 @@ private fun CodeStep(
             autocomplete = "off",
         )
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            // Blank is not a lookup. The ViewModel would happily ask the server about "", and the
-            // answer would be an error the reader caused by pressing a button that should not have
-            // been pressable.
-            if (lookingUp || code.isBlank()) disabled()
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                // Blank is not a lookup. The ViewModel would happily ask the server about "", and the
+                // answer would be an error the reader caused by pressing a button that should not have
+                // been pressable.
+                if (lookingUp || code.isBlank()) disabled()
+            },
+        ) {
             Icon(WebIcon.ChevronRight, size = CLAIM_ICON_SIZE)
             Text(if (lookingUp) "Looking up…" else "Continue")
         }
@@ -208,11 +215,15 @@ private fun ClaimStep(
             )
         }
 
-        Button(attrs = {
-            classes("btn")
-            attr("type", "submit")
-            if (submitting) disabled()
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Lg,
+            fill = true,
+            submit = true,
+            attrs = {
+                if (submitting) disabled()
+            },
+        ) {
             Icon(WebIcon.UserPlus, size = CLAIM_ICON_SIZE)
             Text(if (submitting) "Joining…" else "Join")
         }

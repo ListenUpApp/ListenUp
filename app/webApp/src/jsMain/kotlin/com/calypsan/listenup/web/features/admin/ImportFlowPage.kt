@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -68,11 +71,13 @@ fun ImportFlowPage(
     Div(attrs = { classes("iflow") }) {
         // Only where leaving is harmless: before a file is picked, and after the run has ended.
         if (state is ImportFlowUiState.Idle || state is ImportFlowUiState.Done || state is ImportFlowUiState.Error) {
-            Button(attrs = {
-                classes(BTN_SECONDARY, "iflow-back")
-                attr("type", VALUE_BUTTON)
-                onClick { onOpenImports() }
-            }) { Text("← Imports") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onOpenImports() },
+                attrs = {
+                    classes("iflow-back")
+                },
+            ) { Text("← Imports") }
         }
 
         PageHeader(title = "Import from Audiobookshelf")
@@ -120,11 +125,7 @@ fun ImportFlowPage(
 
             is ImportFlowUiState.Error -> {
                 EmptyState(title = "The import stopped", body = state.error.message, announce = true) {
-                    Button(attrs = {
-                        classes(BTN_PRIMARY)
-                        attr("type", VALUE_BUTTON)
-                        onClick { onReset() }
-                    }) { Text("Start again") }
+                    Button(kind = ButtonKind.Primary, onClick = { onReset() }) { Text("Start again") }
                 }
             }
         }
@@ -143,11 +144,7 @@ private fun IdleStep(onStart: (File) -> Unit) {
                     "library — you decide what is written before anything is.",
             )
         }
-        Button(attrs = {
-            classes(BTN_PRIMARY)
-            attr("type", VALUE_BUTTON)
-            onClick { input?.click() }
-        }) { Text("Choose a backup") }
+        Button(kind = ButtonKind.Primary, onClick = { input?.click() }) { Text("Choose a backup") }
         Input(type = InputType.File, attrs = {
             id("iflow-file-input")
             attr("accept", ".zip,.audiobookshelf,application/zip")
@@ -259,11 +256,7 @@ private fun ReviewStep(
 
     Div(attrs = { classes("iflow-apply") }) {
         Span(attrs = { classes("iflow-tally") }) { Text(applyTally(state, undecided)) }
-        Button(attrs = {
-            classes(BTN_PRIMARY)
-            attr("type", VALUE_BUTTON)
-            onClick { onApply() }
-        }) { Text("Import") }
+        Button(kind = ButtonKind.Primary, onClick = { onApply() }) { Text("Import") }
     }
 
     state.bookSearch?.let { search ->
@@ -300,13 +293,16 @@ private fun UserRow(
             emptyLabel = if (isSkipped) "Skipped" else "Nobody yet",
             id = "iflow-user-${match.absUserId.value}",
         )
-        Button(attrs = {
-            classes(BTN_SECONDARY, "iflow-skip")
-            attr("type", VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Skip ${match.absUsername}")
-            disabledWhen(isSkipped)
-            onClick { onSkip() }
-        }) { Text(if (isSkipped) "Skipped" else "Skip") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onSkip() },
+            attrs = {
+                classes("iflow-skip")
+                attr(ATTR_ARIA_LABEL, "Skip ${match.absUsername}")
+                disabledWhen(isSkipped)
+            },
+        ) { Text(if (isSkipped) "Skipped" else "Skip") }
     }
 }
 
@@ -328,18 +324,24 @@ private fun BookRow(
             }
         }
         Span(attrs = { classes("iflow-decision") }) { Text(bookDecisionLabel(isDecided, decision)) }
-        Button(attrs = {
-            classes(BTN_SECONDARY, "iflow-find")
-            attr("type", VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Find the book for ${item.title}")
-            onClick { onFind() }
-        }) { Text("Find") }
-        Button(attrs = {
-            classes(BTN_SECONDARY, "iflow-skip")
-            attr("type", VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Skip ${item.title}")
-            onClick { onSkip() }
-        }) { Text("Skip") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onFind() },
+            attrs = {
+                classes("iflow-find")
+                attr(ATTR_ARIA_LABEL, "Find the book for ${item.title}")
+            },
+        ) { Text("Find") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onSkip() },
+            attrs = {
+                classes("iflow-skip")
+                attr(ATTR_ARIA_LABEL, "Skip ${item.title}")
+            },
+        ) { Text("Skip") }
     }
 }
 
@@ -392,11 +394,7 @@ private fun BookSearchDialog(
             }
         }
         Div(attrs = { classes("dlg-actions") }) {
-            Button(attrs = {
-                classes("btn")
-                attr("type", VALUE_BUTTON)
-                onClick { onDismiss() }
-            }) { Text("Cancel") }
+            Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
         }
     }
 }
@@ -418,11 +416,7 @@ private fun DoneStep(
                 )
             }
         }
-        Button(attrs = {
-            classes(BTN_PRIMARY)
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenImports() }
-        }) { Text("Back to imports") }
+        Button(kind = ButtonKind.Primary, onClick = { onOpenImports() }) { Text("Back to imports") }
     }
 }
 
@@ -471,10 +465,6 @@ private fun applyTally(
 private fun doneSummary(state: ImportFlowUiState.Done): String =
     "${countLabel(state.result.importedCount, "record")} written, " +
         "${countLabel(state.result.sessionsImported, "session")} of listening history."
-
-private const val BTN_PRIMARY = "btn-c"
-
-private const val BTN_SECONDARY = "btn-o"
 
 private const val HINT = "iflow-hint"
 

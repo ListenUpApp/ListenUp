@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -41,11 +44,13 @@ fun CollectionsPage(
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("coll") }) {
-        Button(attrs = {
-            classes("btn-o", "coll-back")
-            attr("type", VALUE_BUTTON)
-            onClick { onOpenAdmin() }
-        }) { Text("← Admin") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onOpenAdmin() },
+            attrs = {
+                classes("coll-back")
+            },
+        ) { Text("← Admin") }
 
         PageHeader(title = "Collections")
 
@@ -82,12 +87,15 @@ private fun ReadyContent(
 
     Div(attrs = { classes("coll-bar") }) {
         Span(attrs = { classes("coll-count") }) { Text(collectionSummary(state.collections.size)) }
-        Button(attrs = {
-            classes("btn-c", "coll-new")
-            attr("type", VALUE_BUTTON)
-            disabledWhen(state.isCreating)
-            onClick { creating = true }
-        }) { Text(if (state.isCreating) "Creating…" else "New collection") }
+        Button(
+            kind = ButtonKind.Primary,
+            size = ButtonSize.Sm,
+            onClick = { creating = true },
+            attrs = {
+                classes("coll-new")
+                disabledWhen(state.isCreating)
+            },
+        ) { Text(if (state.isCreating) "Creating…" else "New collection") }
     }
 
     if (state.collections.isEmpty()) {
@@ -169,14 +177,16 @@ private fun CollectionRow(
                 Span(attrs = { classes("coll-lock-t") }) { Text("Managed") }
             }
         } else {
-            Button(attrs = {
-                classes("iconbtn", "coll-del")
-                attr("type", VALUE_BUTTON)
-                attr("aria-label", "Delete ${collection.name}")
-                attr("title", "Delete ${collection.name}")
-                disabledWhen(isDeleting)
-                onClick { onAskDelete() }
-            }) { Icon(WebIcon.Trash, size = SMALL_ICON) }
+            Button(
+                kind = ButtonKind.Icon,
+                size = ButtonSize.Sm,
+                onClick = { onAskDelete() },
+                label = "Delete ${collection.name}",
+                attrs = {
+                    classes("coll-del")
+                    disabledWhen(isDeleting)
+                },
+            ) { Icon(WebIcon.Trash, size = SMALL_ICON) }
         }
     }
 }

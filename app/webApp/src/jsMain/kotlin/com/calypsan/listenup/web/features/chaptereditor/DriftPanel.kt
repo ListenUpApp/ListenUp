@@ -1,12 +1,13 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
-import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
@@ -84,28 +85,25 @@ internal fun DriftPanel(
                     } else {
                         "Pin second anchor at playhead"
                     }
-                Button(attrs = {
-                    classes("btn-o", "drift-pin")
-                    attr("type", "button")
-                    onClick { onPin() }
-                }) { Text(pinLabel) }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onPin() },
+                    attrs = {
+                        classes("drift-pin")
+                    },
+                ) { Text(pinLabel) }
             }
         }
 
         drift.preview?.let { DriftSummary(it) }
 
         Div(attrs = { classes("drift-acts") }) {
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                onClick { onCancel() }
-            }) { Text("Cancel") }
-            Button(attrs = {
-                classes("btn-c")
-                attr("type", "button")
-                disabledWhen(drift.preview !is DriftPreview.Ready)
-                onClick { onApply() }
-            }) { Text("Apply correction") }
+            Button(kind = ButtonKind.Secondary, onClick = { onCancel() }) { Text("Cancel") }
+            Button(
+                kind = ButtonKind.Primary,
+                onClick = { onApply() },
+                enabled = !(drift.preview !is DriftPreview.Ready),
+            ) { Text("Apply correction") }
         }
     }
 }

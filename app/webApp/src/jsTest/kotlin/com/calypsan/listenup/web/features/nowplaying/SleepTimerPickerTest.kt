@@ -230,7 +230,7 @@ class SleepTimerPickerTest :
             var dismissed = 0
             val host = picker(onDismiss = { dismissed++ })
 
-            (host.querySelector(".btn-ghost") as HTMLButtonElement).click()
+            (host.querySelector(".btn-secondary") as HTMLButtonElement).click()
             awaitFrame()
 
             dismissed shouldBe 1

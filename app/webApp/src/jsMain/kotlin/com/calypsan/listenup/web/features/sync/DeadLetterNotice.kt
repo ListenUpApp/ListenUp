@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.sync
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -45,11 +47,13 @@ fun DeadLetterNotice(
     }) {
         Div(attrs = { classes("dlq-ico") }) { Icon(WebIcon.EyeOff, size = DLQ_ICON) }
         Span(attrs = { classes("dlq-t") }) { Text(noticeText(failed.size)) }
-        Button(attrs = {
-            classes(QUIET, "dlq-go")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            onClick { open = true }
-        }) { Text("Review") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { open = true },
+            attrs = {
+                classes("dlq-go")
+            },
+        ) { Text("Review") }
     }
 
     if (open) {
@@ -68,16 +72,8 @@ fun DeadLetterNotice(
                 }
             }
             Div(attrs = { classes("dlg-actions") }) {
-                Button(attrs = {
-                    classes(QUIET)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onDismissAll() }
-                }) { Text("Dismiss all") }
-                Button(attrs = {
-                    classes("btn-c")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onRetryAll() }
-                }) { Text("Retry all") }
+                Button(kind = ButtonKind.Secondary, onClick = { onDismissAll() }) { Text("Dismiss all") }
+                Button(kind = ButtonKind.Primary, onClick = { onRetryAll() }) { Text("Retry all") }
             }
         }
     }
@@ -102,29 +98,21 @@ private fun FailedRow(
             op.error?.let { reason -> Span(attrs = { classes("dlq-why") }) { Text(reason) } }
         }
         Div(attrs = { classes("dlq-acts") }) {
-            Button(attrs = {
-                classes(QUIET)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                attr("aria-label", "Retry ${op.description}")
-                onClick { onRetry(op.id) }
-            }) { Text("Retry") }
-            Button(attrs = {
-                classes(QUIET)
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                attr("aria-label", "Dismiss ${op.description}")
-                onClick { onDismiss(op.id) }
-            }) { Text("Dismiss") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onRetry(op.id) },
+                label = "Retry ${op.description}",
+            ) { Text("Retry") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { onDismiss(op.id) },
+                label = "Dismiss ${op.description}",
+            ) { Text("Dismiss") }
         }
     }
 }
 
 /** How many edits are waiting on a decision. */
 internal fun noticeText(count: Int): String = if (count == 1) "1 change didn't save" else "$count changes didn't save"
-
-private const val ATTR_TYPE = "type"
-
-private const val VALUE_BUTTON = "button"
-
-private const val QUIET = "btn-o"
 
 private const val DLQ_ICON = 18

@@ -45,7 +45,7 @@ class BookDetailEditButtonTest :
         test("edit stands exactly as tall as Play") {
             val root = rendered()
 
-            val play = root.querySelector(".bd-actions .btn") as HTMLElement
+            val play = root.querySelector(".bd-actions .btn-primary") as HTMLElement
             val edit = root.querySelector("button[aria-label='Edit book']") as HTMLElement
 
             window.getComputedStyle(edit).height shouldBe window.getComputedStyle(play).height

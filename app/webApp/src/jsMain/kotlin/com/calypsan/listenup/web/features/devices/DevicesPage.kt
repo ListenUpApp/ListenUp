@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.devices
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -54,11 +56,7 @@ fun DevicesPage(
                 // in again, directly above a button that can only fail again.
                 EmptyState(title = "Could not load your devices", body = state.error.message) {
                     if (state.error.isRetryable) {
-                        Button(attrs = {
-                            classes("btn")
-                            attr("type", "button")
-                            onClick { onRetry() }
-                        }) { Text("Try again") }
+                        Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                     }
                 }
             }
@@ -93,11 +91,7 @@ fun DevicesPage(
                 }
 
                 Div(attrs = { classes("dev-danger") }) {
-                    Button(attrs = {
-                        classes("btn-o")
-                        attr("type", "button")
-                        onClick { confirming = true }
-                    }) { Text("Sign out everywhere") }
+                    Button(kind = ButtonKind.Secondary, onClick = { confirming = true }) { Text("Sign out everywhere") }
                 }
 
                 ConfirmDialog(
@@ -137,15 +131,16 @@ private fun DeviceCard(
             }
         }
         onRevoke?.let { revoke ->
-            Button(attrs = {
-                classes("btn-o")
-                attr("type", "button")
-                attr("aria-label", "Sign out ${device.displayName}")
-                // Disabled while its own revoke is in flight, so a second press cannot queue a
-                // second call for a session that is already going.
-                if (revoking) attr("disabled", "")
-                onClick { revoke() }
-            }) { Text(if (revoking) "Signing out…" else "Sign out") }
+            Button(
+                kind = ButtonKind.Secondary,
+                onClick = { revoke() },
+                label = "Sign out ${device.displayName}",
+                attrs = {
+                    // Disabled while its own revoke is in flight, so a second press cannot queue a
+                    // second call for a session that is already going.
+                    if (revoking) attr("disabled", "")
+                },
+            ) { Text(if (revoking) "Signing out…" else "Sign out") }
         }
     }
 }

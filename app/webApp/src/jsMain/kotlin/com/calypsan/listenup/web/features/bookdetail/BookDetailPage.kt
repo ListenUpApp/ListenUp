@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.error.AppError
@@ -142,10 +145,7 @@ fun BookDetailPage(
                 // go. Library is the only honest destination: web sync is unwritten, so a "sync
                 // this browser" button would be a control with nothing behind it.
                 EmptyState(title = heading, body = body, icon = WebIcon.Book) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        onClick { onOpenLibrary() }
-                    }) {
+                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) {
                         Text("Back to Library")
                     }
                 }
@@ -290,12 +290,12 @@ private fun SharedHeader(
                         // Play with no visible consequence anywhere until audio actually began. The
                         // flag behind this is `preparingBookIdUi`, delayed so a fast prepare never
                         // flashes; both natives make this same button their busy surface.
-                        Button(attrs = {
-                            classes("btn")
-                            attr("type", BUTTON_VALUE)
-                            if (isPreparing) attr("disabled", "")
-                            onClick { onPlay() }
-                        }) {
+                        Button(
+                            kind = ButtonKind.Primary,
+                            size = ButtonSize.Lg,
+                            onClick = { onPlay() },
+                            enabled = !isPreparing,
+                        ) {
                             Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
                             Text(playLabel(ready, isPreparing))
                         }
@@ -314,22 +314,17 @@ private fun SharedHeader(
                     }
                     // Icon-only, so the accessible name is the attribute, not the content —
                     // BookDetailEditButtonTest pins both the label and that it matches Play's height.
-                    Button(attrs = {
-                        classes("btn-sq")
-                        attr("type", BUTTON_VALUE)
-                        attr("aria-label", "Edit book")
-                        attr("title", "Edit book")
-                        onClick { onEdit() }
-                    }) { Icon(WebIcon.Pencil) }
+                    Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
+                        onEdit()
+                    }, label = "Edit book") { Icon(WebIcon.Pencil) }
                     // Beside Edit, not inside it: matching is a different act. Edit changes what
                     // the reader believes; matching asks a catalogue and offers its answer.
-                    Button(attrs = {
-                        classes("btn-sq")
-                        attr("type", BUTTON_VALUE)
-                        attr("aria-label", "Match metadata")
-                        attr("title", "Match metadata")
-                        onClick { onMatchMetadata() }
-                    }) { Icon(WebIcon.Sparkles) }
+                    Button(
+                        kind = ButtonKind.Icon,
+                        size = ButtonSize.Lg,
+                        onClick = { onMatchMetadata() },
+                        label = "Match metadata",
+                    ) { Icon(WebIcon.Sparkles) }
                 }
             }
         }
@@ -647,11 +642,14 @@ private fun ServerOfflineBanner(
         attr("aria-live", "polite")
     }) {
         Span { Text("Server offline — streaming is unavailable until it is back.") }
-        Button(attrs = {
-            classes("btn-o", "bd-retry")
-            attr("type", BUTTON_VALUE)
-            onClick { onRetry() }
-        }) { Text("Retry") }
+        Button(
+            kind = ButtonKind.Secondary,
+            size = ButtonSize.Sm,
+            onClick = { onRetry() },
+            attrs = {
+                classes("bd-retry")
+            },
+        ) { Text("Retry") }
     }
 }
 

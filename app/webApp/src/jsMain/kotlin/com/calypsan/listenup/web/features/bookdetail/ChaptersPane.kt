@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -198,11 +200,7 @@ private val CHAPTER_COLUMNS =
 @Composable
 private fun EditChaptersButton(onEditChapters: () -> Unit) {
     Div(attrs = { classes("bd-chapters-edit") }) {
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", "button")
-            onClick { onEditChapters() }
-        }) {
+        Button(kind = ButtonKind.Secondary, onClick = { onEditChapters() }) {
             Icon(WebIcon.Pencil, size = EDIT_ICON)
             Text("Edit chapters")
         }

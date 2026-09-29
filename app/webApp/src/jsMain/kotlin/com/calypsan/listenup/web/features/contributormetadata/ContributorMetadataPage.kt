@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.contributormetadata
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.MetadataContributorHit
@@ -15,7 +17,6 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.disabledWhen
 import com.calypsan.listenup.web.features.contributoredit.contributorPhotoUrl
 import com.calypsan.listenup.web.features.metadata.RegionSelector
 import org.jetbrains.compose.web.attributes.onSubmit
@@ -54,11 +55,7 @@ fun ContributorMetadataPage(
         PageHeader(
             title = "Match contributor",
             actions = {
-                Button(attrs = {
-                    classes(BTN_SECONDARY)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onLeave() }
-                }) { Text("Back") }
+                Button(kind = ButtonKind.Secondary, onClick = { onLeave() }) { Text("Back") }
             },
         )
 
@@ -108,11 +105,11 @@ private fun SearchPhase(
             placeholder = "Contributor name…",
             id = "cmx-query",
         )
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, "submit")
-            disabledWhen(state.loadState is ContributorSearchLoadState.InFlight || state.query.isBlank())
-        }) { Text(if (state.loadState is ContributorSearchLoadState.InFlight) "Searching…" else "Search Audible") }
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            enabled = !(state.loadState is ContributorSearchLoadState.InFlight || state.query.isBlank()),
+        ) { Text(if (state.loadState is ContributorSearchLoadState.InFlight) "Searching…" else "Search Audible") }
     }
 
     RegionSelector(state.region, onRegion)
@@ -228,12 +225,11 @@ private fun ReadyPreview(
 
     Div(attrs = { classes("cmx-apply") }) {
         ChangeMatch(onClearSelection)
-        Button(attrs = {
-            classes("btn-c")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            disabledWhen(isApplying)
-            onClick { onApply() }
-        }) {
+        Button(
+            kind = ButtonKind.Primary,
+            onClick = { onApply() },
+            enabled = !isApplying,
+        ) {
             Icon(WebIcon.Check, size = SMALL_ICON)
             Text(if (isApplying) "Applying…" else "Apply")
         }
@@ -303,11 +299,7 @@ private fun BioCompare(
 
 @Composable
 private fun ChangeMatch(onClearSelection: () -> Unit) {
-    Button(attrs = {
-        classes(BTN_SECONDARY)
-        attr(ATTR_TYPE, VALUE_BUTTON)
-        onClick { onClearSelection() }
-    }) { Text("Change match") }
+    Button(kind = ButtonKind.Secondary, onClick = { onClearSelection() }) { Text("Change match") }
 }
 
 @Composable
@@ -322,8 +314,6 @@ private fun Alert(message: String) {
 private const val EMPTY_VALUE = "—"
 
 private const val ATTR_TYPE = "type"
-
-private const val BTN_SECONDARY = "btn-o"
 
 private const val VALUE_BUTTON = "button"
 

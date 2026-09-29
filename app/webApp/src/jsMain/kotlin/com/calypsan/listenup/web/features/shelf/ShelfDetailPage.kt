@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.shelf
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.ShelfBook
@@ -56,11 +58,7 @@ fun ShelfDetailPage(
             is ShelfDetailUiState.Error -> {
                 PageHeader(title = SHELF)
                 EmptyState(title = "This shelf could not be opened", body = state.message) {
-                    Button(attrs = {
-                        classes("btn")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onOpenLibrary() }
-                    }) { Text("Back to library") }
+                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) { Text("Back to library") }
                 }
             }
 
@@ -109,11 +107,7 @@ private fun ShelfHeader(
         actions =
             if (detail.isOwner) {
                 {
-                    Button(attrs = {
-                        classes("btn")
-                        attr(ATTR_TYPE, VALUE_BUTTON)
-                        onClick { onEditShelf(detail.idString) }
-                    }) { Text("Edit shelf") }
+                    Button(kind = ButtonKind.Primary, onClick = { onEditShelf(detail.idString) }) { Text("Edit shelf") }
                 }
             } else {
                 null

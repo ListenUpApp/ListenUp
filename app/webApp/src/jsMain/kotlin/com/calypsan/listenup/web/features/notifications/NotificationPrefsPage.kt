@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.notifications
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.api.dto.NotificationPreferenceDto
@@ -50,11 +52,7 @@ fun NotificationPrefsPage(
                 // The typed error's own words. `AppError.message` is a user-facing constant
                 // per subtype, so it is printed rather than reworded here.
                 EmptyState(title = "These settings can't be loaded", body = state.error.message) {
-                    Button(attrs = {
-                        classes("btn-c")
-                        attr("type", "button")
-                        onClick { onRetry() }
-                    }) { Text("Try again") }
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
                 }
             }
 

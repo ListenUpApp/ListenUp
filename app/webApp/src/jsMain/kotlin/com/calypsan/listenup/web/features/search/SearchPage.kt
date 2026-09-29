@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.search
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -341,11 +343,7 @@ private fun ErrorPrompt(
     onRetry: () -> Unit,
 ) {
     EmptyState(title = "Search failed", body = message, icon = WebIcon.Search, marker = "is-error") {
-        Button(attrs = {
-            classes("btn-o")
-            attr("type", "button")
-            onClick { onRetry() }
-        }) { Text("Try again") }
+        Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
     }
 }
 

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.ModalDialog
@@ -28,11 +30,13 @@ internal fun PlayerDialog(
     ModalDialog(open = open, title = title, onDismiss = onDismiss, panelClass = panelClass) {
         content()
 
-        Button(attrs = {
-            classes("btn-ghost", "dlg-close")
-            attr("type", "button")
-            onClick { onDismiss() }
-        }) {
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onDismiss() },
+            attrs = {
+                classes("dlg-close")
+            },
+        ) {
             Icon(WebIcon.X, size = CLOSE_ICON_SIZE)
             Text("Close")
         }

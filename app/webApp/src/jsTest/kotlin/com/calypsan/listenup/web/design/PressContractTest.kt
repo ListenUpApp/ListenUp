@@ -78,7 +78,7 @@ class PressContractTest :
         }
 
         test("web.css is actually loaded, or this whole spec is vacuous") {
-            subjectsOf(":hover").contains(".btn") shouldBe true
+            subjectsOf(":hover").contains(".btn-primary") shouldBe true
         }
 
         test("everything that answers a mouse also answers a finger") {

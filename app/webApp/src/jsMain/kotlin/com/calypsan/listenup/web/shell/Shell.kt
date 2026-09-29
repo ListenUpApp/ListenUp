@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.shell
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -149,14 +152,17 @@ fun Shell(
                 }
                 if (!collapsed) {
                     onToggleCollapse?.let { toggle ->
-                        Button(attrs = {
-                            classes("iconbtn", "sb-toggle")
-                            // `title` is a hover tooltip, not a name: a screen reader may never read
-                            // it, and an icon-only button with nothing else announces as "button".
-                            attr("title", "Collapse sidebar")
-                            attr(ARIA_LABEL, "Collapse sidebar")
-                            onClick { toggle() }
-                        }) {
+                        Button(
+                            kind = ButtonKind.Icon,
+                            size = ButtonSize.Sm,
+                            onClick = { toggle() },
+                            label = "Collapse sidebar",
+                            attrs = {
+                                classes("sb-toggle")
+                                // `title` is a hover tooltip, not a name: a screen reader may never read
+                                // it, and an icon-only button with nothing else announces as "button".
+                            },
+                        ) {
                             Icon(WebIcon.PanelLeft, size = BRAND_ICON_SIZE)
                         }
                     }
@@ -200,12 +206,15 @@ fun Shell(
 
             if (collapsed) {
                 onToggleCollapse?.let { toggle ->
-                    Button(attrs = {
-                        classes("iconbtn", "sb-expand")
-                        attr("title", "Expand sidebar")
-                        attr(ARIA_LABEL, "Expand sidebar")
-                        onClick { toggle() }
-                    }) {
+                    Button(
+                        kind = ButtonKind.Icon,
+                        size = ButtonSize.Sm,
+                        onClick = { toggle() },
+                        label = "Expand sidebar",
+                        attrs = {
+                            classes("sb-expand")
+                        },
+                    ) {
                         Icon(WebIcon.ChevronRight, size = EXPAND_ICON_SIZE)
                     }
                 }

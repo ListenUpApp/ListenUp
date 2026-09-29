@@ -33,7 +33,7 @@ class AccountMenuTest :
         test("opening reveals a sign-out item") {
             val host = mount { AccountMenu(onSignOut = {}) }
 
-            (host.querySelector(".iconbtn") as HTMLElement).click()
+            (host.querySelector(".btn-icon") as HTMLElement).click()
             awaitFrame()
 
             (host.querySelector(".menu") as HTMLElement).textContent.orEmpty() shouldContain "Sign out"
@@ -42,7 +42,7 @@ class AccountMenuTest :
         test("signing out reports it once and closes the menu") {
             var signOuts = 0
             val host = mount { AccountMenu(onSignOut = { signOuts++ }) }
-            (host.querySelector(".iconbtn") as HTMLElement).click()
+            (host.querySelector(".btn-icon") as HTMLElement).click()
             awaitFrame()
 
             (host.querySelector(".menu-i") as HTMLElement).click()
@@ -54,7 +54,7 @@ class AccountMenuTest :
         }
         test("the trigger says it opens a menu, and whether it is open") {
             val host = mount { AccountMenu(onSignOut = {}) }
-            val trigger = host.querySelector(".iconbtn") as HTMLElement
+            val trigger = host.querySelector(".btn-icon") as HTMLElement
 
             trigger.getAttribute("aria-haspopup") shouldBe "menu"
             trigger.getAttribute("aria-expanded") shouldBe "false"
@@ -69,7 +69,7 @@ class AccountMenuTest :
         test("every item is a real menu-item button") {
             // ⛔ They were `<div onClick>`: Sign out and Your profile could not be reached by Tab.
             val host = mount { AccountMenu(onSignOut = {}, onOpenProfile = {}) }
-            (host.querySelector(".iconbtn") as HTMLElement).click()
+            (host.querySelector(".btn-icon") as HTMLElement).click()
             awaitFrame()
 
             (host.querySelector(".menu") as HTMLElement).getAttribute("role") shouldBe "menu"
@@ -81,7 +81,7 @@ class AccountMenuTest :
 
         test("opening moves focus onto the first item") {
             val host = mount { AccountMenu(onSignOut = {}, onOpenProfile = {}) }
-            (host.querySelector(".iconbtn") as HTMLElement).click()
+            (host.querySelector(".btn-icon") as HTMLElement).click()
             awaitFrame()
 
             (document.activeElement as HTMLElement).textContent.orEmpty() shouldContain "Your profile"
@@ -89,7 +89,7 @@ class AccountMenuTest :
 
         test("Escape closes the menu and hands focus back to the trigger") {
             val host = mount { AccountMenu(onSignOut = {}) }
-            val trigger = host.querySelector(".iconbtn") as HTMLElement
+            val trigger = host.querySelector(".btn-icon") as HTMLElement
             trigger.click()
             awaitFrame()
 
@@ -104,7 +104,7 @@ class AccountMenuTest :
 
         test("a click anywhere else closes the menu") {
             val host = mount { AccountMenu(onSignOut = {}) }
-            (host.querySelector(".iconbtn") as HTMLElement).click()
+            (host.querySelector(".btn-icon") as HTMLElement).click()
             awaitFrame()
 
             document.body!!.dispatchEvent(MouseEvent("pointerdown", MouseEventInit(bubbles = true)))
@@ -116,7 +116,7 @@ class AccountMenuTest :
         test("a click inside the menu does not count as outside") {
             var signOuts = 0
             val host = mount { AccountMenu(onSignOut = { signOuts++ }) }
-            (host.querySelector(".iconbtn") as HTMLElement).click()
+            (host.querySelector(".btn-icon") as HTMLElement).click()
             awaitFrame()
 
             val item = host.querySelector(".menu-i") as HTMLElement

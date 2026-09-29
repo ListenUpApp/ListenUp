@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.merge
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -18,8 +20,6 @@ import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
-private const val ATTR_TYPE = "type"
-private const val VALUE_BUTTON = "button"
 private const val HINT = "mh-hint"
 
 /**
@@ -49,11 +49,13 @@ fun MergeHistoryList(
                     classes(HINT)
                     attr("role", "alert")
                 }) { Text(state.error.message) }
-                Button(attrs = {
-                    classes("btn-o", "mh-retry")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onRetry() }
-                }) { Text("Try again") }
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onRetry() },
+                    attrs = {
+                        classes("mh-retry")
+                    },
+                ) { Text("Try again") }
             }
 
             is MergeHistoryState.Ready -> {
@@ -106,12 +108,14 @@ private fun ReceiptRow(
             Span(attrs = { classes("mh-name") }) { Text(receipt.sourceName) }
             Span(attrs = { classes("mh-detail") }) { Text(receiptDetail(receipt)) }
         }
-        Button(attrs = {
-            classes("btn-o", "mh-undo")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            if (!canUndo) attr("disabled", "")
-            onClick { onUndo() }
-        }) { Text(if (isUndoing) "Undoing…" else "Undo") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onUndo() },
+            attrs = {
+                classes("mh-undo")
+                if (!canUndo) attr("disabled", "")
+            },
+        ) { Text(if (isUndoing) "Undoing…" else "Undo") }
     }
 }
 

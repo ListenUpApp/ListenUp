@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.web.design.Icon
@@ -34,11 +37,7 @@ fun PendingApprovalPanel(
                     Span(attrs = { classes("mono") }) { Text(email) }
                     Text(". You'll be able to sign in as soon as they do.")
                 }
-                Button(attrs = {
-                    classes("btn-ghost")
-                    attr("type", "button")
-                    onClick { onCheckStatus() }
-                }) {
+                Button(kind = ButtonKind.Secondary, onClick = { onCheckStatus() }) {
                     Icon(WebIcon.Clock, size = BUTTON_ICON_SIZE)
                     Text("Check again")
                 }
@@ -49,11 +48,7 @@ fun PendingApprovalPanel(
 
             is PendingApprovalUiState.Approved -> {
                 P { Text("You're approved. Sign in to start listening.") }
-                Button(attrs = {
-                    classes("btn")
-                    attr("type", "button")
-                    onClick { onAcknowledge() }
-                }) {
+                Button(kind = ButtonKind.Primary, size = ButtonSize.Lg, onClick = { onAcknowledge() }, fill = true) {
                     Icon(WebIcon.LogIn, size = BUTTON_ICON_SIZE)
                     Text("Sign in")
                 }

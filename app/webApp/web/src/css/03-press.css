@@ -20,13 +20,13 @@
    position, not an animation. */
 
 /* Controls — buttons, icon buttons, chips, tabs, nav items. */
-.btn-ghost:active,
-.dir-b .btn-ghost:active,
-.btn-c:active,
-.btn-o:active,
-.btn-sq:active,
-.btn-d:active,
-.iconbtn:active,
+.btn-primary:not(:disabled):active,
+.btn-primary.btn-lg:not(:disabled):active,
+.btn-secondary:not(:disabled):active,
+.btn-ghost:not(:disabled):active,
+.btn-danger:not(:disabled):active,
+.btn-icon:not(:disabled):active,
+.btn-icon.btn-sm:not(:disabled):active,
 .f-eye:active,
 .pill:active,
 .facet:active,
@@ -233,20 +233,20 @@
    squares may overlap — a tap in the overlap goes to the later one, which is still a control the
    finger was on. TouchTargetsTest measures a representative set with the browser's own hit test. */
 @media (pointer: coarse) {
-  .luw :is(.iconbtn, .btn-c, .btn-o, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
+  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
            .facet, .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
            .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
-           .np-goto, .rel-x, .bd-retry, .doc-open, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
+           .np-goto, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
            .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,
            .inbox-notice-x, .srv-err-x, .cat-twist, .cat-act, .cat-err-x, .coll-err-x, .bkp-err-x,
            .imp-err-x, .ced-err-x, .sed-err-x, .chr-a, .ctl-zoom, .cd-err-x, .bke-clear,
            .lib-sort-option, .lib-sort-direction) {
     position: relative;
   }
-  .luw :is(.iconbtn, .btn-c, .btn-o, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
+  .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-act, .toast .t-x, .tab, .seg button,
            .facet, .facet-chip, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
            .tport-boost, .tport-expand, .tport-speed, .tport-note-x, .np-b, .np-chstep, .np-chip,
-           .np-goto, .rel-x, .bd-retry, .doc-open, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
+           .np-goto, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
            .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,
            .inbox-notice-x, .srv-err-x, .cat-twist, .cat-act, .cat-err-x, .coll-err-x, .bkp-err-x,
            .imp-err-x, .ced-err-x, .sed-err-x, .chr-a, .ctl-zoom, .cd-err-x, .bke-clear,

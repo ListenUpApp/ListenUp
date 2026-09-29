@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.shelf
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,27 +100,21 @@ fun ShelfEditPage(
 
             (state as? CreateEditShelfUiState.Error)?.let { error ->
                 P(attrs = { classes("shelf-form-error") }) { Text(error.message) }
-                Button(attrs = {
-                    classes(QUIET_BUTTON)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onDismissError() }
-                }) { Text("Dismiss") }
+                Button(kind = ButtonKind.Secondary, onClick = { onDismissError() }) { Text("Dismiss") }
             }
 
             Div(attrs = { classes("shelf-form-actions") }) {
-                Button(attrs = {
-                    classes("btn")
-                    attr(ATTR_TYPE, "submit")
-                    // Disabled on an empty name rather than validated after the fact: a shelf with
-                    // no name is the one input this form genuinely cannot accept.
-                    if (name.isBlank() || saving) attr("disabled", "")
-                }) { Text(if (saving) "Saving…" else "Save") }
+                Button(
+                    kind = ButtonKind.Primary,
+                    submit = true,
+                    attrs = {
+                        // Disabled on an empty name rather than validated after the fact: a shelf with
+                        // no name is the one input this form genuinely cannot accept.
+                        if (name.isBlank() || saving) attr("disabled", "")
+                    },
+                ) { Text(if (saving) "Saving…" else "Save") }
 
-                Button(attrs = {
-                    classes(QUIET_BUTTON)
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    onClick { onCancel() }
-                }) { Text("Cancel") }
+                Button(kind = ButtonKind.Secondary, onClick = { onCancel() }) { Text("Cancel") }
             }
         }
 
@@ -133,10 +129,6 @@ fun ShelfEditPage(
         }
     }
 }
-
-private const val ATTR_TYPE = "type"
-
-private const val VALUE_BUTTON = "button"
 
 /**
  * Deleting a shelf: a quiet way in, and the shared dialog for the actual question.
@@ -157,12 +149,11 @@ private fun DeleteShelfSection(
     onDelete: () -> Unit,
 ) {
     Div(attrs = { classes("shelf-danger") }) {
-        Button(attrs = {
-            classes(QUIET_BUTTON)
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            if (saving) attr("disabled", "")
-            onClick { onAsk() }
-        }) { Text("Delete shelf") }
+        Button(
+            kind = ButtonKind.Secondary,
+            onClick = { onAsk() },
+            enabled = !saving,
+        ) { Text("Delete shelf") }
     }
 
     ConfirmDialog(
@@ -178,6 +169,3 @@ private fun DeleteShelfSection(
         onDismiss = onDismiss,
     )
 }
-
-/** The outline button. Every action on this page that is not the primary one wears it. */
-private const val QUIET_BUTTON = "btn-o"

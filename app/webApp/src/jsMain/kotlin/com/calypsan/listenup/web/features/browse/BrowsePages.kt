@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.browse
 
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.FacetKind
@@ -206,11 +208,7 @@ private fun Missing(
         title = "This ${what.lowercase()} is gone",
         body = "It was removed, or the link is older than your library.",
     ) {
-        Button(attrs = {
-            classes("btn-c")
-            attr("type", "button")
-            onClick { onOpenLibrary() }
-        }) { Text("Back to Library") }
+        Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) { Text("Back to Library") }
     }
 }
 
