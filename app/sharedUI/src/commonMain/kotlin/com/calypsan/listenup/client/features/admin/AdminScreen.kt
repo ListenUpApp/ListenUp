@@ -71,6 +71,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.api.dto.admin.RatingSourceStatus
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -92,6 +93,7 @@ import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.design.util.relativeTime
+import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -143,6 +145,12 @@ import listenup.composeapp.generated.resources.admin_push_setting_title
 import listenup.composeapp.generated.resources.admin_rating_source_error
 import listenup.composeapp.generated.resources.admin_rating_source_last_fetched
 import listenup.composeapp.generated.resources.admin_rating_source_never_fetched
+import listenup.composeapp.generated.resources.admin_rating_source_no_connection
+import listenup.composeapp.generated.resources.admin_rating_source_not_configured
+import listenup.composeapp.generated.resources.admin_rating_source_paused
+import listenup.composeapp.generated.resources.admin_rating_source_paused_plain
+import listenup.composeapp.generated.resources.admin_rating_source_unavailable
+import listenup.composeapp.generated.resources.admin_rating_source_using_connection
 import listenup.composeapp.generated.resources.admin_rating_sources_hint
 import listenup.composeapp.generated.resources.admin_rating_sources_title
 import listenup.composeapp.generated.resources.admin_remote_url
@@ -819,36 +827,71 @@ internal fun RatingSourcesGroup(
     }
 }
 
-/** One source: the whole row is its switch, and the subtitle says how its last fetch went. */
+/**
+ * One source: the whole row is its switch, and the subtitle says how it is doing. The health line
+ * reads, first match wins: why it cannot run at all, then until when it has paused itself (a
+ * future date, so an absolute one — "Paused until October 6, 2026"), then its last error, then
+ * when it last fetched, then that it never has. Hardcover adds whose account it fetches with.
+ * An unavailable source's switch stays operable: turning it off is still meaningful.
+ */
 @Composable
 private fun RatingSourceRow(
     status: RatingSourceStatus,
     onEnabledChange: (Boolean) -> Unit,
 ) {
-    val lastError = status.lastError
-    val lastFetchedAt = status.lastFetchedAt
-    val healthLine =
-        when {
-            lastError != null -> {
-                stringResource(Res.string.admin_rating_source_error, lastError)
-            }
-
-            lastFetchedAt != null -> {
-                stringResource(Res.string.admin_rating_source_last_fetched, relativeTime(lastFetchedAt))
-            }
-
-            else -> {
-                stringResource(Res.string.admin_rating_source_never_fetched)
-            }
-        }
+    val healthLine = ratingSourceHealthLine(status)
+    val connectionLine =
+        status.connectionUsername
+            ?.takeIf { status.source == ExternalRatingSource.HARDCOVER }
+            ?.let { stringResource(Res.string.admin_rating_source_using_connection, it) }
     SettingToggleRow(
         icon = Icons.Outlined.Star,
         title = ratingSourceLabel(status.source),
-        subtitle = healthLine,
+        subtitle = listOfNotNull(healthLine, connectionLine).joinToString("\n"),
         checked = status.enabled,
         onCheckedChange = onEnabledChange,
         modifier = Modifier.testTag("ratingSourceSwitch_${status.source.name}"),
     )
+}
+
+/** [status]'s one-line health, in the priority [RatingSourceRow] documents. */
+@Composable
+private fun ratingSourceHealthLine(status: RatingSourceStatus): String {
+    val unavailable = status.unavailable
+    val pausedUntil = status.pausedUntil
+    val lastError = status.lastError
+    val lastFetchedAt = status.lastFetchedAt
+    return when {
+        unavailable != null -> {
+            stringResource(
+                when (unavailable) {
+                    RatingSourceUnavailable.NOT_CONFIGURED -> Res.string.admin_rating_source_not_configured
+                    RatingSourceUnavailable.NO_CONNECTION -> Res.string.admin_rating_source_no_connection
+                    RatingSourceUnavailable.UNKNOWN -> Res.string.admin_rating_source_unavailable
+                },
+            )
+        }
+
+        pausedUntil != null && lastError != null -> {
+            stringResource(Res.string.admin_rating_source_paused, formatDateLong(pausedUntil), lastError)
+        }
+
+        pausedUntil != null -> {
+            stringResource(Res.string.admin_rating_source_paused_plain, formatDateLong(pausedUntil))
+        }
+
+        lastError != null -> {
+            stringResource(Res.string.admin_rating_source_error, lastError)
+        }
+
+        lastFetchedAt != null -> {
+            stringResource(Res.string.admin_rating_source_last_fetched, relativeTime(lastFetchedAt))
+        }
+
+        else -> {
+            stringResource(Res.string.admin_rating_source_never_fetched)
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
