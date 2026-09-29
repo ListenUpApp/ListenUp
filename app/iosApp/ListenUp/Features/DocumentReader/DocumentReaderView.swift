@@ -130,11 +130,6 @@ struct DocumentReaderView: View {
                     }
                     .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
                 }
-                Menu {
-                    // placeholder — actions added in 3b
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
             }
         }
         .overlay {

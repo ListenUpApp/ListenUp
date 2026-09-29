@@ -152,7 +152,6 @@ struct ForgotPasswordCodeField: View {
         .accessibilityElement()
         .accessibilityLabel(String(localized: "invite.enter_code"))
         .accessibilityValue(code.isEmpty ? "" : code.map(String.init).joined(separator: " "))
-        .accessibilityAddTraits(.isKeyboardKey)
     }
 
     private func box(at index: Int) -> some View {
