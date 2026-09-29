@@ -167,7 +167,6 @@ struct AdminBackupsView: View {
     private var restoreFromFileRow: some View {
         NavigationActionRow(
             systemImage: "arrow.down.doc.fill",
-            tint: .luTint,
             title: String(localized: "admin.restore_from_file"),
             subtitle: String(localized: "admin.restore_from_file_description"),
             action: { showingFileImporter = true }
@@ -329,7 +328,7 @@ private struct BackupRow: View {
     var body: some View {
         NavigationLink(value: RestoreBackupDestination(backupId: backup.id)) {
             HStack(spacing: 13) {
-                IconTile(systemImage: "archivebox.fill", tint: .luTint, size: 38)
+                IconTile(systemImage: "archivebox.fill", size: 38)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(backup.id)
                         .font(.body.weight(.medium))

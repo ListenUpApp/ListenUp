@@ -8,7 +8,8 @@ import SwiftUI
 /// padding so it sits flush inside a `.fieldCard()` or a `FieldGroup` row slot.
 struct NavigationActionRow: View {
     let systemImage: String
-    var tint: Color = .luTint
+    /// A meaningful colour for the leading tile; `nil` (the default) keeps it neutral — see `IconTile`.
+    var tint: Color?
     let title: String
     var subtitle: String?
     var action: (() -> Void)?
@@ -52,7 +53,6 @@ struct NavigationActionRow: View {
     VStack(spacing: 0) {
         NavigationActionRow(
             systemImage: "person.2.fill",
-            tint: .luTint,
             title: "Invite Someone",
             subtitle: "Share your library with others",
             action: {}

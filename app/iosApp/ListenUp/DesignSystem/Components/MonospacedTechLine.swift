@@ -11,7 +11,7 @@ struct MonospacedTechLine: View {
         HStack(spacing: 8) {
             Image(systemName: systemImage)
                 .font(.caption.weight(.medium))
-                .foregroundStyle(Color.luTint)
+                .foregroundStyle(Color.luLabel2)
             Text(text)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Color.luLabel2)

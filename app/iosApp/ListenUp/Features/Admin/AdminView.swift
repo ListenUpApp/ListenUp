@@ -151,7 +151,6 @@ struct AdminView: View {
             Spacer().frame(height: 10)
             ToggleRow(
                 systemImage: "tray.and.arrow.down",
-                tint: .luTint,
                 title: String(localized: "admin.inbox_setting_title"),
                 subtitle: String(localized: "admin.inbox_setting_subtitle"),
                 isOn: holdNewBooksForReviewBinding(settings: settings, model: settingsModel(settings))
@@ -160,7 +159,6 @@ struct AdminView: View {
             Spacer().frame(height: 10)
             ToggleRow(
                 systemImage: "bell.badge",
-                tint: .luTint,
                 title: String(localized: "admin.push_setting_title"),
                 subtitle: String(localized: "admin.push_setting_subtitle"),
                 isOn: pushNotificationsEnabledBinding(settings: settings, model: settingsModel(settings))
@@ -195,7 +193,6 @@ struct AdminView: View {
                     if index > 0 { rowSeparator }
                     ToggleRow(
                         systemImage: "star.fill",
-                        tint: .luTint,
                         title: row.source.displayName,
                         subtitle: row.subtitle(),
                         isOn: Binding(
@@ -362,7 +359,6 @@ struct AdminView: View {
                 NavigationLink(value: LibrarySettingsDestination()) {
                     NavigationActionRow(
                         systemImage: "externaldrive.fill",
-                        tint: .luTint,
                         title: String(localized: "admin.library_settings"),
                         subtitle: String(localized: "admin.library_settings_subtitle")
                     )
@@ -372,7 +368,6 @@ struct AdminView: View {
                 NavigationLink(value: AdminBackupsDestination()) {
                     NavigationActionRow(
                         systemImage: "archivebox.fill",
-                        tint: .luTint,
                         title: String(localized: "admin.backup_restore"),
                         subtitle: String(localized: "admin.create_backups_and_restore_server")
                     )
@@ -381,7 +376,6 @@ struct AdminView: View {
                 rowSeparator
                 NavigationActionRow(
                     systemImage: "person.2.fill",
-                    tint: .luTint,
                     title: String(localized: "admin.invite_someone"),
                     subtitle: String(localized: "admin.share_your_audiobook_library_with"),
                     action: { showingInviteSheet = true }
@@ -393,7 +387,6 @@ struct AdminView: View {
                 NavigationLink(value: AdminInboxDestination()) {
                     NavigationActionRow(
                         systemImage: "tray.full",
-                        tint: .luTint,
                         title: String(localized: "common.inbox"),
                         subtitle: String(localized: "admin.inbox_subtitle")
                     )
@@ -403,7 +396,6 @@ struct AdminView: View {
                 NavigationLink(value: AdminCollectionsDestination()) {
                     NavigationActionRow(
                         systemImage: "folder.badge.person.crop",
-                        tint: .luTint,
                         title: String(localized: "common.collections"),
                         subtitle: String(localized: "admin.collection_shared_book_sets")
                     )
@@ -413,7 +405,6 @@ struct AdminView: View {
                 NavigationLink(value: AdminCategoriesDestination()) {
                     NavigationActionRow(
                         systemImage: "tag.fill",
-                        tint: .luTint,
                         title: String(localized: "common.categories"),
                         subtitle: String(localized: "admin.view_the_genre_hierarchy_tree")
                     )
@@ -425,7 +416,6 @@ struct AdminView: View {
                 NavigationLink(value: ABSImportDestination()) {
                     NavigationActionRow(
                         systemImage: "square.and.arrow.down.on.square.fill",
-                        tint: .luTint,
                         title: String(localized: "import.title"),
                         subtitle: String(localized: "import.entry_subtitle")
                     )

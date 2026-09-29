@@ -109,7 +109,7 @@ struct LibrarySettingsView: View {
 
     private func folderRow(_ folder: LibraryFolderRowModel, model: LibrarySettingsReadyModel) -> some View {
         HStack(spacing: 13) {
-            IconTile(systemImage: "folder.fill", tint: .luTint)
+            IconTile(systemImage: "folder.fill")
             Text(folder.displayPath)
                 .font(.callout.monospaced())
                 .foregroundStyle(.primary)
@@ -137,7 +137,7 @@ struct LibrarySettingsView: View {
             observer.showFolderBrowser(true)
         } label: {
             HStack(spacing: 13) {
-                IconTile(systemImage: "plus", tint: .luTint)
+                IconTile(systemImage: "plus")
                 Text(String(localized: "admin.add_folder"))
                     .font(.body)
                     .foregroundStyle(Color.luTint)
@@ -160,7 +160,7 @@ struct LibrarySettingsView: View {
                 observer.rescan()
             } label: {
                 HStack(spacing: 13) {
-                    IconTile(systemImage: "arrow.clockwise", tint: .luTint)
+                    IconTile(systemImage: "arrow.clockwise")
                     VStack(alignment: .leading, spacing: 1) {
                         Text(String(localized: "admin.rescan_library"))
                             .font(.body)

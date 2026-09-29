@@ -43,10 +43,10 @@ struct ImportIntroContent: View {
     private var badge: some View {
         Label(String(localized: "import.intro_badge"), systemImage: "arrow.triangle.2.circlepath")
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(Color.luTint)
+            .foregroundStyle(Color.luLabel2)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .background(Color.luTint.opacity(0.15), in: Capsule())
+            .background(Color.luFill, in: Capsule())
     }
 
     private var stepsCard: some View {

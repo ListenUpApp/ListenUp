@@ -17,7 +17,7 @@ struct SelectableOptionCard: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 13) {
-                IconTile(systemImage: systemImage, tint: .luTint)
+                IconTile(systemImage: systemImage)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
                         .font(.body)

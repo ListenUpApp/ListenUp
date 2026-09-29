@@ -57,9 +57,9 @@ struct ServerSelectView: View {
             Text(String(localized: "connect.on_your_network").uppercased())
                 .font(.footnote).foregroundStyle(.secondary)
             Text("\(viewModel.servers.count)")
-                .font(.caption.weight(.bold)).foregroundStyle(Color.listenUpOrange)
+                .font(.caption.weight(.bold)).foregroundStyle(Color.luLabel2)
                 .padding(.horizontal, 7).padding(.vertical, 2)
-                .background(Capsule().fill(Color.listenUpOrange.opacity(0.16)))
+                .background(Capsule().fill(Color.luFill))
             Spacer()
             RescanPill(isBusy: viewModel.isDiscovering) { viewModel.refresh() }
         }

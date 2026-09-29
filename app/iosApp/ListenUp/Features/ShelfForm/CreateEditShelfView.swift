@@ -175,7 +175,6 @@ struct CreateEditShelfView: View {
             IconTile(
                 systemImage: isPrivate ? "lock.fill" : "globe",
                 isActive: isPrivate,
-                tint: .luTint,
                 size: 32
             )
             VStack(alignment: .leading, spacing: 2) {

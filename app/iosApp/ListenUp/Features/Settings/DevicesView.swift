@@ -152,10 +152,10 @@ struct DevicesView: View {
                     // "THIS DEVICE" badge
                     Text(String(localized: "devices.this_device").uppercased())
                         .font(.system(size: 10.5, weight: .bold))
-                        .foregroundStyle(Color.luTint)
+                        .foregroundStyle(Color.luLabel2)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.luTint.opacity(0.14), in: Capsule())
+                        .background(Color.luFill, in: Capsule())
                 }
                 if !device.secondary.isEmpty {
                     Text(device.secondary)
@@ -171,7 +171,10 @@ struct DevicesView: View {
                     .frame(width: 7, height: 7)
                 Text(String(localized: "devices.active"))
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color(red: 0.12, green: 0.54, blue: 0.31))
+                    // The green dot carries the status; the word stays in secondary text, which
+                    // reads at 4.5:1 where a green label would not (HIG, Color: "Avoid relying
+                    // solely on color").
+                    .foregroundStyle(Color.luLabel2)
             }
         }
         .padding(.vertical, 6)

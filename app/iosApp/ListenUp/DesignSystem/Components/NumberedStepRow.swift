@@ -6,7 +6,8 @@ import SwiftUI
 struct NumberedStepRow: View {
     let number: Int
     let systemImage: String
-    var tint: Color = .luTint
+    /// A meaningful colour for the leading tile; `nil` (the default) keeps it neutral — see `IconTile`.
+    var tint: Color?
     let title: String
     var subtitle: String?
 

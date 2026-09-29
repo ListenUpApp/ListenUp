@@ -95,4 +95,16 @@ struct BrandColorContrastTests {
             #expect(ratio >= ContrastMinimum.glyph, "tonal chip \(ratio)")
         }
     }
+
+    @Test("the neutral IconTile keeps its glyph at 3:1 on the row surface")
+    func neutralIconTile() {
+        // `IconTile` with no tint: a secondary-label glyph on `luFill` (tertiarySystemFill).
+        for traits in Traits.colorAppearances {
+            let row = surface(.secondarySystemGroupedBackground, traits)
+            let tile = SRGBColor(.tertiarySystemFill, resolvedFor: traits, over: row)
+            let glyph = SRGBColor(.secondaryLabel, resolvedFor: traits, over: tile)
+            let ratio = glyph.contrastRatio(against: tile)
+            #expect(ratio >= ContrastMinimum.glyph, "neutral tile \(ratio)")
+        }
+    }
 }

@@ -18,7 +18,7 @@ struct AdminInviteRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            IconTile(systemImage: "envelope.fill", tint: .luTint, size: 40)
+            IconTile(systemImage: "envelope.fill", size: 40)
             VStack(alignment: .leading, spacing: 1) {
                 Text(invite.name)
                     .font(.body)

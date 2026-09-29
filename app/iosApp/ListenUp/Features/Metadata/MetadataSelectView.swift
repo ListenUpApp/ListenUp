@@ -423,9 +423,9 @@ struct MetadataMatchedEditionCard: View {
                     Text(String(format: String(localized: "metadata.audible_source"), regionName))
                         .font(.caption2.weight(.bold))
                 }
-                .foregroundStyle(Color.luTint)
+                .foregroundStyle(Color.luLabel2)
                 .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(Capsule().fill(Color.luTint.opacity(0.14)))
+                .background(Capsule().fill(Color.luFill))
 
                 Text(title).font(.callout.weight(.semibold)).foregroundStyle(.primary).lineLimit(2)
             }

@@ -103,6 +103,16 @@ extension SRGBColor {
         self.init(color.resolvedColor(with: traits))
     }
 
+    /// `color` resolved for `traits` and, if translucent (a system fill, a secondary label),
+    /// flattened onto `background` by its own alpha — what the eye actually sees.
+    init(_ color: UIColor, resolvedFor traits: UITraitCollection, over background: SRGBColor) {
+        let resolved = color.resolvedColor(with: traits)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        self = SRGBColor(red: Double(red), green: Double(green), blue: Double(blue))
+            .composited(opacity: Double(alpha), over: background)
+    }
+
     var uiColor: UIColor {
         UIColor(red: CGFloat(red), green: CGFloat(green), blue: CGFloat(blue), alpha: 1)
     }

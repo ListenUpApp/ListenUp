@@ -97,7 +97,7 @@ struct SettingsView: View {
                     title: String(localized: "common.administration"),
                     subtitle: String(localized: "admin.server_settings"),
                     systemImage: "shield.lefthalf.filled",
-                    tint: .luTint
+                    tint: .gray
                 )
             }
         }
@@ -134,7 +134,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.default_speed"),
                     systemImage: "slider.horizontal.3",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultPlaybackSpeed)
@@ -147,7 +147,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.default_boost"),
                     systemImage: "speaker.wave.2.fill",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultVolumeBoostDb)
@@ -160,7 +160,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.skip_forward"),
                     systemImage: "goforward.30",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultSkipForwardSec)
@@ -173,7 +173,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.skip_backward"),
                     systemImage: "gobackward.10",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultSkipBackwardSec)
@@ -182,7 +182,7 @@ struct SettingsView: View {
                 SettingsLabel(
                     title: String(localized: "settings.autorewind_on_resume"),
                     systemImage: "clock.arrow.circlepath",
-                    tint: .luTint
+                    tint: .pink
                 )
             }
             .haptic(observer.autoRewindEnabled ? .toggleOn : .toggleOff, trigger: observer.autoRewindEnabled)
@@ -298,7 +298,7 @@ struct SettingsView: View {
                         SettingsLabel(
                             title: String(localized: "hardcover.row_title"),
                             systemImage: "books.vertical.fill",
-                            tint: .luTint
+                            tint: .brown
                         )
                     }
                 }
@@ -417,6 +417,11 @@ struct SettingsView: View {
 
 /// A settings row label: a tinted rounded SF-icon tile leading a title (and optional
 /// subtitle), matching the mockup's `IconTile` + `SRow` vocabulary in native form.
+///
+/// Tiles take a per-category *system* colour, as the Settings app does, never the brand coral: the
+/// coral is for actions, and a white glyph on the dark coral would sit at 2.85:1 (HIG, Color: "use
+/// system colors, which already define variants for all these contexts"; HIG, Branding: "Apply your
+/// app's accent color judiciously").
 private struct SettingsLabel: View {
     let title: String
     var subtitle: String?

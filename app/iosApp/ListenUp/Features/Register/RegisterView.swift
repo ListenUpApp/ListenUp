@@ -65,9 +65,8 @@ struct RegisterView: View {
             ) {
                 Label(String(localized: "auth.server_administrator"), systemImage: "checkmark.shield")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.listenUpOrange)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Capsule().fill(Color.listenUpOrange.opacity(0.15)))
+                    .foregroundStyle(Color.luLabel2)                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Capsule().fill(Color.luFill))
             }
         } else {
             AuthLargeHeader(title: String(localized: "auth.create_account"))

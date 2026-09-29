@@ -15,10 +15,12 @@ struct MetadataFlowHeader: View {
                     Image(systemName: "sparkles").font(.caption.weight(.semibold))
                     Text(badge).font(.caption.weight(.semibold))
                 }
-                .foregroundStyle(Color.luTint)
+                // An eyebrow, not an action: neutral, so the coral stays for what can be tapped
+                // (HIG, Branding: "Apply your app's accent color judiciously").
+                .foregroundStyle(Color.luLabel2)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 5)
-                .background(Capsule().fill(Color.luTint.opacity(0.13)))
+                .background(Capsule().fill(Color.luFill))
             }
             Text(title)
                 .font(.largeTitle.weight(.bold))

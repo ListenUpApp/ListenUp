@@ -5,7 +5,8 @@ import SwiftUI
 /// inside a `.fieldCard()` / `FieldGroup`. Generic and domain-free: the mockup's `StatLine`.
 struct StatLineRow: View {
     let systemImage: String
-    var tint: Color = .luTint
+    /// A meaningful colour for the leading tile; `nil` (the default) keeps it neutral — see `IconTile`.
+    var tint: Color?
     let label: String
     let value: String
     /// A muted value reads as secondary (e.g. a "skipped" count that isn't a headline figure).

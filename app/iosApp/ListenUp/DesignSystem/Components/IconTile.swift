@@ -3,11 +3,18 @@ import SwiftUI
 /// A rounded-square icon tile — an SF Symbol on a soft fill. The recurring leading glyph for
 /// setting / management / option / field rows, app-wide. The mockups name this `IconTile`.
 ///
+/// **Neutral by default.** A row's leading glyph is decoration, not an action, so with no `tint` it
+/// draws a secondary-label glyph on the neutral `luFill`. HIG, Branding: "Apply your app's accent
+/// color judiciously. Using your brand color too broadly can overwhelm your interface and dilute its
+/// impact"; HIG, Color: "reserve it for elements that truly benefit from emphasis, such as status
+/// indicators or primary actions". Pass a `tint` only when the colour means something — a status, a
+/// category's own system colour, a hero.
+///
 /// Three fill modes:
-/// - `.tonal` (default) — a soft `tint.opacity(0.14)` fill with the symbol drawn in `tint`.
-///   The clean-coral language used by management rows, access-level cards, and selected fields.
-/// - `.solid` — a saturated `tint` fill with a white symbol, for emphasis (e.g. the
-///   invite-preview avatar).
+/// - `.tonal` (default) — a soft `tint.opacity(0.14)` fill with the symbol drawn in `tint` (≥3:1,
+///   pinned by `BrandColorContrastTests`), or the neutral pair when there is no tint.
+/// - `.solid` — a saturated `tint` fill (coral when none is given) with an on-tint symbol, for
+///   emphasis (e.g. the invite-preview avatar).
 /// - `.inactive` — a neutral grey fill with a muted symbol, for deselected/unavailable rows
 ///   (e.g. a metadata field that won't be applied).
 ///
@@ -21,19 +28,19 @@ struct IconTile: View {
     }
 
     let systemImage: String
-    var tint: Color = .luTint
+    var tint: Color?
     var size: CGFloat = 30
     var style: Style = .tonal
 
     /// Convenience for field rows: `true` reads as `.tonal`, `false` as `.inactive`.
-    init(systemImage: String, isActive: Bool, tint: Color = .luTint, size: CGFloat = 30) {
+    init(systemImage: String, isActive: Bool, tint: Color? = nil, size: CGFloat = 30) {
         self.systemImage = systemImage
         self.tint = tint
         self.size = size
         self.style = isActive ? .tonal : .inactive
     }
 
-    init(systemImage: String, tint: Color = .luTint, size: CGFloat = 30, style: Style = .tonal) {
+    init(systemImage: String, tint: Color? = nil, size: CGFloat = 30, style: Style = .tonal) {
         self.systemImage = systemImage
         self.tint = tint
         self.size = size
@@ -45,8 +52,8 @@ struct IconTile: View {
 
     private var fillStyle: AnyShapeStyle {
         switch style {
-        case .solid: return AnyShapeStyle(tint)
-        case .tonal: return AnyShapeStyle(tint.opacity(0.14))
+        case .solid: return AnyShapeStyle(tint ?? .luTint)
+        case .tonal: return AnyShapeStyle(tint.map { $0.opacity(0.14) } ?? .luFill)
         case .inactive: return AnyShapeStyle(Color.luFill)
         }
     }
@@ -54,7 +61,7 @@ struct IconTile: View {
     private var glyphColor: Color {
         switch style {
         case .solid: return .luOnTint
-        case .tonal: return tint
+        case .tonal: return tint ?? .luLabel2
         case .inactive: return .luLabel3
         }
     }
@@ -75,10 +82,10 @@ struct IconTile: View {
 #Preview("IconTile") {
     HStack(spacing: 16) {
         IconTile(systemImage: "person.2.fill", tint: .green)
-        IconTile(systemImage: "shield.fill", tint: .luTint)
+        IconTile(systemImage: "shield.fill")
         IconTile(systemImage: "square.grid.2x2.fill", tint: .blue, size: 40)
         IconTile(systemImage: "mic", isActive: false)
-        IconTile(systemImage: "link", tint: .luTint, size: 48, style: .solid)
+        IconTile(systemImage: "link", size: 48, style: .solid)
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
