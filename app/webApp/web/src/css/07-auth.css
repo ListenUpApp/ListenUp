@@ -24,7 +24,7 @@
 .auth-form {
   flex: 1; min-width: 0;
   display: flex; align-items: center; justify-content: center;
-  padding: 48px 24px;
+  padding: var(--sp-48) var(--sp-24);
 }
 .auth-col { width: 100%; max-width: 460px; display: flex; flex-direction: column; }
 /* The heading sets `margin: 0`, so without this the badge sits flush against it. Scoped to the
@@ -34,9 +34,9 @@
   margin: 0; color: var(--ink);
   font-size: 2.5rem; font-weight: 800; letter-spacing: -1.5px; line-height: 1.0;
 }
-.auth-st { margin: 12px 0 0; color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
+.auth-st { margin: var(--sp-12) 0 0; color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
 .auth-fields { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
-.auth-row { display: flex; gap: 12px; }
+.auth-row { display: flex; gap: var(--sp-12); }
 /* Each half takes an equal share of the row and nothing more. `min-width: 0` is the load-bearing
    part: a flex item's automatic minimum size is its MIN-CONTENT, so without this the halves refuse
    to shrink and the row overflows .auth-col — visibly, since the single-column fields above and
@@ -50,17 +50,17 @@
 /* The invite card: who invited you, where, and as whom. Sits inside `.auth-fields`, so it is a
    panel rather than a page section — surface, hairline, and the same radius the fields use. */
 .inv-card {
-  background: var(--surface-2); border: 1px solid var(--line); border-radius: 13px;
-  padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 14px var(--sp-16); display: flex; flex-direction: column; gap: var(--sp-4);
 }
 .inv-lead { margin: 0; font-size: 0.90625rem; color: var(--ink); line-height: 1.5; text-wrap: pretty; }
 .inv-who { font-weight: 800; }
-.inv-mail { margin: 0; font-size: 0.8125rem; color: var(--ink-2); }
+.inv-mail { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
 
 /* A link that belongs to the field above it — right-aligned, and pulled up tight against it
    so it reads as part of that field rather than as another row of the form. */
 .auth-aside { display: flex; justify-content: flex-end; margin-top: -4px; }
-.auth-err { color: var(--coral-text); font-size: 0.875rem; font-weight: 600; }
+.auth-err { color: var(--coral-text); font-size: var(--fs-ui); font-weight: 600; }
 .auth-boot {
   display: flex; align-items: center; justify-content: center;
   min-height: 100dvh; background: var(--paper); color: var(--ink-2);
@@ -100,7 +100,7 @@
      size, which the virtualised grid depends on. */
   position: relative;
   cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
 }
 /* ⛔ Hover and focus may move the cover but must NEVER change the card's height. The grid is
    virtualised on the assumption that every card is exactly the same height, so a treatment that
@@ -118,7 +118,7 @@
     box-shadow: var(--shadow-lift);
   }
 }
-.lib-cover { transition: transform .16s ease, box-shadow .16s ease; }
+.lib-cover { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
 @media (hover: hover) { .lib-card:hover .lib-title { color: var(--coral-text); } }
 /* `:focus-visible`, not `:focus` — a mouse click should not leave a ring behind, but a reader
    arriving by Tab must be able to see where they are. */
@@ -150,7 +150,7 @@
   position: sticky; top: -24px; z-index: 2;
   padding: 14px 2px 6px;
   background: var(--paper);
-  font-size: 1.05rem; font-weight: 700; color: var(--ink);
+  font-size: var(--fs-title); font-weight: 700; color: var(--ink);
   animation: none;
 }
 
@@ -175,7 +175,7 @@
 .lib-cover-fallback {
   display: flex; align-items: flex-end; padding: 10px;
   background: linear-gradient(150deg, var(--coral-soft), var(--paper-2, #e7e0d8));
-  color: var(--ink-2); font-size: 0.8rem; font-weight: 600; line-height: 1.25;
+  color: var(--ink-2); font-size: var(--fs-small); font-weight: 600; line-height: 1.25;
   overflow: hidden;
 }
 /* Title, author and progress all reserve their space whether or not they have content, so every
@@ -192,10 +192,10 @@
   font-size: 0.9rem; line-height: 1.2;
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
   height: calc(0.9rem * 1.2);
-  transition: color .16s ease;
+  transition: color var(--dur) var(--ease);
 }
 .lib-author {
-  font-size: 0.8rem; line-height: 1.2; color: var(--ink-2);
+  font-size: var(--fs-small); line-height: 1.2; color: var(--ink-2);
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
   height: calc(0.8rem * 1.2);
 }
@@ -208,9 +208,9 @@
    carried over from the Contributors role toggle it replaces: same chip, one shared idiom. */
 .facet-row { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 22px; }
 .facet-chip {
-  height: 40px; padding: 0 17px; border-radius: 11px; border: 1.5px solid var(--line);
+  height: 40px; padding: 0 17px; border-radius: var(--r-md); border: 1.5px solid var(--line);
   display: inline-flex; align-items: center; cursor: pointer;
-  font-size: 0.875rem; font-weight: 700; letter-spacing: -0.01em;
+  font-size: var(--fs-ui); font-weight: 700; letter-spacing: -0.01em;
   background: var(--surface); color: var(--ink-2);
 }
 .facet-chip.is-active { border-color: transparent; background: var(--coral-fill); color: var(--on-coral); }
@@ -228,10 +228,10 @@
 .contrib-title-row { display: flex; align-items: center; gap: 13px; }
 .contrib-title-row h1 { margin: 0; font-size: 2.625rem; font-weight: 800; letter-spacing: -0.04em; color: var(--ink); }
 .contrib-count {
-  min-width: 32px; height: 28px; padding: 0 11px; border-radius: 999px;
+  min-width: 32px; height: 28px; padding: 0 11px; border-radius: var(--r-pill);
   background: var(--coral-soft); color: var(--coral-text);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 0.875rem; font-weight: 800;
+  font-size: var(--fs-ui); font-weight: 800;
 }
 /* The browse card the A→Z sections sit in — the artboard's "Browse all" surface. */
 .contrib-list {
@@ -243,21 +243,21 @@
 /* ⛔ Every heading the same height, first or not: the list is virtualised and counts rows rather
    than measuring them, so a first heading with a smaller margin would drift every offset below it.
    The list's reduced top padding stands in for the first one's extra space. */
-.contrib-letter-row { display: flex; align-items: center; gap: 14px; margin: 16px 0 6px; }
+.contrib-letter-row { display: flex; align-items: center; gap: 14px; margin: var(--sp-16) 0 6px; }
 .contrib-letter {
-  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: var(--r-md); flex-shrink: 0;
   background: var(--coral-soft); color: var(--coral-text);
   display: flex; align-items: center; justify-content: center;
   font-size: 1.125rem; font-weight: 800;
 }
-.contrib-letter-line { flex-grow: 1; height: 1.5px; border-radius: 99px; background: var(--line); }
+.contrib-letter-line { flex-grow: 1; height: 1.5px; border-radius: var(--r-pill); background: var(--line); }
 
 .contrib-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
 @media (hover: hover) { .contrib-row:hover { background: var(--surface-2); } }
 .contrib-row:focus { outline: none; }
 .contrib-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .contrib-avatar {
-  width: 58px; height: 58px; border-radius: 999px; flex-shrink: 0;
+  width: 58px; height: 58px; border-radius: var(--r-pill); flex-shrink: 0;
   color: #FFFFFF; display: flex; align-items: center; justify-content: center;
   font-weight: 800; font-size: 1.25rem;
   box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
@@ -265,47 +265,47 @@
 .contrib-info { flex-grow: 1; min-width: 0; }
 /* One line, always: a wrapped name would make one row taller than the rest of a virtualised list. */
 .contrib-name { font-size: 0.96875rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.contrib-meta { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
+.contrib-meta { display: flex; align-items: center; gap: 7px; margin-top: var(--sp-4); }
 .contrib-role-chip {
-  height: 23px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center;
+  height: 23px; padding: 0 10px; border-radius: var(--r-pill); display: inline-flex; align-items: center;
   font-size: 0.71875rem; font-weight: 800; background: var(--coral-soft); color: var(--coral-text);
 }
 .contrib-role-chip.is-narrator { background: var(--surface-3); color: var(--ink-2); }
-.contrib-book-count { font-size: 0.8125rem; color: var(--ink-2); font-weight: 500; }
+.contrib-book-count { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; }
 .contrib-chevron { color: var(--ink-3); display: flex; }
 
 /* Contributor Detail — the person behind the books. Values pulled from the approved artboard;
    `.cd` itself mirrors `.bd`'s page-container shape (width, max-width, gap). */
-.cd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.cd { width:100%; padding:var(--sp-24) 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
 /* Wraps rather than squeezing: on a phone the Edit and Delete buttons take a line under the name
    instead of pushing past the screen's edge. A desktop row has room for all of it and never wraps. */
 .cd-hero { display:flex; flex-wrap:wrap; align-items:center; gap:22px; }
 .cd-avatar {
-  width:104px; height:104px; border-radius:999px; flex-shrink:0;
+  width:104px; height:104px; border-radius:var(--r-pill); flex-shrink:0;
   color:#FFFFFF; display:flex; align-items:center; justify-content:center;
   font-weight:800; font-size:2.1875rem; letter-spacing:-0.01em;
   box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
 }
 .cd-name-block { flex:1; min-width:0; }
 .cd-name { margin:0; font-size:2.625rem; font-weight:800; letter-spacing:-0.04em; line-height:1.04; color:var(--ink); }
-.cd-roles { display:flex; align-items:center; gap:8px; margin-top:10px; }
+.cd-roles { display:flex; align-items:center; gap:var(--sp-8); margin-top:10px; }
 .cd-role-chip {
-  height:23px; padding:0 10px; border-radius:999px; display:inline-flex; align-items:center;
+  height:23px; padding:0 10px; border-radius:var(--r-pill); display:inline-flex; align-items:center;
   font-size:0.71875rem; font-weight:800; letter-spacing:0.02em; background:var(--coral-soft); color:var(--coral-text);
 }
 .cd-role-chip.is-muted { background:var(--surface-3); color:var(--ink-2); }
-.cd-alias { font-size:0.8125rem; font-weight:500; color:var(--ink-3); }
+.cd-alias { font-size:var(--fs-small); font-weight:500; color:var(--ink-3); }
 .cd-stats { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
 .cd-stat {
-  display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 14px 0 11px; border-radius:999px;
+  display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 14px 0 11px; border-radius:var(--r-pill);
   background:var(--surface); border:1px solid var(--line); color:var(--ink-2);
 }
-.cd-stat-label { font-size:0.84375rem; font-weight:700; color:var(--ink); }
+.cd-stat-label { font-size:var(--fs-ui); font-weight:700; color:var(--ink); }
 /* Panel wrappers carry no look of their own — Panel draws the card — but need to shrink inside
    the page's flex column the same way `.bd-main`/`.bd-side` do. */
 .cd-role-section, .cd-series-section { min-width:0; }
 .cd-count-badge {
-  min-width:24px; height:22px; padding:0 8px; border-radius:999px;
+  min-width:24px; height:22px; padding:0 var(--sp-8); border-radius:var(--r-pill);
   background:var(--coral-soft); color:var(--coral-text);
   display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800;
 }
@@ -317,7 +317,7 @@
 .cd-tile:focus { outline:none; }
 .cd-tile:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
 .cd-tile-frame {
-  position:relative; width:100%; aspect-ratio:1/1; border-radius:12px; overflow:hidden; box-shadow:var(--shadow-card);
+  position:relative; width:100%; aspect-ratio:1/1; border-radius:var(--r-md); overflow:hidden; box-shadow:var(--shadow-card);
 }
 .cd-tile-cover { width:100%; height:100%; object-fit:cover; display:block; }
 /* Shown in place of the <img> when the server holds no artwork, so a coverless book reads as a
@@ -325,18 +325,18 @@
 .cd-tile-fallback {
   position:absolute; inset:0; display:flex; align-items:flex-end; padding:10px;
   background:linear-gradient(150deg, var(--coral-soft), var(--paper-2));
-  color:var(--ink-2); font-size:0.8125rem; font-weight:800; line-height:1.15; overflow:hidden;
+  color:var(--ink-2); font-size:var(--fs-small); font-weight:800; line-height:1.15; overflow:hidden;
 }
 .cd-tile-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
 .cd-tile-title {
-  font-size:0.78125rem; font-weight:600; color:var(--ink); margin-top:8px;
+  font-size:var(--fs-small); font-weight:600; color:var(--ink); margin-top:var(--sp-8);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .cd-series-grid { display:flex; gap:22px; flex-wrap:wrap; }
 .cd-series-card {
   /* `min()`: 260px keeps two cards from squeezing side by side, but a card may never be wider than
      the panel it sits in — on a phone that is the whole row. */
-  flex:1; min-width:min(260px, 100%); display:flex; align-items:center; gap:16px; padding:14px; border-radius:16px;
+  flex:1; min-width:min(260px, 100%); display:flex; align-items:center; gap:var(--sp-16); padding:14px; border-radius:var(--r-lg);
   background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-card);
   /* The card became a <button> when the series route arrived. A button does not inherit the
      page's font, centres its text and draws its own chrome, so each of those is cancelled here —
@@ -348,41 +348,41 @@
 .cd-series-card:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
 .cd-series-fan { position:relative; height:82px; flex-shrink:0; }
 .cd-fan-tile { position:absolute; border-radius:10px; outline:2px solid var(--surface); }
-.cd-fan-tile.is-front { box-shadow:var(--shadow-pop); display:flex; align-items:flex-end; padding:8px; box-sizing:border-box; }
-.cd-fan-title { color:#FFFFFF; font-size:0.6875rem; font-weight:800; line-height:1.1; }
+.cd-fan-tile.is-front { box-shadow:var(--shadow-pop); display:flex; align-items:flex-end; padding:var(--sp-8); box-sizing:border-box; }
+.cd-fan-title { color:#FFFFFF; font-size:var(--fs-caption); font-weight:800; line-height:1.1; }
 .cd-series-info { flex:1; min-width:0; }
-.cd-series-name { font-size:0.9375rem; font-weight:800; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.cd-series-count { font-size:0.78125rem; color:var(--ink-2); font-weight:500; }
+.cd-series-name { font-size:var(--fs-body); font-weight:800; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cd-series-count { font-size:var(--fs-small); color:var(--ink-2); font-weight:500; }
 
 /* ---- series detail — one series in reading order.
    Geometry deliberately matches `.bd` and `.cd`: the three entity pages (a book, a person, a
    series) are the same kind of destination, and a reader arriving from a cover click should not
    feel the page width change under them. */
-.sd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.sd { width:100%; padding:var(--sp-24) 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
 .sd-head { display:flex; gap:26px; align-items:flex-end; }
 .sd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
 .sd-t { margin:0; font-size:2.125rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
-.sd-by { font-size:0.9375rem; font-weight:600; color:var(--ink-2); }
+.sd-by { font-size:var(--fs-body); font-weight:600; color:var(--ink-2); }
 .sd-stats { display:flex; gap:10px; flex-wrap:wrap; }
 .sd-stat {
-  display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:12px;
+  display:inline-flex; align-items:center; gap:7px; padding:7px var(--sp-12); border-radius:var(--r-md);
   background:var(--surface-2); border:1px solid var(--line); color:var(--ink-3);
 }
-.sd-stat-label { font-size:0.84375rem; font-weight:700; color:var(--ink); }
-.sd-actions { display:flex; gap:10px; margin-top:4px; }
+.sd-stat-label { font-size:var(--fs-ui); font-weight:700; color:var(--ink); }
+.sd-actions { display:flex; gap:10px; margin-top:var(--sp-4); }
 .sd-desc { font-size:0.90625rem; line-height:1.6; color:var(--ink-2); }
 .sd-desc p { margin:0; }
 .sd-count-badge {
-  font-family:var(--mono); font-size:0.6875rem; color:var(--ink-3); padding:2px 8px;
-  border-radius:999px; background:var(--surface-2); border:1px solid var(--line);
+  font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); padding:2px var(--sp-8);
+  border-radius:var(--r-pill); background:var(--surface-2); border:1px solid var(--line);
 }
 
 /* One row per book, never a grid: the order IS the series, and a grid that wraps makes "the
    third book" mean different things at different widths. Same reasoning as `.shelf-books`. */
-.sd-books { display:flex; flex-direction:column; gap:8px; }
+.sd-books { display:flex; flex-direction:column; gap:var(--sp-8); }
 .sd-book {
   display:flex; align-items:center; gap:14px; width:100%;
-  padding:10px 12px; border-radius:14px;
+  padding:10px var(--sp-12); border-radius:14px;
   background:var(--surface); border:1px solid var(--line);
   font:inherit; color:inherit; text-align:left; cursor:pointer;
 }
@@ -403,41 +403,41 @@
 .sd-book-cover { width:100%; height:100%; object-fit:cover; display:block; }
 .sd-book-fallback {
   width:100%; height:100%; padding:6px; box-sizing:border-box; display:flex; align-items:flex-end;
-  font-size:0.625rem; font-weight:800; line-height:1.1; color:var(--ink-2);
+  font-size:var(--fs-caption); font-weight:800; line-height:1.1; color:var(--ink-2);
 }
 .sd-book-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
 .sd-book-text { flex:1; min-width:0; }
-.sd-book-t { font-size:0.9375rem; font-weight:700; letter-spacing:-0.01em; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sd-book-sub { font-size:0.78125rem; color:var(--ink-2); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sd-book-t { font-size:var(--fs-body); font-weight:700; letter-spacing:-0.01em; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sd-book-sub { font-size:var(--fs-small); color:var(--ink-2); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .sd-done {
-  flex:none; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px;
+  flex:none; display:inline-flex; align-items:center; gap:5px; padding:var(--sp-4) 10px; border-radius:var(--r-pill);
   font-size:0.71875rem; font-weight:700; color:var(--ink-3); background:var(--surface-2);
   border:1px solid var(--line);
 }
 
 /* A book's series memberships, on Book Detail. Sits under the byline, above the actions. */
-.bd-series { display:flex; flex-wrap:wrap; gap:8px; }
+.bd-series { display:flex; flex-wrap:wrap; gap:var(--sp-8); }
 .bd-series-chip {
-  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--r-pill);
   background:var(--surface-2); border:1px solid var(--line);
-  font:inherit; font-size:0.78125rem; font-weight:700; color:var(--ink-2); cursor:pointer;
+  font:inherit; font-size:var(--fs-small); font-weight:700; color:var(--ink-2); cursor:pointer;
 }
 @media (hover: hover) { .bd-series-chip:hover { border-color:var(--coral); color:var(--coral-text); } }
 .bd-series-chip:focus { outline:none; }
 .bd-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-.bd-series-seq { font-family:var(--mono); font-size:0.6875rem; color:var(--ink-3); }
+.bd-series-seq { font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); }
 
 /* Search — federated results across books, contributors, series and tags. */
-.search-page { width: 100%; padding: 24px 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.search-page { width: 100%; padding: var(--sp-24) 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .search-header h1 { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .search-types { display: flex; flex-wrap: wrap; gap: 9px; }
-.search-summary { font-size: 0.84375rem; color: var(--ink-2); font-weight: 500; }
+.search-summary { font-size: var(--fs-ui); color: var(--ink-2); font-weight: 500; }
 
 .search-results { display: flex; flex-direction: column; }
 .search-group + .search-group { margin-top: 22px; }
-.search-group-h { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px 3px; }
-.search-group-label { font-family: var(--mono); font-size: 0.65625rem; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
-.search-group-count { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-3); }
+.search-group-h { display: flex; align-items: baseline; gap: var(--sp-8); margin: 0 0 var(--sp-8) 3px; }
+.search-group-label { font-family: var(--mono); font-size: var(--fs-caption); letter-spacing: .11em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.search-group-count { font-family: var(--mono); font-size: var(--fs-caption); color: var(--ink-3); }
 
 .search-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
 @media (hover: hover) { .search-row:hover { background: var(--surface-2); } }
@@ -447,13 +447,13 @@
 .search-row.is-static { cursor: default; }
 @media (hover: hover) { .search-row.is-static:hover { background: none; } }
 .search-badge {
-  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  width: 44px; height: 44px; border-radius: var(--r-md); flex-shrink: 0;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3);
   display: flex; align-items: center; justify-content: center;
 }
 .search-info { flex-grow: 1; min-width: 0; }
-.search-name { font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.search-meta { font-size: 0.8125rem; color: var(--ink-2); font-weight: 500; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-name { font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-meta { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-chevron { color: var(--ink-3); display: flex; flex-shrink: 0; }
 
 .is-error .ico { color: var(--coral-text); }
@@ -471,20 +471,20 @@
    grow downward under the field instead of the field jumping as they arrive. */
 dialog.dlg.cmdk-panel {
   width: calc(100vw - 40px); max-width: 620px; margin: 96px auto auto;
-  border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden;
 }
 dialog.dlg.cmdk-panel::backdrop { background: rgba(22,15,10,.36); }
 [data-theme="dark"] dialog.dlg.cmdk-panel::backdrop { background: rgba(0,0,0,.55); }
 dialog.dlg.cmdk-panel .dlg-body { gap: 0; padding: 0; max-height: min(70vh, 560px); }
-.cmdk-field { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.cmdk-field { padding: var(--sp-8) var(--sp-12); border-bottom: 1px solid var(--line); }
 .cmdk-field .f-wrap { width: auto; }
-.cmdk-body { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
+.cmdk-body { flex: 1 1 auto; overflow-y: auto; padding: var(--sp-8); }
 /* A compact echo of `.empty` (see its own rule) — the palette has a fraction of the page's room. */
 .cmdk-body .empty { padding: 30px 20px; }
 .cmdk-body .empty .ico { width: 40px; height: 40px; margin-bottom: 2px; }
 .cmdk-body .empty :is(h2, h3) { font-size: 0.90625rem; }
-.cmdk-body .empty p { font-size: 0.78125rem; }
-.cmdk-footer { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.cmdk-body .empty p { font-size: var(--fs-small); }
+.cmdk-footer { display: flex; align-items: center; gap: var(--sp-16); padding: 10px var(--sp-16); border-top: 1px solid var(--line); }
 .cmdk-hint { display: flex; align-items: center; gap: 6px; font-size: 0.71875rem; font-weight: 600; color: var(--ink-3); }
 
 /* ⛔ The `::view-transition-*` rules that used to live here have been DELETED, and must not come

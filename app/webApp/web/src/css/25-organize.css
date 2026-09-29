@@ -6,9 +6,9 @@
 .luw .org-lede { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
 .luw .org-skel { height: 260px; }
 .luw .org-none { margin: 0; font-size: 0.9rem; color: var(--ink-3); }
-.luw .org-err { margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--coral-text); }
-.luw .org-opts { display: flex; flex-wrap: wrap; gap: 8px; }
-.luw .org-opt { padding: 9px 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--ink-2); font-family: var(--mono); font-size: 0.78rem; cursor: pointer; }
+.luw .org-err { margin: 0; font-size: var(--fs-small); font-weight: 600; color: var(--coral-text); }
+.luw .org-opts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .org-opt { padding: 9px 13px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--ink-2); font-family: var(--mono); font-size: var(--fs-small); cursor: pointer; }
 @media (hover: hover) { .luw .org-opt:hover { border-color: var(--coral); } }
 .luw .org-opt:active { transform: translateY(1px); }
 .luw .org-opt:focus { outline: none; }
@@ -17,17 +17,17 @@
 /* ⛔ Save is primary and Organize is not. One persists rules, the other rearranges a library —
    a matched pair of buttons would make the destructive one a slip away. */
 .luw .org-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.luw .org-note { margin: 0; font-size: 0.78rem; color: var(--ink-3); }
-.luw .org-rows { display: flex; flex-direction: column; gap: 4px; max-height: 16rem; overflow-y: auto; margin: 12px 0; }
-.luw .org-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 0.72rem; }
+.luw .org-note { margin: 0; font-size: var(--fs-small); color: var(--ink-3); }
+.luw .org-rows { display: flex; flex-direction: column; gap: var(--sp-4); max-height: 16rem; overflow-y: auto; margin: var(--sp-12) 0; }
+.luw .org-row { display: flex; align-items: baseline; gap: var(--sp-8); flex-wrap: wrap; font-family: var(--mono); font-size: 0.72rem; }
 .luw .org-from { color: var(--ink-3); overflow-wrap: anywhere; }
 .luw .org-arrow { flex: none; color: var(--coral-text); }
 .luw .org-to { color: var(--ink); overflow-wrap: anywhere; }
-.luw .org-clash { flex: none; padding: 1px 7px; border-radius: 999px; background: var(--surface-3); font-family: var(--font-a); font-size: 0.66rem; font-weight: 700; color: var(--ink-3); }
-.luw .org-more { margin: 4px 0 0; font-size: 0.74rem; color: var(--ink-3); }
-.luw .org-bar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; margin-top: 10px; }
+.luw .org-clash { flex: none; padding: 1px 7px; border-radius: var(--r-pill); background: var(--surface-3); font-family: var(--font-a); font-size: 0.66rem; font-weight: 700; color: var(--ink-3); }
+.luw .org-more { margin: var(--sp-4) 0 0; font-size: 0.74rem; color: var(--ink-3); }
+.luw .org-bar { height: 8px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; margin-top: 10px; }
 /* Scaled, not sized: a `width` transition lays the page out again every frame of the animation,
    where a transform is composited. The track's own radius and overflow round the ends. */
 .luw .org-bar-fill { height: 100%; background: var(--coral); transform: scaleX(0); transform-origin: left; }
-@media (prefers-reduced-motion: no-preference) { .luw .org-bar-fill { transition: transform .2s linear; } }
+@media (prefers-reduced-motion: no-preference) { .luw .org-bar-fill { transition: transform var(--dur-slow) linear; } }
 

@@ -50,8 +50,8 @@ class RemFontSizesTest :
                 .asDynamic()
                 .style.fontSize = "20px"
 
-            atDefault shouldBe "13.5px"
-            frame.css(item, "font-size") shouldBe "16.875px"
+            atDefault shouldBe "14px"
+            frame.css(item, "font-size") shouldBe "17.5px"
         }
     })
 

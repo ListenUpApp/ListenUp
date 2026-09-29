@@ -121,6 +121,61 @@
   --scroll-shade: rgba(40,28,18,0.16);
 }
 
+/* ---- SCALES — type, space, radius, motion. Theme-independent, so declared once.
+   Each step is the value the sheets already used most for that job, not a new look: the drift the
+   2026-09-28 audit counted (58 font sizes, 25 radii) collapses onto the nearest step, and a rule
+   that reaches for one of these cannot drift again.
+
+   TYPE — eight roles, in rem so they follow the reader's default size (RemFontSizesTest).
+     display  2.5rem    the one big voice: Home's greeting, the auth screens, an entity's hero
+     h1       1.875rem  every other page title (was 1.9rem on 23 rules, 1.5–2.1 on the rest)
+     h2       1.375rem  a content section (Home, Discover)
+     title    1.0625rem a card, dialog, settings group or empty-state heading
+     body     0.9375rem prose: a page's subtitle, a paragraph
+     ui       0.875rem  controls and dense rows: buttons, menu items, list text
+     small    0.8125rem secondary lines and metadata
+     caption  0.6875rem mono labels, counts, keycaps
+   The two title steps come down on a phone, where a 40px word wraps a book's name into a column. */
+:root {
+  --fs-display: 2.5rem;
+  --fs-h1:      1.875rem;
+  --fs-h2:      1.375rem;
+  --fs-title:   1.0625rem;
+  --fs-body:    0.9375rem;
+  --fs-ui:      0.875rem;
+  --fs-small:   0.8125rem;
+  --fs-caption: 0.6875rem;
+
+  /* SPACE — a 4px base. 4 and 12 are the steps an 8-only scale misses, and the ones rows use most. */
+  --sp-4:  4px;
+  --sp-8:  8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-48: 48px;
+
+  /* RADIUS — 12px is the house corner (a button, a field, a card); 8 an inset control; 16 a
+     surface; 20 a dialog; 4 a small inner mark. The pill is for tracks, counts and chips. */
+  --r-xs:   4px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-pill: 999px;
+
+  /* MOTION — .15s was the sheets' own default (19 of 31 transitions). Fast is a hover tint, slow a
+     bar that fills; ease-out is the toast's curve, for anything arriving. */
+  --dur-fast: 120ms;
+  --dur:      150ms;
+  --dur-slow: 200ms;
+  --ease:     ease;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+}
+@media (max-width: 759px) {
+  :root { --fs-display: 2rem; --fs-h1: 1.625rem; }
+}
+
 [data-theme="dark"] {
   color-scheme: dark;
   --ink:       #F3EEE8;
