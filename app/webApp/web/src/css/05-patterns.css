@@ -22,7 +22,22 @@
 .chrome-url i, .murl i { font-style: normal; color: var(--coral); font-weight: 600; }
 
 /* ---- table / data rows ---- */
-.tblwrap { background: var(--surface); border:1px solid var(--line); border-radius: var(--rad); overflow: hidden; box-shadow: var(--shadow-card); }
+/* A data table's columns are there to be compared, so on a narrow screen the table scrolls
+   sideways inside its card rather than being clipped (it was `overflow:hidden`, which simply cut
+   the last columns off a phone) or stacked into cards that lose the alignment. The four
+   backgrounds are the scroll affordance: a soft shade at whichever edge hides more columns. The
+   two `local` covers ride with the content and hide the shade once that edge is reached; the two
+   `scroll` shades stay put at the card's edges. The scroller still clips to the radius. */
+.tblwrap {
+  border:1px solid var(--line); border-radius: var(--rad); box-shadow: var(--shadow-card);
+  overflow-x:auto; overscroll-behavior-x:contain;
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left center / 40px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right center / 40px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--scroll-shade), transparent) left center / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-shade), transparent) right center / 14px 100% no-repeat scroll,
+    var(--surface);
+}
 .tbl { width:100%; border-collapse:separate; border-spacing:0; font-size:var(--fs); }
 .tbl th { height:36px; padding:0 12px; text-align:left; font-family:var(--mono); font-size:0.65625rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); background:var(--surface-2); border-bottom:1px solid var(--line); white-space:nowrap; user-select:none; }
 .tbl th.srt { color:var(--coral); cursor:pointer; }
@@ -33,7 +48,10 @@
 .tbl tbody tr:last-child td { border-bottom:none; }
 .tbl tbody tr { transition:background .12s; cursor:pointer; }
 @media (hover: hover) { .tbl tbody tr:hover { background:var(--surface-2); } }
-@media (hover: hover) { .tbl tbody tr.sel, .tbl tbody tr.sel:hover { background:var(--coral-soft); } }
+/* Selection is a state, not a hover treatment, so it is NOT gated on `(hover: hover)` — inside that
+   query a touchscreen drew a selected row exactly like an unselected one. After the hover rule and
+   of equal specificity, so a selected row keeps its colour under the pointer too. */
+.tbl tbody tr.sel { background:var(--coral-soft); }
 .tbl tbody tr.on td { color:var(--coral); font-weight:700; }
 .tbl .num { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink-2); text-align:right; white-space:nowrap; font-size:calc(var(--fs) - 0.0625rem); }
 .tbl .tt { font-weight:700; letter-spacing:-.01em; }
