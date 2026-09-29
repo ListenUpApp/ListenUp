@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.scheduler
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.ratings.ExternalRatingsBackfillRunner
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.localeFor
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -32,6 +33,7 @@ private val log = loggerFor<ExternalRatingsSweepTask>()
 internal class ExternalRatingsSweepTask(
     private val fetcher: ExternalRatingsFetcher,
     private val ratings: BookExternalRatingRepository,
+    private val backfill: ExternalRatingsBackfillRunner,
     private val defaultLocale: MetadataLocale = MetadataLocale.DEFAULT,
     private val clock: Clock = Clock.System,
     private val interval: Duration = 24.hours,
@@ -61,13 +63,17 @@ internal class ExternalRatingsSweepTask(
         }
 
     /**
-     * Refreshes the least-recently-touched ceil(n/30) of the library's ASIN-bearing books
+     * Runs [backfill] first — every never-attempted book gets caught up before the rotation below
+     * ever sees it, so a book that (for whatever reason) missed its scan-completion trigger still
+     * gets a prompt fetch here instead of waiting for its turn in the ceil(n/30) rotation — then
+     * refreshes the least-recently-touched ceil(n/30) of the library's ASIN-bearing books
      * (`n` = [BookExternalRatingRepository.countBooksWithAsin]; at least 1 whenever `n > 0`),
      * sequentially — one slow or permanently-failing book must never crowd out the rest of the
-     * night's quota. Returns the number of candidates swept. A library with zero ASIN'd books does
-     * nothing.
+     * night's quota. Returns the number of candidates swept by the refresh step (the backfill's own
+     * count is not part of this return value). A library with zero ASIN'd books does nothing.
      */
     suspend fun runOnce(): Int {
+        backfill.run()
         val total = ratings.countBooksWithAsin()
         if (total <= 0) return 0
         val limit = ceil(total / SWEEP_FRACTION.toDouble()).toLong().coerceAtLeast(1)

@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.metadata.provider.AudnexusProvider
 import com.calypsan.listenup.server.metadata.provider.ITunesProvider
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
+import com.calypsan.listenup.server.ratings.ExternalRatingsBackfill
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.RatingSourceSettings
 import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
@@ -54,6 +55,7 @@ import io.ktor.client.HttpClientConfig
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.Json
 import org.koin.core.module.Module
@@ -237,8 +239,11 @@ fun metadataModule(imageHome: Path): Module =
 
 /**
  * Outside-ratings bindings: the admin per-source enabled/health settings, the fetcher every
- * trigger (match-apply, nightly sweep, admin refresh) runs through, and the nightly sweep task
- * itself. Split out to keep [metadataModule] under the length budget.
+ * trigger (match-apply, nightly sweep, admin refresh, backfill) runs through, the
+ * [ExternalRatingsBackfill] that catches a never-attempted book up promptly (triggered after every
+ * completed scan — see `ApplicationStartup.startBackgroundTasks` — and run first by the sweep
+ * below), and the nightly sweep task itself. Split out to keep [metadataModule] under the length
+ * budget.
  */
 private fun Module.ratingsBindings() {
     single { RatingSourceSettings(settings = get()) }
@@ -251,9 +256,17 @@ private fun Module.ratingsBindings() {
         )
     }
     single {
+        ExternalRatingsBackfill(
+            fetcher = get(),
+            ratings = get<BookExternalRatingRepository>(),
+            scope = get<CoroutineScope>(),
+        )
+    }
+    single {
         ExternalRatingsSweepTask(
             fetcher = get(),
             ratings = get<BookExternalRatingRepository>(),
+            backfill = get<ExternalRatingsBackfill>(),
             settings = get(),
         )
     }

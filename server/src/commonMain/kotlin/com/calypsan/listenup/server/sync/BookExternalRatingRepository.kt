@@ -283,6 +283,17 @@ class BookExternalRatingRepository(
         db.externalRatingAttemptsQueries.recordAttempt(book_id = bookId, attempted_at = at)
     }
 
+    /**
+     * Live, ASIN-bearing books [com.calypsan.listenup.server.ratings.ExternalRatingsFetcher] has
+     * never once attempted — see `BookExternalRatings.sq`'s `selectNeverAttempted`.
+     * [com.calypsan.listenup.server.ratings.ExternalRatingsBackfill]'s queue, paged by [limit] so a
+     * huge library is never built as one in-memory list.
+     */
+    suspend fun neverAttempted(limit: Long): List<String> =
+        suspendTransaction(db) {
+            db.bookExternalRatingsQueries.selectNeverAttempted(limit).executeAsList()
+        }
+
     /** [bookId]'s most recently fetched source's region, or null when it has never had a live row. */
     suspend fun regionForBook(bookId: String): String? =
         suspendTransaction(db) {

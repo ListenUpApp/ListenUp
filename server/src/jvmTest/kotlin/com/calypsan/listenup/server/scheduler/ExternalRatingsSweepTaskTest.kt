@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.ratings.ExternalRatingsBackfillRunner
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.ratings.RatingSourceSettings
 import com.calypsan.listenup.server.services.BookRepository
@@ -75,7 +76,13 @@ class ExternalRatingsSweepTaskTest :
                         books = books,
                         clock = FixedClock(now),
                     )
-                val task = ExternalRatingsSweepTask(fetcher = fetcher, ratings = ratings, clock = FixedClock(now))
+                val task =
+                    ExternalRatingsSweepTask(
+                        fetcher = fetcher,
+                        ratings = ratings,
+                        backfill = ExternalRatingsBackfillRunner {},
+                        clock = FixedClock(now),
+                    )
 
                 runTest {
                     task.runOnce() shouldBe 0
@@ -104,7 +111,13 @@ class ExternalRatingsSweepTaskTest :
                         books = books,
                         clock = FixedClock(now),
                     )
-                val task = ExternalRatingsSweepTask(fetcher = fetcher, ratings = ratings, clock = FixedClock(now))
+                val task =
+                    ExternalRatingsSweepTask(
+                        fetcher = fetcher,
+                        ratings = ratings,
+                        backfill = ExternalRatingsBackfillRunner {},
+                        clock = FixedClock(now),
+                    )
 
                 runTest {
                     val refreshed = task.runOnce()
@@ -148,7 +161,13 @@ class ExternalRatingsSweepTaskTest :
                             return super.fetch(bookId, locale, refresh)
                         }
                     }
-                val task = ExternalRatingsSweepTask(fetcher = flakyFetcher, ratings = ratings, clock = FixedClock(now))
+                val task =
+                    ExternalRatingsSweepTask(
+                        fetcher = flakyFetcher,
+                        ratings = ratings,
+                        backfill = ExternalRatingsBackfillRunner {},
+                        clock = FixedClock(now),
+                    )
 
                 runTest {
                     fillerIds.forEach { id ->
@@ -162,6 +181,52 @@ class ExternalRatingsSweepTaskTest :
                     refreshed shouldBe 2
                     audible.calledAsins shouldBe listOf("B-FINE")
                     ratings.findForBook("fine").single().average shouldBe 4.0
+                }
+            }
+        }
+
+        test("runOnce runs the backfill before its own refresh") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1", asin = "book1-asin")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val books = sql.bookRepo(bus, registry, driver)
+                val ratings = BookExternalRatingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                val settings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.CLOSED))
+                val audible = RecordingRatingSource()
+                val calls = mutableListOf<String>()
+                val fetcher =
+                    object : ExternalRatingsFetcher(
+                        registry = MetadataProviderRegistry(listOf(audible)),
+                        ratings = ratings,
+                        sourceSettings = settings,
+                        books = books,
+                        clock = FixedClock(now),
+                    ) {
+                        override suspend fun fetch(
+                            bookId: BookId,
+                            locale: MetadataLocale,
+                            refresh: Boolean,
+                        ): Outcome {
+                            calls += "refresh:${bookId.value}"
+                            return super.fetch(bookId, locale, refresh)
+                        }
+                    }
+                val backfill = ExternalRatingsBackfillRunner { calls += "backfill" }
+                val task =
+                    ExternalRatingsSweepTask(
+                        fetcher = fetcher,
+                        ratings = ratings,
+                        backfill = backfill,
+                        clock = FixedClock(now),
+                    )
+
+                runTest {
+                    task.runOnce()
+
+                    calls.first() shouldBe "backfill"
+                    calls.drop(1) shouldBe listOf("refresh:book1")
                 }
             }
         }

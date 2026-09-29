@@ -112,3 +112,15 @@ SELECT COUNT(*) FROM books WHERE deleted_at IS NULL AND asin IS NOT NULL AND asi
 -- had a live row (falls back to the server's default metadata region at the call site).
 selectRegionForBook:
 SELECT region FROM book_external_ratings WHERE book_id = :book_id AND deleted_at IS NULL ORDER BY fetched_at DESC LIMIT 1;
+
+-- Live, ASIN-bearing books ExternalRatingsFetcher has NEVER once attempted — no
+-- external_rating_attempts row at all (see that table's own comment). ExternalRatingsBackfill's
+-- queue: it pages through this with :limit and loops until it comes back empty, so a huge library
+-- is never built as one giant in-memory list and a book added mid-pass is still picked up by the
+-- next page. Ordered by id purely for determinism across pages/tests.
+selectNeverAttempted:
+SELECT b.id FROM books b
+LEFT JOIN external_rating_attempts a ON a.book_id = b.id
+WHERE b.deleted_at IS NULL AND b.asin IS NOT NULL AND b.asin != '' AND a.book_id IS NULL
+ORDER BY b.id ASC
+LIMIT :limit;
