@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +33,7 @@ import com.calypsan.listenup.client.design.components.RatingStars
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
 import com.calypsan.listenup.domain.ListenerRatingLimits
@@ -47,6 +49,7 @@ import listenup.composeapp.generated.resources.book_detail_rating_listeners
 import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y
 import listenup.composeapp.generated.resources.book_detail_rating_listeners_a11y_one
 import listenup.composeapp.generated.resources.book_detail_rating_rate
+import listenup.composeapp.generated.resources.book_detail_rating_refresh
 import listenup.composeapp.generated.resources.book_detail_rating_yours
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -77,6 +80,7 @@ fun BookRatingBlock(
         onRate = { isSheetOpen = true },
         onEdit = { isSheetOpen = true },
         onOpenBreakdown = { isBreakdownOpen = true },
+        onRefreshExternal = viewModel::refreshExternal,
         isCard = isCard,
         modifier = modifier,
     )
@@ -111,6 +115,8 @@ fun BookRatingBlock(
  * @param onRate Opens the rate sheet when you have not rated the book.
  * @param onEdit Opens the rate sheet on your existing rating.
  * @param onOpenBreakdown Opens the per-source breakdown sheet; invoked when the headline is tapped.
+ * @param onRefreshExternal Re-fetches every enabled outside source now; invoked from the quiet
+ *   "Refresh ratings" action shown where the headline would sit, before any score exists.
  * @param modifier Optional modifier.
  * @param isCard When true, wraps the section in a `surfaceContainerLow` card, like the Readers card.
  */
@@ -120,6 +126,7 @@ fun BookRatingSection(
     onRate: () -> Unit,
     onEdit: () -> Unit,
     onOpenBreakdown: () -> Unit = {},
+    onRefreshExternal: () -> Unit = {},
     modifier: Modifier = Modifier,
     isCard: Boolean = false,
 ) {
@@ -132,36 +139,13 @@ fun BookRatingSection(
             modifier = Modifier.fillMaxWidth().padding(innerPadding),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ready.external?.let { external ->
-                val average = averageLabel(external.average)
-                val compact = compactCount(external.count)
-                val spoken =
-                    if (external.count == 1) {
-                        stringResource(Res.string.book_detail_rating_external_a11y_one, average)
-                    } else {
-                        stringResource(Res.string.book_detail_rating_external_a11y, average, compact)
-                    }
-                val display =
-                    if (external.count == 1) {
-                        stringResource(Res.string.book_detail_rating_external_one, "$STAR_GLYPH $average")
-                    } else {
-                        stringResource(Res.string.book_detail_rating_external, "$STAR_GLYPH $average", compact)
-                    }
-                Text(
-                    text = display,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier =
-                        Modifier
-                            .clearAndSetSemantics {
-                                contentDescription = spoken
-                                role = Role.Button
-                            }.clickable {
-                                haptics.press()
-                                onOpenBreakdown()
-                            },
-                )
-            }
+            ExternalHeadlineOrRefresh(
+                external = ready.external,
+                canRefresh = ready.canRefresh,
+                isRefreshingExternal = ready.isRefreshingExternal,
+                onOpenBreakdown = onOpenBreakdown,
+                onRefreshExternal = onRefreshExternal,
+            )
 
             ready.listeners?.let { listeners ->
                 val stars = ListenerRatingLimits.starsLabel(listeners.averageHalfStars)
@@ -231,6 +215,67 @@ fun BookRatingSection(
         )
     } else {
         Box(modifier = modifier) { content() }
+    }
+}
+
+/**
+ * The outside-world headline ("★ 4.4 · 12k ratings"), tappable to open the breakdown sheet — or,
+ * before any enabled source has rated the book, the quiet "Refresh ratings" action an admin sees
+ * in its place, since there is no headline yet to open that sheet from.
+ *
+ * @param external The outside-world headline score, or null when nobody has rated it yet.
+ * @param canRefresh Whether the signed-in listener may trigger [onRefreshExternal] (admin or root).
+ * @param isRefreshingExternal Whether a refresh is currently in flight.
+ * @param onOpenBreakdown Opens the per-source breakdown sheet; invoked when the headline is tapped.
+ * @param onRefreshExternal Re-fetches every enabled outside source now.
+ */
+@Composable
+private fun ExternalHeadlineOrRefresh(
+    external: CombinedScore?,
+    canRefresh: Boolean,
+    isRefreshingExternal: Boolean,
+    onOpenBreakdown: () -> Unit,
+    onRefreshExternal: () -> Unit,
+) {
+    if (external != null) {
+        val haptics = LocalHaptics.current
+        val average = averageLabel(external.average)
+        val compact = compactCount(external.count)
+        val spoken =
+            if (external.count == 1) {
+                stringResource(Res.string.book_detail_rating_external_a11y_one, average)
+            } else {
+                stringResource(Res.string.book_detail_rating_external_a11y, average, compact)
+            }
+        val display =
+            if (external.count == 1) {
+                stringResource(Res.string.book_detail_rating_external_one, "$STAR_GLYPH $average")
+            } else {
+                stringResource(Res.string.book_detail_rating_external, "$STAR_GLYPH $average", compact)
+            }
+        Text(
+            text = display,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier =
+                Modifier
+                    .clearAndSetSemantics {
+                        contentDescription = spoken
+                        role = Role.Button
+                    }.clickable {
+                        haptics.press()
+                        onOpenBreakdown()
+                    },
+        )
+    } else if (canRefresh) {
+        ListenUpButton(
+            text = stringResource(Res.string.book_detail_rating_refresh),
+            onClick = onRefreshExternal,
+            isLoading = isRefreshingExternal,
+            filled = false,
+            fillMaxWidth = false,
+            modifier = Modifier.testTag("refreshRatingsInlineButton"),
+        )
     }
 }
 

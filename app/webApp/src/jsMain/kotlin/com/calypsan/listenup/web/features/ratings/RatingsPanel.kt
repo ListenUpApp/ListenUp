@@ -30,7 +30,8 @@ import org.jetbrains.compose.web.dom.Text
  * The rating panel on Book Detail, above Readers: the outside world's headline score (when any
  * enabled source has rated the book), then your listeners' average, then either "Rate" or your
  * own stars with "Edit". [RateBookDialog] opens from the listener half; [BreakdownDialog] opens
- * from the headline.
+ * from the headline. Before any score exists, an admin sees [RefreshRatingsAction] where the
+ * headline would sit instead — there is no headline yet to open the breakdown from.
  *
  * Loading draws **nothing**, like the Readers panel beside it — a panel that flashed "Rate" and
  * then swapped it for the rating you already left would be inviting you to do something done.
@@ -51,12 +52,17 @@ fun RatingsPanel(
 
     Panel(title = "Ratings") {
         Div(attrs = { classes("rt") }) {
-            ready.external?.let { ExternalHeadline(it, onOpen = { isBreakdownOpen = true }) }
+            val external = ready.external
+            if (external != null) {
+                ExternalHeadline(external, onOpen = { isBreakdownOpen = true })
+            } else if (ready.canRefresh) {
+                RefreshRatingsAction(isRefreshing = ready.isRefreshingExternal, onRefresh = onRefreshExternal)
+            }
             ready.listeners?.let { ListenersAverage(it) }
             val mine = ready.mine
             if (mine == null) {
                 Button(attrs = {
-                    classes("btn-o", "rt-rate")
+                    classes(BTN_SECONDARY, "rt-rate")
                     attr("type", TYPE_BUTTON)
                     onClick { isDialogOpen = true }
                 }) { Text("Rate") }
@@ -93,6 +99,31 @@ fun RatingsPanel(
 }
 
 /**
+ * The quiet action shown where [ExternalHeadline] would sit before any enabled source has rated
+ * the book — admin only ([BookRatingsUiState.Ready.canRefresh]). Lets an admin fetch a first score
+ * directly, rather than being stranded behind a headline that only exists once one arrives.
+ *
+ * [isRefreshing] is the ViewModel's own
+ * [com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState.Ready.isRefreshingExternal] —
+ * bound the same way [BreakdownDialog]'s own refresh button binds it.
+ */
+@Composable
+private fun RefreshRatingsAction(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+) {
+    Button(attrs = {
+        classes(BTN_SECONDARY, "rt-refresh-empty")
+        attr("type", TYPE_BUTTON)
+        disabledWhen(isRefreshing)
+        onClick { onRefresh() }
+    }) { Text(refreshLabel(isRefreshing)) }
+}
+
+/** "Refresh ratings", or "Refreshing…" while [isRefreshing] — the one refresh action label. */
+private fun refreshLabel(isRefreshing: Boolean): String = if (isRefreshing) "Refreshing…" else "Refresh ratings"
+
+/**
  * "★ 4.4 · 12k ratings" on screen; "Rated 4.4 out of 5 stars by 12k readers elsewhere" to a screen
  * reader. A button, not a label — tapping it opens [BreakdownDialog].
  *
@@ -115,7 +146,7 @@ private fun ExternalHeadline(
             "Rated $average out of 5 stars by $count readers elsewhere"
         }
     Button(attrs = {
-        classes("btn-o", "rt-external")
+        classes(BTN_SECONDARY, "rt-external")
         attr("type", TYPE_BUTTON)
         attr("aria-label", a11y)
         onClick { onOpen() }
@@ -162,11 +193,11 @@ private fun BreakdownDialog(
         }
         if (canRefresh) {
             Button(attrs = {
-                classes("btn-o", "rt-refresh")
+                classes(BTN_SECONDARY, "rt-refresh")
                 attr("type", TYPE_BUTTON)
                 disabledWhen(isRefreshing)
                 onClick { onRefresh() }
-            }) { Text(if (isRefreshing) "Refreshing…" else "Refresh ratings") }
+            }) { Text(refreshLabel(isRefreshing)) }
         }
         Div(attrs = { classes("dlg-actions") }) {
             Button(attrs = {
@@ -271,3 +302,6 @@ private const val NOTE_ROWS = 3
 
 /** Every button here is an action, never a form submit. */
 private const val TYPE_BUTTON = "button"
+
+/** The quiet outlined button treatment — "Rate", the headline, and every refresh action. */
+private const val BTN_SECONDARY = "btn-o"

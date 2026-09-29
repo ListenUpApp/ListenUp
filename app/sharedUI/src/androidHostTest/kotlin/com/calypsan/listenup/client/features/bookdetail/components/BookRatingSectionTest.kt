@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.api.sync.ExternalRatingSource
@@ -227,5 +229,97 @@ class BookRatingSectionTest {
             .performClick()
 
         opened shouldBe true
+    }
+
+    @Test
+    fun `an admin can refresh ratings before any score exists`() {
+        var refreshed = false
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = true,
+                    ),
+                onRate = {},
+                onEdit = {},
+                onRefreshExternal = { refreshed = true },
+            )
+        }
+
+        composeRule.onNodeWithText("Refresh ratings").assertIsDisplayed()
+        composeRule.onNodeWithText("Refresh ratings").performClick()
+
+        refreshed shouldBe true
+    }
+
+    @Test
+    fun `the refresh action is busy while a refresh is in flight`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = true,
+                        isRefreshingExternal = true,
+                    ),
+                onRate = {},
+                onEdit = {},
+                onRefreshExternal = {},
+            )
+        }
+
+        composeRule.onNodeWithTag("refreshRatingsInlineButton").assertIsNotEnabled()
+        composeRule.onNodeWithText("Refresh ratings").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a non-admin sees no refresh action before any score exists`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = null,
+                        breakdown = emptyList(),
+                        canRefresh = false,
+                    ),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Refresh ratings").assertDoesNotExist()
+    }
+
+    @Test
+    fun `no refresh action in the section once a score exists`() {
+        composeRule.setContent {
+            BookRatingSection(
+                state =
+                    BookRatingsUiState.Ready(
+                        listeners = null,
+                        mine = null,
+                        external = CombinedScore(average = 4.4, count = 12_000),
+                        breakdown =
+                            listOf(ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.4, count = 12_000)),
+                        canRefresh = true,
+                    ),
+                onRate = {},
+                onEdit = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Refresh ratings").assertDoesNotExist()
+        composeRule
+            .onNodeWithContentDescription("Rated 4.4 out of 5 stars by 12k readers elsewhere")
+            .assertIsDisplayed()
     }
 }

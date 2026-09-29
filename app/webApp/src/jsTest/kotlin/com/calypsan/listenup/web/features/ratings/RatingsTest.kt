@@ -393,6 +393,38 @@ class RatingsTest :
             host.querySelector(".rt-external").shouldBeNull()
         }
 
+        test("an admin can refresh ratings before any score exists") {
+            var refreshed = false
+            val host = panel(ready(canRefresh = true), onRefreshExternal = { refreshed = true })
+
+            val action = host.querySelector(".rt-refresh-empty") as HTMLElement
+            action.textContent shouldBe "Refresh ratings"
+            action.dispatchEvent(MouseEvent("click", MouseEventInit(bubbles = true, cancelable = true)))
+
+            refreshed shouldBe true
+        }
+
+        test("the inline refresh action is busy while a refresh is in flight") {
+            val host = panel(ready(canRefresh = true, isRefreshingExternal = true))
+
+            val action = host.querySelector(".rt-refresh-empty") as HTMLElement
+            action.textContent shouldBe "Refreshing…"
+            action.hasAttribute("disabled") shouldBe true
+        }
+
+        test("a non-admin sees no refresh action before any score exists") {
+            val host = panel(ready(canRefresh = false))
+
+            host.querySelector(".rt-refresh-empty").shouldBeNull()
+        }
+
+        test("no inline refresh action once a score exists") {
+            val host = panel(ready(external = CombinedScore(average = 4.4, count = 12_000), canRefresh = true))
+
+            host.querySelector(".rt-refresh-empty").shouldBeNull()
+            host.querySelector(".rt-external").shouldNotBeNull()
+        }
+
         test("the outside headline shows one decimal, never a dropped trailing zero") {
             val host = panel(ready(external = CombinedScore(average = 4.0, count = 12_000)))
 
