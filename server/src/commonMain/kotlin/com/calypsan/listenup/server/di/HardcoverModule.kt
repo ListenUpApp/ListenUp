@@ -8,6 +8,9 @@ import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
 import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
 import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
+import com.calypsan.listenup.server.hardcover.HardcoverRateLimiter
+import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
+import com.calypsan.listenup.server.hardcover.HardcoverRatingSource
 import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
 import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
 import io.ktor.client.HttpClient
@@ -25,7 +28,8 @@ private val HARDCOVER_HTTP = named("hardcoverHttp")
 /**
  * Koin module for the Hardcover connection: the token cipher, the two Hardcover clients over one
  * [HttpClient], the encrypted store, the sign-in [HardcoverLinker] (polling in [applicationScope],
- * which the application cancels at shutdown), the [HardcoverTokenProvider], and [HardcoverService].
+ * which the application cancels at shutdown), the [HardcoverTokenProvider], the [HardcoverRatingSource]
+ * the metadata registry lists, and [HardcoverService].
  *
  * [clientId] is null when the operator hasn't set `hardcover.clientId` (resolved once at startup by
  * `Application.resolveHardcoverClientId`). The graph is built either way, so watching and
@@ -54,6 +58,16 @@ fun hardcoverModule(
             )
         }
         single { HardcoverTokenProvider(oauth = get(), store = get(), linker = get(), clock = get()) }
+        single { HardcoverRateLimiter() }
+        single { HardcoverRatingConnection(store = get(), tokens = get()) }
+        single {
+            HardcoverRatingSource(
+                graphQl = get(),
+                connection = get(),
+                rateLimiter = get(),
+                clientConfigured = clientId != null,
+            )
+        }
         single {
             HardcoverServiceImpl(
                 linker = get(),

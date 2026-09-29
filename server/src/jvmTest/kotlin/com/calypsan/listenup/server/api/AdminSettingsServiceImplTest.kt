@@ -1,5 +1,19 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.hardcover.HardcoverConnectionStore
+import com.calypsan.listenup.server.hardcover.HardcoverGraphQlClient
+import com.calypsan.listenup.server.hardcover.HardcoverLinker
+import com.calypsan.listenup.server.hardcover.HardcoverMe
+import com.calypsan.listenup.server.hardcover.HardcoverOAuthClient
+import com.calypsan.listenup.server.hardcover.HardcoverRatingConnection
+import com.calypsan.listenup.server.hardcover.HardcoverTokenCipher
+import com.calypsan.listenup.server.hardcover.HardcoverTokenProvider
+import com.calypsan.listenup.server.hardcover.HardcoverTokens
+import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.testing.seedTestUser
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -336,6 +350,47 @@ class AdminSettingsServiceImplTest :
             }
         }
 
+        test("getRatingSources names the Hardcover account the Hardcover row borrows, and no one else's row") {
+            withSqlDatabase {
+                runTest {
+                    sql.seedTestUser("admin1", UserRoleColumn.ADMIN)
+                    val store = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")))
+                    store.save("admin1", HardcoverMe(7, "simon-hc"), HardcoverTokens("at", "rt", 604_800, "scope"))
+                    val unusedOauth = HardcoverOAuthClient(HttpClient(MockEngine { respond("{}") }), "id", "https://hc.test")
+                    val connection =
+                        HardcoverRatingConnection(
+                            store,
+                            HardcoverTokenProvider(
+                                unusedOauth,
+                                store,
+                                HardcoverLinker(
+                                    unusedOauth,
+                                    HardcoverGraphQlClient(HttpClient(MockEngine { respond("{}") })),
+                                    store,
+                                    backgroundScope,
+                                ),
+                            ),
+                        )
+                    val sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.OPEN))
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                            sourceSettings = sourceSettings,
+                            externalRatings = BookExternalRatingRepository(sql, ChangeBus(), SyncRegistry(), driver),
+                            providerRegistry = singleRatingSourceRegistry(source = ExternalRatingSource.HARDCOVER),
+                            hardcoverConnection = connection,
+                        )
+
+                    svc
+                        .getRatingSources()
+                        .shouldSucceed()
+                        .single()
+                        .connectionUsername shouldBe "simon-hc"
+                }
+            }
+        }
+
         test("getRatingSources reports a paused source's pausedUntil and an unavailable source's reason") {
             withSqlDatabase {
                 runTest {
@@ -466,6 +521,7 @@ private fun makeAdminSettingsService(
     sourceSettings: RatingSourceSettings? = null,
     externalRatings: BookExternalRatingRepository? = null,
     providerRegistry: MetadataProviderRegistry? = null,
+    hardcoverConnection: HardcoverRatingConnection? = null,
 ): AdminSettingsFixture {
     val libraryRepo = LibraryRepository(db = db.sql, bus = bus, registry = SyncRegistry())
     val libraryRegistry = LibraryRegistry(sql = db.sql)
@@ -478,6 +534,7 @@ private fun makeAdminSettingsService(
             sourceSettings = sourceSettings,
             externalRatings = externalRatings,
             providerRegistry = providerRegistry,
+            hardcoverConnection = hardcoverConnection,
         ).copyWith(principal)
     return AdminSettingsFixture(svc, libraryRepo, libraryRegistry)
 }
@@ -486,12 +543,13 @@ private fun makeAdminSettingsService(
  *  outside-ratings surface, which only needs [RatingSource]-capable providers. */
 private fun singleRatingSourceRegistry(
     availability: RatingSourceAvailability = RatingSourceAvailability.Available,
+    source: ExternalRatingSource = ExternalRatingSource.AUDIBLE,
 ): MetadataProviderRegistry =
     MetadataProviderRegistry(
         listOf(
             object : RatingSource {
                 override val id: MetadataProviderId = MetadataProviderId.AUDIBLE
-                override val ratingSource: ExternalRatingSource = ExternalRatingSource.AUDIBLE
+                override val ratingSource: ExternalRatingSource = source
 
                 override suspend fun availability(): RatingSourceAvailability = availability
 

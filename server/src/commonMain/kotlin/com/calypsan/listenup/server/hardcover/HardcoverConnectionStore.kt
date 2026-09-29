@@ -128,6 +128,13 @@ class HardcoverConnectionStore(
         }
     }
 
+    /**
+     * Users whose connection isn't marked broken, ROOT first, then ADMIN, then MEMBER, oldest connection
+     * first within a role. A row that no longer decrypts still counts: only [connectionFor] can tell.
+     */
+    suspend fun healthyUserIds(): List<String> =
+        suspendTransaction(sql) { queries.selectHealthyUserIds().executeAsList() }
+
     /** Marks [userId]'s connection as needing a reconnect for [reason]. */
     suspend fun markBroken(
         userId: String,
