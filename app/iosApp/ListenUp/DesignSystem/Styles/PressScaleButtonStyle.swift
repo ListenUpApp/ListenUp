@@ -34,6 +34,7 @@ struct PressScaleButtonStyle: ButtonStyle {
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
 
     /// The scale to apply: full size (1.0) when not pressed, or when Reduce Motion is on.
     static func effectiveScale(pressed: Bool, base: CGFloat, reduceMotion: Bool) -> CGFloat {
@@ -41,8 +42,16 @@ struct PressScaleButtonStyle: ButtonStyle {
         return base
     }
 
+    /// The label's opacity: dimmed while disabled. A custom style draws its own label, so it owns the
+    /// disabled appearance the system styles give for free (HIG, Buttons: system buttons "offer …
+    /// built-in interaction states"; a custom one must supply them).
+    nonisolated static func labelOpacity(isEnabled: Bool) -> Double {
+        isEnabled ? 1 : 0.4
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .opacity(Self.labelOpacity(isEnabled: isEnabled))
             .scaleEffect(Self.effectiveScale(pressed: configuration.isPressed, base: scale.value, reduceMotion: reduceMotion))
             .animation(
                 reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.7),

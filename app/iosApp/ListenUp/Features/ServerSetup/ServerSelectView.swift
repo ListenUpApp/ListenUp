@@ -39,9 +39,12 @@ struct ServerSelectView: View {
             groupHeader
             serverList
         } footer: {
-            AuthPrimaryButton(title: String(localized: "connect.continue")) {
+            Button {
                 if let first = viewModel.servers.first { viewModel.selectServer(first) }
+            } label: {
+                ActionLabel(title: String(localized: "connect.continue"))
             }
+            .prominentAction()
             .disabled(viewModel.servers.isEmpty || viewModel.isConnecting)
         }
         .onAppear {

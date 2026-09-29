@@ -142,11 +142,10 @@ struct HomeView: View {
         } description: {
             Text(message)
         } actions: {
-            PrimaryButton(
-                title: String(localized: "common.try_again"),
-                icon: "arrow.clockwise",
-                action: { home.refresh() }
-            )
+            Button(action: { home.refresh() }) {
+                ActionLabel(title: String(localized: "common.try_again"), systemImage: "arrow.clockwise")
+            }
+            .prominentAction()
             .frame(maxWidth: 240)
         }
         .frame(maxWidth: .infinity, minHeight: 320)

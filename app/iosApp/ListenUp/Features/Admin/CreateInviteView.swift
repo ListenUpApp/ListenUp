@@ -65,13 +65,16 @@ struct CreateInviteView: View {
             if let banner = observer.phase.bannerMessage {
                 ErrorBanner(message: banner)
             }
-            PrimaryButton(
-                title: String(localized: "admin.create_invite"),
-                icon: "link",
-                isLoading: observer.phase.isSubmitting
-            ) {
+            Button {
                 submit(observer: observer)
+            } label: {
+                ActionLabel(
+                    title: String(localized: "admin.create_invite"),
+                    systemImage: "link",
+                    isBusy: observer.phase.isSubmitting
+                )
             }
+            .prominentAction()
             .disabled(observer.phase.isSubmitting)
         }
     }
@@ -144,7 +147,10 @@ struct CreateInviteView: View {
                 url: invite.url,
                 onCopy: { UIPasteboard.general.string = invite.url }
             )
-            PrimaryButton(title: String(localized: "common.done")) { dismiss() }
+            Button { dismiss() } label: {
+                ActionLabel(title: String(localized: "common.done"))
+            }
+            .prominentAction()
             Button {
                 resetForm()
                 observer.reset()

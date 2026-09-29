@@ -205,11 +205,14 @@ struct ImportReviewContent: View {
     }
 
     private var actionTray: some View {
-        PrimaryButton(title: String(localized: "import.apply_import"), icon: "arrow.right", action: onApply)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            .background(.bar)
+        Button(action: onApply) {
+            ActionLabel(title: String(localized: "import.apply_import"), systemImage: "arrow.right")
+        }
+        .prominentAction()
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .background(.bar)
     }
 }
 
@@ -244,11 +247,14 @@ struct ImportCompleteContent: View {
                 .frame(maxWidth: .infinity)
                 .readableWidth(520)
             }
-            PrimaryButton(title: String(localized: "common.done"), icon: "checkmark", action: onDone)
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-                .background(.bar)
+            Button(action: onDone) {
+                ActionLabel(title: String(localized: "common.done"), systemImage: "checkmark")
+            }
+            .prominentAction()
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 16)
+            .background(.bar)
         }
     }
 
@@ -306,7 +312,10 @@ struct ImportErrorContent: View {
             }
             Spacer()
             VStack(spacing: 10) {
-                PrimaryButton(title: String(localized: "common.try_again"), icon: "arrow.clockwise", action: onRetry)
+                Button(action: onRetry) {
+                    ActionLabel(title: String(localized: "common.try_again"), systemImage: "arrow.clockwise")
+                }
+                .prominentAction()
                 Button(String(localized: "common.cancel"), action: onCancel)
                     .font(.body.weight(.medium))
                     .foregroundStyle(Color.luLabel2)

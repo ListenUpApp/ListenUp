@@ -36,11 +36,12 @@ struct BookRatingSection: View {
             if let mine = snapshot.mine {
                 yourRatingRow(mine)
             } else {
-                IconLabelButton(
-                    icon: "star",
-                    title: String(localized: "book.detail_rating_rate"),
-                    action: onOpenSheet
-                )
+                Button(action: onOpenSheet) {
+                    Label(String(localized: "book.detail_rating_rate"), systemImage: "star")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
                 .frame(maxWidth: 220)
             }
         }

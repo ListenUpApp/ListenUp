@@ -65,13 +65,15 @@ struct ResumeBar: View {
     // MARK: - Resume button
 
     private var resumeButton: some View {
-        PrimaryButton(
-            title: resumeTitle,
-            icon: canPlay ? "play.fill" : "cloud.slash.fill",
-            isLoading: isPlayPending,
-            action: onResume
-        )
-        .disabled(!canPlay)
+        Button(action: onResume) {
+            ActionLabel(
+                title: resumeTitle,
+                systemImage: canPlay ? "play.fill" : "cloud.slash.fill",
+                isBusy: isPlayPending
+            )
+        }
+        .prominentAction()
+        .disabled(isPlayPending || !canPlay)
         .accessibilityLabel(resumeAccessibilityLabel)
     }
 

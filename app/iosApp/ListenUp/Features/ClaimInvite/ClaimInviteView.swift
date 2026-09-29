@@ -96,12 +96,12 @@ struct ClaimInviteView: View {
                 )
             }
         } footer: {
-            AuthPrimaryButton(
-                title: String(localized: "common.continue"),
-                isLoading: false
-            ) {
+            Button {
                 wrapper.lookUp(code: code)
+            } label: {
+                ActionLabel(title: String(localized: "common.continue"))
             }
+            .prominentAction()
             .disabled(!canLookUp)
         }
     }
@@ -127,12 +127,12 @@ struct ClaimInviteView: View {
                 ErrorBanner(message: String(localized: "invite.confirm_server_signed_out_warning"))
             }
         } footer: {
-            AuthPrimaryButton(
-                title: String(localized: "invite.confirm_server_continue"),
-                isLoading: false
-            ) {
+            Button {
                 wrapper.confirmServer()
+            } label: {
+                ActionLabel(title: String(localized: "invite.confirm_server_continue"))
             }
+            .prominentAction()
             Button(String(localized: "invite.confirm_server_cancel")) { wrapper.cancelServer() }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.listenUpOrange)
@@ -198,12 +198,12 @@ struct ClaimInviteView: View {
                     .focused($focusedField, equals: .password)
                 }
             } footer: {
-                AuthPrimaryButton(
-                    title: String(localized: "invite.get_started"),
-                    isLoading: false
-                ) {
+                Button {
                     claim()
+                } label: {
+                    ActionLabel(title: String(localized: "invite.get_started"))
                 }
+                .prominentAction()
                 .disabled(!canClaim)
             }
         }
@@ -228,11 +228,10 @@ struct ClaimInviteView: View {
         AuthScaffold {
             ErrorBanner(message: message)
         } footer: {
-            AuthPrimaryButton(
-                title: String(localized: "common.back"),
-                isLoading: false,
-                action: onDismiss
-            )
+            Button(action: onDismiss) {
+                ActionLabel(title: String(localized: "common.back"))
+            }
+            .prominentAction()
         }
     }
 }

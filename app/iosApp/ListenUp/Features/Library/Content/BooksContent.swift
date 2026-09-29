@@ -224,8 +224,11 @@ struct BooksContent: View {
         } description: {
             Text(message)
         } actions: {
-            PrimaryButton(title: String(localized: "common.try_again"), icon: "arrow.clockwise", action: onRefresh)
-                .frame(maxWidth: 240)
+            Button(action: onRefresh) {
+                ActionLabel(title: String(localized: "common.try_again"), systemImage: "arrow.clockwise")
+            }
+            .prominentAction()
+            .frame(maxWidth: 240)
         }
     }
 }

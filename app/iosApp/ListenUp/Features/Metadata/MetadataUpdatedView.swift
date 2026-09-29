@@ -42,9 +42,12 @@ struct MetadataUpdatedView: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 0) {
                 Divider()
-                PrimaryButton(title: String(localized: "common.done"), icon: "checkmark", action: onDone)
-                    .padding(16)
-                    .readableWidth(360)
+                Button(action: onDone) {
+                    ActionLabel(title: String(localized: "common.done"), systemImage: "checkmark")
+                }
+                .prominentAction()
+                .padding(16)
+                .readableWidth(360)
             }
             .background(.bar)
         }

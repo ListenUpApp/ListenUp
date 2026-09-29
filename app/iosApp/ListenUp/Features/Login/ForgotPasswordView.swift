@@ -187,37 +187,55 @@ struct ForgotPasswordView: View {
     private var phaseFooter: some View {
         switch observer.phase {
         case .enterEmail:
-            AuthPrimaryButton(title: String(localized: "auth.forgot_password_send_request")) {
+            Button {
                 observer.requestReset(email: email.trimmingCharacters(in: .whitespaces))
+            } label: {
+                ActionLabel(title: String(localized: "auth.forgot_password_send_request"))
             }
+            .prominentAction()
             .disabled(email.trimmingCharacters(in: .whitespaces).isEmpty)
         case .submitting:
             EmptyView()
         case .awaitingApproval:
-            AuthPrimaryButton(title: String(localized: "auth.check_status")) {
+            Button {
                 observer.checkStatus()
+            } label: {
+                ActionLabel(title: String(localized: "auth.check_status"))
             }
+            .prominentAction()
         case .enterCode:
-            AuthPrimaryButton(title: String(localized: "common.continue")) {
+            Button {
                 observer.completeReset(code: code, newPassword: newPassword)
+            } label: {
+                ActionLabel(title: String(localized: "common.continue"))
             }
+            .prominentAction()
             .disabled(code.isEmpty || newPassword.isEmpty)
         case .denied:
             VStack(spacing: 12) {
-                AuthPrimaryButton(title: String(localized: "auth.forgot_password_retry")) {
+                Button {
                     observer.retryRequest()
+                } label: {
+                    ActionLabel(title: String(localized: "auth.forgot_password_retry"))
                 }
+                .prominentAction()
                 Button(String(localized: "setup.back_to_sign_in")) { navigateBack() }
                     .font(.subheadline)
             }
         case .complete:
-            AuthPrimaryButton(title: String(localized: "setup.back_to_sign_in")) {
+            Button {
                 navigateBack()
+            } label: {
+                ActionLabel(title: String(localized: "setup.back_to_sign_in"))
             }
+            .prominentAction()
         case .error:
-            AuthPrimaryButton(title: String(localized: "common.try_again")) {
+            Button {
                 navigateBack()
+            } label: {
+                ActionLabel(title: String(localized: "common.try_again"))
             }
+            .prominentAction()
         }
     }
 

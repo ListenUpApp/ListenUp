@@ -317,12 +317,15 @@ private struct ContributorMetadataPreviewView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
             }
-            PrimaryButton(
-                title: String(localized: "common.save_changes"),
-                icon: "checkmark",
-                isLoading: observer.isApplying,
-                action: onApply
-            )
+            Button(action: onApply) {
+                ActionLabel(
+                    title: String(localized: "common.save_changes"),
+                    systemImage: "checkmark",
+                    isBusy: observer.isApplying
+                )
+            }
+            .prominentAction()
+            .disabled(observer.isApplying)
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
             .disabled(!observer.canApply)

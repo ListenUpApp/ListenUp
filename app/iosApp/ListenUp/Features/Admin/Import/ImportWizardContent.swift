@@ -81,11 +81,14 @@ struct ImportIntroContent: View {
     }
 
     private var actionTray: some View {
-        PrimaryButton(title: String(localized: "import.choose_backup_file"), icon: "folder", action: onChooseFile)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            .background(.bar)
+        Button(action: onChooseFile) {
+            ActionLabel(title: String(localized: "import.choose_backup_file"), systemImage: "folder")
+        }
+        .prominentAction()
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .background(.bar)
     }
 
     private var separator: some View {

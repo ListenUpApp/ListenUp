@@ -107,13 +107,13 @@ struct LoginView: View {
     }
 
     private var signInButton: some View {
-        AuthPrimaryButton(
-            title: String(localized: "auth.sign_in"),
-            isLoading: viewModel.isLoading
-        ) {
+        Button {
             signIn()
+        } label: {
+            ActionLabel(title: String(localized: "auth.sign_in"), isBusy: viewModel.isLoading)
         }
-        .disabled(email.isEmpty || password.isEmpty)
+        .prominentAction()
+        .disabled(viewModel.isLoading || email.isEmpty || password.isEmpty)
     }
 
     @ViewBuilder

@@ -219,8 +219,11 @@ struct SeriesDetailView: View {
     // MARK: - Continue CTA
 
     private func continueButton(observer: SeriesDetailObserver) -> some View {
-        PrimaryButton(title: observer.continueButtonTitle, icon: "play.fill", action: { observer.continueSeries() })
-            .disabled(observer.books.isEmpty)
+        Button(action: { observer.continueSeries() }) {
+            ActionLabel(title: observer.continueButtonTitle, systemImage: "play.fill")
+        }
+        .prominentAction()
+        .disabled(observer.books.isEmpty)
     }
 
     // MARK: - Books section

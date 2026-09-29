@@ -107,9 +107,12 @@ struct PendingApprovalView: View {
         switch wrapper.phase {
         case .waiting:
             VStack(spacing: 12) {
-                AuthPrimaryButton(title: String(localized: "auth.check_status")) {
+                Button {
                     wrapper.checkStatus()
+                } label: {
+                    ActionLabel(title: String(localized: "auth.check_status"))
                 }
+                .prominentAction()
                 Button(String(localized: "setup.cancel_registration")) {
                     wrapper.cancel()
                 }
@@ -117,13 +120,19 @@ struct PendingApprovalView: View {
                 .foregroundStyle(.red)
             }
         case .approved:
-            AuthPrimaryButton(title: String(localized: "auth.sign_in")) {
+            Button {
                 wrapper.acknowledge()
+            } label: {
+                ActionLabel(title: String(localized: "auth.sign_in"))
             }
+            .prominentAction()
         case .denied:
-            AuthPrimaryButton(title: String(localized: "setup.back_to_sign_in")) {
+            Button {
                 wrapper.cancel()
+            } label: {
+                ActionLabel(title: String(localized: "setup.back_to_sign_in"))
             }
+            .prominentAction()
         }
     }
 }

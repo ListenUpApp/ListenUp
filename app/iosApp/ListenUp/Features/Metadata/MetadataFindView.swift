@@ -129,11 +129,10 @@ struct MetadataFindView: View {
         if selectedAsin != nil {
             VStack(spacing: 0) {
                 Divider()
-                PrimaryButton(
-                    title: String(localized: "metadata.use_this_match"),
-                    icon: "arrow.right",
-                    action: onUseMatch
-                )
+                Button(action: onUseMatch) {
+                    ActionLabel(title: String(localized: "metadata.use_this_match"), systemImage: "arrow.right")
+                }
+                .prominentAction()
                 .padding(16)
             }
             .background(.bar)

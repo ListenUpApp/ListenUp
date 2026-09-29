@@ -129,13 +129,13 @@ struct RegisterView: View {
     }
 
     private var registerButton: some View {
-        AuthPrimaryButton(
-            title: String(localized: "auth.create_account"),
-            isLoading: viewModel.isLoading
-        ) {
+        Button {
             register()
+        } label: {
+            ActionLabel(title: String(localized: "auth.create_account"), isBusy: viewModel.isLoading)
         }
-        .disabled(!isFormValid)
+        .prominentAction()
+        .disabled(viewModel.isLoading || !isFormValid)
     }
 
     /// Return walks the fields; Return in Confirm Password creates the account when the form is

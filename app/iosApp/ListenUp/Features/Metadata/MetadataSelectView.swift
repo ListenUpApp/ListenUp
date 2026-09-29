@@ -506,14 +506,11 @@ struct MetadataApplyTray: View {
                     Text(applyError).font(.caption).foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                PrimaryButton(
-                    title: title,
-                    icon: "checkmark",
-                    isLoading: isApplying,
-                    action: action
-                )
-                .disabled(!isEnabled)
-                .opacity(isEnabled ? 1 : 0.5)
+                Button(action: action) {
+                    ActionLabel(title: title, systemImage: "checkmark", isBusy: isApplying)
+                }
+                .prominentAction()
+                .disabled(isApplying || !isEnabled)
             }
             .padding(16)
             .readableWidth(720)

@@ -33,12 +33,15 @@ struct ChooseFoldersView: View {
             directorySection
         } footer: {
             selectionSummary
-            AuthPrimaryButton(
-                title: String(localized: "library_setup.start_scanning"),
-                isLoading: viewModel.isCreatingLibrary
-            ) {
+            Button {
                 viewModel.completeSetup()
+            } label: {
+                ActionLabel(
+                    title: String(localized: "library_setup.start_scanning"),
+                    isBusy: viewModel.isCreatingLibrary
+                )
             }
+            .prominentAction()
             .disabled(!hasSelection || viewModel.isCreatingLibrary)
         }
         .onAppear { viewModel.checkStatus() }

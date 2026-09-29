@@ -423,11 +423,10 @@ struct BookDetailView: View {
         } description: {
             Text(message)
         } actions: {
-            PrimaryButton(
-                title: String(localized: "common.retry"),
-                icon: "arrow.clockwise",
-                action: { observer?.loadBook(bookId: bookId) }
-            )
+            Button(action: { observer?.loadBook(bookId: bookId) }) {
+                ActionLabel(title: String(localized: "common.retry"), systemImage: "arrow.clockwise")
+            }
+            .prominentAction()
             .frame(maxWidth: 240)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

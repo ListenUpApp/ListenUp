@@ -140,13 +140,13 @@ struct SetupView: View {
     }
 
     private var createButton: some View {
-        AuthPrimaryButton(
-            title: String(localized: "auth.create_account"),
-            isLoading: viewModel.isLoading
-        ) {
+        Button {
             submit()
+        } label: {
+            ActionLabel(title: String(localized: "auth.create_account"), isBusy: viewModel.isLoading)
         }
-        .disabled(!isFormReady)
+        .prominentAction()
+        .disabled(viewModel.isLoading || !isFormReady)
     }
 
     /// Return walks the fields; Return in Confirm Password creates the account once the form is
