@@ -111,12 +111,14 @@ extension SRGBColor {
 extension UITraitCollection {
     /// The four appearances a dynamic colour must hold up in — HIG, Color: "supply light and dark
     /// variants, and an increased contrast option for each variant".
-    static let colorAppearances: [UITraitCollection] = [
-        appearance(.light, contrast: .normal),
-        appearance(.dark, contrast: .normal),
-        appearance(.light, contrast: .high),
-        appearance(.dark, contrast: .high)
-    ]
+    static var colorAppearances: [UITraitCollection] {
+        [
+            appearance(.light, contrast: .normal),
+            appearance(.dark, contrast: .normal),
+            appearance(.light, contrast: .high),
+            appearance(.dark, contrast: .high)
+        ]
+    }
 
     static func appearance(_ style: UIUserInterfaceStyle, contrast: UIAccessibilityContrast) -> UITraitCollection {
         UITraitCollection { traits in
