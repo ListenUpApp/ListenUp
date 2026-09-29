@@ -131,8 +131,9 @@ extension UITraitCollection {
     }
 
     static func appearance(_ style: UIUserInterfaceStyle, contrast: UIAccessibilityContrast) -> UITraitCollection {
-        UITraitCollection { traits in
-            traits.userInterfaceStyle = style
+        // Built from the nonisolated style initialiser, then modified: `UITraitCollection { traits in }`
+        // mutates main-actor-isolated trait properties from this nonisolated context (a Swift 6 warning).
+        UITraitCollection(userInterfaceStyle: style).modifyingTraits { traits in
             traits.accessibilityContrast = contrast
         }
     }
