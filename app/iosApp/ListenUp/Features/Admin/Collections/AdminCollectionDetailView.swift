@@ -196,7 +196,7 @@ struct AdminCollectionDetailView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .foregroundStyle(Color.luOnTint)
+                .onBrandFillLabel()
                 .disabled(ready.isSaving)
                 .padding(.top, 8)
             }

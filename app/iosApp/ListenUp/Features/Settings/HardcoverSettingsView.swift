@@ -442,7 +442,7 @@ private struct HardcoverPrimaryButton: View {
         .buttonStyle(.glassProminent)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .foregroundStyle(Color.luOnTint)
+        .onBrandFillLabel()
         .disabled(isBusy)
         .accessibilityLabel(title)
     }

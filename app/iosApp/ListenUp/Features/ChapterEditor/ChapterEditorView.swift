@@ -256,7 +256,7 @@ struct ChapterEditorView: View {
                     observer.addAt(at, title: String(localized: "chapter_editor.new_chapter_title"))
                 }
                 .buttonStyle(.borderedProminent)
-                .foregroundStyle(Color.luOnTint)
+                .onBrandFillLabel()
             }
         }
         .padding(.vertical, 6)
@@ -273,7 +273,7 @@ struct ChapterEditorView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(Color.luOnTint)
+            .onBrandFillLabel()
             .padding()
             .background(.bar)
         }

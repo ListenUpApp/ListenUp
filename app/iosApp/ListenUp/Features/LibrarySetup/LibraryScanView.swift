@@ -90,7 +90,7 @@ struct LibraryScanView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(Color.luOnTint)
+            .onBrandFillLabel()
             .controlSize(.large)
 
             Text(String(localized: "library_scan.stalled_settings_hint"))

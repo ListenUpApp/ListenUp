@@ -205,7 +205,7 @@ struct AdminCategoriesView: View {
                 nameSheet = .create(parentId: nil, parentName: nil)
             }
             .buttonStyle(.borderedProminent)
-            .foregroundStyle(Color.luOnTint)
+            .onBrandFillLabel()
             .padding(.top, 4)
         }
         .padding()

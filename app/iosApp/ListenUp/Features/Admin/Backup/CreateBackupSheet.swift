@@ -87,9 +87,7 @@ struct CreateBackupSheet: View {
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
-                // The accent fill is the adaptive brand coral; its label takes the on-coral ink
-                // (white in light, deep ink in dark — white on the dark coral is 2.85:1).
-                .foregroundStyle(Color.luOnTint)
+                .onBrandFillLabel()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
