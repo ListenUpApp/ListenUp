@@ -98,6 +98,8 @@ fun BookRatingBlock(
     if (isBreakdownOpen && ready != null) {
         RatingBreakdownSheet(
             breakdown = ready.breakdown,
+            score = ready.external,
+            listeners = ready.listeners,
             canRefresh = ready.canRefresh,
             isRefreshingExternal = ready.isRefreshingExternal,
             onRefresh = viewModel::refreshExternal,
@@ -140,7 +142,9 @@ fun BookRatingSection(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ExternalHeadlineOrRefresh(
-                external = ready.external,
+                // A listeners-only score would repeat the listeners' line below as a second,
+                // recalibrated number; their line says it plainly instead.
+                external = ready.external?.takeUnless { it.isListenersOnly },
                 canRefresh = ready.canRefresh,
                 isRefreshingExternal = ready.isRefreshingExternal,
                 onOpenBreakdown = onOpenBreakdown,
@@ -219,11 +223,12 @@ fun BookRatingSection(
 }
 
 /**
- * The outside-world headline ("★ 4.4 · 12k ratings"), tappable to open the breakdown sheet — or,
- * before any enabled source has rated the book, the quiet "Refresh ratings" action an admin sees
- * in its place, since there is no headline yet to open that sheet from.
+ * The ListenUp score's headline ("★ 4.4 · 12k ratings"), tappable to open the breakdown sheet — or,
+ * before any enabled outside source has rated the book, the quiet "Refresh ratings" action an
+ * admin sees in its place, since there is no headline yet to open that sheet from. A book only
+ * your listeners have rated has no headline: [BookRatingSection] passes null for its score.
  *
- * @param external The outside-world headline score, or null when nobody has rated it yet.
+ * @param external The headline score, or null when no outside source has rated the book yet.
  * @param canRefresh Whether the signed-in listener may trigger [onRefreshExternal] (admin or root).
  * @param isRefreshingExternal Whether a refresh is currently in flight.
  * @param onOpenBreakdown Opens the per-source breakdown sheet; invoked when the headline is tapped.

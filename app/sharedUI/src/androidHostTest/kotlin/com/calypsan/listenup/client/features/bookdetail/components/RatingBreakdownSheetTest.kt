@@ -7,7 +7,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.api.sync.ExternalRatingSource
+import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
+import com.calypsan.listenup.client.domain.model.ListenerAverage
+import com.calypsan.listenup.client.domain.model.ScoreSource
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -88,5 +91,133 @@ class RatingBreakdownSheetTest {
 
         composeRule.onNodeWithTag("refreshRatingsButton").assertIsNotEnabled()
         composeRule.onNodeWithText("Refresh ratings").assertDoesNotExist()
+    }
+
+    // --- What each source contributes to the ListenUp score ---
+
+    private val audible = ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.7, count = 1_007)
+    private val goodreads = ExternalRating(source = ExternalRatingSource.GOODREADS, average = 4.2, count = 100_000)
+
+    @Test
+    fun `each outside row shows its share of the score, to a whole percent`() {
+        composeRule.setContent {
+            RatingBreakdownSheet(
+                breakdown = listOf(goodreads, audible),
+                score =
+                    CombinedScore(
+                        average = 4.3,
+                        count = 101_007,
+                        shares =
+                            mapOf(
+                                ScoreSource.Outside(ExternalRatingSource.GOODREADS) to 0.6249,
+                                ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.3751,
+                            ),
+                    ),
+                canRefresh = false,
+                isRefreshingExternal = false,
+                onRefresh = {},
+                onDismiss = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Goodreads · 4.2 · 100k · 62%").assertIsDisplayed()
+        composeRule.onNodeWithText("Audible · 4.7 · 1k · 38%").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a score from several sources says how many`() {
+        composeRule.setContent {
+            RatingBreakdownSheet(
+                breakdown = listOf(goodreads, audible),
+                score =
+                    CombinedScore(
+                        average = 4.3,
+                        count = 101_007,
+                        shares =
+                            mapOf(
+                                ScoreSource.Outside(ExternalRatingSource.GOODREADS) to 0.6,
+                                ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.4,
+                            ),
+                    ),
+                canRefresh = false,
+                isRefreshingExternal = false,
+                onRefresh = {},
+                onDismiss = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Combined from 2 sources").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a score from one source does not say combined`() {
+        composeRule.setContent {
+            RatingBreakdownSheet(
+                breakdown = listOf(audible),
+                score =
+                    CombinedScore(
+                        average = 4.4,
+                        count = 1_007,
+                        shares = mapOf(ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 1.0),
+                    ),
+                canRefresh = false,
+                isRefreshingExternal = false,
+                onRefresh = {},
+                onDismiss = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Combined from", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Audible · 4.7 · 1k · 100%").assertIsDisplayed()
+    }
+
+    @Test
+    fun `your listeners get their own row when they are part of the score`() {
+        composeRule.setContent {
+            RatingBreakdownSheet(
+                breakdown = listOf(audible),
+                score =
+                    CombinedScore(
+                        average = 4.4,
+                        count = 1_010,
+                        shares =
+                            mapOf(
+                                ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.8,
+                                ScoreSource.Listeners to 0.2,
+                            ),
+                    ),
+                listeners = ListenerAverage(averageHalfStars = 8.0, count = 3),
+                canRefresh = false,
+                isRefreshingExternal = false,
+                onRefresh = {},
+                onDismiss = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Combined from 2 sources").assertIsDisplayed()
+        composeRule.onNodeWithText("Audible · 4.7 · 1k · 80%").assertIsDisplayed()
+        composeRule.onNodeWithText("Your listeners · 4.0 · 3 · 20%").assertIsDisplayed()
+    }
+
+    @Test
+    fun `no listeners row when no listener has rated the book`() {
+        composeRule.setContent {
+            RatingBreakdownSheet(
+                breakdown = listOf(audible),
+                score =
+                    CombinedScore(
+                        average = 4.4,
+                        count = 1_007,
+                        shares = mapOf(ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 1.0),
+                    ),
+                listeners = null,
+                canRefresh = false,
+                isRefreshingExternal = false,
+                onRefresh = {},
+                onDismiss = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Your listeners", substring = true).assertDoesNotExist()
     }
 }

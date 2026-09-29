@@ -238,6 +238,12 @@ class ExternalRatingTest :
             result.shares.keys shouldBe setOf(ScoreSource.Listeners)
         }
 
+        test("a score only your listeners gave is listeners-only; one an outside source joins is not") {
+            listenUpScore(emptyList(), listeners(4.0, 3), priors).shouldNotBeNull().isListenersOnly shouldBe true
+            listenUpScore(threeCatalogs, listeners(4.0, 3), priors).shouldNotBeNull().isListenersOnly shouldBe false
+            listenUpScore(threeCatalogs, null, priors).shouldNotBeNull().isListenersOnly shouldBe false
+        }
+
         test("shares name every contributing source and skip one with no ratings") {
             val result =
                 listenUpScore(
