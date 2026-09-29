@@ -28,7 +28,10 @@ extension Color {
     /// Inset-list / card surface (`--sys-bg-2`).
     static let luSurface2 = Color(.secondarySystemGroupedBackground)
 
-    /// Hairline separator (`--separator`).
+    /// Hairline separator (`--separator`). Every custom hairline and card outline uses this rather
+    /// than a `primary.opacity(_)` wash: the system separator has its own Increase Contrast variant,
+    /// an opacity never does (HIG, Color: "Separator — a separator between different sections of
+    /// content").
     static let luSeparator = Color(.separator)
     /// Neutral control fill (`--fill-3`).
     static let luFill = Color(.tertiarySystemFill)

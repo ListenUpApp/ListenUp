@@ -60,13 +60,16 @@ struct FacetIconTile: View {
     let hue: Color
     var size: CGFloat = 60
 
+    /// Increase Contrast doubles the border's weight — the tile's edge is its only outline.
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
     var body: some View {
         RoundedRectangle(cornerRadius: 17, style: .continuous)
             .fill(hue.opacity(0.16))
             .frame(width: size, height: size)
             .overlay {
                 RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .strokeBorder(hue.opacity(0.3), lineWidth: 1)
+                    .strokeBorder(hue.opacity(colorSchemeContrast == .increased ? 0.6 : 0.3), lineWidth: 1)
             }
             .overlay {
                 Image(systemName: symbolName)

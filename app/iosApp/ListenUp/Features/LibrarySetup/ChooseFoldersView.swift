@@ -261,7 +261,7 @@ private struct FolderRow: View {
         .overlay(alignment: .bottom) {
             if !isLast {
                 Rectangle()
-                    .fill(Color.primary.opacity(0.10))
+                    .fill(Color.luSeparator)
                     .frame(height: 0.5)
                     .padding(.leading, 67)
             }

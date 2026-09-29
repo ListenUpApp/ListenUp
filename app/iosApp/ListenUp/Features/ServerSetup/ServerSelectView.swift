@@ -127,7 +127,7 @@ private struct ServerRow: View {
         .disabled(isConnecting)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).padding(.leading, 67)
+            Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 67)
         }
     }
 
@@ -178,7 +178,7 @@ private struct DiscoveryRow: View {
         }
         .frame(minHeight: 56).padding(.horizontal, 14)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).padding(.leading, 14)
+            Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 14)
         }
     }
 }

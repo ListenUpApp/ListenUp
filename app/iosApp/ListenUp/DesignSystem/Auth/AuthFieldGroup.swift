@@ -14,7 +14,7 @@ struct AuthFieldGroup<Content: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: AuthMetrics.fieldGroupCornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: AuthMetrics.fieldGroupCornerRadius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                    .strokeBorder(Color.luSeparator, lineWidth: 0.5)
             )
     }
 }

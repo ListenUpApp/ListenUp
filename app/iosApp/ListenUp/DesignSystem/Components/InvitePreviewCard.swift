@@ -39,7 +39,7 @@ struct InvitePreviewCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.luTint.opacity(0.2), lineWidth: 0.5)
+                .stroke(Color.luSeparator, lineWidth: 0.5)
         )
     }
 

@@ -8,7 +8,7 @@ extension View {
     func glassControl(in shape: some InsettableShape, reduceTransparency: Bool) -> some View {
         if reduceTransparency {
             background(Color(.secondarySystemBackground), in: shape)
-                .overlay(shape.strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5))
+                .overlay(shape.strokeBorder(Color.luSeparator, lineWidth: 0.5))
         } else {
             glassEffect(.regular, in: shape)
         }
