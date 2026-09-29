@@ -47,13 +47,7 @@ struct HardcoverSettingsView: View {
         } message: {
             Text(String(localized: "hardcover.disconnect_confirm_body"))
         }
-        .alert(item: alertBinding) { alert in
-            Alert(
-                title: Text(String(localized: "common.something_went_wrong")),
-                message: Text(alert.message),
-                dismissButton: .default(Text(String(localized: "common.ok")))
-            )
-        }
+        .messageAlert(alertBinding)
     }
 
     private var alertBinding: Binding<MessageAlert?> {

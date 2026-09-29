@@ -40,13 +40,7 @@ struct ABSImportHubView: View {
         .sheet(isPresented: $showingWizard) {
             ImportWizardView { observer?.reload() }
         }
-        .alert(item: errorAlertBinding) { alert in
-            Alert(
-                title: Text(String(localized: "common.something_went_wrong")),
-                message: Text(alert.message),
-                dismissButton: .default(Text(String(localized: "common.ok"))) { observer?.clearError() }
-            )
-        }
+        .messageAlert(errorAlertBinding) { observer?.clearError() }
         .confirmationDialog(
             String(localized: "import.delete_import"),
             isPresented: deleteConfirmationPresented,

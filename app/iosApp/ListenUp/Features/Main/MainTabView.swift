@@ -162,8 +162,11 @@ struct MainTabView: View {
             pushTapRouter.sceneWentAway(sceneID)
             deepLinkRouter.sceneWentAway(sceneID)
         }
-        .alert(item: $bookLinkError) { error in
-            Alert(title: Text(error.message))
+        .alert(
+            bookLinkError?.message ?? "",
+            isPresented: Binding(get: { bookLinkError != nil }, set: { if !$0 { bookLinkError = nil } })
+        ) {
+            Button(String(localized: "common.ok"), role: .cancel) {}
         }
     }
 

@@ -51,9 +51,7 @@ struct AdminView: View {
         .sheet(isPresented: $showingInviteSheet) {
             CreateInviteView(viewModel: deps.createCreateInviteViewModel())
         }
-        .alert(item: alertBinding) { alert in
-            mutationAlert(alert)
-        }
+        .messageAlert(alertBinding) { admin?.clearError() }
         .confirmationDialog(
             confirmationTitle,
             isPresented: confirmationPresented,
@@ -508,14 +506,6 @@ struct AdminView: View {
             set: { newValue in
                 if newValue == nil { admin?.clearError() }
             }
-        )
-    }
-
-    private func mutationAlert(_ alert: MessageAlert) -> Alert {
-        Alert(
-            title: Text(String(localized: "common.something_went_wrong")),
-            message: Text(alert.message),
-            dismissButton: .default(Text(String(localized: "common.ok"))) { admin?.clearError() }
         )
     }
 

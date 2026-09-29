@@ -81,13 +81,7 @@ struct AdminBackupsView: View {
                 Text(String(format: String(localized: "admin.confirm_delete_backup"), pendingDelete.id))
             }
         }
-        .alert(item: errorAlertBinding) { alert in
-            Alert(
-                title: Text(String(localized: "common.something_went_wrong")),
-                message: Text(alert.message),
-                dismissButton: .default(Text(String(localized: "common.ok"))) { observer?.clearError() }
-            )
-        }
+        .messageAlert(errorAlertBinding) { observer?.clearError() }
         .alert(
             String(localized: "admin.restore_from_file_upload_failed"),
             isPresented: uploadErrorPresented,
