@@ -335,7 +335,8 @@ struct BookDetailView: View {
             BookRatingSection(
                 snapshot: snapshot,
                 onOpenSheet: { showRateSheet = true },
-                onOpenBreakdown: { showRatingBreakdown = true }
+                onOpenBreakdown: { showRatingBreakdown = true },
+                onRefreshExternal: { ratingsObserver?.refreshExternal() }
             )
         }
     }

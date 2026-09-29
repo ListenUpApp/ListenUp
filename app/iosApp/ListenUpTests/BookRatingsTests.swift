@@ -163,6 +163,62 @@ struct BookRatingsTests {
         #expect(sentence == "Your listeners: 3.5 out of 5 stars, from 3 ratings")
     }
 
+    // MARK: - Refresh before a score exists
+
+    @Test func refreshActionShowsForAnAdminWithNoScoreYet() {
+        let snapshot = BookRatingsSnapshot(
+            listeners: nil,
+            mine: nil,
+            external: nil,
+            breakdown: [],
+            canRefresh: true,
+            isRefreshingExternal: false
+        )
+
+        #expect(BookRatingSection.showsRefreshAction(snapshot) == true)
+    }
+
+    @Test func refreshActionIsHiddenForANonAdmin() {
+        let snapshot = BookRatingsSnapshot(
+            listeners: nil,
+            mine: nil,
+            external: nil,
+            breakdown: [],
+            canRefresh: false,
+            isRefreshingExternal: false
+        )
+
+        #expect(BookRatingSection.showsRefreshAction(snapshot) == false)
+    }
+
+    @Test func refreshActionIsHiddenOnceAScoreExists() {
+        let snapshot = BookRatingsSnapshot(
+            listeners: nil,
+            mine: nil,
+            external: ExternalScore(average: 4.4, count: 12_000),
+            breakdown: [],
+            canRefresh: true,
+            isRefreshingExternal: false
+        )
+
+        #expect(BookRatingSection.showsRefreshAction(snapshot) == false)
+    }
+
+    @Test func refreshActionStaysVisibleAndBusyWhileRefreshing() {
+        let snapshot = BookRatingsSnapshot(
+            listeners: nil,
+            mine: nil,
+            external: nil,
+            breakdown: [],
+            canRefresh: true,
+            isRefreshingExternal: true
+        )
+
+        // Still shown while a refresh is in flight — it doesn't disappear, it goes busy.
+        #expect(BookRatingSection.showsRefreshAction(snapshot) == true)
+        #expect(snapshot.isRefreshingExternal == true)
+    }
+
     // MARK: - Breakdown sheet
 
     @Test func sourceRowShowsNameAverageAndCompactCount() {

@@ -4,14 +4,18 @@ import Shared
 /// The rating block on Book Detail, directly above Readers.
 ///
 /// The outside world's headline ("★ 4.4 · 12k ratings") leads when an enabled source has rated the
-/// book — tapping it opens `RatingBreakdownSheet`. Your listeners' average comes next when anyone
-/// has rated the book ("Your listeners ★ 4 (3)"), then either an invitation to rate it or your own
-/// stars with an Edit button. Both "Rate" and "Edit" open the `RateBookSheet`.
+/// book — tapping it opens `RatingBreakdownSheet`. Before any source has rated it, an admin
+/// (`canRefresh`) sees a quiet "Refresh ratings" action where the headline would sit instead, so
+/// they can fetch a first score without being stranded behind a headline that only exists once one
+/// arrives. Your listeners' average comes next when anyone has rated the book ("Your listeners ★ 4
+/// (3)"), then either an invitation to rate it or your own stars with an Edit button. Both "Rate"
+/// and "Edit" open the `RateBookSheet`.
 /// Pure/presentational: the assembly screen hands it the snapshot and owns both sheets.
 struct BookRatingSection: View {
     let snapshot: BookRatingsSnapshot
     let onOpenSheet: () -> Void
     let onOpenBreakdown: () -> Void
+    let onRefreshExternal: () -> Void
 
     /// Fires `.press` only on a genuine tap of the headline — not merely whenever `external` changes.
     @State private var breakdownTapCount = 0
@@ -20,6 +24,8 @@ struct BookRatingSection: View {
         VStack(alignment: .leading, spacing: 10) {
             if let external = snapshot.external {
                 externalRow(external)
+            } else if Self.showsRefreshAction(snapshot) {
+                refreshAction
             }
             if let listeners = snapshot.listeners {
                 listenersRow(listeners)
@@ -52,6 +58,45 @@ struct BookRatingSection: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Self.externalSentence(external))
+    }
+
+    /// The quiet "Refresh ratings" action shown where the headline would sit before any enabled
+    /// source has rated the book — admin only. Styled like the section's "Rate" button: a
+    /// bordered, quiet pill, never prominent. Its busy/disabled state binds to
+    /// `isRefreshingExternal` directly, exactly like `RatingBreakdownSheet`'s own refresh button.
+    private var refreshAction: some View {
+        Button(action: onRefreshExternal) {
+            HStack(spacing: 7) {
+                if snapshot.isRefreshingExternal {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.luTint)
+                }
+                Text(String(localized: "book.detail_rating_refresh"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.luSeparator, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.pressScaleChip)
+        .frame(maxWidth: 220)
+        .disabled(snapshot.isRefreshingExternal)
+        .accessibilityLabel(String(localized: "book.detail_rating_refresh"))
+    }
+
+    /// Whether `refreshAction` shows: before any score exists (`external == nil`), admin only.
+    /// Once a score exists the headline itself carries refresh, one tap away via
+    /// `RatingBreakdownSheet`.
+    static func showsRefreshAction(_ snapshot: BookRatingsSnapshot) -> Bool {
+        snapshot.external == nil && snapshot.canRefresh
     }
 
     /// "★ 4.4 · 12k ratings", or "★ 4.4 · 1 rating" for exactly one.
@@ -129,7 +174,8 @@ struct BookRatingSection: View {
                 isRefreshingExternal: false
             ),
             onOpenSheet: {},
-            onOpenBreakdown: {}
+            onOpenBreakdown: {},
+            onRefreshExternal: {}
         )
         BookRatingSection(
             snapshot: BookRatingsSnapshot(
@@ -141,7 +187,21 @@ struct BookRatingSection: View {
                 isRefreshingExternal: false
             ),
             onOpenSheet: {},
-            onOpenBreakdown: {}
+            onOpenBreakdown: {},
+            onRefreshExternal: {}
+        )
+        BookRatingSection(
+            snapshot: BookRatingsSnapshot(
+                listeners: nil,
+                mine: nil,
+                external: nil,
+                breakdown: [],
+                canRefresh: true,
+                isRefreshingExternal: false
+            ),
+            onOpenSheet: {},
+            onOpenBreakdown: {},
+            onRefreshExternal: {}
         )
     }
     .padding()
