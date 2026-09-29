@@ -180,24 +180,17 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private func configureNowPlaying() {
         let nowPlaying = CPNowPlayingTemplate.shared
 
-        let previousChapter = CPNowPlayingImageButton(
-            image: buttonImage("backward.end")
-        ) { _ in
-            Task { @MainActor in
-                let c = Dependencies.shared.playerCoordinator
-                c.selectChapter(index: c.chapterIndex - 1)
-            }
-        }
-        let nextChapter = CPNowPlayingImageButton(
-            image: buttonImage("forward.end")
-        ) { _ in
-            Task { @MainActor in
-                let c = Dependencies.shared.playerCoordinator
-                c.selectChapter(index: c.chapterIndex + 1)
+        let chapterButtons = CarPlayChapterButton.all.map { spec in
+            let image = buttonImage(spec.symbolName, accessibilityLabel: spec.accessibilityLabel)
+            return CPNowPlayingImageButton(image: image) { _ in
+                Task { @MainActor in
+                    let coordinator = Dependencies.shared.playerCoordinator
+                    coordinator.selectChapter(index: coordinator.chapterIndex + spec.chapterOffset)
+                }
             }
         }
 
-        nowPlaying.updateNowPlayingButtons([previousChapter, nextChapter])
+        nowPlaying.updateNowPlayingButtons(chapterButtons)
         nowPlaying.isUpNextButtonEnabled = true
         nowPlaying.upNextTitle = String(localized: "player.chapters")
         nowPlaying.add(self)
@@ -214,8 +207,10 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     /// A template-rendering button glyph; falls back to a filled circle so a bad symbol name can
     /// never produce an invisible, untappable button.
-    private func buttonImage(_ symbolName: String) -> UIImage {
-        UIImage(systemName: symbolName) ?? UIImage(systemName: "circle.fill")!
+    private func buttonImage(_ symbolName: String, accessibilityLabel: String) -> UIImage {
+        let image = UIImage(systemName: symbolName) ?? UIImage(systemName: "circle.fill")!
+        image.accessibilityLabel = accessibilityLabel
+        return image
     }
 
     /// Push the "Chapters" list for the current book — the Up Next button's destination.
