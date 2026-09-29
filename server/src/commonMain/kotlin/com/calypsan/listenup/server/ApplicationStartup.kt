@@ -9,11 +9,14 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.hardcover.HardcoverLinker
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
 import com.calypsan.listenup.server.librarywrite.LibraryWriteStatus
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.mdns.launchMdnsRefreshOnServerInfoChange
 import com.calypsan.listenup.server.ratings.ExternalRatingsBackfill
+import com.calypsan.listenup.server.ratings.RatingSourceSettings
+import com.calypsan.listenup.server.ratings.triggerExternalRatingsBackfillOn
 import com.calypsan.listenup.server.ratings.triggerExternalRatingsBackfillOnScanCompletion
 import com.calypsan.listenup.server.scanner.RescanScheduler
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
@@ -37,6 +40,7 @@ import io.ktor.server.application.ApplicationStopped
 import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
 import org.koin.ktor.ext.get as koinGet
@@ -90,6 +94,12 @@ internal fun Application.startBackgroundTasks(
     // matches it.
     scope.triggerExternalRatingsBackfillOnScanCompletion(
         events = koinGet<SharedFlow<ScanEvent>>(),
+        backfill = koinGet<ExternalRatingsBackfill>(),
+    )
+    // A source that just became runnable — switched back on (which also lifts a pause), or Hardcover
+    // gaining a connected account — reaches every book it has never tried now, not at the next sweep.
+    scope.triggerExternalRatingsBackfillOn(
+        signals = merge(koinGet<RatingSourceSettings>().reenabled, koinGet<HardcoverLinker>().connections),
         backfill = koinGet<ExternalRatingsBackfill>(),
     )
     val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()

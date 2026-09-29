@@ -41,6 +41,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -315,6 +316,48 @@ class ExternalRatingsBackfillTest :
                     second.join()
 
                     audible.calledBooks shouldBe listOf("book1", "book2", "book3")
+                }
+            }
+        }
+
+        test("any signal on a subscribed flow — a Hardcover connection, a re-enabled source — triggers the backfill") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val ratings = BookExternalRatingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                val fetchedSignal = CompletableDeferred<Unit>()
+                val hardcover =
+                    RecordingRatingSource(
+                        MetadataProviderId("hardcover"),
+                        ExternalRatingSource.HARDCOVER,
+                        onCalled = fetchedSignal,
+                    )
+                val fetcher =
+                    ExternalRatingsFetcher(
+                        registry = MetadataProviderRegistry(listOf(hardcover)),
+                        ratings = ratings,
+                        sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.CLOSED)),
+                        books = sql.bookRepo(bus, registry, driver),
+                        clock = FixedClock(now),
+                    )
+                // Real dispatchers, for the reason the scan-completion test below gives.
+                val scope = CoroutineScope(SupervisorJob())
+                try {
+                    runBlocking {
+                        val backfill = ExternalRatingsBackfill(fetcher, ratings, scope = scope, clock = FixedClock(now))
+                        val connections = MutableSharedFlow<String>(extraBufferCapacity = 1)
+                        scope.triggerExternalRatingsBackfillOn(connections, backfill)
+                        connections.subscriptionCount.first { it > 0 }
+
+                        connections.emit("user-1")
+                        withTimeout(5.seconds) { fetchedSignal.await() }
+
+                        hardcover.calledBooks shouldBe listOf("book1")
+                    }
+                } finally {
+                    scope.cancel()
                 }
             }
         }

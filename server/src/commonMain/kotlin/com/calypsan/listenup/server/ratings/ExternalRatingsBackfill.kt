@@ -40,8 +40,8 @@ internal fun interface ExternalRatingsBackfillRunner {
  * pass after it becomes runnable finds exactly the books it has never tried.
  *
  * Two entry points, one guard: [run] is suspend and awaited (the nightly sweep calls this before its
- * own refresh); [trigger] is fire-and-forget (a completed scan — see
- * [triggerExternalRatingsBackfillOn] — never blocking on the fetch). A call that
+ * own refresh); [trigger] is fire-and-forget (a completed scan, a source switched back on, a
+ * Hardcover connection — see [triggerExternalRatingsBackfillOn] — never blocking on the fetch). A call that
  * arrives while a pass is running does not start a second one: it asks the running pass for one more
  * walk, which is how a book added mid-pass (by the very scan whose completion arrived while the pass
  * was running) is still picked up.
