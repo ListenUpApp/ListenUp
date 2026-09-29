@@ -80,8 +80,8 @@ struct ForgotPasswordHowItWorks: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(.background.secondary, in: .rect(cornerRadius: 16))
+        .padding(Spacing.m)
+        .background(.background.secondary, in: .rect(cornerRadius: Radius.l))
     }
 }
 
@@ -158,11 +158,11 @@ struct ForgotPasswordCodeField: View {
         let character = characters[index]
         let isNext = isFocused && index == code.count
         let accent: Color = isError ? .red : Color.listenUpOrange
-        return RoundedRectangle(cornerRadius: 12)
+        return RoundedRectangle(cornerRadius: Radius.m)
             .fill(.background.secondary)
             .frame(width: boxWidth, height: boxHeight)
             .overlay {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: Radius.m)
                     .strokeBorder(character != nil || isNext ? accent : .clear, lineWidth: 2)
             }
             .overlay {
@@ -238,7 +238,7 @@ struct ForgotPasswordTimeline: View {
                     Text(step)
                         .font(.footnote.weight(index == activeStep ? .semibold : .regular))
                         .foregroundStyle(colour(for: index))
-                        .padding(.bottom, 12)
+                        .padding(.bottom, Spacing.s)
                     Spacer(minLength: 0)
                 }
             }

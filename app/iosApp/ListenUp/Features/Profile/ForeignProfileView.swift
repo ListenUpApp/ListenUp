@@ -22,9 +22,9 @@ struct ForeignProfileView: View {
     var body: some View {
         ScrollView {
             content
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.xs)
+                .padding(.bottom, Spacing.xl)
                 .readableWidth()
         }
         .background(Color.luSurface)
@@ -101,9 +101,9 @@ struct ForeignProfileView: View {
                 .init(value: "\(stats.longestStreak)",
                       label: String(localized: "profile.stat_best"))
             ])
-            .padding(.vertical, 14)
+            .padding(.vertical, Spacing.m)
             .frame(maxWidth: .infinity)
-            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         }
     }
 }

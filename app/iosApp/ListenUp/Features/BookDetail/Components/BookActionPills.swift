@@ -103,7 +103,7 @@ struct BookActionPills: View {
         .frame(maxWidth: .infinity)
         .frame(height: pillHeight)
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                 .strokeBorder(Color(.separator), lineWidth: 1.5)
         }
     }

@@ -25,11 +25,11 @@ struct SeriesGridCard: View {
                 }
                 SeriesProgressBadge(state: progress)
             }
-            .padding(22)
+            .padding(Spacing.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.luSurface2))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
-            .coverHoverEffect(cornerRadius: 20)
+            .background(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).fill(Color.luSurface2))
+            .overlay(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+            .coverHoverEffect(cornerRadius: Radius.xl)
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)

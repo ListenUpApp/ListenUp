@@ -53,9 +53,9 @@ struct ServerManualEntryView: View {
                     }
                     .prominentAction()
                     .disabled(viewModel.isLoading || !viewModel.isConnectEnabled)
-                    .padding(.top, 4)
+                    .padding(.top, Spacing.xxs)
                 }
-                .padding(20)
+                .padding(Spacing.l)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle(String(localized: "connect.add_server"))

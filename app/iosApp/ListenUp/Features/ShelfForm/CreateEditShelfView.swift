@@ -191,7 +191,7 @@ struct CreateEditShelfView: View {
 
     private func previewRow() -> some View {
         HStack(spacing: 16) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                 .fill(Color.luFill)
                 .frame(width: 56, height: 56)
                 .overlay {
@@ -222,7 +222,7 @@ struct CreateEditShelfView: View {
             }
             Spacer()
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.xs)
         .accessibilityElement(children: .combine)
     }
 }

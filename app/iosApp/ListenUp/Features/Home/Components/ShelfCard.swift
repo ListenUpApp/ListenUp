@@ -28,11 +28,11 @@ struct ShelfCard: View {
                     .lineLimit(1)
             }
         }
-        .padding(16)
+        .padding(Spacing.m)
         .frame(width: cardWidth, alignment: .leading)
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 20))
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.xl))
         .overlay {
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: Radius.xl)
                 .strokeBorder(Color.luSeparator, lineWidth: 0.5)
         }
         .accessibilityElement(children: .combine)
@@ -52,7 +52,7 @@ struct ShelfCard: View {
                 ForEach(Array(covers.enumerated()), id: \.offset) { index, path in
                     BookCoverImage(coverPath: path)
                         .frame(width: coverSize, height: coverSize)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                         .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
                         .offset(x: CGFloat(index) * 22)
                         .zIndex(Double(covers.count - index))
@@ -64,7 +64,7 @@ struct ShelfCard: View {
     }
 
     private func placeholderTile(offset: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: 8)
+        RoundedRectangle(cornerRadius: Radius.s)
             .fill(Color.gray.opacity(0.2))
             .frame(width: coverSize, height: coverSize)
             .overlay {

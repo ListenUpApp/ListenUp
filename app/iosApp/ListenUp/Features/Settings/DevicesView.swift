@@ -149,7 +149,7 @@ struct DevicesView: View {
                     Text(String(localized: "devices.this_device").uppercased())
                         .font(.caption2.bold())
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, Spacing.xs)
                         .padding(.vertical, 3)
                         .background(Color.luFill, in: Capsule())
                 }
@@ -173,7 +173,7 @@ struct DevicesView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.xs)
     }
 
     // MARK: - Other Devices

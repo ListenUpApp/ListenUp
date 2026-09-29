@@ -89,7 +89,7 @@ extension ButtonStyle where Self == PressScaleButtonStyle {
         Button {
             print("Card tapped")
         } label: {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: Radius.m)
                 .fill(Color.blue)
                 .frame(height: 100)
                 .overlay {
@@ -102,7 +102,7 @@ extension ButtonStyle where Self == PressScaleButtonStyle {
         Button {
             print("Row tapped")
         } label: {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: Radius.s)
                 .fill(Color.green)
                 .frame(height: 60)
                 .overlay {
@@ -116,8 +116,8 @@ extension ButtonStyle where Self == PressScaleButtonStyle {
             print("Chip tapped")
         } label: {
             Text("Chip Scale (0.95)")
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.xs)
                 .background(Color.orange, in: Capsule())
                 .foregroundStyle(.white)
         }

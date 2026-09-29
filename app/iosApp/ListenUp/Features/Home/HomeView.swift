@@ -81,7 +81,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 28) {
                 phaseContent(home: home, stats: stats)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measuredWidth = $0 }

@@ -18,8 +18,8 @@ struct MetadataFlowHeader: View {
                 // An eyebrow, not an action: neutral, so the coral stays for what can be tapped
                 // (HIG, Branding: "Apply your app's accent color judiciously").
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xxs)
                 .background(Capsule().fill(Color.luFill))
             }
             Text(title)

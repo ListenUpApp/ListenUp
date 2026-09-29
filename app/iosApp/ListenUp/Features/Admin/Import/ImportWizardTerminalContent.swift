@@ -212,8 +212,8 @@ struct ImportReviewContent: View {
         .font(.footnote)
         .foregroundStyle(Color.luWarning)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.luWarning.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+        .padding(Spacing.s)
+        .background(Color.luWarning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.m))
     }
 
     private var actionTray: some View {
@@ -221,9 +221,9 @@ struct ImportReviewContent: View {
             ActionLabel(title: String(localized: "import.apply_import"), systemImage: "arrow.right")
         }
         .prominentAction()
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 16)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.s)
+        .padding(.bottom, Spacing.m)
     }
 }
 
@@ -242,16 +242,16 @@ struct ImportCompleteContent: View {
             Section {
                 VStack(spacing: 0) {
                     SuccessBadge(size: 116)
-                        .padding(.top, 16)
+                        .padding(.top, Spacing.m)
                     Text(String(localized: "import.done_title"))
                         .font(.title.weight(.bold))
                         .foregroundStyle(.primary)
-                        .padding(.top, 22)
+                        .padding(.top, Spacing.xl)
                     Text(String(localized: "import.done_subtitle"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 8)
+                        .padding(.top, Spacing.xs)
                 }
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.clear)
@@ -288,9 +288,9 @@ struct ImportCompleteContent: View {
                 ActionLabel(title: String(localized: "common.done"), systemImage: "checkmark")
             }
             .prominentAction()
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
+            .padding(.horizontal, Spacing.l)
+            .padding(.top, Spacing.s)
+            .padding(.bottom, Spacing.m)
         }
     }
 }
@@ -322,8 +322,8 @@ struct ImportErrorContent: View {
                     .font(.body.weight(.medium))
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
+            .padding(.horizontal, Spacing.l)
+            .padding(.bottom, Spacing.m)
             .readableWidth(520)
         }
     }

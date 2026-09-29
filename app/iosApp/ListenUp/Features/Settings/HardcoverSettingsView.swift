@@ -234,7 +234,7 @@ private struct HardcoverLinkingPhase: View {
             .haptic(.commit, trigger: copied)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "hardcover.your_code"))
     }
@@ -271,7 +271,7 @@ private struct HardcoverConnectedPhase: View {
                     }
                     .accessibilityElement(children: .combine)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, Spacing.xxs)
             }
             Section(String(localized: "hardcover.what_is_shared")) {
                 HardcoverStatementRow(
@@ -376,7 +376,7 @@ private struct HardcoverHero: View {
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, Spacing.s)
     }
 }
 
@@ -404,9 +404,9 @@ private struct HardcoverActions<Content: View>: View {
         VStack(spacing: 10) {
             content
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.xs)
+        .padding(.bottom, Spacing.s)
         .readableWidth()
     }
 }

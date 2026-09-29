@@ -28,7 +28,7 @@ extension View {
     /// HIG, Pointing devices: "Use lift for a small element that has an opaque background" — a cover
     /// is exactly that. The hover shape follows the cover's rounded corners, so the lift and its
     /// specular highlight sit on the artwork rather than on the whole card.
-    func coverHoverEffect(cornerRadius: CGFloat = 8) -> some View {
+    func coverHoverEffect(cornerRadius: CGFloat = Radius.s) -> some View {
         contentShape(.hoverEffect, RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .hoverEffect(.lift)
     }

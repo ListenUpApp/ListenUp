@@ -112,8 +112,8 @@ struct BookFacetChips<Destination: Hashable>: View {
             Text(value)
                 .font(.caption)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background {
             if kind.isOutlined {
                 Capsule().strokeBorder(Color.luSeparator, lineWidth: 1.5)

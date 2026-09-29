@@ -82,7 +82,7 @@ struct EditProfileView: View {
                 avatarPreview(observer)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, Spacing.xs)
         }
     }
 

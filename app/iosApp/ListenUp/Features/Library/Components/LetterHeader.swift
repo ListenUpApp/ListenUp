@@ -17,8 +17,8 @@ struct LetterHeader: View {
                 .fill(Color.luSeparator)
                 .frame(height: hairline)
         }
-        .padding(.top, 16)
-        .padding(.bottom, 8)
+        .padding(.top, Spacing.m)
+        .padding(.bottom, Spacing.xs)
         .accessibilityAddTraits(.isHeader)
     }
 }

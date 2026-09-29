@@ -187,7 +187,7 @@ private struct StorageSummaryCard: View {
 
             ProgressView(value: usageFraction)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xxs)
     }
 }
 

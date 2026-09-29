@@ -174,7 +174,7 @@ private struct AliasesEditSection: View {
                             AliasChip(alias: alias, onRemove: { pendingUnmerge = alias })
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, Spacing.xxs)
                 }
             }
             .confirmationDialog(
@@ -217,8 +217,8 @@ private struct AliasChip: View {
             .buttonStyle(.plain)
             .accessibilityLabel(String(format: String(localized: "contributor.remove_aliasname"), alias))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background(Color.luFill, in: Capsule())
     }
 }

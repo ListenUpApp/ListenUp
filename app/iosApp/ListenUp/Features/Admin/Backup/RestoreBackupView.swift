@@ -93,7 +93,7 @@ struct RestoreBackupView: View {
                     Text(String(localized: "admin.restore_this_backup"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Spacing.xs)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
@@ -114,8 +114,8 @@ struct RestoreBackupView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(Spacing.m)
+        .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
     }
 
     // MARK: - Restoring
@@ -130,7 +130,7 @@ struct RestoreBackupView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(32)
+        .padding(Spacing.xxl)
     }
 
     // MARK: - Completed
@@ -154,7 +154,7 @@ struct RestoreBackupView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, Spacing.xs)
             }
             Section {
                 Button {
@@ -163,7 +163,7 @@ struct RestoreBackupView: View {
                     Text(String(localized: "common.done"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Spacing.xs)
                 }
                 .buttonStyle(.borderedProminent)
                 .onBrandFillLabel()

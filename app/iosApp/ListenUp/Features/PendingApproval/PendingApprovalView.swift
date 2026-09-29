@@ -178,8 +178,8 @@ private struct PendingReviewChip: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.listenUpOrange)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background(Capsule().fill(Color.listenUpOrange.opacity(0.13)))
     }
 }
@@ -260,7 +260,7 @@ private struct RegStepRow: View {
                         Text(String(localized: "auth.reg_step_in_progress").uppercased())
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(Color.listenUpOrange)
-                            .padding(.horizontal, 7)
+                            .padding(.horizontal, Spacing.xs)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.listenUpOrange.opacity(0.15)))
                     }
@@ -272,8 +272,8 @@ private struct RegStepRow: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 }
 

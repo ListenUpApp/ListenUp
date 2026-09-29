@@ -88,7 +88,7 @@ struct CreateBackupSheet: View {
                     Text(String(localized: "admin.create_backup"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Spacing.xs)
                 }
                 .buttonStyle(.borderedProminent)
                 .onBrandFillLabel()

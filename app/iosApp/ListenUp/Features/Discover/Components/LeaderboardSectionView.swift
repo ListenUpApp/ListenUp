@@ -67,7 +67,7 @@ struct LeaderboardSectionView: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, Spacing.xl)
         case .empty:
             sectionMessage(String(localized: "discover.leaderboard_empty"))
         case .data(let rows):
@@ -90,6 +90,6 @@ struct LeaderboardSectionView: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
+            .padding(.vertical, Spacing.s)
     }
 }

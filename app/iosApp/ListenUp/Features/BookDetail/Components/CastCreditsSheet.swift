@@ -50,11 +50,11 @@ struct CastCreditsSheet: View {
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.top, 14)
+                                .padding(.top, Spacing.m)
                         }
                     }
                 }
-                .padding(20)
+                .padding(Spacing.l)
             }
             .navigationTitle(String(localized: "book.detail_credits"))
             .navigationBarTitleDisplayMode(.inline)
@@ -68,8 +68,8 @@ struct CastCreditsSheet: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 4)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.xxs)
             }
         }
     }
@@ -98,7 +98,7 @@ struct CastCreditsSheet: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, Spacing.xs)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }

@@ -38,8 +38,8 @@ struct RoleChip: View {
         // A label, not an action, so every role is neutral; the icon tells them apart
         // (HIG, Color: "reserve it for elements that truly benefit from emphasis").
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 11)
-        .padding(.vertical, 5)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xxs)
         .background(Capsule().fill(Color.luFill))
     }
 }

@@ -10,7 +10,7 @@ struct AuthCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(26)
+            .padding(Spacing.xl)
             .frame(maxWidth: maxWidth)
             .background(
                 RoundedRectangle(cornerRadius: AuthMetrics.cardCornerRadius, style: .continuous)

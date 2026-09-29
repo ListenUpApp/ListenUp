@@ -95,7 +95,7 @@ struct FacetBooksView: View {
             }
             .readableWidth()
             .padding(.horizontal)
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
             .padding(.bottom, 100)
         }
     }

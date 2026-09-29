@@ -14,7 +14,7 @@ struct PageThumbnailCell: View {
             VStack(spacing: 5) {
                 thumbnail
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
                             .stroke(isCurrent ? Color.listenUpOrange : Color.clear, lineWidth: 2.5)
                     )
                 Text("\(index + 1)")
@@ -33,9 +33,9 @@ struct PageThumbnailCell: View {
         if let page = document.page(at: index) {
             Image(uiImage: page.thumbnail(of: CGSize(width: 160, height: 210), for: .cropBox))
                 .resizable().aspectRatio(contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.xs, style: .continuous))
         } else {
-            RoundedRectangle(cornerRadius: 4).fill(Color(.secondarySystemFill)).aspectRatio(0.77, contentMode: .fit)
+            RoundedRectangle(cornerRadius: Radius.xs).fill(Color(.secondarySystemFill)).aspectRatio(0.77, contentMode: .fit)
         }
     }
 }

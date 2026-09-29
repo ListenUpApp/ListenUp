@@ -86,8 +86,8 @@ struct ABSImportHubView: View {
         if ready.imports.isEmpty {
             ScrollView {
                 emptyState
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.vertical, Spacing.m)
                     .readableWidth(640)
             }
             .refreshable { observer.reload() }
@@ -204,8 +204,8 @@ private struct ImportSummaryRow: View {
         Text(stageLabel)
             .font(.caption.weight(.semibold))
             .foregroundStyle(stageTint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xxs)
             .background(stageTint.opacity(0.15), in: Capsule())
     }
 

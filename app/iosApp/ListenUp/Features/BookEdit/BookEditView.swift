@@ -563,9 +563,9 @@ private struct RemovableChip: View {
             .buttonStyle(.plain)
             .accessibilityLabel(removeLabel)
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 5)
-        .padding(.vertical, 5)
+        .padding(.leading, Spacing.s)
+        .padding(.trailing, Spacing.xxs)
+        .padding(.vertical, Spacing.xxs)
         .background(Capsule().fill(Color.luFill.opacity(0.6)))
     }
 }

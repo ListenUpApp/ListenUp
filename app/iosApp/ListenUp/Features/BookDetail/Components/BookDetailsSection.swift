@@ -42,7 +42,7 @@ struct BookDetailsSection: View {
                     .foregroundStyle(.tint)
                     .accessibilityHint(Text(String(localized: "book.detail_credits_hint")))
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, Spacing.xs)
 
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 if index > 0 { Divider() }
@@ -133,7 +133,7 @@ struct BookDetailsSection: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .combine)
     }
 }

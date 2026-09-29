@@ -22,16 +22,16 @@ struct MetadataUpdatedView: View {
 
                     Text(String(localized: "metadata.updated_title"))
                         .font(.largeTitle.weight(.bold))
-                        .padding(.top, 22)
+                        .padding(.top, Spacing.xl)
 
                     Text(String(format: String(localized: "metadata.updated_subtitle"), bookTitle))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 8)
+                        .padding(.top, Spacing.xs)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.top, 24)
+                .padding(.top, Spacing.xl)
                 .listRowBackground(Color.clear)
             }
             summary
@@ -47,7 +47,7 @@ struct MetadataUpdatedView: View {
                     ActionLabel(title: String(localized: "common.done"), systemImage: "checkmark")
                 }
                 .prominentAction()
-                .padding(16)
+                .padding(Spacing.m)
                 .readableWidth(360)
             }
         }

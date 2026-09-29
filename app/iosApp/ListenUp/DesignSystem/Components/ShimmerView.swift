@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Usage:
 /// ```swift
-/// RoundedRectangle(cornerRadius: 8)
+/// RoundedRectangle(cornerRadius: Radius.s)
 ///     .fill(Color.gray.opacity(0.3))
 ///     .shimmer()
 /// ```
@@ -55,19 +55,19 @@ struct BookCoverShimmer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Cover placeholder (square)
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: Radius.s)
                 .fill(Color.gray.opacity(0.2))
                 .aspectRatio(1, contentMode: .fit)
                 .shimmer()
 
             // Title placeholder (single line)
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: Radius.xs)
                 .fill(Color.gray.opacity(0.2))
                 .frame(height: 14)
                 .shimmer()
 
             // Author placeholder (single line)
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: Radius.xs)
                 .fill(Color.gray.opacity(0.2))
                 .frame(height: 12)
                 .shimmer()
@@ -81,7 +81,7 @@ struct BookCoverShimmer: View {
 #Preview("Shimmer Effect") {
     VStack(spacing: 24) {
         // Single shimmer
-        RoundedRectangle(cornerRadius: 8)
+        RoundedRectangle(cornerRadius: Radius.s)
             .fill(Color.gray.opacity(0.2))
             .frame(width: 150, height: 200)
             .shimmer()

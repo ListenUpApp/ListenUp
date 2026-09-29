@@ -24,7 +24,7 @@ struct ActivitySectionView: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, Spacing.xl)
         case .ready(let items):
             if items.isEmpty {
                 sectionMessage(String(localized: "discover.no_activity_yet_start_listening"))
@@ -49,6 +49,6 @@ struct ActivitySectionView: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
+            .padding(.vertical, Spacing.s)
     }
 }

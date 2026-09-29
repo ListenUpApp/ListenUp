@@ -62,10 +62,10 @@ extension Color {
         VStack(spacing: 12) {
             ForEach(swatches, id: \.0) { name, color in
                 HStack(spacing: 16) {
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: Radius.s)
                         .fill(color)
                         .frame(width: 56, height: 36)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.luSeparator))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.s).stroke(Color.luSeparator))
                     Text(name).foregroundStyle(.primary)
                     Spacer()
                 }

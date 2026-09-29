@@ -85,7 +85,7 @@ struct SearchResultsPad: View {
                     }
                 }
             }
-            .padding(24)
+            .padding(Spacing.xl)
         }
     }
 
@@ -145,8 +145,8 @@ private struct SearchBookCard: View {
             BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .coverHoverEffect(cornerRadius: 10)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.m))
+                .coverHoverEffect(cornerRadius: Radius.m)
             Text(row.name)
                 .font(.subheadline)
                 .foregroundStyle(.primary)

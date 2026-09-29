@@ -15,7 +15,7 @@ struct SeriesProgressBadge: View {
             }
             .font(.caption.weight(.semibold))
             .foregroundStyle(Color.luTint)
-            .padding(.horizontal, 10).padding(.vertical, 4)
+            .padding(.horizontal, Spacing.s).padding(.vertical, Spacing.xxs)
             .background(Capsule().fill(Color.luTint.opacity(0.12)))
             .accessibilityLabel(Text(String(localized: "series.complete")))
         case .notStarted:

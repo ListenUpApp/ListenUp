@@ -27,16 +27,16 @@ struct SeriesRowCard: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    SeriesProgressBadge(state: progress).padding(.top, 9)
+                    SeriesProgressBadge(state: progress).padding(.top, Spacing.xs)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.luSurface2))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+            .padding(Spacing.m)
+            .background(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).fill(Color.luSurface2))
+            .overlay(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)

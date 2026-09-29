@@ -43,9 +43,9 @@ struct PersonRow: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.tertiary)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

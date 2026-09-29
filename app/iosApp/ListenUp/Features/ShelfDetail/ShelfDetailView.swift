@@ -136,8 +136,8 @@ private struct ShelfBookCoverCard: View {
         VStack(alignment: .leading, spacing: 8) {
             BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                 .aspectRatio(1, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .coverHoverEffect(cornerRadius: 8)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                .coverHoverEffect(cornerRadius: Radius.s)
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
 
             VStack(alignment: .leading, spacing: 2) {

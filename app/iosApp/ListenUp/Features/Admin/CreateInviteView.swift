@@ -30,8 +30,8 @@ struct CreateInviteView: View {
                     if let invite = observer.phase.createdInvite {
                         ScrollView {
                             successContent(observer: observer, invite: invite)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 16)
+                                .padding(.horizontal, Spacing.l)
+                                .padding(.vertical, Spacing.m)
                                 .readableWidth(560)
                         }
                     } else {

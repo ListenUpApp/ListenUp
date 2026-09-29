@@ -28,7 +28,7 @@ struct RescanPill: View {
                     .font(.subheadline)
             }
             .foregroundStyle(Color.listenUpOrange)
-            .padding(.horizontal, 13)
+            .padding(.horizontal, Spacing.s)
             .frame(height: 32)
             .authGlassControl(in: .capsule, reduceTransparency: reduceTransparency)
         }

@@ -61,7 +61,7 @@ struct ServerSelectView: View {
                 .font(.footnote).foregroundStyle(.secondary)
             Text("\(viewModel.servers.count)")
                 .font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                .padding(.horizontal, 7).padding(.vertical, 2)
+                .padding(.horizontal, Spacing.xs).padding(.vertical, 2)
                 .background(Capsule().fill(Color.luFill))
             Spacer()
             RescanPill(isBusy: viewModel.isDiscovering) { viewModel.refresh() }
@@ -97,7 +97,7 @@ private struct ServerRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 13) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .fill(isSelected ? Color.listenUpOrange : Color(.systemFill))
                     .frame(width: 40, height: 40)
                     .overlay {
@@ -123,7 +123,7 @@ private struct ServerRow: View {
                 trailing
             }
             .frame(minHeight: 68)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Spacing.m)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -151,7 +151,7 @@ private struct AddServerRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 13) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .fill(Color.listenUpOrange.opacity(0.14)).frame(width: 40, height: 40)
                     .overlay { Image(systemName: "plus").foregroundStyle(Color.listenUpOrange) }
                 Text(String(localized: "connect.add_server_manually"))
@@ -159,7 +159,7 @@ private struct AddServerRow: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
             }
-            .frame(minHeight: 56).padding(.horizontal, 14).contentShape(Rectangle())
+            .frame(minHeight: 56).padding(.horizontal, Spacing.m).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -179,9 +179,9 @@ private struct DiscoveryRow: View {
             }
             Spacer()
         }
-        .frame(minHeight: 56).padding(.horizontal, 14)
+        .frame(minHeight: 56).padding(.horizontal, Spacing.m)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, 14)
+            Rectangle().fill(Color.luSeparator).frame(height: 0.5).padding(.leading, Spacing.m)
         }
     }
 }

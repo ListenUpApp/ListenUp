@@ -17,7 +17,7 @@ import Shared
 /// ```swift
 /// BookCoverImage(book: book)
 ///     .frame(width: 100, height: 100)
-///     .clipShape(RoundedRectangle(cornerRadius: 8))
+///     .clipShape(RoundedRectangle(cornerRadius: Radius.s))
 /// ```
 struct BookCoverImage: View {
     let bookId: String?
@@ -162,5 +162,5 @@ struct BookCoverImage: View {
 #Preview("Placeholder") {
     BookCoverImage(coverPath: nil)
         .frame(width: 100, height: 100)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
 }

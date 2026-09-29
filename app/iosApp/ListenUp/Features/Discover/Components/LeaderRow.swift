@@ -28,8 +28,8 @@ struct LeaderRow: View {
                     .fontWeight(row.isCurrentUser ? .bold : .medium)
                     .foregroundStyle(row.isCurrentUser ? Color.luTint : Color.secondary)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, row.isCurrentUser ? 10 : 0)
+            .padding(.vertical, Spacing.s)
+            .padding(.horizontal, row.isCurrentUser ? Spacing.s : 0)
             .background(rowBackground)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(row.rank). \(name), \(row.value)")
@@ -43,7 +43,7 @@ struct LeaderRow: View {
 
     @ViewBuilder private var rowBackground: some View {
         if row.isCurrentUser {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: Radius.m)
                 .fill(Color.luTint.opacity(0.07))
         }
     }

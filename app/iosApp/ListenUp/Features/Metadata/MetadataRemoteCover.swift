@@ -26,7 +26,7 @@ struct MetadataRemoteCover: View {
 #Preview("MetadataRemoteCover") {
     MetadataRemoteCover(url: nil)
         .frame(width: 80, height: 80)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.m))
         .padding()
         .background(Color.luSurface)
 }

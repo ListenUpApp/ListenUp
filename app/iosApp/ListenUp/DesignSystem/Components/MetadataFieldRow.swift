@@ -100,7 +100,7 @@ extension MetadataFieldRow where Thumb == EmptyView {
                 ) {
                     Text("New artwork from Audible").font(.callout)
                 } thumb: {
-                    RoundedRectangle(cornerRadius: 6).fill(Color.luFill).frame(width: 36, height: 36)
+                    RoundedRectangle(cornerRadius: Radius.s).fill(Color.luFill).frame(width: 36, height: 36)
                 }
                 MetadataFieldRow(
                     systemImage: "textformat",

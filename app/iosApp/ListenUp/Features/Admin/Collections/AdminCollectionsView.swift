@@ -112,7 +112,7 @@ struct AdminCollectionsView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(16)
+            .padding(Spacing.m)
         }
         .overlay {
             if ready.collections.isEmpty {
@@ -164,7 +164,7 @@ struct AdminCollectionsView: View {
             }
             .buttonStyle(.borderedProminent)
             .onBrandFillLabel()
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
         .padding()
     }
@@ -228,7 +228,7 @@ private struct CollectionTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .fill(Color.luFill)
                     .aspectRatio(1, contentMode: .fit)
                 if isDeleting {
@@ -244,7 +244,7 @@ private struct CollectionTile: View {
                     Image(systemName: "lock.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .padding(8)
+                        .padding(Spacing.xs)
                         .accessibilityLabel(Text(String(localized: "admin.system_collection_locked")))
                 }
             }
@@ -275,7 +275,7 @@ private struct NewCollectionTile: View {
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 3]))
                     .foregroundStyle(.tertiary)
                     .aspectRatio(1, contentMode: .fit)

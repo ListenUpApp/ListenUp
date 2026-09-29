@@ -206,7 +206,7 @@ struct AdminCategoriesView: View {
             }
             .buttonStyle(.borderedProminent)
             .onBrandFillLabel()
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
         .padding()
     }
@@ -302,8 +302,8 @@ private struct GenreRowView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.leading, CGFloat(row.depth) * 20)
-        .padding(.vertical, 4)
+        .padding(.leading, CGFloat(row.depth) * Spacing.l)
+        .padding(.vertical, Spacing.xxs)
         .accessibilityElement(children: .combine)
     }
 }

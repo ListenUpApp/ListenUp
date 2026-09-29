@@ -108,7 +108,7 @@ struct DiscoverView: View {
                 socialSections(leaderboard: leaderboard, activity: activity)
                     .padding(.horizontal, horizontalInset)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, Spacing.xs)
         }
         .refreshable {
             discover.refresh()

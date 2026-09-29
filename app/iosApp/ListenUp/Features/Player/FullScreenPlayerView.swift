@@ -145,7 +145,7 @@ struct FullScreenPlayerView: View {
                     Text("book.detail_retry")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.luOnTint)
-                        .padding(.horizontal, 28)
+                        .padding(.horizontal, Spacing.xxl)
                         .frame(minHeight: 44)
                         .background(Capsule().fill(tint))
                 }
@@ -158,7 +158,7 @@ struct FullScreenPlayerView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(32)
+            .padding(Spacing.xxl)
         }
     }
 
@@ -231,7 +231,7 @@ struct FullScreenPlayerView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     cover(side: PlayerLayoutMode.scrollingCoverSide(columnWidth: width))
-                        .padding(.top, 12)
+                        .padding(.top, Spacing.s)
                     controlsColumn(showsChapters: showsChapters, showsVolume: true)
                         .padding(.horizontal, margin)
                 }
@@ -276,7 +276,7 @@ struct FullScreenPlayerView: View {
             coverHash: observer.coverHash
         )
         .frame(width: side, height: side)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
         .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
         .accessibilityHidden(true)
     }
@@ -310,7 +310,7 @@ struct FullScreenPlayerView: View {
             moreMenu
         }
         .frame(minHeight: Self.headerHeight)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Spacing.m)
     }
 
     /// A 36pt glass disc — a floating control, where Liquid Glass belongs — in a 44pt hit area.

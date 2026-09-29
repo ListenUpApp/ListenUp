@@ -85,7 +85,7 @@ struct SettingsView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, Spacing.xxs)
         }
     }
 
@@ -441,7 +441,7 @@ private struct SettingsLabel: View {
                 }
             }
         } icon: {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.s, style: .continuous)
                 .fill(tint)
                 .frame(width: 29, height: 29)
                 .overlay {

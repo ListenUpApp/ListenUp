@@ -28,7 +28,7 @@ struct SupplementaryMaterialsSection: View {
                     .frame(width: 44, height: 44)
                     .background(
                         Color.listenUpOrange.opacity(0.14),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -45,12 +45,12 @@ struct SupplementaryMaterialsSection: View {
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                 }
             }
-            .padding(14)
+            .padding(Spacing.m)
             .background(
                 Color(.secondarySystemGroupedBackground),
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(openingDocIds.contains(doc.id))

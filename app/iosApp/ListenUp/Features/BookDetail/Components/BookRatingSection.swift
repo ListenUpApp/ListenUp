@@ -86,7 +86,7 @@ struct BookRatingSection: View {
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                     .strokeBorder(Color.luSeparator, lineWidth: 1.5)
             )
         }

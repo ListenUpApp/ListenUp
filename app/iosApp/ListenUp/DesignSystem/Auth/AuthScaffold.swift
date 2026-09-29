@@ -59,15 +59,15 @@ struct AuthScaffold<Content: View, Footer: View>: View {
                 content
             }
             .padding(.horizontal, AuthMetrics.contentHorizontalPadding)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
+            .padding(.top, Spacing.xs)
+            .padding(.bottom, Spacing.s)
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaBar(edge: .bottom) {
             VStack(spacing: 12) { footer }
                 .padding(.horizontal, AuthMetrics.contentHorizontalPadding)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.xs)
         }
     }
 

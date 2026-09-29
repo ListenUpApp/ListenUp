@@ -24,7 +24,7 @@ struct PageGridView: View {
                         )
                     }
                 }
-                .padding(16)
+                .padding(Spacing.m)
             }
             .navigationTitle(String(localized: "book.detail_document_pages_title"))
             .navigationBarTitleDisplayMode(.inline)

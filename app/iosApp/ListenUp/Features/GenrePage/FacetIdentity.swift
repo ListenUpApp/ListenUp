@@ -64,11 +64,11 @@ struct FacetIconTile: View {
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 17, style: .continuous)
+        RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
             .fill(hue.opacity(0.16))
             .frame(width: size, height: size)
             .overlay {
-                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
                     .strokeBorder(hue.opacity(colorSchemeContrast == .increased ? 0.6 : 0.3), lineWidth: 1)
             }
             .overlay {

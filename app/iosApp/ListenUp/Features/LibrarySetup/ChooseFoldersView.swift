@@ -93,7 +93,7 @@ struct ChooseFoldersView: View {
                 .accessibilityHint(String(localized: "library_setup.up_hint"))
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Spacing.m)
         .frame(minHeight: 44)
         .background(
             RoundedRectangle(cornerRadius: AuthMetrics.fieldGroupCornerRadius, style: .continuous)
@@ -141,7 +141,7 @@ struct ChooseFoldersView: View {
             Spacer()
         }
         .frame(minHeight: 56)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Spacing.m)
     }
 
     /// Control to include the CURRENT folder as a library root — it toggles the
@@ -162,7 +162,7 @@ struct ChooseFoldersView: View {
                 Spacer()
             }
             .frame(minHeight: 56)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Spacing.m)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -255,8 +255,8 @@ private struct FolderRow: View {
                 .accessibilityHidden(true)
         }
         .frame(minHeight: 60)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.xs)
         .overlay(alignment: .bottom) {
             if !isLast {
                 Rectangle()
@@ -269,7 +269,7 @@ private struct FolderRow: View {
 
     /// A coloured folder tile, mirroring `ServerRow`'s leading icon idiom.
     private var glyph: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
+        RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
             .fill(item.isSelected ? Color.listenUpOrange : Color(.systemFill))
             .frame(width: 40, height: 40)
             .overlay {

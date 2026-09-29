@@ -35,7 +35,7 @@ struct RegionPicker<Option: Hashable>: View {
                 Text(label(option)).font(.subheadline.weight(.semibold))
             }
             .foregroundStyle(isOn ? Color.luOnTint : Color.primary)
-            .padding(.horizontal, isOn ? 14 : 16)
+            .padding(.horizontal, isOn ? Spacing.s : Spacing.m) // the checkmark takes the difference
             .frame(height: 36)
             .background(Capsule().fill(isOn ? AnyShapeStyle(Color.luTint) : AnyShapeStyle(Color.luFill)))
         }

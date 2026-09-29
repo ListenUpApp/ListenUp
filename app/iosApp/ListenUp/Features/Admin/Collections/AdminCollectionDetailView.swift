@@ -205,7 +205,7 @@ struct AdminCollectionDetailView: View {
                         )
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, Spacing.xs)
             }
         } header: {
             AdminSectionHeader(String(localized: "admin.books_in_collection")) {
@@ -231,7 +231,7 @@ struct AdminCollectionDetailView: View {
         ZStack(alignment: .topTrailing) {
             BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                 .frame(width: 80, height: 80)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
                 .opacity(isRemoving ? 0.5 : 1)
 
             if isRemoving {

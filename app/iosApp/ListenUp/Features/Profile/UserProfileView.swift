@@ -21,8 +21,8 @@ struct UserProfileView: View {
             ScrollView {
                 content(columns)
                     .padding(.horizontal, DetailColumns.margin)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.xl)
                     .readableWidth(columns == .stacked ? 640 : 1100)
             }
         }
@@ -72,7 +72,7 @@ struct UserProfileView: View {
                 statStrip
                 editButton
                 actionsSection
-                    .padding(.top, 8)
+                    .padding(.top, Spacing.xs)
             }
         }
     }
@@ -124,13 +124,13 @@ struct UserProfileView: View {
                 .init(value: "\(stats.longestStreak)",
                       label: String(localized: "profile.stat_best"))
             ])
-            .padding(.vertical, 14)
+            .padding(.vertical, Spacing.m)
             .frame(maxWidth: .infinity)
-            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         } else {
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 72)
-                .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         }
     }
 
@@ -145,7 +145,7 @@ struct UserProfileView: View {
             }
             .foregroundStyle(Color.luTint)
             .frame(maxWidth: .infinity, minHeight: 50)
-            .background(Color.luFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.luFill, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -176,7 +176,7 @@ struct UserProfileView: View {
 
             actionRow(icon: "arrow.down.circle", title: String(localized: "common.downloads"))
         }
-        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
 
     private func actionRow(icon: String, title: String) -> some View {
@@ -195,7 +195,7 @@ struct UserProfileView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Spacing.m)
         .frame(minHeight: 52)
         .contentShape(Rectangle())
     }

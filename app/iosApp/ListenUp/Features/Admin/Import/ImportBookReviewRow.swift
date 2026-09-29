@@ -23,7 +23,7 @@ struct ImportBookReviewRow: View {
     var body: some View {
         VStack(spacing: 0) {
             identityRow
-            Divider().padding(.leading, 14)
+            Divider().padding(.leading, Spacing.m)
             resolutionRow
         }
     }
@@ -48,8 +48,8 @@ struct ImportBookReviewRow: View {
             Spacer(minLength: 8)
             statusPill
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     @ViewBuilder
@@ -59,8 +59,8 @@ struct ImportBookReviewRow: View {
             Text(String(localized: "import.user_needs_review"))
                 .font(.caption.weight(.bold))
                 .foregroundStyle(Color.luWarning)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xxs)
                 .background(Color.luWarning.opacity(0.16), in: Capsule())
         case .assigned, .skipped:
             Label(
@@ -104,7 +104,7 @@ struct ImportBookReviewRow: View {
             }
             .buttonStyle(.pressScaleChip)
         }
-        .padding(.vertical, 13)
+        .padding(.vertical, Spacing.s)
     }
 
     // MARK: - Search panel
@@ -164,8 +164,8 @@ struct ImportBookReviewRow: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 }
 

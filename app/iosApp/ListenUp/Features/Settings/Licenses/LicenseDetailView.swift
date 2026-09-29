@@ -49,9 +49,9 @@ struct LicenseDetailView: View {
                     Spacer(minLength: 8)
                     LicenseChip(spdxId: lib.spdxId)
                 }
-                .padding(16)
+                .padding(Spacing.m)
                 .background(Color.luSurface2)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
 
                 // Project link — omitted when the URL is malformed (never force-unwrap).
                 if let url = Self.projectURL(lib.url) {
@@ -63,9 +63,9 @@ struct LicenseDetailView: View {
                         }
                         .font(.callout.weight(.medium))
                         .foregroundStyle(Color.luTint)
-                        .padding(14)
+                        .padding(Spacing.m)
                         .background(Color.luSurface2)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                     }
                 }
 
@@ -75,12 +75,12 @@ struct LicenseDetailView: View {
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .padding(Spacing.m)
                     .background(Color.luSurface2)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.m)
             .readableWidth(720)
         }
         .background(Color.luSurface)

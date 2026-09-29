@@ -48,7 +48,7 @@ struct SyncStatusIndicator: View {
                         Text("\(count)")
                             .font(.system(size: 10, weight: .bold)) // decorative fixed size
                             .foregroundStyle(Color.luOnTint)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, Spacing.xxs)
                             .padding(.vertical, 1)
                             .background(Color.listenUpOrange, in: Capsule())
                             .offset(x: 8, y: -8)
@@ -92,7 +92,7 @@ private struct SyncDetailsSheet: View {
                             }
                         }
                         .font(.subheadline.weight(.medium))
-                        .padding(.top, 4)
+                        .padding(.top, Spacing.xxs)
                     }
                 }
             }

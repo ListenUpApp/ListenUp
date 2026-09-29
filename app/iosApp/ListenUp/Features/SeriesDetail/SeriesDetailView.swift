@@ -105,9 +105,9 @@ struct SeriesDetailView: View {
             Section {
                 VStack(spacing: 0) {
                     heroSection(observer: observer)
-                        .padding(.top, 16)
+                        .padding(.top, Spacing.m)
                     statStripSection(observer: observer)
-                        .padding(.vertical, 20)
+                        .padding(.vertical, Spacing.l)
                     if let description = observer.seriesDescription, !description.isEmpty {
                         ExpandableText(
                             title: String(localized: "common.about"),
@@ -118,7 +118,7 @@ struct SeriesDetailView: View {
                     }
                     continueButton(observer: observer)
                         .padding(.horizontal)
-                        .padding(.top, 20)
+                        .padding(.top, Spacing.l)
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -135,7 +135,7 @@ struct SeriesDetailView: View {
                 VStack(spacing: 0) {
                     heroSection(observer: observer)
                     statStripSection(observer: observer)
-                        .padding(.vertical, 20)
+                        .padding(.vertical, Spacing.l)
                     if let description = observer.seriesDescription, !description.isEmpty {
                         ExpandableText(
                             title: String(localized: "common.about"),
@@ -144,9 +144,9 @@ struct SeriesDetailView: View {
                         )
                     }
                     continueButton(observer: observer)
-                        .padding(.top, 20)
+                        .padding(.top, Spacing.l)
                 }
-                .padding(.vertical, 24)
+                .padding(.vertical, Spacing.xl)
             }
             .frame(width: railWidth)
             // Right column — the books list
@@ -256,8 +256,8 @@ struct SeriesDetailView: View {
                         isPlaying: observer.isPlaying(book.id),
                         onPlayTapped: {}
                     )
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
                 }
             }
         } header: {

@@ -24,17 +24,17 @@ struct BoostPickerSheet: View {
                     .font(.system(size: boostReadoutSize, weight: .bold)) // scaled via @ScaledMetric
                     .monospacedDigit()
                     .foregroundStyle(Color.luTint)
-                    .padding(.top, 8)
+                    .padding(.top, Spacing.xs)
 
                 boostChips
-                    .padding(.top, 24)
+                    .padding(.top, Spacing.xl)
 
                 useDefaultRow
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.horizontal, Spacing.l)
+            .padding(.top, Spacing.xs)
             .navigationTitle(String(localized: "player.volume_boost"))
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -67,7 +67,7 @@ struct BoostPickerSheet: View {
                     .foregroundStyle(Color.secondary)
             }
             .buttonStyle(.plain)
-            .padding(.top, 20)
+            .padding(.top, Spacing.l)
         }
     }
 
@@ -152,15 +152,15 @@ struct ChapterRow: View {
                     }
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.s)
             .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
             // Make the whole row tappable — without this the transparent gaps
             // (Spacer, the clear background of non-current rows) aren't hit-tested,
             // so only the text/glyphs register taps.
             .contentShape(Rectangle())
             .background(
-                RoundedRectangle(cornerRadius: 11)
+                RoundedRectangle(cornerRadius: Radius.m)
                     .fill(isCurrent ? tint.opacity(0.09) : .clear)
             )
             .overlay(alignment: .bottom) {
@@ -205,8 +205,8 @@ struct ChapterListSheet: View {
                         )
                     }
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 8)
+                .padding(.horizontal, Spacing.xs)
+                .padding(.vertical, Spacing.xs)
             }
             .navigationTitle(String(localized: "player.chapters"))
             .navigationBarTitleDisplayMode(.inline)
@@ -230,7 +230,7 @@ private struct PillButton: View {
                 .fontWeight(isSelected ? .semibold : .medium)
                 .monospacedDigit()
                 .foregroundStyle(isSelected ? Color.luOnTint : .primary)
-                .padding(.horizontal, 18)
+                .padding(.horizontal, Spacing.l)
                 .frame(height: 44)
                 .background(Capsule().fill(isSelected ? AnyShapeStyle(Color.luTint) : AnyShapeStyle(Color.luFill)))
         }

@@ -37,8 +37,8 @@ struct ServerUnreachableBanner: View {
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "book.detail_retry"))
         }
-        .padding(14)
+        .padding(Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.luFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.luFill, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
 }

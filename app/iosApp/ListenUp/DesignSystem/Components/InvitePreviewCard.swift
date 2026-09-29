@@ -34,11 +34,11 @@ struct InvitePreviewCard: View {
             }
             urlPill
         }
-        .padding(16)
+        .padding(Spacing.m)
         .background(Color.luTint.opacity(0.09))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
                 .stroke(Color.luSeparator, lineWidth: 0.5)
         )
     }
@@ -61,16 +61,16 @@ struct InvitePreviewCard: View {
                 }
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.luOnTint)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, Spacing.m)
                 .frame(height: 32)
-                .background(Color.luTint, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(Color.luTint, in: RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
             }
             .buttonStyle(PressScaleButtonStyle(scale: .chip))
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 6)
+        .padding(.leading, Spacing.m)
+        .padding(.trailing, Spacing.xs)
         .frame(height: 44)
-        .background(Color.luFill, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .background(Color.luFill, in: RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
     }
 
     private func flashCopied() {

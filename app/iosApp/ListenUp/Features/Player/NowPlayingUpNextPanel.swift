@@ -22,8 +22,8 @@ struct NowPlayingUpNextPanel: View {
             Text(summary)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
+                .padding(.top, Spacing.xxs)
+                .padding(.bottom, Spacing.s)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
@@ -37,15 +37,15 @@ struct NowPlayingUpNextPanel: View {
                             tint: tint,
                             onTap: { observer.selectChapter(index: index) }
                         )
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Spacing.xs)
                     }
                 }
             }
             .scrollIndicators(.hidden)
         }
         .frame(maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal, 28)
-        .padding(.vertical, 36)
+        .padding(.horizontal, Spacing.xxl)
+        .padding(.vertical, Spacing.xxl)
         .frame(width: Self.width)
         .background(Color(.systemBackground).opacity(0.78))
         .overlay(alignment: .leading) {

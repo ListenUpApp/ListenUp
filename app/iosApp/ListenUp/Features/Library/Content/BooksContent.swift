@@ -119,7 +119,7 @@ struct BooksContent: View {
                         },
                         isVisible: isScrolling
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, Spacing.xs)
                     .padding(.vertical, 60)
                 }
             }
@@ -145,7 +145,7 @@ struct BooksContent: View {
             .font(.title2.bold())
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
+            .padding(.top, Spacing.xs)
             .id("section-\(letter)")
     }
 

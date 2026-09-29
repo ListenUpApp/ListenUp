@@ -12,21 +12,21 @@ struct WrittenCard: View {
         VStack(alignment: .leading, spacing: 0) {
             BookCoverImage(book: book)
                 .frame(width: width, height: width)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .coverHoverEffect(cornerRadius: 14)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+                .coverHoverEffect(cornerRadius: Radius.l)
                 .accessibilityHidden(true)
                 .overlay(alignment: .bottom) {
                     if let progress, progress > 0 {
                         ProgressBar(progress: progress, style: .overlay)
                             .frame(height: 4)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
                     }
                 }
             Text(book.title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-                .padding(.top, 9)
+                .padding(.top, Spacing.xs)
             Text(book.authorNames)
                 .font(.footnote)
                 .foregroundStyle(.secondary)

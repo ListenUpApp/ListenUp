@@ -150,7 +150,7 @@ struct BookDetailView: View {
                     case .stacked: compactContent(observer)
                     }
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, Spacing.xxl)
                 // One modifier for every book action, above the layout branch. `resumeBar` and
                 // `actionPills` are siblings in whichever branch renders, so a modifier on each
                 // would put two in the hierarchy at once and fire `.success` twice per tap.
@@ -216,7 +216,7 @@ struct BookDetailView: View {
             }
             .padding(.horizontal)
         }
-        .padding(.top, 8)
+        .padding(.top, Spacing.xs)
     }
 
     /// Wide: a rail sized from the width beside a flexible right column.
@@ -278,7 +278,7 @@ struct BookDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, DetailColumns.margin)
-        .padding(.top, 28)
+        .padding(.top, Spacing.xxl)
     }
 
     private func resumeBar(_ observer: BookDetailObserver) -> some View {

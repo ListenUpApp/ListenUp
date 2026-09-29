@@ -541,7 +541,7 @@ private struct RegistrationPolicyRow: View {
             .pickerStyle(.segmented)
             .disabled(isBusy)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xxs)
     }
 
     private static func label(_ policy: RegistrationPolicy) -> String {

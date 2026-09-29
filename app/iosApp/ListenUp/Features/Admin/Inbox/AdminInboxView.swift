@@ -168,10 +168,10 @@ struct AdminInboxView: View {
     private func padLayout(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
         VStack(spacing: 0) {
             padHeader(observer: observer, ready: ready)
-                .padding(.horizontal, 36)
-                .padding(.bottom, 16)
+                .padding(.horizontal, Spacing.xxl)
+                .padding(.bottom, Spacing.m)
             ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
-                .padding(.horizontal, 36)
+                .padding(.horizontal, Spacing.xxl)
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 320), spacing: 16)],
                 spacing: 16
@@ -187,16 +187,16 @@ struct AdminInboxView: View {
                         onEdit: { editingBook = InboxEditTarget(id: book.id) },
                         onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
                     )
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
                     .background(InboxBookRow.background(isSelected: isSelected))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                 }
             }
-            .padding(.horizontal, 36)
-            .padding(.bottom, 32)
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.bottom, Spacing.xxl)
         }
-        .padding(.top, 8)
+        .padding(.top, Spacing.xs)
     }
 
     // MARK: - Subviews
@@ -253,8 +253,8 @@ struct AdminInboxView: View {
                      ? String(localized: "admin.inbox_deselect_all")
                      : String(localized: "admin.inbox_select_all"))
                     .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.vertical, Spacing.s)
                     .background(Color.luFill, in: Capsule())
                     .overlay(Capsule().stroke(Color.luSeparator, lineWidth: 0.5))
             }
@@ -270,8 +270,8 @@ struct AdminInboxView: View {
                             .font(.subheadline.weight(.semibold))
                     }
                     .foregroundStyle(Color.luOnTint)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.vertical, Spacing.s)
                     .background(Color.luTint, in: Capsule())
                 }
                 .buttonStyle(.plain)
@@ -293,9 +293,9 @@ struct AdminInboxView: View {
         }
         .prominentAction()
         .disabled(ready.isReleasing)
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.s)
+        .padding(.bottom, Spacing.xs)
     }
 
     // MARK: - Error body
@@ -404,7 +404,7 @@ private struct InboxBookRow: View {
                         accessibilityLabel: nil
                     )
                     .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(book.title)
                             .font(.subheadline.weight(.semibold))

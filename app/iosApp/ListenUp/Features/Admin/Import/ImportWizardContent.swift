@@ -51,8 +51,8 @@ struct ImportIntroContent: View {
         Label(String(localized: "import.intro_badge"), systemImage: "arrow.triangle.2.circlepath")
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xs)
             .background(Color.luFill, in: Capsule())
     }
 
@@ -80,7 +80,7 @@ struct ImportIntroContent: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 8)
+            .padding(.top, Spacing.xs)
     }
 
     private var actionTray: some View {
@@ -88,9 +88,9 @@ struct ImportIntroContent: View {
             ActionLabel(title: String(localized: "import.choose_backup_file"), systemImage: "folder")
         }
         .prominentAction()
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 16)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.s)
+        .padding(.bottom, Spacing.m)
     }
 }
 
@@ -134,7 +134,7 @@ struct ImportProgressContent: View {
                             }
                         }
                     }
-                    .padding(.top, 12)
+                    .padding(.top, Spacing.s)
 
                     VStack(spacing: 6) {
                         Text(title)
@@ -148,7 +148,7 @@ struct ImportProgressContent: View {
 
                     if let filename {
                         MonospacedTechLine(text: filename)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, Spacing.xxs)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -172,7 +172,7 @@ struct ImportProgressContent: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, Spacing.s)
             }
         }
     }

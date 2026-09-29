@@ -34,7 +34,7 @@ struct ScanIssueSection: View {
                     ScanIssueCard(issue: issue) { onDismiss(issue.id) }
                 }
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, Spacing.m)
         }
     }
 }
@@ -51,7 +51,7 @@ struct ScanIssueListSection: View {
             Section {
                 ForEach(issues) { issue in
                     ScanIssueContent(issue: issue) { onDismiss(issue.id) }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, Spacing.xxs)
                         .swipeActions {
                             Button(String(localized: "admin.inbox_issue_dismiss")) { onDismiss(issue.id) }
                         }
@@ -75,10 +75,10 @@ private struct ScanIssueCard: View {
 
     var body: some View {
         ScanIssueContent(issue: issue, onDismiss: onDismiss)
-            .padding(16)
-            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(Spacing.m)
+            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
                     .stroke(Color.luSeparator, lineWidth: 0.5)
             )
     }

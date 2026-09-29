@@ -139,8 +139,8 @@ struct ChapterEditorView: View {
                     bookDurationMs: observer.bookDurationMs,
                     chapterCount: observer.chapters.count
                 )
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, Spacing.m)
+                .padding(.top, Spacing.xs)
             }
             chapterList(observer)
         }
@@ -260,7 +260,7 @@ struct ChapterEditorView: View {
                 .onBrandFillLabel()
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.xs)
     }
 
     /// ⛔ Absent, not disabled, when there is no playhead for THIS book — see the type's note.

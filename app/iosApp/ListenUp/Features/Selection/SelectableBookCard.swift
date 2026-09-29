@@ -54,7 +54,7 @@ extension View {
                         isSelected ? Color.luOnTint : .white,
                         isSelected ? Color.listenUpOrange : Color.black.opacity(0.35)
                     )
-                    .padding(6)
+                    .padding(Spacing.xs)
                     .accessibilityLabel(Text(isSelected
                         ? String(localized: "common.selected")
                         : String(localized: "common.not_selected")))

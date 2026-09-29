@@ -27,11 +27,11 @@ struct MetadataFindView: View {
                         MetadataSearchField(text: $queryDraft) { submit() }
                         Text(String(localized: "metadata.search_helper"))
                             .font(.caption).foregroundStyle(.tertiary)
-                            .padding(.leading, 4)
+                            .padding(.leading, Spacing.xxs)
                     }
 
                     VStack(alignment: .leading, spacing: 9) {
-                        MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
+                        MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, Spacing.xxs)
                         RegionPicker(
                             options: MetadataRegionOption.all,
                             selection: observer.region,
@@ -130,7 +130,7 @@ struct MetadataFindView: View {
                 Text(subtitle)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
+            .padding(.vertical, Spacing.xl)
         }
     }
 
@@ -143,7 +143,7 @@ struct MetadataFindView: View {
                     ActionLabel(title: String(localized: "metadata.use_this_match"), systemImage: "arrow.right")
                 }
                 .prominentAction()
-                .padding(16)
+                .padding(Spacing.m)
             }
         }
     }
@@ -167,7 +167,7 @@ struct MetadataSearchResultRow: View {
             HStack(spacing: 13) {
                 MetadataRemoteCover(url: item.coverURL)
                     .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)

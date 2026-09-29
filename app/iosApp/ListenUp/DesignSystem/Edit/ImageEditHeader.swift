@@ -75,6 +75,6 @@ struct ImageEditHeader<ImageContent: View>: View {
     private var clip: AnyShape {
         shape == .circle
             ? AnyShape(Circle())
-            : AnyShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            : AnyShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
 }

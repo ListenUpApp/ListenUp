@@ -99,7 +99,7 @@ struct MetadataSelectBody: View {
             } footer: {
                 Text(fieldsSelectedText)
                     .textCase(.uppercase)
-                    .padding(.top, 8)
+                    .padding(.top, Spacing.xs)
             }
 
             section(String(localized: "metadata.section_identity")) {
@@ -173,9 +173,9 @@ struct MetadataSelectBody: View {
             VStack(spacing: 6) {
                 MetadataRemoteCover(url: option.url)
                     .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
                             .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
                     }
                 Text(option.label)
@@ -283,7 +283,7 @@ struct MetadataSelectBody: View {
                     }
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
     }
 
@@ -304,7 +304,7 @@ struct MetadataSelectBody: View {
                     }
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
     }
 
@@ -325,7 +325,7 @@ struct MetadataSelectBody: View {
                     }
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, Spacing.xxs)
         }
     }
 
@@ -407,7 +407,7 @@ struct MetadataMatchedEditionCard: View {
         HStack(spacing: 14) {
             MetadataRemoteCover(url: coverURL)
                 .frame(width: 58, height: 58)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 5) {
@@ -416,17 +416,17 @@ struct MetadataMatchedEditionCard: View {
                         .font(.caption2.weight(.bold))
                 }
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 8).padding(.vertical, 3)
+                .padding(.horizontal, Spacing.xs).padding(.vertical, 3)
                 .background(Capsule().fill(Color.luFill))
 
                 Text(title).font(.callout.weight(.semibold)).foregroundStyle(.primary).lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(14)
+        .padding(Spacing.m)
         .background(Color.luSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.l, style: .continuous).stroke(Color.luSeparator, lineWidth: 0.5))
     }
 }
 
@@ -442,7 +442,7 @@ struct MetadataSourceChip: View {
             Text(String(format: String(localized: "metadata.field_source"), source))
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 6).padding(.vertical, 2)
+                .padding(.horizontal, Spacing.xs).padding(.vertical, 2)
                 .background(Capsule().fill(Color.luFill))
         }
     }
@@ -461,7 +461,7 @@ struct MetadataGenreChip: View {
                 Text(label).font(.caption.weight(.semibold))
             }
             .foregroundStyle(isOn ? Color.luTint : Color.secondary)
-            .padding(.horizontal, 11).padding(.vertical, 6)
+            .padding(.horizontal, Spacing.s).padding(.vertical, Spacing.xs)
             .background(Capsule().fill(isOn ? Color.luTint.opacity(0.13) : Color.luFill))
         }
         .buttonStyle(PressScaleButtonStyle(scale: .chip))
@@ -504,7 +504,7 @@ struct MetadataApplyTray: View {
                 .prominentAction()
                 .disabled(isApplying || !isEnabled)
             }
-            .padding(16)
+            .padding(Spacing.m)
             .readableWidth(720)
         }
     }

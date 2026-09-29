@@ -39,7 +39,7 @@ struct SeriesBookRow: View {
         BookCoverImage(book: book)
             .accessibilityHidden(true)
             .frame(width: 54, height: 54)
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
             .overlay(alignment: .bottomTrailing) {
                 if isFinished {
                     Image(systemName: "checkmark")
@@ -62,7 +62,7 @@ struct SeriesBookRow: View {
                     .font(.caption).monospacedDigit()
                     .foregroundStyle(.secondary)
             }
-            .padding(.top, 5)
+            .padding(.top, Spacing.xxs)
         } else {
             Text(metadataText)
                 .font(.footnote)

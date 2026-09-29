@@ -29,7 +29,7 @@ struct CurrentlyListeningSection: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, Spacing.xl)
         case .ready(let rows):
             if rows.isEmpty {
                 message(String(localized: "discover.no_one_listening_right_now"))
@@ -53,6 +53,6 @@ struct CurrentlyListeningSection: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .padding(.horizontal, horizontalInset)
-            .padding(.vertical, 12)
+            .padding(.vertical, Spacing.s)
     }
 }

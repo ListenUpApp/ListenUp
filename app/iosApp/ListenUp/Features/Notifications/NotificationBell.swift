@@ -15,7 +15,7 @@ struct NotificationBell: View {
                         Text(count > 99 ? "99+" : "\(count)")
                             .font(.system(size: 10, weight: .bold)) // decorative fixed size
                             .foregroundStyle(Color.luOnTint)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, Spacing.xxs)
                             .padding(.vertical, 1)
                             .background(Color.luTint, in: Capsule())
                             .offset(x: 8, y: -8)

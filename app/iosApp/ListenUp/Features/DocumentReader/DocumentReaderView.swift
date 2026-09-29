@@ -139,8 +139,8 @@ struct DocumentReaderView: View {
             }
             .padding(.horizontal, 80)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     // MARK: - Bottom dock
@@ -150,8 +150,8 @@ struct DocumentReaderView: View {
             NowPlayingStrip()
             scrubberRow
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     private var scrubberRow: some View {
@@ -201,10 +201,10 @@ struct DocumentReaderView: View {
             .font(.caption.weight(.medium))
             .monospacedDigit()
             .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xs)
             .background(.black.opacity(0.55), in: Capsule())
-            .padding(.top, 8)
+            .padding(.top, Spacing.xs)
     }
 
     // MARK: - Error state

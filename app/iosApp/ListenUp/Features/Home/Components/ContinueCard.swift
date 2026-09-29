@@ -36,15 +36,15 @@ struct ContinueCard: View {
         VStack(alignment: .leading, spacing: 8) {
             BookCoverImage(bookId: item.id, coverPath: item.coverPath, coverHash: item.coverHash)
                 .frame(width: width, height: width)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .coverHoverEffect(cornerRadius: 16)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.l))
+                .coverHoverEffect(cornerRadius: Radius.l)
                 .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
                 .overlay(alignment: .bottomTrailing) {
                     CircularProgressRing(progress: item.progress, lineWidth: 4, showPercentLabel: true)
                         .frame(width: 38, height: 38)
-                        .padding(8)
+                        .padding(Spacing.xs)
                         .background(.regularMaterial, in: Circle())
-                        .padding(8)
+                        .padding(Spacing.xs)
                 }
                 .bookSelectionCircle(bookId: item.id, selection: selection)
 
@@ -75,12 +75,12 @@ struct ContinueCard: View {
 
     private var skeleton: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: Radius.l)
                 .fill(Color.gray.opacity(0.2))
                 .frame(width: width, height: width)
                 .shimmer()
 
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: Radius.xs)
                 .fill(Color.gray.opacity(0.2))
                 .frame(width: width * 0.8, height: 14)
                 .shimmer()

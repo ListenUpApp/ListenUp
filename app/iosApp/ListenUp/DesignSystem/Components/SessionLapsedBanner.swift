@@ -47,10 +47,10 @@ struct SessionLapsedBanner: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "common.dismiss"))
             }
-            .padding(14)
+            .padding(Spacing.m)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassControl(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .padding(.horizontal, 16)
+            .glassControl(in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+            .padding(.horizontal, Spacing.m)
         }
     }
 }

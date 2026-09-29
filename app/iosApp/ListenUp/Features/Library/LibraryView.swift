@@ -85,8 +85,8 @@ struct LibraryView: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .padding(.horizontal, Spacing.m)
+        .padding(.bottom, Spacing.xs)
         .haptic(.selectionTick, trigger: selectedTab)
     }
 

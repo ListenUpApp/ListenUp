@@ -179,7 +179,7 @@ struct AdminBackupsView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            .padding(32)
+            .padding(Spacing.xxl)
         }
     }
 

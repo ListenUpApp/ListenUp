@@ -71,8 +71,8 @@ struct MiniPlayerBar: View {
 
             playPauseButton
         }
-        .padding(.leading, isInline ? 8 : 10)
-        .padding(.trailing, 4)
+        .padding(.leading, isInline ? Spacing.xs : Spacing.s)
+        .padding(.trailing, Spacing.xxs)
         .overlay(alignment: .bottom) {
             if !isInline { progressLine }
         }
@@ -128,8 +128,8 @@ struct MiniPlayerBar: View {
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "common.dismiss"))
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 4)
+        .padding(.leading, Spacing.s)
+        .padding(.trailing, Spacing.xxs)
     }
 
     /// "{Chapter} · {time left}" when a chapter is known, otherwise just the time left.
@@ -151,9 +151,9 @@ struct MiniPlayerBar: View {
             coverHash: observer.coverHash
         )
             .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
             .matchedTransitionSource(id: PlayerTransition.coverID, in: transitionNamespace) { source in
-                source.clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                source.clipShape(RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
             }
             .accessibilityHidden(true)
     }
@@ -172,7 +172,7 @@ struct MiniPlayerBar: View {
                 }
         }
         .frame(height: 2)
-        .padding(.horizontal, 22)
+        .padding(.horizontal, Spacing.xl)
         .padding(.bottom, 3)
         .accessibilityHidden(true)
     }

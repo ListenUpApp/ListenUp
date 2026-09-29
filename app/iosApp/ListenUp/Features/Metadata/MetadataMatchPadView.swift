@@ -67,12 +67,12 @@ struct MetadataMatchPadView<Destination: View>: View {
             Section {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 9) {
-                        MetadataGroupHeader(text: String(localized: "metadata.find_on_audible")).padding(.leading, 4)
+                        MetadataGroupHeader(text: String(localized: "metadata.find_on_audible")).padding(.leading, Spacing.xxs)
                         MetadataSearchField(text: $queryDraft) { submit() }
                     }
 
                     VStack(alignment: .leading, spacing: 9) {
-                        MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
+                        MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, Spacing.xxs)
                         FlowLayout(spacing: 8) {
                             ForEach(MetadataRegionOption.all) { region in
                                 MetadataGenreChip(label: region.displayName, isOn: region == observer.region) {
@@ -105,7 +105,7 @@ struct MetadataMatchPadView<Destination: View>: View {
                 }
             case .inFlight:
                 Section {
-                    ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
+                    ProgressView().frame(maxWidth: .infinity).padding(.vertical, Spacing.xl)
                         .listRowBackground(Color.clear)
                 }
             default:

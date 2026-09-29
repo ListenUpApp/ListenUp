@@ -197,8 +197,8 @@ private struct RelationChipRow: View {
                             Text(chip.label).font(.subheadline)
                             Image(systemName: "xmark").font(.caption2.weight(.semibold))
                         }
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.s)
+                        .padding(.vertical, Spacing.xs)
                         .background(Color.luTint.opacity(0.12), in: Capsule())
                         .foregroundStyle(Color.luTint)
                     }

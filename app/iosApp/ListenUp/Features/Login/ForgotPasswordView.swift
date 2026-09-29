@@ -148,8 +148,8 @@ struct ForgotPasswordView: View {
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 6)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, Spacing.xs)
                 .background(.background.secondary, in: .capsule)
                 .frame(maxWidth: .infinity)
 

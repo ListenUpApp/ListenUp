@@ -70,7 +70,7 @@ struct DriftPanel: View {
                     .disabled(!drift.canApply)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.xs)
     }
 
     private func anchor(_ label: String, value: String?) -> some View {

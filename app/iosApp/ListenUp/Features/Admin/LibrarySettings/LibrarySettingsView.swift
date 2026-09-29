@@ -283,8 +283,8 @@ private struct FolderBrowserSheet: View {
                 .foregroundStyle(Color.luTint)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
     }
 
     private func addThisFolderButton(_ model: LibrarySettingsReadyModel) -> some View {
@@ -295,8 +295,8 @@ private struct FolderBrowserSheet: View {
                 .font(.body.weight(.medium))
                 .foregroundStyle(Color.luTint)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.s)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

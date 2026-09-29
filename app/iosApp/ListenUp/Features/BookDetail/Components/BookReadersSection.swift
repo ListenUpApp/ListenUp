@@ -22,7 +22,7 @@ struct BookReadersSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .padding(.bottom, 4)
+                .padding(.bottom, Spacing.xxs)
 
             ForEach(Array(readers.enumerated()), id: \.element.id) { index, reader in
                 if index > 0 {
@@ -97,7 +97,7 @@ struct BookReadersSection: View {
 
             trailingGlyph(reader)
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel(for: reader))
     }

@@ -114,7 +114,7 @@ private struct ContributorMetadataSearchView: View {
                     Text(error)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, Spacing.xl)
                 .listRowBackground(Color.clear)
             }
         } else if observer.results.isEmpty {
@@ -125,7 +125,7 @@ private struct ContributorMetadataSearchView: View {
                     Text(String(localized: "contributor.author_or_narrator_name"))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, Spacing.xl)
                 .listRowBackground(Color.clear)
             }
         } else {
@@ -246,8 +246,8 @@ private struct ContributorMetadataPreviewView: View {
 
                 metadataDates(profile: profile)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.m)
             .readableWidth(680)
         }
         .safeAreaBar(edge: .bottom) { applyTray }
@@ -281,9 +281,9 @@ private struct ContributorMetadataPreviewView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(Spacing.m)
         .background(Color.luSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
     }
 
     private func labelledImage(title: String, content: some View) -> some View {
@@ -327,7 +327,7 @@ private struct ContributorMetadataPreviewView: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, Spacing.m)
             }
             Button(action: onApply) {
                 ActionLabel(
@@ -338,8 +338,8 @@ private struct ContributorMetadataPreviewView: View {
             }
             .prominentAction()
             .disabled(observer.isApplying)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            .padding(.horizontal, Spacing.m)
+            .padding(.bottom, Spacing.m)
             .disabled(!observer.canApply)
             .opacity(observer.canApply ? 1 : 0.5)
         }
@@ -373,9 +373,9 @@ private struct ContributorComparisonRow: View {
             valueLine(title: String(localized: "contributor.current"), value: currentValue, accent: false)
             valueLine(title: String(localized: "contributor.audible"), value: newValue, accent: true)
         }
-        .padding(14)
+        .padding(Spacing.m)
         .background(Color.luSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
     }
 
     private func valueLine(title: String, value: String?, accent: Bool) -> some View {

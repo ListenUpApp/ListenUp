@@ -21,8 +21,8 @@ struct DocumentSearchView: View {
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.xs)
                 }
                 List(controller.hits) { hit in
                     Button {

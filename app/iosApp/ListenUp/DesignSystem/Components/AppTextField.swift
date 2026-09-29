@@ -109,19 +109,19 @@ struct AppTextField: View {
                     rowView
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.s)
             } else {
                 rowView
                     .frame(minHeight: 52)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, Spacing.m)
             }
 
             if !isLast { separator }
             if let error {
                 errorCaption(error)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.bottom, Spacing.xs)
             }
         }
     }
@@ -202,7 +202,7 @@ struct AppTextField: View {
         Rectangle()
             .fill(Color.luSeparator)
             .frame(height: hairline)
-            .padding(.leading, Self.leadingIcon(explicit: icon, kind: kind) == nil ? 14 : 46)
+            .padding(.leading, Self.leadingIcon(explicit: icon, kind: kind) == nil ? Spacing.m : 46)
     }
 
     private func errorCaption(_ message: String) -> some View {

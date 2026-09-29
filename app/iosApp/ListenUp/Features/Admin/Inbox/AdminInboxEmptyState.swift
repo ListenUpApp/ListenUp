@@ -10,7 +10,7 @@ struct AdminInboxEmptyState: View {
         VStack(spacing: 20) {
             Spacer()
             ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous)
                     .fill(Color.luFill)
                     .frame(width: 96, height: 96)
                 Image(systemName: "tray")
@@ -30,6 +30,6 @@ struct AdminInboxEmptyState: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 30)
+        .padding(.horizontal, Spacing.xxl)
     }
 }

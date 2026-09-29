@@ -68,7 +68,7 @@ struct ContributorListContent: View {
                         onLetterSelected: { scrollTarget = Self.scrollTarget(forLetter: $0, in: sections) },
                         isVisible: isScrolling
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, Spacing.xs)
                     .padding(.vertical, 60)
                 }
             }
@@ -119,8 +119,8 @@ struct ContributorListContent: View {
                     }
                 }
             }
-            .padding(.horizontal, 36)
-            .padding(.bottom, 24)
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.bottom, Spacing.xl)
         }
         .scrollContentBackground(.hidden)
         .background(Color.luSurface)

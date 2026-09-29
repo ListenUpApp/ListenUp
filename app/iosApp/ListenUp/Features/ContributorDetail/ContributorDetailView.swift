@@ -129,7 +129,7 @@ struct ContributorDetailView: View {
                 roleSections(observer: observer)
                 seriesSection(observer: observer)
             }
-            .padding(.bottom, 32)
+            .padding(.bottom, Spacing.xxl)
         }
     }
 
@@ -144,7 +144,7 @@ struct ContributorDetailView: View {
                     statSection(observer: observer)
                     aboutSection(observer: observer)
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, Spacing.xxl)
                 .padding(.horizontal)
             }
             .frame(width: railWidth)
@@ -156,7 +156,7 @@ struct ContributorDetailView: View {
                     roleSections(observer: observer)
                     seriesSection(observer: observer)
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, Spacing.xxl)
             }
         }
     }
@@ -182,7 +182,7 @@ struct ContributorDetailView: View {
                         RoleChip(kind: kind)
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, Spacing.xxs)
             }
 
             Text(observer.name)
@@ -215,7 +215,7 @@ struct ContributorDetailView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 16)
+        .padding(.top, Spacing.m)
     }
 
     // MARK: - Life dates
@@ -263,7 +263,7 @@ struct ContributorDetailView: View {
             .init(value: "\(observer.bookCount)", label: String(localized: "contributor.stat_books")),
             .init(value: observer.totalDuration, label: String(localized: "contributor.stat_hours"))
         ])
-        .padding(.vertical, 20)
+        .padding(.vertical, Spacing.l)
     }
 
     // MARK: - About

@@ -47,9 +47,9 @@ struct LicensesView: View {
             // Left pane — overview panel (sticky alongside the scrolling list)
             overviewPanel
                 .frame(width: 280)
-                .padding(.leading, 32)
-                .padding(.trailing, 24)
-                .padding(.top, 16)
+                .padding(.leading, Spacing.xxl)
+                .padding(.trailing, Spacing.xl)
+                .padding(.top, Spacing.m)
 
             Divider()
 
@@ -113,12 +113,12 @@ struct LicensesView: View {
             }
 
             DistributionMeter()
-                .padding(.top, 14)
+                .padding(.top, Spacing.m)
 
             legendRow
-                .padding(.top, 13)
+                .padding(.top, Spacing.s)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Spacing.xs)
     }
 
     // MARK: - Distribution legend
@@ -128,7 +128,7 @@ struct LicensesView: View {
         return HStack(spacing: 16) {
             ForEach(distribution.prefix(4), id: \.spdxId) { entry in
                 HStack(spacing: 7) {
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
                         .fill(LicenseData.licenseColor(entry.spdxId))
                         .frame(width: 10, height: 10)
                     Text(entry.spdxId)
@@ -193,7 +193,7 @@ struct LicensesView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
-        .padding(.top, 4)
+        .padding(.top, Spacing.xxs)
     }
 
     // MARK: - Data helpers
@@ -238,7 +238,7 @@ private struct DistributionMeter: View {
         GeometryReader { geo in
             HStack(spacing: 2) {
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
                         .fill(LicenseData.licenseColor(seg.spdxId))
                         .frame(width: max(4, geo.size.width * seg.fraction - 2))
                 }
@@ -259,8 +259,8 @@ struct LicenseChip: View {
         Text(spdxId)
             .font(.caption2.weight(.bold))
             .foregroundStyle(LicenseData.licenseColor(spdxId))
-            .padding(.horizontal, 11)
-            .padding(.vertical, 4)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xxs)
             .background(
                 Capsule().fill(LicenseData.licenseColor(spdxId).opacity(0.14))
             )

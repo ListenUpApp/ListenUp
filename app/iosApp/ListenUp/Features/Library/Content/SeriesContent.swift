@@ -48,7 +48,7 @@ struct SeriesContent: View {
                         iPadGrid
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, Spacing.xxs)
             }
             .scrollContentBackground(.hidden)
             .onScrollPhaseChange { _, newPhase in
@@ -77,7 +77,7 @@ struct SeriesContent: View {
                         },
                         isVisible: isScrolling
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, Spacing.xs)
                     .padding(.vertical, 60)
                 }
             }
@@ -93,7 +93,7 @@ struct SeriesContent: View {
                     .id("series-\(row.id)")
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Spacing.m)
     }
 
     // MARK: - iPad Grid

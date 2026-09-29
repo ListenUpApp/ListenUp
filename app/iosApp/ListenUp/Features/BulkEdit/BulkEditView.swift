@@ -212,7 +212,7 @@ struct BulkEditGroupHeader: View {
                 .textCase(nil)
             if let field {
                 Text(field)
-                    .padding(.top, 8)
+                    .padding(.top, Spacing.xs)
             }
         }
     }
@@ -230,7 +230,7 @@ private struct BulkEditPreviewRow: View {
                 .font(.body)
                 .foregroundStyle(accent)
                 .frame(width: 28, height: 28)
-                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: Radius.s, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(line.label)
@@ -298,8 +298,8 @@ private struct BulkEditHero: View {
                         Text(more)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                            .padding(.horizontal, Spacing.s)
+                            .padding(.vertical, Spacing.xxs)
                             .background(Color.luFill, in: Capsule())
                     }
                     Spacer(minLength: 0)

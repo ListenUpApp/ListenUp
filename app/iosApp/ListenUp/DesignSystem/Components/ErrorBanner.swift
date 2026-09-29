@@ -11,8 +11,8 @@ struct ErrorBanner: View {
         }
         .font(.subheadline)
         .foregroundStyle(.red)
-        .padding(12)
+        .padding(Spacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.s))
     }
 }

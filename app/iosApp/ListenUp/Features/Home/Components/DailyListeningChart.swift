@@ -33,7 +33,7 @@ struct DailyListeningChart: View {
                 y: .value("Seconds", day.seconds)
             )
             .foregroundStyle(Color.listenUpOrange)
-            .cornerRadius(6)
+            .cornerRadius(Radius.s)
             .accessibilityLabel(label(for: day.dayOffset))
             .accessibilityValue(DurationFormatting.accessibleHoursMinutes(seconds: day.seconds))
         }

@@ -132,8 +132,8 @@ struct ClaimInviteView: View {
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
             }
             if signedInElsewhere {
                 ErrorBanner(message: String(localized: "invite.confirm_server_signed_out_warning"))
@@ -174,8 +174,8 @@ struct ClaimInviteView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
                 }
                 AuthIntro(title: String(localized: "invite.set_password_title"))
                 AuthFieldGroup {

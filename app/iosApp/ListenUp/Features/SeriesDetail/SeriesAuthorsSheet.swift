@@ -21,7 +21,7 @@ struct SeriesAuthorsSheet: View {
                         .simultaneousGesture(TapGesture().onEnded { onClose() })
                     }
                 }
-                .padding(20)
+                .padding(Spacing.l)
             }
             .navigationTitle(String(localized: "book.detail_authors"))
             .navigationBarTitleDisplayMode(.inline)
@@ -35,8 +35,8 @@ struct SeriesAuthorsSheet: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 4)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.xxs)
             }
         }
     }
@@ -49,7 +49,7 @@ struct SeriesAuthorsSheet: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, Spacing.xs)
         .accessibilityElement(children: .combine)
     }
 
