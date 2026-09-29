@@ -102,13 +102,22 @@ struct AdminSettingsReadyModel: Equatable {
 }
 
 /// One outside rating source in the admin Rating Sources list: its display name (via
-/// `ExternalRatingSource.displayName`), a switch bound to `enabled`, and a health line — error
-/// beats a fetch time beats never-fetched — mirroring Android's `RatingSourceRow`.
+/// `ExternalRatingSource.displayName`), a switch bound to `enabled`, and a health line, mirroring
+/// Android's `RatingSourceRow`. The health line reads, first match wins: why the source cannot run
+/// at all, then until when it has paused itself, then its last error, then when it last fetched,
+/// then that it never has. Hardcover adds a second line naming whose account it fetches with.
+/// An unavailable source's switch stays operable: switching it off is still meaningful.
 struct RatingSourceRowModel: Equatable, Identifiable {
     let source: ExternalRatingSource
     let enabled: Bool
     let lastFetchedAtMs: Int64?
     let lastError: String?
+    /// Set while the source has paused itself after repeated failures (epoch millis).
+    let pausedUntilMs: Int64?
+    /// Why the source cannot run at all, or nil when it can.
+    let unavailable: RatingSourceUnavailable?
+    /// The account a connection-backed source (Hardcover) fetches with.
+    let connectionUsername: String?
 
     var id: ExternalRatingSource { source }
 
@@ -117,13 +126,44 @@ struct RatingSourceRowModel: Equatable, Identifiable {
             source: status.source,
             enabled: status.enabled,
             lastFetchedAtMs: status.lastFetchedAt,
-            lastError: status.lastError
+            lastError: status.lastError,
+            pausedUntilMs: status.pausedUntil,
+            unavailable: status.unavailable,
+            connectionUsername: status.connectionUsername
         )
     }
 
-    /// The subtitle line: error > last fetched > never fetched. `now` is injectable so tests get a
-    /// deterministic relative phrase.
-    nonisolated func healthLine(now: Date = Date()) -> String {
+    /// The row's whole subtitle: the health line, then Hardcover's connection line beneath it.
+    nonisolated func subtitle(now: Date = Date()) -> String {
+        [healthLine(now: now), connectionLine].compactMap { $0 }.joined(separator: "\n")
+    }
+
+    /// "Using simonhull's Hardcover account" — Hardcover only, and only once someone has connected.
+    nonisolated var connectionLine: String? {
+        guard source == .hardcover, let connectionUsername else { return nil }
+        return String(format: String(localized: "admin.rating_source_using_connection"), connectionUsername)
+    }
+
+    /// The health line, in the priority the type documents. A pause names a future date, so it
+    /// reads as an absolute long date ("October 6, 2026"), not a relative phrase. `now`, `timeZone`
+    /// and `locale` are injectable so tests get deterministic text.
+    nonisolated func healthLine(
+        now: Date = Date(),
+        timeZone: TimeZone = .current,
+        locale: Locale = .current
+    ) -> String {
+        if let unavailable {
+            return Self.unavailableLine(unavailable)
+        }
+        if let pausedUntilMs {
+            var style = Date.FormatStyle(date: .long, time: .omitted, locale: locale)
+            style.timeZone = timeZone
+            let until = Date(timeIntervalSince1970: Double(pausedUntilMs) / 1000).formatted(style)
+            if let lastError {
+                return String(format: String(localized: "admin.rating_source_paused"), until, lastError)
+            }
+            return String(format: String(localized: "admin.rating_source_paused_plain"), until)
+        }
         if let lastError {
             return String(format: String(localized: "admin.rating_source_error"), lastError)
         }
@@ -135,5 +175,13 @@ struct RatingSourceRowModel: Equatable, Identifiable {
             return String(format: String(localized: "admin.rating_source_last_fetched"), phrase)
         }
         return String(localized: "admin.rating_source_never_fetched")
+    }
+
+    private nonisolated static func unavailableLine(_ reason: RatingSourceUnavailable) -> String {
+        switch reason {
+        case .notConfigured: return String(localized: "admin.rating_source_not_configured")
+        case .noConnection: return String(localized: "admin.rating_source_no_connection")
+        case .unknown: return String(localized: "admin.rating_source_unavailable")
+        }
     }
 }

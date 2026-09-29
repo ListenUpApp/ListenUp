@@ -181,8 +181,10 @@ struct AdminView: View {
     // MARK: - Rating sources section
 
     /// "Rating sources": one row per outside catalog the server can fetch a book's rating from, a
-    /// switch to enable/disable it, and a health line reporting its last fetch. Switching a source
-    /// off hides its scores at once everywhere; switching it back on brings them back.
+    /// switch to enable/disable it, and a health line saying why it cannot run, until when it has
+    /// paused itself, or how its last fetch went (plus, for Hardcover, whose account it uses).
+    /// Switching a source off hides its scores at once everywhere; switching it back on brings them
+    /// back. The switch stays operable even for a source that cannot run.
     @ViewBuilder
     private func ratingSourcesSection(model: AdminSettingsReadyModel, settings: AdminSettingsObserver) -> some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -200,7 +202,7 @@ struct AdminView: View {
                         systemImage: "star.fill",
                         tint: .luTint,
                         title: row.source.displayName,
-                        subtitle: row.healthLine(),
+                        subtitle: row.subtitle(),
                         isOn: Binding(
                             get: { row.enabled },
                             set: { settings.setRatingSourceEnabled(row.source, $0) }
