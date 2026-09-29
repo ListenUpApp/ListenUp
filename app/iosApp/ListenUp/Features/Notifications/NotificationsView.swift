@@ -2,7 +2,7 @@ import SwiftUI
 import Shared
 
 /// The notifications inbox — the list behind the toolbar bell. Follows `DevicesView`'s
-/// shape: observer built in `.onAppear`, phase-switched body, a readable single column.
+/// shape: observer built in `.onAppear`, phase-switched body, a system inset-grouped `List`.
 /// Tapping a row marks it read and routes its resolved `NotificationTapOutcome` through
 /// `route` (provided by `MainTabView`, where the tab's `NavigationPath` lives).
 struct NotificationsView: View {
@@ -47,14 +47,13 @@ struct NotificationsView: View {
                 Text(String(localized: "notifications.empty_subtitle"))
             }
         case .ready(let rows):
-            ScrollView {
-                FieldGroup(rows, separatorInset: 58) { row in
-                    rowButton(row, observer: observer)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .readableWidth()
+            // Each notification is a list row: it highlights on tap and the list draws the separators.
+            // HIG, Lists and tables.
+            List(rows) { row in
+                rowButton(row, observer: observer)
             }
+            .listStyle(.insetGrouped)
+            .readableListWidth()
         }
     }
 
@@ -67,7 +66,6 @@ struct NotificationsView: View {
         } label: {
             rowLabel(row)
         }
-        .buttonStyle(.plain)
     }
 
     private func rowLabel(_ row: NotificationRowModel) -> some View {
@@ -96,8 +94,7 @@ struct NotificationsView: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 2)
         .contentShape(Rectangle())
     }
 }

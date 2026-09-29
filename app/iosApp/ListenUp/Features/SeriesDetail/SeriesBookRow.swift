@@ -2,7 +2,8 @@ import SwiftUI
 
 /// One book in the Series-detail "Books in Series" list. Cover + completion badge,
 /// sequence eyebrow, title, an in-progress bar or metadata line, and a play/pause
-/// button. The whole row navigates to the book; the button toggles playback.
+/// button. The whole row navigates to the book; the button toggles playback. A `List` row: the list
+/// supplies its insets and separator.
 struct SeriesBookRow: View {
     let book: BookRow
     let sequence: String?
@@ -31,8 +32,6 @@ struct SeriesBookRow: View {
             Spacer(minLength: 8)
             playButton
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
         .contentShape(Rectangle())
     }
 

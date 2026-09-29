@@ -9,10 +9,11 @@ import Shared
 /// 3. Full-width Continue CTA
 /// 4. Optional expandable description
 /// 5. "Books in Series" header + order toggle
-/// 6. `FieldGroup` of `SeriesBookRow` entries
+/// 6. The books, as rows of a system inset-grouped `List`
 ///
-/// When the width allows (`DetailColumns`), hero + meta move into a left rail sized from the
-/// width, beside a right column with the book list.
+/// On iPhone the whole screen is that one `List` — the hero and meta on the plain background above
+/// the Books section. When the width allows (`DetailColumns`), hero + meta move into a left rail
+/// sized from the width, beside the book `List` on the right.
 struct SeriesDetailView: View {
     let seriesId: String
 
@@ -100,34 +101,37 @@ struct SeriesDetailView: View {
     }
 
     private func iPhoneLayout(observer: SeriesDetailObserver) -> some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                heroSection(observer: observer)
-                    .padding(.top, 16)
-                statStripSection(observer: observer)
-                    .padding(.vertical, 20)
-                if let description = observer.seriesDescription, !description.isEmpty {
-                    ExpandableText(
-                        title: String(localized: "common.about"),
-                        text: description,
-                        lineLimit: 3
-                    )
-                    .padding(.horizontal)
+        List {
+            Section {
+                VStack(spacing: 0) {
+                    heroSection(observer: observer)
+                        .padding(.top, 16)
+                    statStripSection(observer: observer)
+                        .padding(.vertical, 20)
+                    if let description = observer.seriesDescription, !description.isEmpty {
+                        ExpandableText(
+                            title: String(localized: "common.about"),
+                            text: description,
+                            lineLimit: 3
+                        )
+                        .padding(.horizontal)
+                    }
+                    continueButton(observer: observer)
+                        .padding(.horizontal)
+                        .padding(.top, 20)
                 }
-                continueButton(observer: observer)
-                    .padding(.horizontal)
-                    .padding(.top, 20)
-                booksSection(observer: observer)
-                    .padding(.top, 20)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.bottom, 32)
+            booksSection(observer: observer)
         }
+        .listStyle(.insetGrouped)
     }
 
     private func iPadLayout(observer: SeriesDetailObserver, railWidth: CGFloat) -> some View {
-        ScrollView {
-            HStack(alignment: .top, spacing: DetailColumns.gutter) {
-                // Left column — hero + stats + CTA
+        HStack(alignment: .top, spacing: DetailColumns.gutter) {
+            // Left column — hero + stats + CTA, scrolling on its own when it outgrows the window
+            ScrollView {
                 VStack(spacing: 0) {
                     heroSection(observer: observer)
                     statStripSection(observer: observer)
@@ -142,16 +146,17 @@ struct SeriesDetailView: View {
                     continueButton(observer: observer)
                         .padding(.top, 20)
                 }
-                .frame(width: railWidth, alignment: .top)
-                // Right column — books list
-                VStack(spacing: 0) {
-                    booksSection(observer: observer)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 24)
             }
-            .padding(.horizontal, DetailColumns.margin)
-            .padding(.vertical, 24)
+            .frame(width: railWidth)
+            // Right column — the books list
+            List {
+                booksSection(observer: observer)
+            }
+            .listStyle(.insetGrouped)
+            .contentMargins(.horizontal, 0, for: .scrollContent)
         }
+        .padding(.horizontal, DetailColumns.margin)
     }
 
     // MARK: - Hero
@@ -229,22 +234,43 @@ struct SeriesDetailView: View {
     // MARK: - Books section
 
     private func booksSection(observer: SeriesDetailObserver) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let displayedBooks = reversed ? Array(observer.books.reversed()) : observer.books
+        return Section {
+            ForEach(displayedBooks, id: \.id) { book in
+                NavigationLink(value: BookDestination(id: book.id)) {
+                    SeriesBookRow(
+                        book: book,
+                        sequence: book.sequence,
+                        progress: observer.progress(for: book.id),
+                        isFinished: observer.isFinished(book.id),
+                        isPlaying: observer.isPlaying(book.id),
+                        onPlayTapped: { observer.playBook(book.id) }
+                    )
+                }
+                .bookContextMenu(bookId: book.id, selection: nil) {
+                    SeriesBookRow(
+                        book: book,
+                        sequence: book.sequence,
+                        progress: observer.progress(for: book.id),
+                        isFinished: observer.isFinished(book.id),
+                        isPlaying: observer.isPlaying(book.id),
+                        onPlayTapped: {}
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                }
+            }
+        } header: {
             booksHeader(observer: observer)
-                .padding(.horizontal)
-            let displayedBooks = reversed
-                ? Array(observer.books.reversed())
-                : observer.books
-            booksList(books: displayedBooks, observer: observer)
-                .padding(.horizontal)
+                .textCase(nil)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func booksHeader(observer: SeriesDetailObserver) -> some View {
         HStack {
             Text(String(localized: "series.books_header"))
                 .font(.title2.bold())
+                .foregroundStyle(.primary)
                 .accessibilityAddTraits(.isHeader)
             Text("(\(observer.bookCount))")
                 .font(.title2)
@@ -254,37 +280,12 @@ struct SeriesDetailView: View {
                 Image(systemName: reversed ? "arrow.up" : "arrow.down")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.luTint)
+                    .minimumTapTarget(visualSize: 20)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
                 String(localized: reversed ? "series.sort_ascending_a11y" : "series.sort_descending_a11y")
             )
-        }
-    }
-
-    private func booksList(books: [BookRow], observer: SeriesDetailObserver) -> some View {
-        FieldGroup(books, id: \.id, separatorInset: 76) { book in
-            NavigationLink(value: BookDestination(id: book.id)) {
-                SeriesBookRow(
-                    book: book,
-                    sequence: book.sequence,
-                    progress: observer.progress(for: book.id),
-                    isFinished: observer.isFinished(book.id),
-                    isPlaying: observer.isPlaying(book.id),
-                    onPlayTapped: { observer.playBook(book.id) }
-                )
-            }
-            .buttonStyle(.plain)
-            .bookContextMenu(bookId: book.id, selection: nil) {
-                SeriesBookRow(
-                    book: book,
-                    sequence: book.sequence,
-                    progress: observer.progress(for: book.id),
-                    isFinished: observer.isFinished(book.id),
-                    isPlaying: observer.isPlaying(book.id),
-                    onPlayTapped: {}
-                )
-            }
         }
     }
 

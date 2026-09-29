@@ -8,35 +8,36 @@ struct MetadataUpdatedView: View {
     let observer: MetadataMatchObserver
     let onDone: () -> Void
 
+    /// A grouped `List`: the success mark and headline on the plain background, and what changed as
+    /// a section of rows beneath (HIG, Lists and tables).
     var body: some View {
-        VStack {
-            Spacer(minLength: 0)
-            VStack(spacing: 0) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 96))
-                    .foregroundStyle(Color.luTint)
-                    .symbolRenderingMode(.hierarchical)
-                    .accessibilityHidden(true)
+        List {
+            Section {
+                VStack(spacing: 0) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 96)) // decorative fixed size
+                        .foregroundStyle(Color.luTint)
+                        .symbolRenderingMode(.hierarchical)
+                        .accessibilityHidden(true)
 
-                Text(String(localized: "metadata.updated_title"))
-                    .font(.largeTitle.weight(.bold))
-                    .padding(.top, 22)
+                    Text(String(localized: "metadata.updated_title"))
+                        .font(.largeTitle.weight(.bold))
+                        .padding(.top, 22)
 
-                Text(String(format: String(localized: "metadata.updated_subtitle"), bookTitle))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 8)
-
-                summary
-                    .padding(.top, 26)
+                    Text(String(format: String(localized: "metadata.updated_subtitle"), bookTitle))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.luLabel2)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 8)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 24)
+                .listRowBackground(Color.clear)
             }
-            .frame(maxWidth: 360)
-            .padding(.horizontal, 18)
-            Spacer(minLength: 0)
+            summary
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.luSurface)
+        .listStyle(.insetGrouped)
+        .readableListWidth(420)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaBar(edge: .bottom) {
@@ -55,30 +56,26 @@ struct MetadataUpdatedView: View {
     @ViewBuilder
     private var summary: some View {
         if let preview = lastPreview {
-            FieldGroup([0], id: \.self) { _ in
-                VStack(spacing: 0) {
+            Section {
+                summaryRow(
+                    icon: "checkmark.circle",
+                    label: String(localized: "metadata.updated_fields_applied"),
+                    value: "\(preview.selectedCount)"
+                )
+                if case .available(let available) = preview.chapters, available.selectedCount > 0 {
                     summaryRow(
-                        icon: "checkmark.circle",
-                        label: String(localized: "metadata.updated_fields_applied"),
-                        value: "\(preview.selectedCount)"
+                        icon: "waveform",
+                        label: String(localized: "metadata.updated_chapters_named"),
+                        value: "\(available.selectedCount)"
                     )
-                    if case .available(let available) = preview.chapters, available.selectedCount > 0 {
-                        Divider()
-                        summaryRow(
-                            icon: "waveform",
-                            label: String(localized: "metadata.updated_chapters_named"),
-                            value: "\(available.selectedCount)"
-                        )
-                    }
-                    if preview.coverEnabled {
-                        Divider()
-                        let source = String(localized: "metadata.audible_source")
-                        summaryRow(
-                            icon: "photo",
-                            label: String(localized: "metadata.updated_cover_replaced"),
-                            value: String(format: source, observer.region.displayName)
-                        )
-                    }
+                }
+                if preview.coverEnabled {
+                    let source = String(localized: "metadata.audible_source")
+                    summaryRow(
+                        icon: "photo",
+                        label: String(localized: "metadata.updated_cover_replaced"),
+                        value: String(format: source, observer.region.displayName)
+                    )
                 }
             }
         }
@@ -96,7 +93,6 @@ struct MetadataUpdatedView: View {
             Spacer()
             Text(value).font(.callout.weight(.medium)).foregroundStyle(Color.luLabel2)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
     }
 }

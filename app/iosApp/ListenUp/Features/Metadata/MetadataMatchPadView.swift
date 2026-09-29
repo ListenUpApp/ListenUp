@@ -60,29 +60,35 @@ struct MetadataMatchPadView<Destination: View>: View {
 
     // MARK: - Left rail
 
+    /// The sidebar is a `List`: query and region on the plain background, then the matches as rows
+    /// that highlight on tap (HIG, Split views; Lists and tables).
     private var searchRail: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 9) {
-                    MetadataGroupHeader(text: String(localized: "metadata.find_on_audible")).padding(.leading, 4)
-                    MetadataSearchField(text: $queryDraft) { submit() }
-                }
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        MetadataGroupHeader(text: String(localized: "metadata.find_on_audible")).padding(.leading, 4)
+                        MetadataSearchField(text: $queryDraft) { submit() }
+                    }
 
-                VStack(alignment: .leading, spacing: 9) {
-                    MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
-                    FlowLayout(spacing: 8) {
-                        ForEach(MetadataRegionOption.all) { region in
-                            MetadataGenreChip(label: region.displayName, isOn: region == observer.region) {
-                                observer.changeRegion(region)
+                    VStack(alignment: .leading, spacing: 9) {
+                        MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
+                        FlowLayout(spacing: 8) {
+                            ForEach(MetadataRegionOption.all) { region in
+                                MetadataGenreChip(label: region.displayName, isOn: region == observer.region) {
+                                    observer.changeRegion(region)
+                                }
                             }
                         }
                     }
                 }
-
-                railResults
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(20)
+
+            railResults
         }
+        .listStyle(.insetGrouped)
     }
 
     @ViewBuilder
@@ -90,11 +96,8 @@ struct MetadataMatchPadView<Destination: View>: View {
         if case .search(let search) = observer.phase {
             switch search {
             case .loaded(let results) where !results.isEmpty:
-                VStack(alignment: .leading, spacing: 8) {
-                    MetadataGroupHeader(
-                        text: String(format: String(localized: "metadata.matches_count"), results.count)
-                    ).padding(.leading, 4)
-                    FieldGroup(results, separatorInset: 77) { item in
+                Section(String(format: String(localized: "metadata.matches_count"), results.count)) {
+                    ForEach(results) { item in
                         MetadataSearchResultRow(item: item, isActive: selectedAsin == item.id) {
                             selectedAsin = item.id
                             observer.selectMatch(item.id)
@@ -102,7 +105,10 @@ struct MetadataMatchPadView<Destination: View>: View {
                     }
                 }
             case .inFlight:
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
+                Section {
+                    ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
+                        .listRowBackground(Color.clear)
+                }
             default:
                 EmptyView()
             }
@@ -115,7 +121,7 @@ struct MetadataMatchPadView<Destination: View>: View {
     private var detailColumn: some View {
         switch observer.phase {
         case .preview(.ready(let preview)):
-            ScrollView {
+            List {
                 MetadataSelectBody(
                     preview: preview,
                     region: observer.region,
@@ -123,8 +129,9 @@ struct MetadataMatchPadView<Destination: View>: View {
                     onReviewChapters: onReviewChapters,
                     showChangeRow: false
                 )
-                .padding(24)
             }
+            .listStyle(.insetGrouped)
+            .readableListWidth(720)
         case .preview(.loading):
             LoadingStateView(label: String(localized: "metadata.loading_match"))
         default:

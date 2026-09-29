@@ -64,61 +64,76 @@ private struct ContributorMetadataSearchView: View {
 
     @State private var queryDraft: String = ""
 
+    /// A grouped `List`: the query and region on the plain background, then the people as rows that
+    /// highlight on tap (HIG, Lists and tables).
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                if !observer.contributorName.isEmpty {
-                    Text(String(format: String(localized: "metadata.searching_for"), observer.contributorName))
-                        .font(.callout)
-                        .foregroundStyle(Color.luLabel2)
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 18) {
+                    if !observer.contributorName.isEmpty {
+                        Text(String(format: String(localized: "metadata.searching_for"), observer.contributorName))
+                            .font(.callout)
+                            .foregroundStyle(Color.luLabel2)
+                    }
+
+                    MetadataSearchField(text: $queryDraft) { submit() }
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text(String(localized: "contributor.audible_region"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.luLabel2)
+                        RegionPicker(
+                            options: MetadataRegionOption.all,
+                            selection: observer.region,
+                            label: \.displayName
+                        ) { observer.changeRegion($0) }
+                    }
                 }
-
-                MetadataSearchField(text: $queryDraft) { submit() }
-
-                VStack(alignment: .leading, spacing: 9) {
-                    Text(String(localized: "contributor.audible_region"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.luLabel2)
-                    RegionPicker(
-                        options: MetadataRegionOption.all,
-                        selection: observer.region,
-                        label: \.displayName
-                    ) { observer.changeRegion($0) }
-                }
-
-                resultsSection
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .readableWidth(680)
+
+            resultsSection
         }
-        .background(Color.luSurface)
+        .listStyle(.insetGrouped)
+        .readableListWidth(680)
         .onAppear { if queryDraft.isEmpty { queryDraft = observer.query } }
     }
 
     @ViewBuilder
     private var resultsSection: some View {
         if observer.isSearching {
-            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+            Section {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                    .listRowBackground(Color.clear)
+            }
         } else if let error = observer.searchError {
-            ContentUnavailableView {
-                Label(String(localized: "common.error"), systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error)
+            Section {
+                ContentUnavailableView {
+                    Label(String(localized: "common.error"), systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(error)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .listRowBackground(Color.clear)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
         } else if observer.results.isEmpty {
-            ContentUnavailableView {
-                Label(String(localized: "contributor.find_on_audible"), systemImage: "magnifyingglass")
-            } description: {
-                Text(String(localized: "contributor.author_or_narrator_name"))
+            Section {
+                ContentUnavailableView {
+                    Label(String(localized: "contributor.find_on_audible"), systemImage: "magnifyingglass")
+                } description: {
+                    Text(String(localized: "contributor.author_or_narrator_name"))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .listRowBackground(Color.clear)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
         } else {
-            FieldGroup(observer.results, separatorInset: 72) { hit in
-                ContributorHitRowView(hit: hit) { onSelect(hit.asin) }
+            Section {
+                ForEach(observer.results) { hit in
+                    ContributorHitRowView(hit: hit) { onSelect(hit.asin) }
+                }
             }
         }
     }
@@ -156,11 +171,8 @@ private struct ContributorHitRowView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color.luLabel3)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleButtonStyle())
     }
 }
 

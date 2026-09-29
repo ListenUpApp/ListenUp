@@ -43,7 +43,7 @@ struct MetadataSelectView: View {
 
     @ViewBuilder
     private func readyContent(_ ready: MetadataPreview) -> some View {
-        ScrollView {
+        List {
             MetadataSelectBody(
                 preview: ready,
                 region: observer.region,
@@ -52,10 +52,9 @@ struct MetadataSelectView: View {
                 showChangeRow: true,
                 onChange: { /* back nav handled by NavigationStack */ }
             )
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .readableWidth(720)
         }
+        .listStyle(.insetGrouped)
+        .readableListWidth(720)
         .safeAreaBar(edge: .bottom) {
             MetadataApplyTray(
                 isApplying: ready.isApplying,
@@ -68,8 +67,9 @@ struct MetadataSelectView: View {
     }
 }
 
-/// The scrollable body of the select step (hero + grouped field lists + chapters CTA), factored
-/// out so both the iPhone push screen and the iPad master–detail right column render it identically.
+/// The body of the select step (hero + grouped field sections + chapters CTA) as `List` sections,
+/// factored out so both the iPhone push screen and the iPad master–detail right column render it
+/// identically. Host it inside a `List`.
 struct MetadataSelectBody: View {
     let preview: MetadataPreview
     let region: MetadataRegionOption
@@ -84,20 +84,23 @@ struct MetadataSelectBody: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            MetadataMatchedEditionCard(
-                title: preview.title,
-                regionName: region.displayName,
-                coverURL: preview.coverURL,
-                showChange: showChangeRow,
-                onChange: onChange
-            )
-
-            HStack {
-                MetadataGroupHeader(text: fieldsSelectedText)
-                Spacer()
+        Group {
+            Section {
+                // The matched edition is a content card (cover, source, title), not a list row.
+                MetadataMatchedEditionCard(
+                    title: preview.title,
+                    regionName: region.displayName,
+                    coverURL: preview.coverURL,
+                    showChange: showChangeRow,
+                    onChange: onChange
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            } footer: {
+                Text(fieldsSelectedText)
+                    .textCase(.uppercase)
+                    .padding(.top, 8)
             }
-            .padding(.horizontal, 4)
 
             section(String(localized: "metadata.section_identity")) {
                 coverRow
@@ -340,11 +343,8 @@ struct MetadataSelectBody: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.luLabel3)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(PressScaleButtonStyle())
         }
     }
 
@@ -356,8 +356,6 @@ struct MetadataSelectBody: View {
                     .font(.footnote).foregroundStyle(Color.luLabel2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
         }
     }
 
@@ -390,15 +388,8 @@ struct MetadataSelectBody: View {
 
     // MARK: - Section scaffold
 
-    @ViewBuilder
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        let built = content()
-        VStack(alignment: .leading, spacing: 8) {
-            MetadataGroupHeader(text: title).padding(.leading, 4)
-            FieldGroup([0], id: \.self) { _ in
-                VStack(spacing: 0) { built }
-            }
-        }
+        Section(title) { content() }
     }
 }
 

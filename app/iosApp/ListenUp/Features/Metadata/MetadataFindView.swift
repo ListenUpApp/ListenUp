@@ -11,38 +11,42 @@ struct MetadataFindView: View {
     @State private var queryDraft: String = ""
     @State private var selectedAsin: String?
 
+    /// A grouped `List`: the header, query and region on the plain background, then the matches as
+    /// list rows — each highlights on tap and carries a checkmark once chosen (HIG, Lists and tables).
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                MetadataFlowHeader(
-                    badge: String(localized: "metadata.match_metadata"),
-                    title: String(localized: "metadata.find_on_audible"),
-                    subtitle: String(localized: "metadata.find_subtitle")
-                )
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 18) {
+                    MetadataFlowHeader(
+                        badge: String(localized: "metadata.match_metadata"),
+                        title: String(localized: "metadata.find_on_audible"),
+                        subtitle: String(localized: "metadata.find_subtitle")
+                    )
 
-                VStack(alignment: .leading, spacing: 7) {
-                    MetadataSearchField(text: $queryDraft) { submit() }
-                    Text(String(localized: "metadata.search_helper"))
-                        .font(.caption).foregroundStyle(Color.luLabel3)
-                        .padding(.leading, 4)
+                    VStack(alignment: .leading, spacing: 7) {
+                        MetadataSearchField(text: $queryDraft) { submit() }
+                        Text(String(localized: "metadata.search_helper"))
+                            .font(.caption).foregroundStyle(Color.luLabel3)
+                            .padding(.leading, 4)
+                    }
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
+                        RegionPicker(
+                            options: MetadataRegionOption.all,
+                            selection: observer.region,
+                            label: \.displayName
+                        ) { observer.changeRegion($0) }
+                    }
                 }
-
-                VStack(alignment: .leading, spacing: 9) {
-                    MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
-                    RegionPicker(
-                        options: MetadataRegionOption.all,
-                        selection: observer.region,
-                        label: \.displayName
-                    ) { observer.changeRegion($0) }
-                }
-
-                resultsSection
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .readableWidth(680)
+
+            resultsSection
         }
-        .background(Color.luSurface)
+        .listStyle(.insetGrouped)
+        .readableListWidth(680)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaBar(edge: .bottom) { tray }
@@ -72,7 +76,7 @@ struct MetadataFindView: View {
                     subtitle: String(localized: "metadata.start_subtitle")
                 )
             case .inFlight:
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                statusRow { ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40) }
             case .loaded(let results):
                 resultsList(results)
             case .failed(let message):
@@ -83,7 +87,15 @@ struct MetadataFindView: View {
                 )
             }
         default:
-            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+            statusRow { ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40) }
+        }
+    }
+
+    /// A status (spinner, empty, error) on the plain background, where a row would draw a card.
+    private func statusRow(@ViewBuilder _ content: () -> some View) -> some View {
+        Section {
+            content()
+                .listRowBackground(Color.clear)
         }
     }
 
@@ -96,15 +108,12 @@ struct MetadataFindView: View {
                 subtitle: String(localized: "metadata.no_matches_subtitle")
             )
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                MetadataGroupHeader(
-                    text: results.count == 1
-                        ? String(format: String(localized: "metadata.match_count"), results.count)
-                        : String(format: String(localized: "metadata.matches_count"), results.count)
-                )
-                .padding(.leading, 4)
-
-                FieldGroup(results, separatorInset: 77) { item in
+            Section(
+                results.count == 1
+                    ? String(format: String(localized: "metadata.match_count"), results.count)
+                    : String(format: String(localized: "metadata.matches_count"), results.count)
+            ) {
+                ForEach(results) { item in
                     MetadataSearchResultRow(item: item, isActive: selectedAsin == item.id) {
                         selectedAsin = item.id
                         observer.selectMatch(item.id)
@@ -115,13 +124,15 @@ struct MetadataFindView: View {
     }
 
     private func emptyState(icon: String, title: String, subtitle: String) -> some View {
-        ContentUnavailableView {
-            Label(title, systemImage: icon)
-        } description: {
-            Text(subtitle)
+        statusRow {
+            ContentUnavailableView {
+                Label(title, systemImage: icon)
+            } description: {
+                Text(subtitle)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
     }
 
     @ViewBuilder
@@ -145,8 +156,8 @@ struct MetadataFindView: View {
     }
 }
 
-/// One Audible match in the results list: cover, title, author · narrator, duration, and an active
-/// checkmark when chosen. Composes `BookCoverImage`-style remote loading via an async cover URL.
+/// One Audible match in the results list (a `List` row): cover, title, author · narrator, duration,
+/// and an active checkmark when chosen. Composes `BookCoverImage`-style remote loading via an async cover URL.
 struct MetadataSearchResultRow: View {
     let item: MetadataResultItem
     let isActive: Bool
@@ -184,11 +195,8 @@ struct MetadataSearchResultRow: View {
                         .foregroundStyle(Color.luTint)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleButtonStyle())
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 }
