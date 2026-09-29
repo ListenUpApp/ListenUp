@@ -23,35 +23,36 @@ struct ImportReviewContent: View {
     let onApply: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    countHeader
-                    ForEach(review.users) { user in
-                        ImportUserReviewRow(
-                            user: user,
-                            onAcceptSuggestion: {
-                                if let suggested = user.suggestedUserId { onAccept(user, suggested) }
-                            },
-                            onAssign: { onAssign(user) },
-                            onSkip: { onSkip(user) },
-                            onChange: { onAssign(user) }
-                        )
-                        .popover(item: assignPopoverBinding(for: user)) { _ in
-                            assignPicker(for: user)
-                        }
-                    }
-
-                    booksSection
-
-                    if review.unresolvedCount > 0 {
-                        warning
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                countHeader
+                ForEach(review.users) { user in
+                    ImportUserReviewRow(
+                        user: user,
+                        onAcceptSuggestion: {
+                            if let suggested = user.suggestedUserId { onAccept(user, suggested) }
+                        },
+                        onAssign: { onAssign(user) },
+                        onSkip: { onSkip(user) },
+                        onChange: { onAssign(user) }
+                    )
+                    .popover(item: assignPopoverBinding(for: user)) { _ in
+                        assignPicker(for: user)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .readableWidth(640)
+
+                booksSection
+
+                if review.unresolvedCount > 0 {
+                    warning
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .readableWidth(640)
+        }
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
             actionTray
         }
     }
@@ -212,7 +213,6 @@ struct ImportReviewContent: View {
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 16)
-        .background(.bar)
     }
 }
 
@@ -225,28 +225,29 @@ struct ImportCompleteContent: View {
     let onDone: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 0) {
-                    SuccessBadge(size: 116)
-                        .padding(.top, 16)
-                    Text(String(localized: "import.done_title"))
-                        .font(.title.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .padding(.top, 22)
-                    Text(String(localized: "import.done_subtitle"))
-                        .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 8)
-                    statsCard
-                        .padding(.top, 24)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 24)
-                .frame(maxWidth: .infinity)
-                .readableWidth(520)
+        ScrollView {
+            VStack(spacing: 0) {
+                SuccessBadge(size: 116)
+                    .padding(.top, 16)
+                Text(String(localized: "import.done_title"))
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(.primary)
+                    .padding(.top, 22)
+                Text(String(localized: "import.done_subtitle"))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.luLabel2)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 8)
+                statsCard
+                    .padding(.top, 24)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity)
+            .readableWidth(520)
+        }
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
             Button(action: onDone) {
                 ActionLabel(title: String(localized: "common.done"), systemImage: "checkmark")
             }
@@ -254,7 +255,6 @@ struct ImportCompleteContent: View {
             .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, 16)
-            .background(.bar)
         }
     }
 

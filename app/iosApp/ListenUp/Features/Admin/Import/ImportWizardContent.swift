@@ -18,24 +18,25 @@ struct ImportIntroContent: View {
     let onChooseFile: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    badge
-                    Text(String(localized: "import.choose_backup_subtitle"))
-                        .font(.subheadline)
-                        .foregroundStyle(Color.luLabel2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                badge
+                Text(String(localized: "import.choose_backup_subtitle"))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.luLabel2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    AdminSectionHeader(String(localized: "import.how_it_works"))
-                        .padding(.top, 4)
-                    stepsCard
-                    privacyNote
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .readableWidth(640)
+                AdminSectionHeader(String(localized: "import.how_it_works"))
+                    .padding(.top, 4)
+                stepsCard
+                privacyNote
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .readableWidth(640)
+        }
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
             actionTray
         }
     }
@@ -88,7 +89,6 @@ struct ImportIntroContent: View {
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 16)
-        .background(.bar)
     }
 
     private var separator: some View {
@@ -112,58 +112,58 @@ struct ImportProgressContent: View {
     var footnote: String?
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 22) {
-                    CircularProgressDial(progress: progress) {
-                        VStack(spacing: 2) {
-                            if let centerPrimary {
-                                Text(centerPrimary)
-                                    .font(.system(size: 34, weight: .bold).monospacedDigit())
-                                    .foregroundStyle(.primary)
-                            } else {
-                                ProgressView().controlSize(.large)
-                            }
-                            if let centerSecondary {
-                                Text(centerSecondary)
-                                    .font(.footnote.monospacedDigit())
-                                    .foregroundStyle(Color.luLabel2)
-                            }
+        ScrollView {
+            VStack(spacing: 22) {
+                CircularProgressDial(progress: progress) {
+                    VStack(spacing: 2) {
+                        if let centerPrimary {
+                            Text(centerPrimary)
+                                .font(.system(size: 34, weight: .bold).monospacedDigit())
+                                .foregroundStyle(.primary)
+                        } else {
+                            ProgressView().controlSize(.large)
+                        }
+                        if let centerSecondary {
+                            Text(centerSecondary)
+                                .font(.footnote.monospacedDigit())
+                                .foregroundStyle(Color.luLabel2)
                         }
                     }
-                    .padding(.top, 12)
-
-                    VStack(spacing: 6) {
-                        Text(title)
-                            .font(.title.weight(.bold))
-                            .foregroundStyle(.primary)
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(Color.luLabel2)
-                            .multilineTextAlignment(.center)
-                    }
-
-                    if let filename {
-                        MonospacedTechLine(text: filename)
-                            .padding(.horizontal, 4)
-                    }
-
-                    if !stats.isEmpty {
-                        statsCard
-                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 24)
-                .frame(maxWidth: .infinity)
-                .readableWidth(520)
+                .padding(.top, 12)
+
+                VStack(spacing: 6) {
+                    Text(title)
+                        .font(.title.weight(.bold))
+                        .foregroundStyle(.primary)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.luLabel2)
+                        .multilineTextAlignment(.center)
+                }
+
+                if let filename {
+                    MonospacedTechLine(text: filename)
+                        .padding(.horizontal, 4)
+                }
+
+                if !stats.isEmpty {
+                    statsCard
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity)
+            .readableWidth(520)
+        }
+        // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+        .safeAreaBar(edge: .bottom) {
             if let footnote {
                 Text(footnote)
                     .font(.footnote)
                     .foregroundStyle(Color.luLabel2)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(.bar)
             }
         }
     }

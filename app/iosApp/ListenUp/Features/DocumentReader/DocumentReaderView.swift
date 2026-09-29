@@ -54,10 +54,10 @@ struct DocumentReaderView: View {
             if let pdfDocument { search = PdfSearchController(document: pdfDocument) }
             didAttemptLoad = true
         }
-        .safeAreaInset(edge: .top) {
+        .safeAreaBar(edge: .top) {
             if chromeVisible { topBar }
         }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaBar(edge: .bottom) {
             if chromeVisible, pdfDocument != nil, pageCount > 0 { bottomDock }
         }
         .overlay(alignment: .top) {
@@ -141,7 +141,6 @@ struct DocumentReaderView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.bar)
     }
 
     // MARK: - Bottom dock
@@ -153,7 +152,6 @@ struct DocumentReaderView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(.bar)
     }
 
     private var scrubberRow: some View {

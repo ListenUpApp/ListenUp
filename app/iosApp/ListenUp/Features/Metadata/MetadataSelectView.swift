@@ -56,7 +56,7 @@ struct MetadataSelectView: View {
             .padding(.vertical, 12)
             .readableWidth(720)
         }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaBar(edge: .bottom) {
             MetadataApplyTray(
                 isApplying: ready.isApplying,
                 isEnabled: ready.selectedCount > 0,
@@ -515,6 +515,5 @@ struct MetadataApplyTray: View {
             .padding(16)
             .readableWidth(720)
         }
-        .background(.bar)
     }
 }

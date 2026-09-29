@@ -39,7 +39,7 @@ struct MetadataUpdatedView: View {
         .background(Color.luSurface)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaBar(edge: .bottom) {
             VStack(spacing: 0) {
                 Divider()
                 Button(action: onDone) {
@@ -49,7 +49,6 @@ struct MetadataUpdatedView: View {
                 .padding(16)
                 .readableWidth(360)
             }
-            .background(.bar)
         }
     }
 

@@ -238,7 +238,7 @@ private struct ContributorMetadataPreviewView: View {
             .padding(.vertical, 16)
             .readableWidth(680)
         }
-        .safeAreaInset(edge: .bottom) { applyTray }
+        .safeAreaBar(edge: .bottom) { applyTray }
     }
 
     /// Side-by-side current vs. incoming photo. Informational — no toggle; the server keeps the
@@ -331,7 +331,6 @@ private struct ContributorMetadataPreviewView: View {
             .disabled(!observer.canApply)
             .opacity(observer.canApply ? 1 : 0.5)
         }
-        .background(.bar)
     }
 }
 

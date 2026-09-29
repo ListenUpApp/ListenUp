@@ -157,7 +157,7 @@ struct ChapterEditorView: View {
         .listStyle(.insetGrouped)
         .haptic(.press, trigger: snaps)
         .searchable(text: $query, prompt: Text(String(localized: "chapter_editor.jump_to_title")))
-        .safeAreaInset(edge: .bottom) { addAtPlayheadBar(observer) }
+        .safeAreaBar(edge: .bottom) { addAtPlayheadBar(observer) }
     }
 
     private var changedElsewhereNotice: some View {
@@ -276,7 +276,6 @@ struct ChapterEditorView: View {
             .buttonStyle(.borderedProminent)
             .onBrandFillLabel()
             .padding()
-            .background(.bar)
         }
     }
 

@@ -45,7 +45,7 @@ struct MetadataFindView: View {
         .background(Color.luSurface)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom) { tray }
+        .safeAreaBar(edge: .bottom) { tray }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button(String(localized: "common.cancel"), action: onCancel)
@@ -135,7 +135,6 @@ struct MetadataFindView: View {
                 .prominentAction()
                 .padding(16)
             }
-            .background(.bar)
         }
     }
 
