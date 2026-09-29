@@ -81,6 +81,7 @@ struct ChapterEditRow: View {
         // The row's children combine into one element, so its controls are named as actions too.
         .accessibilityAction(named: Text(String(localized: "chapter_editor.edit_time")), onEditTime)
         .accessibilityAction(named: Text(String(localized: "chapter_editor.insert_below")), onInsertBelow)
+        // swipe-actions-host: ChapterEditorView.swift (its `chapterList` is the `List`).
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive, action: onDelete) {
                 Label(String(localized: "common.delete"), systemImage: "trash")
