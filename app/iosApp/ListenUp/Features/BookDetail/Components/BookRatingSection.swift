@@ -94,8 +94,9 @@ struct BookRatingSection: View {
 
     /// Whether `refreshAction` shows: before any score exists (`external == nil`), admin only.
     /// Once a score exists the headline itself carries refresh, one tap away via
-    /// `RatingBreakdownSheet`.
-    static func showsRefreshAction(_ snapshot: BookRatingsSnapshot) -> Bool {
+    /// `RatingBreakdownSheet`. `nonisolated` so tests can call it off the main actor, same as
+    /// `BookRatingsObserver.phase(from:)`.
+    nonisolated static func showsRefreshAction(_ snapshot: BookRatingsSnapshot) -> Bool {
         snapshot.external == nil && snapshot.canRefresh
     }
 
