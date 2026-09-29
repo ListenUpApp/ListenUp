@@ -3,8 +3,9 @@ import Shared
 
 /// Admin inbox — freshly-scanned books awaiting triage before release into the library.
 ///
-/// Layout is width-responsive (iosApp rule 12): compact width = single column list;
-/// regular width (iPad, wide Split View) = adaptive multi-column grid.
+/// Layout is width-responsive (iosApp rule 12): compact width = a system inset-grouped `List`
+/// (scan issues, then the held books — each a lazily built row); regular width (iPad, wide Split
+/// View) = an adaptive multi-column grid of book cards.
 /// Selection mode: tap a row to toggle; select-all / release actions appear in the header.
 /// Release confirmation is a native alert. Transient errors surface as an alert.
 /// A release confirms itself: the books leave the inbox, with a success haptic and the count
@@ -111,17 +112,20 @@ struct AdminInboxView: View {
         if ready.isEmpty {
             AdminInboxEmptyState()
         } else {
-            ScrollView {
+            Group {
                 if isRegularWidth {
-                    padLayout(observer: observer, ready: ready)
+                    ScrollView {
+                        padLayout(observer: observer, ready: ready)
+                    }
                 } else {
-                    phoneLayout(observer: observer, ready: ready)
+                    phoneList(observer: observer, ready: ready)
                 }
             }
             .refreshable { observer.reload() }
-            .overlay(alignment: .bottom) {
-                if ready.hasSelection {
-                    releaseBar(observer: observer, ready: ready)
+            // The tray is a bar over the scroll view, whose edge effect the system draws (HIG, Toolbars).
+            .safeAreaBar(edge: .bottom) {
+                if ready.hasSelection && !isRegularWidth {
+                    releaseBar(ready: ready)
                 }
             }
         }
@@ -129,32 +133,33 @@ struct AdminInboxView: View {
 
     // MARK: - Phone layout (compact width)
 
-    @ViewBuilder
-    private func phoneLayout(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
-        VStack(spacing: 0) {
-            ScanIssueSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
-                .padding(.horizontal, 20)
+    /// A system `List`: each held book is its own lazily built row (the hand-drawn group built them
+    /// all at once — 2026-09-29 iOS audit, performance), with the list's separators and a tinted row
+    /// background for the selected ones.
+    private func phoneList(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
+        List {
+            ScanIssueListSection(issues: ready.scanIssues) { observer.dismissScanIssue(issueId: $0) }
             if ready.hasBooks {
-                subtitleRow(ready: ready)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-                FieldGroup(ready.books, separatorInset: ready.hasSelection ? 99 : 73) { book in
-                    InboxBookRow(
-                        book: book,
-                        isSelected: ready.selectedBookIds.contains(book.id),
-                        isSelecting: ready.hasSelection,
-                        onTap: { observer.toggleBookSelection(bookId: book.id) },
-                        onEdit: { editingBook = InboxEditTarget(id: book.id) },
-                        onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
-                    )
+                Section {
+                    ForEach(ready.books) { book in
+                        let isSelected = ready.selectedBookIds.contains(book.id)
+                        InboxBookRow(
+                            book: book,
+                            isSelected: isSelected,
+                            isSelecting: ready.hasSelection,
+                            onTap: { observer.toggleBookSelection(bookId: book.id) },
+                            onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                            onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                        )
+                        .listRowBackground(InboxBookRow.background(isSelected: isSelected))
+                    }
+                } header: {
+                    subtitleRow(ready: ready)
+                        .textCase(nil)
                 }
-                .padding(.horizontal, 20)
-            }
-            if ready.hasSelection {
-                Color.clear.frame(height: 100)
             }
         }
-        .padding(.vertical, 8)
+        .listStyle(.insetGrouped)
     }
 
     // MARK: - iPad layout (regular width)
@@ -172,16 +177,20 @@ struct AdminInboxView: View {
                 spacing: 16
             ) {
                 ForEach(ready.books) { book in
-                    FieldGroup([book], separatorInset: 0) { b in
-                        InboxBookRow(
-                            book: b,
-                            isSelected: ready.selectedBookIds.contains(b.id),
-                            isSelecting: ready.hasSelection,
-                            onTap: { observer.toggleBookSelection(bookId: b.id) },
-                            onEdit: { editingBook = InboxEditTarget(id: b.id) },
-                            onFindMetadata: { metadataBook = InboxMetadataTarget(book: b) }
-                        )
-                    }
+                    let isSelected = ready.selectedBookIds.contains(book.id)
+                    // A cell in a collection draws its own surface: a grid has no rows to do it.
+                    InboxBookRow(
+                        book: book,
+                        isSelected: isSelected,
+                        isSelecting: ready.hasSelection,
+                        onTap: { observer.toggleBookSelection(bookId: book.id) },
+                        onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                        onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .background(InboxBookRow.background(isSelected: isSelected))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
             .padding(.horizontal, 36)
@@ -272,37 +281,21 @@ struct AdminInboxView: View {
 
     // MARK: - Release action bar (compact / phone)
 
-    @ViewBuilder
-    private func releaseBar(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> some View {
-        VStack(spacing: 0) {
-            LinearGradient(
-                colors: [Color.luSurface.opacity(0), Color.luSurface],
-                startPoint: .top,
-                endPoint: .bottom
+    private func releaseBar(ready: AdminInboxReadyModel) -> some View {
+        Button {
+            showingReleaseConfirm = true
+        } label: {
+            ActionLabel(
+                title: String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
+                systemImage: "checkmark",
+                isBusy: ready.isReleasing
             )
-            .frame(height: 24)
-            HStack(spacing: 12) {
-                Button {
-                    showingReleaseConfirm = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark")
-                            .font(.body.weight(.semibold))
-                        Text(String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount))
-                            .font(.body.weight(.semibold))
-                    }
-                    .foregroundStyle(Color.luOnTint)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color.luTint, in: RoundedRectangle(cornerRadius: 13))
-                }
-                .buttonStyle(.plain)
-                .disabled(ready.isReleasing)
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
-            .background(Color.luSurface)
         }
+        .prominentAction()
+        .disabled(ready.isReleasing)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Error body
@@ -436,11 +429,13 @@ private struct InboxBookRow: View {
 
             actionsMenu
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
         .contextMenu { rowActions }
+    }
+
+    /// The row's surface: the grouped surface, washed with the accent while selected.
+    static func background(isSelected: Bool) -> some View {
+        Color.luSurface2.overlay(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
     }
 
     /// Visible per-row actions: review/edit (metadata fields + collections) or match against Audible —
