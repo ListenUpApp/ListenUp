@@ -141,4 +141,58 @@ class MatchScorerTest :
                 MatchScorer.score(identity, match) shouldBe 1.0
             }
         }
+
+        context("isConfidentRatingMatch") {
+            fun confident(
+                localTitle: String,
+                localAuthor: String?,
+                candidateTitle: String,
+                candidateAuthor: String?,
+            ) = MatchScorer.isConfidentRatingMatch(
+                BookIdentity(title = localTitle, primaryAuthor = localAuthor),
+                BookMatch(title = candidateTitle, author = candidateAuthor, score = 0.0),
+            )
+
+            test("an exact title and author is a confident rating match") {
+                confident(
+                    "The Best Christmas Pageant Ever",
+                    "Barbara Robinson",
+                    "The Best Christmas Pageant Ever",
+                    "Barbara Robinson",
+                ) shouldBe true
+            }
+
+            test("the same title by a different author is not") {
+                confident("The Little Prince", "Antoine de Saint-Exupéry", "The Little Prince", "Some Study Guide") shouldBe false
+            }
+
+            test("a different book with a shared word is not") {
+                confident("The Pursuit of God", "A. W. Tozer", "The Pursuit of Happiness", "A. W. Tozer") shouldBe false
+            }
+
+            test("a subtitle on one side only is still the same book") {
+                confident("Project Hail Mary", "Andy Weir", "Project Hail Mary: A Novel", "Andy Weir") shouldBe true
+                confident("Project Hail Mary: A Novel", "Andy Weir", "Project Hail Mary", "Andy Weir") shouldBe true
+            }
+
+            test("two different subtitles on the same series stem are different books") {
+                confident("Dune: Messiah", "Frank Herbert", "Dune: Children of Dune", "Frank Herbert") shouldBe false
+            }
+
+            test("accents and hyphens alone do not break a match") {
+                confident("The Little Prince", "Antoine de Saint-Exupéry", "The Little Prince", "Antoine de Saint Exupery") shouldBe true
+            }
+
+            test("a missing author on either side is never confident") {
+                confident("The Little Prince", null, "The Little Prince", "Antoine de Saint-Exupéry") shouldBe false
+                confident("The Little Prince", "Antoine de Saint-Exupéry", "The Little Prince", null) shouldBe false
+            }
+
+            test("runtime is ignored") {
+                MatchScorer.isConfidentRatingMatch(
+                    BookIdentity(title = "Dune", primaryAuthor = "Frank Herbert", durationMs = 3_600_000),
+                    BookMatch(title = "Dune", author = "Frank Herbert", durationMs = 90_000_000, score = 0.0),
+                ) shouldBe true
+            }
+        }
     })
