@@ -41,7 +41,10 @@ struct ActionLabel: View {
             .opacity(isBusy ? 0 : 1)
 
             if isBusy {
+                // The regular spinner, not the `.large` one the button's control size would pick:
+                // it sits within the title's height, so the button does not grow while busy.
                 ProgressView()
+                    .controlSize(.regular)
             }
         }
         .frame(maxWidth: .infinity)
