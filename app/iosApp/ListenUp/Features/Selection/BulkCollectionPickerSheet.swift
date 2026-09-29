@@ -18,7 +18,6 @@ struct BulkCollectionPickerSheet: View {
             rows: observer.allCollections.map { PickerRow(id: $0.id, name: $0.name) },
             headerText: String(format: String(localized: "selection.add_n_to_collection"), count),
             emptyState: .hint(String(localized: "book.detail_no_collections")),
-            frosted: true,
             isBusy: observer.isAddingToCollection,
             create: InlineCreate(
                 label: String(localized: "book.detail_new_collection"),
