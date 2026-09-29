@@ -199,6 +199,10 @@ tasks.register<Exec>("webKotest") {
 // a real input (the dev output is a different directory and would ship unminified). `build:check`
 // rather than `build`: it boots the built bundle before anyone ships it, and an image whose web
 // client cannot start is exactly the failure this lane exists to catch.
+//
+// `pnpm build` also precompresses (`scripts/precompress.mjs`): every text and wasm file in dist/ gets
+// `.br` and `.gz` siblings, which the server's WebAppRoutes negotiates — Ktor's Compression plugin
+// has no linuxX64 artifact. `build:check` fails if the scripts under dist/assets lack them.
 tasks.register<Exec>("webBundle") {
     group = "build"
     description = "Builds and boot-checks the production web bundle into web/dist."
@@ -207,7 +211,9 @@ tasks.register<Exec>("webBundle") {
     commandLine("pnpm", "build:check")
     inputs.dir(layout.buildDirectory.dir("compileSync/js/main/productionExecutable/kotlin"))
     inputs.dir(webRoot.dir("src"))
+    inputs.dir(webRoot.dir("scripts"))
     inputs.file(webRoot.file("index.html"))
+    inputs.file(webRoot.file("package.json"))
     outputs.dir(webRoot.dir("dist"))
 }
 
