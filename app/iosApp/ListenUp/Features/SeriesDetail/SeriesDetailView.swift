@@ -11,13 +11,12 @@ import Shared
 /// 5. "Books in Series" header + order toggle
 /// 6. `FieldGroup` of `SeriesBookRow` entries
 ///
-/// iPad (`horizontalSizeClass == .regular`) splits hero + meta into a fixed left
-/// column beside a right column with the book list.
+/// When the width allows (`DetailColumns`), hero + meta move into a left rail sized from the
+/// width, beside a right column with the book list.
 struct SeriesDetailView: View {
     let seriesId: String
 
     @Environment(\.dependencies) private var deps
-    @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: SeriesDetailObserver?
     @State private var reversed: Bool = false
     @State private var showEdit: Bool = false
@@ -92,10 +91,11 @@ struct SeriesDetailView: View {
 
     @ViewBuilder
     private func content(observer: SeriesDetailObserver) -> some View {
-        if hSize == .regular {
-            iPadLayout(observer: observer)
-        } else {
-            iPhoneLayout(observer: observer)
+        DetailColumnsReader { columns in
+            switch columns {
+            case .split(let railWidth): iPadLayout(observer: observer, railWidth: railWidth)
+            case .stacked: iPhoneLayout(observer: observer)
+            }
         }
     }
 
@@ -124,9 +124,9 @@ struct SeriesDetailView: View {
         }
     }
 
-    private func iPadLayout(observer: SeriesDetailObserver) -> some View {
+    private func iPadLayout(observer: SeriesDetailObserver, railWidth: CGFloat) -> some View {
         ScrollView {
-            HStack(alignment: .top, spacing: 40) {
+            HStack(alignment: .top, spacing: DetailColumns.gutter) {
                 // Left column — hero + stats + CTA
                 VStack(spacing: 0) {
                     heroSection(observer: observer)
@@ -142,14 +142,14 @@ struct SeriesDetailView: View {
                     continueButton(observer: observer)
                         .padding(.top, 20)
                 }
-                .frame(width: 340, alignment: .top)
+                .frame(width: railWidth, alignment: .top)
                 // Right column — books list
                 VStack(spacing: 0) {
                     booksSection(observer: observer)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, DetailColumns.margin)
             .padding(.vertical, 24)
         }
     }

@@ -11,7 +11,6 @@ struct ContributorDetailView: View {
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: ContributorDetailObserver?
     @State private var showEdit = false
     @State private var showFindOnAudible = false
@@ -25,8 +24,6 @@ struct ContributorDetailView: View {
     /// deleted contributor in the back stack for the reader to return to, and popping to the
     /// library would lose their place. `.task(id:)` reloads when this changes.
     private var activeContributorId: String { mergedIntoContributorId ?? contributorId }
-
-    private var isRegular: Bool { hSize == .regular }
 
     var body: some View {
         Group {
@@ -113,10 +110,11 @@ struct ContributorDetailView: View {
 
     @ViewBuilder
     private func content(observer: ContributorDetailObserver) -> some View {
-        if isRegular {
-            iPadLayout(observer: observer)
-        } else {
-            iPhoneLayout(observer: observer)
+        DetailColumnsReader { columns in
+            switch columns {
+            case .split(let railWidth): iPadLayout(observer: observer, railWidth: railWidth)
+            case .stacked: iPhoneLayout(observer: observer)
+            }
         }
     }
 
@@ -135,9 +133,10 @@ struct ContributorDetailView: View {
         }
     }
 
-    // MARK: - iPad (two-column)
+    // MARK: - Wide (two-column)
 
-    private func iPadLayout(observer: ContributorDetailObserver) -> some View {
+    /// The rail scrolls on its own beside the role sections, and is sized from the width.
+    private func iPadLayout(observer: ContributorDetailObserver, railWidth: CGFloat) -> some View {
         HStack(alignment: .top, spacing: 0) {
             ScrollView {
                 VStack(spacing: 24) {
@@ -148,7 +147,7 @@ struct ContributorDetailView: View {
                 .padding(.bottom, 32)
                 .padding(.horizontal)
             }
-            .frame(width: 320)
+            .frame(width: railWidth)
 
             Divider()
 

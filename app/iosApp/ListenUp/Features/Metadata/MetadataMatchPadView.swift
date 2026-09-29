@@ -6,8 +6,8 @@ import Shared
 /// whole width (no app sidebar). The right column reuses `MetadataSelectBody` verbatim, so the
 /// iPhone push screen and this master–detail stay in lockstep.
 ///
-/// Width-responsive: the left rail is a fixed, comfortable column; the right column flows and its
-/// field lists are full-width. In a narrow Split View (where an iPad reports `.compact`) the root
+/// Width-responsive: the left rail takes a share of the width (`DetailColumns.railWidth`), the right
+/// column flows and its field lists are full-width. In a narrow Split View (where an iPad reports `.compact`) the root
 /// falls back to the iPhone push flow, so this only renders when there's genuine width to use.
 struct MetadataMatchPadView: View {
     let observer: MetadataMatchObserver
@@ -16,6 +16,7 @@ struct MetadataMatchPadView: View {
 
     @State private var queryDraft: String = ""
     @State private var selectedAsin: String?
+    @State private var width: CGFloat = 1024
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,13 +24,14 @@ struct MetadataMatchPadView: View {
             Divider()
             HStack(spacing: 0) {
                 searchRail
-                    .frame(width: 360)
+                    .frame(width: DetailColumns.railWidth(forWidth: width))
                 Divider()
                 detailColumn
                     .frame(maxWidth: .infinity)
             }
         }
         .background(Color.luSurface)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .navigationTitle("")
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { if queryDraft.isEmpty { queryDraft = observer.query } }

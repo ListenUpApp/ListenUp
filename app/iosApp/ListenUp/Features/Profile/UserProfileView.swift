@@ -10,7 +10,6 @@ import Shared
 struct UserProfileView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.dependencies) private var deps
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var statsObserver: UserProfileObserver?
     @State private var isEditing = false
@@ -18,12 +17,14 @@ struct UserProfileView: View {
     private var user: User? { userObserver.user }
 
     var body: some View {
-        ScrollView {
-            content
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
-                .readableWidth()
+        DetailColumnsReader { columns in
+            ScrollView {
+                content(columns)
+                    .padding(.horizontal, DetailColumns.margin)
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
+                    .readableWidth(columns == .stacked ? 640 : 1100)
+            }
         }
         .background(Color.luSurface)
         .navigationTitle(String(localized: "common.profile"))
@@ -55,13 +56,13 @@ struct UserProfileView: View {
 
     // MARK: - Layout
 
-    /// iPad regular width places the identity column beside the actions; compact
-    /// stacks them vertically, matching `ProfilePad` / `ProfilePhone`.
-    @ViewBuilder private var content: some View {
-        if sizeClass == .regular {
-            HStack(alignment: .top, spacing: 40) {
+    /// A wide window places the identity column (sized from the width) beside the actions; a
+    /// narrow one stacks them vertically, matching `ProfilePad` / `ProfilePhone`.
+    @ViewBuilder private func content(_ columns: DetailColumns) -> some View {
+        if case .split(let railWidth) = columns {
+            HStack(alignment: .top, spacing: DetailColumns.gutter) {
                 VStack(spacing: 22) { header; statStrip; editButton }
-                    .frame(width: 320)
+                    .frame(width: railWidth)
                 actionsSection
                     .frame(maxWidth: .infinity, alignment: .top)
             }
