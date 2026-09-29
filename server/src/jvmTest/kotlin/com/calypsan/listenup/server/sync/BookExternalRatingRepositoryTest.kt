@@ -246,7 +246,7 @@ class BookExternalRatingRepositoryTest :
                     BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
                 runTest {
                     repo.recordAttempt("book1", ExternalRatingSource.AUDIBLE, at = 1_000L)
-                    repo.recordAttempt("book1", ExternalRatingSource.GOODREADS, at = 3_000L)
+                    repo.recordAttempt("book1", ExternalRatingSource.HARDCOVER, at = 3_000L)
                     repo.recordAttempt("book2", ExternalRatingSource.AUDIBLE, at = 2_000L)
 
                     repo.sweepCandidates(limit = 10) shouldBe listOf("book2", "book1")
@@ -266,7 +266,7 @@ class BookExternalRatingRepositoryTest :
                 runTest {
                     repo.recordAttempt("audible-only", ExternalRatingSource.AUDIBLE, at = 1_000L)
                     repo.recordAttempt("both", ExternalRatingSource.AUDIBLE, at = 1_000L)
-                    repo.recordAttempt("both", ExternalRatingSource.GOODREADS, at = 1_000L)
+                    repo.recordAttempt("both", ExternalRatingSource.HARDCOVER, at = 1_000L)
                     sql.transaction {
                         sql.booksQueries.softDeleteById(
                             revision = 999L,
@@ -276,17 +276,17 @@ class BookExternalRatingRepositoryTest :
                             id = "removed",
                         )
                     }
-                    val audibleAndGoodreads = setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.GOODREADS)
+                    val audibleAndHardcover = setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER)
 
-                    repo.booksMissingAttempt(audibleAndGoodreads, after = "", limit = 10) shouldBe
+                    repo.booksMissingAttempt(audibleAndHardcover, after = "", limit = 10) shouldBe
                         listOf("audible-only", "no-asin")
                     repo.booksMissingAttempt(setOf(ExternalRatingSource.AUDIBLE), after = "", limit = 10) shouldBe
                         listOf("no-asin")
-                    repo.booksMissingAttempt(audibleAndGoodreads, after = "audible-only", limit = 10) shouldBe
+                    repo.booksMissingAttempt(audibleAndHardcover, after = "audible-only", limit = 10) shouldBe
                         listOf("no-asin")
-                    repo.booksMissingAttempt(audibleAndGoodreads, after = "", limit = 1) shouldBe listOf("audible-only")
+                    repo.booksMissingAttempt(audibleAndHardcover, after = "", limit = 1) shouldBe listOf("audible-only")
                     repo.booksMissingAttempt(emptySet(), after = "", limit = 10) shouldBe emptyList()
-                    repo.attemptedSources("both") shouldBe audibleAndGoodreads
+                    repo.attemptedSources("both") shouldBe audibleAndHardcover
                 }
             }
         }

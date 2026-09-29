@@ -36,9 +36,6 @@ value class MetadataProviderId(
          */
         val HARDCOVER = MetadataProviderId("hardcover")
 
-        /** Goodreads, as a rating-only source. Not in [known], for the same reason as [HARDCOVER]. */
-        val GOODREADS = MetadataProviderId("goodreads")
-
         /** Every built-in id the router recognizes from config tokens. */
         val known: List<MetadataProviderId> = listOf(AUDIBLE, ITUNES, AUDNEXUS)
 
@@ -95,10 +92,6 @@ fun MetadataProviderId.displayLabel(): String =
 
         MetadataProviderId.HARDCOVER -> {
             "Hardcover"
-        }
-
-        MetadataProviderId.GOODREADS -> {
-            "Goodreads"
         }
 
         else -> {

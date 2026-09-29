@@ -42,18 +42,20 @@ private fun listeners(
     count: Int,
 ) = ListenerAverage(averageHalfStars = stars * 2, count = count)
 
-/** Audible 1,007 + Hardcover 58 + Goodreads 100,000 — the addendum's worked example. */
-private val threeCatalogs =
+/** Audible 1,007 + Hardcover 58 — the addendum's worked example, less the Goodreads row it once had. */
+private val twoCatalogs =
     listOf(
         rating(average = 4.7, count = 1_007, source = AUDIBLE),
         rating(average = 4.26, count = 58, source = HARDCOVER),
-        rating(average = 4.2, count = 100_000, source = GOODREADS),
     )
 
 private val priors = SourceCalibration.PRIORS
 
-/** The default priors' reference spread: (0.30 + 0.35 + 0.30) / 3. */
-private const val REFERENCE_SPREAD = 0.95 / 3
+/** The default priors' reference mean: (4.40 + 3.95) / 2. */
+private const val REFERENCE_MEAN = 4.175
+
+/** The default priors' reference spread: (0.30 + 0.35) / 2. */
+private const val REFERENCE_SPREAD = 0.325
 
 /**
  * [listenUpScore] is the headline: every source calibrated to its own curve, small samples shrunk
@@ -65,17 +67,17 @@ private const val REFERENCE_SPREAD = 0.95 / 3
 class ExternalRatingTest :
     FunSpec({
         test("every book sits on one curve: the mean of every known outside source's curve") {
-            // (4.40 + 3.95 + 3.95) / 3 and (0.30 + 0.35 + 0.30) / 3 — listeners excluded.
-            priors.referenceCurve.mean shouldBe (4.10 plusOrMinus 1e-9)
-            priors.referenceCurve.spread shouldBe (0.95 / 3 plusOrMinus 1e-9)
+            // (4.40 + 3.95) / 2 and (0.30 + 0.35) / 2 — Audible and Hardcover, listeners excluded.
+            priors.referenceCurve.mean shouldBe (REFERENCE_MEAN plusOrMinus 1e-9)
+            priors.referenceCurve.spread shouldBe (REFERENCE_SPREAD plusOrMinus 1e-9)
         }
 
         test("an exactly-average book scores the reference mean, whichever catalog rated it") {
             val audibleOnly = listenUpScore(listOf(rating(4.40, 100_000, AUDIBLE)), null, priors)
-            val goodreadsOnly = listenUpScore(listOf(rating(3.95, 100_000, GOODREADS)), null, priors)
+            val hardcoverOnly = listenUpScore(listOf(rating(3.95, 100_000, HARDCOVER)), null, priors)
 
             audibleOnly.shouldNotBeNull().average shouldBe (priors.referenceCurve.mean plusOrMinus 1e-9)
-            goodreadsOnly.shouldNotBeNull().average shouldBe (priors.referenceCurve.mean plusOrMinus 1e-9)
+            hardcoverOnly.shouldNotBeNull().average shouldBe (priors.referenceCurve.mean plusOrMinus 1e-9)
         }
 
         test("one source scores its shrunk average's place on its own curve, read off the reference curve") {
@@ -83,16 +85,16 @@ class ExternalRatingTest :
 
             val shrunk = (4.7 * 1_007 + 4.40 * 25) / 1_032
             result.shouldNotBeNull()
-            result.average shouldBe (4.10 + REFERENCE_SPREAD * (shrunk - 4.40) / 0.30 plusOrMinus 1e-9)
+            result.average shouldBe (REFERENCE_MEAN + REFERENCE_SPREAD * (shrunk - 4.40) / 0.30 plusOrMinus 1e-9)
             result.count shouldBe 1_007
             result.shares shouldBe mapOf(ScoreSource.Outside(AUDIBLE) to 1.0)
         }
 
         test("any single outside source lands where its z-score says on the reference curve") {
             checkAll(averageArb, Arb.int(1, 100_000)) { average, count ->
-                val result = listenUpScore(listOf(rating(average, count, GOODREADS)), null, priors)
+                val result = listenUpScore(listOf(rating(average, count, HARDCOVER)), null, priors)
                 val shrunk = (average * count + 3.95 * 25) / (count + 25)
-                val expected = 4.10 + REFERENCE_SPREAD * (shrunk - 3.95) / 0.30
+                val expected = REFERENCE_MEAN + REFERENCE_SPREAD * (shrunk - 3.95) / 0.35
                 result.shouldNotBeNull()
                 result.average shouldBe (expected.coerceIn(1.0, 5.0) plusOrMinus 1e-9)
             }
@@ -108,28 +110,29 @@ class ExternalRatingTest :
         test("no source drowns the rest by volume") {
             val result =
                 listenUpScore(
-                    listOf(rating(4.7, 1_007, AUDIBLE), rating(4.2, 100_000, GOODREADS)),
+                    listOf(rating(4.7, 1_007, AUDIBLE), rating(4.2, 100_000, HARDCOVER)),
                     null,
                     priors,
                 )
 
             result.shouldNotBeNull()
-            // Count-weighted, Goodreads would be 0.99 of the score.
-            result.shares.getValue(ScoreSource.Outside(GOODREADS)) shouldBeLessThan 0.65
+            // A hypothetical 100,000-rating Hardcover row: count-weighted, it would be 0.99 of the score.
+            result.shares.getValue(ScoreSource.Outside(HARDCOVER)) shouldBeLessThan 0.65
         }
 
         test("the same raw 4.3 lifts the score more from a harsh curve than a generous one") {
-            val base = rating(4.0, 100, HARDCOVER)
-            val fromGoodreads = listenUpScore(listOf(base, rating(4.3, 500, GOODREADS)), null, priors)
-            val fromAudible = listenUpScore(listOf(base, rating(4.3, 500, AUDIBLE)), null, priors)
+            val base = listeners(4.0, 3)
+            val fromHardcover = listenUpScore(listOf(rating(4.3, 500, HARDCOVER)), base, priors)
+            val fromAudible = listenUpScore(listOf(rating(4.3, 500, AUDIBLE)), base, priors)
 
-            fromGoodreads.shouldNotBeNull()
+            fromHardcover.shouldNotBeNull()
             fromAudible.shouldNotBeNull()
-            // 4.3 is above Goodreads' curve and below Audible's: a clear gap, not a rounding one.
-            fromGoodreads.average - fromAudible.average shouldBeGreaterThan 0.05
+            // 4.3 is above Hardcover's curve and below Audible's: a clear gap, not a rounding one.
+            fromHardcover.average - fromAudible.average shouldBeGreaterThan 0.05
         }
 
         test("the score always lies in 1..5 and the shares always sum to one") {
+            // Every wire source but UNKNOWN (filtered out upstream) — GOODREADS included, on its neutral curve.
             val sourcesArb =
                 Arb
                     .subsequence(ExternalRatingSource.entries.filter { it != ExternalRatingSource.UNKNOWN })
@@ -149,6 +152,21 @@ class ExternalRatingTest :
                 result.average shouldBeLessThanOrEqual 5.0
                 abs(result.shares.values.sum() - 1.0) shouldBeLessThan 1e-9
             }
+        }
+
+        test("a row from a source with no prior scores on a neutral curve and leaves the reference alone") {
+            // GOODREADS stays on the wire (clients decode it) but no server fetches it and it has no prior.
+            val result = listenUpScore(twoCatalogs + rating(4.2, 100_000, GOODREADS), null, priors)
+            val calibration =
+                SourceCalibration.from(outside = List(30) { rating(3.0, 500, GOODREADS) }, listeners = emptyList())
+
+            result.shouldNotBeNull()
+            result.average shouldBeGreaterThanOrEqual 1.0
+            result.average shouldBeLessThanOrEqual 5.0
+            result.shares.keys shouldBe
+                setOf(ScoreSource.Outside(AUDIBLE), ScoreSource.Outside(HARDCOVER), ScoreSource.Outside(GOODREADS))
+            priors.curveOf(ScoreSource.Outside(GOODREADS)) shouldBe SourceCurve(mean = 4.0, spread = 0.35)
+            calibration.referenceCurve shouldBe priors.referenceCurve
         }
 
         test("nothing to score gives null") {
@@ -174,16 +192,12 @@ class ExternalRatingTest :
 
         test("the reference curve still counts a catalog with no books in the library, at its prior") {
             val calibration =
-                SourceCalibration.from(
-                    outside = List(30) { rating(4.6, 500, AUDIBLE) } + List(30) { rating(4.0, 500, GOODREADS) },
-                    listeners = emptyList(),
-                )
+                SourceCalibration.from(outside = List(30) { rating(4.6, 500, AUDIBLE) }, listeners = emptyList())
 
             val audible = calibration.curveOf(ScoreSource.Outside(AUDIBLE))
-            val goodreads = calibration.curveOf(ScoreSource.Outside(GOODREADS))
             // Zero Hardcover rows: Hardcover still sits in the mean, at its prior (3.95, 0.35).
-            calibration.referenceCurve.mean shouldBe ((audible.mean + 3.95 + goodreads.mean) / 3 plusOrMinus 1e-9)
-            calibration.referenceCurve.spread shouldBe ((audible.spread + 0.35 + goodreads.spread) / 3 plusOrMinus 1e-9)
+            calibration.referenceCurve.mean shouldBe ((audible.mean + 3.95) / 2 plusOrMinus 1e-9)
+            calibration.referenceCurve.spread shouldBe ((audible.spread + 0.35) / 2 plusOrMinus 1e-9)
         }
 
         test("listeners never move the reference curve") {
@@ -196,7 +210,7 @@ class ExternalRatingTest :
             val calibration =
                 SourceCalibration.from(outside = List(30) { rating(4.6, 500, AUDIBLE) }, listeners = emptyList())
 
-            calibration.curveOf(ScoreSource.Outside(GOODREADS)) shouldBe SourceCurve(mean = 3.95, spread = 0.30)
+            calibration.curveOf(ScoreSource.Outside(HARDCOVER)) shouldBe SourceCurve(mean = 3.95, spread = 0.35)
             calibration.curveOf(ScoreSource.Listeners) shouldBe SourceCurve(mean = 4.0, spread = 0.6)
         }
 
@@ -207,25 +221,26 @@ class ExternalRatingTest :
             calibration.curveOf(ScoreSource.Listeners).mean shouldBe (4.25 plusOrMinus 1e-9)
         }
 
-        test("your listeners weigh in: one is about 11% of the score, three 20%, ten 30%") {
-            mapOf(1 to 0.11, 3 to 0.20, 10 to 0.30).forEach { (count, expected) ->
-                val result = listenUpScore(threeCatalogs, listeners(4.0, count), priors)
+        test("your listeners weigh in: one is about 20% of the score, three 34%, ten 47%") {
+            // 4·ln(1 + n) against Audible's ln(1,008) and Hardcover's ln(59).
+            mapOf(1 to 0.20, 3 to 0.34, 10 to 0.47).forEach { (count, expected) ->
+                val result = listenUpScore(twoCatalogs, listeners(4.0, count), priors)
 
                 result.shouldNotBeNull()
-                result.shares.getValue(ScoreSource.Listeners) shouldBe (expected plusOrMinus 0.03)
-                result.sourceCount shouldBe 4
-                result.count shouldBe 1_007 + 58 + 100_000 + count
+                result.shares.getValue(ScoreSource.Listeners) shouldBe (expected plusOrMinus 0.01)
+                result.sourceCount shouldBe 3
+                result.count shouldBe 1_007 + 58 + count
             }
         }
 
-        test("a listener's five stars move the score more than a Goodreads reader's") {
-            val twoCatalogs = threeCatalogs.filter { it.source != GOODREADS }
-            val withListeners = listenUpScore(twoCatalogs, listeners(5.0, 3), priors)
-            val withGoodreads = listenUpScore(twoCatalogs + rating(5.0, 3, GOODREADS), null, priors)
+        test("a listener's five stars move the score more than a Hardcover reader's") {
+            val audibleOnly = twoCatalogs.filter { it.source == AUDIBLE }
+            val withListeners = listenUpScore(audibleOnly, listeners(5.0, 3), priors)
+            val withHardcover = listenUpScore(audibleOnly + rating(5.0, 3, HARDCOVER), null, priors)
 
             withListeners.shouldNotBeNull()
-            withGoodreads.shouldNotBeNull()
-            withListeners.average shouldBeGreaterThan withGoodreads.average
+            withHardcover.shouldNotBeNull()
+            withListeners.average shouldBeGreaterThan withHardcover.average
         }
 
         test("a single trusted listener nearly stands on their own") {
@@ -234,20 +249,20 @@ class ExternalRatingTest :
             result.shouldNotBeNull()
             // Shrunk to (5.0 · 1 + 4.0 · 1) / 2 = 4.5 — a pseudo-count of one, not twenty-five — then
             // read off the reference curve through the listeners' own curve (4.0, 0.6).
-            result.average shouldBe (4.10 + REFERENCE_SPREAD * (4.5 - 4.0) / 0.6 plusOrMinus 1e-9)
+            result.average shouldBe (REFERENCE_MEAN + REFERENCE_SPREAD * (4.5 - 4.0) / 0.6 plusOrMinus 1e-9)
             result.shares.keys shouldBe setOf(ScoreSource.Listeners)
         }
 
         test("a score only your listeners gave is listeners-only; one an outside source joins is not") {
             listenUpScore(emptyList(), listeners(4.0, 3), priors).shouldNotBeNull().isListenersOnly shouldBe true
-            listenUpScore(threeCatalogs, listeners(4.0, 3), priors).shouldNotBeNull().isListenersOnly shouldBe false
-            listenUpScore(threeCatalogs, null, priors).shouldNotBeNull().isListenersOnly shouldBe false
+            listenUpScore(twoCatalogs, listeners(4.0, 3), priors).shouldNotBeNull().isListenersOnly shouldBe false
+            listenUpScore(twoCatalogs, null, priors).shouldNotBeNull().isListenersOnly shouldBe false
         }
 
         test("shares name every contributing source and skip one with no ratings") {
             val result =
                 listenUpScore(
-                    threeCatalogs + rating(4.0, 0, ExternalRatingSource.UNKNOWN),
+                    twoCatalogs + rating(4.0, 0, ExternalRatingSource.UNKNOWN),
                     listeners(4.0, 3),
                     priors,
                 )
@@ -257,24 +272,23 @@ class ExternalRatingTest :
                 listOf(
                     ScoreSource.Outside(AUDIBLE),
                     ScoreSource.Outside(HARDCOVER),
-                    ScoreSource.Outside(GOODREADS),
                     ScoreSource.Listeners,
                 )
         }
 
         test("the shares read the same per catalog, the shape Swift can bridge") {
-            val result = listenUpScore(threeCatalogs, listeners(4.0, 3), priors).shouldNotBeNull()
+            val result = listenUpScore(twoCatalogs, listeners(4.0, 3), priors).shouldNotBeNull()
 
             result.outsideShares shouldContainExactlyInAnyOrder
-                listOf(AUDIBLE, HARDCOVER, GOODREADS).map {
+                listOf(AUDIBLE, HARDCOVER).map {
                     OutsideShare(source = it, share = result.shares.getValue(ScoreSource.Outside(it)))
                 }
             result.listenersShare shouldBe result.shares.getValue(ScoreSource.Listeners)
-            listenUpScore(threeCatalogs, null, priors).shouldNotBeNull().listenersShare.shouldBeNull()
+            listenUpScore(twoCatalogs, null, priors).shouldNotBeNull().listenersShare.shouldBeNull()
         }
 
         test("a score built from per-catalog shares is the score they came from") {
-            val result = listenUpScore(threeCatalogs, listeners(4.0, 3), priors).shouldNotBeNull()
+            val result = listenUpScore(twoCatalogs, listeners(4.0, 3), priors).shouldNotBeNull()
 
             CombinedScore(result.average, result.count, result.outsideShares, result.listenersShare) shouldBe result
         }

@@ -93,7 +93,7 @@ class ExternalRatingsSweepTaskTest :
         test("the nightly quota counts books without an ASIN, and sweeps them") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
-                // 31 books, none with an ASIN — ceil(31 / 30) = 2. Goodreads and Hardcover can rate
+                // 31 books, none with an ASIN — ceil(31 / 30) = 2. Hardcover can rate
                 // a book by ISBN or title, so an ASIN-less book is as eligible as any other.
                 (1..31).forEach { sql.seedTestBook("book%02d".format(it)) }
                 val bus = ChangeBus()

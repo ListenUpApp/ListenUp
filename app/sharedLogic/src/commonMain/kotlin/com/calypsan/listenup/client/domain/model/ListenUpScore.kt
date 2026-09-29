@@ -23,7 +23,7 @@ sealed interface ScoreSource {
 
 /**
  * The curve one source rates on: the [mean] and [spread] (standard deviation) of its averages.
- * Audible listeners run generous and Goodreads readers harsh; the curve is what puts them level.
+ * Audible listeners run generous and Hardcover readers harsh; the curve is what puts them level.
  */
 internal data class SourceCurve(
     val mean: Double,
@@ -65,12 +65,15 @@ internal class SourceCalibration private constructor(
             mapOf(
                 ExternalRatingSource.AUDIBLE to SourceCurve(mean = 4.40, spread = 0.30),
                 ExternalRatingSource.HARDCOVER to SourceCurve(mean = 3.95, spread = 0.35),
-                ExternalRatingSource.GOODREADS to SourceCurve(mean = 3.95, spread = 0.30),
             )
 
         private val LISTENER_PRIOR = SourceCurve(mean = 4.0, spread = 0.6)
 
-        /** `UNKNOWN` is filtered out before scoring; a neutral curve keeps [priorOf] total. */
+        /**
+         * The curve of a source with no prior: `UNKNOWN` (filtered out before scoring) or a wire value
+         * no server fetches any more, like `GOODREADS`. A neutral curve keeps [priorOf] total, so such a
+         * row scores instead of failing — and, not being in [OUTSIDE_PRIORS], never moves [referenceCurve].
+         */
         private val UNKNOWN_PRIOR = SourceCurve(mean = 4.0, spread = 0.35)
 
         /** The calibration of an empty library: every source on its prior. */
@@ -150,7 +153,7 @@ private val ListenerAverage.stars: Double get() = averageHalfStars / 2
  *    book scores μ_ref whichever catalog rated it.
  *
  * A one-source book scores its shrunk average's place on that source's curve, read off the
- * reference curve: an Audible-only 4.7 shows about 4.4, while its breakdown row still says 4.7.
+ * reference curve: an Audible-only 4.7 shows about 4.5, while its breakdown row still says 4.7.
  * Every input is server-wide — no
  * signed-in user enters — so every member sees the same score for the same book.
  *

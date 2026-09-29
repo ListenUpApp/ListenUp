@@ -17,7 +17,7 @@ import org.koin.ktor.ext.get as koinGet
  */
 class RatingSourcesBootTest :
     FunSpec({
-        test("the booted server rates books from Audible, Hardcover and Goodreads") {
+        test("the booted server rates books from Audible and Hardcover") {
             testApplication {
                 useIsolatedTestConfig()
                 application {
@@ -25,7 +25,7 @@ class RatingSourcesBootTest :
                     koinGet<MetadataProviderRegistry>()
                         .capable<RatingSource>()
                         .map { it.ratingSource } shouldContainExactlyInAnyOrder
-                        listOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER, ExternalRatingSource.GOODREADS)
+                        listOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER)
                 }
                 startApplication()
             }

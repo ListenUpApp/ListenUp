@@ -90,7 +90,7 @@ WHERE book_id = :book_id AND source = :source;
 -- neither sorts as if touched at instant 0 — first in line. Without the attempts half, a book that
 -- never earns a row (no source rates it, or every fetch errors) would sort first FOREVER, consuming
 -- the whole nightly quota and starving every other book. No ASIN is required: each source decides
--- for itself whether it can rate a book (Goodreads and Hardcover also match by ISBN or title).
+-- for itself whether it can rate a book (Hardcover also matches by ISBN or title).
 selectSweepCandidates:
 SELECT b.id FROM books b
 LEFT JOIN (

@@ -43,8 +43,8 @@ class V75MigrationTest :
             MigrationRunner(path).migrate()
 
             ds.attempts() shouldBe listOf(Triple("book1", "AUDIBLE", 1234L))
-            ds.execute("INSERT INTO external_rating_attempts (book_id, source, attempted_at) VALUES ('book1', 'GOODREADS', 5678)")
+            ds.execute("INSERT INTO external_rating_attempts (book_id, source, attempted_at) VALUES ('book1', 'HARDCOVER', 5678)")
             ds.attempts() shouldBe
-                listOf(Triple("book1", "AUDIBLE", 1234L), Triple("book1", "GOODREADS", 5678L))
+                listOf(Triple("book1", "AUDIBLE", 1234L), Triple("book1", "HARDCOVER", 5678L))
         }
     })

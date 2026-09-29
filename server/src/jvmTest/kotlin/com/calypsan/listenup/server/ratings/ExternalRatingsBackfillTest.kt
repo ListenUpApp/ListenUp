@@ -111,7 +111,7 @@ class ExternalRatingsBackfillTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("a-throws", asin = "A-THROWS")
                 sql.seedTestBook("b-ok", asin = "B-OK")
-                sql.seedTestBook("c-noasin") // no ASIN — Goodreads and Hardcover can still rate it
+                sql.seedTestBook("c-noasin") // no ASIN — Hardcover can still rate it
                 sql.seedTestBook("d-attempted", asin = "D-ATT")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
@@ -161,24 +161,24 @@ class ExternalRatingsBackfillTest :
             }
         }
 
-        test("a book Audible already tried is fetched from Goodreads, and only from Goodreads") {
+        test("a book Audible already tried is fetched from Hardcover, and only from Hardcover") {
             backfillTest(
                 RecordingRatingSource(),
-                RecordingRatingSource(MetadataProviderId("goodreads"), ExternalRatingSource.GOODREADS),
-            ) { (audible, goodreads), ratings, fetcher, backfill ->
+                RecordingRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER),
+            ) { (audible, hardcover), ratings, fetcher, backfill ->
                 ratings.recordAttempt("book1", ExternalRatingSource.AUDIBLE, now.toEpochMilliseconds())
 
                 backfill.run()
 
                 fetcher.fetched shouldBe
                     listOf(
-                        "book1" to setOf(ExternalRatingSource.GOODREADS),
-                        "book2" to setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.GOODREADS),
+                        "book1" to setOf(ExternalRatingSource.HARDCOVER),
+                        "book2" to setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER),
                     )
                 audible.calledBooks shouldBe listOf("book2")
-                goodreads.calledBooks shouldBe listOf("book1", "book2")
+                hardcover.calledBooks shouldBe listOf("book1", "book2")
                 ratings.attemptedSources("book1") shouldBe
-                    setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.GOODREADS)
+                    setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER)
             }
         }
 

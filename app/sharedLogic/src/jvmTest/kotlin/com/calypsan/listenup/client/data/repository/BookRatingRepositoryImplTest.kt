@@ -297,7 +297,7 @@ class BookRatingRepositoryImplTest :
         test("every member sees the same score: the signed-in listener changes nothing") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                db.bookExternalRatingDao().upsert(externalEntity("b1", "GOODREADS", average = 4.1, count = 9_000))
+                db.bookExternalRatingDao().upsert(externalEntity("b1", "HARDCOVER", average = 4.1, count = 9_000))
                 db.bookRatingDao().upsert(entity("b1", "me", halfStars = 10))
                 db.bookRatingDao().upsert(entity("b1", "ann", halfStars = 4))
 

@@ -121,15 +121,15 @@ class ExternalRatingsFetcherTest :
                         ExternalRatingSource.AUDIBLE,
                         result = AppResult.Success(ExternalRatingMeta(4.0, 10)),
                     )
-                val goodreads =
+                val hardcover =
                     FakeRatingSource(
-                        MetadataProviderId("goodreads"),
-                        ExternalRatingSource.GOODREADS,
+                        MetadataProviderId("hardcover"),
+                        ExternalRatingSource.HARDCOVER,
                         result = AppResult.Success(ExternalRatingMeta(3.0, 5)),
                     )
                 val fetcher =
                     ExternalRatingsFetcher(
-                        registry = MetadataProviderRegistry(listOf(audible, goodreads)),
+                        registry = MetadataProviderRegistry(listOf(audible, hardcover)),
                         ratings = ratings,
                         sourceSettings = settings,
                         books = books,
@@ -137,11 +137,11 @@ class ExternalRatingsFetcherTest :
                     )
 
                 runTest {
-                    settings.setEnabled(ExternalRatingSource.GOODREADS, enabled = false)
+                    settings.setEnabled(ExternalRatingSource.HARDCOVER, enabled = false)
 
                     val outcome = fetcher.fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false)
 
-                    goodreads.calls shouldBe 0
+                    hardcover.calls shouldBe 0
                     outcome shouldBe ExternalRatingsFetcher.Outcome(tried = 1, answered = 1)
                 }
             }
@@ -197,8 +197,8 @@ class ExternalRatingsFetcherTest :
                     )
                 val confidentMiss =
                     FakeRatingSource(
-                        MetadataProviderId("goodreads"),
-                        ExternalRatingSource.GOODREADS,
+                        MetadataProviderId("hardcover"),
+                        ExternalRatingSource.HARDCOVER,
                         result = AppResult.Success(null),
                     )
                 val failed =
@@ -207,9 +207,10 @@ class ExternalRatingsFetcherTest :
                         ExternalRatingSource.HARDCOVER,
                         result = AppResult.Failure(MetadataError.ExternalUnavailable()),
                     )
-                val fetcher =
+
+                fun fetcherOver(vararg sources: FakeRatingSource) =
                     ExternalRatingsFetcher(
-                        registry = MetadataProviderRegistry(listOf(rated, confidentMiss, failed)),
+                        registry = MetadataProviderRegistry(sources.toList()),
                         ratings = ratings,
                         sourceSettings = settings,
                         books = books,
@@ -217,9 +218,11 @@ class ExternalRatingsFetcherTest :
                     )
 
                 runTest {
-                    val outcome = fetcher.fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false)
-
-                    outcome shouldBe ExternalRatingsFetcher.Outcome(tried = 3, answered = 2)
+                    // A rating and a confident miss both answer; a failure is tried but never answers.
+                    fetcherOver(rated, confidentMiss).fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false) shouldBe
+                        ExternalRatingsFetcher.Outcome(tried = 2, answered = 2)
+                    fetcherOver(rated, failed).fetch(BookId("book1"), MetadataLocale.DEFAULT, refresh = false) shouldBe
+                        ExternalRatingsFetcher.Outcome(tried = 2, answered = 1)
                 }
             }
         }
@@ -487,18 +490,18 @@ class ExternalRatingsFetcherTest :
                 val announced = mutableListOf<ExternalRatingSource>()
                 backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { settings.reenabled.toList(announced) }
 
-                settings.setEnabled(ExternalRatingSource.GOODREADS, false)
-                settings.setEnabled(ExternalRatingSource.GOODREADS, true)
+                settings.setEnabled(ExternalRatingSource.HARDCOVER, false)
+                settings.setEnabled(ExternalRatingSource.HARDCOVER, true)
 
-                announced shouldBe listOf(ExternalRatingSource.GOODREADS)
+                announced shouldBe listOf(ExternalRatingSource.HARDCOVER)
             }
         }
 
         test("a regionless source stores a null region") {
             val src =
                 FakeRatingSource(
-                    MetadataProviderId("goodreads"),
-                    ExternalRatingSource.GOODREADS,
+                    MetadataProviderId("hardcover"),
+                    ExternalRatingSource.HARDCOVER,
                     result = AppResult.Success(ExternalRatingMeta(4.2, 10)),
                 )
             withFetcher(src) { fetcher, _, ratings ->
@@ -526,34 +529,37 @@ class ExternalRatingsFetcherTest :
 
         test("a fetch narrowed to some sources runs only those") {
             val audible = FakeRatingSource(MetadataProviderId.AUDIBLE, ExternalRatingSource.AUDIBLE)
-            val goodreads = FakeRatingSource(MetadataProviderId("goodreads"), ExternalRatingSource.GOODREADS)
-            withFetcher(audible, goodreads) { fetcher, _, ratings ->
+            val hardcover = FakeRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER)
+            withFetcher(audible, hardcover) { fetcher, _, ratings ->
                 fetcher.fetch(
                     BookId("book1"),
                     MetadataLocale.DEFAULT,
                     refresh = false,
-                    sources = setOf(ExternalRatingSource.GOODREADS),
+                    sources = setOf(ExternalRatingSource.HARDCOVER),
                 ) shouldBe ExternalRatingsFetcher.Outcome(tried = 1, answered = 1)
 
                 audible.calls shouldBe 0
-                goodreads.calls shouldBe 1
-                ratings.attemptedSources("book1") shouldBe setOf(ExternalRatingSource.GOODREADS)
+                hardcover.calls shouldBe 1
+                ratings.attemptedSources("book1") shouldBe setOf(ExternalRatingSource.HARDCOVER)
             }
         }
 
         test("runnableSources lists only the enabled, unpaused, available sources") {
             val audible = FakeRatingSource(MetadataProviderId.AUDIBLE, ExternalRatingSource.AUDIBLE)
-            val goodreads = FakeRatingSource(MetadataProviderId("goodreads"), ExternalRatingSource.GOODREADS)
-            val hardcover =
+            val hardcover = FakeRatingSource(MetadataProviderId("hardcover"), ExternalRatingSource.HARDCOVER)
+            val unavailableHardcover =
                 FakeRatingSource(
                     MetadataProviderId("hardcover"),
                     ExternalRatingSource.HARDCOVER,
                     availability = RatingSourceAvailability.Unavailable(RatingSourceUnavailable.NO_CONNECTION),
                 )
-            withFetcher(audible, goodreads, hardcover) { fetcher, settings, _ ->
-                fetcher.runnableSources() shouldBe setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.GOODREADS)
+            withFetcher(audible, unavailableHardcover) { fetcher, _, _ ->
+                fetcher.runnableSources() shouldBe setOf(ExternalRatingSource.AUDIBLE)
+            }
+            withFetcher(audible, hardcover) { fetcher, settings, _ ->
+                fetcher.runnableSources() shouldBe setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.HARDCOVER)
 
-                settings.setEnabled(ExternalRatingSource.GOODREADS, false)
+                settings.setEnabled(ExternalRatingSource.HARDCOVER, false)
                 fetcher.runnableSources() shouldBe setOf(ExternalRatingSource.AUDIBLE)
 
                 repeat(5) { settings.recordFailure(ExternalRatingSource.AUDIBLE, "boom", nowMs) }
