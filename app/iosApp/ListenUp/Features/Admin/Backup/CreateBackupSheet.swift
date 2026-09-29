@@ -29,7 +29,7 @@ struct CreateBackupSheet: View {
             .navigationTitle(String(localized: "admin.create_backup"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     if !isCreating {
                         Button(String(localized: "common.cancel")) { dismiss() }
                     }

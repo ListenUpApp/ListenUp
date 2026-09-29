@@ -49,7 +49,7 @@ struct DocumentSearchView: View {
             .navigationTitle(String(localized: "book.detail_document_search"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { onClose() }
                 }
             }

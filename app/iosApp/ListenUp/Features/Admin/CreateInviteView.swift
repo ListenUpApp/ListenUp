@@ -43,7 +43,7 @@ struct CreateInviteView: View {
             .navigationTitle(String(localized: "admin.create_invite"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
                 }
             }

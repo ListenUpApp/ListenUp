@@ -59,7 +59,7 @@ struct CastCreditsSheet: View {
             .navigationTitle(String(localized: "book.detail_credits"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.done")) { onClose() }
                 }
             }

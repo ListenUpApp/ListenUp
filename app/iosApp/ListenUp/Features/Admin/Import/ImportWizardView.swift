@@ -147,7 +147,7 @@ struct ImportWizardView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: .cancellationAction) {
             if !isTerminal {
                 Button(String(localized: "common.cancel")) { dismiss() }
             }

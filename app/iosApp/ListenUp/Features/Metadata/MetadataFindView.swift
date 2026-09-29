@@ -47,7 +47,7 @@ struct MetadataFindView: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) { tray }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .cancellationAction) {
                 Button(String(localized: "common.cancel"), action: onCancel)
             }
         }

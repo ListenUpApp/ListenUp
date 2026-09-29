@@ -26,7 +26,7 @@ struct SeriesAuthorsSheet: View {
             .navigationTitle(String(localized: "book.detail_authors"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.done")) { onClose() }
                 }
             }

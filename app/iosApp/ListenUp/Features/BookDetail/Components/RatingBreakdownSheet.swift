@@ -44,7 +44,7 @@ struct RatingBreakdownSheet: View {
             .navigationTitle(String(localized: "book.detail_rating_sources_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.done")) { onClose() }
                 }
             }

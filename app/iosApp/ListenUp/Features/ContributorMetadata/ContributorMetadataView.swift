@@ -38,7 +38,7 @@ struct ContributorMetadataView: View {
             .navigationBarTitleDisplayMode(.inline)
             .background(Color.luSurface)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
                 }
             }
