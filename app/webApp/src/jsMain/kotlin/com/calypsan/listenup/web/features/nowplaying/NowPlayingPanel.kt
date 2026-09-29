@@ -71,6 +71,7 @@ internal fun NowPlayingPanel(
                 size = COVER_SIZE,
                 radius = COVER_RADIUS,
                 decorative = true,
+                eager = true,
             )
             Div(attrs = { classes("np-meta") }) {
                 Div(attrs = { classes("np-t") }) { Text(state.title) }

@@ -37,6 +37,12 @@ import org.jetbrains.compose.web.dom.Text
  * [decorative] is for a cover with the book's title printed right beside it — a card, a row, a
  * hero. Its `alt` is then empty and the fallback's title hidden from assistive technology, because
  * naming the book in the picture and again in the text makes a screen reader say it twice.
+ *
+ * The image loads lazily and decodes off the main thread, so a page of forty covers fetches the
+ * ones the reader can see rather than all forty at once. [eager] opts out for the cover that IS the
+ * page — Book Detail's hero, Now Playing — where lazy loading would only delay the one image the
+ * reader came for: a lazy image waits for layout before it is even requested. The box is sized
+ * either way, so neither choice shifts the layout when the image lands.
  */
 @Composable
 fun Cover(
@@ -47,6 +53,7 @@ fun Cover(
     heroName: String? = null,
     heroBookId: String? = null,
     decorative: Boolean = false,
+    eager: Boolean = false,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
@@ -93,21 +100,7 @@ fun Cover(
         }
     }) {
         if (showImage) {
-            Img(
-                src = imageUrl,
-                alt = if (decorative) "" else title,
-                attrs = {
-                    style {
-                        property("width", "100%")
-                        property("height", "100%")
-                        property("object-fit", "cover")
-                        property("display", "block")
-                    }
-                    // A broken cover must not leave a blank tile: fall back to the generated one.
-                    // Compose HTML has no `onError` helper, so the listener is attached by name.
-                    addEventListener("error") { failed = true }
-                },
-            )
+            CoverImage(url = imageUrl, alt = if (decorative) "" else title, eager = eager) { failed = true }
         } else if (size >= MIN_SIZE_FOR_FALLBACK_TITLE) {
             Span(attrs = {
                 if (decorative) attr("aria-hidden", "true")
@@ -129,6 +122,33 @@ fun Cover(
             }
         }
     }
+}
+
+/** The artwork itself, filling the cover's box. See [Cover] on [eager]. */
+@Composable
+private fun CoverImage(
+    url: String,
+    alt: String,
+    eager: Boolean,
+    onFailed: () -> Unit,
+) {
+    Img(
+        src = url,
+        alt = alt,
+        attrs = {
+            attr("loading", if (eager) "eager" else "lazy")
+            attr("decoding", if (eager) "auto" else "async")
+            style {
+                property("width", "100%")
+                property("height", "100%")
+                property("object-fit", "cover")
+                property("display", "block")
+            }
+            // A broken cover must not leave a blank tile: fall back to the generated one.
+            // Compose HTML has no `onError` helper, so the listener is attached by name.
+            addEventListener("error") { onFailed() }
+        },
+    )
 }
 
 private const val DEFAULT_COVER_SIZE = 96

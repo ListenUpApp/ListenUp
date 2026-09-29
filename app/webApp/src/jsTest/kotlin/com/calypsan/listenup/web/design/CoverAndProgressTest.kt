@@ -46,6 +46,21 @@ class CoverAndProgressTest :
                 (b.querySelector("div") as HTMLElement).style.background
         }
 
+        test("a cover loads lazily and decodes off the main thread") {
+            // A page of forty covers should fetch the ones the reader can see, not all forty.
+            val host = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg") }
+            val image = host.querySelector("img") as HTMLElement
+
+            image.getAttribute("loading") shouldBe "lazy"
+            image.getAttribute("decoding") shouldBe "async"
+        }
+
+        test("the hero cover opts out, so the one image the page is about is not held back") {
+            val host = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg", eager = true) }
+
+            (host.querySelector("img") as HTMLElement).getAttribute("loading") shouldBe "eager"
+        }
+
         test("the alt text names the book rather than describing the picture") {
             val host = mounts.mount { Cover(title = "The Institute", imageUrl = "/cover.jpg") }
 

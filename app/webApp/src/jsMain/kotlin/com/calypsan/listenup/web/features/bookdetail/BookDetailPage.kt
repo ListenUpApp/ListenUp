@@ -264,6 +264,7 @@ private fun SharedHeader(
             heroName = HERO_COVER,
             heroBookId = id,
             decorative = true,
+            eager = true,
         )
         Div(attrs = { classes("bd-tblock") }) {
             if (ready == null) {
@@ -354,6 +355,7 @@ private fun BookHeader(
             radius = COVER_RADIUS,
             heroName = HERO_COVER,
             decorative = true,
+            eager = true,
         )
         Div(attrs = { classes("bd-tblock") }) {
             H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
