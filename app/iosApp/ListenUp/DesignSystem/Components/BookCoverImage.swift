@@ -9,9 +9,9 @@ import Shared
 /// 2. The authenticated server URL `{activeUrl}/api/v1/covers/{bookId}`, when a `bookId` is known.
 /// 3. A gradient placeholder with a book icon, while loading or when no source resolves.
 ///
-/// Loading, downsampling, and memory + disk caching are owned by Nuke (`LazyImage`). The
-/// request is built off the main work by `CoverImageRequest`, which keys the cache on the
-/// cover URL so covers survive token refresh.
+/// Loading, downsampling, and memory + disk caching are owned by Nuke (`LazyImage`). The request is
+/// built synchronously by `CoverImageRequest` in the render that shows it, so a cover Nuke already
+/// holds in memory appears in the first frame, with no placeholder and no fade.
 ///
 /// Usage:
 /// ```swift
@@ -31,8 +31,10 @@ struct BookCoverImage: View {
     var accessibilityLabel: String?
 
     @Environment(\.displayScale) private var displayScale
-    @State private var request: ImageRequest?
     @State private var targetMaxPixels: CGFloat = 0
+    /// Set when the server load failed, so a downloaded cover falls back to its local file. Reset
+    /// whenever the cover's identity changes.
+    @State private var serverFailed = false
 
     /// Convenience initializer from a BookListItem
     init(book: BookListItem) {
@@ -85,7 +87,9 @@ struct BookCoverImage: View {
                 // Layer 1: Placeholder (always behind)
                 gradientPlaceholder
 
-                // Layer 2: Loaded image (fades in on top)
+                // Layer 2: Loaded image — fades in when it arrives from disk or the network, and is
+                // simply there when it came from memory (a fade over a cover that was never missing
+                // reads as a flash).
                 if let image = state.image {
                     image
                         .resizable()
@@ -93,7 +97,13 @@ struct BookCoverImage: View {
                         .transition(.opacity)
                 }
             }
-            .animation(.easeIn(duration: 0.2), value: state.image != nil)
+            .animation(CoverImageRequest.isMemoryCacheHit(state.result) ? nil : .easeIn(duration: 0.2),
+                       value: state.image != nil)
+        }
+        .onCompletion { result in
+            if CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: coverPath) {
+                serverFailed = true
+            }
         }
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
             let px = (max(size.width, size.height) * displayScale).rounded()
@@ -101,18 +111,9 @@ struct BookCoverImage: View {
                 targetMaxPixels = px
             }
         }
-        .task(id: TaskKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash, targetPixels: targetMaxPixels)) {
-            guard targetMaxPixels > 0 else { return }
-            let built = await CoverImageRequest.book(
-                bookId: bookId,
-                coverPath: coverPath,
-                coverHash: coverHash,
-                targetPixels: targetMaxPixels
-            )
-            // Propagate only on acceptance, never on cancellation: a superseded task resumes here
-            // after its await and would clobber `request` with a stale (or tokenless→401) build.
-            guard !Task.isCancelled else { return }
-            request = built
+        .task(id: CoverIdentity(bookId: bookId, coverPath: coverPath, coverHash: coverHash)) {
+            serverFailed = false
+            CoverPersistence.shared.ensureCached(bookId: bookId, coverPath: coverPath, coverHash: coverHash)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel ?? "")
@@ -120,12 +121,26 @@ struct BookCoverImage: View {
         .accessibilityAddTraits(.isImage)
     }
 
-    /// Identity for the request-building task: any change re-resolves the cover source.
-    private struct TaskKey: Equatable {
+    /// Built in `body`, from the mirrored server URL: reading `ImageServerBase.shared.url` here means
+    /// every cover rebuilds when the server URL arrives or changes. Nil until the view has a size, so
+    /// the thumbnail is always resized for the pixels it fills.
+    private var request: ImageRequest? {
+        guard targetMaxPixels > 0 else { return nil }
+        return CoverImageRequest.book(
+            bookId: bookId,
+            coverPath: coverPath,
+            coverHash: coverHash,
+            targetPixels: targetMaxPixels,
+            serverBase: ImageServerBase.shared.url,
+            serverFailed: serverFailed
+        )
+    }
+
+    /// The cover's identity: a change resets the server-failure fallback and re-checks persistence.
+    private struct CoverIdentity: Equatable {
         let bookId: String?
         let coverPath: String?
         let coverHash: String?
-        let targetPixels: CGFloat
     }
 
     private var gradientPlaceholder: some View {

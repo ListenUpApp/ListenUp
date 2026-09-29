@@ -1,6 +1,7 @@
-import Nuke
 import Foundation
+import Nuke
 import Testing
+import UIKit
 @testable import ListenUp
 
 /// Pins the local-file cache-key policy that prevents the "cover never changes" bug (RC-1):
@@ -54,18 +55,111 @@ struct CoverImageRequestTests {
     /// End-to-end through `CoverImageRequest.book`: the player call sites pass no `coverHash`,
     /// so the resulting request must be path-keyed — never stamped with the bookId, which is
     /// what poisoned the shared cache with the previous book's bytes.
-    @Test @MainActor func bookRequestWithoutHashIsPathKeyed() async {
-        let request = await CoverImageRequest.book(
-            bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: nil, targetPixels: 100
+    @Test @MainActor func bookRequestWithoutHashIsPathKeyed() {
+        let request = CoverImageRequest.book(
+            bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: nil, targetPixels: 100,
+            serverBase: "https://x"
         )
         #expect(request?.userInfo[.imageIdKey] as? String == "/covers/a.jpg")
+        #expect(request?.url?.isFileURL == true)
     }
 
-    @Test @MainActor func bookRequestWithHashIsHashKeyed() async {
-        let request = await CoverImageRequest.book(
-            bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100
+    @Test @MainActor func bookRequestWithHashIsHashKeyed() {
+        let request = CoverImageRequest.book(
+            bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100,
+            serverBase: nil
         )
         #expect(request?.userInfo[.imageIdKey] as? String == "book-B:abc123")
+    }
+
+    // MARK: - Synchronous server request (no placeholder flash)
+
+    /// With the server URL mirrored, a versioned cover resolves to the content-addressed server URL
+    /// in the same call — no await — keyed on the token-free `"<id>:<hash>"`.
+    @Test @MainActor func hashedCoverWithServerBaseBuildsServerRequestSynchronously() {
+        let request = CoverImageRequest.book(
+            bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100,
+            serverBase: "https://x"
+        )
+        #expect(request?.url?.absoluteString.hasPrefix("https://x/api/v1/covers/book-B?v=abc123") == true)
+        #expect(request?.userInfo[.imageIdKey] as? String == "book-B:abc123")
+    }
+
+    /// The token is attached at load time by `AuthenticatingDataLoader`, never baked into the request.
+    @Test @MainActor func serverRequestCarriesNoToken() {
+        let request = CoverImageRequest.book(
+            bookId: "book-B", coverPath: nil, coverHash: "abc123", targetPixels: 100, serverBase: "https://x"
+        )
+        #expect(request?.urlRequest?.value(forHTTPHeaderField: "Authorization") == nil)
+    }
+
+    @Test @MainActor func requestIsResizedForTheTargetPixels() {
+        let request = CoverImageRequest.book(
+            bookId: "book-B", coverPath: nil, coverHash: "abc123", targetPixels: 240, serverBase: "https://x"
+        )
+        #expect(request?.processors.count == 1)
+    }
+
+    /// After the server load fails, a downloaded cover falls back to its local file.
+    @Test @MainActor func serverFailureFallsBackToLocalFile() {
+        let request = CoverImageRequest.book(
+            bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100,
+            serverBase: "https://x", serverFailed: true
+        )
+        #expect(request?.url?.isFileURL == true)
+        #expect(request?.userInfo[.imageIdKey] as? String == "book-B:abc123")
+    }
+
+    @Test @MainActor func unhashedCoverWithoutFileUsesBareServerURL() {
+        let request = CoverImageRequest.book(
+            bookId: "book-B", coverPath: nil, coverHash: nil, targetPixels: 100, serverBase: "https://x"
+        )
+        #expect(request?.url?.absoluteString == "https://x/api/v1/covers/book-B")
+        #expect(request?.userInfo[.imageIdKey] == nil)
+    }
+
+    @Test @MainActor func noSourceYieldsNoRequest() {
+        #expect(CoverImageRequest.book(
+            bookId: "book-B", coverPath: nil, coverHash: "abc123", targetPixels: 100, serverBase: nil
+        ) == nil)
+        #expect(CoverImageRequest.book(
+            bookId: nil, coverPath: nil, coverHash: nil, targetPixels: 100, serverBase: "https://x"
+        ) == nil)
+    }
+
+    // MARK: - Fallback and fade decisions
+
+    @Test func requestMissingIsNotALoadFailure() {
+        let result: Result<ImageResponse, Error> = .failure(ImagePipeline.Error.imageRequestMissing)
+        #expect(!CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: "/covers/a.jpg"))
+    }
+
+    @Test func realFailureFallsBackOnlyWithAFile() {
+        let result: Result<ImageResponse, Error> = .failure(URLError(.notConnectedToInternet))
+        #expect(CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: "/covers/a.jpg"))
+        #expect(!CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: nil))
+        #expect(!CoverImageRequest.shouldFallBackToLocalFile(after: result, coverPath: ""))
+    }
+
+    @Test func onlyAMemoryHitSkipsTheFade() {
+        let request = ImageRequest(url: URL(string: "https://x/a.jpg"))
+        let container = ImageContainer(image: UIImage())
+        let memory = ImageResponse(container: container, request: request, cacheType: .memory)
+        let disk = ImageResponse(container: container, request: request, cacheType: .disk)
+        let network = ImageResponse(container: container, request: request)
+        #expect(CoverImageRequest.isMemoryCacheHit(.success(memory)))
+        #expect(!CoverImageRequest.isMemoryCacheHit(.success(disk)))
+        #expect(!CoverImageRequest.isMemoryCacheHit(.success(network)))
+        #expect(!CoverImageRequest.isMemoryCacheHit(nil))
+    }
+
+    // MARK: - Offline persistence
+
+    @Test func persistsWhenVersionedOrWithoutAFile() {
+        #expect(CoverImageRequest.shouldPersist(bookId: "b", coverPath: "/c.jpg", coverHash: "h"))
+        #expect(CoverImageRequest.shouldPersist(bookId: "b", coverPath: nil, coverHash: nil))
+        #expect(!CoverImageRequest.shouldPersist(bookId: "b", coverPath: "/c.jpg", coverHash: nil))
+        #expect(!CoverImageRequest.shouldPersist(bookId: nil, coverPath: nil, coverHash: "h"))
     }
 
     // Content-addressed server URL: the coverHash rides as `?v=` so the URL changes when the cover

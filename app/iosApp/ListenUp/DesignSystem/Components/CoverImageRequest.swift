@@ -1,22 +1,29 @@
 import Foundation
 import Nuke
-@preconcurrency import Shared
 
-/// Builds Nuke image requests for book covers: the local file if a downloaded `coverPath`
-/// exists, else the authenticated server URL `{activeUrl}/api/v1/covers/{bookId}`.
+/// Builds Nuke image requests for book covers: the content-addressed server URL
+/// `{activeUrl}/api/v1/covers/{bookId}?v={coverHash}` when the cover's version is known, else the
+/// downloaded `coverPath`, else the bare server URL.
 ///
-/// The authenticated request carries an `Authorization: Bearer` header but keys its cache
-/// on the cover URL (Nuke's default), so a cached cover survives token refresh and never
-/// re-downloads just because the access token rotated.
+/// **Synchronous, so a cached cover shows in the first frame.** The request used to be built in a
+/// `.task` that awaited the server URL and a fresh access token, so every cell painted its
+/// placeholder first and faded the cover in even when Nuke held it in memory (2026-09-29 iOS audit,
+/// performance). Now the base URL comes from `ImageServerBase` (mirrored on the main actor) and the
+/// `Authorization` header is attached at load time by `AuthenticatingDataLoader`, so the request
+/// needs nothing asynchronous and never embeds a token: a cached cover survives token rotation and
+/// the cache keys stay token-free.
 enum CoverImageRequest {
     @MainActor
     static func book(
         bookId: String?,
         coverPath: String?,
         coverHash: String?,
-        targetPixels: CGFloat
-    ) async -> ImageRequest? {
+        targetPixels: CGFloat,
+        serverBase: String?,
+        serverFailed: Bool = false
+    ) -> ImageRequest? {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
+        let base = serverFailed ? nil : serverBase.flatMap { $0.isEmpty ? nil : $0 }
 
         // When the server's content version (`coverHash`) is known, resolve from the content-addressed
         // server URL — NOT the durable local `coverPath`. The local file is keyed only by book id, so
@@ -24,23 +31,15 @@ enum CoverImageRequest {
         // meant to clear it is unreliable on this platform. Nuke's content-scoped `"<id>:<hash>"`
         // cacheKey busts on re-scrape and serves offline from Nuke's disk cache once fetched.
         //
-        // Preferring the server is not the same as *requiring* it: `authenticated` returns nil when no
-        // access token can be minted (offline, or a refresh that failed), so this branch only returns
-        // when it actually has a request. Otherwise it falls through to the durable local file below —
-        // a downloaded book must still show its cover with no network, and both branches key on the
-        // same `"<id>:<hash>"`, so the fallback can't mis-identify the bytes it serves.
-        if let coverHash, !coverHash.isEmpty, let bookId, !bookId.isEmpty {
-            KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
-            let base = try? await KoinHelper.shared.activeServerUrl()
-            if let base, !base.isEmpty,
-               let url = coverURL(base: base, bookId: bookId, coverHash: coverHash),
-               let request = await AuthenticatedImageRequest.authenticated(
-                   url: url,
-                   processors: processors,
-                   cacheKey: contentHashKey(identity: bookId, coverHash: coverHash)
-               ) {
-                return request
-            }
+        // Preferring the server is not the same as *requiring* it: when the server load fails
+        // (offline with a cold cache, or no token can be minted) the view passes `serverFailed` and
+        // this falls through to the durable local file below — a downloaded book must still show its
+        // cover with no network, and both branches key on the same `"<id>:<hash>"`, so the fallback
+        // can't mis-identify the bytes it serves.
+        if let bookId, !bookId.isEmpty, let base,
+           let key = contentHashKey(identity: bookId, coverHash: coverHash),
+           let url = coverURL(base: base, bookId: bookId, coverHash: coverHash) {
+            return ImageRequest(url: url, processors: processors, userInfo: [.imageIdKey: key])
         }
 
         // No reachable content-addressed source: the durable local file the caller resolved is the
@@ -50,18 +49,7 @@ enum CoverImageRequest {
             return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)
         }
 
-        guard let bookId, !bookId.isEmpty else {
-            return nil
-        }
-
-        // No durable file yet — kick off a background download so this streamed cover is
-        // persisted to disk for offline use, independent of Nuke's evictable cache. Fire-and-forget
-        // on the repository's app scope; no-op once the cover exists locally. (Mirrors the Compose
-        // BookCoverImage server fallback.)
-        KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
-
-        let fallbackBase = try? await KoinHelper.shared.activeServerUrl()
-        guard let base = fallbackBase, !base.isEmpty,
+        guard let bookId, !bookId.isEmpty, let base,
               let url = coverURL(base: base, bookId: bookId, coverHash: coverHash)
         else {
             return nil
@@ -72,8 +60,35 @@ enum CoverImageRequest {
         // poisoned key the old bug wrote, and during a switch (`coverPath == nil`, `bookId == B`)
         // it would let book A's still-cached bytes flash on book B. Passing `nil` also orphans any
         // stale `"<id>:cover"` disk entries. With a hash we keep the content-scoped `"<id>:<hash>"`.
-        let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
-        return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
+        let userInfo: [ImageRequest.UserInfoKey: Any]? = contentHashKey(identity: bookId, coverHash: coverHash)
+            .map { [.imageIdKey: $0] }
+        return ImageRequest(url: url, processors: processors, userInfo: userInfo)
+    }
+
+    /// Whether a load was answered from Nuke's memory cache — the one case where the cover was never
+    /// missing, so it shouldn't fade in.
+    static func isMemoryCacheHit(_ result: Result<ImageResponse, Error>?) -> Bool {
+        guard case .success(let response) = result else { return false }
+        return response.cacheType == .memory
+    }
+
+    /// Whether a finished load should switch the cover to its downloaded file: a real load failure
+    /// (offline with a cold cache, no token, a server error) when there IS a file to fall back to.
+    /// `LazyImage` also reports "no request yet" as a failure while the view has no size; that one
+    /// must not count, or the cover would never try the server.
+    static func shouldFallBackToLocalFile(after result: Result<ImageResponse, Error>, coverPath: String?) -> Bool {
+        guard case .failure(let error) = result, coverPath?.isEmpty == false else { return false }
+        if case ImagePipeline.Error.imageRequestMissing = error { return false }
+        return true
+    }
+
+    /// Whether a cover should be persisted for offline use: whenever its version is known (so a
+    /// re-scrape re-fetches), or when there's no downloaded file yet. A hash-less cover that already
+    /// has a file needs nothing. Mirrors the Compose `BookCoverImage` server fallback.
+    static func shouldPersist(bookId: String?, coverPath: String?, coverHash: String?) -> Bool {
+        guard let bookId, !bookId.isEmpty else { return false }
+        if let coverHash, !coverHash.isEmpty { return true }
+        return coverPath?.isEmpty ?? true
     }
 
     /// The authenticated book-cover endpoint for a server base URL. Pure, so the endpoint shape is
