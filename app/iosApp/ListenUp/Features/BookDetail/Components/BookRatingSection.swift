@@ -3,8 +3,11 @@ import Shared
 
 /// The rating block on Book Detail, directly above Readers.
 ///
-/// The outside world's headline ("★ 4.4 · 12k ratings") leads when an enabled source has rated the
-/// book — tapping it opens `RatingBreakdownSheet`. Before any source has rated it, an admin
+/// The ListenUp score's headline ("★ 4.4 · 12k ratings") leads when an enabled outside source has
+/// rated the book — tapping it opens `RatingBreakdownSheet`. A book only your listeners have rated
+/// has no headline: their own line already says what they think, and a second number read off
+/// ListenUp's curve (a lone 5★ scores about 4.4) would look like a contradiction. Before any
+/// outside source has rated it, an admin
 /// (`canRefresh`) sees a quiet "Refresh ratings" action where the headline would sit instead, so
 /// they can fetch a first score without being stranded behind a headline that only exists once one
 /// arrives. Your listeners' average comes next when anyone has rated the book ("Your listeners ★ 4
@@ -22,7 +25,7 @@ struct BookRatingSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let external = snapshot.external {
+            if let external = Self.headline(snapshot) {
                 externalRow(external)
             } else if Self.showsRefreshAction(snapshot) {
                 refreshAction
@@ -92,12 +95,17 @@ struct BookRatingSection: View {
         .accessibilityLabel(String(localized: "book.detail_rating_refresh"))
     }
 
-    /// Whether `refreshAction` shows: before any score exists (`external == nil`), admin only.
-    /// Once a score exists the headline itself carries refresh, one tap away via
-    /// `RatingBreakdownSheet`. `nonisolated` so tests can call it off the main actor, same as
-    /// `BookRatingsObserver.phase(from:)`.
+    /// Whether `refreshAction` shows: while there is no headline, admin only. Once a headline
+    /// exists it carries refresh itself, one tap away via `RatingBreakdownSheet`. `nonisolated` so
+    /// tests can call it off the main actor, same as `BookRatingsObserver.phase(from:)`.
     nonisolated static func showsRefreshAction(_ snapshot: BookRatingsSnapshot) -> Bool {
-        snapshot.external == nil && snapshot.canRefresh
+        headline(snapshot) == nil && snapshot.canRefresh
+    }
+
+    /// The score the headline shows: the snapshot's, unless your listeners are its only source.
+    nonisolated static func headline(_ snapshot: BookRatingsSnapshot) -> ExternalScore? {
+        guard let external = snapshot.external, !external.isListenersOnly else { return nil }
+        return external
     }
 
     /// "★ 4.4 · 12k ratings", or "★ 4.4 · 1 rating" for exactly one.
@@ -110,7 +118,8 @@ struct BookRatingSection: View {
         return String(format: String(localized: "book.detail_rating_external"), "\u{2605} \(average)", compact)
     }
 
-    /// What VoiceOver says for the headline — "Rated 4.4 out of 5 stars by 12k readers elsewhere".
+    /// What VoiceOver says for the headline — "Rated 4.4 out of 5 stars from 12k ratings". The
+    /// count spans every source, your listeners included, so it names ratings, not readers elsewhere.
     static func externalSentence(_ external: ExternalScore) -> String {
         let average = RatingLabels.shared.averageLabel(average: external.average)
         if external.count == 1 {

@@ -261,4 +261,21 @@ class ExternalRatingTest :
                     ScoreSource.Listeners,
                 )
         }
+
+        test("the shares read the same per catalog, the shape Swift can bridge") {
+            val result = listenUpScore(threeCatalogs, listeners(4.0, 3), priors).shouldNotBeNull()
+
+            result.outsideShares shouldContainExactlyInAnyOrder
+                listOf(AUDIBLE, HARDCOVER, GOODREADS).map {
+                    OutsideShare(source = it, share = result.shares.getValue(ScoreSource.Outside(it)))
+                }
+            result.listenersShare shouldBe result.shares.getValue(ScoreSource.Listeners)
+            listenUpScore(threeCatalogs, null, priors).shouldNotBeNull().listenersShare.shouldBeNull()
+        }
+
+        test("a score built from per-catalog shares is the score they came from") {
+            val result = listenUpScore(threeCatalogs, listeners(4.0, 3), priors).shouldNotBeNull()
+
+            CombinedScore(result.average, result.count, result.outsideShares, result.listenersShare) shouldBe result
+        }
     })
