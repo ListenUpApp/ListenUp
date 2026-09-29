@@ -208,6 +208,7 @@ struct MainTabView: View {
                 },
                 set: { shell.selectLibrarySection($0, from: tab) }
             ),
+            chrome: LibraryChrome(tab: tab),
             observer: libraryObserver
         )
     }

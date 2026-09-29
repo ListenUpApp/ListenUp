@@ -1,14 +1,16 @@
 import SwiftUI
 import Shared
 
-/// Library screen displaying the user's audiobook collection with four tabs.
+/// Library screen displaying the user's audiobook collection in four sections: Books, Series,
+/// Authors and Narrators.
 ///
-/// Features:
-/// - Four swipeable tabs: Books, Series, Authors, Narrators
-/// - Glass-styled chip row for tab selection
-/// - Each tab has its own sort controls and alphabet scrubber
-/// - Pull-to-refresh syncs all content
-/// - Chip selection and swipe gestures are synced via TabView
+/// - In the compact tab bar a segmented `Picker` switches the sections (HIG, Segmented controls:
+///   "consider a segmented control to switch between closely related subviews"). It replaces the
+///   swipe pager and chip row, which hid the sections behind a gesture and drew their own selection.
+/// - In the iPad sidebar each section is its own entry, so there is no picker and the title names
+///   the section (`LibraryChrome`).
+/// - The section's sort lives in the toolbar's Sort menu; its count is the navigation subtitle.
+/// - Pull-to-refresh syncs all content.
 struct LibraryView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.dependencies) private var deps
@@ -16,6 +18,8 @@ struct LibraryView: View {
     /// The section on screen. Owned by the tab shell (`MainShellModel`), so the in-screen switcher
     /// and the iPad sidebar's per-section entries drive the same value.
     @Binding var selectedTab: LibraryTab
+    /// Whether this screen switches its own sections or is one of the sidebar's section entries.
+    var chrome = LibraryChrome(tab: .library)
     /// The window's one library projection, shared by every Library tab and sidebar entry; nil until
     /// the shell has built it.
     let observer: LibraryObserver?
@@ -30,12 +34,20 @@ struct LibraryView: View {
     var body: some View {
         Group {
             if let observer, let selection {
-                libraryContent(observer: observer, selection: selection)
+                sectionContent(observer: observer, selection: selection)
             } else {
                 loadingState
             }
         }
-        .navigationTitle(String(localized: "common.library"))
+        // The picker sits in a top bar of its own, under the large title, where the scroll edge
+        // effect treats it as chrome rather than content (HIG, Toolbars).
+        .safeAreaBar(edge: .top) {
+            if chrome.showsSectionPicker, !isSelecting {
+                sectionPicker
+            }
+        }
+        .navigationTitle(chrome.title(section: selectedTab))
+        .navigationSubtitle(sectionCount ?? "")
         // While selecting, collapse the large "Library" title so the toolbar's principal item shows
         // the live "N selected" count (Photos idiom); the tab bar hides so the bottom action bar owns
         // the bottom strip instead of colliding with the floating Library/Search tab pills.
@@ -60,6 +72,35 @@ struct LibraryView: View {
         }
     }
 
+    // MARK: - Section picker
+
+    /// Text-only segments with noun labels (HIG, Segmented controls: "prefer using either text or
+    /// images — not a mix of both"; "use nouns or noun phrases for segment labels"). Four segments
+    /// sit within the HIG's "no more than about five segments on iPhone".
+    private var sectionPicker: some View {
+        Picker(String(localized: "common.library"), selection: $selectedTab) {
+            ForEach(LibraryTab.allCases) { section in
+                Text(section.title).tag(section)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .haptic(.selectionTick, trigger: selectedTab)
+    }
+
+    /// The section's size, e.g. "24 series", shown as the navigation subtitle.
+    private var sectionCount: String? {
+        guard let observer, !observer.isLoading else { return nil }
+        return switch selectedTab {
+        case .books: String(format: String(localized: "library.title_count"), observer.books.count)
+        case .series: String(format: String(localized: "library.series_count"), observer.series.count)
+        case .authors: String(format: String(localized: "library.author_count"), observer.authors.count)
+        case .narrators: String(format: String(localized: "library.narrator_count"), observer.narrators.count)
+        }
+    }
+
     // MARK: - Toolbar
 
     @ToolbarContentBuilder
@@ -69,6 +110,11 @@ struct LibraryView: View {
         if !isSelecting {
             ToolbarItem(placement: .topBarTrailing) {
                 SyncStatusIndicator()
+            }
+            if let observer {
+                ToolbarItem(placement: .topBarTrailing) {
+                    sortMenu(observer: observer)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 NotificationBell()
@@ -91,13 +137,63 @@ struct LibraryView: View {
         }
     }
 
+    /// The Sort menu for the section on screen; absent until the section's sort state has loaded.
+    @ViewBuilder
+    private func sortMenu(observer: LibraryObserver) -> some View {
+        switch selectedTab {
+        case .books:
+            if let sortState = observer.booksSortState {
+                LibrarySortMenu(
+                    section: .books,
+                    sortState: sortState,
+                    onCategorySelected: { observer.setBooksSortCategory($0) },
+                    onDirectionToggle: { observer.toggleBooksSortDirection() },
+                    ignoreTitleArticles: observer.ignoreTitleArticles,
+                    onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() }
+                )
+            }
+        case .series:
+            if let sortState = observer.seriesSortState {
+                LibrarySortMenu(
+                    section: .series,
+                    sortState: sortState,
+                    onCategorySelected: { observer.setSeriesSortCategory($0) },
+                    onDirectionToggle: { observer.toggleSeriesSortDirection() },
+                    ignoreTitleArticles: observer.ignoreTitleArticles,
+                    onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() }
+                )
+            }
+        case .authors:
+            if let sortState = observer.authorsSortState {
+                LibrarySortMenu(
+                    section: .authors,
+                    sortState: sortState,
+                    onCategorySelected: { observer.setAuthorsSortCategory($0) },
+                    onDirectionToggle: { observer.toggleAuthorsSortDirection() },
+                    ignoreTitleArticles: observer.ignoreTitleArticles,
+                    onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() }
+                )
+            }
+        case .narrators:
+            if let sortState = observer.narratorsSortState {
+                LibrarySortMenu(
+                    section: .narrators,
+                    sortState: sortState,
+                    onCategorySelected: { observer.setNarratorsSortCategory($0) },
+                    onDirectionToggle: { observer.toggleNarratorsSortDirection() },
+                    ignoreTitleArticles: observer.ignoreTitleArticles,
+                    onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() }
+                )
+            }
+        }
+    }
+
     // MARK: - Main Content
 
     @ViewBuilder
-    private func libraryContent(observer: LibraryObserver, selection: BookSelectionObserver) -> some View {
-        // Swipeable content - extends edge to edge
-        TabView(selection: $selectedTab) {
-            // Books Tab
+    private func sectionContent(observer: LibraryObserver, selection: BookSelectionObserver) -> some View {
+        switch selectedTab {
+        case .books:
             BooksContent(
                 books: observer.books,
                 bookProgress: observer.bookProgress,
@@ -105,67 +201,30 @@ struct LibraryView: View {
                 isLoading: observer.isLoading,
                 isEmpty: observer.isEmpty,
                 errorMessage: observer.errorMessage,
-                onCategorySelected: { category in
-                    observer.setBooksSortCategory(category)
-                },
-                onDirectionToggle: {
-                    observer.toggleBooksSortDirection()
-                },
                 ignoreTitleArticles: observer.ignoreTitleArticles,
-                onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() },
-                onRefresh: {
-                    observer.refresh()
-                },
+                onRefresh: { observer.refresh() },
                 selection: selection
             )
-            .tag(LibraryTab.books)
-
-            // Series Tab
+        case .series:
             SeriesContent(
                 seriesList: observer.series,
                 seriesProgress: observer.seriesProgress,
                 sortState: observer.seriesSortState,
-                onCategorySelected: { category in
-                    observer.setSeriesSortCategory(category)
-                },
-                onDirectionToggle: {
-                    observer.toggleSeriesSortDirection()
-                },
-                ignoreTitleArticles: observer.ignoreTitleArticles,
-                onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() }
+                ignoreTitleArticles: observer.ignoreTitleArticles
             )
-            .tag(LibraryTab.series)
-
-            // Authors Tab
+        case .authors:
             ContributorListContent(
                 contributors: observer.authors,
                 sortState: observer.authorsSortState,
-                roleKind: .author,
-                onCategorySelected: { observer.setAuthorsSortCategory($0) },
-                onDirectionToggle: { observer.toggleAuthorsSortDirection() }
+                roleKind: .author
             )
-            .tag(LibraryTab.authors)
-
-            // Narrators Tab
+        case .narrators:
             ContributorListContent(
                 contributors: observer.narrators,
                 sortState: observer.narratorsSortState,
-                roleKind: .narrator,
-                onCategorySelected: { observer.setNarratorsSortCategory($0) },
-                onDirectionToggle: { observer.toggleNarratorsSortDirection() }
+                roleKind: .narrator
             )
-            .tag(LibraryTab.narrators)
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .scrollContentBackground(.hidden)
-        .background(.clear)
-        .ignoresSafeArea(edges: .bottom)
-        // Animation removed — conflicts with .page TabView programmatic selection
-        // Glass chip row overlaid at top
-        .safeAreaInset(edge: .top) {
-            LibraryChipRow(selectedTab: $selectedTab)
-        }
-        // Tab-change haptic is emitted (gated) by LibraryChipRow's `.haptic` modifier.
     }
 
     // MARK: - Loading State
@@ -181,13 +240,8 @@ struct LibraryView: View {
                 }
             }
             .padding()
-            .padding(.bottom, 100)
         }
         .scrollContentBackground(.hidden)
-        .ignoresSafeArea(edges: .bottom)
-        .safeAreaInset(edge: .top) {
-            LibraryChipRow(selectedTab: .constant(.books))
-        }
     }
 }
 
@@ -200,22 +254,13 @@ struct LibraryView: View {
     .environment(CurrentUserObserver())
 }
 
-#Preview("Loading State") {
+#Preview("Sidebar section entry") {
     NavigationStack {
-        ScrollView {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 150), spacing: 16)],
-                spacing: 20
-            ) {
-                ForEach(0 ..< 8, id: \.self) { _ in
-                    BookCoverShimmer()
-                }
-            }
-            .padding()
-        }
-        .safeAreaInset(edge: .top) {
-            LibraryChipRow(selectedTab: .constant(.books))
-        }
-        .navigationTitle("Library")
+        LibraryView(
+            selectedTab: .constant(.series),
+            chrome: LibraryChrome(tab: .librarySection(.series)),
+            observer: nil
+        )
     }
+    .environment(CurrentUserObserver())
 }

@@ -6,8 +6,7 @@ import Shared
 /// Features:
 /// - Adaptive grid: 2 columns on iPhone, 3-4 on iPad
 /// - Section headers (A, B, C...) with alphabet scrubber
-/// - Floating sort button
-/// - Pull-to-refresh
+/// - Pull-to-refresh (sorting lives in the Library toolbar's Sort menu)
 /// - Loading, empty, and error states
 struct BooksContent: View {
     let books: [BookRow]
@@ -16,12 +15,9 @@ struct BooksContent: View {
     let isLoading: Bool
     let isEmpty: Bool
     let errorMessage: String?
-    let onCategorySelected: (SortCategory) -> Void
-    let onDirectionToggle: () -> Void
-    /// Title-sort article handling — the shared toggle state + its flip action. When sorting by
-    /// Title, "The Hobbit" groups under H (ignoring the article); the section letters honor it too.
+    /// Title-sort article handling. When sorting by Title, "The Hobbit" groups under H (ignoring the
+    /// article); the section letters honor it too.
     let ignoreTitleArticles: Bool
-    let onToggleIgnoreArticles: () -> Void
     let onRefresh: () -> Void
     /// Drives multi-select on the grid. When `isSelecting`, taps toggle selection instead of
     /// navigating; a long-press is the secondary entry into selection mode.
@@ -54,10 +50,6 @@ struct BooksContent: View {
         sections.map { LetterSection(letter: $0.letter, books: $0.books) }
     }
 
-    /// Available sort categories for books
-    private let sortCategories: [SortCategory] =
-        [.title, .author, .duration, .year, .added, .rating, .listenerRating, .series]
-
     var body: some View {
         Group {
             if isLoading {
@@ -85,25 +77,19 @@ struct BooksContent: View {
         // carries its `.id` anchor so the scrubber's `scrollTo` still lands on the letter.
         return ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: layout.gridSpacing) {
-                    sortHeader
-
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
-                        ForEach(letterSections) { section in
-                            Section {
-                                ForEach(section.books) { book in
-                                    bookCell(book)
-                                        .transition(bookTransition)
-                                }
-                            } header: {
-                                sectionHeader(section.letter)
+                LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
+                    ForEach(letterSections) { section in
+                        Section {
+                            ForEach(section.books) { book in
+                                bookCell(book)
+                                    .transition(bookTransition)
                             }
+                        } header: {
+                            sectionHeader(section.letter)
                         }
                     }
                 }
                 .padding(.horizontal, layout.sideMargin)
-                // Extra padding at bottom so content scrolls above tab bar
-                .padding(.bottom, 100)
             }
             .scrollContentBackground(.hidden)
             .refreshable {
@@ -149,26 +135,6 @@ struct BooksContent: View {
                 // A re-sort (article handling), not an add/remove — apply instantly, no animation.
                 sections = bookSections(from: books, ignoreArticles: ignoreTitleArticles)
             }
-        }
-    }
-
-    /// The sort control above the grid: an inline row at regular width, a floating pill when compact.
-    /// (It used to be a top-leading overlay, which the `.page` TabView style hid behind the tab chips;
-    /// as scrolling content it insets below the chips like everything else.)
-    @ViewBuilder
-    private var sortHeader: some View {
-        if layout.usesInlineSort, sortState != nil {
-            sortRow
-        } else if let sortState {
-            FloatingSortButton(
-                sortState: sortState,
-                categories: sortCategories,
-                onCategorySelected: onCategorySelected,
-                onDirectionToggle: onDirectionToggle,
-                ignoreTitleArticles: ignoreTitleArticles,
-                onToggleIgnoreArticles: onToggleIgnoreArticles
-            )
-            .padding(.top, 4)
         }
     }
 
@@ -219,45 +185,6 @@ struct BooksContent: View {
                     }
                 }
         }
-    }
-
-    // MARK: - Sort Row
-
-    private var sortRow: some View {
-        let count = String(format: String(localized: "library.title_count"), books.count)
-        let sortLabel = sortState?.category.label ?? ""
-        return SortRow(count: count, sortLabel: sortLabel) {
-            ForEach(sortCategories, id: \.rawValue) { cat in
-                Button {
-                    onCategorySelected(cat)
-                } label: {
-                    HStack {
-                        Text(cat.label)
-                        if cat == sortState?.category {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-            Divider()
-            Button {
-                onDirectionToggle()
-            } label: {
-                Label(
-                    sortState?.direction == .ascending
-                        ? String(localized: "library.sort_ascending")
-                        : String(localized: "library.sort_descending"),
-                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
-                )
-            }
-            if sortState?.category == .title {
-                Divider()
-                Toggle(isOn: Binding(get: { ignoreTitleArticles }, set: { _ in onToggleIgnoreArticles() })) {
-                    Text(String(localized: "library.ignore_articles"))
-                }
-            }
-        }
-        .haptic(.selectionTick, trigger: sortState)
     }
 
     /// Only show alphabet index when sorted by title

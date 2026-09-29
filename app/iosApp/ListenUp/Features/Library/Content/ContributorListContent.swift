@@ -8,16 +8,12 @@ struct ContributorListContent: View {
     let contributors: [ContributorRow]
     let sortState: SortState?
     let roleKind: RoleChip.Kind
-    let onCategorySelected: (SortCategory) -> Void
-    let onDirectionToggle: () -> Void
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
     /// Available list width, read non-intrusively (see [listBody]) to drive the responsive
     /// column count. Read via `onGeometryChange` rather than a greedy `GeometryReader`.
     @State private var listWidth: CGFloat = 0
-
-    private let sortCategories: [SortCategory] = [.name, .bookCount]
 
     private var isNameSort: Bool { sortState?.category == .name }
     private var isAuthors: Bool { roleKind == .author }
@@ -53,8 +49,6 @@ struct ContributorListContent: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    sortRow.padding(.horizontal)
-
                     ForEach(groups, id: \.letter) { group in
                         if isNameSort {
                             LetterHeader(letter: group.letter)
@@ -67,7 +61,6 @@ struct ContributorListContent: View {
                         .padding(.horizontal)
                     }
                 }
-                .padding(.bottom, 100)
             }
             .scrollContentBackground(.hidden)
             .onScrollPhaseChange { _, newPhase in
@@ -109,16 +102,12 @@ struct ContributorListContent: View {
                 .map { [ContributorLetterGrouping.Group(letter: "", items: $0)] }
 
         return ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                sortRow.padding(.horizontal, 36)
-                HStack(alignment: .top, spacing: 24) {
-                    ForEach(Array(columnGroups.enumerated()), id: \.offset) { _, columnGroup in
-                        column(columnGroup)
-                    }
+            HStack(alignment: .top, spacing: 24) {
+                ForEach(Array(columnGroups.enumerated()), id: \.offset) { _, columnGroup in
+                    column(columnGroup)
                 }
-                .padding(.horizontal, 36)
             }
-            .padding(.bottom, 100)
+            .padding(.horizontal, 36)
         }
         .scrollContentBackground(.hidden)
         .background(Color.luSurface)
@@ -138,37 +127,6 @@ struct ContributorListContent: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
 
-    private var sortRow: some View {
-        let count = String(
-            format: String(localized: isAuthors ? "library.author_count" : "library.narrator_count"),
-            contributors.count
-        )
-        return SortRow(count: count, sortLabel: sortState?.category.label ?? "") {
-            ForEach(sortCategories, id: \.rawValue) { cat in
-                Button {
-                    onCategorySelected(cat)
-                } label: {
-                    HStack {
-                        Text(cat.label)
-                        if cat == sortState?.category { Image(systemName: "checkmark") }
-                    }
-                }
-            }
-            Divider()
-            Button {
-                onDirectionToggle()
-            } label: {
-                Label(
-                    sortState?.direction == .ascending
-                        ? String(localized: "library.sort_ascending")
-                        : String(localized: "library.sort_descending"),
-                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
-                )
-            }
-        }
-        .haptic(.selectionTick, trigger: sortState)
-    }
-
     private var emptyState: some View {
         ScrollView {
             ContentUnavailableView(
@@ -180,7 +138,6 @@ struct ContributorListContent: View {
                 ))
             )
             .frame(maxWidth: .infinity, minHeight: 360)
-            .padding(.bottom, 100)
         }
         .scrollContentBackground(.hidden)
         .background(Color.luSurface)

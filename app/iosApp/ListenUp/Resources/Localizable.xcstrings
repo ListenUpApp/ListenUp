@@ -12211,12 +12211,32 @@
         }
       }
     },
+    "library.sort": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort"
+          }
+        }
+      }
+    },
     "library.sort_ascending": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Ascending"
+          }
+        }
+      }
+    },
+    "library.sort_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort By"
           }
         }
       }
@@ -12247,6 +12267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sort options"
+          }
+        }
+      }
+    },
+    "library.sort_order": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Order"
           }
         }
       }

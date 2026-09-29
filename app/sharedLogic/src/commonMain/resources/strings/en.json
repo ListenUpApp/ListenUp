@@ -271,7 +271,10 @@
     "author_count": "%d authors",
     "narrator_count": "%d narrators",
     "contributors_empty": "No contributors yet",
-    "has_documents_badge": "Has supplementary material"
+    "has_documents_badge": "Has supplementary material",
+    "sort": "Sort",
+    "sort_by": "Sort By",
+    "sort_order": "Order"
   },
   "book": {
     "reader_scrubber_a11y": "Page",

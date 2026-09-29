@@ -7,27 +7,20 @@ import Shared
 /// - iPhone: vertical list of standalone `SeriesRowCard` components (each its own rounded surface)
 /// - iPad / wide: width-responsive `LazyVGrid` of `SeriesGridCard` components (columns flow from
 ///   the available width via `GridItem(.adaptive(minimum:))`, not a fixed 3-up)
-/// - Inline `SortRow` (Name, Book Count, Added)
 /// - Alphabet scrubber when sorted by name
 /// - Empty state when no series
 struct SeriesContent: View {
     let seriesList: [SeriesRow]
     let seriesProgress: [String: SeriesProgressState]
     let sortState: SortState?
-    let onCategorySelected: (SortCategory) -> Void
-    let onDirectionToggle: () -> Void
-    /// Name-sort article handling — shared toggle state + flip action (Series sorts by Name). Groups
-    /// "The Expanse" under E, matching the shared sort order.
+    /// Name-sort article handling (Series sorts by Name). Groups "The Expanse" under E, matching the
+    /// shared sort order.
     let ignoreTitleArticles: Bool
-    let onToggleIgnoreArticles: () -> Void
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
-
-    /// Available sort categories for series
-    private let sortCategories: [SortCategory] = [.name, .bookCount, .added]
 
     /// Generous side margins at regular width (matching `SeriesPad`); phone margins at compact.
     private var horizontalMargin: CGFloat { sizeClass == .regular ? 36 : 16 }
@@ -47,19 +40,14 @@ struct SeriesContent: View {
 
         return ScrollViewReader { proxy in
             ScrollView {
-                VStack(spacing: 0) {
-                    sortRow
-                        .padding(.horizontal, horizontalMargin)
-                        .padding(.top, 4)
-                        .padding(.bottom, 12)
-
+                Group {
                     if sizeClass == .compact {
                         iPhoneList
                     } else {
                         iPadGrid
                     }
                 }
-                .padding(.bottom, 100)
+                .padding(.top, 4)
             }
             .scrollContentBackground(.hidden)
             .onScrollPhaseChange { _, newPhase in
@@ -93,45 +81,6 @@ struct SeriesContent: View {
                 }
             }
         }
-    }
-
-    // MARK: - Sort Row
-
-    private var sortRow: some View {
-        let count = String(format: String(localized: "library.series_count"), seriesList.count)
-        let sortLabel = sortState?.category.label ?? ""
-        return SortRow(count: count, sortLabel: sortLabel) {
-            ForEach(sortCategories, id: \.rawValue) { cat in
-                Button {
-                    onCategorySelected(cat)
-                } label: {
-                    HStack {
-                        Text(cat.label)
-                        if cat == sortState?.category {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-            Divider()
-            Button {
-                onDirectionToggle()
-            } label: {
-                Label(
-                    sortState?.direction == .ascending
-                        ? String(localized: "library.sort_ascending")
-                        : String(localized: "library.sort_descending"),
-                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
-                )
-            }
-            if sortState?.category == .name {
-                Divider()
-                Toggle(isOn: Binding(get: { ignoreTitleArticles }, set: { _ in onToggleIgnoreArticles() })) {
-                    Text(String(localized: "library.ignore_articles"))
-                }
-            }
-        }
-        .haptic(.selectionTick, trigger: sortState)
     }
 
     // MARK: - iPhone List
