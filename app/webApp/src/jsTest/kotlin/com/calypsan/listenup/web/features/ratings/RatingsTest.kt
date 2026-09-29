@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ExternalRating
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.ListenerRating
+import com.calypsan.listenup.client.domain.model.ScoreSource
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -434,7 +435,7 @@ class RatingsTest :
             val headline = host.querySelector(".rt-external") as HTMLElement
             // ⛔ "4.0", never "4": a JS double drops the trailing zero, and starsLabel would round
             // a continuous average to the nearest half star ("4.5") instead of printing it exactly.
-            headline.getAttribute("aria-label") shouldBe "Rated 4.0 out of 5 stars by 12k readers elsewhere"
+            headline.getAttribute("aria-label") shouldBe "Rated 4.0 out of 5 stars from 12k ratings"
             headline.textContent shouldBe "★ 4.0 · 12k ratings"
         }
 
@@ -445,7 +446,7 @@ class RatingsTest :
             // ⛔ 4.45 reads "4.5" — round half up on the true average. `starsLabel(average * 2)`
             // would instead round to the nearest half star and print the same "4.5" only by
             // coincidence here; the regression it guards against is 4.4 printing "4.5".
-            headline.getAttribute("aria-label") shouldBe "Rated 4.5 out of 5 stars by 900 readers elsewhere"
+            headline.getAttribute("aria-label") shouldBe "Rated 4.5 out of 5 stars from 900 ratings"
             headline.textContent shouldBe "★ 4.5 · 900 ratings"
         }
 
@@ -453,7 +454,7 @@ class RatingsTest :
             val host = panel(ready(external = CombinedScore(average = 4.4, count = 1)))
 
             val headline = host.querySelector(".rt-external") as HTMLElement
-            headline.getAttribute("aria-label") shouldBe "Rated 4.4 out of 5 stars by 1 reader elsewhere"
+            headline.getAttribute("aria-label") shouldBe "Rated 4.4 out of 5 stars from 1 rating"
             headline.textContent shouldBe "★ 4.4 · 1 rating"
         }
 
@@ -577,6 +578,167 @@ class RatingsTest :
             } finally {
                 session.close()
             }
+        }
+
+        // --- What each source contributes to the ListenUp score: the same rows as Android ---
+
+        val audible = ExternalRating(source = ExternalRatingSource.AUDIBLE, average = 4.7, count = 1_007)
+        val goodreads = ExternalRating(source = ExternalRatingSource.GOODREADS, average = 4.2, count = 100_000)
+
+        suspend fun breakdownRows(state: BookRatingsUiState): Pair<String, List<String>> {
+            val host = panel(state)
+            (host.querySelector(".rt-external") as HTMLElement).click()
+            val dialog = awaitPresent(host, "dialog")
+            return dialog.textContent.orEmpty() to
+                dialog.querySelectorAll(".rt-source-row").asList().map { it.textContent.orEmpty() }
+        }
+
+        test("each outside row shows its share of the score, to a whole percent") {
+            val (_, rows) =
+                breakdownRows(
+                    ready(
+                        external =
+                            CombinedScore(
+                                average = 4.3,
+                                count = 101_007,
+                                shares =
+                                    mapOf(
+                                        ScoreSource.Outside(ExternalRatingSource.GOODREADS) to 0.6249,
+                                        ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.3751,
+                                    ),
+                            ),
+                        breakdown = listOf(goodreads, audible),
+                    ),
+                )
+
+            rows shouldContainExactly listOf("Goodreads · 4.2 · 100k · 62%", "Audible · 4.7 · 1k · 38%")
+        }
+
+        test("a score from several sources says how many") {
+            val (text, _) =
+                breakdownRows(
+                    ready(
+                        external =
+                            CombinedScore(
+                                average = 4.3,
+                                count = 101_007,
+                                shares =
+                                    mapOf(
+                                        ScoreSource.Outside(ExternalRatingSource.GOODREADS) to 0.6,
+                                        ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.4,
+                                    ),
+                            ),
+                        breakdown = listOf(goodreads, audible),
+                    ),
+                )
+
+            text shouldContainString "Combined from 2 sources"
+        }
+
+        test("a score from one source does not say combined") {
+            val (text, rows) =
+                breakdownRows(
+                    ready(
+                        external =
+                            CombinedScore(
+                                average = 4.4,
+                                count = 1_007,
+                                shares = mapOf(ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 1.0),
+                            ),
+                        breakdown = listOf(audible),
+                    ),
+                )
+
+            text.contains("Combined from") shouldBe false
+            rows shouldContainExactly listOf("Audible · 4.7 · 1k · 100%")
+        }
+
+        test("your listeners get their own row when they are part of the score") {
+            val (text, rows) =
+                breakdownRows(
+                    ready(
+                        external =
+                            CombinedScore(
+                                average = 4.4,
+                                count = 1_010,
+                                shares =
+                                    mapOf(
+                                        ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.8,
+                                        ScoreSource.Listeners to 0.2,
+                                    ),
+                            ),
+                        listeners = ListenerAverage(averageHalfStars = 8.0, count = 3),
+                        breakdown = listOf(audible),
+                    ),
+                )
+
+            text shouldContainString "Combined from 2 sources"
+            rows shouldContainExactly listOf("Audible · 4.7 · 1k · 80%", "Your listeners · 4.0 · 3 · 20%")
+        }
+
+        test("no listeners row when no listener has rated the book") {
+            val (_, rows) =
+                breakdownRows(
+                    ready(
+                        external =
+                            CombinedScore(
+                                average = 4.4,
+                                count = 1_007,
+                                shares = mapOf(ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 1.0),
+                            ),
+                        listeners = null,
+                        breakdown = listOf(audible),
+                    ),
+                )
+
+            rows.any { it.startsWith("Your listeners") } shouldBe false
+        }
+
+        // --- A book only your listeners have rated ---
+
+        val listenersOnly =
+            ready(
+                listeners = ListenerAverage(averageHalfStars = 9.0, count = 3),
+                // The score reads 4.5 off the listeners' own curve onto ListenUp's: a different
+                // number from the same three ratings.
+                external = CombinedScore(average = 4.3, count = 3, shares = mapOf(ScoreSource.Listeners to 1.0)),
+            )
+
+        test("a book only your listeners rated shows their average once, not a second recalibrated number") {
+            val host = panel(listenersOnly)
+
+            (host.querySelector(".rt-avg .rt-sr") as HTMLElement).textContent shouldBe
+                "Your listeners: 4.5 out of 5 stars, from 3 ratings"
+            host.querySelector(".rt-external").shouldBeNull()
+        }
+
+        test("an admin can still refresh a book only your listeners rated") {
+            val host = panel(listenersOnly.copy(canRefresh = true))
+
+            (host.querySelector(".rt-refresh-first") as HTMLElement).textContent shouldBe "Refresh ratings"
+        }
+
+        test("once an outside source joins your listeners the headline returns beside their line") {
+            val host =
+                panel(
+                    listenersOnly.copy(
+                        external =
+                            CombinedScore(
+                                average = 4.4,
+                                count = 1_010,
+                                shares =
+                                    mapOf(
+                                        ScoreSource.Outside(ExternalRatingSource.AUDIBLE) to 0.8,
+                                        ScoreSource.Listeners to 0.2,
+                                    ),
+                            ),
+                        breakdown = listOf(audible),
+                    ),
+                )
+
+            (host.querySelector(".rt-external") as HTMLElement).getAttribute("aria-label") shouldBe
+                "Rated 4.4 out of 5 stars from 1k ratings"
+            host.querySelector(".rt-avg").shouldNotBeNull()
         }
 
         test("the library sorts books by the outside world's rating and by your listeners'") {

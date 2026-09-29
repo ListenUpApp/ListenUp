@@ -55,6 +55,8 @@
 .rt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 dialog.dlg .rt-input { display: flex; justify-content: center; }
+/* "Combined from N sources": a quiet caption under the breakdown's title, above its rows. */
+dialog.dlg .rt-combined { margin-top: -8px; font-size: var(--fs-ui); color: var(--ink-2); }
 dialog.dlg .rt-count { align-self: flex-end; margin-top: -8px; font-size: 0.75rem; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 dialog.dlg .rt-remove { align-self: flex-start; padding: var(--sp-4) var(--sp-8); border: none; border-radius: var(--r-sm); background: transparent; color: var(--coral-text); font-family: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
 @media (hover: hover) { dialog.dlg .rt-remove:hover { background: var(--coral-soft); } }
