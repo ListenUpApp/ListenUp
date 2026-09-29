@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Pure and unit-tested rather than inline in `PushCoordinator`, because the rule has a genuine
 /// exception and getting it wrong is invisible: a suppressed banner looks exactly like a push that
-/// never arrived. Mirrors `PlayerGestureMath` — and the Android side's `PushForegroundPolicy`, so
+/// never arrived. Mirrors `PlayerLayoutMode` — and the Android side's `PushForegroundPolicy`, so
 /// the two platforms answer this the same way.
 enum PushForegroundPolicy {
     /// Whether the payload in `userInfo` should present while the app is foregrounded.

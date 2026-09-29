@@ -14171,6 +14171,16 @@
         }
       }
     },
+    "player.chapter_number": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d"
+          }
+        }
+      }
+    },
     "player.chapter_of": {
       "localizations": {
         "en": {
@@ -14421,6 +14431,16 @@
         }
       }
     },
+    "player.opens_player_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the player."
+          }
+        }
+      }
+    },
     "player.pause": {
       "localizations": {
         "en": {
@@ -14501,6 +14521,26 @@
         }
       }
     },
+    "player.scrubber_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter position"
+          }
+        }
+      }
+    },
+    "player.scrubber_value_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ of %2$@"
+          }
+        }
+      }
+    },
     "player.skip_backward": {
       "localizations": {
         "en": {
@@ -14527,6 +14567,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sleep"
+          }
+        }
+      }
+    },
+    "player.sleep_off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
           }
         }
       }

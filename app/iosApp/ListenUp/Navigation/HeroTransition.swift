@@ -7,7 +7,8 @@ import SwiftUI
 // same `Namespace.ID`, which `MainTabView` owns and publishes below.
 //
 // Note this is NOT `matchedGeometryEffect` — that only morphs within a single view hierarchy
-// (as `PlayerMorph` does for mini ↔ full player) and does nothing across a NavigationStack push.
+// and does nothing across a NavigationStack push. The mini ↔ full player uses this same zoom
+// pairing (`PlayerTransition`), across a `fullScreenCover` rather than a push.
 
 extension EnvironmentValues {
     /// The namespace pairing a list cell with the detail page it zooms into. Provided by

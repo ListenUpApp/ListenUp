@@ -5,7 +5,7 @@ import CoreGraphics
 /// Extracted so the deck geometry — total width, per-layer horizontal offset, scale,
 /// and z-order — is unit-testable without a running view tree. The view supplies the
 /// front-cover `size` and the `peek` indent; these helpers place each layer.
-/// (Mirrors the `PlayerGestureMath` pure-helper precedent.)
+/// (Mirrors the `PlayerLayoutMode` pure-helper precedent.)
 struct CoverStackLayout {
     /// Number of covers actually drawn (already clamped to the deck's max).
     let coverCount: Int

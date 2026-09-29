@@ -10,6 +10,9 @@ struct NowPlayingUpNextPanel: View {
     let observer: PlayerCoordinator
     let tint: Color
 
+    /// The pane's fixed width; the player column takes the rest.
+    static let width: CGFloat = 360
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(localized: "player.chapters"))
@@ -43,7 +46,7 @@ struct NowPlayingUpNextPanel: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .padding(.horizontal, 28)
         .padding(.vertical, 36)
-        .frame(width: 360)
+        .frame(width: Self.width)
         .background(Color(.systemBackground).opacity(0.78))
         .overlay(alignment: .leading) {
             Divider().ignoresSafeArea()

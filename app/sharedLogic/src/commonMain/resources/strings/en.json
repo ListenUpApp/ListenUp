@@ -1334,6 +1334,11 @@
     "audiobookshelf_imports": "Audiobookshelf imports"
   },
   "player": {
+    "opens_player_hint": "Opens the player.",
+    "scrubber_a11y": "Chapter position",
+    "scrubber_value_a11y": "%1$s of %2$s",
+    "sleep_off": "Off",
+    "chapter_number": "Chapter %1$d",
     "now_playing": "Now playing",
     "now_playing_overline": "NOW PLAYING",
     "now_playing_wide": "Now playing",

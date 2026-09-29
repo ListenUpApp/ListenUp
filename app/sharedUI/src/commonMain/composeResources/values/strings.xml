@@ -1418,6 +1418,7 @@ One beautiful library.</string>
     <string name="player_cast_session_lost">Casting stopped — playing on this device instead.</string>
     <string name="player_cast_start_failed">Couldn't start casting.</string>
     <string name="player_cast_unsupported_format">This book's format can't be cast.</string>
+    <string name="player_chapter_number">Chapter %1$d</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
     <string name="player_chapter_remaining">%1$s • %2$s left</string>
     <string name="player_chapters">Chapters</string>
@@ -1443,6 +1444,7 @@ One beautiful library.</string>
     <string name="player_now_playing_overline">NOW PLAYING</string>
     <string name="player_now_playing_wide">Now playing</string>
     <string name="player_open_pdf">Open PDF</string>
+    <string name="player_opens_player_hint">Opens the player.</string>
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
     <string name="player_play_chapter">Play chapter</string>
@@ -1451,9 +1453,12 @@ One beautiful library.</string>
     <string name="player_previous_chapter">Previous chapter</string>
     <string name="player_refusal_title">Couldn't start playback</string>
     <string name="player_reset_to_default">Reset to default (%1$s)</string>
+    <string name="player_scrubber_a11y">Chapter position</string>
+    <string name="player_scrubber_value_a11y">%1$s of %2$s</string>
     <string name="player_skip_backward">Skip backward %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
     <string name="player_sleep">Sleep</string>
+    <string name="player_sleep_off">Off</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
     <string name="player_speed_value">%1$sx</string>

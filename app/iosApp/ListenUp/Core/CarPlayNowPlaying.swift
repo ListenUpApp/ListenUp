@@ -22,7 +22,7 @@ enum CarPlayChapterRows {
         titles.enumerated().map { index, title in
             CarPlayChapterRow(
                 index: index,
-                title: title ?? "Chapter \(index + 1)",
+                title: title ?? String(format: String(localized: "player.chapter_number"), index + 1),
                 isCurrent: index == currentIndex
             )
         }

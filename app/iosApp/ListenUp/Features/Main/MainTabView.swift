@@ -7,21 +7,24 @@ import Shared
 /// - Native iOS 26 `TabView` with Home, Library, Discover, and a search-role Search tab
 /// - Each tab wraps content in a `NavigationStack`
 /// - iPad gets the sidebar-adaptable style; the tab bar minimizes on scroll
-/// - `PlayerExpansionOverlay` hosts the mini player and morphs it into the full
-///   player under a shared `@Namespace` (replacing the accessory + fullScreenCover)
+/// - The mini player is the tab view's bottom accessory; the full player is a `fullScreenCover`
+///   that zooms out of the mini player's cover (`PlayerTransition`)
 struct MainTabView: View {
     @Environment(\.dependencies) private var deps
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(PushTapRouter.self) private var pushTapRouter
     @State private var selectedTab: Tab = .home
     @State private var playerCoordinator: PlayerCoordinator?
+    @State private var isPlayerPresented = false
     @State private var bookLinkError: BookLinkError?
 
     /// Pairs a list cell with the detail page it zooms into. One namespace for the whole shell so
     /// a hero works from any tab and any list that opens a book, contributor, or series.
     @Namespace private var heroNamespace
+    /// Pairs the mini player's cover with the full player that zooms out of it.
+    @Namespace private var playerNamespace
 
-    /// Per-tab navigation paths so the player overlay can push a destination onto the
+    /// Per-tab navigation paths so the full player can push a destination onto the
     /// *active* tab's stack (and so each tab keeps its own independent history).
     @State private var paths: [Tab: NavigationPath] = [
         .home: NavigationPath(),
@@ -29,20 +32,6 @@ struct MainTabView: View {
         .discover: NavigationPath(),
         .search: NavigationPath()
     ]
-
-    /// Live bottom safe-area inset *as the tab content sees it* — home indicator plus
-    /// the floating tab bar (which tracks the `.onScrollDown` minimize state).
-    ///
-    /// The iOS 26 floating tab bar reserves space only inside the `TabView`'s own
-    /// content safe area — a ZStack sibling like the player overlay never sees it. We
-    /// measure it here and hand it to the overlay so the mini player anchors to the
-    /// *real* bar, not a fixed guess, in both the full and minimized bar states.
-    @State private var tabContentBottomInset: CGFloat = 0
-
-    /// Height reserved below tab content for the collapsed mini bar (bar + clearance).
-    private var miniBarInset: CGFloat {
-        MiniPlayerBar.barHeight + MiniPlayerBar.tabBarClearance
-    }
 
     private enum BookLinkError: Identifiable {
         case wrongServer, notConnected
@@ -56,33 +45,53 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        ZStack {
-            TabView(selection: $selectedTab) {
-                SwiftUI.Tab(Tab.home.title, systemImage: "house.fill", value: Tab.home) {
-                    tabStack(.home) { HomeView() }
-                }
-                SwiftUI.Tab(Tab.library.title, systemImage: "books.vertical.fill", value: Tab.library) {
-                    tabStack(.library) { LibraryView() }
-                }
-                SwiftUI.Tab(Tab.discover.title, systemImage: "sparkles", value: Tab.discover) {
-                    tabStack(.discover) { DiscoverView() }
-                }
-                SwiftUI.Tab(value: Tab.search, role: .search) {
-                    tabStack(.search) { SearchView(path: pathBinding(.search)) }
-                }
+        TabView(selection: $selectedTab) {
+            SwiftUI.Tab(Tab.home.title, systemImage: "house.fill", value: Tab.home) {
+                tabStack(.home) { HomeView() }
             }
-            .tabViewStyle(.sidebarAdaptable)
-            .tabBarMinimizeBehavior(.onScrollDown)
-
-            if let coordinator = playerCoordinator, coordinator.isVisible {
-                PlayerExpansionOverlay(
-                    coordinator: coordinator,
-                    tabContentBottomInset: tabContentBottomInset,
-                    onViewBookDetails: pushBookDetail,
-                    onViewSeries: pushSeries,
-                    onViewContributor: pushContributor
+            SwiftUI.Tab(Tab.library.title, systemImage: "books.vertical.fill", value: Tab.library) {
+                tabStack(.library) { LibraryView() }
+            }
+            SwiftUI.Tab(Tab.discover.title, systemImage: "sparkles", value: Tab.discover) {
+                tabStack(.discover) { DiscoverView() }
+            }
+            SwiftUI.Tab(value: Tab.search, role: .search) {
+                tabStack(.search) { SearchView(path: pathBinding(.search)) }
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        // HIG, Tab bars: an attached accessory "like the MiniPlayer in Music" moves inline with
+        // the tab bar when it minimizes on scroll.
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .modifier(MiniPlayerAccessory(isEnabled: isMiniPlayerShown) {
+            if let coordinator = playerCoordinator {
+                MiniPlayerBar(
+                    observer: coordinator,
+                    transitionNamespace: playerNamespace,
+                    onOpen: { isPlayerPresented = true }
                 )
             }
+        })
+        // The full player is a system full-screen modal (HIG, Modality: "a full-screen modal style
+        // for in-depth content"), which brings VoiceOver modality, swipe-down dismissal and the
+        // zoom back into the mini player with it.
+        .fullScreenCover(isPresented: $isPlayerPresented) {
+            if let coordinator = playerCoordinator {
+                FullScreenPlayerView(
+                    observer: coordinator,
+                    onViewDetails: {
+                        closePlayer()
+                        if let bookId = coordinator.currentBookId { pushBookDetail(bookId) }
+                    },
+                    onViewSeries: { seriesId in closePlayer(); pushSeries(seriesId) },
+                    onViewContributor: { contributorId in closePlayer(); pushContributor(contributorId) }
+                )
+                .navigationTransition(.zoom(sourceID: PlayerTransition.coverID, in: playerNamespace))
+            }
+        }
+        // Closing the book (or anything else that ends the session) takes the player with it.
+        .onChange(of: isMiniPlayerShown) { _, isShown in
+            if !isShown { closePlayer() }
         }
         .onAppear {
             if playerCoordinator == nil {
@@ -124,21 +133,13 @@ struct MainTabView: View {
         NavigationStack(path: pathBinding(tab)) {
             content()
                 .navigationDestinations()
-                .pushedDestination(for: SearchSeeAllDestination.self) { destination in
+                .navigationDestination(for: SearchSeeAllDestination.self) { destination in
                     SeeAllSearchView(destination: destination, path: pathBinding(tab))
                 }
                 // Registered here (not in `contentDestinations()`) because a tapped row's
                 // outcome appends onto THIS tab's path — the same reason SeeAllSearch lives here.
-                .pushedDestination(for: NotificationsDestination.self) { _ in
+                .navigationDestination(for: NotificationsDestination.self) { _ in
                     NotificationsView { outcome in routeNotificationTap(outcome, on: tab) }
-                }
-                // Probe the *system* bottom inset (home indicator + floating tab bar)
-                // BEFORE reserving the mini-bar band below, so it measures only the bar.
-                .background(tabBarInsetProbe)
-                .safeAreaInset(edge: .bottom) {
-                    if playerCoordinator?.isVisible == true {
-                        Color.clear.frame(height: miniBarInset)
-                    }
                 }
         }
         // Applied on the NavigationStack (not its root content) so pushed destinations AND the
@@ -146,27 +147,6 @@ struct MainTabView: View {
         // THIS tab's main stack (a full page) instead of navigating inside the sheet.
         .environment(\.navigateToContributor, pushContributor)
         .environment(\.heroNamespace, heroNamespace)
-    }
-
-    /// Reads the tab content's live bottom safe-area inset (home indicator + floating
-    /// tab bar) and publishes it for the overlay. Sits behind tab content (zero-sized,
-    /// non-interactive) and updates as the bar minimizes/expands on scroll.
-    ///
-    /// The probe is attached *inside* the same view the sibling `.safeAreaInset` reserves
-    /// the `miniBarInset` mini-bar band on, so `proxy.safeAreaInsets.bottom` already
-    /// includes that band. We subtract it back out (when the band is actually reserved)
-    /// so the published value is the *true* system bar — otherwise the mini player floats
-    /// a whole `miniBarInset` (~60pt) too high above the tab bar.
-    private var tabBarInsetProbe: some View {
-        GeometryReader { proxy in
-            Color.clear
-                .onGeometryChange(for: CGFloat.self) { _ in
-                    proxy.safeAreaInsets.bottom
-                } action: { inset in
-                    let reservedBand = playerCoordinator?.isVisible == true ? miniBarInset : 0
-                    tabContentBottomInset = max(0, inset - reservedBand)
-                }
-        }
     }
 
     /// Binding into the per-tab path dictionary, defaulting to an empty path so a
@@ -178,8 +158,13 @@ struct MainTabView: View {
         )
     }
 
+    /// Whether a book is loaded (or failed to load) — the mini player shows exactly then.
+    private var isMiniPlayerShown: Bool { playerCoordinator?.isVisible == true }
+
+    private func closePlayer() { isPlayerPresented = false }
+
     /// Push the book's detail screen onto the currently selected tab's stack — the
-    /// destination for the player overlay's "View Book Details" action.
+    /// destination for the full player's "Go to book" action.
     private func pushBookDetail(_ bookId: String) {
         paths[selectedTab, default: NavigationPath()].append(BookDestination(id: bookId))
     }
@@ -229,6 +214,29 @@ extension MainTabView {
     }
 }
 
+// MARK: - Mini player accessory
+
+/// Attaches the mini player as the tab view's bottom accessory only while a book is loaded.
+///
+/// iOS 26.1 added `tabViewBottomAccessory(isEnabled:)`, which hides the accessory without
+/// rebuilding the tab view. On 26.0 an accessory whose content is empty still draws an empty
+/// glass capsule, so the modifier is attached only while there is something to show — at the
+/// cost of one tab-view rebuild when a book first loads or closes.
+private struct MiniPlayerAccessory<Accessory: View>: ViewModifier {
+    let isEnabled: Bool
+    @ViewBuilder let accessory: () -> Accessory
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.1, *) {
+            content.tabViewBottomAccessory(isEnabled: isEnabled, content: accessory)
+        } else if isEnabled {
+            content.tabViewBottomAccessory(content: accessory)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Profile Routing
 
 /// Routes a `ProfileDestination` to the full self-profile when it targets the signed-in user,
@@ -267,36 +275,23 @@ private extension View {
             .adminDestinations()
     }
 
-    /// Registers a pushed navigation destination that reserves the floating mini player's footprint,
-    /// so the screen's content scrolls clear of the bar. A tab-root's `.safeAreaInset` doesn't reach
-    /// pushed screens, so every destination goes through here to inherit the reservation from one
-    /// place — new screens get it for free, and none can silently regress.
-    func pushedDestination<D: Hashable, Content: View>(
-        for type: D.Type,
-        @ViewBuilder destination: @escaping (D) -> Content
-    ) -> some View {
-        navigationDestination(for: type) { value in
-            destination(value).miniPlayerBottomInset()
-        }
-    }
-
     /// Library/content-facing destinations: books, series, contributors, facets, shelves, profiles,
     /// settings, and storage.
     func contentDestinations() -> some View {
         self
-            .pushedDestination(for: BookDestination.self) { destination in
+            .navigationDestination(for: BookDestination.self) { destination in
                 BookDetailView(bookId: destination.id)
                     .heroDestination(bookCoverHeroID(destination.id))
             }
-            .pushedDestination(for: SeriesDestination.self) { destination in
+            .navigationDestination(for: SeriesDestination.self) { destination in
                 SeriesDetailView(seriesId: destination.id)
                     .heroDestination(seriesHeroID(destination.id))
             }
-            .pushedDestination(for: ContributorDestination.self) { destination in
+            .navigationDestination(for: ContributorDestination.self) { destination in
                 ContributorDetailView(contributorId: destination.id)
                     .heroDestination(contributorHeroID(destination.id))
             }
-            .pushedDestination(for: ContributorBooksDestination.self) { destination in
+            .navigationDestination(for: ContributorBooksDestination.self) { destination in
                 ContributorBooksView(
                     contributorId: destination.contributorId,
                     role: destination.role,
@@ -304,43 +299,43 @@ private extension View {
                     roleDisplayName: destination.roleDisplayName
                 )
             }
-            .pushedDestination(for: FacetDestination.self) { destination in
+            .navigationDestination(for: FacetDestination.self) { destination in
                 FacetBooksView(kind: destination.kind, facetId: destination.id, facetName: destination.name)
             }
-            .pushedDestination(for: GenreDestination.self) { destination in
+            .navigationDestination(for: GenreDestination.self) { destination in
                 GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
             }
-            .pushedDestination(for: ShelfDestination.self) { destination in
+            .navigationDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
             }
-            .pushedDestination(for: ShelfFormDestination.self) { destination in
+            .navigationDestination(for: ShelfFormDestination.self) { destination in
                 CreateEditShelfView(shelfId: destination.shelfId)
             }
-            .pushedDestination(for: UserProfileDestination.self) { _ in
+            .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }
-            .pushedDestination(for: ProfileDestination.self) { destination in
+            .navigationDestination(for: ProfileDestination.self) { destination in
                 ProfileDestinationView(userId: destination.userId)
             }
-            .pushedDestination(for: SettingsDestination.self) { _ in
+            .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
             }
-            .pushedDestination(for: StorageDestination.self) { _ in
+            .navigationDestination(for: StorageDestination.self) { _ in
                 StorageView()
             }
-            .pushedDestination(for: DevicesDestination.self) { _ in
+            .navigationDestination(for: DevicesDestination.self) { _ in
                 DevicesView()
             }
-            .pushedDestination(for: NotificationPrefsDestination.self) { _ in
+            .navigationDestination(for: NotificationPrefsDestination.self) { _ in
                 NotificationPrefsView()
             }
-            .pushedDestination(for: HardcoverDestination.self) { _ in
+            .navigationDestination(for: HardcoverDestination.self) { _ in
                 HardcoverSettingsView()
             }
-            .pushedDestination(for: LicensesDestination.self) { _ in
+            .navigationDestination(for: LicensesDestination.self) { _ in
                 LicensesView()
             }
-            .pushedDestination(for: LicenseDetailDestination.self) { destination in
+            .navigationDestination(for: LicenseDetailDestination.self) { destination in
                 LicenseDetailView(packageName: destination.packageName)
             }
     }
@@ -348,34 +343,34 @@ private extension View {
     /// Administration destinations (admin / root only surfaces).
     func adminDestinations() -> some View {
         self
-            .pushedDestination(for: AdminDestination.self) { _ in
+            .navigationDestination(for: AdminDestination.self) { _ in
                 AdminView()
             }
-            .pushedDestination(for: AdminInboxDestination.self) { _ in
+            .navigationDestination(for: AdminInboxDestination.self) { _ in
                 AdminInboxView()
             }
-            .pushedDestination(for: ABSImportDestination.self) { _ in
+            .navigationDestination(for: ABSImportDestination.self) { _ in
                 ABSImportHubView()
             }
-            .pushedDestination(for: AdminCollectionsDestination.self) { _ in
+            .navigationDestination(for: AdminCollectionsDestination.self) { _ in
                 AdminCollectionsView()
             }
-            .pushedDestination(for: AdminCategoriesDestination.self) { _ in
+            .navigationDestination(for: AdminCategoriesDestination.self) { _ in
                 AdminCategoriesView()
             }
-            .pushedDestination(for: AdminCollectionDetailDestination.self) { destination in
+            .navigationDestination(for: AdminCollectionDetailDestination.self) { destination in
                 AdminCollectionDetailView(collectionId: destination.collectionId)
             }
-            .pushedDestination(for: UserDetailDestination.self) { destination in
+            .navigationDestination(for: UserDetailDestination.self) { destination in
                 UserDetailView(userId: destination.userId)
             }
-            .pushedDestination(for: LibrarySettingsDestination.self) { _ in
+            .navigationDestination(for: LibrarySettingsDestination.self) { _ in
                 LibrarySettingsView()
             }
-            .pushedDestination(for: AdminBackupsDestination.self) { _ in
+            .navigationDestination(for: AdminBackupsDestination.self) { _ in
                 AdminBackupsView()
             }
-            .pushedDestination(for: RestoreBackupDestination.self) { destination in
+            .navigationDestination(for: RestoreBackupDestination.self) { destination in
                 RestoreBackupView(backupId: destination.backupId)
             }
     }
