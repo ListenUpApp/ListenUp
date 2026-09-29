@@ -101,6 +101,8 @@ struct MyShelvesRow: View {
     /// The screen's side margin (`HomeLayout.margin`): the header aligns to it, the rail scrolls under it.
     var margin: CGFloat = 20
 
+    @State private var isCreatingShelf = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -109,7 +111,11 @@ struct MyShelvesRow: View {
                     .accessibilityAddTraits(.isHeader)
                     .foregroundStyle(.primary)
                 Spacer()
-                NavigationLink(value: ShelfFormDestination(shelfId: nil)) {
+                // A new shelf is a small self-contained task, so it is a sheet over Home rather
+                // than a page pushed onto it (HIG, Sheets) — and the sheet brings its own bar.
+                Button {
+                    isCreatingShelf = true
+                } label: {
                     Image(systemName: "plus")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.luTint)
@@ -130,6 +136,9 @@ struct MyShelvesRow: View {
                 }
                 .padding(.horizontal, margin)
             }
+        }
+        .sheet(isPresented: $isCreatingShelf) {
+            CreateEditShelfView(shelfId: nil)
         }
     }
 }

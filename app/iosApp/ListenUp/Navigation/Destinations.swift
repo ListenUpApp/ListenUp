@@ -70,11 +70,6 @@ struct ShelfDestination: Hashable, Codable {
     let id: String
 }
 
-/// Create or edit a shelf. `shelfId == nil` opens the form in create mode.
-struct ShelfFormDestination: Hashable, Codable {
-    let shelfId: String?
-}
-
 /// The full single-type "See all" search page, reached from a capped result group whose
 /// hit count exceeds its display cap. Carries the settled query and the one type to expand.
 struct SearchSeeAllDestination: Hashable, Codable {
