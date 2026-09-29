@@ -4,6 +4,14 @@
    below both once playback exists on this platform.
    ============================================================ */
 .shell { display:flex; height:100dvh; background:var(--paper); }
+/* The shell is one viewport tall so that its content region, not the document, scrolls. A banner
+   above it (a lapsed session, an update hint) used to be ADDED to that height: the document grew by
+   the banner, and the whole app scrolled at every width, with a phone's tab bar and player sliding
+   under the fold. So the surface becomes the viewport-tall column, the banner takes what it needs,
+   and the shell takes the rest. With no banner the shell is still exactly the viewport. */
+.luw:has(> .shell) { display:flex; flex-direction:column; height:100dvh; }
+.luw:has(> .shell) > .shell { flex:1 1 0; height:auto; min-height:0; }
+.luw:has(> .shell) > :not(.shell) { flex:none; }
 /* "Skip to content": the first Tab stop, off-screen until it is focused. Fixed, so it overlays the
    sidebar rather than pushing the layout when it appears. */
 .skip-link {
