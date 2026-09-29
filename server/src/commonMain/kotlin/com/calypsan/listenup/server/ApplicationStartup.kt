@@ -86,8 +86,8 @@ internal fun Application.startBackgroundTasks(
     externalRatingsSweepTask.start(scope)
     // Catches a book up on its outside rating the moment a scan (full or incremental) commits it,
     // rather than waiting for its turn in the sweep above — BookPersister emits ScanEvent.Completed
-    // for both, so this one subscription covers a freshly-scanned book with an embedded ASIN even
-    // when nobody ever matches it.
+    // for both, so this one subscription covers a freshly-scanned book even when nobody ever
+    // matches it.
     scope.triggerExternalRatingsBackfillOnScanCompletion(
         events = koinGet<SharedFlow<ScanEvent>>(),
         backfill = koinGet<ExternalRatingsBackfill>(),

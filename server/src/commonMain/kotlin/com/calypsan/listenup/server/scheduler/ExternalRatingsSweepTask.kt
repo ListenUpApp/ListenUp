@@ -26,9 +26,10 @@ private val log = loggerFor<ExternalRatingsSweepTask>()
 
 /**
  * Nightly sweep that refreshes roughly 1/30th of the library's outside ratings each run — every
- * ASIN-bearing book gets a fresh fetch about once a month without ever bursting requests at Audible
- * all at once. Mirrors [MetadataCacheCleanupTask]'s shape: jittered boot, a persisted last-run under
- * [LAST_RUN_KEY] so a nightly-restarted server sweeps once per [interval], never once per restart.
+ * live book gets a fresh fetch about once a month without ever bursting requests at a source all at
+ * once. No ASIN is required: each source decides for itself whether it can rate a book. Mirrors
+ * [MetadataCacheCleanupTask]'s shape: jittered boot, a persisted last-run under [LAST_RUN_KEY] so a
+ * nightly-restarted server sweeps once per [interval], never once per restart.
  */
 internal class ExternalRatingsSweepTask(
     private val fetcher: ExternalRatingsFetcher,
@@ -66,15 +67,15 @@ internal class ExternalRatingsSweepTask(
      * Runs [backfill] first — every never-attempted book gets caught up before the rotation below
      * ever sees it, so a book that (for whatever reason) missed its scan-completion trigger still
      * gets a prompt fetch here instead of waiting for its turn in the ceil(n/30) rotation — then
-     * refreshes the least-recently-touched ceil(n/30) of the library's ASIN-bearing books
-     * (`n` = [BookExternalRatingRepository.countBooksWithAsin]; at least 1 whenever `n > 0`),
+     * refreshes the least-recently-touched ceil(n/30) of the library's live books
+     * (`n` = [BookExternalRatingRepository.countLiveBooks]; at least 1 whenever `n > 0`),
      * sequentially — one slow or permanently-failing book must never crowd out the rest of the
      * night's quota. Returns the number of candidates swept by the refresh step (the backfill's own
-     * count is not part of this return value). A library with zero ASIN'd books does nothing.
+     * count is not part of this return value). An empty library does nothing.
      */
     suspend fun runOnce(): Int {
         backfill.run()
-        val total = ratings.countBooksWithAsin()
+        val total = ratings.countLiveBooks()
         if (total <= 0) return 0
         val limit = ceil(total / SWEEP_FRACTION.toDouble()).toLong().coerceAtLeast(1)
         val candidates = ratings.sweepCandidates(limit)

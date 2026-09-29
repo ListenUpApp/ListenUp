@@ -128,7 +128,7 @@ class BookExternalRatingRepositoryTest :
             }
         }
 
-        test("sweepCandidates orders never-fetched first, then oldest fetched_at, and skips books with no ASIN and removed books") {
+        test("sweepCandidates orders never-fetched first, then oldest fetched_at, includes books with no ASIN, and skips removed books") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("no-asin")
@@ -153,7 +153,7 @@ class BookExternalRatingRepositoryTest :
                         )
                     }
 
-                    repo.sweepCandidates(limit = 10) shouldBe listOf("never-fetched", "old-fetch", "new-fetch")
+                    repo.sweepCandidates(limit = 10) shouldBe listOf("never-fetched", "no-asin", "old-fetch", "new-fetch")
                 }
             }
         }
@@ -169,7 +169,7 @@ class BookExternalRatingRepositoryTest :
                     repo.recordFetch("old-fetch", ExternalRatingSource.AUDIBLE, 4.0, 10, "us", fetchedAt = 1_000L)
                     // "attempted-only" never earned a row (every source failed or answered a
                     // confident miss) but WAS tried, more recently than "old-fetch" was last fetched.
-                    repo.recordAttempt("attempted-only", at = 5_000L)
+                    repo.recordAttempt("attempted-only", ExternalRatingSource.AUDIBLE, at = 5_000L)
 
                     repo.sweepCandidates(limit = 10) shouldBe listOf("old-fetch", "attempted-only")
                 }
@@ -184,12 +184,12 @@ class BookExternalRatingRepositoryTest :
                 val repo =
                     BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
                 runTest {
-                    repo.recordAttempt("book1", at = 1_000L)
-                    repo.recordAttempt("book2", at = 1_500L)
+                    repo.recordAttempt("book1", ExternalRatingSource.AUDIBLE, at = 1_000L)
+                    repo.recordAttempt("book2", ExternalRatingSource.AUDIBLE, at = 1_500L)
                     // If this replaced book1's row, book1 (2_000L) now sorts AFTER book2 (1_500L). If
                     // it had instead left the original 1_000L in place (a failed overwrite), book1
                     // would still sort first.
-                    repo.recordAttempt("book1", at = 2_000L)
+                    repo.recordAttempt("book1", ExternalRatingSource.AUDIBLE, at = 2_000L)
 
                     repo.sweepCandidates(limit = 10) shouldBe listOf("book2", "book1")
                 }
@@ -213,16 +213,80 @@ class BookExternalRatingRepositoryTest :
             }
         }
 
-        test("countBooksWithAsin counts only live books carrying a non-blank ASIN") {
+        test("countLiveBooks counts every live book, with or without an ASIN") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("no-asin")
                 sql.seedTestBook("blank-asin", asin = "")
                 sql.seedTestBook("has-asin", asin = "B-1")
+                sql.seedTestBook("removed", asin = "B-2")
                 val repo =
                     BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
                 runTest {
-                    repo.countBooksWithAsin() shouldBe 1L
+                    sql.transaction {
+                        sql.booksQueries.softDeleteById(
+                            revision = 999L,
+                            updated_at = 9_000L,
+                            deleted_at = 9_000L,
+                            client_op_id = null,
+                            id = "removed",
+                        )
+                    }
+                    repo.countLiveBooks() shouldBe 3L
+                }
+            }
+        }
+
+        test("the sweep orders a book by its most recent attempt from any source") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                val repo =
+                    BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.recordAttempt("book1", ExternalRatingSource.AUDIBLE, at = 1_000L)
+                    repo.recordAttempt("book1", ExternalRatingSource.GOODREADS, at = 3_000L)
+                    repo.recordAttempt("book2", ExternalRatingSource.AUDIBLE, at = 2_000L)
+
+                    repo.sweepCandidates(limit = 10) shouldBe listOf("book2", "book1")
+                }
+            }
+        }
+
+        test("booksMissingAttempt returns live books some of the given sources never attempted, with or without an ASIN") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("audible-only", asin = "B-1")
+                sql.seedTestBook("both")
+                sql.seedTestBook("no-asin")
+                sql.seedTestBook("removed")
+                val repo =
+                    BookExternalRatingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                runTest {
+                    repo.recordAttempt("audible-only", ExternalRatingSource.AUDIBLE, at = 1_000L)
+                    repo.recordAttempt("both", ExternalRatingSource.AUDIBLE, at = 1_000L)
+                    repo.recordAttempt("both", ExternalRatingSource.GOODREADS, at = 1_000L)
+                    sql.transaction {
+                        sql.booksQueries.softDeleteById(
+                            revision = 999L,
+                            updated_at = 9_000L,
+                            deleted_at = 9_000L,
+                            client_op_id = null,
+                            id = "removed",
+                        )
+                    }
+                    val audibleAndGoodreads = setOf(ExternalRatingSource.AUDIBLE, ExternalRatingSource.GOODREADS)
+
+                    repo.booksMissingAttempt(audibleAndGoodreads, after = "", limit = 10) shouldBe
+                        listOf("audible-only", "no-asin")
+                    repo.booksMissingAttempt(setOf(ExternalRatingSource.AUDIBLE), after = "", limit = 10) shouldBe
+                        listOf("no-asin")
+                    repo.booksMissingAttempt(audibleAndGoodreads, after = "audible-only", limit = 10) shouldBe
+                        listOf("no-asin")
+                    repo.booksMissingAttempt(audibleAndGoodreads, after = "", limit = 1) shouldBe listOf("audible-only")
+                    repo.booksMissingAttempt(emptySet(), after = "", limit = 10) shouldBe emptyList()
+                    repo.attemptedSources("both") shouldBe audibleAndGoodreads
                 }
             }
         }
