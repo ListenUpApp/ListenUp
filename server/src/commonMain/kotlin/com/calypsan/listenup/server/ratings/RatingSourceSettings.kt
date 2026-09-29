@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.ratings
 
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import kotlin.time.Duration.Companion.days
 
 /**
  * The admin's per-source on/off switch *and* per-source health for outside ratings, persisted in
@@ -30,6 +31,8 @@ class RatingSourceSettings(
         enabled: Boolean,
     ) {
         settings.setValue(key(source, "enabled"), enabled.toString())
+        // Turning a source back on is the admin's manual way out of an automatic pause.
+        if (enabled) clearPause(source)
     }
 
     /**
@@ -42,6 +45,7 @@ class RatingSourceSettings(
     ) {
         settings.setValue(key(source, "lastFetchedAt"), at.toString())
         settings.setValue(key(source, "lastError"), "")
+        clearPause(source)
     }
 
     /** Records that [source] failed at [at] with [message] — never clears [recordSuccess]'s last-fetched instant. */
@@ -52,6 +56,22 @@ class RatingSourceSettings(
     ) {
         settings.setValue(key(source, "lastError"), message)
         settings.setValue(key(source, "lastErrorAt"), at.toString())
+        val failures = (settings.getValue(key(source, "consecutiveFailures"))?.toIntOrNull() ?: 0) + 1
+        settings.setValue(key(source, "consecutiveFailures"), failures.toString())
+        if (failures >= FAILURES_BEFORE_PAUSE) {
+            settings.setValue(key(source, "pausedUntil"), (at + PAUSE.inWholeMilliseconds).toString())
+        }
+    }
+
+    /** When [source]'s automatic pause ends, or `null` when it is not paused as of [now]. */
+    suspend fun pausedUntil(
+        source: ExternalRatingSource,
+        now: Long,
+    ): Long? = settings.getValue(key(source, "pausedUntil"))?.toLongOrNull()?.takeIf { it > now }
+
+    private suspend fun clearPause(source: ExternalRatingSource) {
+        settings.setValue(key(source, "consecutiveFailures"), "0")
+        settings.setValue(key(source, "pausedUntil"), "")
     }
 
     /** [source]'s most recent successful-fetch instant, and its most recent error message, if any. */
@@ -59,6 +79,11 @@ class RatingSourceSettings(
         val fetchedAt = settings.getValue(key(source, "lastFetchedAt"))?.toLongOrNull()
         val error = settings.getValue(key(source, "lastError"))?.takeIf { it.isNotBlank() }
         return fetchedAt to error
+    }
+
+    private companion object {
+        const val FAILURES_BEFORE_PAUSE = 5
+        val PAUSE = 7.days
     }
 
     private fun key(

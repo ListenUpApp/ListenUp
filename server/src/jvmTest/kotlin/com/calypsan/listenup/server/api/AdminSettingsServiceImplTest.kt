@@ -25,6 +25,9 @@ import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.RatingSource
+import com.calypsan.listenup.server.metadata.spi.RatingSourceAvailability
+import com.calypsan.listenup.api.dto.admin.RatingSourceUnavailable
+import kotlin.time.Clock
 import com.calypsan.listenup.server.ratings.RatingSourceSettings
 import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
@@ -333,6 +336,34 @@ class AdminSettingsServiceImplTest :
             }
         }
 
+        test("getRatingSources reports a paused source's pausedUntil and an unavailable source's reason") {
+            withSqlDatabase {
+                runTest {
+                    val sourceSettings = RatingSourceSettings(ServerSettingsRepository(sql, RegistrationPolicy.OPEN))
+                    repeat(5) {
+                        sourceSettings.recordFailure(ExternalRatingSource.AUDIBLE, "boom", Clock.System.now().toEpochMilliseconds())
+                    }
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                            sourceSettings = sourceSettings,
+                            externalRatings = BookExternalRatingRepository(sql, ChangeBus(), SyncRegistry(), driver),
+                            providerRegistry =
+                                singleRatingSourceRegistry(
+                                    RatingSourceAvailability.Unavailable(RatingSourceUnavailable.NO_CONNECTION),
+                                ),
+                        )
+
+                    val status = svc.getRatingSources().shouldSucceed().single()
+
+                    (status.pausedUntil != null) shouldBe true
+                    status.unavailable shouldBe RatingSourceUnavailable.NO_CONNECTION
+                    status.connectionUsername shouldBe null
+                }
+            }
+        }
+
         // (m) getRatingSources by a MEMBER is rejected with PermissionDenied
         test("getRatingSources by a MEMBER is rejected with PermissionDenied") {
             withSqlDatabase {
@@ -453,12 +484,16 @@ private fun makeAdminSettingsService(
 
 /** A single-source (AUDIBLE) [MetadataProviderRegistry] — enough for [AdminSettingsServiceImpl]'s
  *  outside-ratings surface, which only needs [RatingSource]-capable providers. */
-private fun singleRatingSourceRegistry(): MetadataProviderRegistry =
+private fun singleRatingSourceRegistry(
+    availability: RatingSourceAvailability = RatingSourceAvailability.Available,
+): MetadataProviderRegistry =
     MetadataProviderRegistry(
         listOf(
             object : RatingSource {
                 override val id: MetadataProviderId = MetadataProviderId.AUDIBLE
                 override val ratingSource: ExternalRatingSource = ExternalRatingSource.AUDIBLE
+
+                override suspend fun availability(): RatingSourceAvailability = availability
 
                 override suspend fun getRating(
                     book: BookIdentity,

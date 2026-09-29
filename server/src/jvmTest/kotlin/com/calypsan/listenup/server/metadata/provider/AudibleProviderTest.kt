@@ -188,7 +188,7 @@ class AudibleProviderTest :
         // ─── RatingSource ──────────────────────────────────────────────────────────
 
         test("AudibleBook maps to ExternalRatingMeta when rated") {
-            audibleBook().toExternalRatingMeta() shouldBe ExternalRatingMeta(average = 4.8, count = 100)
+            audibleBook().toExternalRatingMeta() shouldBe ExternalRatingMeta(average = 4.8, count = 100, region = "us")
         }
 
         test("a zero average or zero count maps to null — Audible's unrated-book signal") {
@@ -217,7 +217,7 @@ class AudibleProviderTest :
                     val result =
                         provider.getRating(BookIdentity(asin = "B01", title = "The Way of Kings"), MetadataLocale.DEFAULT)
                     result.shouldBeInstanceOf<AppResult.Success<ExternalRatingMeta?>>().data shouldBe
-                        ExternalRatingMeta(4.8, 100)
+                        ExternalRatingMeta(4.8, 100, region = "us")
                 }
             }
         }

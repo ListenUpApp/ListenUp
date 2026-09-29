@@ -5,10 +5,10 @@ package com.calypsan.listenup.server.metadata.spi
  * ratings, from the storefront [region] that actually answered — the same short lowercase
  * token [com.calypsan.listenup.api.metadata.MetadataLocale.region] uses (`us`, `ca`, `uk`, …).
  * For a region-locked catalog like Audible, the answering store may differ from the one the
- * caller asked for; defaults to `"us"` for sources that are not region-locked.
+ * caller asked for; `null` for sources without storefronts (Hardcover, Goodreads).
  */
 data class ExternalRatingMeta(
     val average: Double,
     val count: Int,
-    val region: String = "us",
+    val region: String? = null,
 )
